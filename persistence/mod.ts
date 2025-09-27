@@ -1,3 +1,11 @@
+type PersistenceConstructorArgs<T> = {
+  schema: Record<string, PersistenceValidationFn<T>>;
+};
+
+type PersistenceValidationFn<T> = (
+  write: PersistenceWrite<T>,
+) => Promise<boolean>;
+
 type PersistenceWrite<T> = {
   uri: string;
   value: T;
@@ -6,14 +14,6 @@ type PersistenceWrite<T> = {
 type PersistenceRecord<T> = {
   ts: number;
   data: T;
-};
-
-type PersistenceValidationFn<T> = (
-  write: PersistenceWrite<T>,
-) => Promise<boolean>;
-
-type PersistenceConstructorArgs<T> = {
-  schema: Record<string, PersistenceValidationFn<T>>;
 };
 
 // storage[protocol][toplevel][path] = record<value>

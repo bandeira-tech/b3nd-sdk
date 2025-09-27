@@ -1,4 +1,4 @@
-import { Persistence } from "../persistence.ts";
+import { Persistence } from "../mod.ts";
 import { assert, assertEquals } from "@std/assert";
 
 Deno.test("Persistence can write to path", async () => {
