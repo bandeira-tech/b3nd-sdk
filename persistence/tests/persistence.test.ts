@@ -8,19 +8,13 @@ Deno.test("Persistence can write to path", async () => {
     },
   });
   const testPayload = {
-    obj: {
-      uri: "test://accept-all/mytest1",
-      value: "foobar",
-    },
-    sig: {
-      pubkey: "",
-      signature: "",
-    },
+    uri: "test://accept-all/mytest1",
+    value: "foobar",
   };
   const [error, writeresult] = await instance.write(testPayload);
   assert(!error);
   assert(writeresult);
 
-  const result = await instance.read(testPayload.obj.uri);
-  assert(result.ts === writeresult!.ts);
+  const result = await instance.read(testPayload.uri);
+  assertEquals(result.ts, writeresult!.ts);
 });

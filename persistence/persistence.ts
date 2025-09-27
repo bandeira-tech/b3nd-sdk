@@ -1,13 +1,6 @@
-type Signature = { pubkey: string; signature: string };
-
-type PersistenceObject<T> = {
+type PersistenceWrite<T> = {
   uri: string;
   value: T;
-};
-
-type PersistenceWrite<T> = {
-  obj: PersistenceObject<T>;
-  sig: Signature;
 };
 
 type PersistenceRecord<T> = {
@@ -52,7 +45,7 @@ export class Persistence<T> {
   async write(
     write: PersistenceWrite<T>,
   ): Promise<[error: boolean, record: PersistenceRecord<T> | null]> {
-    const target = new URL(write.obj.uri);
+    const target = new URL(write.uri);
     const auth =
       await this.schema[target.protocol + "//" + target.hostname](write);
     if (!auth) {
@@ -60,7 +53,7 @@ export class Persistence<T> {
     }
     const record = {
       ts: Date.now(),
-      data: write.obj.value,
+      data: write.value,
     };
     this.storage[target.protocol][target.host][target.pathname] = record;
     return Promise.resolve([false, record]);
