@@ -14,13 +14,13 @@ b3nd/persistence defines types and simple mechanics of write and read from the p
 
 b3nd/auth defines the validation functions for programs that require authentication of access to enable persistent writes, and does that requiring a formatted payload that encodes signatures and pubkeys that are then validated against different strategies.
 
+b3nd/explorer that uses the b3nd/httpapi in a webapp to explore the data in persistence.
+
 now granted there may be more restructuring and renaming on the books, that's what we want to find out too.
 now we still want some other components to be created, that's
 
 b3nd/encrypt that provides client functions to encrypt and decrypt payloads to be sent to storage to enable support for encrypted private data.
 
 b3nd/httpapi that provides an HTTP API controller to serve custom config persistence.
-
-b3nd/explorer that uses the b3nd/httpapi in a webapp to explore the data in persistence.
 
 and then also the support for different backends for persistence, like redis and so on, and better support for distinct protocol features, i.e. separating concerns between program/domain and protocol.

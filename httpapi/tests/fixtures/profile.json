@@ -1,0 +1,12 @@
+{
+  "uri": "users://nataliarsand/profile",
+  "value": {
+    "name": "Alice Developer",
+    "email": "alice@example.com",
+    "bio": "Full-stack engineer building with Deno and Hono.",
+    "preferences": {
+      "theme": "dark",
+      "notifications": true
+    }
+  }
+}

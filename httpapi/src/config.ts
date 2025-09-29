@@ -30,6 +30,9 @@ export async function loadServerConfig(
   try {
     const content = await Deno.readTextFile(configPath);
     const parsed = JSON.parse(content);
+
+    const portEnvOverride = Deno.env.get("API_PORT");
+    parsed.port = portEnvOverride ? parseInt(portEnvOverride) : parsed.port;
     return ServerConfigSchema.parse(parsed);
   } catch (error) {
     console.error(`Failed to load server config from ${configPath}:`, error);

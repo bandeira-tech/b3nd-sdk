@@ -1,0 +1,9 @@
+{
+  "uri": "notes://nataliarsand/quick-note",
+  "value": {
+    "title": "Quick Note",
+    "content": "Testing the b3nd/httpapi write and read endpoints. Everything looks good!",
+    "tags": ["test", "api", "persistence"],
+    "created": "2024-01-01T00:00:00Z"
+  }
+}
