@@ -1,6 +1,6 @@
 {
   "default": {
-    "schema": "./schema.json",
+    "schema": "./tests/fixtures/schema.ts",
     "storage": "memory"
   }
 }

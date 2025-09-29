@@ -2,24 +2,15 @@ import type {
   Persistence,
   PersistenceRecord,
   PersistenceWrite,
+  PersistenceValidationFn,
 } from "../../persistence/mod.ts";
 import type { PersistenceConfig } from "./config.ts";
 
-// Dummy validation function: Always allows writes for dev
+// Dummy validation function: Always allows writes for dev (used for JSON bool=true)
 const dummyValidationFn = async (
   _write: PersistenceWrite<unknown>,
 ): Promise<boolean> => {
   return true;
-};
-
-// Schema with realistic keys for dev (protocol://domain as keys)
-const devSchema: Record<
-  string,
-  (write: PersistenceWrite<unknown>) => Promise<boolean>
-> = {
-  "users://nataliarsand": dummyValidationFn,
-  "notes://nataliarsand": dummyValidationFn,
-  // Add more as needed
 };
 
 export interface PersistenceAdapter {
@@ -69,31 +60,75 @@ export interface PersistenceAdapter {
   ): Promise<{ success: boolean; error?: string }>;
 }
 
-export class DefaultPersistenceAdapter implements PersistenceAdapter {
-  private instances: Record<string, Persistence<unknown>> = {};
+class DefaultPersistenceAdapter implements PersistenceAdapter {
+  private static instance: DefaultPersistenceAdapter | null = null;
+  private instances: Map<string, Persistence<unknown>> = new Map();
+  private config: PersistenceConfig | null = null;
 
-  constructor() {
-    this.initInstances().catch(console.error);
+  private constructor() {
+    // Private constructor for singleton
   }
 
-  private async initInstances() {
-    // Use devSchema for now; load from config.schema in future
-    const schema = devSchema;
-    // Load config to get instance IDs
-    const persistenceConfig = await import("./config.ts").then((m) =>
-      m.loadPersistenceConfig(),
-    );
-    for (const [id] of Object.entries(persistenceConfig)) {
-      this.instances[id] = new Persistence({ schema });
+  private async ensureConfig(): Promise<void> {
+    if (this.config === null) {
+      this.config = await import("./config.ts").then((m) =>
+        m.loadPersistenceConfig(),
+      );
     }
   }
 
-  private getInstance(instanceId = "default"): Persistence<unknown> {
-    const instance = this.instances[instanceId];
-    if (!instance) {
-      throw new Error(`Persistence instance '${instanceId}' not found`);
+  private async getOrCreateInstance(
+    instanceId: string = "default",
+  ): Promise<Persistence<unknown>> {
+    await this.ensureConfig();
+    if (!this.instances.has(instanceId)) {
+      const instanceConfig = this.config[instanceId];
+      if (!instanceConfig) {
+        throw new Error(
+          `Persistence instance '${instanceId}' not found in config`,
+        );
+      }
+      let schema: Record<string, PersistenceValidationFn<unknown>>;
+      try {
+        const schemaPath = instanceConfig.schema;
+        const pathExt = schemaPath.split(".").pop()?.toLowerCase();
+        if (pathExt === "json") {
+          // Load JSON and convert bools to dummy fns
+          const content = await Deno.readTextFile(schemaPath);
+          const rawSchema = JSON.parse(content);
+          schema = Object.fromEntries(
+            Object.entries(rawSchema).map(([key, val]) => [
+              key,
+              typeof val === "boolean"
+                ? val
+                  ? dummyValidationFn
+                  : async () => false
+                : dummyValidationFn,
+            ]),
+          );
+        } else {
+          // Assume TS module
+          const schemaUrl = new URL(schemaPath, `file://${Deno.cwd()}/`).href;
+          const schemaModule = await import(schemaUrl);
+          schema = schemaModule.default || schemaModule;
+          // Ensure it's a record of validation fns
+          if (typeof schema !== "object" || schema === null) {
+            throw new Error("Schema must be an object of validation functions");
+          }
+          for (const [key, fn] of Object.entries(schema)) {
+            if (typeof fn !== "function") {
+              throw new Error(`Schema key '${key}' must be a function`);
+            }
+          }
+        }
+      } catch (error) {
+        throw new Error(
+          `Schema load failed for instance ${instanceId} from ${instanceConfig.schema}: ${error}. Ensure a valid TS module or JSON with bools is provided.`,
+        );
+      }
+      this.instances.set(instanceId, new Persistence({ schema }));
     }
-    return instance;
+    return this.instances.get(instanceId)!;
   }
 
   async write(
@@ -109,7 +144,7 @@ export class DefaultPersistenceAdapter implements PersistenceAdapter {
   }> {
     const uri = `${protocol}://${domain}${path.startsWith("/") ? path : "/" + path}`;
     const write: PersistenceWrite<unknown> = { uri, value };
-    const instance = this.getInstance(instanceId);
+    const instance = await this.getOrCreateInstance(instanceId);
     const [error, record] = await instance.write(write);
     if (error) {
       return {
@@ -127,7 +162,7 @@ export class DefaultPersistenceAdapter implements PersistenceAdapter {
     instanceId?: string,
   ): Promise<PersistenceRecord<unknown> | null> {
     const uri = `${protocol}://${domain}${path.startsWith("/") ? path : "/" + path}`;
-    const instance = this.getInstance(instanceId);
+    const instance = await this.getOrCreateInstance(instanceId);
     try {
       return await instance.read(uri);
     } catch (error) {
@@ -143,7 +178,7 @@ export class DefaultPersistenceAdapter implements PersistenceAdapter {
     options = { page: 1, limit: 50 },
     instanceId?: string,
   ) {
-    const instance = this.getInstance(instanceId) as any;
+    const instance = (await this.getOrCreateInstance(instanceId)) as any;
     const storage = instance.storage as Record<
       string,
       Record<string, Record<string, PersistenceRecord<unknown>>>
@@ -210,7 +245,7 @@ export class DefaultPersistenceAdapter implements PersistenceAdapter {
     instanceId?: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const instance = this.getInstance(instanceId) as any;
+      const instance = (await this.getOrCreateInstance(instanceId)) as any;
       const storage = instance.storage as Record<
         string,
         Record<string, Record<string, PersistenceRecord<unknown>>>
@@ -226,4 +261,13 @@ export class DefaultPersistenceAdapter implements PersistenceAdapter {
       return { success: false, error: (e as Error).message };
     }
   }
+
+  static getAdapter(): DefaultPersistenceAdapter {
+    if (!DefaultPersistenceAdapter.instance) {
+      DefaultPersistenceAdapter.instance = new DefaultPersistenceAdapter();
+    }
+    return DefaultPersistenceAdapter.instance;
+  }
 }
+
+export const getAdapter = DefaultPersistenceAdapter.getAdapter;

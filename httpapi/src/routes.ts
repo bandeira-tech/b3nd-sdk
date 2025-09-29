@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
+import { getAdapter } from "./adapter.ts";
 import type { PersistenceAdapter } from "./adapter.ts";
 import type {
   ListResponse,
@@ -35,7 +36,7 @@ api.get("/list/:protocol/:domain/:path*", async (c) => {
       limit: c.req.query("limit"),
     });
 
-    const adapter: PersistenceAdapter = c.get("adapter");
+    const adapter: PersistenceAdapter = getAdapter();
     const result: ListResponse = await adapter.listPath(
       protocol,
       domain,
@@ -62,7 +63,7 @@ api.get("/read/:protocol/:domain/:path*", async (c) => {
     PathSchema.parse(fullPath);
     const instance = InstanceSchema.parse(c.req.query("instance"));
 
-    const adapter: PersistenceAdapter = c.get("adapter");
+    const adapter: PersistenceAdapter = getAdapter();
     const record: ReadResponse = await adapter.read(
       protocol,
       domain,
@@ -98,7 +99,7 @@ api.post("/write", async (c) => {
     const domain = url.hostname;
     const path = url.pathname;
 
-    const adapter: PersistenceAdapter = c.get("adapter");
+    const adapter: PersistenceAdapter = getAdapter();
     const result: WriteResponse = await adapter.write(
       protocol,
       domain,
@@ -129,7 +130,7 @@ api.delete("/delete/:protocol/:domain/:path*", async (c) => {
     PathSchema.parse(fullPath);
     const instance = InstanceSchema.parse(c.req.query("instance"));
 
-    const adapter: PersistenceAdapter = c.get("adapter");
+    const adapter: PersistenceAdapter = getAdapter();
     const result: DeleteResponse = await adapter.delete(
       protocol,
       domain,

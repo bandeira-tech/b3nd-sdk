@@ -1,6 +1,6 @@
 import { walk } from "https://deno.land/std@0.224.0/fs/walk.ts";
 
-const BASE_URL = "http://localhost:4692";
+const BASE_URL = "http://localhost:8000";
 const INSTANCE = "default";
 
 function parseUri(uri: string): {
@@ -16,7 +16,6 @@ function parseUri(uri: string): {
   };
 }
 
-// Function to load all JSON fixtures from tests/fixtures/
 async function loadFixtures(): Promise<
   Array<{ name: string; uri: string; data: unknown }>
 > {
@@ -45,7 +44,6 @@ async function loadFixtures(): Promise<
   return fixtures;
 }
 
-// Helper to write payload
 async function writePayload(
   uri: string,
   data: unknown,
@@ -83,7 +81,6 @@ async function writePayload(
   }
 }
 
-// Helper to read back
 async function readPayload(uri: string): Promise<{
   success: boolean;
   record?: { ts: number; data: unknown };
@@ -114,7 +111,6 @@ async function readPayload(uri: string): Promise<{
   }
 }
 
-// Helper to delete (cleanup)
 async function deletePayload(
   uri: string,
 ): Promise<{ success: boolean; error?: string }> {
@@ -142,9 +138,28 @@ async function deletePayload(
   }
 }
 
-// Main test runner
 async function runTests() {
   console.log("🚀 Starting write-read tests...\n");
+
+  // Temporarily update schema.json for fixtures (add keys with true for allow)
+  const schemaPath = "config/schema.json";
+  let originalSchema: string | null = null;
+  try {
+    originalSchema = await Deno.readTextFile(schemaPath);
+    const rawSchema = JSON.parse(originalSchema);
+    // Add fixture keys with true (always-allow for test)
+    rawSchema["users://nataliarsand"] = true;
+    rawSchema["notes://nataliarsand"] = true;
+    const updatedSchema = JSON.stringify(rawSchema, null, 2);
+    await Deno.writeTextFile(schemaPath, updatedSchema);
+    console.log(
+      "📝 Temporarily updated schema.json with fixture keys for testing.",
+    );
+  } catch (e) {
+    console.error(`Failed to update schema.json: ${e}`);
+    Deno.exit(1);
+  }
+
   const fixtures = await loadFixtures();
   if (fixtures.length === 0) {
     console.error(
@@ -164,6 +179,11 @@ async function runTests() {
 
     // Write
     const writeResult = await writePayload(fixture.uri, fixture.data);
+    if (!writeResult.success) {
+      failed++;
+      await deletePayload(fixture.uri); // Attempt cleanup even on failure
+      continue;
+    }
 
     // Read back
     const readResult = await readPayload(fixture.uri);
@@ -195,6 +215,16 @@ async function runTests() {
   } else {
     console.log("⚠️ Some tests failed. Check logs above.");
     Deno.exit(1);
+  }
+
+  // Restore original schema.json
+  if (originalSchema !== null) {
+    try {
+      await Deno.writeTextFile(schemaPath, originalSchema);
+      console.log(`🔄 Restored original schema.json.`);
+    } catch (e) {
+      console.error(`Failed to restore schema.json: ${e}`);
+    }
   }
 }
 

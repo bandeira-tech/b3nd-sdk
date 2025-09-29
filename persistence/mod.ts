@@ -1,23 +1,23 @@
-type PersistenceConstructorArgs<T> = {
+export type PersistenceConstructorArgs<T> = {
   schema: Record<string, PersistenceValidationFn<T>>;
 };
 
-type PersistenceValidationFn<T> = (
+export type PersistenceValidationFn<T> = (
   write: PersistenceWrite<T>,
 ) => Promise<boolean>;
 
-type PersistenceWrite<T> = {
+export type PersistenceWrite<T> = {
   uri: string;
   value: T;
 };
 
-type PersistenceRecord<T> = {
+export type PersistenceRecord<T> = {
   ts: number;
   data: T;
 };
 
 // storage[protocol][toplevel][path] = record<value>
-type PersistenceStorage<T> = Record<
+export type PersistenceStorage<T> = Record<
   string,
   Record<string, Record<string, PersistenceRecord<T>>>
 >;
