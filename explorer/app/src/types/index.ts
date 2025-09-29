@@ -1,0 +1,130 @@
+// Core persistence types mirroring b3nd/persistence
+export interface PersistenceRecord<T = any> {
+  ts: number;
+  data: T;
+}
+
+// Navigation and UI types
+export interface NavigationNode {
+  path: string;
+  name: string;
+  type: 'directory' | 'file';
+  children?: NavigationNode[];
+  record?: PersistenceRecord;
+}
+
+export interface SearchResult {
+  path: string;
+  name: string;
+  record: PersistenceRecord;
+  snippet?: string;
+}
+
+export interface SearchFilters {
+  protocol?: string;
+  domain?: string;
+  pathPattern?: string;
+  dataType?: string;
+  dateRange?: {
+    start: Date;
+    end: Date;
+  };
+}
+
+// Pagination
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
+// Backend adapter interface
+export interface BackendAdapter {
+  name: string;
+  type: 'mock' | 'http';
+  baseUrl?: string;
+
+  // Core operations
+  listPath(path: string, options?: { page?: number; limit?: number }): Promise<PaginatedResponse<NavigationNode>>;
+  readRecord(path: string): Promise<PersistenceRecord>;
+  searchPaths(query: string, filters?: SearchFilters, options?: { page?: number; limit?: number }): Promise<PaginatedResponse<SearchResult>>;
+
+  // Metadata
+  getSchema(): Promise<Record<string, any>>;
+  healthCheck(): Promise<boolean>;
+}
+
+export interface BackendConfig {
+  id: string;
+  name: string;
+  adapter: BackendAdapter;
+  isActive: boolean;
+}
+
+// Application state types
+export type AppMode = 'filesystem' | 'search' | 'watched';
+
+export type ThemeMode = 'light' | 'dark' | 'system';
+
+export interface PanelState {
+  left: boolean;
+  right: boolean;
+  bottom: boolean;
+}
+
+export interface AppState {
+  // Backend management
+  backends: BackendConfig[];
+  activeBackendId: string | null;
+
+  // Navigation
+  currentPath: string;
+  navigationHistory: string[];
+  expandedPaths: Set<string>;
+
+  // UI state
+  panels: PanelState;
+  theme: ThemeMode;
+  mode: AppMode;
+
+  // Search
+  searchQuery: string;
+  searchHistory: string[];
+  searchResults: SearchResult[];
+
+  // Watched paths
+  watchedPaths: string[];
+}
+
+// Action types for state management
+export interface AppActions {
+  // Backend actions
+  addBackend: (config: Omit<BackendConfig, 'id'>) => void;
+  removeBackend: (id: string) => void;
+  setActiveBackend: (id: string) => void;
+
+  // Navigation actions
+  navigateToPath: (path: string) => void;
+  togglePathExpansion: (path: string) => void;
+  goBack: () => void;
+  goForward: () => void;
+
+  // UI actions
+  togglePanel: (panel: keyof PanelState) => void;
+  setTheme: (theme: ThemeMode) => void;
+  setMode: (mode: AppMode) => void;
+
+  // Search actions
+  setSearchQuery: (query: string) => void;
+  addToSearchHistory: (query: string) => void;
+  clearSearchResults: () => void;
+
+  // Watched paths actions
+  addWatchedPath: (path: string) => void;
+  removeWatchedPath: (path: string) => void;
+}
