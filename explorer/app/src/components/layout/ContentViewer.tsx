@@ -63,23 +63,20 @@ export function ContentViewer({ path }: ContentViewerProps) {
         listResponse.pagination.total,
         "data length:",
         listResponse.data.length,
-        "first item type:",
-        listResponse.data[0]?.type,
       ); // Debug
 
-      if (
-        listResponse.data.length === 1 &&
-        listResponse.data[0].type === "file"
-      ) {
+      // Detection logic: if listPath returns empty data (length === 0), it's a file - call readRecord
+      if (listResponse.data.length === 0) {
         console.log(
-          "ContentViewer: detected single file, loading record for",
+          "ContentViewer: detected file (empty list), loading record for",
           path,
         ); // Debug
         const fileRecord: PersistenceRecord =
           await activeBackend.adapter.readRecord(path);
         setRecord(fileRecord);
-        console.log("ContentViewer: file record loaded:", fileRecord.data); // Debug
+        console.log("ContentViewer: file record loaded:", fileRecord); // Debug
       } else {
+        // Otherwise, it's a directory - show contents
         console.log(
           "ContentViewer: detected directory with",
           listResponse.data.length,
@@ -106,7 +103,10 @@ export function ContentViewer({ path }: ContentViewerProps) {
       const jsonString = JSON.stringify(record.data, null, 2);
       navigator.clipboard
         .writeText(jsonString)
-        .then(() => console.log("Copied JSON")); // Debug
+        .then(() => {
+          console.log("Copied JSON to clipboard"); // Debug
+        })
+        .catch((err) => console.error("Copy failed:", err));
     }
   };
 
@@ -174,7 +174,7 @@ function FileViewer({
         </div>
       );
     }
-    if (typeof data === "object") {
+    if (typeof data === "object" && data !== null) {
       return (
         <div className="ml-4">
           {Object.entries(data).map(([k, v]) => (
@@ -202,13 +202,13 @@ function FileViewer({
         <div className="flex space-x-2">
           <button
             onClick={onCopy}
-            className="p-2 rounded hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+            className="p-2 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             title="Copy JSON"
           >
             <Copy className="h-4 w-4" />
           </button>
           <button
-            className="p-2 rounded hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+            className="p-2 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             title="Download"
           >
             <Download className="h-4 w-4" />

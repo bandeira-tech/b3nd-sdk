@@ -53,13 +53,13 @@ export class MockAdapter implements BackendAdapter {
     }
 
     if (node.type === "file") {
-      // Return the file itself as a single-item list
+      // Return empty for files - ContentViewer will detect length 0 and call readRecord
       return {
-        data: [node],
+        data: [],
         pagination: {
           page: 1,
           limit,
-          total: 1,
+          total: 0,
           hasNext: false,
           hasPrev: false,
         },
