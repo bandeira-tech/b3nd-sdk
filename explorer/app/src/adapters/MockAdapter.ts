@@ -27,6 +27,12 @@ export class MockAdapter implements BackendAdapter {
     path: string,
     options?: { page?: number; limit?: number },
   ): Promise<PaginatedResponse<NavigationNode>> {
+    console.log(
+      "MockAdapter listPath called with path:",
+      path,
+      "options:",
+      options,
+    ); // Debug
     await this.delay();
 
     const sanitizedPath = sanitizePath(path);
@@ -35,6 +41,12 @@ export class MockAdapter implements BackendAdapter {
 
     // Find the node at the given path
     const node = this.findNodeByPath(sanitizedPath);
+    console.log(
+      "MockAdapter listPath found node for",
+      sanitizedPath,
+      ":",
+      node ? node.name : "null",
+    ); // Debug
 
     if (!node) {
       throw new Error(`Path not found: ${sanitizedPath}`);
@@ -56,6 +68,12 @@ export class MockAdapter implements BackendAdapter {
 
     // For directories, return children with pagination
     const children = node.children || [];
+    console.log(
+      "MockAdapter listPath children for",
+      sanitizedPath,
+      ":",
+      children.map((c) => ({ name: c.name, type: c.type })),
+    ); // Debug
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedChildren = children.slice(startIndex, endIndex);
@@ -199,6 +217,12 @@ export class MockAdapter implements BackendAdapter {
   }
 
   private findNodeByPath(path: string): NavigationNode | null {
+    console.log(
+      "MockAdapter findNodeByPath called with path:",
+      path,
+      "segments:",
+      parsePathSegments(path),
+    ); // Debug
     const segments = parsePathSegments(path);
 
     if (segments.length === 0) {
@@ -216,10 +240,20 @@ export class MockAdapter implements BackendAdapter {
 
     for (const segment of segments) {
       current = children.find((node) => node.name === segment) || null;
+      console.log(
+        "MockAdapter findNodeByPath segment",
+        segment,
+        "current:",
+        current ? current.name : "null",
+      ); // Debug
       if (!current) return null;
       children = current.children || [];
     }
 
+    console.log(
+      "MockAdapter findNodeByPath final current:",
+      current ? current.name : "null",
+    ); // Debug
     return current;
   }
 }

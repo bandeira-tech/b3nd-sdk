@@ -4,386 +4,214 @@ import type {
   AppState,
   AppActions,
   BackendConfig,
-  AppMode,
   ThemeMode,
+  AppMode,
   PanelState,
 } from "../types";
 import { MockAdapter } from "../adapters/MockAdapter";
 import { generateId } from "../utils";
 
-interface AppStore extends AppState, AppActions {}
+const createMockBackend = (): BackendConfig => ({
+  id: "mock-default", // Fixed ID for simplicity
+  name: "Local Mock Data",
+  adapter: new MockAdapter(),
+  isActive: true,
+});
 
-const initialState: AppState = {
-  // Backend management
-  backends: [],
-  activeBackendId: null,
+const initialBackends = [createMockBackend()];
 
-  // Navigation
+const initialState: Omit<AppState, "backendsReady"> = {
+  backends: initialBackends,
+  activeBackendId: initialBackends[0].id,
   currentPath: "/",
   navigationHistory: ["/"],
   expandedPaths: new Set<string>(),
-
-  // UI state
   panels: {
     left: true,
     right: false,
     bottom: false,
   },
-  theme: "system",
-  mode: "filesystem",
-
-  // Search
+  theme: "system" as ThemeMode,
+  mode: "filesystem" as AppMode,
   searchQuery: "",
   searchHistory: [],
   searchResults: [],
-
-  // Watched paths
   watchedPaths: [],
 };
 
+interface AppStore extends AppState, AppActions {
+  backendsReady: boolean;
+}
+
 export const useAppStore = create<AppStore>()(
   persist(
-    (set, get) => ({
-      ...initialState,
+    (set, get) => {
+      console.log("Store init: created fresh MockAdapter");
+      return {
+        ...initialState,
+        backendsReady: true,
 
-      // Backend actions
-      addBackend: (config) => {
-        const newBackend: BackendConfig = {
-          id: generateId(),
-          ...config,
-        };
+        addBackend: (config) => {
+          // For now, ignore – always use mock
+          console.log("addBackend ignored – using mock only");
+        },
 
-        set((state) => ({
-          backends: [...state.backends, newBackend],
-          // Set as active if it's the first backend
-          activeBackendId:
-            state.backends.length === 0 ? newBackend.id : state.activeBackendId,
-        }));
-      },
+        removeBackend: (id) => {
+          // Ignore – always have mock
+          console.log("removeBackend ignored – using mock only");
+        },
 
-      removeBackend: (id) => {
-        set((state) => {
-          const filteredBackends = state.backends.filter((b) => b.id !== id);
-          return {
-            backends: filteredBackends,
-            // If removing active backend, switch to first available or null
-            activeBackendId:
-              state.activeBackendId === id
-                ? filteredBackends.length > 0
-                  ? filteredBackends[0].id
-                  : null
-                : state.activeBackendId,
-          };
-        });
-      },
+        setActiveBackend: (id) => {
+          // Ignore – always mock
+          console.log("setActiveBackend ignored – using mock only");
+        },
 
-      setActiveBackend: (id) => {
-        const backend = get().backends.find((b) => b.id === id);
-        if (backend) {
-          set({ activeBackendId: id });
-        }
-      },
-
-      // Navigation actions
-      navigateToPath: (path) => {
-        set((state) => {
-          const history = [...state.navigationHistory];
-
-          // Don't add duplicate consecutive paths
-          if (history[history.length - 1] !== path) {
-            history.push(path);
-          }
-
-          // Limit history size
-          if (history.length > 50) {
-            history.shift();
-          }
-
-          return {
-            currentPath: path,
-            navigationHistory: history,
-          };
-        });
-      },
-
-      togglePathExpansion: (path) => {
-        set((state) => {
-          const expanded = new Set(state.expandedPaths);
-          if (expanded.has(path)) {
-            expanded.delete(path);
-          } else {
-            expanded.add(path);
-          }
-          return { expandedPaths: expanded };
-        });
-      },
-
-      goBack: () => {
-        set((state) => {
-          const history = [...state.navigationHistory];
-          const currentIndex = history.lastIndexOf(state.currentPath);
-
-          if (currentIndex > 0) {
-            const previousPath = history[currentIndex - 1];
-            return { currentPath: previousPath };
-          }
-
-          return state;
-        });
-      },
-
-      goForward: () => {
-        set((state) => {
-          const history = [...state.navigationHistory];
-          const currentIndex = history.lastIndexOf(state.currentPath);
-
-          if (currentIndex < history.length - 1) {
-            const nextPath = history[currentIndex + 1];
-            return { currentPath: nextPath };
-          }
-
-          return state;
-        });
-      },
-
-      // UI actions
-      togglePanel: (panel) => {
-        set((state) => ({
-          panels: {
-            ...state.panels,
-            [panel]: !state.panels[panel],
-          },
-        }));
-      },
-
-      setTheme: (theme) => {
-        set({ theme });
-
-        // Apply theme to document
-        const root = document.documentElement;
-        if (theme === "dark") {
-          root.classList.add("dark");
-        } else if (theme === "light") {
-          root.classList.remove("dark");
-        } else {
-          // System theme
-          const isDark = window.matchMedia(
-            "(prefers-color-scheme: dark)",
-          ).matches;
-          if (isDark) {
-            root.classList.add("dark");
-          } else {
-            root.classList.remove("dark");
-          }
-        }
-      },
-
-      setMode: (mode) => {
-        set({ mode });
-
-        // Clear search results when switching away from search mode
-        if (mode !== "search") {
-          set({ searchResults: [], searchQuery: "" });
-        }
-      },
-
-      // Search actions
-      setSearchQuery: (query) => {
-        set({ searchQuery: query });
-      },
-
-      addToSearchHistory: (query) => {
-        if (!query.trim()) return;
-
-        set((state) => {
-          const history = [...state.searchHistory];
-
-          // Remove existing occurrence
-          const existingIndex = history.indexOf(query);
-          if (existingIndex >= 0) {
-            history.splice(existingIndex, 1);
-          }
-
-          // Add to beginning
-          history.unshift(query);
-
-          // Limit history size
-          if (history.length > 20) {
-            history.pop();
-          }
-
-          return { searchHistory: history };
-        });
-      },
-
-      clearSearchResults: () => {
-        set({ searchResults: [] });
-      },
-
-      // Watched paths actions
-      addWatchedPath: (path) => {
-        set((state) => {
-          if (!state.watchedPaths.includes(path)) {
-            return {
-              watchedPaths: [...state.watchedPaths, path],
-            };
-          }
-          return state;
-        });
-      },
-
-      removeWatchedPath: (path) => {
-        set((state) => ({
-          watchedPaths: state.watchedPaths.filter((p) => p !== path),
-        }));
-      },
-    }),
-    {
-      name: "b3nd-explorer-state",
-      partialize: (state) => ({
-        // Persist only certain parts of state
-        backends: state.backends.map((b) => ({
-          id: b.id,
-          name: b.name,
-          type: b.adapter.type,
-          baseUrl: b.adapter.baseUrl,
-          isActive: b.isActive,
-        })),
-        activeBackendId: state.activeBackendId,
-        panels: state.panels,
-        theme: state.theme,
-        searchHistory: state.searchHistory,
-        watchedPaths: state.watchedPaths,
-        // Don't persist navigation state, search results, or expanded paths
-      }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          // Recreate adapters for persisted backends
-          state.backends = state.backends.map((backendConfig: any) => {
-            let adapter;
-            switch (backendConfig.type) {
-              case "mock":
-                adapter = new MockAdapter();
-                break;
-              case "http":
-                // TODO: Recreate HTTP adapter with baseUrl
-                adapter = {
-                  name: backendConfig.name,
-                  type: "http",
-                  baseUrl: backendConfig.baseUrl,
-                  listPath: async () => ({
-                    data: [],
-                    pagination: {
-                      page: 1,
-                      limit: 50,
-                      total: 0,
-                      hasNext: false,
-                      hasPrev: false,
-                    },
-                  }),
-                  readRecord: async () => ({ ts: Date.now(), data: {} }),
-                  searchPaths: async () => ({
-                    data: [],
-                    pagination: {
-                      page: 1,
-                      limit: 20,
-                      total: 0,
-                      hasNext: false,
-                      hasPrev: false,
-                    },
-                  }),
-                  getSchema: async () => ({}),
-                  healthCheck: async () => true,
-                };
-                break;
-              default:
-                adapter = {
-                  name: "Unknown",
-                  type: "unknown",
-                  listPath: async () => ({
-                    data: [],
-                    pagination: {
-                      page: 1,
-                      limit: 50,
-                      total: 0,
-                      hasNext: false,
-                      hasPrev: false,
-                    },
-                  }),
-                  readRecord: async () => ({ ts: Date.now(), data: {} }),
-                  searchPaths: async () => ({
-                    data: [],
-                    pagination: {
-                      page: 1,
-                      limit: 20,
-                      total: 0,
-                      hasNext: false,
-                      hasPrev: false,
-                    },
-                  }),
-                  getSchema: async () => ({}),
-                  healthCheck: async () => false,
-                };
+        navigateToPath: (path) => {
+          console.log("Navigating to:", path);
+          set((state) => {
+            const history = [...state.navigationHistory];
+            if (history[history.length - 1] !== path) {
+              history.push(path);
             }
+            if (history.length > 50) history.shift();
             return {
-              ...backendConfig,
-              adapter,
+              currentPath: path,
+              navigationHistory: history,
             };
           });
+        },
 
-          // Initialize default backend if none exist
-          if (state.backends.length === 0) {
-            const mockBackend: BackendConfig = {
-              id: generateId(),
-              name: "Local Mock Data",
-              adapter: new MockAdapter(),
-              isActive: true,
-            };
-            state.backends = [mockBackend];
-            state.activeBackendId = mockBackend.id;
-          } else {
-            // Ensure active backend has adapter
-            const activeBackend = state.backends.find(
-              (b) => b.id === state.activeBackendId,
-            );
-            if (activeBackend && !activeBackend.adapter) {
-              // Recreate if missing
-              const config = state.backends.find(
-                (b) => b.id === state.activeBackendId,
-              );
-              let adapter;
-              switch (config?.type) {
-                case "mock":
-                  adapter = new MockAdapter();
-                  break;
-                // ... other cases
-                default:
-                  adapter = new MockAdapter(); // Default to mock
-              }
-              const index = state.backends.findIndex(
-                (b) => b.id === state.activeBackendId,
-              );
-              state.backends[index] = { ...state.backends[index], adapter };
+        togglePathExpansion: (path) => {
+          set((state) => {
+            const expanded = new Set(state.expandedPaths);
+            if (expanded.has(path)) {
+              expanded.delete(path);
+            } else {
+              expanded.add(path);
             }
-          }
+            return { expandedPaths: expanded };
+          });
+        },
 
-          // Apply theme on rehydration
-          const theme = state.theme || "system";
+        goBack: () => {
+          set((state) => {
+            const history = [...state.navigationHistory];
+            const currentIndex = history.lastIndexOf(state.currentPath);
+            if (currentIndex > 0) {
+              const previousPath = history[currentIndex - 1];
+              return { currentPath: previousPath };
+            }
+            return state;
+          });
+        },
+
+        goForward: () => {
+          set((state) => {
+            const history = [...state.navigationHistory];
+            const currentIndex = history.lastIndexOf(state.currentPath);
+            if (currentIndex < history.length - 1) {
+              const nextPath = history[currentIndex + 1];
+              return { currentPath: nextPath };
+            }
+            return state;
+          });
+        },
+
+        togglePanel: (panel: keyof PanelState) => {
+          set((state) => ({
+            panels: {
+              ...state.panels,
+              [panel]: !state.panels[panel],
+            },
+          }));
+        },
+
+        setTheme: (theme: ThemeMode) => {
+          set({ theme });
+
           const root = document.documentElement;
           if (theme === "dark") {
             root.classList.add("dark");
           } else if (theme === "light") {
             root.classList.remove("dark");
           } else {
-            // System theme
             const isDark = window.matchMedia(
               "(prefers-color-scheme: dark)",
             ).matches;
-            if (isDark) {
-              root.classList.add("dark");
-            } else {
-              root.classList.remove("dark");
+            root.classList.toggle("dark", isDark);
+          }
+        },
+
+        setMode: (mode: AppMode) => {
+          set({ mode });
+          if (mode !== "search") {
+            set({ searchResults: [], searchQuery: "" });
+          }
+        },
+
+        setSearchQuery: (query: string) => {
+          set({ searchQuery: query });
+        },
+
+        addToSearchHistory: (query: string) => {
+          if (!query.trim()) return;
+          set((state) => {
+            const history = [...state.searchHistory];
+            const existingIndex = history.indexOf(query);
+            if (existingIndex >= 0) history.splice(existingIndex, 1);
+            history.unshift(query);
+            if (history.length > 20) history.pop();
+            return { searchHistory: history };
+          });
+        },
+
+        clearSearchResults: () => {
+          set({ searchResults: [] });
+        },
+
+        addWatchedPath: (path: string) => {
+          set((state) => {
+            if (!state.watchedPaths.includes(path)) {
+              return { watchedPaths: [...state.watchedPaths, path] };
             }
+            return state;
+          });
+        },
+
+        removeWatchedPath: (path: string) => {
+          set((state) => ({
+            watchedPaths: state.watchedPaths.filter((p) => p !== path),
+          }));
+        },
+      };
+    },
+    {
+      name: "b3nd-explorer-state",
+      partialize: (state) => ({
+        // Exclude backends entirely – always recreate fresh
+        activeBackendId: state.activeBackendId,
+        panels: state.panels,
+        theme: state.theme,
+        searchHistory: state.searchHistory,
+        watchedPaths: state.watchedPaths,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Recreate fresh backends on load
+          state.backends = initialBackends;
+          state.activeBackendId = initialBackends[0].id;
+          console.log("Rehydration: recreated fresh MockAdapter");
+
+          // Apply theme
+          const theme = state.theme || "system";
+          const root = document.documentElement;
+          if (theme === "dark") root.classList.add("dark");
+          else if (theme === "light") root.classList.remove("dark");
+          else {
+            const isDark = window.matchMedia(
+              "(prefers-color-scheme: dark)",
+            ).matches;
+            root.classList.toggle("dark", isDark);
           }
 
           // Reset runtime state
@@ -393,13 +221,14 @@ export const useAppStore = create<AppStore>()(
           state.searchQuery = "";
           state.searchResults = [];
           state.mode = "filesystem";
+
+          state.backendsReady = true;
         }
       },
     },
   ),
 );
 
-// Helper to get current active backend
 export const useActiveBackend = () => {
   const { backends, activeBackendId } = useAppStore();
   return backends.find((b) => b.id === activeBackendId) || null;

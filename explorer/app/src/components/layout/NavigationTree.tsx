@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "../../stores/appStore";
 import type { NavigationNode, PaginatedResponse } from "../../types";
 import { Folder } from "lucide-react";
@@ -39,12 +39,24 @@ export function NavigationTree() {
     loadRoot();
   }, [activeBackend]);
 
-  const handleNodeClick = (node: NavigationNode) => {
-    navigateToPath(node.path);
-    if (node.type === "directory") {
-      togglePathExpansion(node.path);
-    }
-  };
+  const handleToggle = useCallback(
+    (path: string) => {
+      console.log("Toggled path:", path); // Temp debug – remove later
+      togglePathExpansion(path);
+    },
+    [togglePathExpansion],
+  );
+
+  const handleNodeClick = useCallback(
+    (node: NavigationNode) => {
+      console.log("Clicked node:", node.path); // Temp debug – remove later
+      navigateToPath(node.path);
+      if (node.type === "directory") {
+        handleToggle(node.path);
+      }
+    },
+    [navigateToPath, handleToggle],
+  );
 
   if (loading) {
     return (
@@ -73,8 +85,8 @@ export function NavigationTree() {
             node={node}
             level={0}
             isExpanded={expandedPaths.has(node.path)}
-            onToggle={() => togglePathExpansion(node.path)}
-            onClick={handleNodeClick}
+            onToggle={() => handleToggle(node.path)}
+            onClick={() => handleNodeClick(node)}
           />
         ))}
       </div>
