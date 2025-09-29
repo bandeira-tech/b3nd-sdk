@@ -1,0 +1,9 @@
+{
+  "port": 8000,
+  "cors": {
+    "origins": ["*"],
+    "credentials": false,
+    "methods": ["GET", "POST", "DELETE", "OPTIONS"],
+    "headers": ["Content-Type", "Authorization"]
+  }
+}
