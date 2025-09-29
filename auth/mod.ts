@@ -23,7 +23,6 @@ async function verifySignature<T>(
   payload: T,
 ): Promise<boolean> {
   try {
-    // Import the public key from hex
     const pubkeyBytes = decodeHex(pubkeyHex);
     const publicKey = await crypto.subtle.importKey(
       "raw",
@@ -36,14 +35,11 @@ async function verifySignature<T>(
       ["verify"],
     );
 
-    // Prepare the payload for verification (same as signing)
     const encoder = new TextEncoder();
     const data = encoder.encode(JSON.stringify(payload));
 
-    // Decode signature from hex
     const signatureBytes = decodeHex(signatureHex);
 
-    // Verify the signature
     return await crypto.subtle.verify(
       "Ed25519",
       publicKey,
@@ -62,8 +58,6 @@ function buildCascadingPaths(url: string): string[] {
     .split("/")
     .filter((part) => part.length > 0);
   const paths: string[] = [];
-
-  // Build cascading paths from most specific to least specific
   for (let i = pathParts.length; i > 0; i--) {
     const pathSlice = pathParts.slice(0, i);
     const cascadingPath = `${parsed.protocol}//${parsed.host}/${pathSlice.join("/")}`;
@@ -77,25 +71,20 @@ async function validateAuthMessage<T>(
   write: AuthenticatedWrite<T>,
   getWriteAccess: GetWriteAccessFn,
 ): Promise<boolean> {
-  // Build cascading access paths
   const cascadingPaths = buildCascadingPaths(write.uri);
 
-  // Get all authorized pubkeys from cascading paths
   const authorizedPubkeysArrays = await Promise.all(
     cascadingPaths.map((path) => getWriteAccess(path)),
   );
 
-  // Flatten and deduplicate authorized pubkeys
   const authorizedPubkeys = new Set(authorizedPubkeysArrays.flat());
 
   // Validate that at least one signature is from an authorized pubkey
   for (const auth of write.value.auth) {
-    // First check if the pubkey is authorized
     if (!authorizedPubkeys.has(auth.pubkey)) {
       continue;
     }
 
-    // Then verify the signature is valid
     const isValidSignature = await verifySignature(
       auth.pubkey,
       auth.signature,
