@@ -6,11 +6,10 @@ export interface PersistenceRecord<T = any> {
 
 // Navigation and UI types
 export interface NavigationNode {
-  path: string;
-  name: string;
-  type: 'directory' | 'file';
-  children?: NavigationNode[];
-  record?: PersistenceRecord;
+  path: string; // Primary identifier (e.g., "/users/alice/profile")
+  name: string; // Display name (last segment of path)
+  type: "directory" | "file";
+  children?: NavigationNode[]; // Lazy-loaded via listPath
 }
 
 export interface SearchResult {
@@ -46,16 +45,23 @@ export interface PaginatedResponse<T> {
 // Backend adapter interface
 export interface BackendAdapter {
   name: string;
-  type: 'mock' | 'http';
+  type: "mock" | "http";
   baseUrl?: string;
 
   // Core operations
-  listPath(path: string, options?: { page?: number; limit?: number }): Promise<PaginatedResponse<NavigationNode>>;
+  listPath(
+    path: string,
+    options?: { page?: number; limit?: number },
+  ): Promise<PaginatedResponse<NavigationNode>>;
   readRecord(path: string): Promise<PersistenceRecord>;
-  searchPaths(query: string, filters?: SearchFilters, options?: { page?: number; limit?: number }): Promise<PaginatedResponse<SearchResult>>;
+  searchPaths(
+    query: string,
+    filters?: SearchFilters,
+    options?: { page?: number; limit?: number },
+  ): Promise<PaginatedResponse<SearchResult>>;
 
   // Metadata
-  getSchema(): Promise<Record<string, any>>;
+  getSchema(): Promise<Record<string, string[]>>; // Returns schemas by instance: { instanceId: [uris] }
   healthCheck(): Promise<boolean>;
 }
 
@@ -67,9 +73,9 @@ export interface BackendConfig {
 }
 
 // Application state types
-export type AppMode = 'filesystem' | 'search' | 'watched';
+export type AppMode = "filesystem" | "search" | "watched";
 
-export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = "light" | "dark" | "system";
 
 export interface PanelState {
   left: boolean;
@@ -81,6 +87,10 @@ export interface AppState {
   // Backend management
   backends: BackendConfig[];
   activeBackendId: string | null;
+
+  // Schema and root navigation
+  schemas: Record<string, string[]>; // Schemas by instance: { instanceId: [uris] }
+  rootNodes: NavigationNode[]; // Virtual root nodes built from schemas
 
   // Navigation
   currentPath: string;
@@ -104,9 +114,12 @@ export interface AppState {
 // Action types for state management
 export interface AppActions {
   // Backend actions
-  addBackend: (config: Omit<BackendConfig, 'id'>) => void;
+  addBackend: (config: Omit<BackendConfig, "id">) => void;
   removeBackend: (id: string) => void;
   setActiveBackend: (id: string) => void;
+
+  // Schema actions
+  loadSchemas: () => Promise<void>;
 
   // Navigation actions
   navigateToPath: (path: string) => void;

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getAdapter } from "./adapter.ts";
 import type { PersistenceAdapter } from "./adapter.ts";
+import { AdapterManager } from "./adapters/manager.ts";
 import type {
   ListResponse,
   ReadResponse,
@@ -108,30 +109,21 @@ api.get("/health", async (c) => {
   }
 });
 
-// GET /api/v1/list/:protocol/:domain/:path* - List contents at path with pagination
-api.get("/list", async (c) => {
+// GET /api/v1/list/:instance/:protocol/:domain - List contents at root path
+api.get("/list/:instance/:protocol/:domain", async (c) => {
   try {
-    const instance = c.req.query("instance");
-    const pattern = c.req.query("pattern");
+    const { instance, protocol, domain } = c.req.param();
     const pagination = PaginationSchema.parse({
       page: c.req.query("page"),
       limit: c.req.query("limit"),
     });
 
-    // If pattern is provided, use it for filtering
-    // Otherwise list all
     const adapter: PersistenceAdapter = getAdapter();
-
-    // For now, we'll list from root with pattern filtering
-    // This is a simplified implementation
-    const result = await adapter.listPath(
-      "test", // default protocol for listing
-      "localhost", // default domain for listing
+    const result: ListResponse = await adapter.listPath(
+      protocol,
+      domain,
       "/",
-      {
-        ...pagination,
-        pattern: pattern,
-      } as any,
+      { ...pagination },
       instance,
     );
 
@@ -145,12 +137,12 @@ api.get("/list", async (c) => {
   }
 });
 
-// GET /api/v1/list/:protocol/:domain/:path* - List contents at specific path
-api.get("/list/:protocol/:domain/:path*", async (c) => {
+// GET /api/v1/list/:instance/:protocol/:domain/:path* - List contents at path with pagination
+api.get("/list/:instance/:protocol/:domain/:path*", async (c) => {
   try {
-    const { protocol, domain, path: rawPath } = c.req.param();
+    const { instance, protocol, domain } = c.req.param();
+    const rawPath = c.req.param("path*");
     const fullPath = rawPath ? decodeURIComponent(rawPath) : "/";
-    const instance = c.req.query("instance");
     const pagination = PaginationSchema.parse({
       page: c.req.query("page"),
       limit: c.req.query("limit"),
@@ -284,6 +276,30 @@ api.delete("/delete/:protocol/:domain/:path*", async (c) => {
       status: response.status,
       headers: response.headers,
     });
+  }
+});
+
+// GET /api/v1/schema - Get configured schema URIs
+api.get("/schema", async (c) => {
+  try {
+    // Access AdapterManager directly
+    const manager = AdapterManager.getInstance();
+    const schemas = await manager.getLoadedSchemas();
+    const instances = manager.getAllAdapterIds();
+    const defaultInstance = manager.getDefaultInstanceId();
+
+    console.log("[Schema endpoint] schemas:", schemas);
+    console.log("[Schema endpoint] instances:", instances);
+    console.log("[Schema endpoint] default:", defaultInstance);
+
+    return c.json({
+      schemas,
+      instances,
+      default: defaultInstance,
+    }, 200);
+  } catch (error) {
+    console.error("[Schema endpoint] Error:", error);
+    return handleAdapterError(error, "Schema");
   }
 });
 

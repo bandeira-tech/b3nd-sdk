@@ -1,39 +1,17 @@
 /**
- * HTTP Client Implementation
- * Connects to b3nd HTTP API servers
+ * Browser-compatible B3ND Client SDK
+ * Simplified version for use in browser/Vite environments
  */
 
-import type {
-  B3ndClient,
-  ClientError,
-  DeleteResult,
-  HttpClientConfig,
-  ListOptions,
-  ListResult,
-  ReadResult,
-  WriteResult,
-} from "./types.ts";
-
-export class HttpClient implements B3ndClient {
-  private baseUrl: string;
-  private instanceId?: string;
-  private headers: Record<string, string>;
-  private timeout: number;
-
-  constructor(config: HttpClientConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/$/, ""); // Remove trailing slash
+export class HttpClient {
+  constructor(config) {
+    this.baseUrl = config.baseUrl.replace(/\/$/, "");
     this.instanceId = config.instanceId;
     this.headers = config.headers || {};
     this.timeout = config.timeout || 30000;
   }
 
-  /**
-   * Make an HTTP request with timeout
-   */
-  private async request(
-    path: string,
-    options: RequestInit = {},
-  ): Promise<Response> {
+  async request(path, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
@@ -60,14 +38,7 @@ export class HttpClient implements B3ndClient {
     }
   }
 
-  /**
-   * Parse URI into components
-   */
-  private parseUri(uri: string): {
-    protocol: string;
-    domain: string;
-    path: string;
-  } {
+  parseUri(uri) {
     const url = new URL(uri);
     return {
       protocol: url.protocol.replace(":", ""),
@@ -76,7 +47,7 @@ export class HttpClient implements B3ndClient {
     };
   }
 
-  async write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>> {
+  async write(uri, value) {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
 
@@ -116,7 +87,7 @@ export class HttpClient implements B3ndClient {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  async read(uri) {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
       const instance = this.instanceId || "default";
@@ -153,32 +124,30 @@ export class HttpClient implements B3ndClient {
     }
   }
 
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
+  async list(uri, options = {}) {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
 
       const params = new URLSearchParams();
-      if (options?.page) {
+      if (options.page) {
         params.set("page", options.page.toString());
       }
-      if (options?.limit) {
+      if (options.limit) {
         params.set("limit", options.limit.toString());
       }
-      if (options?.pattern) {
+      if (options.pattern) {
         params.set("pattern", options.pattern);
       }
-      if (options?.sortBy) {
+      if (options.sortBy) {
         params.set("sortBy", options.sortBy);
       }
-      if (options?.sortOrder) {
+      if (options.sortOrder) {
         params.set("sortOrder", options.sortOrder);
       }
 
       const queryString = params.toString();
       const instance = this.instanceId || "default";
-      // Don't include path if it's just "/"
-      const pathPart = path === "/" ? "" : path;
-      const requestPath = `/api/v1/list/${instance}/${protocol}/${domain}${pathPart}${
+      const requestPath = `/api/v1/list/${instance}/${protocol}/${domain}${path}${
         queryString ? `?${queryString}` : ""
       }`;
 
@@ -187,12 +156,11 @@ export class HttpClient implements B3ndClient {
       });
 
       if (!response.ok) {
-        const error = await response.text();
         return {
           data: [],
           pagination: {
-            page: options?.page || 1,
-            limit: options?.limit || 50,
+            page: options.page || 1,
+            limit: options.limit || 50,
             total: 0,
             hasNext: false,
             hasPrev: false,
@@ -206,8 +174,8 @@ export class HttpClient implements B3ndClient {
       return {
         data: [],
         pagination: {
-          page: options?.page || 1,
-          limit: options?.limit || 50,
+          page: options.page || 1,
+          limit: options.limit || 50,
           total: 0,
           hasNext: false,
           hasPrev: false,
@@ -216,7 +184,7 @@ export class HttpClient implements B3ndClient {
     }
   }
 
-  async delete(uri: string): Promise<DeleteResult> {
+  async delete(uri) {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
 
@@ -253,10 +221,7 @@ export class HttpClient implements B3ndClient {
     }
   }
 
-  async health(): Promise<{
-    status: "healthy" | "degraded" | "unhealthy";
-    message?: string;
-  }> {
+  async health() {
     try {
       const response = await this.request("/api/v1/health", {
         method: "GET",
@@ -279,7 +244,15 @@ export class HttpClient implements B3ndClient {
     }
   }
 
-  async cleanup(): Promise<void> {
+  async cleanup() {
     // No cleanup needed for HTTP client
   }
+}
+
+export function createHttpClient(baseUrl, options = {}) {
+  return new HttpClient({
+    type: "http",
+    baseUrl,
+    ...options,
+  });
 }

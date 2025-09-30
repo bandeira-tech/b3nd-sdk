@@ -55,20 +55,18 @@ async function createApp() {
     }
   });
 
-  // Schema endpoint - returns loaded instances
+  // Schema endpoint - returns loaded schemas and instances
   app.get("/api/v1/schema", async (c) => {
     try {
       const adapterManager = AdapterManager.getInstance();
-      const adapters = adapterManager.getAllAdapters();
-
-      const instances: string[] = [];
-      for (const [id, _] of adapters) {
-        instances.push(id);
-      }
+      const schemas = await adapterManager.getLoadedSchemas();
+      const instances = adapterManager.getAllAdapterIds();
+      const defaultInstance = adapterManager.getDefaultInstanceId();
 
       return c.json({
+        schemas,
         instances,
-        default: adapterManager.getDefaultInstanceId(),
+        default: defaultInstance,
       });
     } catch (error) {
       return c.json(

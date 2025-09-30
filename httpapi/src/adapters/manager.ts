@@ -284,6 +284,48 @@ export class AdapterManager {
   }
 
   /**
+   * Get loaded schema URIs from all adapters, organized by instance
+   * Returns a map of instance ID to their schema URIs
+   */
+  async getLoadedSchemas(): Promise<Record<string, string[]>> {
+    const schemasByInstance: Record<string, string[]> = {};
+
+    console.log(`[AdapterManager] Getting loaded schemas from ${this.adapters.size} adapters`);
+
+    for (const [id, adapter] of this.adapters) {
+      // Access the schema property if available (via BaseAdapter)
+      const adapterWithSchema = adapter as any;
+      console.log(`[AdapterManager] Checking adapter '${id}' for schema:`, {
+        hasSchema: !!adapterWithSchema.schema,
+        schemaType: typeof adapterWithSchema.schema,
+        schemaKeys: adapterWithSchema.schema ? Object.keys(adapterWithSchema.schema) : []
+      });
+
+      const instanceSchemas: string[] = [];
+
+      if (adapterWithSchema.schema && typeof adapterWithSchema.schema === 'object') {
+        // Extract URI keys from schema object
+        for (const key of Object.keys(adapterWithSchema.schema)) {
+          instanceSchemas.push(key);
+          console.log(`[AdapterManager] Added schema key '${key}' for instance '${id}'`);
+        }
+      }
+
+      schemasByInstance[id] = instanceSchemas;
+    }
+
+    console.log(`[AdapterManager] Returning schemas by instance:`, schemasByInstance);
+    return schemasByInstance;
+  }
+
+  /**
+   * Get all adapter instance IDs
+   */
+  getAllAdapterIds(): string[] {
+    return Array.from(this.adapters.keys());
+  }
+
+  /**
    * Check health of all adapters
    */
   async checkHealth(): Promise<Map<string, any>> {

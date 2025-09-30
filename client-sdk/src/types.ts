@@ -26,11 +26,10 @@ export interface DeleteResult {
 }
 
 export interface ListItem {
-  uri: string;
-  name: string;
+  uri: string;  // Primary identifier (e.g., "users://alice/profile")
   type: "file" | "directory";
-  ts: number;
-  size?: number;
+  // name removed - redundant with uri
+  // ts removed - available via separate read operation
 }
 
 export interface ListOptions {

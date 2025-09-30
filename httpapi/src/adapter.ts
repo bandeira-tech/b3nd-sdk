@@ -187,6 +187,13 @@ class ManagedPersistenceAdapter implements PersistenceAdapter {
       this.initialized = false;
     }
   }
+
+  /**
+   * Get the adapter manager instance
+   */
+  getManager(): AdapterManager {
+    return this.manager;
+  }
 }
 
 // Singleton instance

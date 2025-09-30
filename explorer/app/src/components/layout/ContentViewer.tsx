@@ -29,7 +29,7 @@ export function ContentViewer({ path }: ContentViewerProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeBackend = useActiveBackend();
-  const { mode } = useAppStore();
+  const { mode, rootNodes } = useAppStore();
 
   const loadContent = useCallback(async () => {
     console.log(
@@ -52,6 +52,14 @@ export function ContentViewer({ path }: ContentViewerProps) {
       setError(null);
       setRecord(null);
       setDirectoryContents([]);
+
+      // Handle root path specially - use schema-driven rootNodes
+      if (path === "/" || path === "") {
+        console.log("ContentViewer: showing root nodes from schema:", rootNodes); // Debug
+        setDirectoryContents(rootNodes);
+        setLoading(false);
+        return;
+      }
 
       console.log("ContentViewer: loading list for path:", path); // Debug
       const listResponse: PaginatedResponse<NavigationNode> =
@@ -91,7 +99,7 @@ export function ContentViewer({ path }: ContentViewerProps) {
     } finally {
       setLoading(false);
     }
-  }, [path, activeBackend, mode]); // Stable callback with deps
+  }, [path, activeBackend, mode, rootNodes]); // Stable callback with deps
 
   useEffect(() => {
     console.log("ContentViewer useEffect triggered for path:", path); // Debug

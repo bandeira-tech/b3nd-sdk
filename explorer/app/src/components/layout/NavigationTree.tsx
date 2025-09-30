@@ -5,13 +5,16 @@ import { Folder } from "lucide-react";
 import { TreeNode } from "./TreeNode";
 
 export function NavigationTree() {
-  const [rootNodes, setRootNodes] = useState<NavigationNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Get root nodes from store (schema-driven)
+  const rootNodes = useAppStore((state) => state.rootNodes);
+  const schemas = useAppStore((state) => state.schemas);
   const activeBackend = useAppStore((state) =>
     state.backends.find((b) => b.id === state.activeBackendId),
   );
-  const { navigateToPath, expandedPaths, togglePathExpansion } = useAppStore();
+  const { navigateToPath, expandedPaths, togglePathExpansion, loadSchemas } = useAppStore();
 
   useEffect(() => {
     if (!activeBackend?.adapter) {
@@ -24,9 +27,11 @@ export function NavigationTree() {
       try {
         setLoading(true);
         setError(null);
-        const response: PaginatedResponse<NavigationNode> =
-          await activeBackend.adapter.listPath("/", { page: 1, limit: 50 });
-        setRootNodes(response.data);
+
+        // Load schemas if not already loaded
+        if (schemas.length === 0) {
+          await loadSchemas();
+        }
       } catch (err) {
         setError(
           `Failed to load navigation: ${err instanceof Error ? err.message : "Unknown error"}`,
@@ -37,7 +42,7 @@ export function NavigationTree() {
     };
 
     loadRoot();
-  }, [activeBackend]);
+  }, [activeBackend, loadSchemas]);
 
   const handleToggle = useCallback(
     (path: string) => {

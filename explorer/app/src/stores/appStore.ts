@@ -9,20 +9,30 @@ import type {
   PanelState,
 } from "../types";
 import { MockAdapter } from "../adapters/MockAdapter";
+import { HttpAdapter } from "../adapters/HttpAdapter";
 import { generateId } from "../utils";
 
 const createMockBackend = (): BackendConfig => ({
-  id: "mock-default", // Fixed ID for simplicity
+  id: "mock-default",
   name: "Local Mock Data",
   adapter: new MockAdapter(),
+  isActive: false,
+});
+
+const createHttpBackend = (): BackendConfig => ({
+  id: "http-default",
+  name: "HTTP API (localhost:8000)",
+  adapter: new HttpAdapter("http://localhost:8000", "default"),
   isActive: true,
 });
 
-const initialBackends = [createMockBackend()];
+const initialBackends = [createMockBackend(), createHttpBackend()];
 
 const initialState: Omit<AppState, "backendsReady"> = {
   backends: initialBackends,
-  activeBackendId: initialBackends[0].id,
+  activeBackendId: "http-default", // Default to HTTP backend
+  schemas: {},
+  rootNodes: [],
   currentPath: "/",
   navigationHistory: ["/"],
   expandedPaths: new Set<string>(),
@@ -52,18 +62,101 @@ export const useAppStore = create<AppStore>()(
         backendsReady: true,
 
         addBackend: (config) => {
-          // For now, ignore – always use mock
-          console.log("addBackend ignored – using mock only");
+          set((state) => ({
+            backends: [...state.backends, { ...config, id: generateId() }],
+          }));
         },
 
         removeBackend: (id) => {
-          // Ignore – always have mock
-          console.log("removeBackend ignored – using mock only");
+          set((state) => {
+            const newBackends = state.backends.filter((b) => b.id !== id);
+            return {
+              backends: newBackends,
+              activeBackendId:
+                state.activeBackendId === id && newBackends.length > 0
+                  ? newBackends[0].id
+                  : state.activeBackendId,
+            };
+          });
         },
 
         setActiveBackend: (id) => {
-          // Ignore – always mock
-          console.log("setActiveBackend ignored – using mock only");
+          set((state) => {
+            const backend = state.backends.find((b) => b.id === id);
+            if (backend) {
+              // Update isActive flags
+              const updatedBackends = state.backends.map((b) => ({
+                ...b,
+                isActive: b.id === id,
+              }));
+              return {
+                backends: updatedBackends,
+                activeBackendId: id,
+                currentPath: "/", // Reset to root when switching
+                navigationHistory: ["/"],
+                expandedPaths: new Set(),
+                schemas: {}, // Clear schemas when switching
+                rootNodes: [], // Clear root nodes when switching
+              };
+            }
+            return state;
+          });
+
+          // Load schemas after switching backend
+          get().loadSchemas();
+        },
+
+        loadSchemas: async () => {
+          const state = get();
+          const backend = state.backends.find((b) => b.id === state.activeBackendId);
+
+          if (!backend) {
+            console.warn("No active backend found");
+            return;
+          }
+
+          try {
+            // Fetch schemas from backend (organized by instance)
+            const schemasByInstance = await backend.adapter.getSchema();
+            console.log("Loaded schemas by instance:", schemasByInstance);
+
+            // Collect all unique schema URIs from all instances
+            const allSchemaUris = new Set<string>();
+            for (const instanceSchemas of Object.values(schemasByInstance)) {
+              for (const uri of instanceSchemas) {
+                allSchemaUris.add(uri);
+              }
+            }
+
+            // Build root navigation nodes from all schemas
+            const rootNodes: import("../types").NavigationNode[] = Array.from(allSchemaUris).map(uri => {
+              try {
+                const url = new URL(uri);
+                const protocol = url.protocol.replace(":", "");
+                const domain = url.hostname;
+                const path = `/${protocol}/${domain}`;
+
+                return {
+                  path,
+                  name: `${protocol}://${domain}`,
+                  type: "directory" as const,
+                  children: undefined, // Lazy load
+                };
+              } catch (error) {
+                console.error(`Failed to parse schema URI: ${uri}`, error);
+                return null;
+              }
+            }).filter((node): node is import("../types").NavigationNode => node !== null);
+
+            console.log("Built root nodes:", rootNodes);
+
+            set({
+              schemas: schemasByInstance,
+              rootNodes,
+            });
+          } catch (error) {
+            console.error("Failed to load schemas:", error);
+          }
         },
 
         navigateToPath: (path) => {
@@ -199,8 +292,12 @@ export const useAppStore = create<AppStore>()(
         if (state) {
           // Recreate fresh backends on load
           state.backends = initialBackends;
-          state.activeBackendId = initialBackends[0].id;
-          console.log("Rehydration: recreated fresh MockAdapter");
+          // Use saved activeBackendId if valid, otherwise default to http
+          const validBackendId = initialBackends.find(
+            (b) => b.id === state.activeBackendId
+          )?.id;
+          state.activeBackendId = validBackendId || "http-default";
+          console.log("Rehydration: recreated fresh adapters, active:", state.activeBackendId);
 
           // Apply theme
           const theme = state.theme || "system";
@@ -221,8 +318,16 @@ export const useAppStore = create<AppStore>()(
           state.searchQuery = "";
           state.searchResults = [];
           state.mode = "filesystem";
+          state.schemas = {};
+          state.rootNodes = [];
 
           state.backendsReady = true;
+
+          // Load schemas asynchronously after rehydration
+          setTimeout(() => {
+            const store = useAppStore.getState();
+            store.loadSchemas();
+          }, 0);
         }
       },
     },

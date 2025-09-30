@@ -55,12 +55,11 @@ export type Pagination = z.infer<typeof PaginationSchema>;
 
 // Response for list: { data: NavigationNode[], pagination }
 export const NavigationNodeSchema = z.object({
-  uri: z.string().url(),
-  name: z.string(),
+  uri: z.string().url(),  // Primary identifier (e.g., "users://alice/profile")
   type: z.enum(["file", "directory"]),
-  ts: z.number().int(),
-  // Optional children for directories (lazy-loaded)
-  children: z.array(NavigationNodeSchema).optional(),
+  // name removed - redundant with uri
+  // ts removed - available via separate read operation
+  // children removed - not included in list response (lazy-loaded via separate list call)
 });
 
 export const ListResponseSchema = z.object({

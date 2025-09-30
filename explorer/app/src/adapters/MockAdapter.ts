@@ -206,9 +206,18 @@ export class MockAdapter implements BackendAdapter {
     };
   }
 
-  async getSchema(): Promise<Record<string, any>> {
+  async getSchema(): Promise<Record<string, string[]>> {
     await this.delay(100);
-    return mockSchema;
+    // Return mock schemas organized by instance
+    const mockSchemas = this.navigationTree.map(node => {
+      // Convert first-level navigation to URI format
+      // e.g., "users" -> "users://example"
+      return `${node.name}://example`;
+    });
+
+    return {
+      "mock-default": mockSchemas
+    };
   }
 
   async healthCheck(): Promise<boolean> {

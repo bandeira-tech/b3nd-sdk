@@ -109,10 +109,7 @@ export class LocalEvergreenAdapter extends BaseAdapter {
 
       const items: Array<{
         uri: string;
-        name: string;
         type: "file" | "directory";
-        ts: number;
-        size?: number;
       }> = [];
 
       // Get items from persistence storage
@@ -133,18 +130,13 @@ export class LocalEvergreenAdapter extends BaseAdapter {
                 // It's a directory
                 items.push({
                   uri: `${protocol}://${domain}${pathname}`,
-                  name: parts[0],
                   type: "directory",
-                  ts: (record as PersistenceRecord<unknown>).ts,
                 });
               } else if (parts.length === 1) {
                 // It's a file
                 items.push({
                   uri: `${protocol}://${domain}${pathname}`,
-                  name: parts[0],
                   type: "file",
-                  ts: (record as PersistenceRecord<unknown>).ts,
-                  size: JSON.stringify((record as PersistenceRecord<unknown>).data).length,
                 });
               }
             }
@@ -161,10 +153,7 @@ export class LocalEvergreenAdapter extends BaseAdapter {
             if (parts.length > 0) {
               items.push({
                 uri,
-                name: parts[parts.length - 1],
                 type: uri.endsWith("/") ? "directory" : "file",
-                ts: record.ts,
-                size: JSON.stringify(record.data).length,
               });
             }
           }
@@ -175,21 +164,23 @@ export class LocalEvergreenAdapter extends BaseAdapter {
       let filteredItems = items;
       if (options.pattern) {
         const pattern = new RegExp(options.pattern.replace(/\*/g, ".*"));
-        filteredItems = items.filter(item => pattern.test(item.name));
+        filteredItems = items.filter(item => {
+          // Extract name from URI for pattern matching
+          const name = item.uri.split("/").pop() || "";
+          return pattern.test(name);
+        });
       }
 
-      // Sort items
-      const sortBy = options.sortBy || "timestamp";
-      const sortOrder = options.sortOrder || "desc";
+      // Sort items by URI (name is no longer available)
+      const sortBy = options.sortBy || "name";
+      const sortOrder = options.sortOrder || "asc";
 
       filteredItems.sort((a, b) => {
-        if (sortBy === "name") {
-          return sortOrder === "asc"
-            ? a.name.localeCompare(b.name)
-            : b.name.localeCompare(a.name);
-        } else {
-          return sortOrder === "asc" ? a.ts - b.ts : b.ts - a.ts;
-        }
+        const nameA = a.uri.split("/").pop() || "";
+        const nameB = b.uri.split("/").pop() || "";
+        return sortOrder === "asc"
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
       });
 
       // Paginate
