@@ -61,9 +61,7 @@ services:
       - httpapi
     restart: unless-stopped
     volumes:
-      # Mount source code for live editing
-      - ../../../explorer:/app/explorer
-      # Node modules cache for faster installs
+      - ../../..:/app
       - node-modules-explorer:/app/explorer/app/node_modules
 
 networks:
