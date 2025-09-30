@@ -89,7 +89,7 @@ async function readPayload(uri: string): Promise<{
   try {
     const { protocol, domain, path } = parseUri(uri);
     const response = await fetch(
-      `${BASE_URL}/api/v1/read/${protocol}/${domain}/${encodeURIComponent(path)}?instance=${INSTANCE}`,
+      `${BASE_URL}/api/v1/read/${INSTANCE}/${protocol}/${domain}/${path.replace(/^\//, "")}`,
     );
     if (!response.ok) {
       const err = await response
@@ -117,7 +117,7 @@ async function deletePayload(
   try {
     const { protocol, domain, path } = parseUri(uri);
     const response = await fetch(
-      `${BASE_URL}/api/v1/delete/${protocol}/${domain}/${encodeURIComponent(path)}?instance=${INSTANCE}`,
+      `${BASE_URL}/api/v1/delete/${protocol}/${domain}/${path.replace(/^\//, "")}?instance=${INSTANCE}`,
       { method: "DELETE" },
     );
     if (!response.ok) {
@@ -140,25 +140,6 @@ async function deletePayload(
 
 async function runTests() {
   console.log("🚀 Starting write-read tests...\n");
-
-  // Temporarily update schema.json for fixtures (add keys with true for allow)
-  const schemaPath = "config/schema.json";
-  let originalSchema: string | null = null;
-  try {
-    originalSchema = await Deno.readTextFile(schemaPath);
-    const rawSchema = JSON.parse(originalSchema);
-    // Add fixture keys with true (always-allow for test)
-    rawSchema["users://nataliarsand"] = true;
-    rawSchema["notes://nataliarsand"] = true;
-    const updatedSchema = JSON.stringify(rawSchema, null, 2);
-    await Deno.writeTextFile(schemaPath, updatedSchema);
-    console.log(
-      "📝 Temporarily updated schema.json with fixture keys for testing.",
-    );
-  } catch (e) {
-    console.error(`Failed to update schema.json: ${e}`);
-    Deno.exit(1);
-  }
 
   const fixtures = await loadFixtures();
   if (fixtures.length === 0) {
@@ -215,16 +196,6 @@ async function runTests() {
   } else {
     console.log("⚠️ Some tests failed. Check logs above.");
     Deno.exit(1);
-  }
-
-  // Restore original schema.json
-  if (originalSchema !== null) {
-    try {
-      await Deno.writeTextFile(schemaPath, originalSchema);
-      console.log(`🔄 Restored original schema.json.`);
-    } catch (e) {
-      console.error(`Failed to restore schema.json: ${e}`);
-    }
   }
 }
 

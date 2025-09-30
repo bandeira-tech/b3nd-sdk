@@ -1,17 +1,13 @@
-import type {
-  Persistence,
-  PersistenceRecord,
-  PersistenceWrite,
-  PersistenceValidationFn,
-} from "../../persistence/mod.ts";
-import type { PersistenceConfig } from "./config.ts";
+/**
+ * Main Adapter Interface for HTTP API
+ *
+ * This module provides the adapter interface that the HTTP API routes use
+ * to interact with persistence. It delegates to the AdapterManager which
+ * handles multiple adapter instances based on configuration.
+ */
 
-// Dummy validation function: Always allows writes for dev (used for JSON bool=true)
-const dummyValidationFn = async (
-  _write: PersistenceWrite<unknown>,
-): Promise<boolean> => {
-  return true;
-};
+import { AdapterManager } from "./adapters/manager.ts";
+import type { PersistenceRecord, ListResult } from "./adapters/types.ts";
 
 export interface PersistenceAdapter {
   write(
@@ -25,33 +21,22 @@ export interface PersistenceAdapter {
     record?: PersistenceRecord<unknown>;
     error?: string;
   }>;
+
   read(
     protocol: string,
     domain: string,
     path: string,
     instanceId?: string,
   ): Promise<PersistenceRecord<unknown> | null>;
+
   listPath(
     protocol: string,
     domain: string,
     path: string,
     options?: { page?: number; limit?: number },
     instanceId?: string,
-  ): Promise<{
-    data: Array<{
-      uri: string;
-      name: string;
-      type: "file" | "directory";
-      ts: number;
-    }>;
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      hasNext: boolean;
-      hasPrev: boolean;
-    };
-  }>;
+  ): Promise<ListResult>;
+
   delete(
     protocol: string,
     domain: string,
@@ -60,75 +45,30 @@ export interface PersistenceAdapter {
   ): Promise<{ success: boolean; error?: string }>;
 }
 
-class DefaultPersistenceAdapter implements PersistenceAdapter {
-  private static instance: DefaultPersistenceAdapter | null = null;
-  private instances: Map<string, Persistence<unknown>> = new Map();
-  private config: PersistenceConfig | null = null;
+/**
+ * Main adapter implementation that delegates to AdapterManager
+ */
+class ManagedPersistenceAdapter implements PersistenceAdapter {
+  private manager: AdapterManager;
+  private initialized = false;
 
-  private constructor() {
-    // Private constructor for singleton
+  constructor() {
+    this.manager = AdapterManager.getInstance();
   }
 
-  private async ensureConfig(): Promise<void> {
-    if (this.config === null) {
-      this.config = await import("./config.ts").then((m) =>
-        m.loadPersistenceConfig(),
-      );
-    }
-  }
-
-  private async getOrCreateInstance(
-    instanceId: string = "default",
-  ): Promise<Persistence<unknown>> {
-    await this.ensureConfig();
-    if (!this.instances.has(instanceId)) {
-      const instanceConfig = this.config[instanceId];
-      if (!instanceConfig) {
-        throw new Error(
-          `Persistence instance '${instanceId}' not found in config`,
-        );
-      }
-      let schema: Record<string, PersistenceValidationFn<unknown>>;
+  /**
+   * Ensure the adapter manager is initialized
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (!this.initialized) {
       try {
-        const schemaPath = instanceConfig.schema;
-        const pathExt = schemaPath.split(".").pop()?.toLowerCase();
-        if (pathExt === "json") {
-          // Load JSON and convert bools to dummy fns
-          const content = await Deno.readTextFile(schemaPath);
-          const rawSchema = JSON.parse(content);
-          schema = Object.fromEntries(
-            Object.entries(rawSchema).map(([key, val]) => [
-              key,
-              typeof val === "boolean"
-                ? val
-                  ? dummyValidationFn
-                  : async () => false
-                : dummyValidationFn,
-            ]),
-          );
-        } else {
-          // Assume TS module
-          const schemaUrl = new URL(schemaPath, `file://${Deno.cwd()}/`).href;
-          const schemaModule = await import(schemaUrl);
-          schema = schemaModule.default || schemaModule;
-          // Ensure it's a record of validation fns
-          if (typeof schema !== "object" || schema === null) {
-            throw new Error("Schema must be an object of validation functions");
-          }
-          for (const [key, fn] of Object.entries(schema)) {
-            if (typeof fn !== "function") {
-              throw new Error(`Schema key '${key}' must be a function`);
-            }
-          }
-        }
+        await this.manager.initialize();
+        this.initialized = true;
       } catch (error) {
-        throw new Error(
-          `Schema load failed for instance ${instanceId} from ${instanceConfig.schema}: ${error}. Ensure a valid TS module or JSON with bools is provided.`,
-        );
+        console.error("Failed to initialize adapter manager:", error);
+        throw new Error(`Adapter initialization failed: ${error}`);
       }
-      this.instances.set(instanceId, new Persistence({ schema }));
     }
-    return this.instances.get(instanceId)!;
   }
 
   async write(
@@ -142,17 +82,17 @@ class DefaultPersistenceAdapter implements PersistenceAdapter {
     record?: PersistenceRecord<unknown>;
     error?: string;
   }> {
-    const uri = `${protocol}://${domain}${path.startsWith("/") ? path : "/" + path}`;
-    const write: PersistenceWrite<unknown> = { uri, value };
-    const instance = await this.getOrCreateInstance(instanceId);
-    const [error, record] = await instance.write(write);
-    if (error) {
+    try {
+      await this.ensureInitialized();
+      const adapter = this.manager.getAdapter(instanceId);
+      return await adapter.write(protocol, domain, path, value);
+    } catch (error) {
+      console.error(`Write error for instance '${instanceId}':`, error);
       return {
         success: false,
-        error: "Write failed (validation or storage error)",
+        error: error instanceof Error ? error.message : "Write failed",
       };
     }
-    return { success: true, record };
   }
 
   async read(
@@ -161,12 +101,12 @@ class DefaultPersistenceAdapter implements PersistenceAdapter {
     path: string,
     instanceId?: string,
   ): Promise<PersistenceRecord<unknown> | null> {
-    const uri = `${protocol}://${domain}${path.startsWith("/") ? path : "/" + path}`;
-    const instance = await this.getOrCreateInstance(instanceId);
     try {
-      return await instance.read(uri);
+      await this.ensureInitialized();
+      const adapter = this.manager.getAdapter(instanceId);
+      return await adapter.read(protocol, domain, path);
     } catch (error) {
-      console.warn(`Read error for ${uri}:`, error);
+      console.error(`Read error for instance '${instanceId}':`, error);
       return null;
     }
   }
@@ -175,67 +115,26 @@ class DefaultPersistenceAdapter implements PersistenceAdapter {
     protocol: string,
     domain: string,
     path: string,
-    options = { page: 1, limit: 50 },
+    options?: { page?: number; limit?: number },
     instanceId?: string,
-  ) {
-    const instance = (await this.getOrCreateInstance(instanceId)) as any;
-    const storage = instance.storage as Record<
-      string,
-      Record<string, Record<string, PersistenceRecord<unknown>>>
-    >;
-
-    const basePath = path.startsWith("/") ? path : "/" + path;
-    const hostStorage = storage[protocol]?.[domain] || {};
-    if (!hostStorage) {
+  ): Promise<ListResult> {
+    try {
+      await this.ensureInitialized();
+      const adapter = this.manager.getAdapter(instanceId);
+      return await adapter.listPath(protocol, domain, path, options);
+    } catch (error) {
+      console.error(`List error for instance '${instanceId}':`, error);
       return {
         data: [],
         pagination: {
-          page: options.page || 1,
-          limit: options.limit || 50,
+          page: options?.page || 1,
+          limit: options?.limit || 50,
           total: 0,
           hasNext: false,
           hasPrev: false,
         },
       };
     }
-
-    const items: Array<{
-      uri: string;
-      name: string;
-      type: "file" | "directory";
-      ts: number;
-    }> = [];
-    for (const [pathname, record] of Object.entries(hostStorage)) {
-      if (pathname.startsWith(basePath)) {
-        const name = pathname.split("/").pop() || pathname;
-        const type = pathname.endsWith("/") ? "directory" : "file";
-        items.push({
-          uri: `${protocol}://${domain}${pathname}`,
-          name,
-          type,
-          ts: record.ts,
-        });
-      }
-    }
-
-    items.sort((a, b) => b.ts - a.ts); // Newest first
-
-    const page = options.page || 1;
-    const limit = options.limit || 50;
-    const total = items.length;
-    const start = (page - 1) * limit;
-    const data = items.slice(start, start + limit);
-
-    return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        hasNext: start + limit < total,
-        hasPrev: page > 1,
-      },
-    };
   }
 
   async delete(
@@ -245,29 +144,74 @@ class DefaultPersistenceAdapter implements PersistenceAdapter {
     instanceId?: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const instance = (await this.getOrCreateInstance(instanceId)) as any;
-      const storage = instance.storage as Record<
-        string,
-        Record<string, Record<string, PersistenceRecord<unknown>>>
-      >;
-      const pathname = path.startsWith("/") ? path : "/" + path;
-      const hostStorage = storage[protocol]?.[domain];
-      if (hostStorage && hostStorage[pathname]) {
-        delete hostStorage[pathname];
-        return { success: true };
-      }
-      return { success: false, error: "Not found" };
-    } catch (e) {
-      return { success: false, error: (e as Error).message };
+      await this.ensureInitialized();
+      const adapter = this.manager.getAdapter(instanceId);
+      return await adapter.delete(protocol, domain, path);
+    } catch (error) {
+      console.error(`Delete error for instance '${instanceId}':`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Delete failed",
+      };
     }
   }
 
-  static getAdapter(): DefaultPersistenceAdapter {
-    if (!DefaultPersistenceAdapter.instance) {
-      DefaultPersistenceAdapter.instance = new DefaultPersistenceAdapter();
+  /**
+   * Get health status of all adapters
+   */
+  async health(): Promise<Map<string, any>> {
+    try {
+      await this.ensureInitialized();
+      return await this.manager.checkHealth();
+    } catch (error) {
+      console.error("Health check error:", error);
+      return new Map([
+        [
+          "error",
+          {
+            status: "unhealthy",
+            message: "Health check failed",
+            error: error instanceof Error ? error.message : "Unknown error",
+          },
+        ],
+      ]);
     }
-    return DefaultPersistenceAdapter.instance;
+  }
+
+  /**
+   * Cleanup all adapters
+   */
+  async cleanup(): Promise<void> {
+    if (this.initialized) {
+      await this.manager.cleanup();
+      this.initialized = false;
+    }
   }
 }
 
-export const getAdapter = DefaultPersistenceAdapter.getAdapter;
+// Singleton instance
+let adapterInstance: ManagedPersistenceAdapter | null = null;
+
+/**
+ * Get the singleton adapter instance
+ */
+export function getAdapter(): PersistenceAdapter {
+  if (!adapterInstance) {
+    adapterInstance = new ManagedPersistenceAdapter();
+  }
+  return adapterInstance;
+}
+
+/**
+ * Reset the adapter (mainly for testing)
+ */
+export async function resetAdapter(): Promise<void> {
+  if (adapterInstance) {
+    await adapterInstance.cleanup();
+    adapterInstance = null;
+  }
+  AdapterManager.reset();
+}
+
+// Export types for convenience
+export type { PersistenceRecord, ListResult } from "./adapters/types.ts";

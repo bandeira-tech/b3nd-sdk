@@ -28,6 +28,10 @@ export class Persistence<T> {
 
   constructor(args: PersistenceConstructorArgs<T>) {
     this.schema = args.schema;
+    if (Object.keys(this.schema).length === 0) {
+      this.storage = {};
+      return;
+    }
     this.storage = Object.keys(this.schema)
       .map((k) => new URL(k))
       .reduce<PersistenceStorage<T>>(
@@ -55,14 +59,31 @@ export class Persistence<T> {
       ts: Date.now(),
       data: write.value,
     };
-    this.storage[target.protocol][target.host][target.pathname] = record;
+    const protocolKey = target.protocol;
+    const hostKey = target.host;
+    const pathKey = target.pathname;
+    this.storage[protocolKey][hostKey][pathKey] = record;
+    console.log(`[DEBUG WRITE] Stored at ${protocolKey}/${hostKey}${pathKey}`);
+    console.log(`[DEBUG WRITE] Storage protocols:`, Object.keys(this.storage));
+    console.log(
+      `[DEBUG WRITE] Hosts for ${protocolKey}:`,
+      Object.keys(this.storage[protocolKey] || {}),
+    );
+    console.log(
+      `[DEBUG WRITE] Paths for ${protocolKey}/${hostKey}:`,
+      Object.keys(this.storage[protocolKey]?.[hostKey] || {}),
+    );
     return Promise.resolve([false, record]);
   }
 
   read(uri: string): Promise<PersistenceRecord<T>> {
     const target = new URL(uri);
+    const protocolKey = target.protocol;
+    const hostKey = target.host;
+    const pathKey = target.pathname;
+    const record = this.storage[protocolKey]?.[hostKey]?.[pathKey];
     return Promise.resolve(
-      this.storage[target.protocol][target.host][target.pathname],
+      record || ({ ts: 0, data: null as T } as PersistenceRecord<T>),
     );
   }
 }

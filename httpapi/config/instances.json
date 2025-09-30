@@ -1,0 +1,72 @@
+{
+  "default": "default",
+  "instances": {
+    "default": {
+      "adapter": "@adapters/local-evergreen",
+      "config": {
+        "type": "local-evergreen",
+        "schema": "./config/schemas/default.json",
+        "options": {
+          "type": "memory",
+          "maxSize": 104857600
+        }
+      }
+    },
+    "persistent": {
+      "adapter": "@adapters/local-denokv",
+      "config": {
+        "type": "local-denokv",
+        "schema": "./config/schemas/default.json",
+        "options": {
+          "type": "denokv",
+          "path": "./data/persistent.db",
+          "persistent": true,
+          "autoSaveInterval": 30000
+        }
+      }
+    },
+    "test": {
+      "adapter": "@adapters/local-evergreen",
+      "config": {
+        "type": "local-evergreen",
+        "schema": {
+          "test": true,
+          "auth": true,
+          "data": true,
+          "config": true,
+          "user": true,
+          "note": true,
+          "profile": true,
+          "document": true,
+          "api": true,
+          "public": true
+        },
+        "options": {
+          "type": "memory"
+        }
+      }
+    },
+    "remote": {
+      "adapter": "@adapters/websocket",
+      "config": {
+        "type": "websocket",
+        "schema": "./config/schemas/default.json",
+        "options": {
+          "url": "ws://localhost:8080/persistence",
+          "auth": {
+            "type": "bearer",
+            "token": "${PERSISTENCE_API_TOKEN}"
+          },
+          "reconnect": {
+            "enabled": true,
+            "maxAttempts": 10,
+            "interval": 5000,
+            "backoff": "exponential"
+          },
+          "timeout": 30000,
+          "compression": true
+        }
+      }
+    }
+  }
+}

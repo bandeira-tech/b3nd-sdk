@@ -1,18 +1,31 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { loadServerConfig, loadPersistenceConfig } from "./config.ts";
-import { DefaultPersistenceAdapter } from "./adapter.ts";
 import { api } from "./routes.ts";
+
+// Create and configure the app
+const app = new Hono();
 
 async function main() {
   try {
     const serverConfig = await loadServerConfig();
     const persistenceConfig = await loadPersistenceConfig();
-
-    const app = new Hono();
+    console.log(
+      `Server loaded config: instances=${Object.keys(persistenceConfig).join(", ")}`,
+    );
 
     // Apply CORS middleware
     app.use("*", cors(serverConfig.cors));
+
+    // Request logging middleware (standard HTTP logs: method, URL, status, duration)
+    app.use(async (c, next) => {
+      const start = Date.now();
+      await next();
+      const duration = Date.now() - start;
+      console.log(
+        `${c.req.method} ${c.req.url} ${c.res.status} - ${duration}ms`,
+      );
+    });
 
     // Adapters loaded lazily in routes
 
@@ -34,17 +47,26 @@ async function main() {
     // Mount core API routes
     app.route("/api/v1", api);
 
-    // Basic error handler middleware
-    app.onError((err, c) => {
-      console.error("Server error:", err);
+    // Enhanced error handler: Log request context + full stack trace on errors
+    const errorHandler = (err, c) => {
+      console.log("foobar");
+      const errorMsg = (err as Error).message || "Internal server error";
+      const stackTrace = (err as Error).stack || "No stack trace available";
+      console.error(
+        `Error: ${errorMsg} (request: ${c.req.method} ${c.req.url})`,
+      );
+      console.error(stackTrace);
       return c.json(
         {
-          error: (err as Error).message || "Internal server error",
+          error: errorMsg,
           code: "INTERNAL_ERROR",
         },
         500,
       );
-    });
+    };
+
+    api.onError(errorHandler);
+    app.onError(errorHandler);
 
     const port = serverConfig.port || 8000;
     console.log(`Server starting on http://localhost:${port}`);
@@ -52,7 +74,10 @@ async function main() {
     // Start the server
     await Deno.serve({ port }, app.fetch);
   } catch (error) {
-    console.error("Failed to start server:", error);
+    const errorMsg = (error as Error).message || "Failed to start server";
+    const stackTrace = (error as Error).stack || "No stack trace available";
+    console.error(`Startup error: ${errorMsg}`);
+    console.error(stackTrace);
     Deno.exit(1);
   }
 }
@@ -60,3 +85,5 @@ async function main() {
 if (import.meta.main) {
   await main();
 }
+
+export { app };
