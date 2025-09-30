@@ -1,0 +1,82 @@
+version: "3.8"
+
+services:
+  # WebSocket Server - Persistence backend
+  wsserver:
+    build:
+      context: ../../..
+      dockerfile: devenv/installations/full-stack/Dockerfile.wsserver
+    container_name: b3nd-wsserver
+    environment:
+      - WS_PORT=${WS_PORT:-8001}
+      - WS_HOSTNAME=${WS_HOSTNAME:-0.0.0.0}
+      - SCHEMA_PATH=${SCHEMA_PATH:-}
+    ports:
+      - "${WS_PORT:-8001}:8001"
+    networks:
+      - b3nd-network
+    restart: unless-stopped
+    volumes:
+      # Mount source code for live editing
+      - ../../..:/app
+      - deno-cache-wsserver:/root/.cache/deno
+
+  # HTTP API Server - REST API frontend
+  httpapi:
+    build:
+      context: ../../..
+      dockerfile: devenv/installations/full-stack/Dockerfile.httpapi
+    container_name: b3nd-httpapi
+    environment:
+      - HTTP_PORT=${HTTP_PORT:-8000}
+      - HTTP_HOSTNAME=${HTTP_HOSTNAME:-0.0.0.0}
+      - WSSERVER_URL=${WSSERVER_URL:-ws://wsserver:8001}
+    ports:
+      - "${HTTP_PORT:-8000}:8000"
+    networks:
+      - b3nd-network
+    depends_on:
+      - wsserver
+    restart: unless-stopped
+    volumes:
+      - ../../..:/app
+      # Deno cache for faster reloads
+      - deno-cache-httpapi:/root/.cache/deno
+      # Persistent data (read-write)
+      - httpapi-data:/app/httpapi/data
+
+  # Explorer Web UI - Frontend application
+  explorer:
+    build:
+      context: ../../..
+      dockerfile: devenv/installations/full-stack/Dockerfile.explorer
+    container_name: b3nd-explorer
+    environment:
+      - VITE_API_URL=${API_URL:-http://localhost:8000}
+    ports:
+      - "${EXPLORER_PORT:-3000}:3000"
+    networks:
+      - b3nd-network
+    depends_on:
+      - httpapi
+    restart: unless-stopped
+    volumes:
+      # Mount source code for live editing
+      - ../../../explorer:/app/explorer
+      # Node modules cache for faster installs
+      - node-modules-explorer:/app/explorer/app/node_modules
+
+networks:
+  b3nd-network:
+    driver: bridge
+    name: b3nd-network
+
+volumes:
+  deno-cache-wsserver:
+    name: b3nd-deno-cache-wsserver
+  deno-cache-httpapi:
+    name: b3nd-deno-cache-httpapi
+  node-modules-explorer:
+    name: b3nd-node-modules-explorer
+  httpapi-data:
+    name: b3nd-httpapi-data

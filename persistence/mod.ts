@@ -63,16 +63,7 @@ export class Persistence<T> {
     const hostKey = target.host;
     const pathKey = target.pathname;
     this.storage[protocolKey][hostKey][pathKey] = record;
-    console.log(`[DEBUG WRITE] Stored at ${protocolKey}/${hostKey}${pathKey}`);
-    console.log(`[DEBUG WRITE] Storage protocols:`, Object.keys(this.storage));
-    console.log(
-      `[DEBUG WRITE] Hosts for ${protocolKey}:`,
-      Object.keys(this.storage[protocolKey] || {}),
-    );
-    console.log(
-      `[DEBUG WRITE] Paths for ${protocolKey}/${hostKey}:`,
-      Object.keys(this.storage[protocolKey]?.[hostKey] || {}),
-    );
+
     return Promise.resolve([false, record]);
   }
 

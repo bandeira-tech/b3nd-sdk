@@ -27,6 +27,7 @@ export type PersistenceConfig = z.infer<typeof PersistenceConfigSchema>;
 export async function loadServerConfig(
   configPath: string = "config/server.json",
 ): Promise<ServerConfig> {
+  console.log(Deno.cwd());
   try {
     const content = await Deno.readTextFile(configPath);
     const parsed = JSON.parse(content);

@@ -1,0 +1,13 @@
+FROM node:23-alpine
+
+WORKDIR /app/explorer
+
+# Install dependencies globally for better caching
+RUN npm install -g vite
+
+# Expose port
+EXPOSE 3000
+
+# The actual code will be mounted as volumes
+# We'll install dependencies and run dev server on startup
+CMD cd /app/explorer/app && npm install && npm run dev -- --host 0.0.0.0 --port 3000

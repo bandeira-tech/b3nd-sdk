@@ -1,7 +1,7 @@
 {
-  "default": "persistent",
+  "default": "default",
   "instances": {
-    "default": {
+    "default2": {
       "adapter": "@adapters/local-evergreen",
       "config": {
         "type": "local-evergreen",
@@ -12,7 +12,7 @@
         }
       }
     },
-    "persistent": {
+    "default": {
       "adapter": "@adapters/local-denokv",
       "config": {
         "type": "local-denokv",

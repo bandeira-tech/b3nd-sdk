@@ -16,11 +16,18 @@ b3nd/auth defines the validation functions for programs that require authenticat
 
 b3nd/explorer that uses the b3nd/httpapi in a webapp to explore the data in persistence.
 
-now granted there may be more restructuring and renaming on the books, that's what we want to find out too.
-now we still want some other components to be created, that's
+b3nd/httpapi that provides an HTTP API controller to serve custom config persistence.
+
+b3nd/e2e provides independent e2e integration test tools
 
 b3nd/encrypt that provides client functions to encrypt and decrypt payloads to be sent to storage to enable support for encrypted private data.
 
-b3nd/httpapi that provides an HTTP API controller to serve custom config persistence.
+b3nd/client-sdk that provides client libraries to connect to b3nd/persistence servers of different types to build backend and frontend applications, then the b3nd/httpapi has to be updated to use the client-sdk instead of custom adapters, so in part move the adapters to the client-sdk
+
+b3nd/wsserver that provides the module and runner of a websocket server that runs a single local b3nd/persistence instance and that can be the backend for b3nd/httpapi via b3nd/client-sdk, it should also use the b3nd/client-sdk as interface for local b3nd/persistence
+
+
+now granted there may be more restructuring and renaming on the books, that's what we want to find out too.
+now we still want some other components to be created, that's
 
 and then also the support for different backends for persistence, like redis and so on, and better support for distinct protocol features, i.e. separating concerns between program/domain and protocol.

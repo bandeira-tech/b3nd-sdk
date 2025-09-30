@@ -1,0 +1,2 @@
+- Always use latest stable version of every dependency, it's important to be fresh and easy to evolve
+- Always allow errors to bubble up and be treated by the users so they can figure out how to solve it, never suppress errors

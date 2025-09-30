@@ -14,7 +14,8 @@
     "zod": "npm:zod",
     "@std/http": "jsr:@std/http@1",
     "@std/encoding": "jsr:@std/encoding@1",
-    "@std/fs": "jsr:@std/fs@1"
+    "@std/fs": "jsr:@std/fs@1",
+    "@firecat/b3nd/client-sdk": "../client-sdk/mod.ts"
   },
   "compilerOptions": {
     "strict": true,
