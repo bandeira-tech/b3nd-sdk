@@ -8,6 +8,7 @@
     "lint": "deno lint",
     "fmt": "deno fmt"
   },
+  "unstable": ["kv"],
   "imports": {
     "hono": "npm:hono",
     "zod": "npm:zod",

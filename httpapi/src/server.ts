@@ -3,9 +3,9 @@
 /**
  * HTTP API Server
  *
- * Main entry point for the HTTP API server with persistence adapters.
- * This server provides a RESTful API for reading and writing data
- * using configurable persistence adapters.
+ * Production server entry point with enhanced logging, signal handling,
+ * and adapter lifecycle management. For simpler usage, you can also
+ * run mod.ts directly or import the app for custom setups.
  *
  * Usage:
  *   deno task start
@@ -16,6 +16,7 @@
  *   INSTANCES_CONFIG - Path to instances configuration (default: ./config/instances.json)
  *   SERVER_CONFIG - Path to server configuration (default: ./config/server.json)
  *   LOG_LEVEL - Logging level: debug, info, warn, error (default: info)
+ *   HEALTH_CHECK_INTERVAL - Health check interval in ms (default: 60000)
  */
 
 import { app } from "./mod.ts";
@@ -216,17 +217,20 @@ async function startServer(): Promise<void> {
     // Start the server
     logger.info("Server is ready to accept connections");
 
-    await Deno.serve(app.fetch, {
-      port,
-      signal,
-      onListen: ({ hostname, port }) => {
-        logger.debug(`Listening on ${hostname}:${port}`);
+    Deno.serve(
+      {
+        port,
+        signal,
+        onListen: ({ hostname, port }) => {
+          logger.debug(`Listening on ${hostname}:${port}`);
+        },
+        onError: (error) => {
+          logger.error("Server error:", error);
+          return new Response("Internal Server Error", { status: 500 });
+        },
       },
-      onError: (error) => {
-        logger.error("Server error:", error);
-        return new Response("Internal Server Error", { status: 500 });
-      },
-    });
+      app.fetch,
+    );
   } catch (error) {
     logger.error("Failed to start server:", error);
     Deno.exit(1);

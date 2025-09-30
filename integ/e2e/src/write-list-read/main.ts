@@ -26,7 +26,8 @@ async function main() {
   // Parse configuration from environment
   const config = {
     ...defaultConfig,
-    verbose: Deno.env.get("E2E_VERBOSE") === "true" || defaultConfig.verbose,
+    verbose:
+      !(Deno.env.get("E2E_VERBOSE") === "false") || defaultConfig.verbose,
   };
 
   // Test options

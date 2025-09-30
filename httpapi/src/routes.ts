@@ -178,7 +178,7 @@ api.get("/list/:protocol/:domain/:path*", async (c) => {
 // GET /api/v1/read/:instance/:protocol/:domain/:path* - Read with instance in path
 api.get("/read/:instance/:protocol/:domain/:path*", async (c) => {
   try {
-    const { instance, protocol, domain, path } = c.req.param();
+    const { instance, protocol, domain, "path*": path } = c.req.param();
 
     const record: ReadResponse | null = await getAdapter().read(
       protocol,

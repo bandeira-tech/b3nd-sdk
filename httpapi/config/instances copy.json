@@ -1,5 +1,5 @@
 {
-  "default": "persistent",
+  "default": "default",
   "instances": {
     "default": {
       "adapter": "@adapters/local-evergreen",
@@ -22,6 +22,28 @@
           "path": "./data/persistent.db",
           "persistent": true,
           "autoSaveInterval": 30000
+        }
+      }
+    },
+    "remote": {
+      "adapter": "@adapters/websocket",
+      "config": {
+        "type": "websocket",
+        "schema": "./config/schemas/default.ts",
+        "options": {
+          "url": "ws://localhost:8080/persistence",
+          "auth": {
+            "type": "bearer",
+            "token": "${PERSISTENCE_API_TOKEN}"
+          },
+          "reconnect": {
+            "enabled": true,
+            "maxAttempts": 10,
+            "interval": 5000,
+            "backoff": "exponential"
+          },
+          "timeout": 30000,
+          "compression": true
         }
       }
     }

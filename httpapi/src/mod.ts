@@ -1,77 +1,123 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { loadServerConfig, loadPersistenceConfig } from "./config.ts";
+import { loadServerConfig } from "./config.ts";
 import { api } from "./routes.ts";
+import { AdapterManager } from "./adapters/manager.ts";
 
-// Create and configure the app
-const app = new Hono();
+/**
+ * Create and configure the Hono application
+ * This function sets up all middleware, routes, and error handlers
+ */
+async function createApp() {
+  const app = new Hono();
 
-async function main() {
-  try {
-    const serverConfig = await loadServerConfig();
-    const persistenceConfig = await loadPersistenceConfig();
+  // Load server configuration
+  const serverConfig = await loadServerConfig();
+
+  // Apply CORS middleware
+  app.use("*", cors(serverConfig.cors));
+
+  // Request logging middleware (standard HTTP logs: method, URL, status, duration)
+  app.use(async (c, next) => {
+    const start = Date.now();
+    await next();
+    const duration = Date.now() - start;
     console.log(
-      `Server loaded config: instances=${Object.keys(persistenceConfig).join(", ")}`,
+      `${c.req.method} ${c.req.url} ${c.res.status} - ${duration}ms`,
     );
+  });
 
-    // Apply CORS middleware
-    app.use("*", cors(serverConfig.cors));
+  // Health endpoint - checks adapter manager status
+  app.get("/api/v1/health", async (c) => {
+    try {
+      const adapterManager = AdapterManager.getInstance();
+      const health = await adapterManager.checkHealth();
 
-    // Request logging middleware (standard HTTP logs: method, URL, status, duration)
-    app.use(async (c, next) => {
-      const start = Date.now();
-      await next();
-      const duration = Date.now() - start;
-      console.log(
-        `${c.req.method} ${c.req.url} ${c.res.status} - ${duration}ms`,
-      );
-    });
+      const instances: Record<string, any> = {};
+      for (const [id, status] of health) {
+        instances[id] = status;
+      }
 
-    // Adapters loaded lazily in routes
-
-    // Health endpoint
-    app.get("/api/v1/health", (c) =>
-      c.json({
+      return c.json({
         status: "healthy",
-        instances: Object.keys(persistenceConfig),
-      }),
-    );
-
-    // Schema endpoint (returns persistence config structure)
-    app.get("/api/v1/schema", (c) =>
-      c.json({
-        schemas: persistenceConfig,
-      }),
-    );
-
-    // Mount core API routes
-    app.route("/api/v1", api);
-
-    // Enhanced error handler: Log request context + full stack trace on errors
-    const errorHandler = (err, c) => {
-      console.log("foobar");
-      const errorMsg = (err as Error).message || "Internal server error";
-      const stackTrace = (err as Error).stack || "No stack trace available";
-      console.error(
-        `Error: ${errorMsg} (request: ${c.req.method} ${c.req.url})`,
-      );
-      console.error(stackTrace);
+        instances,
+        timestamp: Date.now(),
+      });
+    } catch (error) {
       return c.json(
         {
-          error: errorMsg,
-          code: "INTERNAL_ERROR",
+          status: "unhealthy",
+          error: error instanceof Error ? error.message : "Unknown error",
+          timestamp: Date.now(),
+        },
+        503,
+      );
+    }
+  });
+
+  // Schema endpoint - returns loaded instances
+  app.get("/api/v1/schema", async (c) => {
+    try {
+      const adapterManager = AdapterManager.getInstance();
+      const adapters = adapterManager.getAllAdapters();
+
+      const instances: string[] = [];
+      for (const [id, _] of adapters) {
+        instances.push(id);
+      }
+
+      return c.json({
+        instances,
+        default: adapterManager.getDefaultInstanceId(),
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error: error instanceof Error ? error.message : "Unknown error",
         },
         500,
       );
-    };
+    }
+  });
 
-    api.onError(errorHandler);
-    app.onError(errorHandler);
+  // Mount core API routes
+  app.route("/api/v1", api);
 
+  // Enhanced error handler: Log request context + full stack trace on errors
+  const errorHandler = (err: Error, c: any) => {
+    const errorMsg = err.message || "Internal server error";
+    const stackTrace = err.stack || "No stack trace available";
+    console.error(
+      `Error: ${errorMsg} (request: ${c.req.method} ${c.req.url})`,
+    );
+    console.error(stackTrace);
+    return c.json(
+      {
+        error: errorMsg,
+        code: "INTERNAL_ERROR",
+      },
+      500,
+    );
+  };
+
+  api.onError(errorHandler);
+  app.onError(errorHandler);
+
+  return app;
+}
+
+// Create the app instance at module level for imports
+export const app = await createApp();
+
+// If run directly, start a simple server
+if (import.meta.main) {
+  try {
+    const serverConfig = await loadServerConfig();
     const port = serverConfig.port || 8000;
-    console.log(`Server starting on http://localhost:${port}`);
 
-    // Start the server
+    console.log(`Server starting on http://localhost:${port}`);
+    console.log(`Health check: http://localhost:${port}/api/v1/health`);
+
     await Deno.serve({ port }, app.fetch);
   } catch (error) {
     const errorMsg = (error as Error).message || "Failed to start server";
@@ -81,9 +127,3 @@ async function main() {
     Deno.exit(1);
   }
 }
-
-if (import.meta.main) {
-  await main();
-}
-
-export { app };

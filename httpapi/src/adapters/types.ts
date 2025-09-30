@@ -89,9 +89,9 @@ export interface AdapterConfig {
   type: string;
 
   /**
-   * Path to schema module or inline schema
+   * Path to schema TypeScript module that exports a map of URL patterns to validation functions
    */
-  schema?: string | Record<string, boolean | PersistenceValidationFn<unknown>>;
+  schema?: string;
 
   /**
    * Adapter-specific options
@@ -279,33 +279,29 @@ export abstract class BaseAdapter implements PersistenceAdapter {
   protected abstract doInitialize(): Promise<void>;
 
   protected async loadSchema(
-    schemaConfig:
-      | string
-      | Record<string, boolean | PersistenceValidationFn<unknown>>,
+    schemaPath: string,
   ): Promise<Record<string, PersistenceValidationFn<unknown>>> {
-    console.log({ schemaConfig });
-    if (typeof schemaConfig === "string") {
-      // Load from module
-      const schemaUrl = new URL(schemaConfig, `file://${Deno.cwd()}/`).href;
-      console.log({ schemaUrl });
-      const schemaModule = await import(schemaUrl);
-      return schemaModule.default || schemaModule.schema;
-    } else {
-      // Convert inline schema
-      const schema: Record<string, PersistenceValidationFn<unknown>> = {};
-      for (const [key, value] of Object.entries(schemaConfig)) {
-        if (typeof value === "boolean") {
-          schema[key] = value
-            ? async () => true // Allow all
-            : async () => false; // Deny all
-        } else if (typeof value === "function") {
-          schema[key] = value as PersistenceValidationFn<unknown>;
-        } else {
-          throw new Error(`Invalid schema value for key '${key}'`);
-        }
-      }
-      return schema;
+    console.log({ schemaPath });
+
+    // Load TypeScript module with validation functions
+    const schemaUrl = new URL(schemaPath, `file://${Deno.cwd()}/`).href;
+    console.log({ schemaUrl });
+
+    const schemaModule = await import(schemaUrl);
+    const schema = schemaModule.default || schemaModule.schema;
+
+    if (!schema || typeof schema !== "object") {
+      throw new Error(`Schema module at '${schemaPath}' must export a default object mapping URL patterns to validation functions`);
     }
+
+    // Validate that all values are functions
+    for (const [key, value] of Object.entries(schema)) {
+      if (typeof value !== "function") {
+        throw new Error(`Schema key '${key}' must map to a validation function, got ${typeof value}`);
+      }
+    }
+
+    return schema as Record<string, PersistenceValidationFn<unknown>>;
   }
 
   protected buildUri(protocol: string, domain: string, path: string): string {

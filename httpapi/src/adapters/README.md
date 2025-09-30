@@ -33,7 +33,7 @@ Storage Backend (memory, Deno KV, remote server, etc.)
   "adapter": "@adapters/local-evergreen",
   "config": {
     "type": "local-evergreen",
-    "schema": "./config/schemas/default.json",
+    "schema": "./config/schemas/default.ts",
     "options": {
       "type": "memory",
       "maxSize": 104857600  // Optional: max storage in bytes
@@ -57,7 +57,7 @@ Storage Backend (memory, Deno KV, remote server, etc.)
   "adapter": "@adapters/local-denokv",
   "config": {
     "type": "local-denokv",
-    "schema": "./config/schemas/default.json",
+    "schema": "./config/schemas/default.ts",
     "options": {
       "type": "denokv",
       "path": "./data/persistent.db",
@@ -83,7 +83,7 @@ Storage Backend (memory, Deno KV, remote server, etc.)
   "adapter": "@adapters/websocket",
   "config": {
     "type": "websocket",
-    "schema": "./config/schemas/default.json",
+    "schema": "./config/schemas/default.ts",
     "options": {
       "url": "ws://persistence-server:8080/ws",
       "auth": {
@@ -131,35 +131,46 @@ The main configuration file (`config/instances.json`) defines all available inst
 
 ### Schema Configuration
 
-Schemas define validation rules for data writes. They can be:
+Schemas define validation rules for data writes using TypeScript validation functions.
 
-#### JSON Schema (Simple Boolean Rules)
-```json
-{
-  "public": true,     // Allow all writes
-  "private": false,   // Deny all writes
-  "user": true,
-  "admin": false
-}
-```
+#### TypeScript Schema Module
+The schema must be a TypeScript file that exports a default object mapping URL patterns to validation functions:
 
-#### TypeScript Schema (Advanced Validation)
 ```typescript
 import type { PersistenceValidationFn } from "../../persistence/mod.ts";
 
+/**
+ * Validate user data
+ */
 export const user: PersistenceValidationFn<unknown> = async (write) => {
   const value = write.value as any;
-  
+
   // Validate user object
   if (!value.id || typeof value.id !== 'string') {
     return false;
   }
-  
+
   // Check permissions, data format, etc.
   return true;
 };
 
-export default { user };
+/**
+ * Always allow test data
+ */
+export const test: PersistenceValidationFn<unknown> = async (write) => {
+  return true;
+};
+
+/**
+ * Default export: map URL patterns to validation functions
+ */
+export default {
+  user,
+  test,
+  // Map multiple patterns to the same validator
+  'test://': test,
+  'user://': user,
+};
 ```
 
 ## Creating Custom Adapters
@@ -263,8 +274,8 @@ Response:
    - Caching: `local-evergreen` with TTL logic
 
 2. **Configure schemas properly**:
-   - Use TypeScript schemas for complex validation
-   - Keep JSON schemas for simple allow/deny rules
+   - Always use TypeScript modules for validation
+   - Export a default object mapping URL patterns to validation functions
 
 3. **Monitor health endpoints**:
    - Set up monitoring for `/api/v1/health`
@@ -292,14 +303,14 @@ Response:
       "adapter": "@adapters/local-evergreen",
       "config": {
         "type": "local-evergreen",
-        "schema": "./config/schemas/default.json"
+        "schema": "./config/schemas/default.ts"
       }
     }
   }
 }
 ```
 
-2. Move schema to `config/schemas/default.json`
+2. Create TypeScript schema module at `config/schemas/default.ts`
 
 3. Update server startup to use `src/server.ts`
 
@@ -312,8 +323,9 @@ Response:
 - Verify instance name in API calls matches configuration
 
 ### Schema validation failures
-- Check schema file path is correct
-- For TypeScript schemas, ensure proper export format
+- Check schema file path is correct and points to a TypeScript module
+- Ensure the module exports a default object with validation functions
+- Verify all exported values are functions (not booleans or other types)
 - Enable debug logging: `LOG_LEVEL=debug deno task start`
 
 ### WebSocket connection issues

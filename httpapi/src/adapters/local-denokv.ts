@@ -1,3 +1,4 @@
+/// <reference lib="deno.unstable" />
 /**
  * Local Deno KV Adapter
  *
@@ -6,14 +7,18 @@
  * Deno KV database and can be configured with auto-save intervals.
  */
 
-import { Persistence, type PersistenceRecord, type PersistenceWrite } from "../../../persistence/mod.ts";
+import {
+  Persistence,
+  type PersistenceRecord,
+  type PersistenceWrite,
+} from "../../../persistence/mod.ts";
 import {
   BaseAdapter,
   type AdapterConfig,
   type ListOptions,
   type ListResult,
   type LocalStorageOptions,
-  AdapterError
+  AdapterError,
 } from "./types.ts";
 
 export class LocalDenoKvAdapter extends BaseAdapter {
@@ -28,6 +33,20 @@ export class LocalDenoKvAdapter extends BaseAdapter {
 
     // Open Deno KV database
     this.kvPath = options?.path || `./${this.config.id}.db`;
+
+    // Ensure parent directory exists
+    const dir = this.kvPath.substring(0, this.kvPath.lastIndexOf('/'));
+    if (dir) {
+      try {
+        await Deno.mkdir(dir, { recursive: true });
+      } catch (error) {
+        // Ignore if directory already exists
+        if (!(error instanceof Deno.errors.AlreadyExists)) {
+          throw error;
+        }
+      }
+    }
+
     this.kv = await Deno.openKv(this.kvPath);
 
     // Initialize persistence with schema
@@ -43,7 +62,9 @@ export class LocalDenoKvAdapter extends BaseAdapter {
       this.setupAutoSave(options.autoSaveInterval);
     }
 
-    console.log(`[LocalDenoKvAdapter] Initialized instance '${this.config.id}' with Deno KV at ${this.kvPath}`);
+    console.log(
+      `[LocalDenoKvAdapter] Initialized instance '${this.config.id}' with Deno KV at ${this.kvPath}`,
+    );
   }
 
   private async loadFromKv(): Promise<void> {
@@ -86,7 +107,9 @@ export class LocalDenoKvAdapter extends BaseAdapter {
       }
     }, interval);
 
-    console.log(`[LocalDenoKvAdapter] Auto-save enabled with interval: ${interval}ms`);
+    console.log(
+      `[LocalDenoKvAdapter] Auto-save enabled with interval: ${interval}ms`,
+    );
   }
 
   private async saveToKv(): Promise<void> {
@@ -104,8 +127,12 @@ export class LocalDenoKvAdapter extends BaseAdapter {
 
       // Save all current data
       for (const [protocol, domains] of Object.entries(storage)) {
-        for (const [domain, paths] of Object.entries(domains as Record<string, unknown>)) {
-          for (const [pathname, record] of Object.entries(paths as Record<string, unknown>)) {
+        for (const [domain, paths] of Object.entries(
+          domains as Record<string, unknown>,
+        )) {
+          for (const [pathname, record] of Object.entries(
+            paths as Record<string, unknown>,
+          )) {
             const key = ["data", protocol, domain, pathname, "record"];
             atomic.set(key, record);
           }
@@ -262,7 +289,7 @@ export class LocalDenoKvAdapter extends BaseAdapter {
       let filteredItems = items;
       if (options.pattern) {
         const pattern = new RegExp(options.pattern.replace(/\*/g, ".*"));
-        filteredItems = items.filter(item => pattern.test(item.name));
+        filteredItems = items.filter((item) => pattern.test(item.name));
       }
 
       // Sort items
@@ -349,7 +376,9 @@ export class LocalDenoKvAdapter extends BaseAdapter {
   }
 
   async cleanup(): Promise<void> {
-    console.log(`[LocalDenoKvAdapter] Cleaning up instance '${this.config.id}'`);
+    console.log(
+      `[LocalDenoKvAdapter] Cleaning up instance '${this.config.id}'`,
+    );
 
     // Stop auto-save timer
     if (this.autoSaveTimer) {
@@ -403,7 +432,7 @@ export class LocalDenoKvAdapter extends BaseAdapter {
  * Factory function for creating LocalDenoKvAdapter instances
  */
 export async function createLocalDenoKvAdapter(
-  config: AdapterConfig
+  config: AdapterConfig,
 ): Promise<LocalDenoKvAdapter> {
   const adapter = new LocalDenoKvAdapter();
   await adapter.initialize(config);

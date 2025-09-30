@@ -126,14 +126,14 @@ export class WriteListReadTest {
     assertExists(listResult.records, "List should return records");
 
     // Check if our records are in the list
-    const ourRecords = listResult.records.filter(r =>
-      r.uri.includes(`list-test/${testId}`)
+    const ourRecords = listResult.records.filter((r) =>
+      r.uri.includes(`list-test/${testId}`),
     );
 
     assertEqual(
       ourRecords.length,
       records.length,
-      `Should find all ${records.length} test records`
+      `Should find all ${records.length} test records`,
     );
 
     // Test list with pattern
@@ -141,13 +141,13 @@ export class WriteListReadTest {
     assert(patternResult.success, "List with pattern should succeed");
     assertExists(patternResult.records, "Pattern list should return records");
 
-    const patternRecords = patternResult.records.filter(r =>
-      r.uri.includes(testId)
+    const patternRecords = patternResult.records.filter((r) =>
+      r.uri.includes(testId),
     );
 
     assert(
       patternRecords.length >= records.length,
-      "Pattern should match our test records"
+      "Pattern should match our test records",
     );
   }
 
@@ -177,7 +177,11 @@ export class WriteListReadTest {
 
     assert(readResult.success, "Read operation should succeed");
     assertExists(readResult.record, "Read should return a record");
-    assertEqual(readResult.record.data, data, "Read data should match written data");
+    assertEqual(
+      readResult.record.data,
+      data,
+      "Read data should match written data",
+    );
     assert(readResult.record.ts > 0, "Record should have a valid timestamp");
   }
 
@@ -202,12 +206,15 @@ export class WriteListReadTest {
     // Create authenticated message signed by alice and bob
     const authMessage = await this.cryptoManager.createAuthenticatedMessage(
       ["alice", "bob"],
-      payload
+      payload,
     );
 
     // Write authenticated message
     const writeResult = await this.apiClient.write(uri, authMessage);
-    assert(writeResult.success, "Write of authenticated message should succeed");
+    assert(
+      writeResult.success,
+      "Write of authenticated message should succeed",
+    );
     this.createdUris.add(uri);
 
     // Read back and verify
@@ -225,9 +232,12 @@ export class WriteListReadTest {
       const verified = await this.cryptoManager.verify(
         authEntry.pubkey,
         authEntry.signature,
-        readData.payload
+        readData.payload,
       );
-      assert(verified, `Signature from ${authEntry.pubkey.substring(0, 8)}... should be valid`);
+      assert(
+        verified,
+        `Signature from ${authEntry.pubkey.substring(0, 8)}... should be valid`,
+      );
     }
   }
 
@@ -257,7 +267,7 @@ export class WriteListReadTest {
     // Encrypt data for bob
     const encrypted = await this.cryptoManager.encrypt(
       sensitiveData,
-      bob.encryptionKeys.publicKeyHex
+      bob.encryptionKeys.publicKeyHex,
     );
 
     // Write encrypted data
@@ -273,10 +283,14 @@ export class WriteListReadTest {
     // Decrypt with bob's private key
     const decrypted = await this.cryptoManager.decrypt(
       readResult.record.data as any,
-      bob.encryptionKeys.privateKey
+      bob.encryptionKeys.privateKey,
     );
 
-    assertEqual(decrypted, sensitiveData, "Decrypted data should match original");
+    assertEqual(
+      decrypted,
+      sensitiveData,
+      "Decrypted data should match original",
+    );
   }
 
   /**
@@ -303,36 +317,47 @@ export class WriteListReadTest {
     assertExists(bob?.encryptionKeys, "Bob should have encryption keys");
 
     // Create signed and encrypted message (alice signs, bob receives)
-    const signedEncrypted = await this.cryptoManager.createSignedEncryptedMessage(
-      sensitiveData,
-      ["alice"],
-      bob.encryptionKeys.publicKeyHex
-    );
+    const signedEncrypted =
+      await this.cryptoManager.createSignedEncryptedMessage(
+        sensitiveData,
+        ["alice"],
+        bob.encryptionKeys.publicKeyHex,
+      );
 
     // Write message
     const writeResult = await this.apiClient.write(uri, signedEncrypted);
-    assert(writeResult.success, "Write of signed encrypted message should succeed");
+    assert(
+      writeResult.success,
+      "Write of signed encrypted message should succeed",
+    );
     this.createdUris.add(uri);
 
     // Read back
     const readResult = await this.apiClient.read(uri);
-    assert(readResult.success, "Read of signed encrypted message should succeed");
+    assert(
+      readResult.success,
+      "Read of signed encrypted message should succeed",
+    );
     assertExists(readResult.record, "Should return a record");
 
     // Verify and decrypt
     const result = await this.cryptoManager.verifyAndDecrypt(
       readResult.record.data as SignedEncryptedMessage,
-      bob.encryptionKeys.privateKey
+      bob.encryptionKeys.privateKey,
     );
 
     assert(result.verified, "Signature should be verified");
-    assertEqual(result.data, sensitiveData, "Decrypted data should match original");
+    assertEqual(
+      result.data,
+      sensitiveData,
+      "Decrypted data should match original",
+    );
     assert(result.signers.length === 1, "Should have one signer");
 
     const alice = this.userSimulator.getUser("alice");
     assert(
       result.signers[0] === alice?.signingKeys.publicKeyHex,
-      "Signer should be alice"
+      "Signer should be alice",
     );
   }
 
@@ -340,7 +365,7 @@ export class WriteListReadTest {
    * Test with fixtures
    */
   async testWithFixtures(): Promise<void> {
-    const fixtures = this.options.fixtures || await loadFixtures("fixtures");
+    const fixtures = this.options.fixtures || (await loadFixtures("fixtures"));
 
     if (fixtures.length === 0) {
       console.log("  ⚠️  No fixtures found, skipping fixture tests");
@@ -355,7 +380,10 @@ export class WriteListReadTest {
 
       // Write fixture data
       const writeResult = await this.apiClient.write(uri, fixture.data);
-      assert(writeResult.success, `Write fixture ${fixture.name} should succeed`);
+      assert(
+        writeResult.success,
+        `Write fixture ${fixture.name} should succeed`,
+      );
       this.createdUris.add(uri);
 
       // Read back and verify
@@ -365,7 +393,7 @@ export class WriteListReadTest {
       assertEqual(
         JSON.stringify(readResult.record.data),
         JSON.stringify(fixture.data),
-        `Fixture ${fixture.name} data should match`
+        `Fixture ${fixture.name} data should match`,
       );
     }
   }
@@ -403,7 +431,7 @@ export class WriteListReadTest {
       });
     }
 
-    const fixtures = this.options.fixtures || await loadFixtures("fixtures");
+    const fixtures = this.options.fixtures || (await loadFixtures("fixtures"));
     if (fixtures.length > 0) {
       tests.push({
         name: `Fixtures (${fixtures.length} files)`,
@@ -418,7 +446,7 @@ export class WriteListReadTest {
 
 // Export convenience function
 export async function runWriteListReadTests(
-  options: WriteListReadTestOptions = {}
+  options: WriteListReadTestOptions = {},
 ): Promise<void> {
   const test = new WriteListReadTest(options);
   await test.runAll();

@@ -152,6 +152,11 @@ export class AdapterManager {
         `[AdapterManager] Failed to load instance '${instanceId}':`,
         error,
       );
+      // Preserve the original error with its stack trace
+      if (error instanceof Error) {
+        error.message = `Failed to load instance '${instanceId}': ${error.message}`;
+        throw error;
+      }
       throw new Error(`Failed to load instance '${instanceId}': ${error}`);
     }
   }
