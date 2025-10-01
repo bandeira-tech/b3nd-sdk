@@ -141,7 +141,7 @@ api.get("/read/:instance/:protocol/:domain/:path*", async (c) => {
     const { instance, protocol, domain, "path*": path } = c.req.param();
 
     const client = getClientManager().getClient(instance);
-    const normalizedPath = path.startsWith("/") ? path : "/" + path;
+    const normalizedPath = !path || path === "" ? "" : (path.startsWith("/") ? path : "/" + path);
     const uri = `${protocol}://${domain}${normalizedPath}`;
     const result = await client.read(uri);
 

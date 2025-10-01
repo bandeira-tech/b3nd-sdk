@@ -13,9 +13,9 @@ export class HttpAdapter implements BackendAdapter {
   type = "http" as const;
   baseUrl: string;
   private client: any; // B3ndClient type
-  private instanceId: string;
 
   constructor(baseUrl: string = "http://localhost:8000", instanceId: string = "default") {
+    console.log('constructor')
     this.baseUrl = baseUrl;
     this.instanceId = instanceId;
     this.client = createHttpClient(baseUrl, { instanceId });
@@ -25,6 +25,7 @@ export class HttpAdapter implements BackendAdapter {
     path: string,
     options?: { page?: number; limit?: number }
   ): Promise<PaginatedResponse<NavigationNode>> {
+    console.log('listpath')
     try {
       // Root path should be handled by schema-driven navigation
       if (path === "/" || path === "") {
@@ -35,21 +36,18 @@ export class HttpAdapter implements BackendAdapter {
       const uri = this.pathToUri(path);
 
       // Use client-sdk to list
-      const result = await this.client.list(uri, options);
+      console.log(uri.replace(/\/$/,''))
+      const result = await this.client.list(uri.replace(/\/$/,''), options);
 
       // Transform API response to Explorer format
-      // API returns array of path strings like ["/test-123", "/test-456"]
+      // API returns array of objects with uri, name, type, etc.
       return {
-        data: result.data.map((pathString: string) => {
-          // Convert path string to full URI for consistency
-          const { protocol, domain } = new URL(uri);
-          const fullUri = `${protocol}//${domain}${pathString}`;
-          const itemPath = this.uriToPath(fullUri);
-          const name = pathString.split("/").filter(Boolean).pop() || pathString;
+        data: result.data.map((item: any) => {
+          const itemPath = this.uriToPath(item.uri);
           return {
             path: itemPath,
-            name,
-            type: "file" as const, // Default to file, could be enhanced later
+            name: item.name,
+            type: item.type as "file" | "directory",
             children: undefined, // Lazy load
           };
         }),

@@ -147,7 +147,7 @@ export class HttpClient {
 
       const queryString = params.toString();
       const instance = this.instanceId || "default";
-      const requestPath = `/api/v1/list/${instance}/${protocol}/${domain}${path}${
+      const requestPath = `/api/v1/list/${instance}/${protocol}/${domain}${path.replace(/\/$/,'')}${
         queryString ? `?${queryString}` : ""
       }`;
 
