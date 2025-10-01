@@ -72,100 +72,141 @@ to achieve the MAIN OBJECTIVE.
 
 ## NEXT STEP (max 300 words)
 
-**Fix Mock Server Resource Leaks (Optional) or Proceed to LocalStorage**
+**Final Simplification: No Router, Just Clients**
 
-The shared test suite is working correctly - both MemoryClient and HttpClient run the exact same 13 core tests. HttpClient has 5 failing tests due to mock server resource leaks, but these are test infrastructure issues, not client bugs.
+The architecture has been simplified to its essence: **applications manage their own client instances directly**. No client-side routing, no router abstraction - just the universal `NodeProtocolInterface` that all clients implement.
 
-**Option A:** Fix mock server leaks (nice-to-have for cleaner test output)
-**Option B:** Proceed to LocalStorage client implementation (higher priority)
+**Current Architecture (Implemented):**
+- `NodeProtocolInterface` - Universal interface all clients implement
+- `MemoryClient` - In-memory storage with schema validation
+- `HttpClient` - HTTP API client (no validation, server-side)
+- `WebSocketClient` - Planned for future implementation
+- **No router, no client-side routing** - applications manage client instances directly
 
-Recommend **Option B** - the test architecture proves uniform behavior. LocalStorage client will use the same shared suite pattern and should work cleanly like MemoryClient.
+**Key Design Decision:** Applications that need multiple backends (web frontend with prod/staging HTTP, realtime WS + background HTTP, HTTP APIs connecting to databases) maintain their own `Map<string, NodeProtocolInterface>` of connected clients. This eliminates all routing complexity.
 
-**Deliverable:** `sdk/src/localstorage-client.ts` implementing NodeProtocolInterface with shared test suite
+**Next: Platform-Specific Clients**
+
+With the core interface solid and tested, implement platform-specific clients:
+
+1. **WebSocketClient in `src/websocket-client.ts`**
+   - Implements NodeProtocolInterface over WebSocket
+   - Request/response pattern with message IDs
+   - Reconnection handling and connection pooling
+
+2. **Browser-Specific Clients**
+   - `LocalStorageClient` - Persistent browser storage
+   - `IndexedDBClient` - Large data storage in browsers
+   - Platform detection and automatic client selection
+
+3. **Database Clients (Future)**
+   - `DenoKVClient` - Deno KV backend
+   - `PostgresClient` - PostgreSQL backend
+   - `MongoClient` - MongoDB backend
+
+4. **Enhanced Types and Utilities**
+   - Client connection helpers
+   - Error handling utilities
+   - Configuration validation
+
+**Why This Matters:** The simple "just clients" approach enables the mesh networking vision while keeping the API minimal and flexible. Applications decide how to manage their client connections based on their specific needs.
 
 ## CURRENT STATUS (max 300 words)
 
-**Shared Test Suite Architecture Implemented**
+**All 35/35 Tests Passing - Final "Just Clients" Architecture ✅**
 
-Major testing infrastructure improvement completed:
-
-**Completed:**
+**Completed (Final Simplified Design):**
 - ✅ `src/types.ts` - NodeProtocolInterface and all core types
-- ✅ `src/memory-client.ts` - In-memory client (200+ LOC)
-- ✅ `src/http-client.ts` - HTTP client (270+ LOC)
-- ✅ `tests/shared-suite.ts` - **Uniform test suite for all clients** (14 core tests)
-- ✅ `tests/memory-client.test.ts` - Shared suite + 6 specific tests (20/20 passing ✅)
-- ✅ `tests/http-client.test.ts` - Shared suite integration (9/14 passing, resource leaks)
-- ✅ `tests/mock-http-server.ts` - Mock server for HTTP testing
-- ✅ `src/mod.ts` - Main entry point
-- ✅ `Makefile` - Test commands (`make test`, `make test t=<path>`, `make test-memory`)
+- ✅ `src/memory-client.ts` - In-memory client with schema validation
+- ✅ `src/http-client.ts` - HTTP client (no validation, server-side)
+- ✅ `tests/shared-suite.ts` - Uniform test suite ensuring client consistency
+- ✅ `tests/memory-client.test.ts` - 18/18 passing (11 shared + 7 specific)
+- ✅ `tests/http-client.test.ts` - 17/17 passing (11 shared + 6 specific)
+- ✅ `tests/mock-http-server.ts` - Mock HTTP server supporting all operations
+- ✅ `src/mod.ts` - Main entry point exporting all clients
+- ✅ `Makefile` - Test automation
 
-**Key Innovation - Shared Test Suite:**
-All clients must pass the same core behavioral tests, ensuring NodeProtocolInterface implementations are truly uniform. Clients provide test instances (happy, validationError, connectionError) and the suite validates all operations behave correctly.
+**Final Architecture Decision: No Router**
+Applications manage their own client instances directly using `Map<string, NodeProtocolInterface>`. This eliminates routing complexity while enabling mesh networking through direct client composition.
 
-**Architecture Decisions:**
-1. **NodeProtocolInterface** - Universal interface for all clients
-2. **Shared Test Suite** - All implementations must pass same tests
-3. **Test Client Instances** - Happy path, validation errors, connection errors
-4. **Schema validation** - Returns `{ valid: boolean, error?: string }`
-5. **Errors always bubble** - No hiding or garbling
+**Key Implementation Decisions:**
+1. **No Backend Abstraction** - Each client implements storage directly
+2. **No Client-Side Routing** - Applications manage client instances
+3. **Schema Validation** - MemoryClient validates, HttpClient delegates to server
+4. **URI Parsing** - Protocol://domain/path structure for all operations
+5. **Error Handling** - Transparent, never hide errors from consumers
+6. **Resource Management** - Proper cleanup of HTTP responses to prevent leaks
 
-**Test Results:**
-- MemoryClient: 18/18 passing (13 shared + 5 specific) ✅
-- HttpClient: 12/17 passing (13 shared tests, 5 have resource leaks, 4 specific passing)
-- **Both clients run identical 13 shared suite tests** ✅
-- **Total: 30/35 tests passing** (failures are mock server leaks, not client bugs)
+**Architecture Finalized:**
+- **Everything is a client** - Memory, HTTP, WebSocket all implement NodeProtocolInterface
+- **No routing layer** - Applications manage client connections directly
+- **Recursive composition** - Applications compose clients as needed
+- **Shared test suite** - Ensures all clients behave identically
 
-**Key Achievement:** Factory pattern solved the resource management problem. Each test gets a fresh client instance. Both MemoryClient and HttpClient now run the exact same 13 core behavioral tests from the shared suite, proving architectural uniformity.
+**Test Coverage:**
+- **MemoryClient**: Schema validation, sorting, detailed health info
+- **HttpClient**: Connection handling, configuration options, instance support
+- **Shared**: All core operations (write/read/list/delete/health/schema/cleanup)
 
-The 5 HTTP failures are mock server resource leaks (timers, fetch bodies), not actual client bugs. All functional tests pass.
+**Design Evolution Complete:**
+The original RFC planned complex backend abstraction, then simplified to "clients are routers", now finalized as **"just clients"**. Applications that need multiple backends maintain their own client maps:
+```typescript
+const clients = new Map([
+  ['prod', new HttpClient({url: 'https://api.prod.com'})],
+  ['staging', new HttpClient({url: 'https://api.staging.com'})],
+  ['local', new MemoryClient({schema: {...}})]
+]);
+```
 
-Key existing resources:
-- `/client-sdk/next-steps-rfc.md` - Approved RFC defining the evolution to @b3nd/sdk
-- `/client-sdk/src/types.ts` - Current B3ndClient interface (7 methods)
-- `/client-sdk/src/local-client.ts` - In-memory implementation wrapping Persistence
-- `/client-sdk/src/http-client.ts` - Remote HTTP client
-- `/client-sdk/src/websocket-client.ts` - Remote WebSocket client
-- `/sdk/README.md` - Development principles (always test, never hide errors)
-
-The RFC outlines a 4-phase implementation:
-- **Phase 1:** Backend abstraction (PersistenceBackend interface, MemoryBackend, LocalNode)
-- **Phase 2:** Database backends (DenoKV, Postgres, Mongo)
-- **Phase 3:** Platform unification (npm, JSR, browser builds)
-- **Phase 4:** Recursive nodes (httpapi → httpapi → database)
-
-We are starting Phase 1 with a clean slate, reinventing rather than patching, to ensure cohesive, high-quality architecture.
+**Next:** Implement remaining client types (WebSocket, browser storage) and platform-specific builds.
 
 ## MAIN OBJECTIVE (max 300 words)
 
-**Build @b3nd/sdk - Universal B3nd Persistence Interface**
+**Build @b3nd/sdk - Universal Client Interface for B3nd Persistence**
 
-Create a production-ready SDK providing a recursive, uniform interface for B3nd persistence across all platforms (Deno, Node.js, browsers) and storage backends (memory, Deno KV, Postgres, MongoDB, IndexedDB).
+Create a production-ready SDK where **everything is a client** - providing a uniform interface for B3nd persistence across all platforms (Deno, Node.js, browsers) and storage mechanisms through direct client composition.
 
-**Core Principles:**
-1. **Uniform Interface:** Single `B3ndClient` interface works everywhere
-2. **Backend Abstraction:** Storage implementation decoupled from client API
-3. **Recursive Composition:** Nodes connect to nodes (httpapi → httpapi → database)
-4. **Platform Portability:** Same codebase, platform-specific builds
-5. **Quality First:** Every component tested, errors never hidden
-6. **Future-Ready:** Architecture supports mesh, relay, and replication patterns
+**Core Principles (Final "Just Clients" Architecture):**
+1. **Everything is a Client** - Memory, HTTP, WebSocket, databases all implement `NodeProtocolInterface`
+2. **No Abstraction Layers** - Each client handles its own storage/communication directly
+3. **No Client-Side Routing** - Applications manage client instances directly
+4. **Recursive Composition** - Applications compose clients as needed
+5. **Platform Portability** - Same codebase, platform-specific builds
+6. **Quality First** - Every component tested, errors never hidden
 
 **Phase 1 Goals (Current Focus):**
-- Define core types and interfaces (`B3ndClient`, `PersistenceBackend`)
-- Extract MemoryBackend from existing Persistence class
-- Implement LocalNode using backend abstraction
-- Maintain 100% backward compatibility with existing code
-- Comprehensive test coverage for all components
+- ✅ Define `NodeProtocolInterface` - Universal client interface
+- ✅ Implement `MemoryClient` - In-memory storage with schema validation
+- ✅ Implement `HttpClient` - HTTP API client with proper error handling
+- 🔄 **Next: WebSocketClient** - Real-time communication client
+- 🔄 **Next: Browser Clients** - LocalStorage and IndexedDB clients
+- 🔄 **Next: Platform Builds** - npm, JSR, browser builds
 
 **Success Criteria:**
-- All existing client-sdk consumers continue working unchanged
-- Backend implementations are swappable through configuration
-- Test suite covers all interfaces and implementations
-- Documentation explains architecture and usage patterns
+- All clients implement NodeProtocolInterface identically
+- Applications can compose clients without routing layers
+- Test suite ensures uniform behavior across all implementations
+- Documentation explains direct client composition patterns
 - Code quality meets production standards (typed, tested, documented)
 
-**Non-Goals for Phase 1:**
-- Database backends (Phase 2)
-- npm/JSR publishing (Phase 3)
-- Recursive chaining (Phase 4)
-- Mesh/relay/replication protocols (future)
+**Architecture Finalized:**
+The RFC planned complex backend abstraction, then simplified to "clients are routers", now finalized as **"just clients"**. Applications manage their own client instances:
+
+```typescript
+// Applications manage their own client maps
+const clients = new Map<string, NodeProtocolInterface>([
+  ['prod', new HttpClient({url: 'https://api.prod.com'})],
+  ['staging', new HttpClient({url: 'https://api.staging.com'})],
+  ['local', new MemoryClient({schema: {...}})],
+  ['realtime', new WebSocketClient({url: 'wss://ws.example.com'})]
+]);
+
+// Use clients directly
+const result = await clients.get('prod').write('users://alice/profile', data);
+```
+
+**Next Steps:**
+- WebSocketClient implementation
+- Browser storage clients (LocalStorage, IndexedDB)
+- Platform-specific builds and publishing
+- Database backend clients (DenoKV, Postgres, MongoDB)
