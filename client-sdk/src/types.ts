@@ -137,6 +137,11 @@ export interface B3ndClient {
   }>;
 
   /**
+   * Get schema information for this client instance
+   */
+  getSchema(): Promise<string[]>;
+
+  /**
    * Cleanup/disconnect
    */
   cleanup(): Promise<void>;

@@ -1,9 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-
-import { getAdapter } from "./adapter.ts";
-import type { PersistenceAdapter } from "./adapter.ts";
-import { AdapterManager } from "./adapters/manager.ts";
+import { getClientManager } from "./clients.ts";
 import type {
   DeleteResponse,
   ListResponse,
@@ -15,7 +12,6 @@ import type {
 const api = new Hono();
 
 // Shared schemas
-const InstanceSchema = z.string().min(1).optional();
 const PathSchema = z.string().min(1);
 const PaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -26,36 +22,18 @@ const WriteBodySchema = z.object({
   value: z.unknown(),
 });
 
-// Helper function to handle adapter errors
-function handleAdapterError(error: unknown, context: string): Response {
+// Helper function to handle client errors
+function handleClientError(error: unknown, context: string): Response {
   console.error(`[Routes] ${context} error:`, error);
 
   if (error instanceof Error) {
-    if (error.message.includes("not found in config")) {
+    if (error.message.includes("not found")) {
       return new Response(
         JSON.stringify({
           error: "Instance not found",
           message: error.message,
         }),
         { status: 404, headers: { "Content-Type": "application/json" } },
-      );
-    }
-    if (error.message.includes("not initialized")) {
-      return new Response(
-        JSON.stringify({
-          error: "Service unavailable",
-          message: "Persistence adapter not initialized",
-        }),
-        { status: 503, headers: { "Content-Type": "application/json" } },
-      );
-    }
-    if (error.message.includes("Schema load failed")) {
-      return new Response(
-        JSON.stringify({
-          error: "Configuration error",
-          message: error.message,
-        }),
-        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
   }
@@ -72,30 +50,34 @@ function handleAdapterError(error: unknown, context: string): Response {
 // GET /api/v1/health - Health check endpoint
 api.get("/health", async (c) => {
   try {
-    const adapter = getAdapter() as any;
-    if (adapter.health) {
-      const health = await adapter.health();
-      const healthArray = Array.from(health.entries());
-      const allHealthy = healthArray.every(
-        ([_, status]) => status.status === "healthy",
-      );
+    const manager = getClientManager();
+    const instanceNames = manager.getInstanceNames();
+    const healthChecks: Record<string, any> = {};
 
-      return c.json(
-        {
-          status: allHealthy ? "healthy" : "degraded",
-          instances: Object.fromEntries(health),
-          timestamp: Date.now(),
-        },
-        allHealthy ? 200 : 503,
-      );
+    for (const name of instanceNames) {
+      try {
+        const client = manager.getClient(name);
+        const health = await client.health();
+        healthChecks[name] = health;
+      } catch (error) {
+        healthChecks[name] = {
+          status: "unhealthy",
+          message: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
     }
+
+    const allHealthy = Object.values(healthChecks).every(
+      (h: any) => h.status === "healthy",
+    );
 
     return c.json(
       {
-        status: "unknown",
-        message: "Health check not available",
+        status: allHealthy ? "healthy" : "degraded",
+        instances: healthChecks,
+        timestamp: Date.now(),
       },
-      200,
+      allHealthy ? 200 : 503,
     );
   } catch (error) {
     return c.json(
@@ -109,27 +91,28 @@ api.get("/health", async (c) => {
   }
 });
 
-// GET /api/v1/list/:instance/:protocol/:domain - List contents at root path
-api.get("/list/:instance/:protocol/:domain/", async (c) => {
+// Helper for list logic
+async function handleList(c: any, instance: string, protocol: string, domain: string, path: string) {
+  const pagination = PaginationSchema.parse({
+    page: c.req.query("page"),
+    limit: c.req.query("limit"),
+  });
+
+  const client = getClientManager().getClient(instance);
+  const normalizedPath = !path || path === "" ? "/" : (path.startsWith("/") ? path : "/" + path);
+  const uri = `${protocol}://${domain}${normalizedPath}`;
+  const result = await client.list(uri, pagination);
+
+  return c.json(result, 200);
+}
+
+// GET /api/v1/list/:instance/:protocol/:domain - List contents at domain root
+api.get("/list/:instance/:protocol/:domain", async (c) => {
   try {
     const { instance, protocol, domain } = c.req.param();
-    const pagination = PaginationSchema.parse({
-      page: c.req.query("page"),
-      limit: c.req.query("limit"),
-    });
-
-    const adapter: PersistenceAdapter = getAdapter();
-    const result: ListResponse = await adapter.listPath(
-      protocol,
-      domain,
-      "/",
-      { ...pagination },
-      instance,
-    );
-
-    return c.json(result, 200);
+    return await handleList(c, instance, protocol, domain, "/");
   } catch (error) {
-    const response = handleAdapterError(error, "List");
+    const response = handleClientError(error, "List");
     return new Response(response.body, {
       status: response.status,
       headers: response.headers,
@@ -141,24 +124,10 @@ api.get("/list/:instance/:protocol/:domain/", async (c) => {
 api.get("/list/:instance/:protocol/:domain/:path*", async (c) => {
   try {
     const { instance, protocol, domain } = c.req.param();
-    const path = c.req.param("path*");
-    const pagination = PaginationSchema.parse({
-      page: c.req.query("page"),
-      limit: c.req.query("limit"),
-    });
-
-    const adapter: PersistenceAdapter = getAdapter();
-    const result: ListResponse = await adapter.listPath(
-      protocol,
-      domain,
-      path,
-      { ...pagination },
-      instance,
-    );
-
-    return c.json(result, 200);
+    const path = c.req.param("path*") || "/";
+    return await handleList(c, instance, protocol, domain, path);
   } catch (error) {
-    const response = handleAdapterError(error, "List");
+    const response = handleClientError(error, "List");
     return new Response(response.body, {
       status: response.status,
       headers: response.headers,
@@ -171,20 +140,18 @@ api.get("/read/:instance/:protocol/:domain/:path*", async (c) => {
   try {
     const { instance, protocol, domain, "path*": path } = c.req.param();
 
-    const record: ReadResponse | null = await getAdapter().read(
-      protocol,
-      domain,
-      path || "/",
-      instance,
-    );
+    const client = getClientManager().getClient(instance);
+    const normalizedPath = path.startsWith("/") ? path : "/" + path;
+    const uri = `${protocol}://${domain}${normalizedPath}`;
+    const result = await client.read(uri);
 
-    if (!record) {
+    if (!result.success || !result.record) {
       return c.json({ error: "Record not found" }, 404);
     }
 
-    return c.json(record, 200);
+    return c.json(result.record, 200);
   } catch (error) {
-    const response = handleAdapterError(error, "Read");
+    const response = handleClientError(error, "Read");
     return new Response(response.body, {
       status: response.status,
       headers: response.headers,
@@ -199,19 +166,8 @@ api.post("/write", async (c) => {
     const writeReq: WriteRequest = WriteBodySchema.parse(body);
     const instance = c.req.query("instance");
 
-    const url = new URL(writeReq.uri);
-    const protocol = url.protocol.replace(":", "");
-    const domain = url.hostname;
-    const path = url.pathname;
-
-    const adapter: PersistenceAdapter = getAdapter();
-    const result: WriteResponse = await adapter.write(
-      protocol,
-      domain,
-      path,
-      writeReq.value,
-      instance,
-    );
+    const client = getClientManager().getClient(instance);
+    const result = await client.write(writeReq.uri, writeReq.value);
 
     if (!result.success) {
       return c.json({ error: result.error || "Write failed" }, 400);
@@ -229,7 +185,7 @@ api.post("/write", async (c) => {
       );
     }
 
-    const response = handleAdapterError(error, "Write");
+    const response = handleClientError(error, "Write");
     return new Response(response.body, {
       status: response.status,
       headers: response.headers,
@@ -246,13 +202,9 @@ api.delete("/delete/:protocol/:domain/:path*", async (c) => {
     PathSchema.parse(fullPath);
     const instance = c.req.query("instance");
 
-    const adapter: PersistenceAdapter = getAdapter();
-    const result: DeleteResponse = await adapter.delete(
-      protocol,
-      domain,
-      fullPath,
-      instance,
-    );
+    const client = getClientManager().getClient(instance);
+    const uri = `${protocol}://${domain}${fullPath}`;
+    const result = await client.delete(uri);
 
     if (!result.success) {
       return c.json({ error: result.error || "Delete failed" }, 400);
@@ -270,7 +222,7 @@ api.delete("/delete/:protocol/:domain/:path*", async (c) => {
       );
     }
 
-    const response = handleAdapterError(error, "Delete");
+    const response = handleClientError(error, "Delete");
     return new Response(response.body, {
       status: response.status,
       headers: response.headers,
@@ -281,15 +233,10 @@ api.delete("/delete/:protocol/:domain/:path*", async (c) => {
 // GET /api/v1/schema - Get configured schema URIs
 api.get("/schema", async (c) => {
   try {
-    // Access AdapterManager directly
-    const manager = AdapterManager.getInstance();
-    const schemas = await manager.getLoadedSchemas();
-    const instances = manager.getAllAdapterIds();
-    const defaultInstance = manager.getDefaultInstanceId();
-
-    console.log("[Schema endpoint] schemas:", schemas);
-    console.log("[Schema endpoint] instances:", instances);
-    console.log("[Schema endpoint] default:", defaultInstance);
+    const manager = getClientManager();
+    const schemas = await manager.getSchemas();
+    const instances = manager.getInstanceNames();
+    const defaultInstance = manager.getDefaultInstance();
 
     return c.json({
       schemas,
@@ -298,7 +245,7 @@ api.get("/schema", async (c) => {
     }, 200);
   } catch (error) {
     console.error("[Schema endpoint] Error:", error);
-    return handleAdapterError(error, "Schema");
+    return handleClientError(error, "Schema");
   }
 });
 

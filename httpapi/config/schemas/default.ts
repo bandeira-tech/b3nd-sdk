@@ -45,6 +45,8 @@ const schema: Record<string, PersistenceValidationFn<unknown>> = {
 
   // Users protocol
   "users://nataliarsand": allow,
+  "users://alice": allow,
+  "users://bob": allow,
 
   // Common patterns
   "data://example": allow,

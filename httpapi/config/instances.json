@@ -1,29 +1,13 @@
 {
   "default": "default",
   "instances": {
-    "default2": {
-      "adapter": "@adapters/local-evergreen",
-      "config": {
-        "type": "local-evergreen",
-        "schema": "./config/schemas/default.ts",
-        "options": {
-          "type": "memory",
-          "maxSize": 104857600
-        }
-      }
-    },
     "default": {
-      "adapter": "@adapters/local-denokv",
-      "config": {
-        "type": "local-denokv",
-        "schema": "./config/schemas/default.ts",
-        "options": {
-          "type": "denokv",
-          "path": "./data/persistent.db",
-          "persistent": true,
-          "autoSaveInterval": 30000
-        }
-      }
+      "type": "local",
+      "schema": "./config/schemas/default.ts"
+    },
+    "memory": {
+      "type": "local",
+      "schema": "./config/schemas/default.ts"
     }
   }
 }

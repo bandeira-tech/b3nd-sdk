@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { loadServerConfig } from "./config.ts";
 import { api } from "./routes.ts";
-import { AdapterManager } from "./adapters/manager.ts";
+import { getClientManager } from "./clients.ts";
 
 /**
  * Create and configure the Hono application
@@ -27,15 +27,24 @@ async function createApp() {
     );
   });
 
-  // Health endpoint - checks adapter manager status
+  // Health endpoint - checks client manager status
   app.get("/api/v1/health", async (c) => {
     try {
-      const adapterManager = AdapterManager.getInstance();
-      const health = await adapterManager.checkHealth();
-
+      const manager = getClientManager();
+      const instanceNames = manager.getInstanceNames();
       const instances: Record<string, any> = {};
-      for (const [id, status] of health) {
-        instances[id] = status;
+
+      for (const name of instanceNames) {
+        try {
+          const client = manager.getClient(name);
+          const health = await client.health();
+          instances[name] = health;
+        } catch (error) {
+          instances[name] = {
+            status: "unhealthy",
+            message: error instanceof Error ? error.message : "Unknown error",
+          };
+        }
       }
 
       return c.json({
@@ -58,10 +67,10 @@ async function createApp() {
   // Schema endpoint - returns loaded schemas and instances
   app.get("/api/v1/schema", async (c) => {
     try {
-      const adapterManager = AdapterManager.getInstance();
-      const schemas = await adapterManager.getLoadedSchemas();
-      const instances = adapterManager.getAllAdapterIds();
-      const defaultInstance = adapterManager.getDefaultInstanceId();
+      const manager = getClientManager();
+      const schemas = await manager.getSchemas();
+      const instances = manager.getInstanceNames();
+      const defaultInstance = manager.getDefaultInstance();
 
       return c.json({
         schemas,

@@ -240,6 +240,16 @@ export class WebSocketClient implements B3ndClient {
     }
   }
 
+  async getSchema(): Promise<string[]> {
+    try {
+      const result = await this.sendRequest("schema", {});
+      return result || [];
+    } catch (error) {
+      console.error("Failed to fetch schema:", error);
+      return [];
+    }
+  }
+
   async cleanup(): Promise<void> {
     // Clear all pending requests
     for (const [id, pending] of this.pendingRequests.entries()) {

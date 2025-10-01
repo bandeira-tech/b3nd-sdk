@@ -4,7 +4,7 @@
  * HTTP API Server
  *
  * Production server entry point with enhanced logging, signal handling,
- * and adapter lifecycle management. For simpler usage, you can also
+ * and client lifecycle management. For simpler usage, you can also
  * run mod.ts directly or import the app for custom setups.
  *
  * Usage:
@@ -20,7 +20,7 @@
  */
 
 import { app } from "./mod.ts";
-import { AdapterManager } from "./adapters/manager.ts";
+import { getClientManager, type InstancesConfig } from "./clients.ts";
 import { loadServerConfig } from "./config.ts";
 
 // Color codes for console output
@@ -107,7 +107,19 @@ ${colors.green}✓${colors.reset} Health check: ${colors.bright}http://localhost
 }
 
 /**
- * Initialize server and adapters
+ * Load instances configuration
+ */
+async function loadInstancesConfig(configPath: string): Promise<InstancesConfig> {
+  try {
+    const content = await Deno.readTextFile(configPath);
+    return JSON.parse(content);
+  } catch (error) {
+    throw new Error(`Failed to load instances config from ${configPath}: ${error}`);
+  }
+}
+
+/**
+ * Initialize server and clients
  */
 async function initializeServer(): Promise<{
   port: number;
@@ -139,25 +151,26 @@ async function initializeServer(): Promise<{
     };
   }
 
-  // Initialize adapter manager
+  // Initialize client manager
   const instancesConfigPath =
     Deno.env.get("INSTANCES_CONFIG") || "./config/instances.json";
-  const adapterManager = AdapterManager.getInstance();
+  const clientManager = getClientManager();
 
   try {
     logger.info(`Loading instances from ${instancesConfigPath}...`);
-    await adapterManager.initialize(instancesConfigPath);
-    logger.success("Adapter manager initialized successfully");
+    const instancesConfig = await loadInstancesConfig(instancesConfigPath);
+    await clientManager.initialize(instancesConfig);
+    logger.success("Client manager initialized successfully");
 
-    // Get and display loaded instances
-    const adapters = adapterManager.getAllAdapters();
-    logger.info(`Loaded ${adapters.size} instance(s):`);
-    for (const [id, _] of adapters) {
-      const isDefault = id === adapterManager.getDefaultInstanceId();
-      logger.info(`  - ${id}${isDefault ? " (default)" : ""}`);
+    // Display loaded instances
+    const instanceNames = clientManager.getInstanceNames();
+    logger.info(`Loaded ${instanceNames.length} instance(s):`);
+    for (const name of instanceNames) {
+      const isDefault = name === clientManager.getDefaultInstance();
+      logger.info(`  - ${name}${isDefault ? " (default)" : ""}`);
     }
   } catch (error) {
-    logger.error("Failed to initialize adapter manager:", error);
+    logger.error("Failed to initialize client manager:", error);
     throw error;
   }
 
@@ -169,10 +182,10 @@ async function initializeServer(): Promise<{
     logger.info(`Received ${signal}, initiating graceful shutdown...`);
 
     try {
-      // Cleanup adapters
-      logger.info("Cleaning up adapters...");
-      await adapterManager.cleanup();
-      logger.success("Adapters cleaned up successfully");
+      // Cleanup clients
+      logger.info("Cleaning up clients...");
+      await clientManager.cleanup();
+      logger.success("Clients cleaned up successfully");
 
       // Abort the server
       abortController.abort();
@@ -205,7 +218,7 @@ async function initializeServer(): Promise<{
  */
 async function startServer(): Promise<void> {
   try {
-    // Initialize server and adapters
+    // Initialize server and clients
     const { port, signal } = await initializeServer();
 
     // Print banner
@@ -250,16 +263,23 @@ function startHealthCheck(): void {
 
   setInterval(async () => {
     try {
-      const adapterManager = AdapterManager.getInstance();
-      const health = await adapterManager.checkHealth();
+      const clientManager = getClientManager();
+      const instanceNames = clientManager.getInstanceNames();
 
       let allHealthy = true;
-      for (const [id, status] of health) {
-        if (status.status !== "healthy") {
+      for (const name of instanceNames) {
+        try {
+          const client = clientManager.getClient(name);
+          const status = await client.health();
+          if (status.status !== "healthy") {
+            allHealthy = false;
+            logger.warn(
+              `Instance '${name}' is ${status.status}: ${status.message || "No details"}`,
+            );
+          }
+        } catch (error) {
           allHealthy = false;
-          logger.warn(
-            `Instance '${id}' is ${status.status}: ${status.message || "No details"}`,
-          );
+          logger.warn(`Instance '${name}' health check failed:`, error);
         }
       }
 

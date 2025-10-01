@@ -273,6 +273,26 @@ export class HttpClient implements B3ndClient {
     }
   }
 
+  async getSchema(): Promise<string[]> {
+    try {
+      const response = await this.request("/api/v1/schema", {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const result = await response.json();
+      // Extract schema keys for this instance
+      const instanceName = this.instanceId || result.default;
+      return result.schemas?.[instanceName] || [];
+    } catch (error) {
+      console.error("Failed to fetch schema:", error);
+      return [];
+    }
+  }
+
   async cleanup(): Promise<void> {
     // No cleanup needed for HTTP client
   }

@@ -15,9 +15,14 @@ import type {
 
 export class LocalClient implements B3ndClient {
   private persistence: any;
+  private schemaKeys: string[];
 
   constructor(config: LocalClientConfig) {
     this.persistence = config.persistence;
+    // Extract schema keys from persistence
+    this.schemaKeys = this.persistence.schema
+      ? Object.keys(this.persistence.schema)
+      : [];
   }
 
   /**
@@ -242,6 +247,10 @@ export class LocalClient implements B3ndClient {
       status: "healthy",
       message: "Local persistence is operational",
     };
+  }
+
+  async getSchema(): Promise<string[]> {
+    return this.schemaKeys;
   }
 
   async cleanup(): Promise<void> {
