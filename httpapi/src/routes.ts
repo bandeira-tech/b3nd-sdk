@@ -5,11 +5,11 @@ import { getAdapter } from "./adapter.ts";
 import type { PersistenceAdapter } from "./adapter.ts";
 import { AdapterManager } from "./adapters/manager.ts";
 import type {
+  DeleteResponse,
   ListResponse,
   ReadResponse,
   WriteRequest,
   WriteResponse,
-  DeleteResponse,
 } from "./types.ts";
 
 const api = new Hono();

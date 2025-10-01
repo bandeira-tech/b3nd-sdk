@@ -116,7 +116,7 @@ if (import.meta.main) {
     console.log(`Server starting on http://localhost:${port}`);
     console.log(`Health check: http://localhost:${port}/api/v1/health`);
 
-    await Deno.serve({ port }, app.fetch);
+    Deno.serve({ port }, app.fetch);
   } catch (error) {
     const errorMsg = (error as Error).message || "Failed to start server";
     const stackTrace = (error as Error).stack || "No stack trace available";

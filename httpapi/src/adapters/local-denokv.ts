@@ -13,12 +13,12 @@ import {
   type PersistenceWrite,
 } from "../../../persistence/mod.ts";
 import {
-  BaseAdapter,
   type AdapterConfig,
+  AdapterError,
+  BaseAdapter,
   type ListOptions,
   type ListResult,
   type LocalStorageOptions,
-  AdapterError,
 } from "./types.ts";
 
 export class LocalDenoKvAdapter extends BaseAdapter {
@@ -35,7 +35,7 @@ export class LocalDenoKvAdapter extends BaseAdapter {
     this.kvPath = options?.path || `./${this.config.id}.db`;
 
     // Ensure parent directory exists
-    const dir = this.kvPath.substring(0, this.kvPath.lastIndexOf('/'));
+    const dir = this.kvPath.substring(0, this.kvPath.lastIndexOf("/"));
     if (dir) {
       try {
         await Deno.mkdir(dir, { recursive: true });
@@ -127,12 +127,16 @@ export class LocalDenoKvAdapter extends BaseAdapter {
 
       // Save all current data
       for (const [protocol, domains] of Object.entries(storage)) {
-        for (const [domain, paths] of Object.entries(
-          domains as Record<string, unknown>,
-        )) {
-          for (const [pathname, record] of Object.entries(
-            paths as Record<string, unknown>,
-          )) {
+        for (
+          const [domain, paths] of Object.entries(
+            domains as Record<string, unknown>,
+          )
+        ) {
+          for (
+            const [pathname, record] of Object.entries(
+              paths as Record<string, unknown>,
+            )
+          ) {
             const key = ["data", protocol, domain, pathname, "record"];
             atomic.set(key, record);
           }
@@ -218,124 +222,26 @@ export class LocalDenoKvAdapter extends BaseAdapter {
       return null;
     }
   }
-
   async listPath(
     protocol: string,
     domain: string,
     path: string,
     options: ListOptions = {},
   ): Promise<ListResult> {
-    try {
-      const basePath = path.startsWith("/") ? path : "/" + path;
-      const prefix = ["data", protocol, domain];
+    let data = Object.keys(
+      this.persistence.storage[`${protocol}:`][domain] ?? {},
+    );
 
-      const items: Array<{
-        uri: string;
-        name: string;
-        type: "file" | "directory";
-        ts: number;
-        size?: number;
-      }> = [];
-
-      // List from KV store
-      const entries = this.kv.list<PersistenceRecord<unknown>>({ prefix });
-      const directories = new Set<string>();
-
-      for await (const entry of entries) {
-        const key = entry.key as string[];
-        if (key.length >= 5 && key[3]) {
-          const pathname = key[3];
-
-          if (pathname.startsWith(basePath)) {
-            const relativePath = pathname.slice(basePath.length);
-
-            // Process directories and files
-            if (relativePath.startsWith("/")) {
-              const parts = relativePath.slice(1).split("/");
-
-              if (parts.length > 1) {
-                // It's in a subdirectory
-                const dirName = parts[0];
-                const dirPath = `${basePath}/${dirName}/`;
-
-                if (!directories.has(dirPath)) {
-                  directories.add(dirPath);
-                  items.push({
-                    uri: `${protocol}://${domain}${dirPath}`,
-                    name: dirName,
-                    type: "directory",
-                    ts: entry.value?.ts || Date.now(),
-                  });
-                }
-              } else if (parts.length === 1 && parts[0]) {
-                // It's a direct file
-                const record = entry.value;
-                if (record) {
-                  items.push({
-                    uri: `${protocol}://${domain}${pathname}`,
-                    name: parts[0],
-                    type: "file",
-                    ts: record.ts,
-                    size: JSON.stringify(record.data).length,
-                  });
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Apply pattern filtering
-      let filteredItems = items;
-      if (options.pattern) {
-        const pattern = new RegExp(options.pattern.replace(/\*/g, ".*"));
-        filteredItems = items.filter((item) => pattern.test(item.name));
-      }
-
-      // Sort items
-      const sortBy = options.sortBy || "timestamp";
-      const sortOrder = options.sortOrder || "desc";
-
-      filteredItems.sort((a, b) => {
-        if (sortBy === "name") {
-          return sortOrder === "asc"
-            ? a.name.localeCompare(b.name)
-            : b.name.localeCompare(a.name);
-        } else {
-          return sortOrder === "asc" ? a.ts - b.ts : b.ts - a.ts;
-        }
-      });
-
-      // Paginate
-      const page = options.page || 1;
-      const limit = options.limit || 50;
-      const total = filteredItems.length;
-      const start = (page - 1) * limit;
-      const data = filteredItems.slice(start, start + limit);
-
-      return {
-        data,
-        pagination: {
-          page,
-          limit,
-          total,
-          hasNext: start + limit < total,
-          hasPrev: page > 1,
-        },
-      };
-    } catch (error) {
-      console.error(`[LocalDenoKvAdapter] List error:`, error);
-      return {
-        data: [],
-        pagination: {
-          page: options.page || 1,
-          limit: options.limit || 50,
-          total: 0,
-          hasNext: false,
-          hasPrev: false,
-        },
-      };
-    }
+    return Promise.resolve({
+      data,
+      pagination: {
+        page: 1,
+        limit: 50,
+        total: 0,
+        hasNext: false,
+        hasPrev: false,
+      },
+    });
   }
 
   async delete(

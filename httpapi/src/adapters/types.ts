@@ -7,8 +7,8 @@
 
 import type {
   PersistenceRecord,
-  PersistenceWrite,
   PersistenceValidationFn,
+  PersistenceWrite,
 } from "../../../persistence/mod.ts";
 
 /**
@@ -114,12 +114,7 @@ export interface ListOptions {
  * Result of a list operation
  */
 export interface ListResult {
-  data: Array<{
-    uri: string;  // Primary identifier (e.g., "users://alice/profile")
-    type: "file" | "directory";
-    // name removed - redundant with uri
-    // ts removed - available via separate read operation
-  }>;
+  data: Array<string>;
   pagination: {
     page: number;
     limit: number;
@@ -290,13 +285,17 @@ export abstract class BaseAdapter implements PersistenceAdapter {
     const schema = schemaModule.default || schemaModule.schema;
 
     if (!schema || typeof schema !== "object") {
-      throw new Error(`Schema module at '${schemaPath}' must export a default object mapping URL patterns to validation functions`);
+      throw new Error(
+        `Schema module at '${schemaPath}' must export a default object mapping URL patterns to validation functions`,
+      );
     }
 
     // Validate that all values are functions
     for (const [key, value] of Object.entries(schema)) {
       if (typeof value !== "function") {
-        throw new Error(`Schema key '${key}' must map to a validation function, got ${typeof value}`);
+        throw new Error(
+          `Schema key '${key}' must map to a validation function, got ${typeof value}`,
+        );
       }
     }
 

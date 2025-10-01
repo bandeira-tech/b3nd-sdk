@@ -6,11 +6,11 @@
  */
 
 import {
-  type PersistenceAdapter,
   type AdapterConfig,
+  AdapterError,
   type InstanceConfig,
   type InstancesConfig,
-  AdapterError,
+  type PersistenceAdapter,
 } from "./types.ts";
 
 export class AdapterManager {
@@ -103,9 +103,11 @@ export class AdapterManager {
 
     const loadPromises: Promise<void>[] = [];
 
-    for (const [instanceId, instanceConfig] of Object.entries(
-      this.config.instances,
-    )) {
+    for (
+      const [instanceId, instanceConfig] of Object.entries(
+        this.config.instances,
+      )
+    ) {
       loadPromises.push(this.loadInstance(instanceId, instanceConfig));
     }
 
@@ -154,7 +156,8 @@ export class AdapterManager {
       );
       // Preserve the original error with its stack trace
       if (error instanceof Error) {
-        error.message = `Failed to load instance '${instanceId}': ${error.message}`;
+        error.message =
+          `Failed to load instance '${instanceId}': ${error.message}`;
         throw error;
       }
       throw new Error(`Failed to load instance '${instanceId}': ${error}`);
@@ -202,7 +205,9 @@ export class AdapterManager {
     }
 
     // Check if module exports a factory function by convention
-    const factoryName = `create${config.type.charAt(0).toUpperCase() + config.type.slice(1)}Adapter`;
+    const factoryName = `create${
+      config.type.charAt(0).toUpperCase() + config.type.slice(1)
+    }Adapter`;
     if (typeof module[factoryName] === "function") {
       const adapter = await module[factoryName](config);
       if (this.isPersistenceAdapter(adapter)) {
@@ -214,7 +219,9 @@ export class AdapterManager {
     }
 
     // Check if module exports a class
-    const className = `${config.type.charAt(0).toUpperCase() + config.type.slice(1)}Adapter`;
+    const className = `${
+      config.type.charAt(0).toUpperCase() + config.type.slice(1)
+    }Adapter`;
     if (module[className] && typeof module[className] === "function") {
       const adapter = new module[className]();
       if (this.isPersistenceAdapter(adapter)) {
@@ -290,7 +297,9 @@ export class AdapterManager {
   async getLoadedSchemas(): Promise<Record<string, string[]>> {
     const schemasByInstance: Record<string, string[]> = {};
 
-    console.log(`[AdapterManager] Getting loaded schemas from ${this.adapters.size} adapters`);
+    console.log(
+      `[AdapterManager] Getting loaded schemas from ${this.adapters.size} adapters`,
+    );
 
     for (const [id, adapter] of this.adapters) {
       // Access the schema property if available (via BaseAdapter)
@@ -298,23 +307,32 @@ export class AdapterManager {
       console.log(`[AdapterManager] Checking adapter '${id}' for schema:`, {
         hasSchema: !!adapterWithSchema.schema,
         schemaType: typeof adapterWithSchema.schema,
-        schemaKeys: adapterWithSchema.schema ? Object.keys(adapterWithSchema.schema) : []
+        schemaKeys: adapterWithSchema.schema
+          ? Object.keys(adapterWithSchema.schema)
+          : [],
       });
 
       const instanceSchemas: string[] = [];
 
-      if (adapterWithSchema.schema && typeof adapterWithSchema.schema === 'object') {
+      if (
+        adapterWithSchema.schema && typeof adapterWithSchema.schema === "object"
+      ) {
         // Extract URI keys from schema object
         for (const key of Object.keys(adapterWithSchema.schema)) {
           instanceSchemas.push(key);
-          console.log(`[AdapterManager] Added schema key '${key}' for instance '${id}'`);
+          console.log(
+            `[AdapterManager] Added schema key '${key}' for instance '${id}'`,
+          );
         }
       }
 
       schemasByInstance[id] = instanceSchemas;
     }
 
-    console.log(`[AdapterManager] Returning schemas by instance:`, schemasByInstance);
+    console.log(
+      `[AdapterManager] Returning schemas by instance:`,
+      schemasByInstance,
+    );
     return schemasByInstance;
   }
 

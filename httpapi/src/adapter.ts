@@ -7,7 +7,7 @@
  */
 
 import { AdapterManager } from "./adapters/manager.ts";
-import type { PersistenceRecord, ListResult } from "./adapters/types.ts";
+import type { ListResult, PersistenceRecord } from "./adapters/types.ts";
 
 export interface PersistenceAdapter {
   write(
@@ -121,7 +121,9 @@ class ManagedPersistenceAdapter implements PersistenceAdapter {
     try {
       await this.ensureInitialized();
       const adapter = this.manager.getAdapter(instanceId);
-      return await adapter.listPath(protocol, domain, path, options);
+      const result = await adapter.listPath(protocol, domain, path, options);
+      console.log({ adapter, result });
+      return result;
     } catch (error) {
       console.error(`List error for instance '${instanceId}':`, error);
       return {
@@ -221,4 +223,4 @@ export async function resetAdapter(): Promise<void> {
 }
 
 // Export types for convenience
-export type { PersistenceRecord, ListResult } from "./adapters/types.ts";
+export type { ListResult, PersistenceRecord } from "./adapters/types.ts";

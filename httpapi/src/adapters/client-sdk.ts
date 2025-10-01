@@ -7,12 +7,12 @@
  */
 
 import {
-  BaseAdapter,
   type AdapterConfig,
+  AdapterError,
+  BaseAdapter,
   type ListOptions,
   type ListResult,
   type PersistenceRecord,
-  AdapterError,
 } from "./types.ts";
 import type { B3ndClient } from "../../../client-sdk/mod.ts";
 import { createClient } from "../../../client-sdk/mod.ts";
@@ -106,6 +106,7 @@ export class ClientSdkAdapter extends BaseAdapter {
     path: string,
     options: ListOptions = {},
   ): Promise<ListResult> {
+    console.log("adapter/client-sdk");
     try {
       const uri = this.buildUri(protocol, domain, path);
       const result = await this.client.list(uri, options);
