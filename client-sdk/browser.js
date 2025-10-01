@@ -244,6 +244,25 @@ export class HttpClient {
     }
   }
 
+  async getSchema() {
+    try {
+      const response = await this.request("/api/v1/schema", {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const result = await response.json();
+      const instanceName = this.instanceId || result.default;
+      return result.schemas?.[instanceName] || [];
+    } catch (error) {
+      console.error("Failed to fetch schema:", error);
+      return [];
+    }
+  }
+
   async cleanup() {
     // No cleanup needed for HTTP client
   }
@@ -255,4 +274,160 @@ export function createHttpClient(baseUrl, options = {}) {
     baseUrl,
     ...options,
   });
+}
+
+// Mock Client for browser testing
+export class MockClient {
+  constructor() {
+    this.mockData = new Map();
+  }
+
+  async write(uri, value) {
+    const record = { ts: Date.now(), data: value };
+    this.mockData.set(uri, record);
+    return { success: true, record };
+  }
+
+  async read(uri) {
+    const record = this.mockData.get(uri);
+    if (!record) {
+      return { success: false, error: "Not found" };
+    }
+    return { success: true, record };
+  }
+
+  async list(uri, options = {}) {
+    const entries = Array.from(this.mockData.keys())
+      .filter(key => key.startsWith(uri))
+      .map(key => ({
+        uri: key,
+        name: key.split('/').pop() || key,
+        type: "file",
+      }));
+
+    return {
+      data: entries,
+      pagination: {
+        page: options.page || 1,
+        limit: options.limit || 50,
+      },
+    };
+  }
+
+  async delete(uri) {
+    if (this.mockData.has(uri)) {
+      this.mockData.delete(uri);
+      return { success: true };
+    }
+    return { success: false, error: "Not found" };
+  }
+
+  async health() {
+    return { status: "healthy", message: "Mock client operational" };
+  }
+
+  async getSchema() {
+    return ["mock://example"];
+  }
+
+  async cleanup() {
+    this.mockData.clear();
+  }
+}
+
+// Browser Instance Manager
+export class BrowserInstanceManager {
+  constructor() {
+    this.clients = new Map();
+    this.defaultInstance = undefined;
+  }
+
+  async initialize(config) {
+    this.defaultInstance = config.default;
+
+    for (const [name, instanceConfig] of Object.entries(config.instances)) {
+      const client = this.createClient(name, instanceConfig);
+      this.clients.set(name, client);
+      console.log(`[BrowserInstanceManager] Initialized instance '${name}'`);
+    }
+
+    if (!this.defaultInstance && this.clients.size > 0) {
+      this.defaultInstance = Array.from(this.clients.keys())[0];
+      console.log(`[BrowserInstanceManager] Using '${this.defaultInstance}' as default`);
+    }
+  }
+
+  createClient(name, config) {
+    switch (config.type) {
+      case "http":
+        return createHttpClient(config.baseUrl, {
+          instanceId: config.instanceId,
+          headers: config.headers,
+          timeout: config.timeout,
+        });
+      case "mock":
+        return new MockClient();
+      default:
+        throw new Error(`Unknown client type: ${config.type}`);
+    }
+  }
+
+  getClient(name) {
+    const instanceName = name || this.defaultInstance;
+    if (!instanceName) {
+      throw new Error("No instance name provided and no default instance set");
+    }
+
+    const client = this.clients.get(instanceName);
+    if (!client) {
+      throw new Error(
+        `Client instance '${instanceName}' not found. Available: ${
+          Array.from(this.clients.keys()).join(", ")
+        }`
+      );
+    }
+
+    return client;
+  }
+
+  getInstanceNames() {
+    return Array.from(this.clients.keys());
+  }
+
+  getDefaultInstance() {
+    return this.defaultInstance;
+  }
+
+  async getSchemas() {
+    const result = {};
+    for (const [name, client] of this.clients) {
+      result[name] = await client.getSchema();
+    }
+    return result;
+  }
+
+  async cleanup() {
+    const cleanupPromises = Array.from(this.clients.values()).map((client) =>
+      client.cleanup()
+    );
+    await Promise.all(cleanupPromises);
+    this.clients.clear();
+  }
+}
+
+// Singleton for browser
+let browserManagerInstance = null;
+
+export function getBrowserInstanceManager() {
+  if (!browserManagerInstance) {
+    browserManagerInstance = new BrowserInstanceManager();
+  }
+  return browserManagerInstance;
+}
+
+export function resetBrowserInstanceManager() {
+  if (browserManagerInstance) {
+    browserManagerInstance.cleanup();
+    browserManagerInstance = null;
+  }
 }

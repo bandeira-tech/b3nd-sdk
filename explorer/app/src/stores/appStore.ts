@@ -6,31 +6,71 @@ import type {
   BackendConfig,
   ThemeMode,
   AppMode,
-  PanelState,
+                                                                          |
+                                                                                                  PanelState,
 } from "../types";
-import { MockAdapter } from "../adapters/MockAdapter";
 import { HttpAdapter } from "../adapters/HttpAdapter";
 import { generateId } from "../utils";
+import { getBrowserInstanceManager } from "../../../../client-sdk/browser.js";
 
-const createMockBackend = (): BackendConfig => ({
-  id: "mock-default",
-  name: "Local Mock Data",
-  adapter: new MockAdapter(),
-  isActive: false,
-});
+// Load instance configuration
+async function loadInstanceConfig() {
+  try {
+    const response = await fetch("/instances.json");
+    if (!response.ok) {
+      throw new Error("Failed to load instances config");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to load instances config:", error);
+    // Fallback to default config
+    return {
+      default: "local-api",
+      instances: {
+        "local-api": {
+          type: "http",
+          name: "Local HTTP API",
+          baseUrl: "http://localhost:8000",
+          instanceId: "default",
+        },
+      },
+    };
+  }
+}
 
-const createHttpBackend = (): BackendConfig => ({
-  id: "http-default",
-  name: "HTTP API (localhost:8000)",
-  adapter: new HttpAdapter("http://localhost:8000", "default"),
-  isActive: true,
-});
+// Create backend configs from instance manager
+async function createBackendsFromConfig() {
+  const config = await loadInstanceConfig();
+  const manager = getBrowserInstanceManager();
+  await manager.initialize(config);
 
-const initialBackends = [createMockBackend(), createHttpBackend()];
+  const backends: BackendConfig[] = [];
+  const instanceNames = manager.getInstanceNames();
+  const defaultInstance = manager.getDefaultInstance();
+
+  for (const name of instanceNames) {
+    const client = manager.getClient(name);
+    const instanceConfig = config.instances[name];
+
+    backends.push({
+      id: name,
+      name: instanceConfig.name || name,
+      adapter: new HttpAdapter(
+        instanceConfig.type === "http" ? instanceConfig.baseUrl : "",
+        instanceConfig.type === "http" ? instanceConfig.instanceId : name
+      ),
+      isActive: name === defaultInstance,
+    });
+  }
+
+  return backends;
+}
+
+let initialBackends: BackendConfig[] = [];
 
 const initialState: Omit<AppState, "backendsReady"> = {
   backends: initialBackends,
-  activeBackendId: "http-default", // Default to HTTP backend
+  activeBackendId: "local-api", // Default to local API
   schemas: {},
   rootNodes: [],
   currentPath: "/",
@@ -288,16 +328,19 @@ export const useAppStore = create<AppStore>()(
         searchHistory: state.searchHistory,
         watchedPaths: state.watchedPaths,
       }),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => async (state) => {
         if (state) {
-          // Recreate fresh backends on load
-          state.backends = initialBackends;
-          // Use saved activeBackendId if valid, otherwise default to http
-          const validBackendId = initialBackends.find(
+          // Load backends from configuration
+          const backends = await createBackendsFromConfig();
+          state.backends = backends;
+
+          // Use saved activeBackendId if valid, otherwise use default from config
+          const validBackendId = backends.find(
             (b) => b.id === state.activeBackendId
           )?.id;
-          state.activeBackendId = validBackendId || "http-default";
-          console.log("Rehydration: recreated fresh adapters, active:", state.activeBackendId);
+          const defaultBackend = backends.find((b) => b.isActive);
+          state.activeBackendId = validBackendId || defaultBackend?.id || backends[0]?.id;
+          console.log("Rehydration: loaded backends from config, active:", state.activeBackendId);
 
           // Apply theme
           const theme = state.theme || "system";

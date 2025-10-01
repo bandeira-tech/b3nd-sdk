@@ -1,0 +1,15 @@
+{
+  "default": "local-api",
+  "instances": {
+    "local-api": {
+      "type": "http",
+      "name": "Local HTTP API",
+      "baseUrl": "http://localhost:8000",
+      "instanceId": "default"
+    },
+    "mock": {
+      "type": "mock",
+      "name": "Mock Data (Browser)"
+    }
+  }
+}
