@@ -220,6 +220,54 @@ export interface WebSocketClientConfig {
 }
 
 /**
+ * Configuration for LocalStorageClient
+ */
+export interface LocalStorageClientConfig {
+  /**
+   * Optional prefix for localStorage keys to avoid collisions
+   */
+  keyPrefix?: string;
+
+  /**
+   * Optional schema for validation (like MemoryClient)
+   */
+  schema?: Schema;
+
+  /**
+   * Optional serialization functions
+   */
+  serializer?: {
+    serialize?: (data: unknown) => string;
+    deserialize?: (data: string) => unknown;
+  };
+}
+
+/**
+ * Configuration for IndexedDBClient
+ */
+export interface IndexedDBClientConfig {
+  /**
+   * Database name
+   */
+  databaseName?: string;
+
+  /**
+   * Object store name
+   */
+  storeName?: string;
+
+  /**
+   * Database version
+   */
+  version?: number;
+
+  /**
+   * Optional schema for validation
+   */
+  schema?: Schema;
+}
+
+/**
  * Error class for client operations
  * Preserves error context without hiding details
  */
