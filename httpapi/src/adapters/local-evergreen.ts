@@ -186,7 +186,6 @@ export class LocalEvergreenAdapter extends BaseAdapter {
       // Paginate
       const page = options.page || 1;
       const limit = options.limit || 50;
-      const total = filteredItems.length;
       const start = (page - 1) * limit;
       const data = filteredItems.slice(start, start + limit);
 
@@ -195,9 +194,6 @@ export class LocalEvergreenAdapter extends BaseAdapter {
         pagination: {
           page,
           limit,
-          total,
-          hasNext: start + limit < total,
-          hasPrev: page > 1,
         },
       };
     } catch (error) {
@@ -207,9 +203,6 @@ export class LocalEvergreenAdapter extends BaseAdapter {
         pagination: {
           page: options.page || 1,
           limit: options.limit || 50,
-          total: 0,
-          hasNext: false,
-          hasPrev: false,
         },
       };
     }

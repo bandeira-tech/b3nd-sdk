@@ -131,9 +131,6 @@ class ManagedPersistenceAdapter implements PersistenceAdapter {
         pagination: {
           page: options?.page || 1,
           limit: options?.limit || 50,
-          total: 0,
-          hasNext: false,
-          hasPrev: false,
         },
       };
     }

@@ -110,7 +110,7 @@ api.get("/health", async (c) => {
 });
 
 // GET /api/v1/list/:instance/:protocol/:domain - List contents at root path
-api.get("/list/:instance/:protocol/:domain", async (c) => {
+api.get("/list/:instance/:protocol/:domain/", async (c) => {
   try {
     const { instance, protocol, domain } = c.req.param();
     const pagination = PaginationSchema.parse({
@@ -141,8 +141,7 @@ api.get("/list/:instance/:protocol/:domain", async (c) => {
 api.get("/list/:instance/:protocol/:domain/:path*", async (c) => {
   try {
     const { instance, protocol, domain } = c.req.param();
-    const rawPath = c.req.param("path*");
-    const fullPath = rawPath ? decodeURIComponent(rawPath) : "/";
+    const path = c.req.param("path*");
     const pagination = PaginationSchema.parse({
       page: c.req.query("page"),
       limit: c.req.query("limit"),
@@ -152,7 +151,7 @@ api.get("/list/:instance/:protocol/:domain/:path*", async (c) => {
     const result: ListResponse = await adapter.listPath(
       protocol,
       domain,
-      fullPath,
+      path,
       { ...pagination },
       instance,
     );

@@ -228,18 +228,22 @@ export class LocalDenoKvAdapter extends BaseAdapter {
     path: string,
     options: ListOptions = {},
   ): Promise<ListResult> {
-    let data = Object.keys(
+    const allKeys = Object.keys(
       this.persistence.storage[`${protocol}:`][domain] ?? {},
     );
+
+    const page = options.page || 1;
+    const limit = options.limit || 50;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+
+    const data = allKeys.slice(start, end);
 
     return Promise.resolve({
       data,
       pagination: {
-        page: 1,
-        limit: 50,
-        total: 0,
-        hasNext: false,
-        hasPrev: false,
+        page,
+        limit,
       },
     });
   }

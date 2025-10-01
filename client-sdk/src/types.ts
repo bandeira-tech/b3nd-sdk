@@ -45,9 +45,6 @@ export interface ListResult {
   pagination: {
     page: number;
     limit: number;
-    total: number;
-    hasNext: boolean;
-    hasPrev: boolean;
   };
 }
 

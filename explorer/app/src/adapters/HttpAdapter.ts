@@ -38,14 +38,18 @@ export class HttpAdapter implements BackendAdapter {
       const result = await this.client.list(uri, options);
 
       // Transform API response to Explorer format
+      // API returns array of path strings like ["/test-123", "/test-456"]
       return {
-        data: result.data.map((item: { uri: string; type: "file" | "directory" }) => {
-          const itemPath = this.uriToPath(item.uri);
-          const name = itemPath.split("/").filter(Boolean).pop() || itemPath;
+        data: result.data.map((pathString: string) => {
+          // Convert path string to full URI for consistency
+          const { protocol, domain } = new URL(uri);
+          const fullUri = `${protocol}//${domain}${pathString}`;
+          const itemPath = this.uriToPath(fullUri);
+          const name = pathString.split("/").filter(Boolean).pop() || pathString;
           return {
             path: itemPath,
             name,
-            type: item.type,
+            type: "file" as const, // Default to file, could be enhanced later
             children: undefined, // Lazy load
           };
         }),

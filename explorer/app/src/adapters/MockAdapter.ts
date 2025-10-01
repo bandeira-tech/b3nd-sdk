@@ -59,9 +59,6 @@ export class MockAdapter implements BackendAdapter {
         pagination: {
           page: 1,
           limit,
-          total: 0,
-          hasNext: false,
-          hasPrev: false,
         },
       };
     }
@@ -83,9 +80,6 @@ export class MockAdapter implements BackendAdapter {
       pagination: {
         page,
         limit,
-        total: children.length,
-        hasNext: endIndex < children.length,
-        hasPrev: startIndex > 0,
       },
     };
   }
@@ -199,9 +193,6 @@ export class MockAdapter implements BackendAdapter {
       pagination: {
         page,
         limit,
-        total: results.length,
-        hasNext: endIndex < results.length,
-        hasPrev: startIndex > 0,
       },
     };
   }

@@ -193,9 +193,6 @@ export class HttpClient implements B3ndClient {
           pagination: {
             page: options?.page || 1,
             limit: options?.limit || 50,
-            total: 0,
-            hasNext: false,
-            hasPrev: false,
           },
         };
       }
@@ -208,9 +205,6 @@ export class HttpClient implements B3ndClient {
         pagination: {
           page: options?.page || 1,
           limit: options?.limit || 50,
-          total: 0,
-          hasNext: false,
-          hasPrev: false,
         },
       };
     }
