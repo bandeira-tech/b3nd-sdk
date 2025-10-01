@@ -118,7 +118,7 @@ export class MemoryClient implements NodeProtocolInterface {
           // Determine if this is a file or directory
           const relativePath = key.slice(prefix.length);
           const hasNestedPath = relativePath.includes("/");
-
+          // TODO: List should function as ls, and thus should list only the next level nodes
           items.push({
             uri: key,
             type: hasNestedPath ? "directory" : "file",
