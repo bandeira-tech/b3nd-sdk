@@ -5,6 +5,8 @@
  * plus MemoryClient-specific tests
  */
 
+/// <reference lib="deno.ns" />
+
 import { assertEquals } from "jsr:@std/assert";
 import { MemoryClient } from "../src/memory-client.ts";
 import { runSharedSuite, type TestClientFactories } from "./shared-suite.ts";

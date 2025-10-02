@@ -66,21 +66,8 @@ declare global {
     deleteDatabase(name: string): IDBRequest;
   }
 
-  interface IDBVersionChangeEvent extends Event {
-    oldVersion: number;
-    newVersion: number | null;
-  }
-
-  interface IDBKeyRange {
-    lower: any;
-    upper: any;
-    lowerOpen: boolean;
-    upperOpen: boolean;
-  }
-
-  type IDBValidKey = number | string | Date | BufferSource | IDBKeyRange;
-
-  var indexedDB: IDBFactory;
+  // Use existing DOM types instead of redeclaring them
+  // These are already defined in lib.dom.d.ts
 }
 
 interface StoredRecord {

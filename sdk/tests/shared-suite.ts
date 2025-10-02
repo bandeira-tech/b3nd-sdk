@@ -8,6 +8,8 @@
  * that create fresh client instances for each test.
  */
 
+/// <reference lib="deno.ns" />
+
 import { assertEquals } from "jsr:@std/assert";
 import type { NodeProtocolInterface } from "../src/types.ts";
 
