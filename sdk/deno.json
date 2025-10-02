@@ -1,0 +1,16 @@
+{
+  "name": "@b3nd/sdk",
+  "version": "0.1.0",
+  "exports": "./src/mod.ts",
+  "tasks": {
+    "build": "deno run -A build-final.ts",
+    "test": "deno test -A tests/",
+    "lint": "deno lint src/",
+    "fmt": "deno fmt src/",
+    "check": "deno check src/mod.ts"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"]
+  }
+}

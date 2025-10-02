@@ -1,0 +1,67 @@
+{
+  "name": "@bandeira-tech/b3nd-sdk",
+  "version": "0.1.0",
+  "description": "Universal B3nd persistence interface for all platforms",
+  "main": "./dist/mod.js",
+  "module": "./dist/mod.js",
+  "types": "./dist/mod.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/mod.js",
+      "require": "./dist/mod.js",
+      "types": "./dist/mod.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "deno run --allow-read --allow-write --allow-net --allow-run build-final.ts",
+    "build:watch": "deno run --allow-read --allow-write --allow-net --allow-run build.ts --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "test": "deno test -A tests/",
+    "test:coverage": "deno test -A --coverage tests/",
+    "lint": "deno lint src/",
+    "format": "deno fmt src/",
+    "publish:dry-run": "cd dist && npm publish --dry-run",
+    "publish:package": "cd dist && npm publish",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major"
+  },
+  "keywords": [
+    "persistence",
+    "storage",
+    "universal",
+    "cross-platform",
+    "indexeddb",
+    "localstorage",
+    "memory",
+    "http",
+    "websocket",
+    "typescript"
+  ],
+  "author": "B3nd",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bandeira-tech/b3nd-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/bandeira-tech/b3nd-sdk/issues"
+  },
+  "homepage": "https://github.com/bandeira-tech/b3nd-sdk#readme",
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
