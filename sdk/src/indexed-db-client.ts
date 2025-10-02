@@ -131,8 +131,13 @@ export class IndexedDBClient implements NodeProtocolInterface {
         };
 
         request.onsuccess = () => {
-          this.db = request.result;
-          resolve(this.db);
+          const db = request.result;
+          if (db) {
+            this.db = db;
+            resolve(db);
+          } else {
+            reject(new Error("IndexedDB open succeeded but no database returned"));
+          }
         };
 
         request.onupgradeneeded = () => {
