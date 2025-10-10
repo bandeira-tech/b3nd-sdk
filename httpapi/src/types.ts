@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PersistenceRecord, PersistenceWrite } from "../../persistence/mod.ts";
+import type { PersistenceRecord } from "@bandeira-tech/b3nd-sdk";
 
 // HTTP Request Schemas
 
@@ -72,7 +72,9 @@ export const ReadResponseSchema = z.object({
   data: z.unknown(),
 });
 
-export type ReadResponse = z.infer<typeof ReadResponseSchema> & PersistenceRecord<unknown>;
+export type WriteRequest = WriteBody;
+export type DeleteResponse = SuccessResponse;
+export type ReadResponse = z.infer<typeof ReadResponseSchema>;
 
 // Response for write: { success: boolean, record?: PersistenceRecord, error?: string }
 export const WriteResponseSchema = z.object({
@@ -135,8 +137,10 @@ export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 
 // Extended Persistence Types for API
 
-// API-specific write, mirroring PersistenceWrite but with instance
-export type ApiPersistenceWrite<T> = PersistenceWrite<T> & {
+// API-specific write, mirroring WriteBody structure
+export type ApiPersistenceWrite<T> = {
+  uri: string;
+  value: T;
   instance?: string;
 };
 

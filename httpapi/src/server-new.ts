@@ -1,27 +1,28 @@
-#!/usr/bin/env -S deno run --allow-net --allow-read --allow-write --allow-env
-
 /**
- * HTTP API Server
+ * New HTTP API Server with Programmatic Client Setup
  *
- * Production server entry point with enhanced logging, signal handling,
- * and client lifecycle management. For simpler usage, you can also
- * run mod.ts directly or import the app for custom setups.
+ * This version allows developers to create and register clients programmatically
+ * instead of using static JSON configuration.
  *
  * Usage:
- *   deno task start
- *   deno run --allow-net --allow-read --allow-write --allow-env src/server.ts
+ *   // Create your own clients
+ *   const memoryClient = new MemoryClient({ schema: mySchema });
+ *   const httpClient = new HttpClient({ url: "https://api.example.com" });
  *
- * Environment Variables:
- *   API_PORT - Port to listen on (default: 8000)
- *   INSTANCES_CONFIG - Path to instances configuration (default: ./config/instances.json)
- *   SERVER_CONFIG - Path to server configuration (default: ./config/server.json)
- *   LOG_LEVEL - Logging level: debug, info, warn, error (default: info)
- *   HEALTH_CHECK_INTERVAL - Health check interval in ms (default: 60000)
+ *   // Register them
+ *   const manager = getClientManager();
+ *   manager.registerClient("local", memoryClient, true); // default
+ *   manager.registerClient("remote", httpClient);
+ *
+ *   // Start server
+ *   await startServer();
  */
 
 import { app } from "./mod.ts";
 import { getClientManager, type ClientManagerConfig } from "./clients.ts";
 import { loadServerConfig } from "./config.ts";
+
+// Re-export the logger - but don't redeclare it, just use the same implementation
 
 // Color codes for console output
 const colors = {
@@ -40,7 +41,7 @@ const colors = {
 /**
  * Logger utility
  */
-class Logger {
+export class Logger {
   private level: string;
 
   constructor(level = "info") {
@@ -107,38 +108,24 @@ ${colors.green}✓${colors.reset} Health check: ${colors.bright}http://localhost
 }
 
 /**
- * Load instances configuration
+ * Initialize server with programmatic client setup
+ * Clients should be registered before calling this function
  */
-async function loadInstancesConfig(configPath: string): Promise<ClientManagerConfig> {
-  try {
-    const content = await Deno.readTextFile(configPath);
-    return JSON.parse(content);
-  } catch (error) {
-    throw new Error(`Failed to load instances config from ${configPath}: ${error}`);
-  }
-}
-
-/**
- * Initialize server and clients
- */
-async function initializeServer(): Promise<{
+async function initializeServer(programmaticClients?: ClientManagerConfig): Promise<{
   port: number;
   signal: AbortSignal;
 }> {
   logger.info("Initializing server...");
 
   // Load server configuration
-  const serverConfigPath =
-    Deno.env.get("SERVER_CONFIG") || "./config/server.json";
+  const serverConfigPath = Deno.env.get("SERVER_CONFIG") || "./config/server.json";
   let serverConfig;
 
   try {
     serverConfig = await loadServerConfig(serverConfigPath);
     logger.success(`Server configuration loaded from ${serverConfigPath}`);
   } catch (error) {
-    logger.warn(
-      `Failed to load server config from ${serverConfigPath}, using defaults`,
-    );
+    logger.warn(`Failed to load server config from ${serverConfigPath}, using defaults`);
     logger.debug(error);
     serverConfig = {
       port: parseInt(Deno.env.get("API_PORT") || "8000"),
@@ -154,35 +141,30 @@ async function initializeServer(): Promise<{
   // Initialize client manager
   const clientManager = getClientManager();
 
-  // Check if clients are already registered programmatically
-  const existingClients = clientManager.getInstanceNames();
-
-  if (existingClients.length === 0) {
-    // Try to load from configuration file for backward compatibility
-    const instancesConfigPath =
-      Deno.env.get("INSTANCES_CONFIG") || "./config/instances.json";
-
-    try {
-      logger.info(`No programmatic clients found, loading from ${instancesConfigPath}...`);
-      const instancesConfig = await loadInstancesConfig(instancesConfigPath);
-      await clientManager.initialize(instancesConfig);
-      logger.success("Client manager initialized from configuration file");
-    } catch (error) {
-      logger.error("Failed to initialize client manager:", error);
-      logger.info("Tip: Register clients programmatically before starting the server:");
-      logger.info("  getClientManager().registerClient('default', new MemoryClient());");
-      throw error;
-    }
+  if (programmaticClients) {
+    // Use programmatically provided clients
+    logger.info("Initializing with programmatic client configuration...");
+    await clientManager.initialize(programmaticClients);
+    logger.success("Client manager initialized with programmatic clients");
   } else {
-    logger.success("Using programmatically registered clients");
+    // Check if clients are already registered
+    const existingClients = clientManager.getInstanceNames();
+    if (existingClients.length === 0) {
+      logger.warn("No clients registered! Clients should be registered before starting the server.");
+      logger.info("Example: getClientManager().registerClient('default', new MemoryClient());");
+    }
   }
 
   // Display loaded instances
   const instanceNames = clientManager.getInstanceNames();
-  logger.info(`Loaded ${instanceNames.length} instance(s):`);
-  for (const name of instanceNames) {
-    const isDefault = name === clientManager.getDefaultInstance();
-    logger.info(`  - ${name}${isDefault ? " (default)" : ""}`);
+  if (instanceNames.length > 0) {
+    logger.info(`Registered ${instanceNames.length} instance(s):`);
+    for (const name of instanceNames) {
+      const isDefault = name === clientManager.getDefaultInstance();
+      logger.info(`  - ${name}${isDefault ? " (default)" : ""}`);
+    }
+  } else {
+    logger.warn("No client instances registered!");
   }
 
   // Create abort controller for graceful shutdown
@@ -222,43 +204,6 @@ async function initializeServer(): Promise<{
     port: serverConfig.port,
     signal: abortController.signal,
   };
-}
-
-/**
- * Start the server
- */
-async function startServer(): Promise<void> {
-  try {
-    // Initialize server and clients
-    const { port, signal } = await initializeServer();
-
-    // Print banner
-    printBanner(port);
-
-    // Start health check
-    startHealthCheck();
-
-    // Start the server
-    logger.info("Server is ready to accept connections");
-
-    Deno.serve(
-      {
-        port,
-        signal,
-        onListen: ({ hostname, port }) => {
-          logger.debug(`Listening on ${hostname}:${port}`);
-        },
-        onError: (error) => {
-          logger.error("Server error:", error);
-          return new Response("Internal Server Error", { status: 500 });
-        },
-      },
-      app.fetch,
-    );
-  } catch (error) {
-    logger.error("Failed to start server:", error);
-    Deno.exit(1);
-  }
 }
 
 /**
@@ -306,7 +251,55 @@ function startHealthCheck(): void {
 }
 
 /**
- * Main entry point
+ * Start the server with programmatic client setup
+ */
+export async function startServer(programmaticClients?: ClientManagerConfig): Promise<void> {
+  try {
+    // Initialize server and clients
+    const { port, signal } = await initializeServer(programmaticClients);
+
+    // Print banner
+    printBanner(port);
+
+    // Start health check
+    startHealthCheck();
+
+    // Start the server
+    logger.info("Server is ready to accept connections");
+
+    Deno.serve(
+      {
+        port,
+        signal,
+        onListen: ({ hostname, port }) => {
+          logger.debug(`Listening on ${hostname}:${port}`);
+        },
+        onError: (error) => {
+          logger.error("Server error:", error);
+          return new Response("Internal Server Error", { status: 500 });
+        },
+      },
+      app.fetch,
+    );
+  } catch (error) {
+    logger.error("Failed to start server:", error);
+    Deno.exit(1);
+  }
+}
+
+/**
+ * Alternative: Start server with a client setup function
+ */
+export async function startServerWithSetup(setupFn: () => Promise<void> | void): Promise<void> {
+  // Run the setup function to register clients
+  await setupFn();
+
+  // Start the server with registered clients
+  await startServer();
+}
+
+/**
+ * Main entry point for direct execution
  */
 if (import.meta.main) {
   startServer().catch((error) => {
@@ -314,5 +307,3 @@ if (import.meta.main) {
     Deno.exit(1);
   });
 }
-
-export { startServer, Logger };

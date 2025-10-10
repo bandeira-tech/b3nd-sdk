@@ -5,6 +5,8 @@
  * Supports schema validation and efficient querying.
  */
 
+/// <reference lib="dom" />
+
 import type {
   DeleteResult,
   HealthStatus,

@@ -1,39 +1,38 @@
 /**
  * Client Instance Manager
  *
- * Simple manager for multiple B3ndClient instances.
- * Uses a Map to store name -> client mappings.
+ * Simple manager for multiple NodeProtocolInterface instances.
+ * Works with pre-instantiated clients - no configuration mapping needed.
+ * Developers create their own clients and register them here.
  */
 
-import type { B3ndClient } from "../../client-sdk/mod.ts";
-import { createLocalClient } from "../../client-sdk/mod.ts";
-import { Persistence } from "../../persistence/mod.ts";
+import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
 
-export interface ClientInstanceConfig {
-  type: "local" | "http" | "websocket";
-  schema?: string;
-  options?: Record<string, unknown>;
+export interface ClientRegistration {
+  name: string;
+  client: NodeProtocolInterface;
+  isDefault?: boolean;
 }
 
-export interface InstancesConfig {
-  default?: string;
-  instances: Record<string, ClientInstanceConfig>;
+export interface ClientManagerConfig {
+  clients: ClientRegistration[];
 }
 
 class ClientManager {
-  private clients = new Map<string, B3ndClient>();
+  private clients = new Map<string, NodeProtocolInterface>();
   private defaultInstance?: string;
 
   /**
-   * Initialize clients from configuration
+   * Initialize clients from pre-instantiated client registrations
    */
-  async initialize(config: InstancesConfig): Promise<void> {
-    this.defaultInstance = config.default;
+  async initialize(config: ClientManagerConfig): Promise<void> {
+    for (const registration of config.clients) {
+      this.clients.set(registration.name, registration.client);
+      console.log(`[ClientManager] Registered instance '${registration.name}'`);
 
-    for (const [name, instanceConfig] of Object.entries(config.instances)) {
-      const client = await this.createClient(name, instanceConfig);
-      this.clients.set(name, client);
-      console.log(`[ClientManager] Initialized instance '${name}'`);
+      if (registration.isDefault) {
+        this.defaultInstance = registration.name;
+      }
     }
 
     // Set default to first instance if not specified
@@ -44,53 +43,22 @@ class ClientManager {
   }
 
   /**
-   * Create a client instance based on configuration
+   * Register a client instance directly
    */
-  private async createClient(
-    name: string,
-    config: ClientInstanceConfig,
-  ): Promise<B3ndClient> {
-    switch (config.type) {
-      case "local": {
-        // Load schema if provided
-        let schema = {};
-        if (config.schema) {
-          schema = await this.loadSchema(config.schema);
-        }
+  registerClient(name: string, client: NodeProtocolInterface, isDefault = false): void {
+    this.clients.set(name, client);
+    console.log(`[ClientManager] Registered instance '${name}'`);
 
-        // Create persistence instance
-        const persistence = new Persistence({ schema });
-
-        // Create local client
-        return createLocalClient(persistence);
-      }
-      // TODO: Add http and websocket client types when needed
-      default:
-        throw new Error(`Unknown client type: ${config.type}`);
+    if (isDefault || (!this.defaultInstance && this.clients.size === 1)) {
+      this.defaultInstance = name;
+      console.log(`[ClientManager] Using '${name}' as default instance`);
     }
-  }
-
-  /**
-   * Load schema from TypeScript module
-   */
-  private async loadSchema(schemaPath: string): Promise<Record<string, any>> {
-    const schemaUrl = new URL(schemaPath, `file://${Deno.cwd()}/`).href;
-    const schemaModule = await import(schemaUrl);
-    const schema = schemaModule.default || schemaModule.schema;
-
-    if (!schema || typeof schema !== "object") {
-      throw new Error(
-        `Schema module at '${schemaPath}' must export a default object`,
-      );
-    }
-
-    return schema;
   }
 
   /**
    * Get a client instance by name
    */
-  getClient(name?: string): B3ndClient {
+  getClient(name?: string): NodeProtocolInterface {
     const instanceName = name || this.defaultInstance;
 
     if (!instanceName) {
@@ -144,6 +112,7 @@ class ClientManager {
     );
     await Promise.all(cleanupPromises);
     this.clients.clear();
+    this.defaultInstance = undefined;
   }
 }
 

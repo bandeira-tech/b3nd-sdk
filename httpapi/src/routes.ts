@@ -18,7 +18,13 @@ const PaginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 const WriteBodySchema = z.object({
-  uri: z.string().url(),
+  uri: z.string().min(1).refine(
+    (uri) => {
+      // Allow custom URI schemes (protocol://path)
+      return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/.+/.test(uri);
+    },
+    { message: "Invalid URI format. Expected format: protocol://path" }
+  ),
   value: z.unknown(),
 });
 
@@ -92,57 +98,82 @@ api.get("/health", async (c) => {
 });
 
 // Helper for list logic
-async function handleList(c: any, instance: string, protocol: string, domain: string, path: string) {
-  const pagination = PaginationSchema.parse({
-    page: c.req.query("page"),
-    limit: c.req.query("limit"),
-  });
-
-  const client = getClientManager().getClient(instance);
-  const normalizedPath = !path || path === "" ? "/" : (path.startsWith("/") ? path : "/" + path);
-  const uri = `${protocol}://${domain}${normalizedPath}`;
-  const result = await client.list(uri, pagination);
-
-  return c.json(result, 200);
-}
-
-// GET /api/v1/list/:instance/:protocol/:domain - List contents at domain root
-api.get("/list/:instance/:protocol/:domain", async (c) => {
+async function handleList(c: any, instance: string, protocol: string, path?: string) {
   try {
-    const { instance, protocol, domain } = c.req.param();
-    return await handleList(c, instance, protocol, domain, "/");
-  } catch (error) {
-    const response = handleClientError(error, "List");
-    return new Response(response.body, {
-      status: response.status,
-      headers: response.headers,
+    const pagination = PaginationSchema.parse({
+      page: c.req.query("page"),
+      limit: c.req.query("limit"),
     });
-  }
-});
-
-// GET /api/v1/list/:instance/:protocol/:domain/:path* - List contents at path with pagination
-api.get("/list/:instance/:protocol/:domain/:path*", async (c) => {
-  try {
-    const { instance, protocol, domain } = c.req.param();
-    const path = c.req.param("path*") || "/";
-    return await handleList(c, instance, protocol, domain, path);
-  } catch (error) {
-    const response = handleClientError(error, "List");
-    return new Response(response.body, {
-      status: response.status,
-      headers: response.headers,
-    });
-  }
-});
-
-// GET /api/v1/read/:instance/:protocol/:domain/:path* - Read with instance in path
-api.get("/read/:instance/:protocol/:domain/:path*", async (c) => {
-  try {
-    const { instance, protocol, domain, "path*": path } = c.req.param();
 
     const client = getClientManager().getClient(instance);
-    const normalizedPath = !path || path === "" ? "" : (path.startsWith("/") ? path : "/" + path);
-    const uri = `${protocol}://${domain}${normalizedPath}`;
+
+    // Handle empty path or "/" as protocol root
+    const uri = (!path || path === "/")
+      ? `${protocol}://`
+      : `${protocol}://${path}`;
+
+    const result = await client.list(uri, pagination);
+
+    return c.json(result, 200);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json(
+        {
+          error: "Validation failed",
+          details: error.issues,
+        },
+        400,
+      );
+    }
+    throw error;
+  }
+}
+
+// GET /api/v1/list/:instance/:protocol/:path* - List contents with pagination
+api.get("/list/:instance/:protocol/:path*", async (c) => {
+  try {
+    const { instance, protocol } = c.req.param();
+    const path = c.req.param("path*");
+    return await handleList(c, instance, protocol, path);
+  } catch (error) {
+    const response = handleClientError(error, "List");
+    return new Response(response.body, {
+      status: response.status,
+      headers: response.headers,
+    });
+  }
+});
+
+// GET /api/v1/read/:instance/:protocol/ - Explicit handler for trailing slash (protocol root)
+api.get("/read/:instance/:protocol/", async (c) => {
+  try {
+    const { instance, protocol } = c.req.param();
+    const client = getClientManager().getClient(instance);
+    const uri = `${protocol}://`;
+    const result = await client.read(uri);
+
+    if (!result.success || !result.record) {
+      return c.json({ error: "Record not found" }, 404);
+    }
+
+    return c.json(result.record, 200);
+  } catch (error) {
+    const response = handleClientError(error, "Read");
+    return new Response(response.body, {
+      status: response.status,
+      headers: response.headers,
+    });
+  }
+});
+
+// GET /api/v1/read/:instance/:protocol/:path+ - Read with instance and resource path
+api.get("/read/:instance/:protocol/:path+", async (c) => {
+  try {
+    const { instance, protocol } = c.req.param();
+    const path = c.req.param("path+");
+
+    const client = getClientManager().getClient(instance);
+    const uri = `${protocol}://${path}`;
     const result = await client.read(uri);
 
     if (!result.success || !result.record) {
@@ -163,14 +194,20 @@ api.get("/read/:instance/:protocol/:domain/:path*", async (c) => {
 api.post("/write", async (c) => {
   try {
     const body = await c.req.json();
-    const writeReq: WriteRequest = WriteBodySchema.parse(body);
-    const instance = c.req.query("instance");
+    const requestedInstance = c.req.query("instance");
+    const manager = getClientManager();
+    const instance = requestedInstance || manager.getDefaultInstance() || "default";
 
-    const client = getClientManager().getClient(instance);
+    const writeReq: WriteRequest = {
+      ...WriteBodySchema.parse(body),
+      instance,
+    };
+
+    const client = manager.getClient(writeReq.instance);
     const result = await client.write(writeReq.uri, writeReq.value);
 
     if (!result.success) {
-      return c.json({ error: result.error || "Write failed" }, 400);
+      return c.json({ success: false, error: result.error || "Write failed" }, 400);
     }
 
     return c.json(result, 201);
@@ -179,7 +216,7 @@ api.post("/write", async (c) => {
       return c.json(
         {
           error: "Validation failed",
-          details: error.errors,
+          details: error.issues,
         },
         400,
       );
@@ -193,17 +230,22 @@ api.post("/write", async (c) => {
   }
 });
 
-// DELETE /api/v1/delete/:protocol/:domain/:path* - Delete record at path
-api.delete("/delete/:protocol/:domain/:path*", async (c) => {
+// DELETE /api/v1/delete/:protocol/:path* - Delete record
+api.delete("/delete/:protocol/:path*", async (c) => {
   try {
-    const { protocol, domain, path: rawPath } = c.req.param();
-    let fullPath = decodeURIComponent(rawPath || "");
-    if (!fullPath.startsWith("/")) fullPath = "/" + fullPath;
-    PathSchema.parse(fullPath);
-    const instance = c.req.query("instance");
+    const { protocol } = c.req.param();
+    const path = c.req.param("path*") || "";
+    const requestedInstance = c.req.query("instance");
+    const manager = getClientManager();
+    const instance = requestedInstance || manager.getDefaultInstance() || "default";
 
-    const client = getClientManager().getClient(instance);
-    const uri = `${protocol}://${domain}${fullPath}`;
+    const client = manager.getClient(instance);
+
+    // Handle empty path or "/" as protocol root
+    const uri = (!path || path === "/")
+      ? `${protocol}://`
+      : `${protocol}://${path}`;
+
     const result = await client.delete(uri);
 
     if (!result.success) {
@@ -216,7 +258,7 @@ api.delete("/delete/:protocol/:domain/:path*", async (c) => {
       return c.json(
         {
           error: "Validation failed",
-          details: error.errors,
+          details: error.issues,
         },
         400,
       );

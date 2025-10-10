@@ -3,7 +3,7 @@ import { z } from "zod";
 export const ServerConfigSchema = z.object({
   port: z.number().int().positive().default(8000),
   cors: z.object({
-    origins: z.array(z.string()).default(["*"]),
+    origin: z.array(z.string()).default(["*"]),
     credentials: z.boolean().default(false),
     methods: z.array(z.string()).default(["GET", "POST", "DELETE", "OPTIONS"]),
     headers: z.array(z.string()).default(["Content-Type", "Authorization"]),

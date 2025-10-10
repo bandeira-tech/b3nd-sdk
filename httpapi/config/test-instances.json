@@ -1,0 +1,19 @@
+{
+  "clients": [
+    {
+      "name": "test-memory",
+      "client": {
+        "type": "memory",
+        "schema": {}
+      },
+      "isDefault": true
+    },
+    {
+      "name": "test-local",
+      "client": {
+        "type": "localstorage",
+        "schema": {}
+      }
+    }
+  ]
+}

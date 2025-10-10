@@ -47,6 +47,15 @@ async function createApp() {
         }
       }
 
+      // If no instances are configured, return unhealthy status
+      if (instanceNames.length === 0) {
+        return c.json({
+          status: "unhealthy",
+          error: "No client instances configured",
+          timestamp: Date.now(),
+        }, 503);
+      }
+
       return c.json({
         status: "healthy",
         instances,
@@ -89,6 +98,11 @@ async function createApp() {
 
   // Mount core API routes
   app.route("/api/v1", api);
+
+  // 404 handler - return JSON instead of plain text
+  app.notFound((c) => {
+    return c.json({ error: "Not found" }, 404);
+  });
 
   // Enhanced error handler: Log request context + full stack trace on errors
   const errorHandler = (err: Error, c: any) => {
