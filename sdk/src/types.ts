@@ -268,6 +268,46 @@ export interface IndexedDBClientConfig {
 }
 
 /**
+ * Configuration for PostgresClient
+ */
+export interface PostgresClientConfig {
+  /**
+   * PostgreSQL connection string or configuration
+   * Examples:
+   *   - "postgresql://user:password@localhost:5432/database"
+   *   - { host: "localhost", port: 5432, database: "mydb", user: "user", password: "pass" }
+   */
+  connection: string | {
+    host: string;
+    port: number;
+    database: string;
+    user: string;
+    password: string;
+    ssl?: boolean | object;
+  };
+
+  /**
+   * Optional schema for validation (same as other clients)
+   */
+  schema?: Schema;
+
+  /**
+   * Table name prefix for b3nd data (default: "b3nd")
+   */
+  tablePrefix?: string;
+
+  /**
+   * Connection pool size (default: 10)
+   */
+  poolSize?: number;
+
+  /**
+   * Connection timeout in milliseconds (default: 30000)
+   */
+  connectionTimeout?: number;
+}
+
+/**
  * Error class for client operations
  * Preserves error context without hiding details
  */

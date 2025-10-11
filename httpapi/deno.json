@@ -2,8 +2,10 @@
   "tasks": {
     "start": "deno run --allow-net --allow-read --allow-write --allow-env src/server.ts",
     "start:prog": "deno run --allow-net --allow-read --allow-write --allow-env src/main.ts",
+    "start:postgres": "deno run --allow-net --allow-read --allow-write --allow-env src/main-postgres.ts",
     "dev": "deno run --allow-net --allow-read --allow-write --allow-env --watch src/server.ts",
     "dev:prog": "deno run --allow-net --allow-read --allow-write --allow-env --watch src/main.ts",
+    "dev:postgres": "deno run --allow-net --allow-read --allow-write --allow-env --watch src/main-postgres.ts",
     "start:old": "deno run -A --watch src/mod.ts",
     "test": "deno test --allow-net",
     "test:watch": "deno test --watch --allow-net",

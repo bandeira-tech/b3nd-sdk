@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: b3nd-postgres
+    environment:
+      POSTGRES_DB: b3nd_db
+      POSTGRES_USER: b3nd_user
+      POSTGRES_PASSWORD: b3nd_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - b3nd-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U b3nd_user -d b3nd_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  b3nd-httpapi:
+    build:
+      context: ..
+      dockerfile: httpapi/Dockerfile
+    container_name: b3nd-httpapi
+    working_dir: /app/httpapi
+    environment:
+      # PostgreSQL connection via DATABASE_URL
+      DATABASE_URL: postgresql://b3nd_user:b3nd_password@postgres:5432/b3nd_db
+
+      # Alternative individual connection parameters
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: b3nd_db
+      POSTGRES_USER: b3nd_user
+      POSTGRES_PASSWORD: b3nd_password
+
+      # API configuration
+      API_PORT: 8000
+      LOG_LEVEL: info
+      HEALTH_CHECK_INTERVAL: 30000
+
+      # B3ND configuration (relative to working directory)
+      INSTANCES_CONFIG: "./config/instances.json"
+      SERVER_CONFIG: "./config/server.json"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - b3nd-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "deno", "run", "--allow-net", "--allow-env", "https://deno.land/x/deno_healthcheck@v1.0.0/mod.ts", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  b3nd-network:
+    driver: bridge

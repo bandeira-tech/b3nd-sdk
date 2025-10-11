@@ -18,6 +18,7 @@ export type {
   MemoryClientConfig,
   NodeProtocolInterface,
   PersistenceRecord,
+  PostgresClientConfig,
   ReadResult,
   Schema,
   ValidationFn,
@@ -33,3 +34,4 @@ export { HttpClient } from "./http-client.ts";
 export { WebSocketClient } from "./websocket-client.ts";
 export { LocalStorageClient } from "./local-storage-client.ts";
 export { IndexedDBClient } from "./indexed-db-client.ts";
+export { PostgresClient } from "./postgres-client.ts";
