@@ -5,7 +5,7 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import { LocalStorageClient } from "../src/local-storage-client.ts";
+import { LocalStorageClient } from "../clients/local-storage/mod.ts";
 import { runSharedSuite, type TestClientFactories } from "./shared-suite.ts";
 
 /**
@@ -40,10 +40,8 @@ class MockLocalStorage {
   }
 }
 
-// Replace global localStorage with mock if not available
-if (typeof globalThis.localStorage === "undefined") {
-  (globalThis as any).localStorage = new MockLocalStorage();
-}
+// Always replace global localStorage with mock to ensure deterministic tests
+(globalThis as any).localStorage = new MockLocalStorage();
 
 Deno.test("LocalStorageClient - basic operations", async () => {
   const client = new LocalStorageClient({

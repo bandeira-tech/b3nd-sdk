@@ -18,7 +18,7 @@ import type {
   Schema,
   ValidationFn,
   WriteResult,
-} from "./types.ts";
+} from "../../src/types.ts";
 
 export class LocalStorageClient implements NodeProtocolInterface {
   private config: Required<LocalStorageClientConfig>;

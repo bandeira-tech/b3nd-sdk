@@ -5,7 +5,7 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import { WebSocketClient } from "../src/websocket-client.ts";
+import { WebSocketClient } from "../clients/websocket/mod.ts";
 import { runSharedSuite, type TestClientFactories } from "./shared-suite.ts";
 
 /**

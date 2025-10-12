@@ -14,7 +14,7 @@ import type {
   NodeProtocolInterface,
   ReadResult,
   WriteResult,
-} from "./types.ts";
+} from "../../src/types.ts";
 
 export class HttpClient implements NodeProtocolInterface {
   private baseUrl: string;

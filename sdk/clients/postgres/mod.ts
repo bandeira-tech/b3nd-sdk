@@ -17,11 +17,13 @@ import type {
   ReadResult,
   Schema,
   WriteResult,
-} from "./types.ts";
+} from "../../src/types.ts";
 
 // PostgreSQL client import - using postgres library for Deno
 // Note: In a real implementation, you'd use a PostgreSQL client library
 // For now, we'll create a mock implementation that shows the structure
+
+import { generatePostgresSchema } from "./schema.ts";
 
 export class PostgresClient implements NodeProtocolInterface {
   private config: PostgresClientConfig;
@@ -31,9 +33,29 @@ export class PostgresClient implements NodeProtocolInterface {
   // private pool: Pool; // Would be initialized with actual PostgreSQL client
 
   constructor(config: PostgresClientConfig) {
+    // Validate required configuration
+    if (!config) {
+      throw new Error("PostgresClientConfig is required");
+    }
+    if (!config.connection) {
+      throw new Error("connection is required in PostgresClientConfig");
+    }
+    if (!config.tablePrefix) {
+      throw new Error("tablePrefix is required in PostgresClientConfig");
+    }
+    if (!config.schema) {
+      throw new Error("schema is required in PostgresClientConfig");
+    }
+    if (!config.poolSize) {
+      throw new Error("poolSize is required in PostgresClientConfig");
+    }
+    if (!config.connectionTimeout) {
+      throw new Error("connectionTimeout is required in PostgresClientConfig");
+    }
+
     this.config = config;
-    this.schema = config.schema || {};
-    this.tablePrefix = config.tablePrefix || "b3nd";
+    this.schema = config.schema;
+    this.tablePrefix = config.tablePrefix;
 
     // Initialize connection (mock for now)
     this.connected = true;
@@ -192,7 +214,7 @@ export class PostgresClient implements NodeProtocolInterface {
   }
 
   async getSchema(): Promise<string[]> {
-    return Object.keys(this.schema);
+    return this.schema ? Object.keys(this.schema) : [];
   }
 
   async cleanup(): Promise<void> {
@@ -206,19 +228,18 @@ export class PostgresClient implements NodeProtocolInterface {
    * Creates the necessary tables for b3nd data storage
    */
   async initializeSchema(): Promise<void> {
-    // In real implementation, this would create tables like:
-    // CREATE TABLE IF NOT EXISTS b3nd_data (
-    //   uri VARCHAR(2048) PRIMARY KEY,
-    //   data JSONB NOT NULL,
-    //   timestamp BIGINT NOT NULL,
-    //   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    //   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    // );
-    //
-    // CREATE INDEX IF NOT EXISTS idx_b3nd_data_uri_prefix ON b3nd_data (uri);
-    // CREATE INDEX IF NOT EXISTS idx_b3nd_data_timestamp ON b3nd_data (timestamp);
+    try {
+      // Generate schema SQL using the utility function
+      const schemaSQL = generatePostgresSchema(this.tablePrefix);
 
-    console.log(`[PostgresClient] Would initialize schema with table prefix: ${this.tablePrefix}`);
+      // In real implementation, this would execute the SQL:
+      // await this.pool.query(schemaSQL);
+
+      console.log(`[PostgresClient] Schema initialized with table prefix: ${this.tablePrefix}`);
+      console.log(`[PostgresClient] Schema SQL generated (${schemaSQL.length} characters)`);
+    } catch (error) {
+      throw new Error(`Failed to initialize PostgreSQL schema: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**

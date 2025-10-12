@@ -16,7 +16,7 @@ import type {
   WebSocketRequest,
   WebSocketResponse,
   WriteResult,
-} from "./types.ts";
+} from "../../src/types.ts";
 
 export class WebSocketClient implements NodeProtocolInterface {
   private config: WebSocketClientConfig;

@@ -16,7 +16,7 @@ import type {
   PersistenceRecord,
   ReadResult,
   WriteResult,
-} from "./types.ts";
+} from "../../src/types.ts";
 
 export class MemoryClient implements NodeProtocolInterface {
   private store: Map<string, PersistenceRecord<unknown>>;

@@ -29,9 +29,17 @@ export type {
 } from "./types.ts";
 
 // Client implementations
-export { MemoryClient } from "./memory-client.ts";
-export { HttpClient } from "./http-client.ts";
-export { WebSocketClient } from "./websocket-client.ts";
-export { LocalStorageClient } from "./local-storage-client.ts";
-export { IndexedDBClient } from "./indexed-db-client.ts";
-export { PostgresClient } from "./postgres-client.ts";
+export { MemoryClient } from "../clients/memory/mod.ts";
+export { HttpClient } from "../clients/http/mod.ts";
+export { WebSocketClient } from "../clients/websocket/mod.ts";
+export { LocalStorageClient } from "../clients/local-storage/mod.ts";
+export { IndexedDBClient } from "../clients/indexed-db/mod.ts";
+export { PostgresClient } from "../clients/postgres/mod.ts";
+
+// PostgreSQL schema utilities
+export {
+  generatePostgresSchema,
+  generateCompleteSchemaSQL,
+  extractSchemaVersion,
+  type SchemaInitOptions,
+} from "../clients/postgres/schema.ts";

@@ -19,7 +19,7 @@ import type {
   ReadResult,
   Schema,
   WriteResult,
-} from "./types.ts";
+} from "../../src/types.ts";
 
 // Type definitions for IndexedDB (simplified for cross-platform compatibility)
 interface IDBDatabase {

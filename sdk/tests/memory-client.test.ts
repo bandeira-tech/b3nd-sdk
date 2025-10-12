@@ -8,7 +8,7 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import { MemoryClient } from "../src/memory-client.ts";
+import { MemoryClient } from "../clients/memory/mod.ts";
 import { runSharedSuite, type TestClientFactories } from "./shared-suite.ts";
 
 // Run shared suite with MemoryClient factory functions

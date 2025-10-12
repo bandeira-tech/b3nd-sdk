@@ -287,24 +287,24 @@ export interface PostgresClientConfig {
   };
 
   /**
-   * Optional schema for validation (same as other clients)
+   * Schema for validation - must be explicitly provided
    */
-  schema?: Schema;
+  schema: Schema;
 
   /**
-   * Table name prefix for b3nd data (default: "b3nd")
+   * Table name prefix for b3nd data - must be explicitly provided
    */
-  tablePrefix?: string;
+  tablePrefix: string;
 
   /**
-   * Connection pool size (default: 10)
+   * Connection pool size - must be explicitly provided
    */
-  poolSize?: number;
+  poolSize: number;
 
   /**
-   * Connection timeout in milliseconds (default: 30000)
+   * Connection timeout in milliseconds - must be explicitly provided
    */
-  connectionTimeout?: number;
+  connectionTimeout: number;
 }
 
 /**

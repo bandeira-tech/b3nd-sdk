@@ -7,7 +7,7 @@
 
 /// <reference lib="deno.ns" />
 
-import { HttpClient } from "../src/http-client.ts";
+import { HttpClient } from "../clients/http/mod.ts";
 import { createMockServers } from "./mock-http-server.ts";
 import { runSharedSuite } from "./shared-suite.ts";
 

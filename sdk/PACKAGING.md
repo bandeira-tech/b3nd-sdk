@@ -18,11 +18,12 @@ dist/
 ├── package.json          # NPM package configuration
 ├── mod.ts               # Main entry point
 ├── types.ts             # Core type definitions
-├── memory-client.ts     # Memory client implementation
-├── http-client.ts       # HTTP client implementation
-├── websocket-client.ts  # WebSocket client implementation
-├── local-storage-client.ts # LocalStorage client implementation
-├── indexed-db-client.ts # IndexedDB client implementation
+├── clients/
+│   ├── memory/mod.ts         # Memory client implementation
+│   ├── http/mod.ts           # HTTP client implementation
+│   ├── websocket/mod.ts      # WebSocket client implementation
+│   ├── local-storage/mod.ts  # LocalStorage client implementation
+│   └── indexed-db/mod.ts     # IndexedDB client implementation
 ├── README.md            # Package documentation
 ├── LICENSE              # MIT license
 └── USAGE.md             # Usage instructions
@@ -66,11 +67,11 @@ The package is configured as an ES module with TypeScript entry points:
 All clients are exported from `mod.ts`:
 
 ```typescript
-export { MemoryClient } from "./memory-client.ts";
-export { HttpClient } from "./http-client.ts";
-export { WebSocketClient } from "./websocket-client.ts";
-export { LocalStorageClient } from "./local-storage-client.ts";
-export { IndexedDBClient } from "./indexed-db-client.ts";
+export { MemoryClient } from "../clients/memory/mod.ts";
+export { HttpClient } from "../clients/http/mod.ts";
+export { WebSocketClient } from "../clients/websocket/mod.ts";
+export { LocalStorageClient } from "../clients/local-storage/mod.ts";
+export { IndexedDBClient } from "../clients/indexed-db/mod.ts";
 ```
 
 ## Usage by Consumers
