@@ -25,14 +25,24 @@ import type {
 
 import { generatePostgresSchema } from "./schema.ts";
 
-export class PostgresClient implements NodeProtocolInterface {
-  private config: PostgresClientConfig;
-  private schema: Schema;
-  private tablePrefix: string;
-  private connected: boolean = false;
-  // private pool: Pool; // Would be initialized with actual PostgreSQL client
+// Local executor types scoped to Postgres client to avoid leaking DB concerns
+export interface SqlExecutorResult {
+  rows: unknown[];
+  rowCount?: number;
+}
 
-  constructor(config: PostgresClientConfig) {
+export interface SqlExecutor {
+  query: (sql: string, args?: unknown[]) => Promise<SqlExecutorResult>;
+}
+
+export class PostgresClient implements NodeProtocolInterface {
+  private readonly config: PostgresClientConfig;
+  private readonly schema: Schema;
+  private readonly tablePrefix: string;
+  private readonly executor: SqlExecutor;
+  private connected = false;
+
+  constructor(config: PostgresClientConfig, executor?: SqlExecutor) {
     // Validate required configuration
     if (!config) {
       throw new Error("PostgresClientConfig is required");
@@ -46,18 +56,20 @@ export class PostgresClient implements NodeProtocolInterface {
     if (!config.schema) {
       throw new Error("schema is required in PostgresClientConfig");
     }
-    if (!config.poolSize) {
+    if (config.poolSize == null) {
       throw new Error("poolSize is required in PostgresClientConfig");
     }
-    if (!config.connectionTimeout) {
+    if (config.connectionTimeout == null) {
       throw new Error("connectionTimeout is required in PostgresClientConfig");
+    }
+    if (!executor) {
+      throw new Error("executor is required");
     }
 
     this.config = config;
     this.schema = config.schema;
     this.tablePrefix = config.tablePrefix;
-
-    // Initialize connection (mock for now)
+    this.executor = executor;
     this.connected = true;
   }
 
@@ -92,12 +104,14 @@ export class PostgresClient implements NodeProtocolInterface {
         data: value,
       };
 
-      // Store in PostgreSQL (mock implementation)
-      // In real implementation, this would execute SQL like:
-      // INSERT INTO b3nd_data (uri, data, timestamp) VALUES ($1, $2, $3)
-      // ON CONFLICT (uri) DO UPDATE SET data = $2, timestamp = $3
+      // Upsert into table directly to avoid dependency on DB function
+      const table = `${this.tablePrefix}_data`;
+      await this.executor.query(
+        `INSERT INTO ${table} (uri, data, timestamp) VALUES ($1, $2::jsonb, $3)
+         ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, timestamp = EXCLUDED.timestamp, updated_at = CURRENT_TIMESTAMP`,
+        [uri, JSON.stringify(record.data), record.ts],
+      );
 
-      // Mock successful write
       return {
         success: true,
         record,
@@ -112,20 +126,20 @@ export class PostgresClient implements NodeProtocolInterface {
 
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
     try {
-      // Mock read from PostgreSQL
-      // In real implementation, this would execute:
-      // SELECT data, timestamp FROM b3nd_data WHERE uri = $1
-
-      // For demo purposes, return a mock record
-      const mockRecord: PersistenceRecord<T> = {
-        ts: Date.now(),
-        data: null as T, // Would be actual data from DB
+      const table = `${this.tablePrefix}_data`;
+      const res = await this.executor.query(
+        `SELECT data, timestamp as ts FROM ${table} WHERE uri = $1`,
+        [uri],
+      );
+      if (!res.rows || res.rows.length === 0) {
+        return { success: false, error: `Not found: ${uri}` };
+      }
+      const row: any = res.rows[0];
+      const record: PersistenceRecord<T> = {
+        ts: typeof row.ts === 'number' ? row.ts : Number(row.ts),
+        data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
       };
-
-      return {
-        success: true,
-        record: mockRecord,
-      };
+      return { success: true, record };
     } catch (error) {
       return {
         success: false,
@@ -136,45 +150,50 @@ export class PostgresClient implements NodeProtocolInterface {
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
     try {
-      const page = options?.page || 1;
-      const limit = options?.limit || 100;
+      const page = options?.page ?? 1;
+      const limit = options?.limit ?? 100;
       const pattern = options?.pattern;
+      const offset = (page - 1) * limit;
+      const table = `${this.tablePrefix}_data`;
 
-      // Mock list from PostgreSQL
-      // In real implementation, this would execute:
-      // SELECT uri, data, timestamp FROM b3nd_data
-      // WHERE uri LIKE $1 || '%' AND uri LIKE '%' || $2 || '%'
-      // ORDER BY uri LIMIT $3 OFFSET $4
+      const conditions: string[] = ["uri LIKE $1 || '%'" ];
+      const args: unknown[] = [uri];
+      if (pattern) {
+        const sqlPattern = String(pattern).replace(/\*/g, '%');
+        conditions.push("uri LIKE $2");
+        args.push(`%${sqlPattern}%`);
+      }
 
-      // Return empty result for now
-      return {
-        data: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-        },
-      };
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+      const listSql = `SELECT uri FROM ${table} ${where} ORDER BY uri LIMIT ${limit} OFFSET ${offset}`;
+      const countSql = `SELECT COUNT(*)::int AS count FROM ${table} ${where}`;
+
+      const [rowsRes, countRes] = await Promise.all([
+        this.executor.query(listSql, args),
+        this.executor.query(countSql, args),
+      ]);
+
+      const total = (countRes.rows && (countRes.rows[0] as any)?.count) ?? 0;
+      const data: ListItem[] = (rowsRes.rows || []).map((r: any) => ({
+        uri: r.uri,
+        type: 'file',
+      }));
+
+      return { data, pagination: { page, limit, total } };
     } catch (error) {
-      return {
-        data: [],
-        pagination: {
-          page: options?.page || 1,
-          limit: options?.limit || 100,
-        },
-      };
+      return { data: [], pagination: { page: options?.page ?? 1, limit: options?.limit ?? 100 } };
     }
   }
 
   async delete(uri: string): Promise<DeleteResult> {
     try {
-      // Mock delete from PostgreSQL
-      // In real implementation, this would execute:
-      // DELETE FROM b3nd_data WHERE uri = $1
-
-      return {
-        success: true,
-      };
+      const table = `${this.tablePrefix}_data`;
+      const res = await this.executor.query(`DELETE FROM ${table} WHERE uri = $1`, [uri]);
+      const affected = typeof res.rowCount === 'number' ? res.rowCount : 0;
+      if (affected === 0) {
+        return { success: false, error: 'Not found' };
+      }
+      return { success: true };
     } catch (error) {
       return {
         success: false,
@@ -185,26 +204,19 @@ export class PostgresClient implements NodeProtocolInterface {
 
   async health(): Promise<HealthStatus> {
     try {
-      // Mock health check
-      // In real implementation, this would execute:
-      // SELECT 1; -- Simple health check query
-
       if (!this.connected) {
         return {
           status: "unhealthy",
           message: "Not connected to PostgreSQL",
         };
       }
-
-      return {
-        status: "healthy",
-        message: "PostgreSQL client is operational",
-        details: {
-          tablePrefix: this.tablePrefix,
-          schemaKeys: Object.keys(this.schema),
-          connectionType: typeof this.config.connection === 'string' ? 'connection_string' : 'config_object',
-        },
-      };
+      // Simple health check
+      await this.executor.query('SELECT 1');
+      return { status: 'healthy', message: 'PostgreSQL client is operational', details: {
+        tablePrefix: this.tablePrefix,
+        schemaKeys: Object.keys(this.schema),
+        connectionType: typeof this.config.connection === 'string' ? 'connection_string' : 'config_object',
+      }};
     } catch (error) {
       return {
         status: "unhealthy",
@@ -231,12 +243,7 @@ export class PostgresClient implements NodeProtocolInterface {
     try {
       // Generate schema SQL using the utility function
       const schemaSQL = generatePostgresSchema(this.tablePrefix);
-
-      // In real implementation, this would execute the SQL:
-      // await this.pool.query(schemaSQL);
-
-      console.log(`[PostgresClient] Schema initialized with table prefix: ${this.tablePrefix}`);
-      console.log(`[PostgresClient] Schema SQL generated (${schemaSQL.length} characters)`);
+      await this.executor.query(schemaSQL);
     } catch (error) {
       throw new Error(`Failed to initialize PostgreSQL schema: ${error instanceof Error ? error.message : String(error)}`);
     }

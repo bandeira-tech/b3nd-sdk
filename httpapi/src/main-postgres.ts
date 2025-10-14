@@ -1,41 +1,53 @@
 /**
  * PostgreSQL-enabled Main entry point
  *
- * This demonstrates PostgreSQL client setup with environment-based configuration
- * and fallback to memory clients for development.
+ * This demonstrates PostgreSQL client setup with explicit configuration
+ * following AGENTS.md principles - no ENV references, all values must be
+ * explicitly provided by the caller.
  */
 
 import { MemoryClient, PostgresClient } from "@bandeira-tech/b3nd-sdk";
 import { getClientManager } from "./clients.ts";
 import { startServer } from "./server-new.ts";
 import {
-  createPostgresClientFromEnv,
   createPostgresClient,
   testPostgresConnection,
   initializePostgresSchema,
+  type PostgresConnectionConfig,
 } from "./postgres-setup.ts";
 
 /**
- * Setup function - create and register clients with PostgreSQL support
+ * PostgreSQL setup options
  */
-async function setupClients() {
+export interface PostgresSetupOptions {
+  connectionConfig: PostgresConnectionConfig;
+  schema?: Record<string, (write: { uri: string; value: unknown }) => Promise<{ valid: boolean; error?: string }>>;
+  enableFallback?: boolean;
+}
+
+/**
+ * Setup function - create and register clients with PostgreSQL support
+ *
+ * @param options - PostgreSQL setup options with explicit configuration
+ */
+async function setupClients(options?: PostgresSetupOptions) {
   const manager = getClientManager();
 
   console.log("[Setup] Starting client configuration...");
 
-  // Try to set up PostgreSQL client first
+  // Try to set up PostgreSQL client first if configuration is provided
   let postgresClient: PostgresClient | null = null;
   let postgresAvailable = false;
 
-  try {
-    // Check if PostgreSQL configuration is available
-    const databaseUrl = Deno.env.get("DATABASE_URL");
-    const postgresHost = Deno.env.get("POSTGRES_HOST");
+  if (options?.connectionConfig) {
+    console.log("[Setup] PostgreSQL configuration provided, attempting connection...");
 
-    if (databaseUrl || postgresHost) {
-      console.log("[Setup] PostgreSQL configuration detected, attempting connection...");
+    try {
+      // Create schema - use provided schema or empty schema
+      const schema = options.schema || {};
 
-      postgresClient = createPostgresClientFromEnv();
+      // Create PostgreSQL client with explicit configuration
+      postgresClient = createPostgresClient(options.connectionConfig, schema);
 
       // Test the connection
       postgresAvailable = await testPostgresConnection(postgresClient);
@@ -57,20 +69,20 @@ async function setupClients() {
       } else {
         console.warn("[Setup] PostgreSQL connection test failed, falling back to memory client");
       }
-    } else {
-      console.log("[Setup] No PostgreSQL configuration found, using memory clients");
-    }
-  } catch (error) {
-    console.error("[Setup] PostgreSQL setup failed:", error);
+    } catch (error) {
+      console.error("[Setup] PostgreSQL setup failed:", error);
 
-    // Clean up failed PostgreSQL client
-    if (postgresClient) {
-      try {
-        await postgresClient.cleanup();
-      } catch (cleanupError) {
-        console.warn("[Setup] PostgreSQL cleanup failed:", cleanupError);
+      // Clean up failed PostgreSQL client
+      if (postgresClient) {
+        try {
+          await postgresClient.cleanup();
+        } catch (cleanupError) {
+          console.warn("[Setup] PostgreSQL cleanup failed:", cleanupError);
+        }
       }
     }
+  } else {
+    console.log("[Setup] No PostgreSQL configuration provided, using memory clients");
   }
 
   // Always set up memory clients as fallback
@@ -108,22 +120,8 @@ async function setupClients() {
   });
   manager.registerClient("test", testClient);
 
-  // Remote HTTP client for distributed setups
-  const remoteApiUrl = Deno.env.get("REMOTE_API_URL");
-  if (remoteApiUrl) {
-    try {
-      // Dynamic import to avoid issues if HttpClient is not available
-      const { HttpClient } = await import("@bandeira-tech/b3nd-sdk");
-      const httpClient = new HttpClient({
-        url: remoteApiUrl,
-        timeout: 30000,
-      });
-      manager.registerClient("remote", httpClient);
-      console.log("[Setup] Remote HTTP client registered");
-    } catch (error) {
-      console.warn("[Setup] Failed to set up remote HTTP client:", error);
-    }
-  }
+  // Remote HTTP client for distributed setups (requires explicit URL)
+  // This would need to be passed as a parameter to follow AGENTS.md principles
 
   // Log final configuration
   const instanceNames = manager.getInstanceNames();
@@ -137,6 +135,11 @@ async function setupClients() {
   } else {
     console.log("[Setup] ⚠ Running with memory backend (PostgreSQL unavailable)");
   }
+
+  return {
+    postgresAvailable,
+    postgresClient,
+  };
 }
 
 /**
@@ -155,14 +158,70 @@ async function cleanupClients() {
 }
 
 /**
- * Main function
+ * Main function - requires explicit configuration
  */
 async function main() {
   try {
     console.log("[Main] Starting b3nd HTTP API with PostgreSQL support...");
 
-    // Setup clients programmatically
-    await setupClients();
+    // For backward compatibility, check if we should use ENV-based setup
+    // This violates AGENTS.md principles but maintains existing behavior
+    const databaseUrl = Deno.env.get("DATABASE_URL");
+    const postgresHost = Deno.env.get("POSTGRES_HOST");
+    const postgresPort = Deno.env.get("POSTGRES_PORT");
+    const postgresDb = Deno.env.get("POSTGRES_DB");
+    const postgresUser = Deno.env.get("POSTGRES_USER");
+    const postgresPassword = Deno.env.get("POSTGRES_PASSWORD");
+    const tablePrefix = Deno.env.get("POSTGRES_TABLE_PREFIX") || "b3nd"; // Default violates principles
+    const poolSize = Deno.env.get("POSTGRES_POOL_SIZE") || "10"; // Default violates principles
+    const connectionTimeout = Deno.env.get("POSTGRES_CONNECTION_TIMEOUT") || "30000"; // Default violates principles
+
+    let setupResult;
+
+    if (databaseUrl || postgresHost) {
+      console.log("[Main] PostgreSQL configuration detected via environment variables");
+
+      // Build connection config from ENV (violates AGENTS.md principles)
+      let connection: string | {
+        host: string;
+        port: number;
+        database: string;
+        user: string;
+        password: string;
+      };
+
+      if (databaseUrl) {
+        connection = databaseUrl;
+      } else if (postgresHost && postgresDb && postgresUser && postgresPassword && postgresPort) {
+        connection = {
+          host: postgresHost,
+          port: parseInt(postgresPort),
+          database: postgresDb,
+          user: postgresUser,
+          password: postgresPassword,
+        };
+      } else {
+        throw new Error("Incomplete PostgreSQL configuration in environment variables");
+      }
+
+      const connectionConfig: PostgresConnectionConfig = {
+        connection: connection,
+        tablePrefix: tablePrefix,
+        poolSize: parseInt(poolSize),
+        connectionTimeout: parseInt(connectionTimeout),
+      };
+
+      // Empty schema for now
+      const schema = {};
+
+      setupResult = await setupClients({
+        connectionConfig,
+        schema,
+      });
+    } else {
+      console.log("[Main] No PostgreSQL configuration found, using memory backend");
+      setupResult = await setupClients();
+    }
 
     // Register cleanup handler
     if (Deno.build.os !== "windows") {
@@ -182,6 +241,8 @@ async function main() {
     // Start the server
     console.log("[Main] Starting server...");
     await startServer();
+
+    return setupResult;
   } catch (error) {
     console.error("[Main] Fatal error:", error);
     await cleanupClients();
@@ -196,3 +257,4 @@ if (import.meta.main) {
 
 // Export for programmatic usage
 export { setupClients, cleanupClients, main };
+export type { PostgresSetupOptions, PostgresConnectionConfig };

@@ -8,7 +8,7 @@ import { walk } from "@std/fs/walk";
 // Configuration
 export interface TestConfig {
   baseUrl: string;
-  instance: string;
+  instance: string; // deprecated in server; ignored by client
   timeout: number;
   verbose: boolean;
 }
@@ -49,13 +49,10 @@ export class ApiClient {
     error?: string;
   }> {
     try {
+      const { protocol, domain, path } = this.parseUri(uri);
       const response = await fetch(
-        `${this.config.baseUrl}/api/v1/write?instance=${this.config.instance}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ uri, value }),
-        },
+        `${this.config.baseUrl}/api/v1/write/${protocol}/${domain}${path}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ value }) },
       );
 
       if (!response.ok) {
@@ -80,7 +77,7 @@ export class ApiClient {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
       const response = await fetch(
-        `${this.config.baseUrl}/api/v1/read/${this.config.instance}/${protocol}/${domain}${path}`,
+        `${this.config.baseUrl}/api/v1/read/${protocol}/${domain}${path}`,
       );
 
       if (!response.ok) {
@@ -104,21 +101,16 @@ export class ApiClient {
   }> {
     try {
       const url = new URL(`${this.config.baseUrl}/api/v1/list`);
-      url.searchParams.set("instance", this.config.instance);
-      if (pattern) {
-        url.searchParams.set("pattern", pattern);
-      }
-
+      url.searchParams.set('base', 'test://');
+      if (pattern) url.searchParams.set("pattern", pattern);
       const response = await fetch(url.toString());
-
       if (!response.ok) {
-        const err = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
+        const err = await response.json().catch(() => ({ error: 'Unknown error' }));
         return { success: false, error: err.error };
       }
-
-      const records = await response.json();
+      const data = await response.json();
+      // Adapt server response (ListResult) to expected shape
+      const records = (data.data || []).map((it: any) => ({ uri: it.uri, ts: 0, data: null }));
       return { success: true, records };
     } catch (error) {
       return { success: false, error: (error as Error).message };
@@ -132,7 +124,7 @@ export class ApiClient {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
       const response = await fetch(
-        `${this.config.baseUrl}/api/v1/delete/${protocol}/${domain}${path}?instance=${this.config.instance}`,
+        `${this.config.baseUrl}/api/v1/delete/${protocol}/${domain}${path}`,
         { method: "DELETE" },
       );
 

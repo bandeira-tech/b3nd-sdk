@@ -97,54 +97,36 @@ export type Schema = Record<string, ValidationFn>;
  * All B3nd clients (Memory, HTTP, WebSocket, Postgres, IndexedDB, etc.)
  * implement this interface, enabling recursive composition and uniform usage.
  */
-export interface NodeProtocolInterface {
-  /**
-   * Write data to a URI
-   * @param uri - The URI to write to (e.g., "users://alice/profile")
-   * @param value - The data to write
-   * @returns Promise resolving to WriteResult with success status and record
-   */
+export interface NodeProtocolWriteInterface {
+  /** Write data to a URI */
   write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>>;
-
-  /**
-   * Read data from a URI
-   * @param uri - The URI to read from
-   * @returns Promise resolving to ReadResult with success status and record
-   */
-  read<T = unknown>(uri: string): Promise<ReadResult<T>>;
-
-  /**
-   * List items at a URI path
-   * @param uri - The URI path to list
-   * @param options - Optional pagination and filtering options
-   * @returns Promise resolving to ListResult with items and pagination info
-   */
-  list(uri: string, options?: ListOptions): Promise<ListResult>;
-
-  /**
-   * Delete data at a URI
-   * @param uri - The URI to delete
-   * @returns Promise resolving to DeleteResult with success status
-   */
+  /** Delete data at a URI */
   delete(uri: string): Promise<DeleteResult>;
-
-  /**
-   * Get health status of this client
-   * @returns Promise resolving to HealthStatus
-   */
+  /** Health status */
   health(): Promise<HealthStatus>;
-
-  /**
-   * Get schema information (program keys) supported by this client
-   * @returns Promise resolving to array of program keys (e.g., ["users://", "posts://"])
-   */
+  /** Supported program keys */
   getSchema(): Promise<string[]>;
-
-  /**
-   * Cleanup resources and close connections
-   */
+  /** Cleanup resources */
   cleanup(): Promise<void>;
 }
+
+export interface NodeProtocolReadInterface {
+  /** Read data from a URI */
+  read<T = unknown>(uri: string): Promise<ReadResult<T>>;
+  /** List items at a URI path */
+  list(uri: string, options?: ListOptions): Promise<ListResult>;
+  /** Health status */
+  health(): Promise<HealthStatus>;
+  /** Supported program keys */
+  getSchema(): Promise<string[]>;
+  /** Cleanup resources */
+  cleanup(): Promise<void>;
+}
+
+// Backward-compatible alias for existing clients and tests
+export type NodeProtocolInterface =
+  & NodeProtocolWriteInterface
+  & NodeProtocolReadInterface;
 
 /**
  * Configuration for MemoryClient

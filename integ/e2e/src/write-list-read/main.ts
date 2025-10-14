@@ -26,8 +26,9 @@ async function main() {
   // Parse configuration from environment
   const config = {
     ...defaultConfig,
-    verbose:
-      !(Deno.env.get("E2E_VERBOSE") === "false") || defaultConfig.verbose,
+    instance: "postgres",
+    verbose: !(Deno.env.get("E2E_VERBOSE") === "false") ||
+      defaultConfig.verbose,
   };
 
   // Test options

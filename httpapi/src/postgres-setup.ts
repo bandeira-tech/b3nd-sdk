@@ -3,23 +3,177 @@
  *
  * This module provides programmatic setup for PostgreSQL clients
  * using the PostgresClient from the b3nd SDK.
+ *
+ * Following AGENTS.md principles:
+ * - No ENV references - all configuration must be passed explicitly
+ * - No default values - all required values must be provided
+ * - Components fail if required values are not set
  */
 
 import { PostgresClient } from "@bandeira-tech/b3nd-sdk";
-import type { Schema } from "@bandeira-tech/b3nd-sdk";
+import type { PostgresClientConfig, Schema } from "@bandeira-tech/b3nd-sdk";
 
 /**
- * Create a PostgreSQL client from environment variables
+ * PostgreSQL connection configuration
+ */
+export interface PostgresConnectionConfig {
+  connection: string | {
+    host: string;
+    port: number;
+    database: string;
+    user: string;
+    password: string;
+    ssl?: boolean | object;
+  };
+  tablePrefix: string;
+  poolSize: number;
+  connectionTimeout: number;
+}
+
+/**
+ * Create a PostgreSQL client with explicit configuration
+ *
+ * @param connectionConfig - PostgreSQL connection configuration (required)
+ * @param schema - Schema for validation (required)
+ * @returns Configured PostgresClient instance
+ */
+export function createPostgresClient(
+  connectionConfig: PostgresConnectionConfig,
+  schema: Schema,
+): PostgresClient {
+  // Validate connection configuration
+  if (!connectionConfig) {
+    throw new Error("connectionConfig is required");
+  }
+  if (!connectionConfig.connection) {
+    throw new Error("connectionConfig.connection is required");
+  }
+  if (!connectionConfig.tablePrefix) {
+    throw new Error("connectionConfig.tablePrefix is required");
+  }
+  if (!connectionConfig.poolSize) {
+    throw new Error("connectionConfig.poolSize is required");
+  }
+  if (!connectionConfig.connectionTimeout) {
+    throw new Error("connectionConfig.connectionTimeout is required");
+  }
+
+  // Validate schema
+  if (!schema) {
+    throw new Error("schema is required");
+  }
+
+  const config: PostgresClientConfig = {
+    connection: connectionConfig.connection,
+    schema: schema,
+    tablePrefix: connectionConfig.tablePrefix,
+    poolSize: connectionConfig.poolSize,
+    connectionTimeout: connectionConfig.connectionTimeout,
+  };
+
+  return new PostgresClient(config);
+}
+
+/**
+ * Initialize PostgreSQL schema
+ *
+ * @param client - PostgresClient instance (required)
+ */
+export async function initializePostgresSchema(
+  client: PostgresClient,
+): Promise<void> {
+  if (!client) {
+    throw new Error("client is required");
+  }
+
+  try {
+    await client.initializeSchema();
+    console.log("[PostgresSetup] PostgreSQL schema initialized successfully");
+  } catch (error) {
+    console.error(
+      "[PostgresSetup] Failed to initialize PostgreSQL schema:",
+      error,
+    );
+    throw error;
+  }
+}
+
+/**
+ * Test PostgreSQL connection
+ *
+ * @param client - PostgresClient instance (required)
+ * @returns true if connection is healthy, false otherwise
+ */
+export async function testPostgresConnection(
+  client: PostgresClient,
+): Promise<boolean> {
+  if (!client) {
+    throw new Error("client is required");
+  }
+
+  try {
+    const health = await client.health();
+    if (health.status === "healthy") {
+      console.log("[PostgresSetup] PostgreSQL connection test successful");
+      return true;
+    } else {
+      console.warn(
+        "[PostgresSetup] PostgreSQL health check failed:",
+        health.message,
+      );
+      return false;
+    }
+  } catch (error) {
+    console.error("[PostgresSetup] PostgreSQL connection test failed:", error);
+    return false;
+  }
+}
+
+/**
+ * Create PostgreSQL connection from environment variables
+ *
+ * This function is provided for convenience but violates AGENTS.md principles
+ * by reading from ENV. Use createPostgresClient() for proper component design.
+ *
+ * @deprecated Use createPostgresClient() with explicit configuration instead
  */
 export function createPostgresClientFromEnv(): PostgresClient {
   // Get database connection details from environment
   const databaseUrl = Deno.env.get("DATABASE_URL");
   const postgresHost = Deno.env.get("POSTGRES_HOST");
-  const postgresPort = parseInt(Deno.env.get("POSTGRES_PORT") || "5432");
+  const postgresPort = Deno.env.get("POSTGRES_PORT");
   const postgresDb = Deno.env.get("POSTGRES_DB");
   const postgresUser = Deno.env.get("POSTGRES_USER");
   const postgresPassword = Deno.env.get("POSTGRES_PASSWORD");
+  const tablePrefix = Deno.env.get("POSTGRES_TABLE_PREFIX");
+  const poolSize = Deno.env.get("POSTGRES_POOL_SIZE");
+  const connectionTimeout = Deno.env.get("POSTGRES_CONNECTION_TIMEOUT");
 
+  // Parse numeric values with validation
+  const port = postgresPort ? parseInt(postgresPort) : undefined;
+  const pool = poolSize ? parseInt(poolSize) : undefined;
+  const timeout = connectionTimeout ? parseInt(connectionTimeout) : undefined;
+
+  // Validate that we have the required configuration
+  if (!databaseUrl && !(postgresHost && postgresDb && postgresUser && postgresPassword)) {
+    throw new Error(
+      "PostgreSQL configuration not found. Please provide either DATABASE_URL or individual POSTGRES_* environment variables.",
+    );
+  }
+
+  if (!tablePrefix) {
+    throw new Error("POSTGRES_TABLE_PREFIX is required");
+  }
+
+  if (!poolSize) {
+    throw new Error("POSTGRES_POOL_SIZE is required");
+  }
+
+  if (!connectionTimeout) {
+    throw new Error("POSTGRES_CONNECTION_TIMEOUT is required");
+  }
+
+  // Build connection config
   let connection: string | {
     host: string;
     port: number;
@@ -28,130 +182,29 @@ export function createPostgresClientFromEnv(): PostgresClient {
     password: string;
   };
 
-  // Use DATABASE_URL if provided, otherwise build from individual components
   if (databaseUrl) {
     connection = databaseUrl;
-  } else if (postgresHost && postgresDb && postgresUser && postgresPassword) {
+  } else if (postgresHost && postgresDb && postgresUser && postgresPassword && port) {
     connection = {
       host: postgresHost,
-      port: postgresPort,
+      port: port,
       database: postgresDb,
       user: postgresUser,
       password: postgresPassword,
     };
   } else {
-    throw new Error(
-      "PostgreSQL configuration not found. Please provide either DATABASE_URL or individual POSTGRES_* environment variables."
-    );
+    throw new Error("Invalid PostgreSQL configuration");
   }
 
-  // Define schema (can be customized per deployment)
-  const schema: Schema = {
-    "users://": async ({ uri, value }) => {
-      // Add validation logic here
-      return { valid: true };
-    },
-    "posts://": async ({ uri, value }) => {
-      // Add validation logic here
-      return { valid: true };
-    },
-    "cache://": async ({ uri, value }) => {
-      // Add validation logic here
-      return { valid: true };
-    },
-    "files://": async ({ uri, value }) => {
-      // Add validation logic here
-      return { valid: true };
-    },
-    "data://": async ({ uri, value }) => {
-      // Add validation logic here
-      return { valid: true };
-    },
+  const connectionConfig: PostgresConnectionConfig = {
+    connection: connection,
+    tablePrefix: tablePrefix,
+    poolSize: pool,
+    connectionTimeout: timeout,
   };
 
-  // Create and return the PostgreSQL client
-  const client = new PostgresClient({
-    connection,
-    schema,
-    tablePrefix: Deno.env.get("POSTGRES_TABLE_PREFIX") || "b3nd",
-    poolSize: parseInt(Deno.env.get("POSTGRES_POOL_SIZE") || "10"),
-    connectionTimeout: parseInt(Deno.env.get("POSTGRES_CONNECTION_TIMEOUT") || "30000"),
-  });
+  // Empty schema for now - should be provided by caller
+  const schema: Schema = {};
 
-  return client;
-}
-
-/**
- * Create a PostgreSQL client from a connection string
- */
-export function createPostgresClient(connectionString: string): PostgresClient {
-  const schema: Schema = {
-    "users://": async ({ uri, value }) => ({ valid: true }),
-    "posts://": async ({ uri, value }) => ({ valid: true }),
-    "cache://": async ({ uri, value }) => ({ valid: true }),
-    "files://": async ({ uri, value }) => ({ valid: true }),
-    "data://": async ({ uri, value }) => ({ valid: true }),
-  };
-
-  return new PostgresClient({
-    connection: connectionString,
-    schema,
-    tablePrefix: "b3nd",
-    poolSize: 10,
-    connectionTimeout: 30000,
-  });
-}
-
-/**
- * Create a PostgreSQL client with custom schema
- */
-export function createPostgresClientWithSchema(
-  connection: string | {
-    host: string;
-    port: number;
-    database: string;
-    user: string;
-    password: string;
-  },
-  schema: Schema
-): PostgresClient {
-  return new PostgresClient({
-    connection,
-    schema,
-    tablePrefix: Deno.env.get("POSTGRES_TABLE_PREFIX") || "b3nd",
-    poolSize: parseInt(Deno.env.get("POSTGRES_POOL_SIZE") || "10"),
-    connectionTimeout: parseInt(Deno.env.get("POSTGRES_CONNECTION_TIMEOUT") || "30000"),
-  });
-}
-
-/**
- * Initialize PostgreSQL schema
- */
-export async function initializePostgresSchema(client: PostgresClient): Promise<void> {
-  try {
-    await client.initializeSchema();
-    console.log("[PostgresSetup] PostgreSQL schema initialized successfully");
-  } catch (error) {
-    console.error("[PostgresSetup] Failed to initialize PostgreSQL schema:", error);
-    throw error;
-  }
-}
-
-/**
- * Test PostgreSQL connection
- */
-export async function testPostgresConnection(client: PostgresClient): Promise<boolean> {
-  try {
-    const health = await client.health();
-    if (health.status === "healthy") {
-      console.log("[PostgresSetup] PostgreSQL connection test successful");
-      return true;
-    } else {
-      console.warn("[PostgresSetup] PostgreSQL health check failed:", health.message);
-      return false;
-    }
-  } catch (error) {
-    console.error("[PostgresSetup] PostgreSQL connection test failed:", error);
-    return false;
-  }
+  return createPostgresClient(connectionConfig, schema);
 }

@@ -2,6 +2,9 @@
   "name": "@b3nd/sdk",
   "version": "0.1.0",
   "exports": "./src/mod.ts",
+  "imports": {
+    "hono": "npm:hono"
+  },
   "tasks": {
     "build": "deno run -A build-final.ts",
     "test": "deno test -A tests/",
@@ -14,3 +17,4 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"]
   }
 }
+

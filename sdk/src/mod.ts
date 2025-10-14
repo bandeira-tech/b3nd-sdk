@@ -38,8 +38,17 @@ export { PostgresClient } from "../clients/postgres/mod.ts";
 
 // PostgreSQL schema utilities
 export {
-  generatePostgresSchema,
-  generateCompleteSchemaSQL,
   extractSchemaVersion,
+  generateCompleteSchemaSQL,
+  generatePostgresSchema,
   type SchemaInitOptions,
 } from "../clients/postgres/schema.ts";
+
+// Combinators
+export { parallelBroadcast } from "../clients/combinators/parallel-broadcast.ts";
+export { firstMatchSequence } from "../clients/combinators/first-match-sequence.ts";
+
+// Server primitives
+export { createServerNode } from "../servers/node.ts";
+export * as servers from "../servers/http.ts";
+export * as wsservers from "../servers/websocket.ts";

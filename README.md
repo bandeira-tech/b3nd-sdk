@@ -74,3 +74,28 @@ so the persistence looks like
 /users/nataliarsand/milestory.me/books/<book id>/~>/writers
 /users/nataliarsand/milestory.me/books/<book id>/entries/1/{title, images, description, ...}
 ```
+
+## Installation Options
+
+The b3nd HTTP API can be deployed using Docker with various backend configurations:
+
+### PostgreSQL Installation (Recommended for Production)
+
+A batteries-included Docker setup with PostgreSQL persistence:
+
+```bash
+cd httpapi/installations/postgres
+docker-compose up -d
+```
+
+This provides:
+- PostgreSQL 16 database with persistent storage
+- Pre-configured HTTP API with PostgreSQL client
+- Health checks for both services
+- Easy environment variable configuration
+
+See [httpapi/installations/postgres/README.md](httpapi/installations/postgres/README.md) for detailed setup instructions and configuration options.
+
+### Other Installation Options
+
+Additional installation configurations are available in `httpapi/installations/` for different deployment scenarios and backend choices.

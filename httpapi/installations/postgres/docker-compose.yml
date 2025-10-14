@@ -12,7 +12,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - b3nd-network
     healthcheck:
@@ -23,13 +22,18 @@ services:
 
   b3nd-httpapi:
     build:
-      context: ..
-      dockerfile: httpapi/Dockerfile
+      context: ../../..
+      dockerfile: httpapi/installations/postgres/Dockerfile
     container_name: b3nd-httpapi
-    working_dir: /app/httpapi
+    working_dir: /app
     environment:
       # PostgreSQL connection via DATABASE_URL
       DATABASE_URL: postgresql://b3nd_user:b3nd_password@postgres:5432/b3nd_db
+
+      # Required PostgreSQL configuration (following AGENTS.md principles - no defaults)
+      POSTGRES_TABLE_PREFIX: b3nd
+      POSTGRES_POOL_SIZE: 10
+      POSTGRES_CONNECTION_TIMEOUT: 30000
 
       # Alternative individual connection parameters
       POSTGRES_HOST: postgres
