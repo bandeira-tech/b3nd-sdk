@@ -10,8 +10,8 @@
 
 ### ✅ Completed
 
-1. **HttpAdapter** - Created at `explorer/app/src/adapters/HttpAdapter.ts` using `client-sdk/browser.js`
-2. **Browser-compatible client-sdk** - Created `client-sdk/browser.js` for Vite/browser environments
+1. **HttpAdapter** - Created at `explorer/app/src/adapters/HttpAdapter.ts` using `sdk/dist/mod.ts` HttpClient
+2. **Browser-compatible client-sdk** - Replaced by direct usage of latest `@b3nd/sdk` HttpClient
 3. **Simplified list response** - Removed `name` and `ts` fields, returns only `{uri, type}`
 4. **Consistent API endpoints** - List endpoint now matches read pattern: `/list/:instance/:protocol/:domain/:path*`
 5. **Backend switching** - Explorer can switch between Mock and HTTP backends
@@ -269,21 +269,21 @@ GET /api/v1/read/:instance/:protocol/:domain/:path*
 **File**: `explorer/app/src/adapters/HttpAdapter.ts` (UPDATED)
 
 ```typescript
-import { createHttpClient } from '@firecat/b3nd/client-sdk';
-import type { B3ndClient } from '@firecat/b3nd/client-sdk';
+import { HttpClient } from '@b3nd/sdk';
+import type { NodeProtocolInterface } from '@b3nd/sdk';
 import type { BackendAdapter, NavigationNode, PersistenceRecord, SearchResult, SearchFilters, PaginatedResponse } from '../types';
 
 export class HttpAdapter implements BackendAdapter {
   name = "HTTP Backend";
   type = "http" as const;
   baseUrl: string;
-  private client: B3ndClient;
+  private client: NodeProtocolInterface;
   private instanceId: string;
 
   constructor(baseUrl: string = "http://localhost:8000", instanceId: string = "default") {
     this.baseUrl = baseUrl;
     this.instanceId = instanceId;
-    this.client = createHttpClient(baseUrl, { instanceId });
+    this.client = new HttpClient({ url: baseUrl, instanceId });
   }
 
   async listPath(path: string, options?: { page?: number; limit?: number }):
@@ -369,7 +369,7 @@ export class HttpAdapter implements BackendAdapter {
 ```
 
 **Key Changes:**
-- ✅ Uses `b3nd/client-sdk` instead of raw fetch
+- ✅ Uses `@b3nd/sdk` HttpClient instead of raw fetch
 - ✅ No redundant `name` field in NavigationNode
 - ✅ Records fetched separately (not in list)
 - ✅ Schema returns `string[]` instead of objects
@@ -491,7 +491,7 @@ api.get("/schema", async (c) => {
 ## Implementation Summary
 
 ### Phase 1: Basic Integration ✅
-- Created `HttpAdapter` using browser-compatible client-sdk
+- Created `HttpAdapter` using `@b3nd/sdk` HttpClient
 - Implemented `listPath()`, `readRecord()`, and `healthCheck()`
 - Added backend switching (Mock ↔ HTTP)
 - Simplified API response format (removed `name` and `ts` from list)

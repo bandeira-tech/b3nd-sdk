@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { useActiveBackend } from "../../stores/appStore";
 import type {
@@ -15,7 +16,7 @@ import {
   Folder,
   FileText,
 } from "lucide-react";
-import { cn } from "../../utils";
+// no extra utils used here
 
 interface ContentViewerProps {
   path: string;
@@ -23,9 +24,7 @@ interface ContentViewerProps {
 
 export function ContentViewer({ path }: ContentViewerProps) {
   const [record, setRecord] = useState<PersistenceRecord | null>(null);
-  const [directoryContents, setDirectoryContents] = useState<NavigationNode[]>(
-    [],
-  );
+  const [directoryContents, setDirectoryContents] = useState<NavigationNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeBackend = useActiveBackend();
@@ -62,16 +61,8 @@ export function ContentViewer({ path }: ContentViewerProps) {
       }
 
       console.log("ContentViewer: loading list for path:", path); // Debug
-      const listResponse: PaginatedResponse<NavigationNode> =
-        await activeBackend.adapter.listPath(path, { page: 1, limit: 50 });
-      console.log(
-        "ContentViewer: listResponse for",
-        path,
-        "total:",
-        listResponse.pagination.total,
-        "data length:",
-        listResponse.data.length,
-      ); // Debug
+      const listResponse: PaginatedResponse<NavigationNode> = await activeBackend.adapter.listPath(path, { page: 1, limit: 50 });
+      console.log("ContentViewer: listResponse for", path, "data length:", listResponse.data.length); // Debug
 
       // Detection logic: if listPath returns empty data (length === 0), it's a file - call readRecord
       if (listResponse.data.length === 0) {
@@ -137,7 +128,7 @@ export function ContentViewer({ path }: ContentViewerProps) {
   }
 
   if (directoryContents.length > 0) {
-    return <DirectoryViewer contents={directoryContents} path={path} />;
+    return <DirectoryViewer contents={directoryContents} />;
   }
 
   return (
@@ -156,7 +147,7 @@ function FileViewer({
 }) {
   const [expanded, setExpanded] = useState(true);
 
-  const formatData = (data: any, level = 0): React.ReactNode => {
+  const formatData = (data: any, level = 0): ReactNode => {
     if (data === null || data === undefined)
       return <span className="json-null">null</span>;
     if (typeof data === "string")
@@ -170,13 +161,13 @@ function FileViewer({
         <div className="ml-4">
           [<br />
           {data.map((item, i) => (
-            <React.Fragment key={i}>
+            <>
               <div style={{ paddingLeft: `${level * 2 + 1}rem` }}>
                 {formatData(item, level + 1)}
               </div>
               {i < data.length - 1 && ","}
               <br />
-            </React.Fragment>
+            </>
           ))}
           <br />]
         </div>
@@ -186,13 +177,13 @@ function FileViewer({
       return (
         <div className="ml-4">
           {Object.entries(data).map(([k, v]) => (
-            <React.Fragment key={k}>
+            <>
               <div style={{ paddingLeft: `${level * 2 + 1}rem` }}>
                 <span className="json-key">"{k}"</span>:{" "}
                 {formatData(v, level + 1)}
               </div>
               <br />
-            </React.Fragment>
+            </>
           ))}
         </div>
       );
@@ -247,13 +238,7 @@ function FileViewer({
   );
 }
 
-function DirectoryViewer({
-  contents,
-  path,
-}: {
-  contents: NavigationNode[];
-  path: string;
-}) {
+function DirectoryViewer({ contents }: { contents: NavigationNode[] }) {
   const { navigateToPath } = useAppStore();
 
   return (

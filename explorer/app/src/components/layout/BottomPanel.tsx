@@ -1,14 +1,6 @@
-import React from 'react';
+// React import not needed with react-jsx runtime
 import { useAppStore } from '../../stores/appStore';
-import {
-  Terminal,
-  Activity,
-  Bug,
-  X,
-  ChevronUp,
-  Clock,
-  Database
-} from 'lucide-react';
+import { Terminal, Activity, Bug, X, ChevronUp, Clock } from 'lucide-react';
 
 export function BottomPanel() {
   const { togglePanel } = useAppStore();
@@ -60,7 +52,7 @@ function TabButton({
   label
 }: {
   active?: boolean;
-  icon: React.ReactNode;
+  icon: import('react').ReactNode;
   label: string;
 }) {
   return (

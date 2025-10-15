@@ -6,11 +6,7 @@ import type {
   SearchFilters,
   PaginatedResponse,
 } from "../types";
-import {
-  mockPersistenceData,
-  generateMockNavigationTree,
-  mockSchema,
-} from "../fixtures/mock-data";
+import { mockPersistenceData, generateMockNavigationTree } from "../fixtures/mock-data";
 import { parsePathSegments, sanitizePath } from "../utils";
 
 export class MockAdapter implements BackendAdapter {

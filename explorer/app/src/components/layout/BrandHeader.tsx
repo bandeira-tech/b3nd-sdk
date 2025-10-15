@@ -1,4 +1,4 @@
-import React from 'react';
+// React import not needed with react-jsx runtime
 import { useAppStore } from '../../stores/appStore';
 import { Settings, Sun, Moon, Monitor } from 'lucide-react';
 import { cn } from '../../utils';

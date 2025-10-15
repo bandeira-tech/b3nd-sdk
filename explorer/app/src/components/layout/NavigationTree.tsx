@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "../../stores/appStore";
-import type { NavigationNode, PaginatedResponse } from "../../types";
+import type { NavigationNode } from "../../types";
 import { Folder } from "lucide-react";
 import { TreeNode } from "./TreeNode";
 
@@ -29,7 +29,7 @@ export function NavigationTree() {
         setError(null);
 
         // Load schemas if not already loaded
-        if (schemas.length === 0) {
+        if (Object.keys(schemas).length === 0) {
           await loadSchemas();
         }
       } catch (err) {

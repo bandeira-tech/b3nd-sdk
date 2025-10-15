@@ -1,6 +1,7 @@
 /// <reference lib="deno.ns" />
 import { createServerNode, MemoryClient, servers } from "../../sdk/src/mod.ts";
 import type { Schema } from "../../sdk/src/types.ts";
+import { cors } from "hono/cors";
 
 const SCHEMA_MODULE = Deno.env.get("SCHEMA_MODULE") || "./example-schema.ts";
 const PORT = Number(Deno.env.get("PORT") || "8080");
@@ -21,6 +22,7 @@ const backend = { write: mem, read: mem };
 
 // HTTP server frontend (Hono-based)
 const http = servers.httpServer();
+http.app.use(cors());
 // Expose app for user middleware: http.app.use(...)
 
 // Create node and start

@@ -1,13 +1,14 @@
-import React from 'react';
+// React import not needed with react-jsx runtime
 import { useAppStore } from '../../stores/appStore';
-import { FolderTree, Search, Eye, Menu, PanelLeftOpen, PanelBottomOpen } from 'lucide-react';
+import { FolderTree, Search, Eye, PanelLeftOpen, PanelBottomOpen } from 'lucide-react';
 import { cn } from '../../utils';
 import type { AppMode } from '../../types';
+import type { ReactNode } from 'react';
 
 export function AppModeBar() {
   const { mode, setMode, togglePanel, panels } = useAppStore();
 
-  const modes: Array<{ key: AppMode; label: string; icon: React.ReactNode }> = [
+  const modes: Array<{ key: AppMode; label: string; icon: ReactNode }> = [
     {
       key: 'filesystem',
       label: 'Navigate',

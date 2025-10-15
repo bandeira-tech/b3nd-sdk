@@ -4,7 +4,7 @@ import type {
   NodeProtocolWriteInterface,
   Schema,
 } from "../src/types.ts";
-import { Hono } from "npm:hono";
+import { Hono } from "hono";
 
 export function httpServer(): ServerFrontend {
   const app = new Hono();
@@ -99,13 +99,21 @@ export function httpServer(): ServerFrontend {
     if (!backend) {
       return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
     }
-    const base = c.req.query('base') || 'test://';
-    const page = c.req.query('page') ? Number(c.req.query('page')) : undefined;
-    const limit = c.req.query('limit') ? Number(c.req.query('limit')) : undefined;
-    const pattern = c.req.query('pattern') || undefined;
-    const sortBy = c.req.query('sortBy') as any || undefined;
-    const sortOrder = c.req.query('sortOrder') as any || undefined;
-    const res = await backend.read.list(base, { page, limit, pattern, sortBy, sortOrder });
+    const base = c.req.query("base") || "test://";
+    const page = c.req.query("page") ? Number(c.req.query("page")) : undefined;
+    const limit = c.req.query("limit")
+      ? Number(c.req.query("limit"))
+      : undefined;
+    const pattern = c.req.query("pattern") || undefined;
+    const sortBy = c.req.query("sortBy") as any || undefined;
+    const sortOrder = c.req.query("sortOrder") as any || undefined;
+    const res = await backend.read.list(base, {
+      page,
+      limit,
+      pattern,
+      sortBy,
+      sortOrder,
+    });
     return c.json(res, 200);
   });
 
@@ -122,7 +130,6 @@ export function httpServer(): ServerFrontend {
 
   return {
     listen(port: number) {
-      // Expose Deno.serve bound to our app
       Deno.serve({ port }, serveHandler);
     },
     fetch: serveHandler,
@@ -139,5 +146,5 @@ export function httpServer(): ServerFrontend {
       schema = opts.schema;
     },
     app,
-  } as ServerFrontend & { handler: any };
+  } as ServerFrontend;
 }

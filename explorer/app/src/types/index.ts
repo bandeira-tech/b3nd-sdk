@@ -10,6 +10,8 @@ export interface NavigationNode {
   name: string; // Display name (last segment of path)
   type: "directory" | "file";
   children?: NavigationNode[]; // Lazy-loaded via listPath
+  // Optional record metadata when a file node includes it (e.g., mock data)
+  record?: PersistenceRecord;
 }
 
 export interface SearchResult {

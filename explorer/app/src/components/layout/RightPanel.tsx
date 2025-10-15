@@ -1,16 +1,9 @@
-import React from 'react';
+// React import not needed with react-jsx runtime
+import { useState } from 'react';
 import { useAppStore, useActiveBackend } from '../../stores/appStore';
-import {
-  Settings,
-  Database,
-  Plus,
-  Trash2,
-  CheckCircle,
-  AlertCircle,
-  Info,
-  X
-} from 'lucide-react';
+import { Settings, Database, Plus, Trash2, CheckCircle, Info, X } from 'lucide-react';
 import { cn } from '../../utils';
+import { HttpAdapter } from '../../adapters/HttpAdapter';
 
 export function RightPanel() {
   const { togglePanel } = useAppStore();
@@ -44,8 +37,31 @@ export function RightPanel() {
 }
 
 function BackendManager() {
-  const { backends, activeBackendId } = useAppStore();
+  const { backends, addBackend } = useAppStore();
   const activeBackend = useActiveBackend();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    baseUrl: '',
+    instanceId: 'default',
+  });
+
+  const handleAddBackend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.baseUrl.trim()) {
+      return;
+    }
+
+    addBackend({
+      name: formData.name,
+      adapter: new HttpAdapter(formData.baseUrl, formData.instanceId),
+      isActive: false,
+    });
+
+    // Reset form
+    setFormData({ name: '', baseUrl: '', instanceId: 'default' });
+    setShowAddForm(false);
+  };
 
   return (
     <div className="p-4 border-b border-border">
@@ -82,11 +98,68 @@ function BackendManager() {
         ))}
       </div>
 
-      {/* Add Backend Button */}
-      <button className="w-full p-2 border border-dashed border-border rounded-lg hover:bg-accent transition-colors flex items-center justify-center space-x-2 text-muted-foreground hover:text-foreground">
-        <Plus className="h-4 w-4" />
-        <span className="text-sm">Add Backend</span>
-      </button>
+      {/* Add Backend Form */}
+      {showAddForm ? (
+        <form onSubmit={handleAddBackend} className="space-y-3 p-3 border border-border rounded-lg bg-muted/20">
+          <div>
+            <label className="block text-sm font-medium mb-1">Backend Name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="My Backend"
+              className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Base URL</label>
+            <input
+              type="text"
+              value={formData.baseUrl}
+              onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
+              placeholder="http://localhost:8000"
+              className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Instance ID</label>
+            <input
+              type="text"
+              value={formData.instanceId}
+              onChange={(e) => setFormData({ ...formData, instanceId: e.target.value })}
+              placeholder="default"
+              className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="flex space-x-2">
+            <button
+              type="submit"
+              className="flex-1 px-3 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition-colors"
+            >
+              Add
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddForm(false);
+                setFormData({ name: '', baseUrl: '', instanceId: 'default' });
+              }}
+              className="flex-1 px-3 py-2 bg-muted text-foreground rounded text-sm hover:bg-muted/80 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="w-full p-2 border border-dashed border-border rounded-lg hover:bg-accent transition-colors flex items-center justify-center space-x-2 text-muted-foreground hover:text-foreground"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="text-sm">Add Backend</span>
+        </button>
+      )}
     </div>
   );
 }

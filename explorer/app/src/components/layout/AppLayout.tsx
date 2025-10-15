@@ -1,4 +1,4 @@
-import React from "react";
+// React import not needed with react-jsx runtime
 import { useAppStore } from "../../stores/appStore";
 import { BrandHeader } from "./BrandHeader";
 import { AppModeBar } from "./AppModeBar";

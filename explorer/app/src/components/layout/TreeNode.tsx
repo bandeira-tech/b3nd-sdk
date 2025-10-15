@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useActiveBackend } from "../../stores/appStore";
 import type { NavigationNode, PaginatedResponse } from "../../types";
 import { ChevronDown, ChevronRight, Folder, FileText } from "lucide-react";
@@ -51,7 +51,7 @@ export function TreeNode({
     }
   }, [isExpanded, node.path]);
 
-  const hasChildren = children.length > 0 || node.children?.length > 0;
+  const hasChildren = children.length > 0 || (node.children && node.children.length > 0);
   const showToggle = node.type === "directory" && (hasChildren || loading);
 
   return (

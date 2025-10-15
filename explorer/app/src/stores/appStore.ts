@@ -6,12 +6,21 @@ import type {
   BackendConfig,
   ThemeMode,
   AppMode,
-                                                                          |
-                                                                                                  PanelState,
+  PanelState,
 } from "../types";
 import { HttpAdapter } from "../adapters/HttpAdapter";
 import { generateId } from "../utils";
-import { getBrowserInstanceManager } from "../../../../client-sdk/browser.js";
+// Using latest sdk HttpClient via HttpAdapter; no external client manager
+
+// Serializable backend config for persistence
+interface SerializableBackendConfig {
+  id: string;
+  name: string;
+  type: "http";
+  baseUrl: string;
+  instanceId: string;
+  isActive: boolean;
+}
 
 // Load instance configuration
 async function loadInstanceConfig() {
@@ -38,29 +47,26 @@ async function loadInstanceConfig() {
   }
 }
 
-// Create backend configs from instance manager
-async function createBackendsFromConfig() {
+// Create backend configs directly from instances.json
+async function createBackendsFromConfig(): Promise<BackendConfig[]> {
   const config = await loadInstanceConfig();
-  const manager = getBrowserInstanceManager();
-  await manager.initialize(config);
-
   const backends: BackendConfig[] = [];
-  const instanceNames = manager.getInstanceNames();
-  const defaultInstance = manager.getDefaultInstance();
 
-  for (const name of instanceNames) {
-    const client = manager.getClient(name);
-    const instanceConfig = config.instances[name];
+  const defaultInstance: string | undefined = (config as any).default;
+  const instances = (config as any).instances || {};
 
-    backends.push({
-      id: name,
-      name: instanceConfig.name || name,
-      adapter: new HttpAdapter(
-        instanceConfig.type === "http" ? instanceConfig.baseUrl : "",
-        instanceConfig.type === "http" ? instanceConfig.instanceId : name
-      ),
-      isActive: name === defaultInstance,
-    });
+  for (const name of Object.keys(instances)) {
+    const instanceConfig = instances[name];
+    if (instanceConfig.type === "http") {
+      const baseUrl: string = instanceConfig.baseUrl;
+      const instanceId: string = instanceConfig.instanceId;
+      backends.push({
+        id: name,
+        name: instanceConfig.name || name,
+        adapter: new HttpAdapter(baseUrl, instanceId),
+        isActive: name === defaultInstance,
+      });
+    }
   }
 
   return backends;
@@ -102,9 +108,15 @@ export const useAppStore = create<AppStore>()(
         backendsReady: true,
 
         addBackend: (config) => {
-          set((state) => ({
-            backends: [...state.backends, { ...config, id: generateId() }],
-          }));
+          set((state) => {
+            // Mark adapter as user-added for persistence
+            const adapter = config.adapter;
+            (adapter as any).isUserAdded = true;
+
+            return {
+              backends: [...state.backends, { ...config, id: generateId(), adapter }],
+            };
+          });
         },
 
         removeBackend: (id) => {
@@ -169,24 +181,19 @@ export const useAppStore = create<AppStore>()(
             }
 
             // Build root navigation nodes from all schemas
-            const rootNodes: import("../types").NavigationNode[] = Array.from(allSchemaUris).map(uri => {
+            const nodes: import("../types").NavigationNode[] = [];
+            for (const uri of allSchemaUris) {
               try {
                 const url = new URL(uri);
                 const protocol = url.protocol.replace(":", "");
                 const domain = url.hostname;
                 const path = `/${protocol}/${domain}`;
-
-                return {
-                  path,
-                  name: `${protocol}://${domain}`,
-                  type: "directory" as const,
-                  children: undefined, // Lazy load
-                };
+                nodes.push({ path, name: `${protocol}://${domain}`, type: "directory" });
               } catch (error) {
                 console.error(`Failed to parse schema URI: ${uri}`, error);
-                return null;
               }
-            }).filter((node): node is import("../types").NavigationNode => node !== null);
+            }
+            const rootNodes = nodes;
 
             console.log("Built root nodes:", rootNodes);
 
@@ -320,27 +327,53 @@ export const useAppStore = create<AppStore>()(
     },
     {
       name: "b3nd-explorer-state",
-      partialize: (state) => ({
-        // Exclude backends entirely – always recreate fresh
-        activeBackendId: state.activeBackendId,
-        panels: state.panels,
-        theme: state.theme,
-        searchHistory: state.searchHistory,
-        watchedPaths: state.watchedPaths,
-      }),
+      partialize: (state) => {
+        // Serialize user-added backends (those not from instances.json)
+        const userBackends: SerializableBackendConfig[] = state.backends
+          .filter((b) => b.adapter.type === "http" && (b.adapter as any).isUserAdded)
+          .map((b) => ({
+            id: b.id,
+            name: b.name,
+            type: "http" as const,
+            baseUrl: b.adapter.baseUrl || "",
+            instanceId: (b.adapter as any).instanceId || "default",
+            isActive: b.isActive,
+          }));
+
+        return {
+          activeBackendId: state.activeBackendId,
+          panels: state.panels,
+          theme: state.theme,
+          searchHistory: state.searchHistory,
+          watchedPaths: state.watchedPaths,
+          userBackends, // Add user backends to persisted state
+        };
+      },
       onRehydrateStorage: () => async (state) => {
         if (state) {
           // Load backends from configuration
           const backends = await createBackendsFromConfig();
-          state.backends = backends;
 
-          // Use saved activeBackendId if valid, otherwise use default from config
-          const validBackendId = backends.find(
+          // Restore user-added backends from localStorage
+          const userBackends: SerializableBackendConfig[] = (state as any).userBackends || [];
+          const restoredUserBackends: BackendConfig[] = userBackends.map((b) => ({
+            id: b.id,
+            name: b.name,
+            adapter: Object.assign(new HttpAdapter(b.baseUrl, b.instanceId), { isUserAdded: true }),
+            isActive: b.isActive,
+          }));
+
+          // Combine system backends with user backends
+          state.backends = [...backends, ...restoredUserBackends];
+
+          // Use saved activeBackendId if valid (check both system and user backends)
+          const allBackends = [...backends, ...restoredUserBackends];
+          const validBackendId = allBackends.find(
             (b) => b.id === state.activeBackendId
           )?.id;
           const defaultBackend = backends.find((b) => b.isActive);
-          state.activeBackendId = validBackendId || defaultBackend?.id || backends[0]?.id;
-          console.log("Rehydration: loaded backends from config, active:", state.activeBackendId);
+          state.activeBackendId = validBackendId || defaultBackend?.id || allBackends[0]?.id;
+          console.log("Rehydration: loaded backends from config and localStorage, active:", state.activeBackendId);
 
           // Apply theme
           const theme = state.theme || "system";

@@ -6,64 +6,56 @@ import type {
   SearchFilters,
   PaginatedResponse,
 } from "../types";
-import { createHttpClient } from "../../../../client-sdk/browser.js";
+import { HttpClient } from "../../../../sdk/dist/http-client.ts";
 
 export class HttpAdapter implements BackendAdapter {
   name = "HTTP Backend";
   type = "http" as const;
   baseUrl: string;
-  private client: any; // B3ndClient type
+  instanceId: string;
+  private client: HttpClient;
 
-  constructor(baseUrl: string = "http://localhost:8000", instanceId: string = "default") {
-    console.log('constructor')
+  constructor(baseUrl: string, instanceId: string) {
     this.baseUrl = baseUrl;
     this.instanceId = instanceId;
-    this.client = createHttpClient(baseUrl, { instanceId });
+    this.client = new HttpClient({ url: baseUrl, instanceId });
   }
 
   async listPath(
     path: string,
     options?: { page?: number; limit?: number }
   ): Promise<PaginatedResponse<NavigationNode>> {
-    console.log('listpath')
-    try {
-      // Root path should be handled by schema-driven navigation
-      if (path === "/" || path === "") {
-        throw new Error("Root path should be handled by schema-driven navigation, not listPath");
-      }
-
-      // Convert Explorer path format to URI: "/users/alice" -> "users://alice/"
-      const uri = this.pathToUri(path);
-
-      // Use client-sdk to list
-      console.log(uri.replace(/\/$/,''))
-      const result = await this.client.list(uri.replace(/\/$/,''), options);
-
-      // Transform API response to Explorer format
-      // API returns array of objects with uri, name, type, etc.
-      return {
-        data: result.data.map((item: any) => {
-          const itemPath = this.uriToPath(item.uri);
-          return {
-            path: itemPath,
-            name: item.name,
-            type: item.type as "file" | "directory",
-            children: undefined, // Lazy load
-          };
-        }),
-        pagination: result.pagination,
-      };
-    } catch (error) {
-      console.error("List error:", error);
-      throw error; // Re-throw to let caller handle
+    // Root path should be handled by schema-driven navigation
+    if (path === "/" || path === "") {
+      throw new Error("Root path should be handled by schema-driven navigation, not listPath");
     }
+
+    // Convert Explorer path format to URI: "/users/alice" -> "users://alice/"
+    const uri = this.pathToUri(path);
+
+    // Use sdk HttpClient to list
+    const result = await this.client.list(uri.replace(/\/$/, ""), options);
+
+    // Transform API response to Explorer format
+    return {
+      data: result.data.map((item: any) => {
+        const itemPath = this.uriToPath(item.uri);
+        return {
+          path: itemPath,
+          name: item.name,
+          type: item.type as "file" | "directory",
+          children: undefined, // Lazy load
+        };
+      }),
+      pagination: result.pagination,
+    };
   }
 
   async readRecord(path: string): Promise<PersistenceRecord> {
     // Convert Explorer path to URI
     const uri = this.pathToUri(path);
 
-    // Use client-sdk to read
+    // Use sdk HttpClient to read
     const result = await this.client.read(uri);
 
     if (!result.success || !result.record) {
@@ -74,45 +66,28 @@ export class HttpAdapter implements BackendAdapter {
   }
 
   async searchPaths(
-    query: string,
-    filters?: SearchFilters,
+    _query: string,
+    _filters?: SearchFilters,
     options?: { page?: number; limit?: number }
   ): Promise<PaginatedResponse<SearchResult>> {
-    // TODO: Implement when search endpoint is added
+    // Not implemented yet; return empty set with pagination info
     return {
       data: [],
       pagination: {
         page: options?.page || 1,
         limit: options?.limit || 20,
-        total: 0,
-        hasNext: false,
-        hasPrev: false,
       },
     };
   }
 
   async getSchema(): Promise<Record<string, string[]>> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/v1/schema`);
-      if (!response.ok) {
-        console.error("Failed to fetch schema:", response.statusText);
-        return {};
-      }
-      const result = await response.json();
-      return result.schemas || {};
-    } catch (error) {
-      console.error("Error fetching schema:", error);
-      return {};
-    }
+    const schemas = await this.client.getSchema();
+    return { [this.instanceId]: schemas };
   }
 
   async healthCheck(): Promise<boolean> {
-    try {
-      const result = await this.client.health();
-      return result.status === "healthy";
-    } catch {
-      return false;
-    }
+    const result = await this.client.health();
+    return result.status === "healthy";
   }
 
   // Helper: Convert "/users/alice/profile" -> "users://alice/profile"
