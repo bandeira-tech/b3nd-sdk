@@ -8,7 +8,6 @@
  *
  * Environment variables:
  * - E2E_BASE_URL: API base URL (default: http://localhost:8000)
- * - E2E_INSTANCE: Instance name (default: default)
  * - E2E_VERBOSE: Enable verbose output (default: false)
  * - E2E_TIMEOUT: Request timeout in ms (default: 30000)
  * - E2E_CLEANUP: Clean up test data after tests (default: true)
@@ -26,7 +25,6 @@ async function main() {
   // Parse configuration from environment
   const config = {
     ...defaultConfig,
-    instance: "postgres",
     verbose: !(Deno.env.get("E2E_VERBOSE") === "false") ||
       defaultConfig.verbose,
   };
@@ -50,7 +48,6 @@ async function main() {
   // Display configuration
   console.log("\n📋 Configuration:");
   console.log(`  Base URL:        ${config.baseUrl}`);
-  console.log(`  Instance:        ${config.instance}`);
   console.log(`  Timeout:         ${config.timeout}ms`);
   console.log(`  Verbose:         ${config.verbose}`);
   console.log(`  Test Encryption: ${testEncryption}`);

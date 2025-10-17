@@ -97,6 +97,84 @@ api.get("/health", async (c) => {
   }
 });
 
+// New canonical non-instance routes (compat with SDK servers and E2E)
+
+// GET /api/v1/read/:protocol/:domain/* - Read a record
+api.get("/read/:protocol/:domain/:path*", async (c) => {
+  try {
+    const { protocol, domain } = c.req.param();
+    const rest = c.req.param("path*") || "";
+    const path = rest ? `/${rest}` : "";
+    const client = getClientManager().getClient();
+    const uri = `${protocol}://${domain}${path}`;
+    const result = await client.read(uri);
+    if (!result.success || !result.record) {
+      return c.json({ error: "Record not found" }, 404);
+    }
+    return c.json(result.record, 200);
+  } catch (error) {
+    const response = handleClientError(error, "Read");
+    return new Response(response.body, { status: response.status, headers: response.headers });
+  }
+});
+
+// GET /api/v1/list/:protocol/:domain/* - List under a domain
+api.get("/list/:protocol/:domain/:path*", async (c) => {
+  try {
+    const { protocol, domain } = c.req.param();
+    const rest = c.req.param("path*") || "";
+    const path = rest ? `/${rest}` : "";
+    const pagination = PaginationSchema.parse({
+      page: c.req.query("page"),
+      limit: c.req.query("limit"),
+    });
+    const client = getClientManager().getClient();
+    const baseUri = `${protocol}://${domain}${path}`.replace(/\/$/, "");
+    const result = await client.list(baseUri, pagination);
+    return c.json(result, 200);
+  } catch (error) {
+    const response = handleClientError(error, "List");
+    return new Response(response.body, { status: response.status, headers: response.headers });
+  }
+});
+
+// GET /api/v1/list/:protocol/ - List across a protocol (protocol root)
+api.get("/list/:protocol/", async (c) => {
+  try {
+    const { protocol } = c.req.param();
+    const pagination = PaginationSchema.parse({
+      page: c.req.query("page"),
+      limit: c.req.query("limit"),
+    });
+    const client = getClientManager().getClient();
+    const result = await client.list(`${protocol}://`, pagination);
+    return c.json(result, 200);
+  } catch (error) {
+    const response = handleClientError(error, "List");
+    return new Response(response.body, { status: response.status, headers: response.headers });
+  }
+});
+
+// POST /api/v1/write/:protocol/:domain/* - Write or update record
+api.post("/write/:protocol/:domain/:path*", async (c) => {
+  try {
+    const { protocol, domain } = c.req.param();
+    const rest = c.req.param("path*") || "";
+    const path = rest ? `/${rest}` : "";
+    const body = await c.req.json().catch(() => ({ value: undefined }));
+    const client = getClientManager().getClient();
+    const uri = `${protocol}://${domain}${path}`;
+    const result = await client.write(uri, body.value);
+    if (!result.success) {
+      return c.json({ success: false, error: result.error || "Write failed" }, 400);
+    }
+    return c.json(result, 201);
+  } catch (error) {
+    const response = handleClientError(error, "Write");
+    return new Response(response.body, { status: response.status, headers: response.headers });
+  }
+});
+
 // Helper for list logic
 async function handleList(c: any, instance: string, protocol: string, path?: string) {
   try {

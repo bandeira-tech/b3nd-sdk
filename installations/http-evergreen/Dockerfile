@@ -1,7 +1,3 @@
-FROM denoland/deno:latest
-
-WORKDIR /app
-
-COPY . /app/
+FROM ghcr.io/bandeira-tech/b3nd-alpine:latest
 
 CMD ["deno", "run", "-A", "installations/evergreen/mod.ts"]

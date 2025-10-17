@@ -37,12 +37,17 @@ export class WriteListReadTest {
   private userSimulator: UserSimulator;
   private cryptoManager: CryptoManager;
   private createdUris: Set<string> = new Set();
+  private baseUrl: string;
 
   constructor(private options: WriteListReadTestOptions = {}) {
     this.apiClient = new ApiClient(options.config);
     this.testRunner = new TestRunner("Write-List-Read Tests", options.config);
     this.userSimulator = new UserSimulator();
     this.cryptoManager = this.userSimulator.getCryptoManager();
+    if (!options.config) {
+      throw new Error("Test config is required to run WriteListReadTest");
+    }
+    this.baseUrl = options.config.baseUrl;
   }
 
   async setup(): Promise<void> {
@@ -88,12 +93,16 @@ export class WriteListReadTest {
     };
 
     const result = await this.apiClient.write(uri, data);
+    if (!result.success) {
+      console.error("  ❌ Write error:", result.error);
+    }
 
     assert(result.success, "Write operation should succeed");
     assertExists(result.record, "Write should return a record");
     assertEqual(result.record.data, data, "Written data should match input");
 
     this.createdUris.add(uri);
+    this.printVerificationLinks("Write", uri);
   }
 
   /**
@@ -112,9 +121,13 @@ export class WriteListReadTest {
         timestamp: Date.now(),
       };
 
-      await this.apiClient.write(uri, data);
+      const wr = await this.apiClient.write(uri, data);
+      if (!wr.success) {
+        console.error(`  ❌ Seed write error for ${uri}:`, wr.error);
+      }
       records.push({ uri, data });
       this.createdUris.add(uri);
+      this.printVerificationLinks("List seed", uri);
     }
 
     // Wait a moment for consistency
@@ -124,6 +137,11 @@ export class WriteListReadTest {
     const listResult = await this.apiClient.list();
     assert(listResult.success, "List operation should succeed");
     assertExists(listResult.records, "List should return records");
+
+    // Print list verification URL (protocol base)
+    const { protocol } = this.parseUri(records[0].uri);
+    const listUrl = `${this.baseUrl}/api/v1/list/${protocol}/`;
+    console.log(`  🔎 Verify list: ${listUrl}`);
 
     // Check if our records are in the list
     const ourRecords = listResult.records.filter((r) =>
@@ -169,6 +187,9 @@ export class WriteListReadTest {
 
     // Write first
     const writeResult = await this.apiClient.write(uri, data);
+    if (!writeResult.success) {
+      console.error("  ❌ Write-before-read error:", writeResult.error);
+    }
     assert(writeResult.success, "Write should succeed before read test");
     this.createdUris.add(uri);
 
@@ -183,6 +204,7 @@ export class WriteListReadTest {
       "Read data should match written data",
     );
     assert(readResult.record.ts > 0, "Record should have a valid timestamp");
+    this.printVerificationLinks("Read", uri);
   }
 
   /**
@@ -211,11 +233,15 @@ export class WriteListReadTest {
 
     // Write authenticated message
     const writeResult = await this.apiClient.write(uri, authMessage);
+    if (!writeResult.success) {
+      console.error("  ❌ Auth write error:", writeResult.error);
+    }
     assert(
       writeResult.success,
       "Write of authenticated message should succeed",
     );
     this.createdUris.add(uri);
+    this.printVerificationLinks("Auth message", uri);
 
     // Read back and verify
     const readResult = await this.apiClient.read(uri);
@@ -272,8 +298,12 @@ export class WriteListReadTest {
 
     // Write encrypted data
     const writeResult = await this.apiClient.write(uri, encrypted);
+    if (!writeResult.success) {
+      console.error("  ❌ Encrypted write error:", writeResult.error);
+    }
     assert(writeResult.success, "Write of encrypted data should succeed");
     this.createdUris.add(uri);
+    this.printVerificationLinks("Encrypted", uri);
 
     // Read back
     const readResult = await this.apiClient.read(uri);
@@ -326,11 +356,15 @@ export class WriteListReadTest {
 
     // Write message
     const writeResult = await this.apiClient.write(uri, signedEncrypted);
+    if (!writeResult.success) {
+      console.error("  ❌ Signed+Encrypted write error:", writeResult.error);
+    }
     assert(
       writeResult.success,
       "Write of signed encrypted message should succeed",
     );
     this.createdUris.add(uri);
+    this.printVerificationLinks("Signed+Encrypted", uri);
 
     // Read back
     const readResult = await this.apiClient.read(uri);
@@ -380,11 +414,15 @@ export class WriteListReadTest {
 
       // Write fixture data
       const writeResult = await this.apiClient.write(uri, fixture.data);
+      if (!writeResult.success) {
+        console.error(`  ❌ Fixture write error for ${fixture.name}:`, writeResult.error);
+      }
       assert(
         writeResult.success,
         `Write fixture ${fixture.name} should succeed`,
       );
       this.createdUris.add(uri);
+      this.printVerificationLinks(`Fixture:${fixture.name}`, uri);
 
       // Read back and verify
       const readResult = await this.apiClient.read(uri);
@@ -440,7 +478,36 @@ export class WriteListReadTest {
     }
 
     await this.testRunner.runAll(tests);
+    this.printCreatedUrisSummary();
     await this.cleanup();
+  }
+
+  private parseUri(uri: string): { protocol: string; domain: string; path: string } {
+    const url = new URL(uri);
+    return {
+      protocol: url.protocol.replace(":", ""),
+      domain: url.hostname,
+      path: url.pathname,
+    };
+  }
+
+  private printVerificationLinks(context: string, uri: string) {
+    const { protocol, domain, path } = this.parseUri(uri);
+    const readUrl = `${this.baseUrl}/api/v1/read/${protocol}/${domain}${path}`;
+    console.log(`  🔗 ${context} URI: ${uri}`);
+    console.log(`     Read: ${readUrl}`);
+  }
+
+  private printCreatedUrisSummary() {
+    if (this.createdUris.size === 0) return;
+    console.log("\n🔎 Verification Links for Created Records");
+    console.log("-".repeat(60));
+    for (const uri of this.createdUris) {
+      const { protocol, domain, path } = this.parseUri(uri);
+      const readUrl = `${this.baseUrl}/api/v1/read/${protocol}/${domain}${path}`;
+      console.log(`• ${uri}`);
+      console.log(`   - read: ${readUrl}`);
+    }
   }
 }
 

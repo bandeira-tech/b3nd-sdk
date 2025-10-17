@@ -31,10 +31,16 @@ export class HttpAdapter implements BackendAdapter {
     }
 
     // Convert Explorer path format to URI: "/users/alice" -> "users://alice/"
+    // Support protocol root: "/test/" -> "test://"
     const uri = this.pathToUri(path);
 
     // Use sdk HttpClient to list
-    const result = await this.client.list(uri.replace(/\/$/, ""), options);
+    let listUri = uri;
+    // Avoid breaking protocol roots like "test://" (would become "test:/")
+    if (!listUri.endsWith("://")) {
+      listUri = listUri.replace(/\/$/, "");
+    }
+    const result = await this.client.list(listUri, options);
 
     // Transform API response to Explorer format
     return {
@@ -99,8 +105,10 @@ export class HttpAdapter implements BackendAdapter {
       throw new Error("Cannot convert root path '/' to URI - use schema-driven navigation");
     }
 
-    if (parts.length < 2) {
-      throw new Error(`Invalid path format: '${path}'. Expected format: /protocol/domain/path`);
+    // Allow protocol root: "/test" or "/test/" -> "test://"
+    if (parts.length === 1) {
+      const protocol = parts[0];
+      return `${protocol}://`;
     }
 
     const protocol = parts[0];

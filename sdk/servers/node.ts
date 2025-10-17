@@ -1,5 +1,4 @@
 import type {
-  NodeProtocolInterface,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Schema,
@@ -10,11 +9,13 @@ export interface ServerFrontend {
   fetch: (req: Request) => Response | Promise<Response>;
   configure: (
     opts: {
-      backend: { write: NodeProtocolInterface; read: NodeProtocolInterface };
+      backend: {
+        write: NodeProtocolWriteInterface;
+        read: NodeProtocolReadInterface;
+      };
       schema: Schema;
     },
   ) => void;
-  getApp: <T>() => T;
 }
 
 export interface ServerNodeOptions {

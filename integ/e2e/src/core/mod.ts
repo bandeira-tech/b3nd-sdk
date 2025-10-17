@@ -50,16 +50,19 @@ export class ApiClient {
   }> {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
-      const response = await fetch(
-        `${this.config.baseUrl}/api/v1/write/${protocol}/${domain}${path}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ value }) },
-      );
+      const url = `${this.config.baseUrl}/api/v1/write/${protocol}/${domain}${path}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      });
 
       if (!response.ok) {
-        const err = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        return { success: false, error: err.error };
+        const text = await response.text().catch(() => "<no body>");
+        return {
+          success: false,
+          error: `POST ${url} -> HTTP ${response.status} ${response.statusText} | ${text}`,
+        };
       }
 
       const result = await response.json();
@@ -76,15 +79,15 @@ export class ApiClient {
   }> {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
-      const response = await fetch(
-        `${this.config.baseUrl}/api/v1/read/${protocol}/${domain}${path}`,
-      );
+      const url = `${this.config.baseUrl}/api/v1/read/${protocol}/${domain}${path}`;
+      const response = await fetch(url);
 
       if (!response.ok) {
-        const err = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        return { success: false, error: err.error };
+        const text = await response.text().catch(() => "<no body>");
+        return {
+          success: false,
+          error: `GET ${url} -> HTTP ${response.status} ${response.statusText} | ${text}`,
+        };
       }
 
       const record = await response.json();
@@ -105,8 +108,11 @@ export class ApiClient {
       if (pattern) url.searchParams.set("pattern", pattern);
       const response = await fetch(url.toString());
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'Unknown error' }));
-        return { success: false, error: err.error };
+        const text = await response.text().catch(() => "<no body>");
+        return {
+          success: false,
+          error: `GET ${url.toString()} -> HTTP ${response.status} ${response.statusText} | ${text}`,
+        };
       }
       const data = await response.json();
       // Adapt server response (ListResult) to expected shape
@@ -123,16 +129,15 @@ export class ApiClient {
   }> {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
-      const response = await fetch(
-        `${this.config.baseUrl}/api/v1/delete/${protocol}/${domain}${path}`,
-        { method: "DELETE" },
-      );
+      const url = `${this.config.baseUrl}/api/v1/delete/${protocol}/${domain}${path}`;
+      const response = await fetch(url, { method: "DELETE" });
 
       if (!response.ok) {
-        const err = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        return { success: false, error: err.error };
+        const text = await response.text().catch(() => "<no body>");
+        return {
+          success: false,
+          error: `DELETE ${url} -> HTTP ${response.status} ${response.statusText} | ${text}`,
+        };
       }
 
       return { success: true };

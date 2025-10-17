@@ -5,19 +5,38 @@ import type {
   Schema,
 } from "../src/types.ts";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
 
-export function httpServer(): ServerFrontend {
-  const app = new Hono();
+type HttpServerOptions = {
+  cors?: "*" | {
+    origin:
+      | string
+      | string[]
+      | ((
+        origin: string,
+        c: Context,
+      ) => Promise<string | undefined | null> | string | undefined | null);
+    allowMethods?:
+      | string[]
+      | ((origin: string, c: Context) => Promise<string[]> | string[]);
+    allowHeaders?: string[];
+    maxAge?: number;
+    credentials?: boolean;
+    exposeHeaders?: string[];
+  };
+};
 
+export function httpServer(app: Hono): ServerFrontend {
   // Backend + schema configured by createServerNode
   let backend:
     | { write: NodeProtocolWriteInterface; read: NodeProtocolReadInterface }
     | undefined;
   let schema: Schema | undefined;
 
-  const extractProgramKey = (uri: string): string => {
-    const m = uri.match(/^([^:]+:\/\/)/);
-    return m ? m[1] : "";
+  const extractProgramKey = (uri: string): string | undefined => {
+    const programMatch = uri.match(/^([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/]+)/);
+    return programMatch ? programMatch[1] : undefined;
   };
 
   app.get("/api/v1/health", async (c) => {
@@ -52,7 +71,7 @@ export function httpServer(): ServerFrontend {
     const uri = extractUriFromParams(c);
     const body = await c.req.json().catch(() => ({}));
     const programKey = extractProgramKey(uri);
-    const validator = schema[programKey];
+    const validator = programKey ? (schema as any)[programKey] : undefined;
     if (!validator) {
       return c.json({
         success: false,
@@ -90,6 +109,27 @@ export function httpServer(): ServerFrontend {
       pattern: c.req.query("pattern") || undefined,
       sortBy: c.req.query("sortBy") as any || undefined,
       sortOrder: c.req.query("sortOrder") as any || undefined,
+    });
+    return c.json(res, 200);
+  });
+
+  // Protocol-root listing: allow /api/v1/list/:protocol/ to list across the protocol
+  app.get("/api/v1/list/:protocol/", async (c) => {
+    if (!backend) {
+      return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
+    }
+    const protocol = c.req.param("protocol");
+    const page = c.req.query("page") ? Number(c.req.query("page")) : undefined;
+    const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
+    const pattern = c.req.query("pattern") || undefined;
+    const sortBy = c.req.query("sortBy") as any || undefined;
+    const sortOrder = c.req.query("sortOrder") as any || undefined;
+    const res = await backend.read.list(`${protocol}://`, {
+      page,
+      limit,
+      pattern,
+      sortBy,
+      sortOrder,
     });
     return c.json(res, 200);
   });
@@ -145,6 +185,5 @@ export function httpServer(): ServerFrontend {
       backend = opts.backend;
       schema = opts.schema;
     },
-    app,
   } as ServerFrontend;
 }
