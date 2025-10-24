@@ -14,7 +14,9 @@
     "@std/fs": "jsr:@std/fs",
     "@std/testing": "jsr:@std/testing",
     "@httpapi": "../../httpapi/mod.ts",
-    "@auth": "../../auth/mod.ts",
-    "@persistence": "../../persistence/mod.ts"
+    "@auth": "../../sdk/auth/mod.ts",
+    "@encrypt": "../../sdk/encrypt/mod.ts",
+    "@persistence": "../../persistence/mod.ts",
+    "hono": "npm:hono"
   }
 }

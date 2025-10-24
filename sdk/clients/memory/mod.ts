@@ -102,28 +102,45 @@ export class MemoryClient implements NodeProtocolInterface {
       const limit = options?.limit || 100;
       const pattern = options?.pattern;
 
-      // Normalize URI for prefix matching
-      const prefix = uri.endsWith("/") ? uri : uri + "/";
+      // Ensure URI has proper format: protocol://domain[/path]
+      // Add trailing slash if not present (for proper prefix matching)
+      const searchPrefix = uri.endsWith("/") ? uri : uri + "/";
 
-      // Find all URIs that start with the prefix
+      // Collect first-level items only (ls-like behavior)
       let items: ListItem[] = [];
+      const seenItems = new Set<string>();
 
       for (const key of this.store.keys()) {
-        if (key.startsWith(prefix) || key === uri) {
-          // Apply pattern filter if provided
-          if (pattern && !key.includes(pattern)) {
-            continue;
-          }
+        // Check if key starts with the search prefix
+        if (!key.startsWith(searchPrefix)) continue;
 
-          // Determine if this is a file or directory
-          const relativePath = key.slice(prefix.length);
-          const hasNestedPath = relativePath.includes("/");
-          // TODO: List should function as ls, and thus should list only the next level nodes
-          items.push({
-            uri: key,
-            type: hasNestedPath ? "directory" : "file",
-          });
-        }
+        // Apply pattern filter if provided
+        if (pattern && !key.includes(pattern)) continue;
+
+        // Extract the relative path after the search prefix
+        const relativePath = key.slice(searchPrefix.length);
+
+        // Skip if empty relative path
+        if (!relativePath) continue;
+
+        // Get the first-level component (before first slash)
+        const parts = relativePath.split("/");
+        const firstLevelName = parts[0];
+
+        // Build the full URI for this first-level item
+        const itemUri = searchPrefix + firstLevelName;
+
+        // Avoid duplicates
+        if (seenItems.has(itemUri)) continue;
+        seenItems.add(itemUri);
+
+        // Determine type: directory if it has nested content, file otherwise
+        const isDirectory = parts.length > 1;
+
+        items.push({
+          uri: itemUri,
+          type: isDirectory ? "directory" : "file",
+        });
       }
 
       // Sort if requested

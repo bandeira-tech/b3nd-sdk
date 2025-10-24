@@ -1,12 +1,10 @@
+import { Hono, type Context } from "hono";
 import type { ServerFrontend } from "./node.ts";
 import type {
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Schema,
 } from "../src/types.ts";
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 
 type HttpServerOptions = {
   cors?: "*" | {
@@ -39,7 +37,7 @@ export function httpServer(app: Hono): ServerFrontend {
     return programMatch ? programMatch[1] : undefined;
   };
 
-  app.get("/api/v1/health", async (c) => {
+  app.get("/api/v1/health", async (c: Context) => {
     if (!backend) {
       return c.json(
         { status: "unhealthy", message: "handler not attached" },
@@ -50,7 +48,7 @@ export function httpServer(app: Hono): ServerFrontend {
     return c.json(res, res.status === "healthy" ? 200 : 503);
   });
 
-  app.get("/api/v1/schema", async (c) => {
+  app.get("/api/v1/schema", async (c: Context) => {
     if (!backend) return c.json({ schema: [] });
     const keys = await backend.read.getSchema();
     return c.json({ schema: keys });
@@ -64,7 +62,7 @@ export function httpServer(app: Hono): ServerFrontend {
     return `${protocol}://${domain}${path}`;
   }
 
-  app.post("/api/v1/write/:protocol/:domain/*", async (c) => {
+  app.post("/api/v1/write/:protocol/:domain/*", async (c: Context) => {
     if (!backend || !schema) {
       return c.json({ success: false, error: "handler not attached" }, 501);
     }
@@ -91,14 +89,14 @@ export function httpServer(app: Hono): ServerFrontend {
     return c.json(res, res.success ? 200 : 400);
   });
 
-  app.get("/api/v1/read/:protocol/:domain/*", async (c) => {
+  app.get("/api/v1/read/:protocol/:domain/*", async (c: Context) => {
     if (!backend) return c.json({ error: "handler not attached" }, 501);
     const uri = extractUriFromParams(c);
     const res = await backend.read.read(uri);
     return c.json(res.record ?? { error: res.error }, res.success ? 200 : 404);
   });
 
-  app.get("/api/v1/list/:protocol/:domain/*", async (c) => {
+  app.get("/api/v1/list/:protocol/:domain/*", async (c: Context) => {
     if (!backend) {
       return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
     }
@@ -114,13 +112,15 @@ export function httpServer(app: Hono): ServerFrontend {
   });
 
   // Protocol-root listing: allow /api/v1/list/:protocol/ to list across the protocol
-  app.get("/api/v1/list/:protocol/", async (c) => {
+  app.get("/api/v1/list/:protocol/", async (c: Context) => {
     if (!backend) {
       return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
     }
     const protocol = c.req.param("protocol");
     const page = c.req.query("page") ? Number(c.req.query("page")) : undefined;
-    const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
+    const limit = c.req.query("limit")
+      ? Number(c.req.query("limit"))
+      : undefined;
     const pattern = c.req.query("pattern") || undefined;
     const sortBy = c.req.query("sortBy") as any || undefined;
     const sortOrder = c.req.query("sortOrder") as any || undefined;
@@ -135,7 +135,7 @@ export function httpServer(app: Hono): ServerFrontend {
   });
 
   // Compatibility route: list across a protocol, defaulting to test:// when not provided
-  app.get("/api/v1/list", async (c) => {
+  app.get("/api/v1/list", async (c: Context) => {
     if (!backend) {
       return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
     }
@@ -157,7 +157,7 @@ export function httpServer(app: Hono): ServerFrontend {
     return c.json(res, 200);
   });
 
-  app.delete("/api/v1/delete/:protocol/:domain/*", async (c) => {
+  app.delete("/api/v1/delete/:protocol/:domain/*", async (c: Context) => {
     if (!backend) {
       return c.json({ success: false, error: "handler not attached" }, 501);
     }

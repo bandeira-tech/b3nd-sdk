@@ -126,7 +126,7 @@ To use a custom validation schema:
 
 1. **Create your schema file** (e.g., `my-schema.ts`):
    ```typescript
-   import { authValidation, createCombinedAccess } from "../auth/mod.ts";
+   import { authValidation, createCombinedAccess } from "../sdk/auth/mod.ts";
    import type { Persistence } from "../persistence/mod.ts";
 
    export default {
