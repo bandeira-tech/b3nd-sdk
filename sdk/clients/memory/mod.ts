@@ -115,8 +115,7 @@ export class MemoryClient implements NodeProtocolInterface {
       const searchPrefix = uri.endsWith("/") ? uri : uri + "/";
 
       // Collect matching items
-      let items: ListItem[] = [];
-      const seenItems = new Set<string>();
+      const items: ListItem[] = [];
 
       for (const key of this.store.keys()) {
         // Check if key starts with the search prefix
@@ -130,10 +129,6 @@ export class MemoryClient implements NodeProtocolInterface {
 
         // Skip if empty relative path
         if (!relativePath) continue;
-
-        // Include the full URI of stored items
-        if (seenItems.has(key)) continue;
-        seenItems.add(key);
 
         items.push({
           uri: key,
