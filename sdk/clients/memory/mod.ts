@@ -106,7 +106,7 @@ export class MemoryClient implements NodeProtocolInterface {
       // Add trailing slash if not present (for proper prefix matching)
       const searchPrefix = uri.endsWith("/") ? uri : uri + "/";
 
-      // Collect first-level items only (ls-like behavior)
+      // Collect matching items
       let items: ListItem[] = [];
       const seenItems = new Set<string>();
 
@@ -123,23 +123,13 @@ export class MemoryClient implements NodeProtocolInterface {
         // Skip if empty relative path
         if (!relativePath) continue;
 
-        // Get the first-level component (before first slash)
-        const parts = relativePath.split("/");
-        const firstLevelName = parts[0];
-
-        // Build the full URI for this first-level item
-        const itemUri = searchPrefix + firstLevelName;
-
-        // Avoid duplicates
-        if (seenItems.has(itemUri)) continue;
-        seenItems.add(itemUri);
-
-        // Determine type: directory if it has nested content, file otherwise
-        const isDirectory = parts.length > 1;
+        // Always include the full URI of stored items
+        if (seenItems.has(key)) continue;
+        seenItems.add(key);
 
         items.push({
-          uri: itemUri,
-          type: isDirectory ? "directory" : "file",
+          uri: key,
+          type: "file",
         });
       }
 
