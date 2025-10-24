@@ -2,12 +2,12 @@
 import { createServerNode, MemoryClient, servers } from "../../sdk/src/mod.ts";
 import type { Schema } from "../../sdk/src/types.ts";
 import { Hono } from "hono";
-import { cors } from "hono/cors"
-import { logger } from "hono/logger"
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
 
 const SCHEMA_MODULE = Deno.env.get("SCHEMA_MODULE") || "./example-schema.ts";
 const PORT = Number(Deno.env.get("PORT") || "8080");
-const CORS_ORIGIN = Number(Deno.env.get("CORS_ORIGIN") || "*");
+const CORS_ORIGIN = Deno.env.get("CORS_ORIGIN") || "*";
 
 if (!SCHEMA_MODULE) throw new Error("SCHEMA_MODULE env var is required");
 
@@ -27,8 +27,8 @@ const backend = { write: mem, read: mem };
 //
 const app = new Hono();
 
-app.use("/*", cors({ origin: [ CORS_ORIGIN ] }));
-app.use(logger())
+app.use("/*", cors({ origin: [CORS_ORIGIN] }));
+app.use(logger());
 
 const frontend = servers.httpServer(app);
 // Expose app for user middleware: http.app.use(...)
