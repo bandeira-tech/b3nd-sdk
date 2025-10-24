@@ -102,8 +102,7 @@ export class MemoryClient implements NodeProtocolInterface {
       const limit = options?.limit || 100;
       const pattern = options?.pattern;
 
-      // Ensure URI has proper format: protocol://domain[/path]
-      // Must have at least protocol://domain (not just protocol://)
+      // Validate URI format: must be protocol://domain, not just protocol://
       if (!uri.includes("://") || uri.endsWith("://")) {
         return {
           data: [],
@@ -111,25 +110,20 @@ export class MemoryClient implements NodeProtocolInterface {
         };
       }
 
-      // Add trailing slash if not present (for proper prefix matching)
+      // Ensure search prefix ends with / for prefix matching
       const searchPrefix = uri.endsWith("/") ? uri : uri + "/";
 
-      // Collect matching items
+      // Collect all matching items from storage
       const items: ListItem[] = [];
 
-      for (const key of this.store.keys()) {
-        // Check if key starts with the search prefix
+      for (const [key, record] of this.store.entries()) {
+        // Only include items that match the search prefix
         if (!key.startsWith(searchPrefix)) continue;
 
         // Apply pattern filter if provided
         if (pattern && !key.includes(pattern)) continue;
 
-        // Extract the relative path after the search prefix
-        const relativePath = key.slice(searchPrefix.length);
-
-        // Skip if empty relative path
-        if (!relativePath) continue;
-
+        // Add the item to results
         items.push({
           uri: key,
           type: "file",
@@ -157,10 +151,10 @@ export class MemoryClient implements NodeProtocolInterface {
       const total = items.length;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      items = items.slice(startIndex, endIndex);
+      const paginatedItems = items.slice(startIndex, endIndex);
 
       return {
-        data: items,
+        data: paginatedItems,
         pagination: {
           page,
           limit,
@@ -168,7 +162,6 @@ export class MemoryClient implements NodeProtocolInterface {
         },
       };
     } catch (error) {
-      // Return empty result on error
       return {
         data: [],
         pagination: {
