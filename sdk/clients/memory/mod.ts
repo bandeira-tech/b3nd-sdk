@@ -103,6 +103,14 @@ export class MemoryClient implements NodeProtocolInterface {
       const pattern = options?.pattern;
 
       // Ensure URI has proper format: protocol://domain[/path]
+      // Must have at least protocol://domain (not just protocol://)
+      if (!uri.includes("://") || uri.endsWith("://")) {
+        return {
+          data: [],
+          pagination: { page, limit, total: 0 },
+        };
+      }
+
       // Add trailing slash if not present (for proper prefix matching)
       const searchPrefix = uri.endsWith("/") ? uri : uri + "/";
 
@@ -123,7 +131,7 @@ export class MemoryClient implements NodeProtocolInterface {
         // Skip if empty relative path
         if (!relativePath) continue;
 
-        // Always include the full URI of stored items
+        // Include the full URI of stored items
         if (seenItems.has(key)) continue;
         seenItems.add(key);
 

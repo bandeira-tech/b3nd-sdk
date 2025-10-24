@@ -103,21 +103,42 @@ export class ApiClient {
     error?: string;
   }> {
     try {
-      const url = new URL(`${this.config.baseUrl}/api/v1/list`);
-      url.searchParams.set('base', 'test://');
-      if (pattern) url.searchParams.set("pattern", pattern);
-      const response = await fetch(url.toString());
-      if (!response.ok) {
-        const text = await response.text().catch(() => "<no body>");
-        return {
-          success: false,
-          error: `GET ${url.toString()} -> HTTP ${response.status} ${response.statusText} | ${text}`,
-        };
+      // List across all test domains to find matching records
+      const domains = [
+        "write-test",
+        "read-test",
+        "list-test",
+        "auth-test",
+        "encrypt-test",
+        "signed-encrypted-test",
+        "fixture",
+      ];
+
+      const allRecords: Array<{ uri: string; ts: number; data: unknown }> = [];
+
+      for (const domain of domains) {
+        const url = new URL(
+          `${this.config.baseUrl}/api/v1/list/test/${domain}/`,
+        );
+        if (pattern) url.searchParams.set("pattern", pattern);
+
+        try {
+          const response = await fetch(url.toString());
+          if (response.ok) {
+            const data = await response.json();
+            const records = (data.data || []).map((it: any) => ({
+              uri: it.uri,
+              ts: 0,
+              data: null,
+            }));
+            allRecords.push(...records);
+          }
+        } catch {
+          // Skip domain if listing fails
+        }
       }
-      const data = await response.json();
-      // Adapt server response (ListResult) to expected shape
-      const records = (data.data || []).map((it: any) => ({ uri: it.uri, ts: 0, data: null }));
-      return { success: true, records };
+
+      return { success: true, records: allRecords };
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }

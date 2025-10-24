@@ -134,28 +134,6 @@ export function httpServer(app: Hono): ServerFrontend {
     return c.json(res, 200);
   });
 
-  // Compatibility route: list across a protocol, defaulting to test:// when not provided
-  app.get("/api/v1/list", async (c: Context) => {
-    if (!backend) {
-      return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
-    }
-    const base = c.req.query("base") || "test://";
-    const page = c.req.query("page") ? Number(c.req.query("page")) : undefined;
-    const limit = c.req.query("limit")
-      ? Number(c.req.query("limit"))
-      : undefined;
-    const pattern = c.req.query("pattern") || undefined;
-    const sortBy = c.req.query("sortBy") as any || undefined;
-    const sortOrder = c.req.query("sortOrder") as any || undefined;
-    const res = await backend.read.list(base, {
-      page,
-      limit,
-      pattern,
-      sortBy,
-      sortOrder,
-    });
-    return c.json(res, 200);
-  });
 
   app.delete("/api/v1/delete/:protocol/:domain/*", async (c: Context) => {
     if (!backend) {
