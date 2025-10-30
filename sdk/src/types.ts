@@ -23,7 +23,7 @@ export interface WriteResult<T = unknown> {
 /**
  * Result of a read operation
  */
-export interface ReadResult<T = unknown> {
+export interface ReadResult<T> {
   success: boolean;
   record?: PersistenceRecord<T>;
   error?: string;
@@ -59,14 +59,20 @@ export interface ListOptions {
 /**
  * Result of a list operation
  */
-export interface ListResult {
-  data: ListItem[];
-  pagination: {
-    page: number;
-    limit: number;
-    total?: number;
-  };
-}
+export type ListResult =
+  | {
+      success: true;
+      data: ListItem[];
+      pagination: {
+        page: number;
+        limit: number;
+        total?: number;
+      };
+    }
+  | {
+      success: false;
+      error: string;
+    };
 
 /**
  * Health status response
@@ -127,18 +133,6 @@ export interface NodeProtocolReadInterface {
 export type NodeProtocolInterface =
   & NodeProtocolWriteInterface
   & NodeProtocolReadInterface;
-
-/**
- * Configuration for MemoryClient
- */
-export interface MemoryClientConfig {
-  /**
-   * Schema mapping program keys to validation functions
-   * Each key represents a program (e.g., "users://", "cache://")
-   * and maps to a validation function that accepts or rejects writes
-   */
-  schema: Schema;
-}
 
 /**
  * Configuration for HttpClient
@@ -222,6 +216,11 @@ export interface LocalStorageClientConfig {
     serialize?: (data: unknown) => string;
     deserialize?: (data: string) => unknown;
   };
+
+  /**
+   * Optional injectable storage dependency (defaults to global localStorage)
+   */
+  storage?: Storage;
 }
 
 /**
@@ -247,6 +246,11 @@ export interface IndexedDBClientConfig {
    * Optional schema for validation
    */
   schema?: Schema;
+
+  /**
+   * Optional injectable indexedDB dependency (defaults to global indexedDB)
+   */
+  indexedDB?: any;
 }
 
 /**

@@ -44,28 +44,28 @@ export function runSharedSuite(
     sanitizeOps: false, // Mock servers run in background
     sanitizeResources: false,
     fn: async () => {
-    const client = await Promise.resolve(factories.happy());
+      const client = await Promise.resolve(factories.happy());
 
-    const writeResult = await client.write("store://users/alice/profile", {
-      name: "Alice",
-      email: "alice@example.com",
-    });
+      const writeResult = await client.write("store://users/alice/profile", {
+        name: "Alice",
+        email: "alice@example.com",
+      });
 
-    assertEquals(writeResult.success, true);
-    assertEquals(writeResult.record?.data, {
-      name: "Alice",
-      email: "alice@example.com",
-    });
+      assertEquals(writeResult.success, true);
+      assertEquals(writeResult.record?.data, {
+        name: "Alice",
+        email: "alice@example.com",
+      });
 
-    const readResult = await client.read("store://users/alice/profile");
+      const readResult = await client.read("store://users/alice/profile");
 
-    assertEquals(readResult.success, true);
-    assertEquals(readResult.record?.data, {
-      name: "Alice",
-      email: "alice@example.com",
-    });
+      assertEquals(readResult.success, true);
+      assertEquals(readResult.record?.data, {
+        name: "Alice",
+        email: "alice@example.com",
+      });
 
-    await client.cleanup();
+      await client.cleanup();
     },
   });
 
@@ -109,8 +109,11 @@ export function runSharedSuite(
 
     assertEquals(listResult.success, true);
     if (listResult.success) {
-      assertEquals(listResult.data.length >= 3, true,
-        `Expected at least 3 items but got ${listResult.data.length}`);
+      assertEquals(
+        listResult.data.length >= 3,
+        true,
+        `Expected at least 3 items but got ${listResult.data.length}`,
+      );
       assertEquals(Array.isArray(listResult.data), true);
       assertEquals(typeof listResult.pagination.page, "number");
       assertEquals(typeof listResult.pagination.limit, "number");
@@ -124,7 +127,9 @@ export function runSharedSuite(
 
     // Write multiple items
     for (let i = 0; i < 10; i++) {
-      await client.write(`store://users/user${i}/profile`, { name: `User ${i}` });
+      await client.write(`store://users/user${i}/profile`, {
+        name: `User ${i}`,
+      });
     }
 
     const page1 = await client.list("store://users", { page: 1, limit: 5 });
@@ -156,7 +161,9 @@ export function runSharedSuite(
     assertEquals(listResult.success, true);
     if (listResult.success) {
       assertEquals(
-        listResult.data.every((item: { uri: string }) => item.uri.includes("alice")),
+        listResult.data.every((item: { uri: string }) =>
+          item.uri.includes("alice")
+        ),
         true,
       );
     }

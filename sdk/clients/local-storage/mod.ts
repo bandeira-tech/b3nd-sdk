@@ -21,23 +21,32 @@ import type {
 } from "../../src/types.ts";
 
 export class LocalStorageClient implements NodeProtocolInterface {
-  private config: Required<LocalStorageClientConfig>;
+  private config: {
+    keyPrefix: string;
+    serializer: {
+      serialize: (data: unknown) => string;
+      deserialize: (data: string) => unknown;
+    };
+  };
   private schema: Schema;
+  private storage: Storage;
 
   constructor(config: LocalStorageClientConfig) {
     this.config = {
       keyPrefix: config.keyPrefix || "b3nd:",
-      schema: config.schema || {},
       serializer: {
         serialize: (data) => JSON.stringify(data),
         deserialize: (data) => JSON.parse(data),
         ...config.serializer,
       },
     };
-    this.schema = this.config.schema;
+    this.schema = config.schema || {};
 
-    // Check if localStorage is available
-    if (typeof localStorage === "undefined") {
+    // Use injected storage or default to global localStorage
+    this.storage = config.storage || (typeof localStorage !== "undefined" ? localStorage : null!);
+
+    // Check if storage is available
+    if (!this.storage) {
       throw new Error("localStorage is not available in this environment");
     }
   }
@@ -68,11 +77,6 @@ export class LocalStorageClient implements NodeProtocolInterface {
    * Find matching program key for URI
    */
   private findMatchingProgram(uri: string): string | null {
-    // Look for exact matches first
-    if (this.schema[uri]) {
-      return uri;
-    }
-
     // Look for prefix matches (e.g., "users://" matches "users://alice/profile")
     for (const programKey of Object.keys(this.schema)) {
       if (uri.startsWith(programKey)) {
@@ -115,7 +119,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
       };
 
       const serialized = this.serialize(record);
-      localStorage.setItem(key, serialized);
+      this.storage.setItem(key, serialized);
 
       return {
         success: true,
@@ -132,7 +136,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
     try {
       const key = this.getKey(uri);
-      const serialized = localStorage.getItem(key);
+      const serialized = this.storage.getItem(key);
 
       if (serialized === null) {
         return {
@@ -162,8 +166,8 @@ export class LocalStorageClient implements NodeProtocolInterface {
       const prefix = this.getKey(uri);
 
       // Iterate through all localStorage keys
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      for (let i = 0; i < this.storage.length; i++) {
+        const key = this.storage.key(i);
         if (key && key.startsWith(prefix)) {
           const uri = key.substring(this.config.keyPrefix.length);
 
@@ -206,6 +210,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
       const paginatedItems = items.slice(startIndex, endIndex);
 
       return {
+        success: true,
         data: paginatedItems,
         pagination: {
           page,
@@ -215,11 +220,8 @@ export class LocalStorageClient implements NodeProtocolInterface {
       };
     } catch (error) {
       return {
-        data: [],
-        pagination: {
-          page: options?.page || 1,
-          limit: options?.limit || 50,
-        },
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -229,8 +231,8 @@ export class LocalStorageClient implements NodeProtocolInterface {
    */
   private hasChildren(uri: string): boolean {
     const prefix = this.getKey(uri) + "/";
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
+    for (let i = 0; i < this.storage.length; i++) {
+      const key = this.storage.key(i);
       if (key && key.startsWith(prefix)) {
         return true;
       }
@@ -244,7 +246,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
   private getStoredData(uri: string): PersistenceRecord | null {
     try {
       const key = this.getKey(uri);
-      const serialized = localStorage.getItem(key);
+      const serialized = this.storage.getItem(key);
       if (serialized) {
         return this.deserialize(serialized) as PersistenceRecord;
       }
@@ -257,7 +259,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
   async delete(uri: string): Promise<DeleteResult> {
     try {
       const key = this.getKey(uri);
-      const exists = localStorage.getItem(key) !== null;
+      const exists = this.storage.getItem(key) !== null;
 
       if (!exists) {
         return {
@@ -266,7 +268,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
         };
       }
 
-      localStorage.removeItem(key);
+      this.storage.removeItem(key);
       return {
         success: true,
       };
@@ -282,8 +284,8 @@ export class LocalStorageClient implements NodeProtocolInterface {
     try {
       // Check if localStorage is accessible
       const testKey = `${this.config.keyPrefix}health-check`;
-      localStorage.setItem(testKey, "test");
-      localStorage.removeItem(testKey);
+      this.storage.setItem(testKey, "test");
+      this.storage.removeItem(testKey);
 
       const stats = this.getStorageStats();
 
@@ -309,11 +311,11 @@ export class LocalStorageClient implements NodeProtocolInterface {
       let b3ndKeys = 0;
       let totalSize = 0;
 
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      for (let i = 0; i < this.storage.length; i++) {
+        const key = this.storage.key(i);
         if (key) {
           totalKeys++;
-          const value = localStorage.getItem(key) || "";
+          const value = this.storage.getItem(key) || "";
           totalSize += key.length + value.length;
 
           if (key.startsWith(this.config.keyPrefix)) {
@@ -343,10 +345,10 @@ export class LocalStorageClient implements NodeProtocolInterface {
       const typicalLimit = 5 * 1024 * 1024; // 5MB
       let currentSize = 0;
 
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      for (let i = 0; i < this.storage.length; i++) {
+        const key = this.storage.key(i);
         if (key) {
-          const value = localStorage.getItem(key) || "";
+          const value = this.storage.getItem(key) || "";
           currentSize += key.length + value.length;
         }
       }
@@ -365,8 +367,8 @@ export class LocalStorageClient implements NodeProtocolInterface {
     // Remove all keys with our prefix
     const keysToRemove: string[] = [];
 
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
+    for (let i = 0; i < this.storage.length; i++) {
+      const key = this.storage.key(i);
       if (key && key.startsWith(this.config.keyPrefix)) {
         keysToRemove.push(key);
       }
@@ -374,7 +376,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
 
     // Remove the keys
     for (const key of keysToRemove) {
-      localStorage.removeItem(key);
+      this.storage.removeItem(key);
     }
   }
 }

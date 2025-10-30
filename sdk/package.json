@@ -54,7 +54,9 @@
     "url": "https://github.com/bandeira-tech/b3nd-sdk/issues"
   },
   "homepage": "https://github.com/bandeira-tech/b3nd-sdk#readme",
+  "dependencies": {},
   "devDependencies": {
+    "fake-indexeddb": "6.2.4",
     "typescript": "^5.0.0",
     "@types/node": "^20.0.0"
   },

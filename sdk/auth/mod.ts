@@ -1,4 +1,3 @@
-import { Persistence } from "@firecat/b3nd/persistence";
 import { decodeHex } from "@std/encoding/hex";
 
 type AuthMessage<T> = {
@@ -60,7 +59,9 @@ function buildCascadingPaths(url: string): string[] {
   const paths: string[] = [];
   for (let i = pathParts.length; i > 0; i--) {
     const pathSlice = pathParts.slice(0, i);
-    const cascadingPath = `${parsed.protocol}//${parsed.host}/${pathSlice.join("/")}`;
+    const cascadingPath = `${parsed.protocol}//${parsed.host}/${
+      pathSlice.join("/")
+    }`;
     paths.push(cascadingPath);
   }
 

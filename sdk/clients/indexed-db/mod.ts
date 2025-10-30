@@ -10,10 +10,10 @@
 import type {
   DeleteResult,
   HealthStatus,
+  IndexedDBClientConfig,
   ListItem,
   ListOptions,
   ListResult,
-  IndexedDBClientConfig,
   NodeProtocolInterface,
   PersistenceRecord,
   ReadResult,
@@ -26,7 +26,10 @@ interface IDBDatabase {
   name: string;
   version: number;
   close(): void;
-  transaction(storeNames: string | string[], mode?: IDBTransactionMode): IDBTransaction;
+  transaction(
+    storeNames: string | string[],
+    mode?: IDBTransactionMode,
+  ): IDBTransaction;
 }
 
 interface IDBTransaction {
@@ -53,7 +56,9 @@ interface IDBRequest {
 }
 
 interface IDBOpenDBRequest extends IDBRequest {
-  onupgradeneeded: ((this: IDBOpenDBRequest, ev: IDBVersionChangeEvent) => any) | null;
+  onupgradeneeded:
+    | ((this: IDBOpenDBRequest, ev: IDBVersionChangeEvent) => any)
+    | null;
 }
 
 type IDBTransactionMode = "readonly" | "readwrite";
@@ -79,21 +84,31 @@ interface StoredRecord {
 }
 
 export class IndexedDBClient implements NodeProtocolInterface {
-  private config: Required<IndexedDBClientConfig>;
+  private config: {
+    databaseName: string;
+    storeName: string;
+    version: number;
+  };
   private schema: Schema;
   private db: IDBDatabase | null = null;
+  private indexedDB: IDBFactory;
 
   constructor(config: IndexedDBClientConfig) {
     this.config = {
       databaseName: config.databaseName || "b3nd",
       storeName: config.storeName || "records",
       version: config.version || 1,
-      schema: config.schema || {},
     };
-    this.schema = this.config.schema;
+    this.schema = config.schema || {};
+
+    // Use injected indexedDB or default to global indexedDB
+    this.indexedDB = config.indexedDB ||
+      (typeof (globalThis as any).indexedDB !== "undefined"
+        ? (globalThis as any).indexedDB
+        : null!);
 
     // Check if IndexedDB is available
-    if (typeof (globalThis as any).indexedDB === "undefined") {
+    if (!this.indexedDB) {
       throw new Error("IndexedDB is not available in this environment");
     }
   }
@@ -107,13 +122,11 @@ export class IndexedDBClient implements NodeProtocolInterface {
     }
 
     try {
-      const indexedDB = (globalThis as any).indexedDB;
-      if (!indexedDB) {
-        throw new Error("IndexedDB not available");
-      }
-
       return new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open(this.config.databaseName, this.config.version);
+        const request = this.indexedDB.open(
+          this.config.databaseName,
+          this.config.version,
+        );
 
         request.onerror = () => {
           reject(new Error(`Failed to open IndexedDB: ${request.error}`));
@@ -125,7 +138,9 @@ export class IndexedDBClient implements NodeProtocolInterface {
             this.db = db;
             resolve(db);
           } else {
-            reject(new Error("IndexedDB open succeeded but no database returned"));
+            reject(
+              new Error("IndexedDB open succeeded but no database returned"),
+            );
           }
         };
 
@@ -134,8 +149,13 @@ export class IndexedDBClient implements NodeProtocolInterface {
             const db = request.result;
 
             // Create object store if it doesn't exist
-            if (!db.objectStoreNames || !db.objectStoreNames.contains(this.config.storeName)) {
-              const store = db.createObjectStore(this.config.storeName, { keyPath: "uri" });
+            if (
+              !db.objectStoreNames ||
+              !db.objectStoreNames.contains(this.config.storeName)
+            ) {
+              const store = db.createObjectStore(this.config.storeName, {
+                keyPath: "uri",
+              });
               // Create index for efficient querying by URI prefix
               store.createIndex("uri_index", "uri");
               // Create index for timestamp-based sorting
@@ -154,7 +174,10 @@ export class IndexedDBClient implements NodeProtocolInterface {
   /**
    * Validate write operation against schema
    */
-  private async validateWrite(uri: string, value: unknown): Promise<{ valid: boolean; error?: string }> {
+  private async validateWrite(
+    uri: string,
+    value: unknown,
+  ): Promise<{ valid: boolean; error?: string }> {
     // Find matching schema validation function
     const programKey = this.findMatchingProgram(uri);
     if (programKey && this.schema[programKey]) {
@@ -188,7 +211,9 @@ export class IndexedDBClient implements NodeProtocolInterface {
   /**
    * Get a transaction and object store
    */
-  private async getStore(mode: IDBTransactionMode = "readonly"): Promise<IDBObjectStore> {
+  private async getStore(
+    mode: IDBTransactionMode = "readonly",
+  ): Promise<IDBObjectStore> {
     const db = await this.initDB();
     const transaction = db.transaction([this.config.storeName], mode);
     return transaction.objectStore(this.config.storeName);
@@ -288,7 +313,13 @@ export class IndexedDBClient implements NodeProtocolInterface {
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
     try {
-      const { page = 1, limit = 50, pattern, sortBy = "name", sortOrder = "asc" } = options || {};
+      const {
+        page = 1,
+        limit = 50,
+        pattern,
+        sortBy = "name",
+        sortOrder = "asc",
+      } = options || {};
       const store = await this.getStore();
       const index = store.index("uri_index");
 
@@ -307,12 +338,9 @@ export class IndexedDBClient implements NodeProtocolInterface {
             if (record.uri.startsWith(uri)) {
               // Apply pattern filter if specified
               if (!pattern || record.uri.includes(pattern)) {
-                // Determine if this is a directory or file
-                const isDirectory = this.hasChildren(record.uri);
-
                 items.push({
                   uri: record.uri,
-                  type: isDirectory ? "directory" : "file",
+                  type: "file", // Will be determined after collecting all items
                 });
               }
             }
@@ -324,8 +352,10 @@ export class IndexedDBClient implements NodeProtocolInterface {
               .then(resolve)
               .catch((error) => {
                 resolve({
-                  data: [],
-                  pagination: { page, limit },
+                  success: false,
+                  error: error instanceof Error
+                    ? error.message
+                    : "Failed to process list results",
                 });
               });
           }
@@ -333,18 +363,15 @@ export class IndexedDBClient implements NodeProtocolInterface {
 
         request.onerror = () => {
           resolve({
-            data: [],
-            pagination: { page, limit },
+            success: false,
+            error: `Failed to list records: ${request.error}`,
           });
         };
       });
     } catch (error) {
       return {
-        data: [],
-        pagination: {
-          page: options?.page || 1,
-          limit: options?.limit || 50,
-        },
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -354,21 +381,34 @@ export class IndexedDBClient implements NodeProtocolInterface {
    */
   private async processListResults(
     items: ListItem[],
-    options: { page: number; limit: number; sortBy: string; sortOrder: string }
+    options: { page: number; limit: number; sortBy: string; sortOrder: string },
   ): Promise<ListResult> {
     const { page, limit, sortBy, sortOrder } = options;
 
-    // Sort items
+    // Determine which items are directories by checking if any other items have them as a parent
+    const itemsWithTypes = items.map((item) => {
+      // An item is a directory if any other item has it as a prefix with a /
+      const isDirectory = items.some(
+        (other) => other.uri !== item.uri && other.uri.startsWith(item.uri + "/"),
+      );
+      return {
+        ...item,
+        type: isDirectory ? "directory" as const : "file" as const,
+      };
+    });
+
+    // Sort items with types
+    let finalItems = itemsWithTypes;
     if (sortBy === "timestamp") {
       // Get timestamps for all items
       const itemsWithTimestamps = await Promise.all(
-        items.map(async (item) => {
+        itemsWithTypes.map(async (item) => {
           const record = await this.getStoredRecord(item.uri);
           return {
             ...item,
             ts: record?.ts || 0,
           };
-        })
+        }),
       );
 
       itemsWithTimestamps.sort((a, b) => {
@@ -376,10 +416,10 @@ export class IndexedDBClient implements NodeProtocolInterface {
         return sortOrder === "asc" ? comparison : -comparison;
       });
 
-      items = itemsWithTimestamps.map(({ uri, type }) => ({ uri, type }));
+      finalItems = itemsWithTimestamps.map(({ uri, type }) => ({ uri, type }));
     } else {
       // Sort by name
-      items.sort((a, b) => {
+      finalItems.sort((a, b) => {
         const comparison = a.uri.localeCompare(b.uri);
         return sortOrder === "asc" ? comparison : -comparison;
       });
@@ -388,14 +428,15 @@ export class IndexedDBClient implements NodeProtocolInterface {
     // Apply pagination
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedItems = items.slice(startIndex, endIndex);
+    const paginatedItems = finalItems.slice(startIndex, endIndex);
 
     return {
+      success: true,
       data: paginatedItems,
       pagination: {
         page,
         limit,
-        total: items.length,
+        total: itemsWithTypes.length,
       },
     };
   }
@@ -418,15 +459,6 @@ export class IndexedDBClient implements NodeProtocolInterface {
     } catch {
       return null;
     }
-  }
-
-  /**
-   * Check if a URI has children (is a directory)
-   */
-  private hasChildren(uri: string): boolean {
-    // This is a simplified check - in a real implementation,
-    // we'd need to query the database more efficiently
-    return false; // For now, assume all are files
   }
 
   async delete(uri: string): Promise<DeleteResult> {
@@ -553,21 +585,22 @@ export class IndexedDBClient implements NodeProtocolInterface {
   }
 
   async cleanup(): Promise<void> {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-    }
-
-    // Clear all data from the object store
+    // Clear all data from the object store BEFORE closing the database
     try {
       const store = await this.getStore("readwrite");
       await new Promise<void>((resolve, reject) => {
         const request = store.clear();
         request.onsuccess = () => resolve();
-        request.onerror = () => reject(new Error(`Failed to clear store: ${request.error}`));
+        request.onerror = () =>
+          reject(new Error(`Failed to clear store: ${request.error}`));
       });
     } catch {
       // Ignore cleanup errors
     }
+
+    // Wait for any pending operations to complete
+    // fake-indexeddb uses setTimeout internally, so we need to wait a few ticks
+    // to ensure all queued operations have had a chance to execute
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
