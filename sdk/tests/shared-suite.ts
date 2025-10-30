@@ -46,7 +46,7 @@ export function runSharedSuite(
     fn: async () => {
     const client = await Promise.resolve(factories.happy());
 
-    const writeResult = await client.write("users://alice/profile", {
+    const writeResult = await client.write("store://users/alice/profile", {
       name: "Alice",
       email: "alice@example.com",
     });
@@ -57,7 +57,7 @@ export function runSharedSuite(
       email: "alice@example.com",
     });
 
-    const readResult = await client.read("users://alice/profile");
+    const readResult = await client.read("store://users/alice/profile");
 
     assertEquals(readResult.success, true);
     assertEquals(readResult.record?.data, {
@@ -73,7 +73,7 @@ export function runSharedSuite(
     const client = await Promise.resolve(factories.happy());
 
     const before = Date.now();
-    const writeResult = await client.write("users://bob/profile", {
+    const writeResult = await client.write("store://users/bob/profile", {
       name: "Bob",
     });
     const after = Date.now();
@@ -89,7 +89,7 @@ export function runSharedSuite(
   Deno.test(`${suiteName} - read non-existent returns error`, async () => {
     const client = await Promise.resolve(factories.happy());
 
-    const readResult = await client.read("users://nobody/profile");
+    const readResult = await client.read("store://users/nobody/profile");
 
     assertEquals(readResult.success, false);
     assertEquals(typeof readResult.error, "string");
@@ -101,17 +101,20 @@ export function runSharedSuite(
     const client = await Promise.resolve(factories.happy());
 
     // Write some items
-    await client.write("users://alice/profile", { name: "Alice" });
-    await client.write("users://bob/profile", { name: "Bob" });
-    await client.write("users://charlie/profile", { name: "Charlie" });
+    await client.write("store://users/alice/profile", { name: "Alice" });
+    await client.write("store://users/bob/profile", { name: "Bob" });
+    await client.write("store://users/charlie/profile", { name: "Charlie" });
 
-    const listResult = await client.list("users://");
+    const listResult = await client.list("store://users");
 
-    assertEquals(listResult.data.length >= 3, true,
-      `Expected at least 3 items but got ${listResult.data.length}`);
-    assertEquals(Array.isArray(listResult.data), true);
-    assertEquals(typeof listResult.pagination.page, "number");
-    assertEquals(typeof listResult.pagination.limit, "number");
+    assertEquals(listResult.success, true);
+    if (listResult.success) {
+      assertEquals(listResult.data.length >= 3, true,
+        `Expected at least 3 items but got ${listResult.data.length}`);
+      assertEquals(Array.isArray(listResult.data), true);
+      assertEquals(typeof listResult.pagination.page, "number");
+      assertEquals(typeof listResult.pagination.limit, "number");
+    }
 
     await client.cleanup();
   });
@@ -121,16 +124,22 @@ export function runSharedSuite(
 
     // Write multiple items
     for (let i = 0; i < 10; i++) {
-      await client.write(`users://user${i}/profile`, { name: `User ${i}` });
+      await client.write(`store://users/user${i}/profile`, { name: `User ${i}` });
     }
 
-    const page1 = await client.list("users://", { page: 1, limit: 5 });
-    assertEquals(page1.pagination.page, 1);
-    assertEquals(page1.pagination.limit, 5);
+    const page1 = await client.list("store://users", { page: 1, limit: 5 });
+    assertEquals(page1.success, true);
+    if (page1.success) {
+      assertEquals(page1.pagination.page, 1);
+      assertEquals(page1.pagination.limit, 5);
+    }
 
-    const page2 = await client.list("users://", { page: 2, limit: 5 });
-    assertEquals(page2.pagination.page, 2);
-    assertEquals(page2.pagination.limit, 5);
+    const page2 = await client.list("store://users", { page: 2, limit: 5 });
+    assertEquals(page2.success, true);
+    if (page2.success) {
+      assertEquals(page2.pagination.page, 2);
+      assertEquals(page2.pagination.limit, 5);
+    }
 
     await client.cleanup();
   });
@@ -138,16 +147,19 @@ export function runSharedSuite(
   Deno.test(`${suiteName} - list with pattern filter`, async () => {
     const client = await Promise.resolve(factories.happy());
 
-    await client.write("users://alice/profile", { name: "Alice" });
-    await client.write("users://bob/profile", { name: "Bob" });
-    await client.write("users://alice/settings", { theme: "dark" });
+    await client.write("store://users/alice/profile", { name: "Alice" });
+    await client.write("store://users/bob/profile", { name: "Bob" });
+    await client.write("store://users/alice/settings", { theme: "dark" });
 
-    const listResult = await client.list("users://", { pattern: "alice" });
+    const listResult = await client.list("store://users", { pattern: "alice" });
 
-    assertEquals(
-      listResult.data.every((item) => item.uri.includes("alice")),
-      true,
-    );
+    assertEquals(listResult.success, true);
+    if (listResult.success) {
+      assertEquals(
+        listResult.data.every((item: { uri: string }) => item.uri.includes("alice")),
+        true,
+      );
+    }
 
     await client.cleanup();
   });
@@ -155,12 +167,12 @@ export function runSharedSuite(
   Deno.test(`${suiteName} - delete removes item`, async () => {
     const client = await Promise.resolve(factories.happy());
 
-    await client.write("users://temp/data", { value: 123 });
+    await client.write("store://users/temp/data", { value: 123 });
 
-    const deleteResult = await client.delete("users://temp/data");
+    const deleteResult = await client.delete("store://users/temp/data");
     assertEquals(deleteResult.success, true);
 
-    const readResult = await client.read("users://temp/data");
+    const readResult = await client.read("store://users/temp/data");
     assertEquals(readResult.success, false);
 
     await client.cleanup();
@@ -169,7 +181,7 @@ export function runSharedSuite(
   Deno.test(`${suiteName} - delete non-existent returns error`, async () => {
     const client = await Promise.resolve(factories.happy());
 
-    const deleteResult = await client.delete("users://nonexistent/data");
+    const deleteResult = await client.delete("store://users/nonexistent/data");
     assertEquals(deleteResult.success, false);
 
     await client.cleanup();
@@ -211,7 +223,7 @@ export function runSharedSuite(
     Deno.test(`${suiteName} - validation error on write`, async () => {
       const client = await Promise.resolve(factories.validationError!());
 
-      const writeResult = await client.write("users://invalid/data", {
+      const writeResult = await client.write("store://users/invalid/data", {
         invalid: true,
       });
 
@@ -227,14 +239,14 @@ export function runSharedSuite(
     Deno.test(`${suiteName} - connection error handling`, async () => {
       const client = await Promise.resolve(factories.connectionError!());
 
-      const writeResult = await client.write("users://test/data", {
+      const writeResult = await client.write("store://users/test/data", {
         value: 123,
       });
 
       assertEquals(writeResult.success, false);
       assertEquals(typeof writeResult.error, "string");
 
-      const readResult = await client.read("users://test/data");
+      const readResult = await client.read("store://users/test/data");
       assertEquals(readResult.success, false);
 
       await client.cleanup();
