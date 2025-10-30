@@ -52,3 +52,20 @@ build-sdk:
 publish-sdk:
 	@echo "Publishing SDK to npm..."
 	@cd sdk && npm run publish:package
+
+.PHONY: pkg
+pkg:
+	@if [ -z "$(target)" ]; then \
+		echo "Error: 'target' variable is required"; \
+		echo "Usage: make pkg target=<target-name>"; \
+		exit 1; \
+	fi
+	@if [ ! -f "installations/$(target)/Dockerfile" ]; then \
+		echo "Error: Dockerfile not found at installations/$(target)/Dockerfile"; \
+		exit 1; \
+	fi
+	@echo "Building Docker image for $(target)..."
+	@docker build --load -t ghcr.io/bandeira-tech/b3nd/$(target):latest -f ./installations/$(target)/Dockerfile .
+	@echo "Pushing image to ghcr.io/bandeira-tech/b3nd/$(target):latest..."
+	@docker push ghcr.io/bandeira-tech/b3nd/$(target):latest
+	@echo "Done!"
