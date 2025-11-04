@@ -5,7 +5,13 @@
       "type": "http",
       "name": "Local HTTP API",
       "baseUrl": "http://localhost:8000",
-      "instanceId": "default"
+      "instanceId": "local"
+    },
+    "testnet": {
+      "type": "http",
+      "name": "Testnet Evergreen",
+      "baseUrl": "https://testnet-evergreen.fire.cat",
+      "instanceId": "testnet"
     },
     "mock": {
       "type": "mock",

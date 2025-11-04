@@ -16,8 +16,13 @@ export function NavigationTree() {
   );
   const { navigateToPath, expandedPaths, togglePathExpansion, loadSchemas } = useAppStore();
 
+  console.log("[NavigationTree] Render. rootNodes:", rootNodes, "schemas:", Object.keys(schemas), "activeBackend:", activeBackend?.id, "loading:", loading);
+
   useEffect(() => {
+    console.log("[NavigationTree:useEffect] activeBackend.id changed:", activeBackend?.id);
+
     if (!activeBackend?.adapter) {
+      console.log("[NavigationTree:useEffect] No active backend");
       setError("No active backend");
       setLoading(false);
       return;
@@ -25,16 +30,25 @@ export function NavigationTree() {
 
     const loadRoot = async () => {
       try {
+        console.log("[NavigationTree:loadRoot] Starting. Current schemas:", Object.keys(schemas));
         setLoading(true);
         setError(null);
 
         // Load schemas if not already loaded
         if (Object.keys(schemas).length === 0) {
+          console.log("[NavigationTree:loadRoot] Schemas empty, calling loadSchemas()");
           await loadSchemas();
+          console.log("[NavigationTree:loadRoot] loadSchemas() completed");
+        } else {
+          // Schemas already loaded, just stop loading
+          console.log("[NavigationTree:loadRoot] Schemas already loaded");
+          setLoading(false);
         }
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : "Unknown error";
+        console.error("[NavigationTree:loadRoot] Error:", errMsg);
         setError(
-          `Failed to load navigation: ${err instanceof Error ? err.message : "Unknown error"}`,
+          `Failed to load navigation: ${errMsg}`,
         );
       } finally {
         setLoading(false);
@@ -42,11 +56,12 @@ export function NavigationTree() {
     };
 
     loadRoot();
-  }, [activeBackend, loadSchemas]);
+    // Only depend on activeBackendId to avoid re-running when loadSchemas function changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBackend?.id]);
 
   const handleToggle = useCallback(
     (path: string) => {
-      console.log("Toggled path:", path); // Temp debug – remove later
       togglePathExpansion(path);
     },
     [togglePathExpansion],
@@ -54,7 +69,6 @@ export function NavigationTree() {
 
   const handleNodeClick = useCallback(
     (node: NavigationNode) => {
-      console.log("Clicked node:", node.path); // Temp debug – remove later
       navigateToPath(node.path);
       if (node.type === "directory") {
         handleToggle(node.path);

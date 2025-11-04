@@ -1,4 +1,5 @@
 // React import not needed with react-jsx runtime
+import { Fragment } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { ContentViewer } from "./ContentViewer";
 import { FileText, User, Database } from "lucide-react";
@@ -52,7 +53,7 @@ function Breadcrumb({ path }: { path: string }) {
         const isLast = index === segments.length - 1;
 
         return (
-          <>
+          <Fragment key={pathTo}>
             <span className="text-muted-foreground">/</span>
             <button
               onClick={() => navigateToPath(pathTo)}
@@ -65,7 +66,7 @@ function Breadcrumb({ path }: { path: string }) {
             >
               {segment}
             </button>
-          </>
+          </Fragment>
         );
       })}
     </nav>

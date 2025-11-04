@@ -51,7 +51,9 @@ export function TreeNode({
     }
   }, [isExpanded, node.path]);
 
-  const hasChildren = children.length > 0 || (node.children && node.children.length > 0);
+  // Only count directories as children (files don't show in tree)
+  const directoryChildren = children.filter((child) => child.type === "directory");
+  const hasChildren = directoryChildren.length > 0 || (node.children && node.children.some((c) => c.type === "directory"));
   const showToggle = node.type === "directory" && (hasChildren || loading);
 
   return (
@@ -119,21 +121,23 @@ export function TreeNode({
       </div>
       {isExpanded && hasChildren && (
         <div className="ml-4 space-y-0.5 border-l border-gray-200 dark:border-gray-800 pl-2">
-          {children.length === 0 ? (
+          {children.filter((child) => child.type === "directory").length === 0 ? (
             <div className="text-xs text-muted-foreground pl-4">
-              No children
+              No directories
             </div>
           ) : (
-            children.map((child) => (
-              <TreeNode
-                key={child.path}
-                node={child}
-                level={level + 1}
-                isExpanded={false} // Start collapsed
-                onToggle={() => {}} // Placeholder – parent handles
-                onClick={onClick} // Pass parent handler (bubbles up)
-              />
-            ))
+            children
+              .filter((child) => child.type === "directory")
+              .map((child) => (
+                <TreeNode
+                  key={child.path}
+                  node={child}
+                  level={level + 1}
+                  isExpanded={false} // Start collapsed
+                  onToggle={() => {}} // Placeholder – parent handles
+                  onClick={onClick} // Pass parent handler (bubbles up)
+                />
+              ))
           )}
         </div>
       )}

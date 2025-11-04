@@ -102,7 +102,6 @@ interface AppStore extends AppState, AppActions {
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => {
-      console.log("Store init: created fresh MockAdapter");
       return {
         ...initialState,
         backendsReady: true,
@@ -162,23 +161,30 @@ export const useAppStore = create<AppStore>()(
           const state = get();
           const backend = state.backends.find((b) => b.id === state.activeBackendId);
 
+          console.log("[loadSchemas] Called. ActiveBackendId:", state.activeBackendId, "Backend found:", !!backend);
+
           if (!backend) {
-            console.warn("No active backend found");
+            console.warn("[loadSchemas] No active backend found");
             return;
           }
 
           try {
+            console.log("[loadSchemas] Fetching schema from", backend.name);
             // Fetch schemas from backend (organized by instance)
             const schemasByInstance = await backend.adapter.getSchema();
-            console.log("Loaded schemas by instance:", schemasByInstance);
+            console.log("[loadSchemas] Raw response:", schemasByInstance);
 
             // Collect all unique schema URIs from all instances
             const allSchemaUris = new Set<string>();
             for (const instanceSchemas of Object.values(schemasByInstance)) {
-              for (const uri of instanceSchemas) {
-                allSchemaUris.add(uri);
+              if (Array.isArray(instanceSchemas)) {
+                for (const uri of instanceSchemas) {
+                  allSchemaUris.add(uri);
+                }
               }
             }
+
+            console.log("[loadSchemas] Collected URIs:", Array.from(allSchemaUris));
 
             // Build root navigation nodes from all schemas
             const nodes: import("../types").NavigationNode[] = [];
@@ -190,24 +196,22 @@ export const useAppStore = create<AppStore>()(
                 const path = `/${protocol}/${domain}`;
                 nodes.push({ path, name: `${protocol}://${domain}`, type: "directory" });
               } catch (error) {
-                console.error(`Failed to parse schema URI: ${uri}`, error);
+                console.error(`[loadSchemas] Failed to parse schema URI: ${uri}`, error);
               }
             }
-            const rootNodes = nodes;
 
-            console.log("Built root nodes:", rootNodes);
+            console.log("[loadSchemas] Built root nodes:", nodes);
 
             set({
               schemas: schemasByInstance,
-              rootNodes,
+              rootNodes: nodes,
             });
           } catch (error) {
-            console.error("Failed to load schemas:", error);
+            console.error("[loadSchemas] Failed to load schemas:", error);
           }
         },
 
         navigateToPath: (path) => {
-          console.log("Navigating to:", path);
           set((state) => {
             const history = [...state.navigationHistory];
             if (history[history.length - 1] !== path) {
@@ -350,9 +354,11 @@ export const useAppStore = create<AppStore>()(
         };
       },
       onRehydrateStorage: () => async (state) => {
+        console.log("[onRehydrate] Starting rehydration");
         if (state) {
           // Load backends from configuration
           const backends = await createBackendsFromConfig();
+          console.log("[onRehydrate] Loaded backends from config:", backends.map(b => b.id));
 
           // Restore user-added backends from localStorage
           const userBackends: SerializableBackendConfig[] = (state as any).userBackends || [];
@@ -365,6 +371,7 @@ export const useAppStore = create<AppStore>()(
 
           // Combine system backends with user backends
           state.backends = [...backends, ...restoredUserBackends];
+          console.log("[onRehydrate] Total backends after merge:", state.backends.map(b => b.id));
 
           // Use saved activeBackendId if valid (check both system and user backends)
           const allBackends = [...backends, ...restoredUserBackends];
@@ -373,7 +380,7 @@ export const useAppStore = create<AppStore>()(
           )?.id;
           const defaultBackend = backends.find((b) => b.isActive);
           state.activeBackendId = validBackendId || defaultBackend?.id || allBackends[0]?.id;
-          console.log("Rehydration: loaded backends from config and localStorage, active:", state.activeBackendId);
+          console.log("[onRehydrate] Set activeBackendId to:", state.activeBackendId);
 
           // Apply theme
           const theme = state.theme || "system";
@@ -399,8 +406,10 @@ export const useAppStore = create<AppStore>()(
 
           state.backendsReady = true;
 
+          console.log("[onRehydrate] Scheduling loadSchemas call");
           // Load schemas asynchronously after rehydration
           setTimeout(() => {
+            console.log("[onRehydrate] Executing loadSchemas from setTimeout");
             const store = useAppStore.getState();
             store.loadSchemas();
           }, 0);

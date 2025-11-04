@@ -6,7 +6,7 @@ import type {
   SearchFilters,
   PaginatedResponse,
 } from "../types";
-import { HttpClient } from "../../../../sdk/dist/http-client.ts";
+import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 
 export class HttpAdapter implements BackendAdapter {
   name = "HTTP Backend";
@@ -18,7 +18,7 @@ export class HttpAdapter implements BackendAdapter {
   constructor(baseUrl: string, instanceId: string) {
     this.baseUrl = baseUrl;
     this.instanceId = instanceId;
-    this.client = new HttpClient({ url: baseUrl, instanceId });
+    this.client = new HttpClient({ url: baseUrl });
   }
 
   async listPath(
@@ -42,13 +42,20 @@ export class HttpAdapter implements BackendAdapter {
     }
     const result = await this.client.list(listUri, options);
 
+    // Handle error response
+    if (!result.success) {
+      throw new Error(`Failed to list ${path}: ${result.error}`);
+    }
+
     // Transform API response to Explorer format
     return {
       data: result.data.map((item: any) => {
         const itemPath = this.uriToPath(item.uri);
+        // Extract name from URI (last segment of path)
+        const name = this.extractNameFromUri(item.uri);
         return {
           path: itemPath,
-          name: item.name,
+          name: name,
           type: item.type as "file" | "directory",
           children: undefined, // Lazy load
         };
@@ -121,5 +128,22 @@ export class HttpAdapter implements BackendAdapter {
   private uriToPath(uri: string): string {
     const url = new URL(uri);
     return `/${url.protocol.replace(":", "")}/${url.hostname}${url.pathname}`;
+  }
+
+  // Helper: Extract display name from URI
+  // "users://alice/profile" -> "profile"
+  // "users://alice" -> "alice"
+  private extractNameFromUri(uri: string): string {
+    const url = new URL(uri);
+    const pathname = url.pathname;
+
+    // If pathname has content, get the last segment
+    if (pathname && pathname !== "/") {
+      const segments = pathname.split("/").filter(Boolean);
+      return segments[segments.length - 1];
+    }
+
+    // Otherwise, use hostname as the name
+    return url.hostname || "unnamed";
   }
 }
