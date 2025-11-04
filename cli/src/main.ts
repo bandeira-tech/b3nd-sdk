@@ -1,6 +1,7 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write --allow-env --allow-net
 
 import {
+  accountCreate,
   confNode,
   confAccount,
   write,
@@ -41,6 +42,19 @@ async function main(): Promise<void> {
 
   try {
     switch (command) {
+      case "account": {
+        if (!subcommand) {
+          throw new Error("Subcommand required. Usage: bnd account <create>");
+        }
+
+        if (subcommand === "create") {
+          await accountCreate(cleanArgs[2]);
+        } else {
+          throw new Error(`Unknown account subcommand: ${subcommand}`);
+        }
+        break;
+      }
+
       case "conf": {
         if (!subcommand) {
           throw new Error("Subcommand required. Usage: bnd conf <node|account> <value>");

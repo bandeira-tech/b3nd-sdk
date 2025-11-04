@@ -1,7 +1,9 @@
 import { updateConfig, loadConfig, getConfigPath } from "./config.ts";
 import { getClient, closeClient } from "./client.ts";
 import { createLogger, Logger } from "./logger.ts";
-import { parse } from "@std/path";
+import { parse, dirname } from "@std/path";
+import { ensureDir } from "@std/fs";
+import { encodeHex, decodeHex } from "@std/encoding/hex";
 
 /**
  * Parse URI into protocol, domain, and path
@@ -17,6 +19,73 @@ function parseUri(uri: string): { protocol: string; domain: string; path: string
     domain: match[2],
     path: match[3],
   };
+}
+
+/**
+ * Account key file format
+ */
+interface AccountKey {
+  privateKey: string;
+  publicKey: string;
+  algorithm: string;
+  createdAt: string;
+}
+
+/**
+ * Load account key from configured path
+ */
+async function loadAccountKey(): Promise<AccountKey> {
+  const config = await loadConfig();
+  if (!config.account) {
+    throw new Error(
+      "No account configured. Run: bnd account create"
+    );
+  }
+
+  try {
+    const content = await Deno.readTextFile(config.account);
+    const key = JSON.parse(content) as AccountKey;
+    return key;
+  } catch (error) {
+    throw new Error(
+      `Failed to load account key from ${config.account}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+}
+
+/**
+ * Sign payload with account private key
+ */
+async function signPayload(privateKeyHex: string, payload: unknown): Promise<string> {
+  try {
+    const privateKeyBytes = decodeHex(privateKeyHex);
+    const privateKey = await crypto.subtle.importKey(
+      "pkcs8",
+      privateKeyBytes,
+      { name: "Ed25519", namedCurve: "Ed25519" },
+      false,
+      ["sign"]
+    );
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(JSON.stringify(payload));
+
+    const signatureBytes = await crypto.subtle.sign("Ed25519", privateKey, data);
+    return encodeHex(new Uint8Array(signatureBytes));
+  } catch (error) {
+    throw new Error(
+      `Failed to sign payload: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+/**
+ * Replace :key placeholder in URI with public key
+ */
+function replaceKeyPlaceholder(uri: string, publicKey: string): string {
+  return uri.replace(/:key/g, publicKey);
 }
 
 /**
@@ -37,6 +106,60 @@ export async function confAccount(path: string): Promise<void> {
     throw new Error("Account key path required. Usage: bnd conf account <path>");
   }
   await updateConfig("account", path);
+}
+
+/**
+ * Handle `bnd account create` command - generates Ed25519 key pair and configures it
+ */
+export async function accountCreate(outputPath?: string): Promise<void> {
+  try {
+    // Generate Ed25519 key pair
+    const keyPair = await crypto.subtle.generateKey(
+      "Ed25519",
+      true, // extractable
+      ["sign", "verify"]
+    );
+
+    // Export keys
+    const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+    const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+
+    // Convert to hex
+    const privateKeyHex = encodeHex(new Uint8Array(privateKeyBuffer));
+    const publicKeyHex = encodeHex(new Uint8Array(publicKeyBuffer));
+
+    // Determine output path
+    const keyPath = outputPath || `${Deno.env.get("HOME")}/.bnd/account.key`;
+
+    // Create directory if needed
+    await ensureDir(dirname(keyPath));
+
+    // Create key file with both keys
+    const keyData = {
+      privateKey: privateKeyHex,
+      publicKey: publicKeyHex,
+      algorithm: "Ed25519",
+      createdAt: new Date().toISOString(),
+    };
+
+    await Deno.writeTextFile(keyPath, JSON.stringify(keyData, null, 2));
+
+    // Set permissions to 0600 (read/write for owner only)
+    await Deno.chmod(keyPath, 0o600);
+
+    // Configure the account
+    await updateConfig("account", keyPath);
+
+    console.log(`✓ Account key created`);
+    console.log(`  Private key (hex): ${privateKeyHex.substring(0, 32)}...`);
+    console.log(`  Public key (hex):  ${publicKeyHex}`);
+    console.log(`  Key file: ${keyPath}`);
+    console.log(`  Config updated`);
+  } catch (error) {
+    throw new Error(
+      `Failed to create account: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 /**
@@ -85,6 +208,30 @@ export async function write(args: string[], verbose = false): Promise<void> {
     const config = await loadConfig();
     const client = await getClient(logger);
 
+    // Handle :key placeholder in URI and accounts program writes
+    if (uri.includes(":key")) {
+      const accountKey = await loadAccountKey();
+      uri = replaceKeyPlaceholder(uri, accountKey.publicKey);
+      logger?.info(`Replaced :key with public key`);
+
+      // For accounts domain, wrap in auth structure
+      const { domain } = parseUri(uri);
+      if (domain.includes("accounts")) {
+        const signature = await signPayload(accountKey.privateKey, data);
+        logger?.info(`Signed payload with account key`);
+
+        data = {
+          auth: [
+            {
+              pubkey: accountKey.publicKey,
+              signature: signature,
+            },
+          ],
+          payload: data,
+        };
+      }
+    }
+
     const { protocol, domain, path } = parseUri(uri);
     const endpoint = `${config.node}/api/v1/write/${protocol}/${domain}${path}`;
     logger?.http("POST", endpoint);
@@ -120,6 +267,13 @@ export async function read(uri: string, verbose = false): Promise<void> {
     const config = await loadConfig();
     const client = await getClient(logger);
 
+    // Handle :key placeholder in URI
+    if (uri.includes(":key")) {
+      const accountKey = await loadAccountKey();
+      uri = replaceKeyPlaceholder(uri, accountKey.publicKey);
+      logger?.info(`Replaced :key with public key`);
+    }
+
     const { protocol, domain, path } = parseUri(uri);
     const endpoint = `${config.node}/api/v1/read/${protocol}/${domain}${path}`;
     logger?.http("GET", endpoint);
@@ -154,6 +308,13 @@ export async function list(uri: string, verbose = false, options?: { page?: numb
   try {
     const config = await loadConfig();
     const client = await getClient(logger);
+
+    // Handle :key placeholder in URI
+    if (uri.includes(":key")) {
+      const accountKey = await loadAccountKey();
+      uri = replaceKeyPlaceholder(uri, accountKey.publicKey);
+      logger?.info(`Replaced :key with public key`);
+    }
 
     const { protocol, domain, path } = parseUri(uri);
     const queryStr = new URLSearchParams(options as Record<string, string>).toString();
@@ -213,6 +374,7 @@ USAGE:
   bnd [options] <command> [arguments]
 
 COMMANDS:
+  account create [path]    Generate Ed25519 key pair and configure it
   conf node <url>          Set the node URL
   conf account <path>      Set the account key path
   write <uri> <data>       Write data to a URI
@@ -226,8 +388,9 @@ OPTIONS:
   -v, --verbose            Show detailed operation logs for debugging
 
 EXAMPLES:
+  bnd account create
+  bnd account create path/to/my/account.key
   bnd conf node https://testnet-evergreen.fire.cat
-  bnd conf account path/to/my/key
 
   bnd write tmp://some/path "this is a nice little payload"
   bnd read tmp://some/path
