@@ -8,6 +8,7 @@ const CONFIG_FILE = join(CONFIG_DIR, "config.toml");
 export interface BndConfig {
   node?: string;
   account?: string;
+  encrypt?: string; // "true" or "false"
 }
 
 /**
@@ -21,11 +22,19 @@ function parseToml(content: string): BndConfig {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
 
-    const match = trimmed.match(/^(\w+)\s*=\s*"([^"]*)"/);
-    if (match) {
-      const [, key, value] = match;
+    const stringMatch = trimmed.match(/^(\w+)\s*=\s*"([^"]*)"/);
+    if (stringMatch) {
+      const [, key, value] = stringMatch;
       if (key === "node") config.node = value;
       if (key === "account") config.account = value;
+      if (key === "encrypt") config.encrypt = value;
+      continue;
+    }
+
+    const boolMatch = trimmed.match(/^(\w+)\s*=\s*(true|false)/);
+    if (boolMatch) {
+      const [, key, value] = boolMatch;
+      if (key === "encrypt") config.encrypt = value;
     }
   }
 
@@ -39,6 +48,7 @@ function serializeToml(config: BndConfig): string {
   const lines: string[] = [];
   if (config.node) lines.push(`node = "${config.node}"`);
   if (config.account) lines.push(`account = "${config.account}"`);
+  if (config.encrypt) lines.push(`encrypt = "${config.encrypt}"`);
   return lines.join("\n") + (lines.length > 0 ? "\n" : "");
 }
 

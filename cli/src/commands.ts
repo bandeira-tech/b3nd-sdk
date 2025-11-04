@@ -4,6 +4,7 @@ import { createLogger, Logger } from "./logger.ts";
 import { parse, dirname } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { encodeHex, decodeHex } from "@std/encoding/hex";
+import { encrypt, decrypt, type EncryptedPayload } from "file:///Users/m0/ws/b3nd/sdk/encrypt/mod.ts";
 
 /**
  * Parse URI into protocol, domain, and path
@@ -22,19 +23,62 @@ function parseUri(uri: string): { protocol: string; domain: string; path: string
 }
 
 /**
- * Account key file format
+ * Account key - stored as PEM file
  */
 interface AccountKey {
-  privateKey: string;
-  publicKey: string;
-  algorithm: string;
-  createdAt: string;
+  privateKeyPem: string; // PKCS8 PEM encoded Ed25519 private key
+  publicKeyHex: string; // Hex encoded public key
 }
 
 /**
- * Load account key from configured path
+ * Encryption key - stored as PEM file
  */
-async function loadAccountKey(): Promise<AccountKey> {
+interface EncryptionKey {
+  privateKeyPem: string; // PKCS8 PEM encoded X25519 private key
+  publicKeyHex: string; // Hex encoded public key
+}
+
+/**
+ * Convert PEM string to CryptoKey (Ed25519 or X25519)
+ */
+async function pemToCryptoKey(pem: string, algorithm: "Ed25519" | "X25519" = "Ed25519"): Promise<CryptoKey> {
+  // Extract base64 content from PEM
+  const base64 = pem
+    .split('\n')
+    .filter(line => !line.startsWith('-----'))
+    .join('');
+
+  // Decode base64 to bytes
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  // Import as PKCS8 private key
+  if (algorithm === "Ed25519") {
+    return await crypto.subtle.importKey(
+      "pkcs8",
+      bytes,
+      { name: "Ed25519", namedCurve: "Ed25519" },
+      false,
+      ["sign"]
+    );
+  } else {
+    return await crypto.subtle.importKey(
+      "pkcs8",
+      bytes,
+      { name: "X25519", namedCurve: "X25519" },
+      false,
+      ["deriveBits"]
+    );
+  }
+}
+
+/**
+ * Load account key from configured path (PEM format)
+ */
+async function loadAccountKey(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
   const config = await loadConfig();
   if (!config.account) {
     throw new Error(
@@ -44,8 +88,27 @@ async function loadAccountKey(): Promise<AccountKey> {
 
   try {
     const content = await Deno.readTextFile(config.account);
-    const key = JSON.parse(content) as AccountKey;
-    return key;
+
+    // Parse as simple format: PEM + optional public key on last line
+    const lines = content.trim().split('\n');
+    let publicKeyHex = "";
+    let pemLines: string[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith("PUBLIC_KEY_HEX=")) {
+        publicKeyHex = line.substring("PUBLIC_KEY_HEX=".length);
+      } else {
+        pemLines.push(line);
+      }
+    }
+
+    const privateKeyPem = pemLines.join('\n');
+
+    if (!publicKeyHex) {
+      throw new Error("Public key not found in account key file");
+    }
+
+    return { privateKeyPem, publicKeyHex };
   } catch (error) {
     throw new Error(
       `Failed to load account key from ${config.account}: ${
@@ -56,18 +119,54 @@ async function loadAccountKey(): Promise<AccountKey> {
 }
 
 /**
- * Sign payload with account private key
+ * Load encryption key from configured path (PEM format)
  */
-async function signPayload(privateKeyHex: string, payload: unknown): Promise<string> {
-  try {
-    const privateKeyBytes = decodeHex(privateKeyHex);
-    const privateKey = await crypto.subtle.importKey(
-      "pkcs8",
-      privateKeyBytes,
-      { name: "Ed25519", namedCurve: "Ed25519" },
-      false,
-      ["sign"]
+async function loadEncryptionKey(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
+  const config = await loadConfig();
+  if (!config.encrypt) {
+    throw new Error(
+      "No encryption key configured. Run: bnd encrypt create"
     );
+  }
+
+  try {
+    const content = await Deno.readTextFile(config.encrypt);
+
+    // Parse as simple format: PEM + optional public key on last line
+    const lines = content.trim().split('\n');
+    let publicKeyHex = "";
+    let pemLines: string[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith("PUBLIC_KEY_HEX=")) {
+        publicKeyHex = line.substring("PUBLIC_KEY_HEX=".length);
+      } else {
+        pemLines.push(line);
+      }
+    }
+
+    const privateKeyPem = pemLines.join('\n');
+
+    if (!publicKeyHex) {
+      throw new Error("Public key not found in encryption key file");
+    }
+
+    return { privateKeyPem, publicKeyHex };
+  } catch (error) {
+    throw new Error(
+      `Failed to load encryption key from ${config.encrypt}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+}
+
+/**
+ * Sign payload with account private key (PEM format)
+ */
+async function signPayload(privateKeyPem: string, payload: unknown): Promise<string> {
+  try {
+    const privateKey = await pemToCryptoKey(privateKeyPem, "Ed25519");
 
     const encoder = new TextEncoder();
     const data = encoder.encode(JSON.stringify(payload));
@@ -109,11 +208,11 @@ export async function confAccount(path: string): Promise<void> {
 }
 
 /**
- * Handle `bnd account create` command - generates Ed25519 key pair and configures it
+ * Handle `bnd account create` command - generates Ed25519 key pair in PEM format
  */
 export async function accountCreate(outputPath?: string): Promise<void> {
   try {
-    // Generate Ed25519 key pair
+    // Generate Ed25519 key pair for signing
     const keyPair = await crypto.subtle.generateKey(
       "Ed25519",
       true, // extractable
@@ -124,25 +223,22 @@ export async function accountCreate(outputPath?: string): Promise<void> {
     const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
     const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
 
-    // Convert to hex
-    const privateKeyHex = encodeHex(new Uint8Array(privateKeyBuffer));
+    // Convert private key to PEM format (PKCS8)
+    const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKeyBuffer)));
+    const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64.match(/.{1,64}/g)?.join('\n')}\n-----END PRIVATE KEY-----`;
+
+    // Convert public key to hex
     const publicKeyHex = encodeHex(new Uint8Array(publicKeyBuffer));
 
     // Determine output path
-    const keyPath = outputPath || `${Deno.env.get("HOME")}/.bnd/account.key`;
+    const keyPath = outputPath || `${Deno.env.get("HOME")}/.bnd/accounts/default.key`;
 
     // Create directory if needed
     await ensureDir(dirname(keyPath));
 
-    // Create key file with both keys
-    const keyData = {
-      privateKey: privateKeyHex,
-      publicKey: publicKeyHex,
-      algorithm: "Ed25519",
-      createdAt: new Date().toISOString(),
-    };
-
-    await Deno.writeTextFile(keyPath, JSON.stringify(keyData, null, 2));
+    // Write file with PEM + public key hex
+    const content = `${privateKeyPem}\nPUBLIC_KEY_HEX=${publicKeyHex}`;
+    await Deno.writeTextFile(keyPath, content);
 
     // Set permissions to 0600 (read/write for owner only)
     await Deno.chmod(keyPath, 0o600);
@@ -151,8 +247,7 @@ export async function accountCreate(outputPath?: string): Promise<void> {
     await updateConfig("account", keyPath);
 
     console.log(`✓ Account key created`);
-    console.log(`  Private key (hex): ${privateKeyHex.substring(0, 32)}...`);
-    console.log(`  Public key (hex):  ${publicKeyHex}`);
+    console.log(`  Public key: ${publicKeyHex}`);
     console.log(`  Key file: ${keyPath}`);
     console.log(`  Config updated`);
   } catch (error) {
@@ -163,6 +258,77 @@ export async function accountCreate(outputPath?: string): Promise<void> {
 }
 
 /**
+ * Handle `bnd encrypt create` command - generates X25519 encryption key pair in PEM format
+ */
+export async function encryptCreate(outputPath?: string): Promise<void> {
+  try {
+    // Generate X25519 key pair for encryption
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: "X25519",
+        namedCurve: "X25519",
+      },
+      true,
+      ["deriveBits"]
+    );
+
+    // Export keys
+    const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+    const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+
+    // Convert private key to PEM format (PKCS8)
+    const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKeyBuffer)));
+    const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64.match(/.{1,64}/g)?.join('\n')}\n-----END PRIVATE KEY-----`;
+
+    // Convert public key to hex
+    const publicKeyHex = encodeHex(new Uint8Array(publicKeyBuffer));
+
+    // Determine output path
+    const keyPath = outputPath || `${Deno.env.get("HOME")}/.bnd/encryption/default.key`;
+
+    // Create directory if needed
+    await ensureDir(dirname(keyPath));
+
+    // Write file with PEM + public key hex
+    const content = `${privateKeyPem}\nPUBLIC_KEY_HEX=${publicKeyHex}`;
+    await Deno.writeTextFile(keyPath, content);
+
+    // Set permissions to 0600 (read/write for owner only)
+    await Deno.chmod(keyPath, 0o600);
+
+    // Configure encryption
+    await updateConfig("encrypt", keyPath);
+
+    console.log(`✓ Encryption key created`);
+    console.log(`  Public key: ${publicKeyHex}`);
+    console.log(`  Key file: ${keyPath}`);
+    console.log(`  Config updated`);
+  } catch (error) {
+    throw new Error(
+      `Failed to create encryption key: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+/**
+ * Handle `bnd conf encrypt` command to set encryption key file
+ */
+export async function confEncrypt(keyPath: string): Promise<void> {
+  if (!keyPath) {
+    throw new Error("Encryption key path required. Usage: bnd conf encrypt <path>");
+  }
+
+  // Verify file exists and is readable
+  try {
+    await Deno.readTextFile(keyPath);
+  } catch {
+    throw new Error(`Cannot read encryption key file: ${keyPath}`);
+  }
+
+  await updateConfig("encrypt", keyPath);
+}
+
+/**
  * Handle `bnd write` command
  */
 export async function write(args: string[], verbose = false): Promise<void> {
@@ -170,6 +336,7 @@ export async function write(args: string[], verbose = false): Promise<void> {
 
   let uri: string | null = null;
   let data: unknown = null;
+  let originalData: unknown = null;  // Keep track of original before encryption
 
   // Check for -f flag for file input
   if (args[0] === "-f" && args[1]) {
@@ -204,6 +371,9 @@ export async function write(args: string[], verbose = false): Promise<void> {
     throw new Error("URI is required for write operation");
   }
 
+  // Save original data before encryption
+  originalData = data;
+
   try {
     const config = await loadConfig();
     const client = await getClient(logger);
@@ -211,24 +381,49 @@ export async function write(args: string[], verbose = false): Promise<void> {
     // Handle :key placeholder in URI and accounts program writes
     if (uri.includes(":key")) {
       const accountKey = await loadAccountKey();
-      uri = replaceKeyPlaceholder(uri, accountKey.publicKey);
+      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
       logger?.info(`Replaced :key with public key`);
 
       // For accounts domain, wrap in auth structure
       const { domain } = parseUri(uri);
       if (domain.includes("accounts")) {
-        const signature = await signPayload(accountKey.privateKey, data);
-        logger?.info(`Signed payload with account key`);
+        // Check if encryption is enabled
+        const config = await loadConfig();
+        if (config.encrypt) {
+          try {
+            const encryptionKey = await loadEncryptionKey();
+            const encryptedPayload = await encrypt(data, encryptionKey.publicKeyHex);
+            logger?.info(`Encrypted payload`);
 
-        data = {
-          auth: [
-            {
-              pubkey: accountKey.publicKey,
-              signature: signature,
-            },
-          ],
-          payload: data,
-        };
+            const signature = await signPayload(accountKey.privateKeyPem, encryptedPayload);
+            logger?.info(`Signed encrypted payload with account key`);
+
+            data = {
+              auth: [
+                {
+                  pubkey: accountKey.publicKeyHex,
+                  signature: signature,
+                },
+              ],
+              payload: encryptedPayload,
+            };
+          } catch (error) {
+            throw new Error(`Encryption failed: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        } else {
+          const signature = await signPayload(accountKey.privateKeyPem, data);
+          logger?.info(`Signed payload with account key`);
+
+          data = {
+            auth: [
+              {
+                pubkey: accountKey.publicKeyHex,
+                signature: signature,
+              },
+            ],
+            payload: data,
+          };
+        }
       }
     }
 
@@ -241,7 +436,8 @@ export async function write(args: string[], verbose = false): Promise<void> {
     if (result.success) {
       console.log(`✓ Write successful`);
       console.log(`  URI: ${uri}`);
-      console.log(`  Data: ${JSON.stringify(data)}`);
+      console.log(`  Encrypted: ${config.encrypt ? "yes" : "no"}`);
+      console.log(`  Value: ${JSON.stringify(originalData)}`);
       if (result.record?.ts) {
         console.log(`  Timestamp: ${new Date(result.record.ts).toISOString()}`);
       }
@@ -270,7 +466,7 @@ export async function read(uri: string, verbose = false): Promise<void> {
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
       const accountKey = await loadAccountKey();
-      uri = replaceKeyPlaceholder(uri, accountKey.publicKey);
+      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
       logger?.info(`Replaced :key with public key`);
     }
 
@@ -283,7 +479,43 @@ export async function read(uri: string, verbose = false): Promise<void> {
     if (result.success && result.record) {
       console.log(`✓ Read successful`);
       console.log(`  URI: ${uri}`);
-      console.log(`  Data: ${JSON.stringify(result.record.data, null, 2)}`);
+
+      // Always show the raw stored data first
+      console.log(`  Stored Data: ${JSON.stringify(result.record.data, null, 2)}`);
+
+      // Try to decrypt if encryption key is configured
+      const config = await loadConfig();
+      if (config.encrypt && result.record.data && typeof result.record.data === "object") {
+        const data = result.record.data as any;
+
+        // Check if this is an auth structure with an encrypted payload
+        if (data.payload && typeof data.payload === "object") {
+          const payload = data.payload;
+
+          // Check if the payload looks like an encrypted payload (has data, nonce, ephemeralPublicKey)
+          if (payload.data && payload.nonce && payload.ephemeralPublicKey) {
+            try {
+              const encryptionKey = await loadEncryptionKey();
+              const encryptedPayload: EncryptedPayload = {
+                data: payload.data,
+                nonce: payload.nonce,
+                ephemeralPublicKey: payload.ephemeralPublicKey,
+              };
+
+              // Import X25519 private key for decryption
+              const privateKey = await pemToCryptoKey(encryptionKey.privateKeyPem, "X25519");
+              const decryptedData = await decrypt(encryptedPayload, privateKey);
+
+              // Show decrypted value separately
+              console.log(`  Decrypted Payload: ${JSON.stringify(decryptedData)}`);
+              logger?.info(`Decrypted payload`);
+            } catch (error) {
+              logger?.error(`Decryption failed: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+        }
+      }
+
       console.log(`  Timestamp: ${new Date(result.record.ts).toISOString()}`);
     } else if (!result.success) {
       throw new Error(result.error || "Read failed");
@@ -312,7 +544,7 @@ export async function list(uri: string, verbose = false, options?: { page?: numb
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
       const accountKey = await loadAccountKey();
-      uri = replaceKeyPlaceholder(uri, accountKey.publicKey);
+      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
       logger?.info(`Replaced :key with public key`);
     }
 
@@ -354,12 +586,15 @@ export async function showConfig(): Promise<void> {
   console.log(`  Config file: ${path}`);
   console.log(`  Node: ${config.node || "(not set)"}`);
   console.log(`  Account: ${config.account || "(not set)"}`);
+  console.log(`  Encryption key: ${config.encrypt || "(not set)"}`);
 
   if (Object.keys(config).length === 0) {
     console.log("");
     console.log("To configure the CLI, run:");
+    console.log("  bnd account create");
     console.log("  bnd conf node <node-url>");
-    console.log("  bnd conf account <key-path>");
+    console.log("  bnd encrypt create");
+    console.log("  bnd conf encrypt <path>");
   }
 }
 
@@ -374,9 +609,11 @@ USAGE:
   bnd [options] <command> [arguments]
 
 COMMANDS:
-  account create [path]    Generate Ed25519 key pair and configure it
+  account create [path]    Generate Ed25519 key pair (PEM format)
+  encrypt create [path]    Generate X25519 encryption key pair (PEM format)
   conf node <url>          Set the node URL
   conf account <path>      Set the account key path
+  conf encrypt <path>      Set the encryption key path
   write <uri> <data>       Write data to a URI
   write -f <filepath>      Write data from a JSON file
   read <uri>               Read data from a URI
@@ -387,22 +624,41 @@ COMMANDS:
 OPTIONS:
   -v, --verbose            Show detailed operation logs for debugging
 
-EXAMPLES:
+SETUP - Single Account:
   bnd account create
-  bnd account create path/to/my/account.key
-  bnd conf node https://testnet-evergreen.fire.cat
+  bnd conf node http://localhost:3000
+  bnd encrypt create
+  bnd conf encrypt ~/.bnd/encryption/default.key
 
+SETUP - Multiple Accounts:
+  # Create accounts
+  bnd account create ~/.bnd/accounts/alice.key
+  bnd account create ~/.bnd/accounts/bob.key
+
+  # Switch accounts
+  bnd conf account ~/.bnd/accounts/alice.key
+
+  # Create encryption keys
+  bnd encrypt create ~/.bnd/encryption/alice.key
+  bnd conf encrypt ~/.bnd/encryption/alice.key
+
+EXAMPLES:
+  # Basic operations
   bnd write tmp://some/path "this is a nice little payload"
   bnd read tmp://some/path
 
-  bnd write -f mypayload.json
-  bnd read store://account/:key/profile
-  bnd list store://account/:key/books
+  # Account-based writes with automatic signing
+  bnd write mutable://accounts/:key/profile '{"name":"Alice"}'
+  bnd read mutable://accounts/:key/profile
+
+  # Switch to different account
+  bnd conf account ~/.bnd/accounts/bob.key
+  bnd write mutable://accounts/:key/profile '{"name":"Bob"}'
 
 DEBUGGING:
   bnd --verbose write test://read-test/foobar "foobar"
   bnd -v read test://read-test/foobar
-  bnd --verbose list store://account/:key/books
+  bnd config
 
 DOCUMENTATION:
   https://github.com/bandeira-tech/b3nd-sdk

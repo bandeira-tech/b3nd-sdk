@@ -2,8 +2,10 @@
 
 import {
   accountCreate,
+  encryptCreate,
   confNode,
   confAccount,
+  confEncrypt,
   write,
   read,
   list,
@@ -55,9 +57,22 @@ async function main(): Promise<void> {
         break;
       }
 
+      case "encrypt": {
+        if (!subcommand) {
+          throw new Error("Subcommand required. Usage: bnd encrypt <create>");
+        }
+
+        if (subcommand === "create") {
+          await encryptCreate(cleanArgs[2]);
+        } else {
+          throw new Error(`Unknown encrypt subcommand: ${subcommand}`);
+        }
+        break;
+      }
+
       case "conf": {
         if (!subcommand) {
-          throw new Error("Subcommand required. Usage: bnd conf <node|account> <value>");
+          throw new Error("Subcommand required. Usage: bnd conf <node|account|encrypt> <value>");
         }
 
         if (subcommand === "node") {
@@ -70,6 +85,11 @@ async function main(): Promise<void> {
             throw new Error("Account key path required. Usage: bnd conf account <path>");
           }
           await confAccount(cleanArgs[2]);
+        } else if (subcommand === "encrypt") {
+          if (!cleanArgs[2]) {
+            throw new Error("Encryption key path required. Usage: bnd conf encrypt <path>");
+          }
+          await confEncrypt(cleanArgs[2]);
         } else {
           throw new Error(`Unknown conf subcommand: ${subcommand}`);
         }
