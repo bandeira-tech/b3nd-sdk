@@ -3,7 +3,6 @@ import { createServerNode, MemoryClient, servers } from "../../sdk/src/mod.ts";
 import type { Schema } from "../../sdk/src/types.ts";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 
 const SCHEMA_MODULE = Deno.env.get("SCHEMA_MODULE") || "./example-schema.ts";
 const PORT = Number(Deno.env.get("PORT") || "8080");
@@ -23,12 +22,27 @@ const mem = new MemoryClient({ schema });
 // Build backend composition: broadcast write to Postgres only, read from Postgres
 const backend = { write: mem, read: mem };
 
+// Custom logger middleware with timestamp and response timing
+const customLogger = async (c: any, next: any) => {
+  const startTime = Date.now();
+  const startDate = new Date().toISOString();
+  const method = c.req.method;
+  const path = new URL(c.req.url).pathname;
+
+  await next();
+
+  const duration = Date.now() - startTime;
+  const status = c.res.status;
+  console.log(
+    `[${startDate}] ${method} ${path} ${status} - ${duration}ms`,
+  );
+};
+
 // HTTP server frontend (Hono-based)
 //
 const app = new Hono();
-
 app.use("/*", cors({ origin: [CORS_ORIGIN] }));
-app.use(logger());
+app.use(customLogger);
 
 const frontend = servers.httpServer(app);
 // Expose app for user middleware: http.app.use(...)
