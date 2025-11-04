@@ -26,9 +26,9 @@ export function firstMatchSequence(clients: (NodeProtocolWriteInterface & NodePr
     async list(uri: string, options?: ListOptions): Promise<ListResult> {
       for (const c of clients) {
         const res = await c.list(uri, options);
-        if (res.data.length > 0) return res;
+        if (res.success && res.data.length > 0) return res;
       }
-      return { data: [], pagination: { page: options?.page ?? 1, limit: options?.limit ?? 50, total: 0 } };
+      return { success: true, data: [], pagination: { page: options?.page ?? 1, limit: options?.limit ?? 50, total: 0 } };
     },
 
     async delete(uri: string): Promise<DeleteResult> {

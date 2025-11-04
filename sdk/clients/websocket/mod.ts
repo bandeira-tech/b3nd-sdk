@@ -156,7 +156,7 @@ export class WebSocketClient implements NodeProtocolInterface {
   /**
    * Handle WebSocket errors
    */
-  private handleError(error: Event) {
+  private handleError(_error: Event) {
     this.connected = false;
     this.cleanupPendingRequests(new Error("WebSocket error"));
   }
@@ -259,6 +259,7 @@ export class WebSocketClient implements NodeProtocolInterface {
       return result;
     } catch (error) {
       return {
+        success: true,
         data: [],
         pagination: {
           page: options?.page || 1,

@@ -31,14 +31,61 @@ async function copySourceFiles() {
   // Copy all TypeScript files from src to dist
   for await (const entry of Deno.readDir(SRC_DIR)) {
     if (entry.isFile && entry.name.endsWith('.ts')) {
-      const srcPath = join(SRC_DIR, entry.name);
-      const destPath = join(DIST_DIR, entry.name);
+      // Use mod.browser.ts as mod.ts for the browser distribution
+      if (entry.name === 'mod.browser.ts') {
+        const srcPath = join(SRC_DIR, entry.name);
+        const destPath = join(DIST_DIR, 'mod.ts');
+        const content = await Deno.readTextFile(srcPath);
+        await Deno.writeTextFile(destPath, content);
+        console.log(`  ✅ Copied ${entry.name} as mod.ts`);
+      } else if (entry.name !== 'mod.ts') {
+        // Copy other files, but skip the full mod.ts
+        const srcPath = join(SRC_DIR, entry.name);
+        const destPath = join(DIST_DIR, entry.name);
 
-      const content = await Deno.readTextFile(srcPath);
-      await Deno.writeTextFile(destPath, content);
-      console.log(`  ✅ Copied ${entry.name}`);
+        const content = await Deno.readTextFile(srcPath);
+        await Deno.writeTextFile(destPath, content);
+        console.log(`  ✅ Copied ${entry.name}`);
+      }
     }
   }
+
+  // Copy clients directory
+  await copyDirectory("./clients", join(DIST_DIR, "clients"));
+
+  // Skip copying servers directory (Deno-specific, not needed for browser)
+  console.log("  ℹ️  Skipping servers directory (Deno-specific)");
+
+  // Copy auth directory if it exists
+  try {
+    await copyDirectory("./auth", join(DIST_DIR, "auth"));
+  } catch {
+    console.log("  ℹ️  auth directory not found, skipping");
+  }
+}
+
+async function copyDirectory(srcDir: string, destDir: string) {
+  console.log(`  📁 Copying ${srcDir}...`);
+
+  await ensureDir(destDir);
+
+  async function copyRecursive(src: string, dest: string) {
+    for await (const entry of Deno.readDir(src)) {
+      const srcPath = join(src, entry.name);
+      const destPath = join(dest, entry.name);
+
+      if (entry.isDirectory) {
+        await ensureDir(destPath);
+        await copyRecursive(srcPath, destPath);
+      } else {
+        const content = await Deno.readTextFile(srcPath);
+        await Deno.writeTextFile(destPath, content);
+      }
+    }
+  }
+
+  await copyRecursive(srcDir, destDir);
+  console.log(`    ✅ Copied ${srcDir} directory`);
 }
 
 async function copyPackageFiles() {
@@ -92,8 +139,11 @@ async function createPackageJson() {
 
     files: [
       "*.ts",
+      "clients/**/*.ts",
+      "auth/**/*.ts",
       "README.md",
-      "LICENSE"
+      "LICENSE",
+      "USAGE.md"
     ],
 
     keywords: packageJson.keywords,

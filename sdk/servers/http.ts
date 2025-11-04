@@ -57,7 +57,25 @@ export function httpServer(app: Hono): ServerFrontend {
   function extractUriFromParams(c: any): string {
     const protocol = c.req.param("protocol");
     const domain = c.req.param("domain");
-    const rest = c.req.param("*") || "";
+
+    // Try to get the remaining path from route parameters
+    let rest = c.req.param("path") || c.req.param("*") || "";
+
+    // If not found in params, extract from the full URL
+    if (!rest) {
+      try {
+        const url = new URL(c.req.url);
+        const fullPath = url.pathname;
+        // Extract everything after /api/v1/<method>/<protocol>/<domain>/
+        const match = fullPath.match(/^\/api\/v1\/\w+\/[^/]+\/[^/]+(\/.*)$/);
+        if (match && match[1]) {
+          rest = match[1].substring(1); // Remove leading slash
+        }
+      } catch (e) {
+        // Silently ignore errors
+      }
+    }
+
     const path = rest ? "/" + rest : "";
     return `${protocol}://${domain}${path}`;
   }
@@ -78,7 +96,7 @@ export function httpServer(app: Hono): ServerFrontend {
     }
     // Try to parse nested signed/encrypted payloads by passing them through as-is; validation only checks the outer
     const value = body.value;
-    const validation = await validator({ uri, value });
+    const validation = await validator({ uri, value, read: backend.read.read.bind(backend.read) });
     if (!validation.valid) {
       return c.json({
         success: false,

@@ -131,7 +131,7 @@ export function generateCompleteSchemaSQL(options: SchemaInitOptions): string {
  * @param sql - Schema SQL string
  * @returns Version identifier
  */
-export function extractSchemaVersion(sql: string): string {
+export function extractSchemaVersion(_sql: string): string {
   // Simple version extraction based on table structure hash
   // In a real implementation, this could be more sophisticated
   const crypto = globalThis.crypto;

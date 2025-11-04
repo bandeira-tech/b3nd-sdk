@@ -182,7 +182,7 @@ export class IndexedDBClient implements NodeProtocolInterface {
     const programKey = this.findMatchingProgram(uri);
     if (programKey && this.schema[programKey]) {
       const validator = this.schema[programKey];
-      return await validator({ uri, value });
+      return await validator({ uri, value, read: this.read.bind(this) });
     }
 
     // No schema defined for this URI, allow write

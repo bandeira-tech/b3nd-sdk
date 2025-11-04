@@ -90,6 +90,7 @@ export interface HealthStatus {
 export type ValidationFn = (write: {
   uri: string;
   value: unknown;
+  read: <T = unknown>(uri: string) => Promise<ReadResult<T>>;
 }) => Promise<{ valid: boolean; error?: string }>;
 
 /**
@@ -135,6 +136,21 @@ export type NodeProtocolInterface =
   & NodeProtocolReadInterface;
 
 /**
+ * Configuration for MemoryClient
+ */
+export interface MemoryClientConfig {
+  /**
+   * Schema definition for the client
+   */
+  schema?: Schema;
+
+  /**
+   * Optional pre-existing storage
+   */
+  storage?: Map<string, unknown>;
+}
+
+/**
  * Configuration for HttpClient
  */
 export interface HttpClientConfig {
@@ -142,11 +158,6 @@ export interface HttpClientConfig {
    * Base URL of the HTTP API
    */
   url: string;
-
-  /**
-   * Optional instance ID for multi-instance APIs
-   */
-  instanceId?: string;
 
   /**
    * Optional custom headers

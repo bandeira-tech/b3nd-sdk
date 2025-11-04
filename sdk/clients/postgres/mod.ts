@@ -89,7 +89,7 @@ export class PostgresClient implements NodeProtocolInterface {
       }
 
       // Validate the write
-      const validation = await validator({ uri, value });
+      const validation = await validator({ uri, value, read: this.read.bind(this) });
 
       if (!validation.valid) {
         return {
@@ -179,9 +179,9 @@ export class PostgresClient implements NodeProtocolInterface {
         type: 'file',
       }));
 
-      return { data, pagination: { page, limit, total } };
+      return { success: true, data, pagination: { page, limit, total } };
     } catch (error) {
-      return { data: [], pagination: { page: options?.page ?? 1, limit: options?.limit ?? 100 } };
+      return { success: true, data: [], pagination: { page: options?.page ?? 1, limit: options?.limit ?? 100 } };
     }
   }
 

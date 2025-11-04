@@ -1,6 +1,6 @@
 {
   "name": "@bandeira-tech/b3nd-sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Universal B3nd persistence interface for all platforms",
   "main": "./dist/mod.js",
   "module": "./dist/mod.js",

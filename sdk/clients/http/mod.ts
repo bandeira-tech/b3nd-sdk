@@ -18,13 +18,11 @@ import type {
 
 export class HttpClient implements NodeProtocolInterface {
   private baseUrl: string;
-  private instanceId?: string;
   private headers: Record<string, string>;
   private timeout: number;
 
   constructor(config: HttpClientConfig) {
     this.baseUrl = config.url.replace(/\/$/, ""); // Remove trailing slash
-    this.instanceId = config.instanceId;
     this.headers = config.headers || {};
     this.timeout = config.timeout || 30000;
   }
@@ -83,15 +81,7 @@ export class HttpClient implements NodeProtocolInterface {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
 
-      const params = new URLSearchParams();
-      if (this.instanceId) {
-        params.set("instance", this.instanceId);
-      }
-
-      const queryString = params.toString();
-      const requestPath = `/api/v1/write/${protocol}/${domain}${path}${
-        queryString ? `?${queryString}` : ""
-      }`;
+      const requestPath = `/api/v1/write/${protocol}/${domain}${path}`;
 
       const response = await this.request(requestPath, {
         method: "POST",
@@ -121,8 +111,7 @@ export class HttpClient implements NodeProtocolInterface {
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
-      const instance = this.instanceId || "default";
-      const requestPath = `/api/v1/read/${instance}/${protocol}/${domain}${path}`;
+      const requestPath = `/api/v1/read/${protocol}/${domain}${path}`;
 
       const response = await this.request(requestPath, {
         method: "GET",
@@ -178,9 +167,8 @@ export class HttpClient implements NodeProtocolInterface {
       }
 
       const queryString = params.toString();
-      const instance = this.instanceId || "default";
       const pathPart = path === "/" ? "" : path;
-      const requestPath = `/api/v1/list/${instance}/${protocol}/${domain}${pathPart}${
+      const requestPath = `/api/v1/list/${protocol}/${domain}${pathPart}${
         queryString ? `?${queryString}` : ""
       }`;
 
@@ -190,6 +178,7 @@ export class HttpClient implements NodeProtocolInterface {
 
       if (!response.ok) {
         return {
+          success: true,
           data: [],
           pagination: {
             page: options?.page || 1,
@@ -202,6 +191,7 @@ export class HttpClient implements NodeProtocolInterface {
       return result;
     } catch (error) {
       return {
+        success: true,
         data: [],
         pagination: {
           page: options?.page || 1,
@@ -215,15 +205,7 @@ export class HttpClient implements NodeProtocolInterface {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
 
-      const params = new URLSearchParams();
-      if (this.instanceId) {
-        params.set("instance", this.instanceId);
-      }
-
-      const queryString = params.toString();
-      const requestPath = `/api/v1/delete/${protocol}/${domain}${path}${
-        queryString ? `?${queryString}` : ""
-      }`;
+      const requestPath = `/api/v1/delete/${protocol}/${domain}${path}`;
 
       const response = await this.request(requestPath, {
         method: "DELETE",
@@ -284,9 +266,14 @@ export class HttpClient implements NodeProtocolInterface {
       }
 
       const result = await response.json();
-      // Extract schema keys for this instance
-      const instanceName = this.instanceId || result.default;
-      return result.schemas?.[instanceName] || [];
+
+      // API returns schema array directly
+      if (result.schema && Array.isArray(result.schema)) {
+        return result.schema;
+      }
+
+      // Fallback to empty array if schema not found
+      return [];
     } catch (error) {
       // Errors bubble but return empty array for graceful degradation
       return [];

@@ -5,8 +5,6 @@ import type {
   ListOptions,
   ListResult,
   NodeProtocolInterface,
-  NodeProtocolReadInterface,
-  NodeProtocolWriteInterface,
   PersistenceRecord,
   ReadResult,
   Schema,
@@ -87,7 +85,7 @@ export class MemoryClient implements NodeProtocolInterface {
 
     // Validate the write against the schema
     const validator = this.schema[program];
-    const validation = await validator({ uri, value: payload });
+    const validation = await validator({ uri, value: payload, read: this.read.bind(this) });
     if (!validation.valid) {
       return {
         success: false,
@@ -128,7 +126,7 @@ export class MemoryClient implements NodeProtocolInterface {
 
     let current: MemoryClientStorageNode<unknown> | undefined = node;
 
-    for (const part of parts) {
+    for (const part of parts.filter(Boolean)) {
       current = current?.children?.get(part);
       if (!current) {
         return Promise.resolve({
@@ -136,6 +134,13 @@ export class MemoryClient implements NodeProtocolInterface {
           error: `Path not found: ${part}`,
         });
       }
+    }
+
+    if (!current.value) {
+      return Promise.resolve({
+        success: false,
+        error: "Not found",
+      });
     }
 
     return Promise.resolve({
