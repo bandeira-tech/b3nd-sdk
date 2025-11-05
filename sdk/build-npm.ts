@@ -25,7 +25,43 @@ async function cleanDist() {
  * Replace Deno imports with Node.js equivalents
  */
 function convertDenoImports(content: string): string {
-  // Replace @std/encoding/hex imports
+  // Replace jsr:@std/encoding/hex imports
+  content = content.replace(
+    /import\s*{\s*([^}]*)\s*}\s*from\s*["']jsr:@std\/encoding@\d+\/hex["']/g,
+    (match, imports) => {
+      const items = imports.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+      let result = "// Encoding utilities (using Node.js Buffer)\n";
+
+      if (items.includes('encodeHex')) {
+        result += "const encodeHex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');\n";
+      }
+      if (items.includes('decodeHex')) {
+        result += "const decodeHex = (hex: string) => new Uint8Array(Buffer.from(hex, 'hex'));\n";
+      }
+
+      return result.trimEnd();
+    }
+  );
+
+  // Replace jsr:@std/encoding/base64 imports
+  content = content.replace(
+    /import\s*{\s*([^}]*)\s*}\s*from\s*["']jsr:@std\/encoding@\d+\/base64["']/g,
+    (match, imports) => {
+      const items = imports.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+      let result = "// Base64 encoding (using Node.js Buffer)\n";
+
+      if (items.includes('encodeBase64')) {
+        result += "const encodeBase64 = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64');\n";
+      }
+      if (items.includes('decodeBase64')) {
+        result += "const decodeBase64 = (b64: string) => new Uint8Array(Buffer.from(b64, 'base64'));\n";
+      }
+
+      return result.trimEnd();
+    }
+  );
+
+  // Replace @std/encoding/hex imports (non-jsr version)
   content = content.replace(
     /import\s*{\s*([^}]*)\s*}\s*from\s*["']@std\/encoding\/hex["']/g,
     (match, imports) => {
@@ -43,7 +79,7 @@ function convertDenoImports(content: string): string {
     }
   );
 
-  // Replace @std/encoding/base64 imports
+  // Replace @std/encoding/base64 imports (non-jsr version)
   content = content.replace(
     /import\s*{\s*([^}]*)\s*}\s*from\s*["']@std\/encoding\/base64["']/g,
     (match, imports) => {
