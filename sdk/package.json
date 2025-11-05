@@ -10,6 +10,31 @@
       "import": "./dist/mod.js",
       "require": "./dist/mod.js",
       "types": "./dist/mod.d.ts"
+    },
+    "./auth": {
+      "import": "./dist/auth/mod.js",
+      "require": "./dist/auth/mod.js",
+      "types": "./dist/auth/mod.d.ts"
+    },
+    "./encrypt": {
+      "import": "./dist/encrypt/mod.js",
+      "require": "./dist/encrypt/mod.js",
+      "types": "./dist/encrypt/mod.d.ts"
+    },
+    "./clients/memory": {
+      "import": "./dist/clients/memory/mod.js",
+      "require": "./dist/clients/memory/mod.js",
+      "types": "./dist/clients/memory/mod.d.ts"
+    },
+    "./clients/http": {
+      "import": "./dist/clients/http/mod.js",
+      "require": "./dist/clients/http/mod.js",
+      "types": "./dist/clients/http/mod.d.ts"
+    },
+    "./clients/local-storage": {
+      "import": "./dist/clients/local-storage/mod.js",
+      "require": "./dist/clients/local-storage/mod.js",
+      "types": "./dist/clients/local-storage/mod.d.ts"
     }
   },
   "files": [

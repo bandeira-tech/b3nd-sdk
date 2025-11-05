@@ -71,12 +71,26 @@ export async function generateUserKeys() {
   };
 }
 
-// Read user data (decrypted by SDK if encrypted)
-export async function getUserData(userId: string) {
+// Read user data (must decrypt explicitly if encrypted)
+export async function getUserData(
+  userId: string,
+  encryptionPrivateKey: CryptoKey
+) {
   const result = await b3nd.read(
     `mutable://accounts/${userId}/profile`
   );
-  return result.record?.data;
+
+  if (!result.record?.data) return null;
+
+  const data = result.record.data;
+
+  // If data is encrypted (has ephemeralPublicKey), decrypt it
+  if (data.ephemeralPublicKey) {
+    return await encrypt.decrypt(data, encryptionPrivateKey);
+  }
+
+  // Otherwise return as-is
+  return data;
 }
 
 // Update user data (signed & encrypted)
@@ -280,12 +294,27 @@ export async function listNotes(userId: string) {
   }));
 }
 
-// Get a note (decrypted by SDK if encrypted)
-export async function getNote(userId: string, noteId: string) {
+// Get a note (must decrypt explicitly if encrypted)
+export async function getNote(
+  userId: string,
+  noteId: string,
+  encryptionPrivateKey: CryptoKey
+) {
   const result = await b3nd.read(
     `mutable://accounts/${userId}/notes/${noteId}`
   );
-  return result.record?.data;
+
+  if (!result.record?.data) return null;
+
+  const data = result.record.data;
+
+  // If data is encrypted (has ephemeralPublicKey), decrypt it
+  if (data.ephemeralPublicKey) {
+    return await encrypt.decrypt(data, encryptionPrivateKey);
+  }
+
+  // Otherwise return as-is
+  return data;
 }
 
 // Create or update a note (signed & encrypted)
@@ -335,6 +364,7 @@ export function NotesApp({
   userId,
   privateKey,
   publicKeyHex,
+  encryptionPrivateKey,
   encryptionPublicKeyHex
 }) {
   const [notes, setNotes] = useState([]);
@@ -367,7 +397,11 @@ export function NotesApp({
         {notes.map(note => (
           <li key={note.id}>
             <button
-              onClick={() => getNote(userId, note.id).then(setCurrentNote)}
+              onClick={() =>
+                getNote(userId, note.id, encryptionPrivateKey).then(
+                  setCurrentNote
+                )
+              }
             >
               {note.id}
             </button>
@@ -431,6 +465,22 @@ immutable://accounts/       → permanent user records (public, signed, can't ch
 ### Handle Errors Gracefully
 
 ```typescript
+async function safeRead(userId: string, path: string, encryptionPrivateKey: CryptoKey) {
+  try {
+    const result = await b3nd.read(`mutable://accounts/${userId}/${path}`);
+    if (!result.record?.data) return null;
+
+    const data = result.record.data;
+    if (data.ephemeralPublicKey) {
+      return await encrypt.decrypt(data, encryptionPrivateKey);
+    }
+    return data;
+  } catch (error) {
+    console.error("Read failed:", error);
+    return null;
+  }
+}
+
 async function safeWrite(userId: string, path: string, data: any, privateKey: CryptoKey, publicKeyHex: string, encryptionPublicKeyHex: string) {
   try {
     await saveUserData(userId, path, privateKey, publicKeyHex, encryptionPublicKeyHex, data);
