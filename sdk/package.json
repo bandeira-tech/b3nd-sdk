@@ -1,40 +1,40 @@
 {
   "name": "@bandeira-tech/b3nd-sdk",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "description": "Universal B3nd persistence interface for all platforms",
-  "main": "./dist/mod.js",
-  "module": "./dist/mod.js",
-  "types": "./dist/mod.d.ts",
+  "main": "./dist/mod.ts",
+  "module": "./dist/mod.ts",
+  "types": "./dist/mod.ts",
   "exports": {
     ".": {
-      "import": "./dist/mod.js",
-      "require": "./dist/mod.js",
-      "types": "./dist/mod.d.ts"
+      "import": "./dist/mod.ts",
+      "require": "./dist/mod.ts",
+      "types": "./dist/mod.ts"
     },
     "./auth": {
-      "import": "./dist/auth/mod.js",
-      "require": "./dist/auth/mod.js",
-      "types": "./dist/auth/mod.d.ts"
+      "import": "./dist/auth/mod.ts",
+      "require": "./dist/auth/mod.ts",
+      "types": "./dist/auth/mod.ts"
     },
     "./encrypt": {
-      "import": "./dist/encrypt/mod.js",
-      "require": "./dist/encrypt/mod.js",
-      "types": "./dist/encrypt/mod.d.ts"
+      "import": "./dist/encrypt/mod.ts",
+      "require": "./dist/encrypt/mod.ts",
+      "types": "./dist/encrypt/mod.ts"
     },
     "./clients/memory": {
-      "import": "./dist/clients/memory/mod.js",
-      "require": "./dist/clients/memory/mod.js",
-      "types": "./dist/clients/memory/mod.d.ts"
+      "import": "./dist/clients/memory/mod.ts",
+      "require": "./dist/clients/memory/mod.ts",
+      "types": "./dist/clients/memory/mod.ts"
     },
     "./clients/http": {
-      "import": "./dist/clients/http/mod.js",
-      "require": "./dist/clients/http/mod.js",
-      "types": "./dist/clients/http/mod.d.ts"
+      "import": "./dist/clients/http/mod.ts",
+      "require": "./dist/clients/http/mod.ts",
+      "types": "./dist/clients/http/mod.ts"
     },
     "./clients/local-storage": {
-      "import": "./dist/clients/local-storage/mod.js",
-      "require": "./dist/clients/local-storage/mod.js",
-      "types": "./dist/clients/local-storage/mod.d.ts"
+      "import": "./dist/clients/local-storage/mod.ts",
+      "require": "./dist/clients/local-storage/mod.ts",
+      "types": "./dist/clients/local-storage/mod.ts"
     }
   },
   "files": [
@@ -43,7 +43,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "deno run --allow-read --allow-write --allow-net --allow-run build-final.ts",
+    "build": "deno run --allow-read --allow-write --allow-net --allow-run build-npm.ts",
     "build:watch": "deno run --allow-read --allow-write --allow-net --allow-run build.ts --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
