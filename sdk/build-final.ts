@@ -53,15 +53,22 @@ async function copySourceFiles() {
   // Copy clients directory
   await copyDirectory("./clients", join(DIST_DIR, "clients"));
 
-  // Skip copying servers directory (Deno-specific, not needed for browser)
-  console.log("  ℹ️  Skipping servers directory (Deno-specific)");
-
   // Copy auth directory if it exists
   try {
     await copyDirectory("./auth", join(DIST_DIR, "auth"));
   } catch {
     console.log("  ℹ️  auth directory not found, skipping");
   }
+
+  // Copy encrypt directory if it exists
+  try {
+    await copyDirectory("./encrypt", join(DIST_DIR, "encrypt"));
+  } catch {
+    console.log("  ℹ️  encrypt directory not found, skipping");
+  }
+
+  // Skip copying servers directory (Deno-specific, not needed for browser)
+  console.log("  ℹ️  Skipping servers directory (Deno-specific)");
 }
 
 async function copyDirectory(srcDir: string, destDir: string) {
@@ -131,6 +138,31 @@ async function createPackageJson() {
         "import": "./mod.ts",
         "require": "./mod.ts",
         "types": "./mod.ts"
+      },
+      "./auth": {
+        "import": "./auth/mod.ts",
+        "require": "./auth/mod.ts",
+        "types": "./auth/mod.ts"
+      },
+      "./encrypt": {
+        "import": "./encrypt/mod.ts",
+        "require": "./encrypt/mod.ts",
+        "types": "./encrypt/mod.ts"
+      },
+      "./clients/memory": {
+        "import": "./clients/memory/mod.ts",
+        "require": "./clients/memory/mod.ts",
+        "types": "./clients/memory/mod.ts"
+      },
+      "./clients/http": {
+        "import": "./clients/http/mod.ts",
+        "require": "./clients/http/mod.ts",
+        "types": "./clients/http/mod.ts"
+      },
+      "./clients/local-storage": {
+        "import": "./clients/local-storage/mod.ts",
+        "require": "./clients/local-storage/mod.ts",
+        "types": "./clients/local-storage/mod.ts"
       }
     },
 
@@ -141,6 +173,7 @@ async function createPackageJson() {
       "*.ts",
       "clients/**/*.ts",
       "auth/**/*.ts",
+      "encrypt/**/*.ts",
       "README.md",
       "LICENSE",
       "USAGE.md"
