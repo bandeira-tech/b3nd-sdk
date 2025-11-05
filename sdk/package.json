@@ -1,6 +1,6 @@
 {
   "name": "@bandeira-tech/b3nd-sdk",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Universal B3nd persistence interface for all platforms",
   "main": "./dist/mod.ts",
   "module": "./dist/mod.ts",
@@ -51,8 +51,8 @@
     "test:coverage": "deno test -A --coverage tests/",
     "lint": "deno lint src/",
     "format": "deno fmt src/",
-    "publish:dry-run": "cd dist && npm publish --dry-run",
-    "publish:package": "cd dist && npm publish",
+    "publish:dry-run": "npm publish --dry-run",
+    "publish:package": "npm publish",
     "version:patch": "npm version patch",
     "version:minor": "npm version minor",
     "version:major": "npm version major"
