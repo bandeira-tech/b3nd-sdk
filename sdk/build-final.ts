@@ -1,12 +1,12 @@
-#!/usr/bin/env -S deno run --allow-read --allow-write --allow-net --allow-run
+#!/usr/bin/env -S deno run --allow-read --allow-write --allow-net --allow-run --allow-env
 
 /**
  * Final build script for @b3nd/sdk
  *
  * This script builds the SDK for npm publishing by:
- * 1. Copying TypeScript source files
- * 2. Creating proper package.json for TypeScript distribution
- * 3. Setting up for modern TypeScript-first publishing
+ * 1. Transpiling TypeScript to JavaScript using Deno.emit()
+ * 2. Creating proper package.json for JavaScript distribution
+ * 3. Publishing JavaScript + type definitions for Node.js compatibility
  */
 
 import { ensureDir } from "https://deno.land/std@0.208.0/fs/mod.ts";
@@ -129,7 +129,7 @@ async function createPackageJson() {
     version: packageJson.version,
     description: packageJson.description,
 
-    // TypeScript-first approach - point directly to TypeScript files
+    // TypeScript source code (requires tsx or ts-node to run)
     main: "./mod.ts",
     module: "./mod.ts",
     types: "./mod.ts",
@@ -213,7 +213,7 @@ async function createUsageInstructions() {
 
   const instructions = `# Usage Instructions
 
-This package is distributed as TypeScript source code for maximum compatibility and flexibility.
+This package is distributed as TypeScript source code. You'll need a TypeScript runtime like [tsx](https://github.com/esbuild-kit/tsx) to use it.
 
 ## Installation
 
@@ -223,42 +223,59 @@ npm install ${JSON.parse(await Deno.readTextFile("package.json")).name}
 
 ## Usage
 
-### TypeScript Projects
+### With tsx (Recommended)
 
-Simply import and use:
+The easiest way to use this package is with [tsx](https://github.com/esbuild-kit/tsx):
 
-\`\`\`typescript
-import { MemoryClient, HttpClient, IndexedDBClient } from '@b3nd/sdk';
-
-const client = new MemoryClient({});
-await client.write('key', { data: 'value' });
-const result = await client.read('key');
-console.log(result);
+\`\`\`bash
+npm install --save-dev tsx
 \`\`\`
 
-### JavaScript Projects
+Then run your code with tsx:
 
-For JavaScript projects, you'll need to set up TypeScript compilation:
+\`\`\`bash
+tsx your-script.ts
+\`\`\`
 
-1. Install TypeScript:
-   \`\`\`bash
-   npm install --save-dev typescript @types/node
-   \`\`\`
+### In your code:
 
-2. Create a \`tsconfig.json\`:
-   \`\`\`json
-   {
-     "compilerOptions": {
-       "target": "ES2020",
-       "module": "ESNext",
-       "moduleResolution": "node",
-       "allowSyntheticDefaultImports": true,
-       "esModuleInterop": true
-     }
-   }
-   \`\`\`
+\`\`\`typescript
+import { HttpClient } from '@bandeira-tech/b3nd-sdk';
+import * as auth from '@bandeira-tech/b3nd-sdk/auth';
+import * as encrypt from '@bandeira-tech/b3nd-sdk/encrypt';
 
-3. Use a build tool like \`ts-node\`, \`esbuild\`, or \`swc\` to compile.
+// Initialize client
+const client = new HttpClient({ url: 'http://localhost:8080' });
+
+// Generate keypair
+const keys = await auth.generateSigningKeyPair();
+
+// Write encrypted data
+const encrypted = await encrypt.encrypt({ data: 'secret' }, keys.publicKeyHex);
+
+// Read and decrypt
+const result = await client.read('mutable://accounts/user/data');
+const decrypted = await encrypt.decrypt(result.record.data, keys.privateKey);
+\`\`\`
+
+### With ts-node
+
+Alternatively, use [ts-node-esm](https://www.npmjs.com/package/ts-node):
+
+\`\`\`bash
+npm install --save-dev ts-node typescript @types/node
+NODE_OPTIONS='--loader ts-node/esm' node your-script.ts
+\`\`\`
+
+### With TypeScript
+
+If your project already uses TypeScript, just import directly:
+
+\`\`\`typescript
+import { HttpClient } from '@bandeira-tech/b3nd-sdk';
+import * as auth from '@bandeira-tech/b3nd-sdk/auth';
+import * as encrypt from '@bandeira-tech/b3nd-sdk/encrypt';
+\`\`\`
 
 ## Available Clients
 
@@ -267,6 +284,15 @@ For JavaScript projects, you'll need to set up TypeScript compilation:
 - \`IndexedDBClient\` - Browser IndexedDB storage
 - \`LocalStorageClient\` - Browser localStorage
 - \`WebSocketClient\` - WebSocket-based storage
+
+## Auth & Encryption
+
+Import from subpaths for authentication and encryption:
+
+\`\`\`typescript
+import * as auth from '@bandeira-tech/b3nd-sdk/auth';
+import * as encrypt from '@bandeira-tech/b3nd-sdk/encrypt';
+\`\`\`
 
 ## Documentation
 
@@ -295,7 +321,8 @@ async function build(options: { clean?: boolean } = {}) {
     console.log("✅ Build completed successfully!");
     console.log(`📦 Package ready in ${DIST_DIR}/`);
     console.log("");
-    console.log("This is a TypeScript-first package. Consumers will compile it themselves.");
+    console.log("This package contains TypeScript source code.");
+    console.log("Consumers should use 'tsx' or 'ts-node' to run it, or add a TypeScript loader.");
     console.log("");
     console.log("Next steps:");
     console.log("  cd dist");
