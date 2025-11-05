@@ -30,35 +30,15 @@ npm install @bandeira-tech/b3nd-sdk
 yarn add @bandeira-tech/b3nd-sdk
 ```
 
-### 3. Create API Client & Auth Manager
+### 3. Create API Client
 
 ```typescript
 // src/api/client.ts
 import { HttpClient } from "@bandeira-tech/b3nd-sdk";
-import * as auth from "@bandeira-tech/b3nd-sdk/auth";
-import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
 
 export const b3nd = new HttpClient({
   url: "http://localhost:8080", // or your server URL
 });
-
-// Store user's keys (you get these from signup/login)
-let userKeys: {
-  userId: string;
-  privateKey: CryptoKey;
-  publicKeyHex: string;
-  encryptionPrivateKey?: CryptoKey;
-  encryptionPublicKeyHex?: string;
-} | null = null;
-
-export function setUserKeys(keys: typeof userKeys) {
-  userKeys = keys;
-}
-
-export function getUserKeys() {
-  if (!userKeys) throw new Error("User not authenticated");
-  return userKeys;
-}
 ```
 
 Done! Now you can use B3nd securely.
@@ -73,11 +53,11 @@ User's personal data - only they can read it because it's signed and encrypted.
 
 ```typescript
 // src/api/user.ts
-import { b3nd, getUserKeys } from "./client";
+import { b3nd } from "./client";
 import * as auth from "@bandeira-tech/b3nd-sdk/auth";
 import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
 
-// User signs up - generate their keypair
+// Generate keypair for new user
 export async function generateUserKeys() {
   const signingKeyPair = await auth.generateSigningKeyPair();
   const encryptionKeyPair = await encrypt.generateEncryptionKeyPair();
@@ -91,7 +71,7 @@ export async function generateUserKeys() {
   };
 }
 
-// User reads their data (automatically decrypted if encrypted)
+// Read user data (decrypted by SDK if encrypted)
 export async function getUserData(userId: string) {
   const result = await b3nd.read(
     `mutable://accounts/${userId}/profile`
@@ -99,24 +79,27 @@ export async function getUserData(userId: string) {
   return result.record?.data;
 }
 
-// User updates their data (signed & encrypted)
-export async function updateUserData(updates: any) {
-  const keys = getUserKeys();
-  const payload = updates;
-
+// Update user data (signed & encrypted)
+export async function updateUserData(
+  userId: string,
+  privateKey: CryptoKey,
+  publicKeyHex: string,
+  encryptionPublicKeyHex: string,
+  updates: any
+) {
   // Sign the payload
-  const signature = await auth.signWithHex(keys.privateKeyHex, payload);
+  const signature = await auth.sign(privateKey, updates);
 
   // Encrypt the payload
-  const encrypted = await encrypt.encrypt(payload, keys.encryptionPublicKeyHex);
+  const encrypted = await encrypt.encrypt(updates, encryptionPublicKeyHex);
 
   // Send signed + encrypted
   await b3nd.write(
-    `mutable://accounts/${keys.userId}/profile`,
+    `mutable://accounts/${userId}/profile`,
     {
       auth: [
         {
-          pubkey: keys.publicKeyHex,
+          pubkey: publicKeyHex,
           signature: signature,
         },
       ],
@@ -125,48 +108,30 @@ export async function updateUserData(updates: any) {
   );
 }
 
-// User saves nested data (e.g., settings, notes)
-export async function saveUserData(path: string, data: any) {
-  const keys = getUserKeys();
-
-  const signature = await auth.signWithHex(keys.privateKeyHex, data);
-  const encrypted = await encrypt.encrypt(data, keys.encryptionPublicKeyHex);
+// Save user data at a path (signed & encrypted)
+export async function saveUserData(
+  userId: string,
+  path: string,
+  privateKey: CryptoKey,
+  publicKeyHex: string,
+  encryptionPublicKeyHex: string,
+  data: any
+) {
+  const signature = await auth.sign(privateKey, data);
+  const encrypted = await encrypt.encrypt(data, encryptionPublicKeyHex);
 
   await b3nd.write(
-    `mutable://accounts/${keys.userId}/${path}`,
+    `mutable://accounts/${userId}/${path}`,
     {
       auth: [
         {
-          pubkey: keys.publicKeyHex,
+          pubkey: publicKeyHex,
           signature: signature,
         },
       ],
       payload: encrypted,
     }
   );
-}
-
-// User logs in - restore their keys from storage
-export async function restoreUserSession() {
-  const stored = localStorage.getItem("userKeys");
-  if (!stored) throw new Error("No session found");
-
-  const parsed = JSON.parse(stored);
-
-  // Restore keys from PEM (you saved them during signup)
-  const privateKey = await auth.pemToCryptoKey(parsed.privateKeyPem);
-  const encPrivateKey = await encrypt.pemToCryptoKey(
-    parsed.encryptionPrivateKeyPem,
-    "X25519"
-  );
-
-  return {
-    userId: parsed.publicKeyHex,
-    privateKey,
-    publicKeyHex: parsed.publicKeyHex,
-    encryptionPrivateKey: encPrivateKey,
-    encryptionPublicKeyHex: parsed.encryptionPublicKeyHex,
-  };
 }
 ```
 
@@ -239,26 +204,27 @@ User signs a permanent record - can't be edited, but publicly visible.
 
 ```typescript
 // src/api/contributions.ts
-import { b3nd, getUserKeys } from "./client";
+import { b3nd } from "./client";
 import * as auth from "@bandeira-tech/b3nd-sdk/auth";
 
 // User submits an immutable review (can't change mind later)
 export async function submitReview(
+  userId: string,
   reviewId: string,
-  review: any
+  review: any,
+  privateKey: CryptoKey,
+  publicKeyHex: string
 ) {
-  const keys = getUserKeys();
-
   // Sign the review
-  const signature = await auth.signWithHex(keys.privateKeyHex, review);
+  const signature = await auth.sign(privateKey, review);
 
   // Send signed (not encrypted - everyone should see reviews)
   await b3nd.write(
-    `immutable://accounts/${keys.userId}/reviews/${reviewId}`,
+    `immutable://accounts/${userId}/reviews/${reviewId}`,
     {
       auth: [
         {
-          pubkey: keys.publicKeyHex,
+          pubkey: publicKeyHex,
           signature: signature,
         },
       ],
@@ -299,15 +265,14 @@ export async function getUserReviews(userId: string) {
 
 ```typescript
 // src/api/notes.ts
-import { b3nd, getUserKeys } from "./client";
+import { b3nd } from "./client";
 import * as auth from "@bandeira-tech/b3nd-sdk/auth";
 import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
 
 // List user's notes (just the paths)
-export async function listNotes() {
-  const keys = getUserKeys();
+export async function listNotes(userId: string) {
   const result = await b3nd.list(
-    `mutable://accounts/${keys.userId}/notes/`
+    `mutable://accounts/${userId}/notes/`
   );
   return result.data.map(item => ({
     id: item.uri.split("/").pop(),
@@ -315,43 +280,48 @@ export async function listNotes() {
   }));
 }
 
-// Get a note (decrypted)
-export async function getNote(noteId: string) {
+// Get a note (decrypted by SDK if encrypted)
+export async function getNote(userId: string, noteId: string) {
   const result = await b3nd.read(
-    `mutable://accounts/${getUserKeys().userId}/notes/${noteId}`
+    `mutable://accounts/${userId}/notes/${noteId}`
   );
   return result.record?.data;
 }
 
 // Create or update a note (signed & encrypted)
-export async function saveNote(noteId: string, content: string) {
-  const keys = getUserKeys();
+export async function saveNote(
+  userId: string,
+  noteId: string,
+  content: string,
+  privateKey: CryptoKey,
+  publicKeyHex: string,
+  encryptionPublicKeyHex: string
+) {
   const data = {
     content,
     editedAt: new Date().toISOString()
   };
 
   // Sign it
-  const signature = await auth.signWithHex(keys.privateKeyHex, data);
+  const signature = await auth.sign(privateKey, data);
 
   // Encrypt it
-  const encrypted = await encrypt.encrypt(data, keys.encryptionPublicKeyHex);
+  const encrypted = await encrypt.encrypt(data, encryptionPublicKeyHex);
 
   // Save
   await b3nd.write(
-    `mutable://accounts/${keys.userId}/notes/${noteId}`,
+    `mutable://accounts/${userId}/notes/${noteId}`,
     {
-      auth: [{ pubkey: keys.publicKeyHex, signature }],
+      auth: [{ pubkey: publicKeyHex, signature }],
       payload: encrypted,
     }
   );
 }
 
 // Delete a note
-export async function deleteNote(noteId: string) {
-  const keys = getUserKeys();
+export async function deleteNote(userId: string, noteId: string) {
   await b3nd.delete(
-    `mutable://accounts/${keys.userId}/notes/${noteId}`
+    `mutable://accounts/${userId}/notes/${noteId}`
   );
 }
 ```
@@ -361,18 +331,30 @@ export async function deleteNote(noteId: string) {
 import { useState, useEffect } from "react";
 import { listNotes, getNote, saveNote } from "./api/notes";
 
-export function NotesApp() {
+export function NotesApp({
+  userId,
+  privateKey,
+  publicKeyHex,
+  encryptionPublicKeyHex
+}) {
   const [notes, setNotes] = useState([]);
   const [currentNote, setCurrentNote] = useState(null);
 
   useEffect(() => {
-    listNotes().then(setNotes).catch(console.error);
-  }, []);
+    listNotes(userId).then(setNotes).catch(console.error);
+  }, [userId]);
 
   async function handleSave(noteId: string, content: string) {
     try {
-      await saveNote(noteId, content);
-      listNotes().then(setNotes);
+      await saveNote(
+        userId,
+        noteId,
+        content,
+        privateKey,
+        publicKeyHex,
+        encryptionPublicKeyHex
+      );
+      listNotes(userId).then(setNotes);
     } catch (error) {
       console.error("Save failed:", error);
     }
@@ -385,7 +367,7 @@ export function NotesApp() {
         {notes.map(note => (
           <li key={note.id}>
             <button
-              onClick={() => getNote(note.id).then(setCurrentNote)}
+              onClick={() => getNote(userId, note.id).then(setCurrentNote)}
             >
               {note.id}
             </button>
@@ -401,88 +383,6 @@ export function NotesApp() {
         />
       )}
     </div>
-  );
-}
-```
-
----
-
-## Complete Auth Flow
-
-### Sign Up (Generate Keys)
-
-```typescript
-// src/pages/SignUp.tsx
-import { useState } from "react";
-import { generateUserKeys } from "../api/user";
-import { setUserKeys } from "../api/client";
-
-export function SignUp() {
-  const [loading, setLoading] = useState(false);
-
-  async function handleSignUp() {
-    setLoading(true);
-    try {
-      // Generate keys
-      const keys = await generateUserKeys();
-
-      // Save keys locally (IMPORTANT: in real app, use secure storage)
-      localStorage.setItem("userKeys", JSON.stringify({
-        publicKeyHex: keys.publicKeyHex,
-        encryptionPublicKeyHex: keys.encryptionPublicKeyHex,
-        // DO NOT SEND PRIVATE KEYS TO SERVER
-        // Store them securely in browser (IndexedDB, etc)
-      }));
-
-      // Set keys in app
-      setUserKeys(keys);
-
-      // Redirect to app
-      window.location.href = "/app";
-    } catch (error) {
-      console.error("Signup failed:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <button onClick={handleSignUp} disabled={loading}>
-      {loading ? "Creating account..." : "Sign Up"}
-    </button>
-  );
-}
-```
-
-### Log In (Restore Session)
-
-```typescript
-// src/pages/Login.tsx
-import { useState } from "react";
-import { restoreUserSession } from "../api/user";
-import { setUserKeys } from "../api/client";
-
-export function Login() {
-  const [loading, setLoading] = useState(false);
-
-  async function handleLogin() {
-    setLoading(true);
-    try {
-      // Restore keys from storage
-      const keys = await restoreUserSession();
-      setUserKeys(keys);
-      window.location.href = "/app";
-    } catch (error) {
-      console.error("Login failed:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <button onClick={handleLogin} disabled={loading}>
-      {loading ? "Logging in..." : "Log In"}
-    </button>
   );
 }
 ```
@@ -528,48 +428,12 @@ immutable://accounts/       → permanent user records (public, signed, can't ch
 
 ## Common Patterns
 
-### Protect Sensitive Operations
-
-```typescript
-// Only authenticated users can write
-async function protectedSave(data: any) {
-  try {
-    const keys = getUserKeys();
-    // ... proceed with save
-  } catch {
-    // User not logged in
-    window.location.href = "/login";
-  }
-}
-```
-
-### Cache User Data in React
-
-```tsx
-import { useEffect, useState } from "react";
-
-export function useUserProfile() {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    getUserData()
-      .then(setProfile)
-      .catch(setError)
-      .finally(() => setLoading(false));
-  }, []);
-
-  return { profile, loading, error };
-}
-```
-
 ### Handle Errors Gracefully
 
 ```typescript
-async function safeWrite(path: string, data: any) {
+async function safeWrite(userId: string, path: string, data: any, privateKey: CryptoKey, publicKeyHex: string, encryptionPublicKeyHex: string) {
   try {
-    await saveUserData(path, data);
+    await saveUserData(userId, path, privateKey, publicKeyHex, encryptionPublicKeyHex, data);
     return { success: true };
   } catch (error) {
     console.error("Save failed:", error);
@@ -605,40 +469,6 @@ For user data, test through your app UI (since it requires signing).
 
 ---
 
-## Security Checklist
-
-**Before Going Live:**
-
-- [ ] **Never log private keys** - they can be copied
-- [ ] **Use HTTPS** - don't send keys over HTTP
-- [ ] **Store keys securely** - IndexedDB + encryption (not localStorage for production)
-- [ ] **Validate all inputs** - in your app before sending to B3nd
-- [ ] **Set CORS properly** - `CORS_ORIGIN=https://yourdomain.com`
-- [ ] **Use authentication** - require login before accessing user data
-- [ ] **Add rate limiting** - prevent abuse on public endpoints
-- [ ] **Back up user data** - have a recovery process
-
----
-
-## Before Going Live
-
-**Server Setup:**
-- [ ] Deploy B3nd server with persistent storage (Postgres)
-- [ ] Set `CORS_ORIGIN` to your domain
-- [ ] Enable HTTPS
-- [ ] Set up monitoring
-- [ ] Back up data regularly
-
-**App Setup:**
-- [ ] Implement real user authentication
-- [ ] Add proper error handling & loading states
-- [ ] Test with real user workflows
-- [ ] Secure key storage (not localStorage)
-- [ ] Add logout functionality
-- [ ] Test in different browsers
-
----
-
 ## What You Got
 
 ✅ **Free security benefits:**
@@ -652,11 +482,11 @@ For user data, test through your app UI (since it requires signing).
 
 ## Next Steps
 
-1. **Follow the Auth Flow** - Implement Sign Up & Login
-2. **Build your first feature** - Start with user profile (Pattern 1)
-3. **Add data persistence** - Save user notes or settings
-4. **Test with real users** - Find bugs early
-5. **Deploy** - When you're ready
+1. **Generate user keys** - Use `auth.generateSigningKeyPair()` and `encrypt.generateEncryptionKeyPair()`
+2. **Manage keys in your app** - Store and restore them using your own persistence layer
+3. **Build your first feature** - Start with user profile (Pattern 1) or public data (Pattern 2)
+4. **Use the three patterns** - Choose the right pattern for each feature
+5. **Test with real users** - Find bugs early
 
 ---
 
