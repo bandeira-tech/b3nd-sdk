@@ -1,6 +1,6 @@
 {
   "name": "@bandeira-tech/b3nd-sdk",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Universal B3nd persistence interface for all platforms",
   "main": "./dist/mod.ts",
   "module": "./dist/mod.ts",
