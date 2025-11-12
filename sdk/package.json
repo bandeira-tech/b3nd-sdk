@@ -35,6 +35,11 @@
       "import": "./dist/clients/local-storage/mod.ts",
       "require": "./dist/clients/local-storage/mod.ts",
       "types": "./dist/clients/local-storage/mod.ts"
+    },
+    "./wallet": {
+      "import": "./dist/wallet/mod.ts",
+      "require": "./dist/wallet/mod.ts",
+      "types": "./dist/wallet/mod.ts"
     }
   },
   "files": [
@@ -67,6 +72,8 @@
     "memory",
     "http",
     "websocket",
+    "wallet",
+    "authentication",
     "typescript"
   ],
   "author": "B3nd",

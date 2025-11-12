@@ -1,0 +1,25 @@
+{
+  "name": "@b3nd/wallet-server",
+  "version": "0.1.0",
+  "exports": "./src/mod.ts",
+  "imports": {
+    "hono": "npm:hono",
+    "hono/cors": "npm:hono/cors",
+    "@std/path": "https://deno.land/std@0.208.0/path/mod.ts",
+    "@std/fs": "https://deno.land/std@0.208.0/fs/mod.ts",
+    "@std/encoding/hex": "https://deno.land/std@0.208.0/encoding/hex.ts",
+    "@b3nd/sdk": "../../sdk/src/mod.ts",
+    "@b3nd/sdk/types": "../../sdk/src/types.ts",
+    "@b3nd/sdk/encrypt": "../../sdk/encrypt/mod.ts"
+  },
+  "tasks": {
+    "dev": "deno run --allow-net --allow-read --allow-write --allow-env --env-file --watch src/mod.ts",
+    "check": "deno check src/mod.ts"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": ["no-explicit-any"]
+    }
+  }
+}
