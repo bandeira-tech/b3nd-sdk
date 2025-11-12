@@ -47,7 +47,7 @@ function App() {
   // Wait for store hydration
   useEffect(() => {
     console.log("[App:useEffect] backendsReady:", backendsReady, "backends.length:", backends.length);
-    if (backendsReady && backends.length > 0) {
+    if (backendsReady) {
       console.log("[App:useEffect] Hydration complete!");
       setIsHydrating(false);
     }

@@ -170,8 +170,17 @@ export const useAppStore = create<AppStore>()(
 
           try {
             console.log("[loadSchemas] Fetching schema from", backend.name);
-            // Fetch schemas from backend (organized by instance)
-            const schemasByInstance = await backend.adapter.getSchema();
+
+            // Add timeout to prevent hanging indefinitely
+            const timeoutPromise = new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error("Schema fetch timeout after 10s")), 10000);
+            });
+
+            // Fetch schemas from backend (organized by instance) with timeout
+            const schemasByInstance = await Promise.race([
+              backend.adapter.getSchema(),
+              timeoutPromise
+            ]);
             console.log("[loadSchemas] Raw response:", schemasByInstance);
 
             // Collect all unique schema URIs from all instances
@@ -208,6 +217,11 @@ export const useAppStore = create<AppStore>()(
             });
           } catch (error) {
             console.error("[loadSchemas] Failed to load schemas:", error);
+            // Set empty schemas/rootNodes on error so the app can still be used
+            set({
+              schemas: {},
+              rootNodes: [],
+            });
           }
         },
 
