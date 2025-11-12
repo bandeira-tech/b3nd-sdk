@@ -41,7 +41,10 @@ const customLogger = async (c: any, next: any) => {
 // HTTP server frontend (Hono-based)
 //
 const app = new Hono();
-app.use("/*", cors({ origin: [CORS_ORIGIN] }));
+app.use(
+  "/*",
+  cors({ origin: (origin) => CORS_ORIGIN === "*" ? origin : CORS_ORIGIN }),
+);
 app.use(customLogger);
 
 const frontend = servers.httpServer(app);
