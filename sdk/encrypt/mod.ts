@@ -39,11 +39,11 @@ export interface AuthenticatedMessage<T = unknown> {
 }
 
 export interface SignedEncryptedMessage {
-  encrypted: EncryptedPayload;
   auth: Array<{
     pubkey: string;
     signature: string;
   }>;
+  payload: EncryptedPayload;
 }
 
 /**
@@ -373,8 +373,8 @@ export async function createSignedEncryptedMessage(
   );
 
   return {
-    encrypted,
     auth,
+    payload: encrypted,
   };
 }
 
@@ -395,7 +395,7 @@ export async function verifyAndDecrypt(
       const verified = await verify(
         authEntry.pubkey,
         authEntry.signature,
-        message.encrypted,
+        message.payload,
       );
       return { pubkey: authEntry.pubkey, verified };
     }),
@@ -407,7 +407,7 @@ export async function verifyAndDecrypt(
     .map((r) => r.pubkey);
 
   // Decrypt the data
-  const data = await decrypt(message.encrypted, recipientPrivateKey);
+  const data = await decrypt(message.payload, recipientPrivateKey);
 
   return {
     data,
