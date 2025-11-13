@@ -3,8 +3,8 @@ import { getClient, closeClient } from "./client.ts";
 import { createLogger, Logger } from "./logger.ts";
 import { parse, dirname } from "@std/path";
 import { ensureDir } from "@std/fs";
-import { encodeHex, decodeHex } from "@std/encoding/hex";
-import { encrypt, decrypt, type EncryptedPayload } from "file:///Users/m0/ws/b3nd/sdk/encrypt/mod.ts";
+import { encodeHex } from "@std/encoding/hex";
+import { encrypt, decrypt, type EncryptedPayload } from "@b3nd/sdk/encrypt";
 
 /**
  * Parse URI into protocol, domain, and path
@@ -619,6 +619,7 @@ COMMANDS:
   read <uri>               Read data from a URI
   list <uri>               List items at a URI
   config                   Show current configuration
+  server-keys env         Generate server keys and print .env entries
   help                     Show this help message
 
 OPTIONS:
@@ -663,4 +664,49 @@ DEBUGGING:
 DOCUMENTATION:
   https://github.com/bandeira-tech/b3nd-sdk
 `);
+}
+
+/**
+ * Generate server identity (Ed25519) and encryption (X25519) keys
+ * and print .env-compatible lines. Also writes .env.keys in CWD.
+ */
+export async function serverKeysEnv(): Promise<void> {
+  function bytesToBase64(bytes: Uint8Array): string {
+    return btoa(String.fromCharCode(...bytes));
+  }
+  function formatPrivateKeyPem(base64: string): string {
+    const lines = base64.match(/.{1,64}/g) || [];
+    return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----`;
+  }
+
+  async function genEd25519(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
+    const kp = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]) as CryptoKeyPair;
+    const priv = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
+    const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
+    const privateKeyPem = formatPrivateKeyPem(bytesToBase64(new Uint8Array(priv)));
+    const publicKeyHex = Array.from(new Uint8Array(pub)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    return { privateKeyPem, publicKeyHex };
+  }
+
+  async function genX25519(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
+    const kp = await crypto.subtle.generateKey({ name: "X25519", namedCurve: "X25519" }, true, ["deriveBits"]) as CryptoKeyPair;
+    const priv = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
+    const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
+    const privateKeyPem = formatPrivateKeyPem(bytesToBase64(new Uint8Array(priv)));
+    const publicKeyHex = Array.from(new Uint8Array(pub)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    return { privateKeyPem, publicKeyHex };
+  }
+
+  const id = await genEd25519();
+  const enc = await genX25519();
+
+  const envText = `# b3nd Server Keys\n# Generated: ${new Date().toISOString()}\n\nSERVER_IDENTITY_PRIVATE_KEY_PEM="${id.privateKeyPem.replace(/\n/g, "\\n")}"\nSERVER_IDENTITY_PUBLIC_KEY_HEX="${id.publicKeyHex}"\nSERVER_ENCRYPTION_PRIVATE_KEY_PEM="${enc.privateKeyPem.replace(/\n/g, "\\n")}"\nSERVER_ENCRYPTION_PUBLIC_KEY_HEX="${enc.publicKeyHex}"\n`;
+
+  console.log(envText);
+  try {
+    await Deno.writeTextFile(".env.keys", envText);
+    console.log("✓ Wrote .env.keys (copy values into your .env and delete the file)");
+  } catch (_) {
+    // ignore write error
+  }
 }

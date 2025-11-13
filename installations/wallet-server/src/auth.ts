@@ -65,12 +65,14 @@ export async function verifyPassword(
 export async function userExists(
   client: NodeProtocolInterface,
   serverPublicKey: string,
-  username: string
+  username: string,
+  appScope?: string
 ): Promise<boolean> {
   const path = await deriveObfuscatedPath(
     serverPublicKey,
     username,
-    "profile"
+    "profile",
+    ...(appScope ? [appScope] : [])
   );
   const result = await client.read(
     `mutable://accounts/${serverPublicKey}/${path}`
@@ -89,10 +91,11 @@ export async function createUser(
   password: string,
   serverIdentityPrivateKeyPem: string,
   serverIdentityPublicKeyHex: string,
-  serverEncryptionPublicKeyHex: string
+  serverEncryptionPublicKeyHex: string,
+  appScope?: string
 ): Promise<{ salt: string; hash: string }> {
   // Check if user already exists
-  if (await userExists(client, serverPublicKey, username)) {
+  if (await userExists(client, serverPublicKey, username, appScope)) {
     throw new Error("User already exists");
   }
 
@@ -104,7 +107,8 @@ export async function createUser(
   const profilePath = await deriveObfuscatedPath(
     serverPublicKey,
     username,
-    "profile"
+    "profile",
+    ...(appScope ? [appScope] : [])
   );
   const profileData = {
     username,
@@ -125,7 +129,8 @@ export async function createUser(
   const passwordPath = await deriveObfuscatedPath(
     serverPublicKey,
     username,
-    "password"
+    "password",
+    ...(appScope ? [appScope] : [])
   );
   const passwordData = { hash, salt };
   const passwordSigned = await createSignedEncryptedPayload(
@@ -151,13 +156,15 @@ export async function authenticateUser(
   username: string,
   password: string,
   serverIdentityPublicKeyHex: string,
-  serverEncryptionPrivateKeyPem: string
+  serverEncryptionPrivateKeyPem: string,
+  appScope?: string
 ): Promise<boolean> {
   // Derive obfuscated path to password credential
   const passwordPath = await deriveObfuscatedPath(
     serverPublicKey,
     username,
-    "password"
+    "password",
+    ...(appScope ? [appScope] : [])
   );
 
   // Read signed+encrypted password credential
@@ -196,7 +203,8 @@ export async function changePassword(
   serverIdentityPrivateKeyPem: string,
   serverIdentityPublicKeyHex: string,
   serverEncryptionPublicKeyHex: string,
-  serverEncryptionPrivateKeyPem: string
+  serverEncryptionPrivateKeyPem: string,
+  appScope?: string
 ): Promise<void> {
   // Verify old password first
   const isValid = await authenticateUser(
@@ -205,7 +213,8 @@ export async function changePassword(
     username,
     oldPassword,
     serverIdentityPublicKeyHex,
-    serverEncryptionPrivateKeyPem
+    serverEncryptionPrivateKeyPem,
+    appScope
   );
   if (!isValid) {
     throw new Error("Current password is incorrect");
@@ -219,7 +228,8 @@ export async function changePassword(
   const passwordPath = await deriveObfuscatedPath(
     serverPublicKey,
     username,
-    "password"
+    "password",
+    ...(appScope ? [appScope] : [])
   );
   const passwordData = { hash, salt };
   const passwordSigned = await createSignedEncryptedPayload(
@@ -246,7 +256,8 @@ export async function createPasswordResetToken(
   ttlSeconds: number,
   serverIdentityPrivateKeyPem: string,
   serverIdentityPublicKeyHex: string,
-  serverEncryptionPublicKeyHex: string
+  serverEncryptionPublicKeyHex: string,
+  appScope?: string
 ): Promise<string> {
   // Check if user exists
   if (!(await userExists(client, serverPublicKey, username))) {
@@ -265,7 +276,8 @@ export async function createPasswordResetToken(
     serverPublicKey,
     username,
     "reset-tokens",
-    token
+    token,
+    ...(appScope ? [appScope] : [])
   );
 
   const tokenData = {
@@ -300,14 +312,16 @@ export async function resetPasswordWithToken(
   serverIdentityPublicKeyHex: string,
   serverEncryptionPublicKeyHex: string,
   serverEncryptionPrivateKeyPem: string,
-  username: string
+  username: string,
+  appScope?: string
 ): Promise<string> {
   // Derive obfuscated path to reset token using username hint
   const tokenPath = await deriveObfuscatedPath(
     serverPublicKey,
     username,
     "reset-tokens",
-    token
+    token,
+    ...(appScope ? [appScope] : [])
   );
 
   // Read signed+encrypted reset token
@@ -350,7 +364,8 @@ export async function resetPasswordWithToken(
   const passwordPath = await deriveObfuscatedPath(
     serverPublicKey,
     username,
-    "password"
+    "password",
+    ...(appScope ? [appScope] : [])
   );
   const passwordData = { hash, salt };
   const passwordSigned = await createSignedEncryptedPayload(

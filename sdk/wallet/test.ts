@@ -6,11 +6,14 @@
  */
 
 import { WalletClient } from "./mod.ts";
+import { AppsClient } from "../apps/mod.ts";
 import { HttpClient } from "../clients/http/mod.ts";
 
 const WALLET_SERVER_URL = "http://localhost:3001";
 const API_BASE_PATH = "/api/v1";
 const BACKEND_URL = "http://localhost:8080";
+const APP_SERVER_URL = "http://localhost:3003";
+const APP_API_BASE = "/api/v1";
 
 async function test() {
   // Generate unique username for this test
@@ -32,16 +35,27 @@ async function test() {
     const health = await wallet.health();
     console.log(`✓ Wallet server ${health.status}`);
 
-    // 3. Sign Up New User
-    console.log(`\nSigning up ${username}...`);
-    const signupSession = await wallet.signup({
-      username,
-      password,
-    });
+    // 3. App Backend setup: register app, create session, then signup scoped to app
+    console.log(`\nSetting up App Backend...`);
+    const apps = new AppsClient({ appServerUrl: APP_SERVER_URL, apiBasePath: APP_API_BASE });
+    await apps.health();
+    const appKeys = await generateEd25519();
+    const appKey = appKeys.publicKeyHex;
+    const accountPrivateKeyPem = appKeys.privateKeyPem;
+    const actions = [
+      { action: "registerForReceiveUpdates", validation: { stringValue: { format: "email" } }, write: { plain: "mutable://accounts/:key/subscribers/updates/:signature" } },
+    ];
+    const regRes: any = await apps.registerApp({ appKey, accountPrivateKeyPem, allowedOrigins: ["*"], actions });
+    const token = regRes.token as string;
+    const sessRes = await apps.createSession(appKey, token);
+    const sessionKey = sessRes.session as string;
+    console.log(`✓ App ready`);
+
+    console.log(`\nSigning up ${username} (app-scoped)...`);
+    const signupSession = await wallet.signupWithToken(token, { username, password });
     console.log(`✓ Signup successful (${signupSession.username})`);
     console.log(`  Token expires in: ${signupSession.expiresIn}s`);
 
-    // Activate session
     wallet.setSession(signupSession);
     console.log(`✓ Session activated`);
 
@@ -116,10 +130,7 @@ async function test() {
     console.log(`✓ Logout (authenticated: ${wallet.isAuthenticated()})`);
 
     // 10. Test Login
-    const loginSession = await wallet.login({
-      username,
-      password,
-    });
+    const loginSession = await wallet.loginWithTokenSession(token, sessionKey, { username, password });
     wallet.setSession(loginSession);
     console.log(`✓ Login (authenticated: ${wallet.isAuthenticated()})`);
 
@@ -140,17 +151,14 @@ async function test() {
     // 12. Read after re-login to verify
     const finalReadResult = await backend.read(finalWriteResult.resolvedUri || finalUri);
     if (finalReadResult.success && finalReadResult.record) {
-      console.log(`✓ Read after re-login verified`);
+    console.log(`✓ Read after re-login verified`);
     } else {
       console.log(`✗ Read after re-login failed`);
     }
 
     // 13. Test Login with Wrong Password (Error Case)
     try {
-      await wallet.login({
-        username,
-        password: "wrong-password-123",
-      });
+      await wallet.loginWithTokenSession(token, sessionKey, { username, password: "wrong-password-123" });
       console.log(`✗ ERROR: Login should have failed but succeeded!`);
       throw new Error("Login with wrong password should fail");
     } catch (error) {
@@ -180,8 +188,13 @@ async function test() {
     }
 
     // Re-login for cleanup
-    const cleanupSession = await wallet.login({ username, password });
+    const cleanupSession = await wallet.loginWithTokenSession(token, sessionKey, { username, password });
     wallet.setSession(cleanupSession);
+
+    // Optional: invoke action via app backend
+    const email = `${username}@example.com`;
+    const invokeRes = await apps.invokeAction(appKey, "registerForReceiveUpdates", email, "http://localhost");
+    console.log(`✓ Action invoked, wrote to ${invokeRes.uri}`);
 
     // Success
     console.log("\nALL TESTS PASSED");
@@ -199,4 +212,19 @@ async function test() {
 // Run the test
 if (import.meta.main) {
   test();
+}
+
+// Helpers
+async function generateEd25519(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
+  const keyPair = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]) as CryptoKeyPair;
+  const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+  const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const privateKeyBase64 = bytesToBase64(new Uint8Array(privateKeyBuffer));
+  const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64.match(/.{1,64}/g)?.join("\n")}\n-----END PRIVATE KEY-----`;
+  const publicKeyHex = [...new Uint8Array(publicKeyBuffer)].map(b=>b.toString(16).padStart(2,"0")).join("");
+  return { privateKeyPem, publicKeyHex };
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes));
 }

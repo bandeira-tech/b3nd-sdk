@@ -1,3 +1,7 @@
+import { WalletClient } from "../sdk/build/wallet-client.js";
+import { AppsClient } from "../sdk/build/apps-client.js";
+import { HttpClient } from "../sdk/build/http-client.js";
+
 const $ = (id) => document.getElementById(id);
 
 function log(msg, kind = "info") {
@@ -33,6 +37,7 @@ const state = {
   config: null,
   session: null, // { username, token, expiresIn }
   lastResolvedUri: null,
+  clients: { wallet: null, apps: null, backend: null },
 };
 
 function isConfigured() {
@@ -61,20 +66,14 @@ function requireAuth() {
 // Wallet calls
 async function walletHealth() {
   requireConfig();
-  const { walletUrl, apiBasePath } = state.config;
-  const res = await fetch(`${walletUrl}${apiBasePath}/health`);
-  if (!res.ok) throw new Error(`Health failed: ${res.status} ${res.statusText}`);
-  const data = await res.json();
+  const data = await state.clients.wallet.health();
   setOutput(data);
   return data;
 }
 
 async function walletServerKeys() {
   requireConfig();
-  const { walletUrl, apiBasePath } = state.config;
-  const res = await fetch(`${walletUrl}${apiBasePath}/server-keys`);
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.error || `Server keys failed: ${res.statusText}`);
+  const data = await state.clients.wallet.getServerKeys();
   setOutput(data);
   return data;
 }
@@ -112,12 +111,8 @@ async function walletLogin(username, password) {
 async function walletMyPublicKeys() {
   requireConfig();
   requireAuth();
-  const { walletUrl, apiBasePath } = state.config;
-  const res = await fetch(`${walletUrl}${apiBasePath}/public-keys`, {
-    headers: { Authorization: `Bearer ${state.session.token}` },
-  });
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.error || `Public keys failed: ${res.statusText}`);
+  state.clients.wallet.setSession(state.session);
+  const data = await state.clients.wallet.getPublicKeys();
   setOutput(data);
   return data;
 }
@@ -125,17 +120,8 @@ async function walletMyPublicKeys() {
 async function walletProxyWrite(uri, data, encrypt) {
   requireConfig();
   requireAuth();
-  const { walletUrl, apiBasePath } = state.config;
-  const res = await fetch(`${walletUrl}${apiBasePath}/proxy/write`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${state.session.token}`,
-    },
-    body: JSON.stringify({ uri, data, encrypt: !!encrypt }),
-  });
-  const resp = await res.json();
-  if (!res.ok || !resp.success) throw new Error(resp.error || `Proxy write failed: ${res.statusText}`);
+  state.clients.wallet.setSession(state.session);
+  const resp = await state.clients.wallet.proxyWrite({ uri, data, encrypt: !!encrypt });
   setOutput(resp);
   return resp;
 }
@@ -143,19 +129,7 @@ async function walletProxyWrite(uri, data, encrypt) {
 // Backend read
 async function backendRead(uri) {
   requireConfig();
-  const { backendUrl, backendInstance } = state.config;
-  const u = new URL(uri);
-  const protocol = u.protocol.replace(":", "");
-  const domain = u.hostname;
-  const path = u.pathname || "/";
-  const instance = backendInstance && backendInstance.length > 0 ? backendInstance : "default";
-  const readPath = `${backendUrl.replace(/\/$/, "")}/api/v1/read/${instance}/${protocol}/${domain}${path}`;
-  const res = await fetch(readPath);
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Backend read failed: ${res.status} ${res.statusText} ${txt || ""}`.trim());
-  }
-  const data = await res.json();
+  const data = await state.clients.backend.read(uri);
   setOutput(data);
   return data;
 }
@@ -186,6 +160,8 @@ function applyConfigFromInputs() {
   const apiBasePath = $("apiBasePath").value.trim();
   const backendUrl = $("backendUrl").value.trim();
   const backendInstance = $("backendInstance").value.trim();
+  const appServerUrl = $("appServerUrl").value.trim();
+  const appApiBasePath = $("appApiBasePath").value.trim();
   if (!walletUrl || !apiBasePath || !backendUrl) {
     throw new Error("Please provide Wallet Server URL, API Base Path, and Backend URL.");
   }
@@ -194,7 +170,13 @@ function applyConfigFromInputs() {
     apiBasePath: normalizeApiBasePath(apiBasePath),
     backendUrl: normalizeBase(backendUrl),
     backendInstance,
+    appServerUrl: appServerUrl ? normalizeBase(appServerUrl) : undefined,
+    appApiBasePath: appApiBasePath ? normalizeApiBasePath(appApiBasePath) : undefined,
   };
+  // Initialize clients
+  state.clients.wallet = new WalletClient({ walletServerUrl: state.config.walletUrl, apiBasePath: state.config.apiBasePath });
+  state.clients.apps = state.config.appServerUrl && state.config.appApiBasePath ? new AppsClient({ appServerUrl: state.config.appServerUrl, apiBasePath: state.config.appApiBasePath }) : null;
+  state.clients.backend = new HttpClient({ url: state.config.backendUrl });
 }
 
 function saveConfig() {
@@ -211,10 +193,62 @@ function loadConfig() {
   $("apiBasePath").value = cfg.apiBasePath;
   $("backendUrl").value = cfg.backendUrl;
   $("backendInstance").value = cfg.backendInstance || "";
+  if (cfg.appServerUrl) $("appServerUrl").value = cfg.appServerUrl;
+  if (cfg.appApiBasePath) $("appApiBasePath").value = cfg.appApiBasePath;
 }
 
 function clearConfig() {
   localStorage.removeItem("b3nd-writer-config");
+}
+
+// App backend calls
+function requireAppConfig() {
+  if (!state.config?.appServerUrl || !state.config?.appApiBasePath) {
+    throw new Error("App server config not applied");
+  }
+}
+
+async function appRegister(reg) {
+  requireAppConfig();
+  if (!state.clients.apps) state.clients.apps = new AppsClient({ appServerUrl: state.config.appServerUrl, apiBasePath: state.config.appApiBasePath });
+  const j = await state.clients.apps.registerApp(reg);
+  setOutput(j);
+  return j;
+}
+
+async function appUpdateSchema(appKey, actions) {
+  requireAppConfig();
+  if (!state.clients.apps) state.clients.apps = new AppsClient({ appServerUrl: state.config.appServerUrl, apiBasePath: state.config.appApiBasePath });
+  const j = await state.clients.apps.updateSchema(appKey, actions);
+  setOutput(j);
+  return j;
+}
+
+async function appInvoke(appKey, action, payload) {
+  requireAppConfig();
+  if (!state.clients.apps) state.clients.apps = new AppsClient({ appServerUrl: state.config.appServerUrl, apiBasePath: state.config.appApiBasePath });
+  const j = await state.clients.apps.invokeAction(appKey, action, payload, location.origin);
+  setOutput(j);
+  return j;
+}
+
+async function appCreateSession(appKey, token) {
+  requireAppConfig();
+  if (!state.clients.apps) state.clients.apps = new AppsClient({ appServerUrl: state.config.appServerUrl, apiBasePath: state.config.appApiBasePath });
+  const j = await state.clients.apps.createSession(appKey, token);
+  setOutput(j);
+  return j;
+}
+
+// App key generation
+async function generateEd25519() {
+  const kp = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]);
+  const priv = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
+  const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
+  const privB64 = btoa(String.fromCharCode(...new Uint8Array(priv)));
+  const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privB64.match(/.{1,64}/g).join("\n")}\n-----END PRIVATE KEY-----`;
+  const publicKeyHex = Array.from(new Uint8Array(pub)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  return { privateKeyPem, publicKeyHex };
 }
 
 // Events
@@ -233,37 +267,102 @@ $("saveConfig").addEventListener("click", () => {
 $("loadConfig").addEventListener("click", () => {
   try { loadConfig(); log("Config loaded into inputs", "ok"); } catch (e) { log(e.message || String(e), "err"); }
 });
-$("clearConfig").addEventListener("click", () => {
-  try { clearConfig(); log("Saved config cleared", "ok"); } catch (e) { log(e.message || String(e), "err"); }
-});
+  $("clearConfig").addEventListener("click", () => {
+    try { clearConfig(); log("Saved config cleared", "ok"); } catch (e) { log(e.message || String(e), "err"); }
+  });
 
-$("signupBtn").addEventListener("click", async () => {
+  // App setup
+  $("genAppKeys").addEventListener("click", async () => {
+    try {
+      const k = await generateEd25519();
+      $("appKey").value = k.publicKeyHex;
+      $("appPrivPem").value = k.privateKeyPem;
+      log("Generated app keys", "ok");
+      setOutput(k);
+    } catch (e) { log(e.message || String(e), "err"); }
+  });
+
+  $("registerAppBtn").addEventListener("click", async () => {
+    try {
+      const appKey = $("appKey").value.trim();
+      const appPrivPem = $("appPrivPem").value.trim();
+      const origins = $("appOrigins").value.split(",").map(s=>s.trim()).filter(Boolean);
+      const actionName = $("appActionName").value.trim();
+      const fmt = $("appValidationFormat").value.trim();
+      const plain = $("appWritePlain").value.trim();
+      if (!appKey || !appPrivPem || !actionName) throw new Error("missing appKey/appPrivPem/actionName");
+      const actions = [{ action: actionName, validation: { stringValue: fmt ? { format: fmt } : {} }, write: { plain } }];
+      await appRegister({ appKey, accountPrivateKeyPem: appPrivPem, allowedOrigins: origins.length ? origins : ["*"], actions });
+      log("App registered", "ok");
+    } catch (e) { log(e.message || String(e), "err"); }
+  });
+
+  $("updateSchemaBtn").addEventListener("click", async () => {
+    try {
+      const appKey = $("appKey").value.trim();
+      const actionName = $("appActionName").value.trim();
+      const fmt = $("appValidationFormat").value.trim();
+      const plain = $("appWritePlain").value.trim();
+      if (!appKey || !actionName) throw new Error("missing appKey/actionName");
+      const actions = [{ action: actionName, validation: { stringValue: fmt ? { format: fmt } : {} }, write: { plain } }];
+      await appUpdateSchema(appKey, actions);
+      log("Schema updated", "ok");
+    } catch (e) { log(e.message || String(e), "err"); }
+  });
+
+  $("createSessionBtn").addEventListener("click", async () => {
+    try {
+      const appKey = $("appKey").value.trim();
+      const token = $("appToken").value.trim() || (($("appKey").value.trim()) + "." );
+      if (!appKey) throw new Error("missing appKey");
+      if (!token) throw new Error("missing token");
+      const res = await appCreateSession(appKey, token);
+      $("appSession").value = res.session;
+      log("Session created", "ok");
+    } catch (e) { log(e.message || String(e), "err"); }
+  });
+
+  $("invokeActionBtn").addEventListener("click", async () => {
+    try {
+      const appKey = $("appKey").value.trim();
+      const action = $("invokeActionName").value.trim();
+      const payload = $("invokePayload").value.trim();
+      if (!appKey || !action) throw new Error("missing appKey/action");
+      const j = await appInvoke(appKey, action, payload);
+      log(`Invoked action -> ${j.uri}`, "ok");
+    } catch (e) { log(e.message || String(e), "err"); }
+  });
+
+  $("signupBtn").addEventListener("click", async () => {
   const username = $("username").value.trim();
   const password = $("password").value.trim();
-  if (!username || !password) return log("Provide username and password", "err");
+  const token = $("appToken").value.trim();
+  if (!username || !password || !token) return log("Provide token, username, password", "err");
   try {
-    const sess = await walletSignup(username, password);
-    state.session = sess;
-    setAuthStatus();
-    log(`Signup ok. Expires in ${sess.expiresIn}s`, "ok");
-  } catch (e) {
-    log(e.message || String(e), "err");
-  }
-});
+      const sess = await state.clients.wallet.signupWithToken(token, { username, password });
+      state.session = sess;
+      setAuthStatus();
+      log(`Signup ok. Expires in ${sess.expiresIn}s`, "ok");
+    } catch (e) {
+      log(e.message || String(e), "err");
+    }
+  });
 
-$("loginBtn").addEventListener("click", async () => {
+  $("loginBtn").addEventListener("click", async () => {
   const username = $("username").value.trim();
   const password = $("password").value.trim();
-  if (!username || !password) return log("Provide username and password", "err");
+  const token = $("appToken").value.trim();
+  const sessionKey = $("appSession").value.trim();
+  if (!username || !password || !token || !sessionKey) return log("Provide token, session, username, password", "err");
   try {
-    const sess = await walletLogin(username, password);
-    state.session = sess;
-    setAuthStatus();
-    log(`Login ok. Expires in ${sess.expiresIn}s`, "ok");
-  } catch (e) {
-    log(e.message || String(e), "err");
-  }
-});
+      const sess = await state.clients.wallet.loginWithTokenSession(token, sessionKey, { username, password });
+      state.session = sess;
+      setAuthStatus();
+      log(`Login ok. Expires in ${sess.expiresIn}s`, "ok");
+    } catch (e) {
+      log(e.message || String(e), "err");
+    }
+  });
 
 $("logoutBtn").addEventListener("click", () => {
   state.session = null;

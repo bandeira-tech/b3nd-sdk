@@ -158,14 +158,33 @@ function createApp(
     }
   });
 
+  function parseAppToken(token: string): { appKey: string; tokenId: string } {
+    const [appKey, tokenId] = token.split(".");
+    if (!appKey || !tokenId) throw new Error("invalid token format");
+    return { appKey, tokenId };
+  }
+
+  async function sessionExists(appKey: string, tokenId: string, sessionKey: string): Promise<boolean> {
+    const input = new TextEncoder().encode(`${tokenId}.${sessionKey}`);
+    const digest = await crypto.subtle.digest("SHA-256", input);
+    const sigHex = Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("").substring(0,32);
+    const uri = `mutable://accounts/${appKey}/sessions/${sigHex}`;
+    const res = await proxyClient.read(uri);
+    return res.success;
+  }
+
   /**
-   * POST /api/v1/auth/signup - Create new user account
+   * POST /api/v1/auth/signup - Create new user account (scoped to app token)
    * Body: { username: string, password: string }
    */
   app.post("/api/v1/auth/signup", async (c: Context) => {
     try {
-      const { username, password } = await c.req.json() as any;
+      const { token, username, password } = await c.req.json() as any;
 
+      if (!token || typeof token !== "string") {
+        return c.json({ success: false, error: "token is required" }, 400);
+      }
+      const { appKey } = parseAppToken(token);
       if (!username || typeof username !== "string") {
         return c.json(
           { success: false, error: "username is required" },
@@ -192,7 +211,8 @@ function createApp(
         password,
         serverIdentityPrivateKeyPem,
         serverIdentityPublicKeyHex,
-        serverEncryptionPublicKeyHex
+        serverEncryptionPublicKeyHex,
+        appKey
       );
       console.log(`✅ User created: ${username}`);
 
@@ -240,18 +260,32 @@ function createApp(
   });
 
   /**
-   * POST /api/v1/auth/login - Authenticate user and get JWT
+   * POST /api/v1/auth/login - Authenticate user and get JWT (requires app token and session)
    * Body: { username: string, password: string }
    */
   app.post("/api/v1/auth/login", async (c: Context) => {
     try {
-      const { username, password } = await c.req.json() as any;
+      const { token, session, username, password } = await c.req.json() as any;
+
+      if (!token || typeof token !== "string") {
+        return c.json({ success: false, error: "token is required" }, 400);
+      }
+      if (!session || typeof session !== "string") {
+        return c.json({ success: false, error: "session is required" }, 400);
+      }
+      const { appKey, tokenId } = parseAppToken(token);
 
       if (!username || !password) {
         return c.json(
           { success: false, error: "username and password are required" },
           400
         );
+      }
+
+      // Verify session exists
+      const hasSession = await sessionExists(appKey, tokenId, session);
+      if (!hasSession) {
+        return c.json({ success: false, error: "Invalid session" }, 401);
       }
 
       // Verify credentials
@@ -261,7 +295,8 @@ function createApp(
         username,
         password,
         serverIdentityPublicKeyHex,
-        serverEncryptionPrivateKeyPem
+        serverEncryptionPrivateKeyPem,
+        appKey
       );
 
       if (!isValid) {
@@ -375,8 +410,12 @@ function createApp(
    */
   app.post("/api/v1/auth/request-password-reset", async (c: Context) => {
     try {
-      const { username } = await c.req.json() as any;
+      const { token, username } = await c.req.json() as any;
 
+      if (!token || typeof token !== "string") {
+        return c.json({ success: false, error: "token is required" }, 400);
+      }
+      const { appKey } = parseAppToken(token);
       if (!username) {
         return c.json(
           { success: false, error: "username is required" },
@@ -392,7 +431,8 @@ function createApp(
         config.passwordResetTokenTtlSeconds,
         serverIdentityPrivateKeyPem,
         serverIdentityPublicKeyHex,
-        serverEncryptionPublicKeyHex
+        serverEncryptionPublicKeyHex,
+        appKey
       );
 
       return c.json({
@@ -425,8 +465,12 @@ function createApp(
    */
   app.post("/api/v1/auth/reset-password", async (c: Context) => {
     try {
-      const { username, resetToken, newPassword } = await c.req.json() as any;
+      const { token, username, resetToken, newPassword } = await c.req.json() as any;
 
+      if (!token || typeof token !== "string") {
+        return c.json({ success: false, error: "token is required" }, 400);
+      }
+      const { appKey } = parseAppToken(token);
       if (!username || !resetToken || !newPassword) {
         return c.json(
           { success: false, error: "username, resetToken and newPassword are required" },
@@ -451,7 +495,8 @@ function createApp(
         serverIdentityPublicKeyHex,
         serverEncryptionPublicKeyHex,
         serverEncryptionPrivateKeyPem,
-        username
+        username,
+        appKey
       );
 
       // Issue new JWT

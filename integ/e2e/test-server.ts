@@ -9,7 +9,6 @@
  *   E2E_SERVER_PORT=8080 deno run --allow-net test-server.ts
  */
 
-import { Hono } from "hono";
 import { httpServer } from "../../sdk/servers/http.ts";
 import { MemoryClient } from "../../sdk/clients/memory/mod.ts";
 import type { Schema } from "../../sdk/src/types.ts";
@@ -53,16 +52,18 @@ const testSchema = new Proxy(baseSchema, {
   },
 }) as Schema;
 
-// Create Hono app
-const app = new Hono();
 
 // Create in-memory backend
 const memoryClient = new MemoryClient({
   schema: testSchema,
 });
 
+// Create Hono app
+import { Hono } from "hono";
+const app = new Hono();
+
 // Create HTTP server frontend and configure it
-const frontend = httpServer(app);
+const frontend = httpServer(app as any);
 frontend.configure({
   backend: {
     write: memoryClient,

@@ -1,0 +1,22 @@
+{
+  "name": "@b3nd/app-backend",
+  "version": "0.1.0",
+  "exports": "./src/mod.ts",
+  "imports": {
+    "hono": "npm:hono",
+    "hono/cors": "npm:hono/cors",
+    "@std/encoding/hex": "https://deno.land/std@0.208.0/encoding/hex.ts",
+    "@b3nd/sdk": "../../sdk/src/mod.ts",
+    "@b3nd/sdk/types": "../../sdk/src/types.ts",
+    "@b3nd/sdk/encrypt": "../../sdk/encrypt/mod.ts"
+  },
+  "tasks": {
+    "dev": "deno run --allow-net --allow-read --allow-env --env-file --watch src/mod.ts",
+    "check": "deno check src/mod.ts"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable", "deno.ns"]
+  }
+}
+

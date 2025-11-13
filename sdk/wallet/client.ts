@@ -132,58 +132,18 @@ export class WalletClient {
    * Sign up a new user
    * Returns session data - call setSession() to activate it
    */
-  async signup(credentials: UserCredentials): Promise<AuthSession> {
-    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/signup`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username: credentials.username,
-        password: credentials.password,
-      }),
-    });
-
-    const data: SignupResponse = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || `Signup failed: ${response.statusText}`);
-    }
-
-    return {
-      username: data.username,
-      token: data.token,
-      expiresIn: data.expiresIn,
-    };
+  // Tokenless signup is not supported. Use signup(token,...)
+  async signup(_credentials: UserCredentials): Promise<AuthSession> {
+    throw new Error("Use signup(token, credentials) — app token required");
   }
 
   /**
    * Login existing user
    * Returns session data - call setSession() to activate it
    */
-  async login(credentials: UserCredentials): Promise<AuthSession> {
-    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username: credentials.username,
-        password: credentials.password,
-      }),
-    });
-
-    const data: LoginResponse = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || `Login failed: ${response.statusText}`);
-    }
-
-    return {
-      username: data.username,
-      token: data.token,
-      expiresIn: data.expiresIn,
-    };
+  // Tokenless login is not supported. Use login(token, session, credentials)
+  async login(_credentials: UserCredentials): Promise<AuthSession> {
+    throw new Error("Use login(token, session, credentials) — app token + session required");
   }
 
   /**
@@ -221,67 +181,85 @@ export class WalletClient {
    * Request a password reset token
    * Does not require authentication
    */
-  async requestPasswordReset(username: string): Promise<PasswordResetToken> {
-    const response = await this.fetchImpl(
-      `${this.walletServerUrl}${this.apiBasePath}/auth/request-password-reset`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username }),
-      }
-    );
-
-    const data: RequestPasswordResetResponse = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(
-        data.error || `Request password reset failed: ${response.statusText}`
-      );
-    }
-
-    return {
-      resetToken: data.resetToken,
-      expiresIn: data.expiresIn,
-    };
+  async requestPasswordReset(_username: string): Promise<PasswordResetToken> {
+    throw new Error("Use requestPasswordResetWithToken(token, username)");
   }
 
   /**
    * Reset password using a reset token
    * Returns session data - call setSession() to activate it
    */
-  async resetPassword(
-    username: string,
-    resetToken: string,
-    newPassword: string
-  ): Promise<AuthSession> {
-    const response = await this.fetchImpl(
-      `${this.walletServerUrl}${this.apiBasePath}/auth/reset-password`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          resetToken,
-          newPassword,
-        }),
-      }
-    );
+  async resetPassword(_username: string, _resetToken: string, _newPassword: string): Promise<AuthSession> {
+    throw new Error("Use resetPasswordWithToken(token, username, resetToken, newPassword)");
+  }
 
+  /**
+   * Sign up with app token (scoped to an app)
+   */
+  async signupWithToken(token: string, credentials: UserCredentials): Promise<AuthSession> {
+    if (!token) throw new Error("token is required");
+    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, username: credentials.username, password: credentials.password }),
+    });
+    const data: SignupResponse = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || `Signup failed: ${response.statusText}`);
+    }
+    return { username: data.username, token: data.token, expiresIn: data.expiresIn };
+  }
+
+  /**
+   * Login with app token and session (scoped to an app)
+   */
+  async loginWithTokenSession(token: string, session: string, credentials: UserCredentials): Promise<AuthSession> {
+    if (!token) throw new Error("token is required");
+    if (!session) throw new Error("session is required");
+    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, session, username: credentials.username, password: credentials.password }),
+    });
+    const data: LoginResponse = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || `Login failed: ${response.statusText}`);
+    }
+    return { username: data.username, token: data.token, expiresIn: data.expiresIn };
+  }
+
+  /**
+   * Request password reset scoped to app token
+   */
+  async requestPasswordResetWithToken(token: string, username: string): Promise<PasswordResetToken> {
+    if (!token) throw new Error("token is required");
+    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/request-password-reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, username }),
+    });
+    const data: RequestPasswordResetResponse = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || `Request password reset failed: ${response.statusText}`);
+    }
+    return { resetToken: data.resetToken, expiresIn: data.expiresIn };
+  }
+
+  /**
+   * Reset password scoped to app token
+   */
+  async resetPasswordWithToken(token: string, username: string, resetToken: string, newPassword: string): Promise<AuthSession> {
+    if (!token) throw new Error("token is required");
+    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, username, resetToken, newPassword }),
+    });
     const data: ResetPasswordResponse = await response.json();
-
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Reset password failed: ${response.statusText}`);
     }
-
-    return {
-      username: data.username,
-      token: data.token,
-      expiresIn: data.expiresIn,
-    };
+    return { username: data.username, token: data.token, expiresIn: data.expiresIn };
   }
 
   /**

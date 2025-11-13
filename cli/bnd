@@ -6,4 +6,5 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 deno run --allow-read --allow-write --allow-env --allow-net \
+  --config "$SCRIPT_DIR/deno.json" \
   "$SCRIPT_DIR/src/main.ts" "$@"

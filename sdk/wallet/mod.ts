@@ -13,11 +13,9 @@
  *   apiBasePath: "/api/v1",
  * });
  *
- * // Sign up
- * const session = await wallet.signup({
- *   username: "alice",
- *   password: "secure-password"
- * });
+ * // App-scoped signup/login (requires app token and session)
+ * // const session = await wallet.signupWithToken(token, { username, password });
+ * // const session = await wallet.loginWithTokenSession(token, sessionKey, { username, password });
  *
  * // Activate session
  * wallet.setSession(session);

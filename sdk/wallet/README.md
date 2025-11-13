@@ -39,11 +39,8 @@ const wallet = new WalletClient({
   apiBasePath: "/api/v1",
 });
 
-// Sign up a new user
-const session = await wallet.signup({
-  username: "alice",
-  password: "secure-password-123"
-});
+// App-scoped signup/login (requires app token and session from App Backend)
+// const session = await wallet.signupWithToken(token, { username: "alice", password: "secure-password-123" });
 
 // Set the session to authenticate subsequent requests
 wallet.setSession(session);
@@ -79,36 +76,13 @@ new WalletClient(config: WalletClientConfig)
 
 ### Authentication Methods
 
-#### `signup(credentials)`
+#### `signupWithToken(token, credentials)`
 
-Create a new user account. Returns session data - call `setSession()` to activate it.
+Create a new user account for a given app token. Returns session data - call `setSession()` to activate it.
 
-```typescript
-const session = await wallet.signup({
-  username: "alice",
-  password: "secure-password"
-});
+#### `loginWithTokenSession(token, session, credentials)`
 
-// Activate the session
-wallet.setSession(session);
-
-// Optional: persist to storage
-localStorage.setItem("session", JSON.stringify(session));
-```
-
-#### `login(credentials)`
-
-Login with existing credentials. Returns session data - call `setSession()` to activate it.
-
-```typescript
-const session = await wallet.login({
-  username: "alice",
-  password: "secure-password"
-});
-
-// Activate the session
-wallet.setSession(session);
-```
+Login with app token and session. Returns session data - call `setSession()` to activate it.
 
 #### `logout()`
 
@@ -126,29 +100,13 @@ Change the password for the current user. Requires authentication.
 await wallet.changePassword("old-password", "new-password");
 ```
 
-#### `requestPasswordReset(username)`
+#### `requestPasswordResetWithToken(token, username)`
 
-Request a password reset token. Does not require authentication.
+Request a password reset token scoped to an app.
 
-```typescript
-const { resetToken, expiresIn } = await wallet.requestPasswordReset("alice");
-console.log("Reset token:", resetToken);
-```
+#### `resetPasswordWithToken(token, username, resetToken, newPassword)`
 
-#### `resetPassword(username, resetToken, newPassword)`
-
-Reset password using a reset token. Returns session data - call `setSession()` to activate it.
-
-```typescript
-const session = await wallet.resetPassword(
-  "alice",
-  resetToken,
-  "new-password"
-);
-
-// Activate the session (if you want to auto-login)
-wallet.setSession(session);
-```
+Reset password using a reset token scoped to an app. Returns session data - call `setSession()` to activate it.
 
 ### Session Management
 
@@ -257,8 +215,8 @@ if (savedSession) {
 }
 
 // Login and save session
-async function login(username: string, password: string) {
-  const session = await wallet.login({ username, password });
+async function login(token: string, sessionKey: string, username: string, password: string) {
+  const session = await wallet.loginWithTokenSession(token, sessionKey, { username, password });
 
   // Activate the session
   wallet.setSession(session);

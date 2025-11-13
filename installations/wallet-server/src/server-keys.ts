@@ -72,13 +72,13 @@ export function loadServerKeys(): ServerKeys {
   if (identityPublicKeyHex.length !== 64) {
     throw new Error(
       `SERVER_IDENTITY_PUBLIC_KEY_HEX must be exactly 64 hex characters (32 bytes), got ${identityPublicKeyHex.length}. ` +
-      `Your key appears to be in DER format. Run: deno run --allow-write scripts/generate-keys.ts`
+      `Your key appears to be in DER format. Generate fresh keys via: bnd server-keys env`
     );
   }
   if (encryptionPublicKeyHex.length !== 64) {
     throw new Error(
       `SERVER_ENCRYPTION_PUBLIC_KEY_HEX must be exactly 64 hex characters (32 bytes), got ${encryptionPublicKeyHex.length}. ` +
-      `Your key appears to be in DER format. Run: deno run --allow-write scripts/generate-keys.ts`
+      `Your key appears to be in DER format. Generate fresh keys via: bnd server-keys env`
     );
   }
 

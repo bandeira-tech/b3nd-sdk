@@ -1,5 +1,5 @@
-import { HttpClient } from "file:///Users/m0/ws/b3nd/sdk/clients/http/mod.ts";
-import type { NodeProtocolInterface } from "file:///Users/m0/ws/b3nd/sdk/src/types.ts";
+import { HttpClient } from "@b3nd/sdk/http";
+import type { NodeProtocolInterface } from "@b3nd/sdk/types";
 import { loadConfig } from "./config.ts";
 import { Logger } from "./logger.ts";
 

@@ -32,6 +32,17 @@ export interface UserCredentials {
   password: string;
 }
 
+export interface SignupWithTokenRequest {
+  token: string;
+  credentials: UserCredentials;
+}
+
+export interface LoginWithTokenRequest {
+  token: string;
+  session: string;
+  credentials: UserCredentials;
+}
+
 /**
  * Authenticated session with JWT token
  */

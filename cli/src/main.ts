@@ -11,6 +11,7 @@ import {
   list,
   showConfig,
   showHelp,
+  serverKeysEnv,
 } from "./commands.ts";
 
 /**
@@ -119,6 +120,15 @@ async function main(): Promise<void> {
 
       case "config": {
         await showConfig();
+        break;
+      }
+
+      case "server-keys": {
+        if (subcommand === "env") {
+          await serverKeysEnv();
+        } else {
+          throw new Error("Unknown server-keys subcommand. Usage: bnd server-keys env");
+        }
         break;
       }
 

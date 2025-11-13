@@ -28,7 +28,8 @@ async function main() {
 
     // Sign up a new user
     console.log(`2️⃣  Signing up new user: ${username}`);
-    const session = await wallet.signup({ username, password });
+    // App-scoped usage requires token and session from the App Backend
+    throw new Error("Update this example: use signupWithToken/loginWithTokenSession with app token and session");
     console.log(`   ✅ Signed up successfully!`);
     console.log(`   👤 Username: ${session.username}`);
     console.log(`   🎫 Token: ${session.token.substring(0, 20)}...`);

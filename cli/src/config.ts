@@ -1,6 +1,5 @@
 import { ensureDir } from "@std/fs";
 import { join } from "@std/path";
-import { expandGlob } from "@std/fs";
 
 const CONFIG_DIR = join(Deno.env.get("HOME") || ".", ".bnd");
 const CONFIG_FILE = join(CONFIG_DIR, "config.toml");

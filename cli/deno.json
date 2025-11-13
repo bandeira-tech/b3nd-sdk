@@ -9,13 +9,13 @@
     "lint": "deno lint src/"
   },
   "imports": {
-    "@bandeira-tech/b3nd-sdk": "file:///Users/m0/ws/b3nd/sdk/src/mod.ts",
-    "@bandeira-tech/b3nd-sdk/http": "file:///Users/m0/ws/b3nd/sdk/clients/http/mod.ts",
-    "@bandeira-tech/b3nd-sdk/types": "file:///Users/m0/ws/b3nd/sdk/src/types.ts",
-    "@std/flags": "jsr:@std/flags@^1.0.0",
-    "@std/path": "jsr:@std/path@^1.0.0",
-    "@std/encoding": "jsr:@std/encoding@^1.0.0",
-    "@std/fs": "jsr:@std/fs@^1.0.0"
+    "@b3nd/sdk": "../sdk/src/mod.ts",
+    "@b3nd/sdk/http": "../sdk/clients/http/mod.ts",
+    "@b3nd/sdk/types": "../sdk/src/types.ts",
+    "@b3nd/sdk/encrypt": "../sdk/encrypt/mod.ts",
+    "@std/path": "https://deno.land/std@0.208.0/path/mod.ts",
+    "@std/encoding/hex": "https://deno.land/std@0.208.0/encoding/hex.ts",
+    "@std/fs": "https://deno.land/std@0.208.0/fs/mod.ts"
   },
   "exports": "./src/main.ts",
   "compilerOptions": {

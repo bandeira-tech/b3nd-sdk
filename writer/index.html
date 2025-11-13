@@ -55,6 +55,7 @@
             <button class="nav-item active" data-section="section-config">Configuration</button>
             <button class="nav-item" data-section="section-auth">Auth</button>
             <button class="nav-item" data-section="section-write">Proxy Write</button>
+            <button class="nav-item" data-section="section-app">App Setup</button>
           </div>
         </aside>
 
@@ -81,6 +82,16 @@
                 <input id="backendInstance" value="default" placeholder="default" />
               </div>
             </div>
+            <div class="row" style="margin-top:8px;">
+              <div>
+                <label>App Server URL</label>
+                <input id="appServerUrl" value="http://localhost:3003" placeholder="http://localhost:3003" />
+              </div>
+              <div>
+                <label>App API Base Path</label>
+                <input id="appApiBasePath" value="/api/v1" placeholder="/api/v1" />
+              </div>
+            </div>
             <div class="actions" style="margin-top:10px;">
               <button id="applyConfig" class="primary">Apply Config</button>
               <button id="saveConfig">Save</button>
@@ -91,6 +102,16 @@
 
           <section id="section-auth" class="card section">
             <h3>Auth</h3>
+            <div class="row" style="margin-top:8px;">
+              <div>
+                <label>App Token</label>
+                <input id="appToken" placeholder="<appKey>.<tokenId>" />
+              </div>
+              <div>
+                <label>Session</label>
+                <input id="appSession" placeholder="session key" />
+              </div>
+            </div>
             <div class="row" style="margin-top:8px;">
               <div>
                 <label>Username</label>
@@ -149,6 +170,63 @@
               <button id="fullTestBtn" class="primary">Run Full Test</button>
             </div>
           </section>
+
+          <section id="section-app" class="card section">
+            <h3>App Setup</h3>
+            <div class="row" style="margin-top:8px;">
+              <div>
+                <label>App Public Key (hex)</label>
+                <input id="appKey" />
+              </div>
+              <div>
+                <label>App Private Key (PEM)</label>
+                <input id="appPrivPem" />
+              </div>
+            </div>
+            <div class="actions" style="margin-top:10px;">
+              <button id="genAppKeys">Generate App Keys</button>
+            </div>
+            <div class="row" style="margin-top:8px;">
+              <div>
+                <label>Allowed Origins (comma-separated)</label>
+                <input id="appOrigins" value="*" />
+              </div>
+              <div>
+                <label>Action Name</label>
+                <input id="appActionName" value="registerForReceiveUpdates" />
+              </div>
+            </div>
+            <div class="row" style="margin-top:8px;">
+              <div>
+                <label>Validation Format</label>
+                <input id="appValidationFormat" value="email" />
+              </div>
+              <div>
+                <label>Write Path (plain)</label>
+                <input id="appWritePlain" value="mutable://accounts/:key/subscribers/updates/:signature" />
+              </div>
+            </div>
+            <div class="actions" style="margin-top:10px;">
+              <button id="registerAppBtn" class="primary">Register App</button>
+              <button id="updateSchemaBtn">Update Schema</button>
+              <button id="createSessionBtn">Create Session</button>
+            </div>
+            <hr style="border:none;border-top:1px solid #2a366f;margin:16px 0;" />
+            <h3>Invoke Action</h3>
+            <div class="row" style="margin-top:8px;">
+              <div>
+                <label>Action</label>
+                <input id="invokeActionName" value="registerForReceiveUpdates" />
+              </div>
+              <div>
+                <label>Payload (string)</label>
+                <input id="invokePayload" value="user@example.com" />
+              </div>
+            </div>
+            <div class="actions" style="margin-top:10px;">
+              <button id="invokeActionBtn">Invoke</button>
+            </div>
+          </section>
         </main>
 
         <aside class="sidepanel">
@@ -164,6 +242,6 @@
       </div>
     </div>
 
-    <script src="./writer.js" defer></script>
+    <script type="module" src="./writer.js" defer></script>
   </body>
   </html>
