@@ -33,7 +33,13 @@ export class AppsClient {
     if (!cfg.apiBasePath) throw new Error("apiBasePath is required");
     this.base = cfg.appServerUrl.replace(/\/$/, "");
     this.api = (cfg.apiBasePath.startsWith("/") ? cfg.apiBasePath : `/${cfg.apiBasePath}`).replace(/\/$/, "");
-    this.f = cfg.fetch || fetch;
+    if (cfg.fetch) {
+      this.f = cfg.fetch;
+    } else if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
+      this.f = window.fetch.bind(window);
+    } else {
+      this.f = fetch;
+    }
   }
 
   async health() {
@@ -59,6 +65,13 @@ export class AppsClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(actions),
     });
+    const j = await r.json();
+    if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
+    return j;
+  }
+
+  async getSchema(appKey: string): Promise<{ success: true; config: { appKey: string; allowedOrigins: string[]; actions: AppActionDef[] } }> {
+    const r = await this.f(`${this.base}${this.api}/apps/${encodeURIComponent(appKey)}/schema`);
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return j;

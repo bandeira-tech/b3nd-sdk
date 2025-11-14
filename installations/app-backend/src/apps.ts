@@ -170,38 +170,3 @@ async function pemToCryptoKey(
     );
   }
 }
-async function pemToCryptoKey(
-  pem: string,
-  algorithm: "Ed25519" | "X25519" = "Ed25519"
-): Promise<CryptoKey> {
-  const base64 = pem
-    .split("\n")
-    .filter((line) => !line.startsWith("-----"))
-    .join("");
-
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-
-  if (algorithm === "Ed25519") {
-    return await crypto.subtle.importKey(
-      "pkcs8",
-      buffer,
-      { name: "Ed25519", namedCurve: "Ed25519" },
-      false,
-      ["sign"]
-    );
-  } else {
-    return await crypto.subtle.importKey(
-      "pkcs8",
-      buffer,
-      { name: "X25519", namedCurve: "X25519" },
-      false,
-      ["deriveBits"]
-    );
-  }
-}

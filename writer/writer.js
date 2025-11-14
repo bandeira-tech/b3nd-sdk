@@ -78,35 +78,7 @@ async function walletServerKeys() {
   return data;
 }
 
-async function walletSignup(username, password) {
-  requireConfig();
-  const { walletUrl, apiBasePath } = state.config;
-  const res = await fetch(`${walletUrl}${apiBasePath}/auth/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.error || `Signup failed: ${res.statusText}`);
-  const session = { username: data.username, token: data.token, expiresIn: data.expiresIn };
-  setOutput(session);
-  return session;
-}
-
-async function walletLogin(username, password) {
-  requireConfig();
-  const { walletUrl, apiBasePath } = state.config;
-  const res = await fetch(`${walletUrl}${apiBasePath}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.error || `Login failed: ${res.statusText}`);
-  const session = { username: data.username, token: data.token, expiresIn: data.expiresIn };
-  setOutput(session);
-  return session;
-}
+// walletSignup/Login are not used; app-scoped methods via WalletClient are used directly in event handlers.
 
 async function walletMyPublicKeys() {
   requireConfig();
