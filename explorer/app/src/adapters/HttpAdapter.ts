@@ -103,6 +103,16 @@ export class HttpAdapter implements BackendAdapter {
     return result.status === "healthy";
   }
 
+  // Build a direct HTTP API read URL for a given explorer path
+  getReadUrl(path: string): string {
+    const uri = this.pathToUri(path);
+    const url = new URL(uri);
+    const protocol = url.protocol.replace(":", "");
+    const domain = url.hostname;
+    const recordPath = url.pathname;
+    return `${this.baseUrl}/api/v1/read/${protocol}/${domain}${recordPath}`;
+  }
+
   // Helper: Convert "/users/alice/profile" -> "users://alice/profile"
   private pathToUri(path: string): string {
     const parts = path.split("/").filter(Boolean);

@@ -15,7 +15,9 @@ import {
   ChevronRight,
   Folder,
   FileText,
+  Link as LinkIcon,
 } from "lucide-react";
+import { HttpAdapter } from "../../adapters/HttpAdapter";
 // no extra utils used here
 
 interface ContentViewerProps {
@@ -97,16 +99,17 @@ export function ContentViewer({ path }: ContentViewerProps) {
     loadContent();
   }, [loadContent]); // Depend on callback (re-runs when path changes)
 
-  const copyToClipboard = () => {
-    if (record) {
-      const jsonString = JSON.stringify(record.data, null, 2);
-      navigator.clipboard
-        .writeText(jsonString)
-        .then(() => {
-          console.log("Copied JSON to clipboard"); // Debug
-        })
-        .catch((err) => console.error("Copy failed:", err));
+  const copyToClipboard = async () => {
+    if (!record) {
+      throw new Error("No record loaded to copy");
     }
+
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      throw new Error("Clipboard API is not available in this browser");
+    }
+
+    const jsonString = JSON.stringify(record.data, null, 2);
+    await navigator.clipboard.writeText(jsonString);
   };
 
   if (loading) {
@@ -124,7 +127,13 @@ export function ContentViewer({ path }: ContentViewerProps) {
   }
 
   if (record) {
-    return <FileViewer record={record} onCopy={copyToClipboard} />;
+    const readUrl =
+      activeBackend?.adapter instanceof HttpAdapter
+        ? activeBackend.adapter.getReadUrl(path)
+        : undefined;
+    return (
+      <FileViewer record={record} onCopy={copyToClipboard} readUrl={readUrl} />
+    );
   }
 
   if (directoryContents.length > 0) {
@@ -141,11 +150,61 @@ export function ContentViewer({ path }: ContentViewerProps) {
 function FileViewer({
   record,
   onCopy,
+  readUrl,
 }: {
   record: PersistenceRecord;
-  onCopy: () => void;
+  onCopy: () => Promise<void>;
+  readUrl?: string;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const [copyState, setCopyState] = useState<"idle" | "success" | "error">(
+    "idle",
+  );
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  const handleCopyClick = async () => {
+    try {
+      setCopyError(null);
+      await onCopy();
+      setCopyState("success");
+      setTimeout(() => {
+        setCopyState("idle");
+      }, 2000);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to copy JSON";
+      setCopyError(message);
+      setCopyState("error");
+      setTimeout(() => {
+        setCopyState("idle");
+        setCopyError(null);
+      }, 4000);
+    }
+  };
+
+  const handleDownloadClick = () => {
+    try {
+      const jsonString = JSON.stringify(record.data, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "record.json";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to download JSON";
+      setCopyError(message);
+      setCopyState("error");
+      setTimeout(() => {
+        setCopyState("idle");
+        setCopyError(null);
+      }, 4000);
+    }
+  };
 
   const formatData = (data: any, level = 0): ReactNode => {
     if (data === null || data === undefined)
@@ -198,20 +257,40 @@ function FileViewer({
           <FileText className="h-5 w-5" />
           <span>Record Data</span>
         </h3>
-        <div className="flex space-x-2">
+        <div className="flex items-center space-x-2">
           <button
-            onClick={onCopy}
+            onClick={handleCopyClick}
             className="p-2 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             title="Copy JSON"
           >
             <Copy className="h-4 w-4" />
           </button>
           <button
+            onClick={handleDownloadClick}
             className="p-2 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             title="Download"
           >
             <Download className="h-4 w-4" />
           </button>
+          {readUrl && (
+            <a
+              href={readUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="p-2 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+              title="Open API URL"
+            >
+              <LinkIcon className="h-4 w-4" />
+            </a>
+          )}
+          {copyState === "success" && (
+            <span className="text-xs text-emerald-600">Copied</span>
+          )}
+          {copyState === "error" && copyError && (
+            <span className="text-xs text-destructive">
+              {copyError}
+            </span>
+          )}
         </div>
       </div>
       <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
