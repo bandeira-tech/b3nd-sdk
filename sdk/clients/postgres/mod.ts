@@ -150,38 +150,106 @@ export class PostgresClient implements NodeProtocolInterface {
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
     try {
-      const page = options?.page ?? 1;
-      const limit = options?.limit ?? 100;
-      const pattern = options?.pattern;
-      const offset = (page - 1) * limit;
       const table = `${this.tablePrefix}_data`;
 
-      const conditions: string[] = ["uri LIKE $1 || '%'" ];
-      const args: unknown[] = [uri];
-      if (pattern) {
-        const sqlPattern = String(pattern).replace(/\*/g, '%');
-        conditions.push("uri LIKE $2");
-        args.push(`%${sqlPattern}%`);
+      // In Postgres, URIs are stored as full strings (e.g., "users://alice/profile").
+      // To emulate MemoryClient's directory semantics, we:
+      //   - Treat the input URI as the "directory" prefix.
+      //   - Find all rows whose URI starts with that prefix + "/".
+      //   - Derive immediate children as either "file" or "directory" items.
+
+      const prefix = uri.endsWith("/") ? uri : `${uri}/`;
+
+      const rowsRes = await this.executor.query(
+        `SELECT uri, timestamp FROM ${table} WHERE uri LIKE $1 || '%'`,
+        [prefix],
+      );
+
+      type ItemWithTs = { uri: string; type: "file" | "directory"; ts: number };
+
+      const directories = new Map<string, ItemWithTs>();
+      const files: ItemWithTs[] = [];
+
+      for (const raw of rowsRes.rows || []) {
+        const row = raw as { uri?: unknown; timestamp?: unknown };
+        if (typeof row.uri !== "string") continue;
+
+        const fullUri = row.uri;
+        if (!fullUri.startsWith(prefix)) continue;
+
+        const relative = fullUri.slice(prefix.length);
+        if (!relative) continue;
+
+        const [firstSegment, ...rest] = relative.split("/");
+        if (!firstSegment) continue;
+
+        const ts =
+          typeof row.timestamp === "number"
+            ? row.timestamp
+            : row.timestamp != null
+              ? Number(row.timestamp)
+              : 0;
+
+        if (rest.length === 0) {
+          // Leaf file directly under the prefix
+          files.push({ uri: fullUri, type: "file", ts });
+        } else {
+          // Directory directly under the prefix (may have many rows under it)
+          const dirUri = `${prefix}${firstSegment}`;
+          if (!directories.has(dirUri)) {
+            directories.set(dirUri, {
+              uri: dirUri,
+              type: "directory",
+              ts: 0,
+            });
+          }
+        }
       }
 
-      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-      const listSql = `SELECT uri FROM ${table} ${where} ORDER BY uri LIMIT ${limit} OFFSET ${offset}`;
-      const countSql = `SELECT COUNT(*)::int AS count FROM ${table} ${where}`;
+      let items: ItemWithTs[] = [
+        ...directories.values(),
+        ...files,
+      ];
 
-      const [rowsRes, countRes] = await Promise.all([
-        this.executor.query(listSql, args),
-        this.executor.query(countSql, args),
-      ]);
+      if (options?.pattern) {
+        const regex = new RegExp(options.pattern);
+        items = items.filter((item) => regex.test(item.uri));
+      }
 
-      const total = (countRes.rows && (countRes.rows[0] as any)?.count) ?? 0;
-      const data: ListItem[] = (rowsRes.rows || []).map((r: any) => ({
-        uri: r.uri,
-        type: 'file',
+      if (options?.sortBy === "name") {
+        items.sort((a, b) => a.uri.localeCompare(b.uri));
+      } else if (options?.sortBy === "timestamp") {
+        items.sort((a, b) => a.ts - b.ts);
+      }
+
+      if (options?.sortOrder === "desc") {
+        items.reverse();
+      }
+
+      const page = options?.page ?? 1;
+      const limit = options?.limit ?? 50;
+      const offset = (page - 1) * limit;
+      const paginated = items.slice(offset, offset + limit);
+
+      const data: ListItem[] = paginated.map((item) => ({
+        uri: item.uri,
+        type: item.type,
       }));
 
-      return { success: true, data, pagination: { page, limit, total } };
+      return {
+        success: true,
+        data,
+        pagination: {
+          page,
+          limit,
+          total: items.length,
+        },
+      };
     } catch (error) {
-      return { success: true, data: [], pagination: { page: options?.page ?? 1, limit: options?.limit ?? 100 } };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -251,13 +319,13 @@ export class PostgresClient implements NodeProtocolInterface {
 
   /**
    * Extract program key from URI (protocol://toplevel)
-   * Examples:
-   *   "users://alice/profile" -> "users://"
-   *   "cache://session/123" -> "cache://"
+   * Mirrors MemoryClient behavior:
+   *   "users://alice/profile" -> "users://alice"
+   *   "cache://session/123" -> "cache://session"
    */
   private extractProgramKey(uri: string): string {
-    const match = uri.match(/^([^:]+:\/\/)/);
-    return match ? match[1] : "";
+    const url = new URL(uri);
+    return `${url.protocol}//${url.hostname}`;
   }
 
   /**
