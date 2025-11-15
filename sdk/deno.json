@@ -1,21 +1,48 @@
 {
   "name": "@b3nd/sdk",
-  "version": "0.1.0",
-  "exports": "./src/mod.ts",
+  "version": "0.2.0",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./types": "./src/types.ts",
+    "./auth": "./auth/mod.ts",
+    "./encrypt": "./encrypt/mod.ts",
+    "./clients/memory": "./clients/memory/mod.ts",
+    "./clients/http": "./clients/http/mod.ts",
+    "./clients/websocket": "./clients/websocket/mod.ts",
+    "./clients/postgres": "./clients/postgres/mod.ts",
+    "./wallet": "./wallet/mod.ts",
+    "./apps": "./apps/mod.ts"
+  },
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.15",
-    "@std/encoding": "jsr:@std/encoding@^1.0.10",
-    
+    "@std/encoding": "jsr:@std/encoding@^1.0.10"
   },
   "tasks": {
+    "build:npm": "deno run -A build-npm.ts",
     "build": "deno run -A build-final.ts",
     "test": "deno test -A tests/",
     "lint": "deno lint src/",
     "fmt": "deno fmt src/",
-    "check": "deno check src/mod.ts"
+    "check": "deno check src/mod.ts",
+    "publish:jsr": "deno publish --allow-dirty",
+    "publish:npm": "npm run prepublishOnly && cd dist && npm publish"
   },
   "compilerOptions": {
     "strict": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable", "deno.ns"]
+  },
+  "publish": {
+    "exclude": [
+      "dist/",
+      "build/",
+      "node_modules/",
+      "build*.ts",
+      "tests/",
+      "clients/indexed-db/",
+      "clients/local-storage/",
+      ".env*",
+      "*.test.ts",
+      "*.js"
+    ]
   }
 }

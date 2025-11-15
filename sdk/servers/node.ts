@@ -27,7 +27,10 @@ export interface ServerNodeOptions {
   schema: Schema;
 }
 
-export function createServerNode(options: ServerNodeOptions) {
+export function createServerNode(options: ServerNodeOptions): {
+  serverHandler: (req: Request) => Response | Promise<Response>;
+  listen: (port: number) => void | Promise<void>;
+} {
   if (!options?.frontend) throw new Error("frontend is required");
   if (!options?.backend?.write || !options?.backend?.read) {
     throw new Error("backend write/read are required");

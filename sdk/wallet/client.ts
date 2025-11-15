@@ -70,7 +70,14 @@ export class WalletClient {
     // Normalize apiBasePath to start with "/" and have no trailing slash
     const normalized = (config.apiBasePath.startsWith("/") ? config.apiBasePath : `/${config.apiBasePath}`).replace(/\/$/, "");
     this.apiBasePath = normalized;
-    this.fetchImpl = config.fetch || fetch;
+    if (config.fetch) {
+      this.fetchImpl = config.fetch;
+    } else if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
+      // Bind to window to avoid Safari "Can only call Window.fetch on instances of Window"
+      this.fetchImpl = window.fetch.bind(window);
+    } else {
+      this.fetchImpl = fetch;
+    }
   }
 
   /**

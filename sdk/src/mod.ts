@@ -32,9 +32,9 @@ export type {
 export { MemoryClient } from "../clients/memory/mod.ts";
 export { HttpClient } from "../clients/http/mod.ts";
 export { WebSocketClient } from "../clients/websocket/mod.ts";
-export { LocalStorageClient } from "../clients/local-storage/mod.ts";
-export { IndexedDBClient } from "../clients/indexed-db/mod.ts";
 export { PostgresClient } from "../clients/postgres/mod.ts";
+// Note: LocalStorageClient and IndexedDBClient are browser-only
+// and not included in the JSR package. Use the npm package for browser support.
 
 // PostgreSQL schema utilities
 export {
