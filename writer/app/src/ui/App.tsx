@@ -22,6 +22,7 @@ export function App() {
   const [session, setSession] = useState<{ username: string; token: string; expiresIn: number } | null>(null)
   const [appKey, setAppKey] = useState('')
   const [appToken, setAppToken] = useState('')
+  const [accountPrivateKeyPem, setAccountPrivateKeyPem] = useState('')
   const [appSession, setAppSession] = useState('')
   const [plainUri, setPlainUri] = useState('mutable://accounts/:key/profile')
   const [encUri, setEncUri] = useState('mutable://accounts/:key/private')
@@ -40,6 +41,7 @@ export function App() {
   const [writeEncPath, setWriteEncPath] = useState('immutable://accounts/:key/subscribers/updates/:signature')
   const [actionPayload, setActionPayload] = useState('user@example.com')
   const [encPublicKeyHex, setEncPublicKeyHex] = useState('')
+  const [encPrivateKeyPem, setEncPrivateKeyPem] = useState('')
 
   const wallet = useMemo(() => new WalletClient({ walletServerUrl: cfg.walletUrl.replace(/\/$/, ''), apiBasePath: cfg.apiBasePath }), [cfg.walletUrl, cfg.apiBasePath])
   const backend = useMemo(() => new HttpClient({ url: cfg.backendUrl.replace(/\/$/, '') }), [cfg.backendUrl])
@@ -78,8 +80,13 @@ export function App() {
     const encKp = await crypto.subtle.generateKey({ name: 'X25519', namedCurve: 'X25519' } as any, true, ['deriveBits']) as CryptoKeyPair
     const encPubRaw = await crypto.subtle.exportKey('raw', encKp.publicKey)
     const encPubHex = Array.from(new Uint8Array(encPubRaw)).map(b=>b.toString(16).padStart(2,'0')).join('')
+    const encPrivPkcs8 = await crypto.subtle.exportKey('pkcs8', encKp.privateKey)
+    const encPrivB64 = btoa(String.fromCharCode(...new Uint8Array(encPrivPkcs8)))
+    const encPrivPem = `-----BEGIN PRIVATE KEY-----\n${(encPrivB64.match(/.{1,64}/g) || []).join('\n')}\n-----END PRIVATE KEY-----`
     setEncPublicKeyHex(encPubHex)
-    setOutput({ publicKeyHex: pubHex, privateKeyPem: privPem, encryptionPublicKeyHex: encPubHex })
+    setEncPrivateKeyPem(encPrivPem)
+    setAccountPrivateKeyPem(privPem)
+    setOutput({ publicKeyHex: pubHex, privateKeyPem: privPem, encryptionPublicKeyHex: encPubHex, encryptionPrivateKeyPem: encPrivPem })
     logLine('local', 'Generated app keys (identity + encryption)')
   }
 
@@ -94,7 +101,7 @@ export function App() {
       setOutput({ error: 'encryptionPublicKeyHex required for encrypted actions' });
       return;
     }
-    const payload: any = { appKey, accountPrivateKeyPem: (output?.privateKeyPem || ''), allowedOrigins: ['*'], actions: [act], encryptionPublicKeyHex: encPublicKeyHex };
+    const payload: any = { appKey, accountPrivateKeyPem, allowedOrigins: ['*'], actions: [act], encryptionPublicKeyHex: encPublicKeyHex, encryptionPrivateKeyPem: encPrivateKeyPem };
     const res = await apps.registerApp(payload)
     setOutput(res)
     if ((res as any).token) setAppToken((res as any).token)
@@ -128,6 +135,7 @@ export function App() {
   const signup = async (username: string, password: string) => {
     const s = await wallet.signupWithToken(appToken, { username, password })
     setSession(s)
+    apps.setAuthToken(s.token)
     logLine('wallet', 'Signup ok')
     setOutput(s)
   }
@@ -135,6 +143,7 @@ export function App() {
   const login = async (username: string, password: string) => {
     const s = await wallet.loginWithTokenSession(appToken, appSession, { username, password })
     setSession(s)
+    apps.setAuthToken(s.token)
     logLine('wallet', 'Login ok')
     setOutput(s)
   }
@@ -170,7 +179,13 @@ export function App() {
   }
 
   const readLast = async () => {
-    const target = lastResolvedUri || lastAppUri || plainUri
+    if (lastAppUri) {
+      const res = await apps.read(appKey, lastAppUri)
+      setOutput(res)
+      logLine('apps', 'Read via app backend ok')
+      return
+    }
+    const target = lastResolvedUri || plainUri
     const res = await backend.read(target)
     setOutput(res)
     logLine('backend', 'Read ok')
