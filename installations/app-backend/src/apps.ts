@@ -14,6 +14,7 @@ export interface AppRegistration {
   appKey: string; // account public key hex (Ed25519)
   accountPrivateKeyPem: string; // private key PEM (Ed25519)
   encryptionPublicKeyHex?: string; // X25519 public key hex (optional, used for encrypted writes)
+  encryptionPrivateKeyPem?: string; // X25519 private key PEM (optional, enables server-side decryption)
   allowedOrigins: string[];
   actions: AppActionDef[];
   tokens?: string[]; // internal token ids (not full tokens)
@@ -41,6 +42,7 @@ export async function registerApp(
     secrets: {
       accountPrivateKeyPem: reg.accountPrivateKeyPem,
       encryptionPublicKeyHex: reg.encryptionPublicKeyHex || null,
+      encryptionPrivateKeyPem: reg.encryptionPrivateKeyPem || null,
       tokens: reg.tokens || [],
     },
   };
@@ -66,6 +68,7 @@ export async function loadAppConfig(
   config: StoredAppConfig;
   accountPrivateKeyPem: string;
   encryptionPublicKeyHex: string | null;
+  encryptionPrivateKeyPem: string | null;
   tokens: string[];
 }> {
   const path = `apps/${appKey}`;
@@ -85,6 +88,7 @@ export async function loadAppConfig(
     },
     accountPrivateKeyPem: obj.secrets.accountPrivateKeyPem,
     encryptionPublicKeyHex: obj.secrets.encryptionPublicKeyHex,
+    encryptionPrivateKeyPem: obj.secrets.encryptionPrivateKeyPem || null,
     tokens: Array.isArray(obj.secrets.tokens) ? obj.secrets.tokens : [],
   };
 }

@@ -19,26 +19,17 @@ import { HttpClient } from "@b3nd/sdk";
 import type { Context } from "hono";
 
 import { loadConfig } from "./config.ts";
+import { loadServerKeys, signWithServerKey } from "./server-keys.ts";
 import {
-  loadServerKeys,
-  signWithServerKey,
-} from "./server-keys.ts";
-import {
-  userExists,
-  createUser,
   authenticateUser,
   changePassword,
   createPasswordResetToken,
+  createUser,
   resetPasswordWithToken,
+  userExists,
 } from "./auth.ts";
-import {
-  createJwt,
-  verifyJwt,
-} from "./jwt.ts";
-import {
-  generateUserKeys,
-  getUserPublicKeys,
-} from "./keys.ts";
+import { createJwt, verifyJwt } from "./jwt.ts";
+import { generateUserKeys, getUserPublicKeys } from "./keys.ts";
 import { proxyWrite } from "./proxy.ts";
 
 /**
@@ -65,7 +56,7 @@ function createApp(
   config: ReturnType<typeof loadConfig>,
   credentialClient: any,
   proxyClient: any,
-  serverKeys: any
+  serverKeys: any,
 ) {
   const app = new Hono();
   const serverPublicKey = serverKeys.identityKey.publicKeyHex;
@@ -78,10 +69,14 @@ function createApp(
   app.use(
     "/*",
     cors({
-      origin: config.allowedOrigins,
+      origin: (origin) =>
+        console.log(config) ||
+          config.allowedOrigins[0] === "*"
+          ? origin
+          : config.allowedOrigins.join(","),
       allowMethods: ["GET", "POST", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
-    })
+    }),
   );
 
   // Request logging middleware
@@ -90,9 +85,9 @@ function createApp(
     await next();
     const duration = Date.now() - start;
     console.log(
-      `[${new Date().toISOString()}] ${c.req.method} ${c.req.path} ${
-        c.res.status
-      } - ${duration}ms`
+      `[${
+        new Date().toISOString()
+      }] ${c.req.method} ${c.req.path} ${c.res.status} - ${duration}ms`,
     );
   });
 
@@ -127,7 +122,7 @@ function createApp(
       if (!authHeader?.startsWith("Bearer ")) {
         return c.json(
           { success: false, error: "Authorization header required" },
-          401
+          401,
         );
       }
 
@@ -139,7 +134,7 @@ function createApp(
         credentialClient,
         serverPublicKey,
         username,
-        serverEncryptionPrivateKeyPem
+        serverEncryptionPrivateKeyPem,
       );
 
       return c.json({
@@ -153,8 +148,26 @@ function createApp(
           success: false,
           error: error instanceof Error ? error.message : String(error),
         },
-        400
+        400,
       );
+    }
+  });
+
+  /**
+   * GET /api/v1/auth/verify - Verify JWT and return identity
+   * Headers: Authorization: Bearer <jwt>
+   */
+  app.get("/api/v1/auth/verify", async (c: Context) => {
+    try {
+      const authHeader = c.req.header("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
+        return c.json({ success: false, error: "Authorization header required" }, 401);
+      }
+      const token = authHeader.substring(7);
+      const payload = await verifyJwt(token, config.jwtSecret);
+      return c.json({ success: true, username: payload.username, exp: payload.exp });
+    } catch (error) {
+      return c.json({ success: false, error: error instanceof Error ? error.message : String(error) }, 401);
     }
   });
 
@@ -164,10 +177,16 @@ function createApp(
     return { appKey, tokenId };
   }
 
-  async function sessionExists(appKey: string, tokenId: string, sessionKey: string): Promise<boolean> {
+  async function sessionExists(
+    appKey: string,
+    tokenId: string,
+    sessionKey: string,
+  ): Promise<boolean> {
     const input = new TextEncoder().encode(`${tokenId}.${sessionKey}`);
     const digest = await crypto.subtle.digest("SHA-256", input);
-    const sigHex = Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("").substring(0,32);
+    const sigHex = Array.from(new Uint8Array(digest)).map((b) =>
+      b.toString(16).padStart(2, "0")
+    ).join("").substring(0, 32);
     const uri = `mutable://accounts/${appKey}/sessions/${sigHex}`;
     const res = await proxyClient.read(uri);
     return res.success;
@@ -188,7 +207,7 @@ function createApp(
       if (!username || typeof username !== "string") {
         return c.json(
           { success: false, error: "username is required" },
-          400
+          400,
         );
       }
 
@@ -198,7 +217,7 @@ function createApp(
             success: false,
             error: "password is required and must be at least 8 characters",
           },
-          400
+          400,
         );
       }
 
@@ -212,7 +231,7 @@ function createApp(
         serverIdentityPrivateKeyPem,
         serverIdentityPublicKeyHex,
         serverEncryptionPublicKeyHex,
-        appKey
+        appKey,
       );
       console.log(`✅ User created: ${username}`);
 
@@ -224,21 +243,21 @@ function createApp(
         username,
         serverIdentityPrivateKeyPem,
         serverIdentityPublicKeyHex,
-        serverEncryptionPublicKeyHex
+        serverEncryptionPublicKeyHex,
       );
       console.log(`✅ Keys generated for user: ${username}`);
 
       // Create JWT token
-      const token = await createJwt(
+      const jwt = await createJwt(
         username,
         config.jwtSecret,
-        config.jwtExpirationSeconds
+        config.jwtExpirationSeconds,
       );
 
       return c.json({
         success: true,
         username,
-        token,
+        token: jwt,
         expiresIn: config.jwtExpirationSeconds,
       });
     } catch (error) {
@@ -247,14 +266,14 @@ function createApp(
       if (message.includes("already exists")) {
         return c.json(
           { success: false, error: "User already exists" },
-          409
+          409,
         );
       }
 
       console.error("Signup error:", error);
       return c.json(
         { success: false, error: message },
-        500
+        500,
       );
     }
   });
@@ -278,7 +297,7 @@ function createApp(
       if (!username || !password) {
         return c.json(
           { success: false, error: "username and password are required" },
-          400
+          400,
         );
       }
 
@@ -296,27 +315,27 @@ function createApp(
         password,
         serverIdentityPublicKeyHex,
         serverEncryptionPrivateKeyPem,
-        appKey
+        appKey,
       );
 
       if (!isValid) {
         return c.json(
           { success: false, error: "Invalid username or password" },
-          401
+          401,
         );
       }
 
       // Create JWT token
-      const token = await createJwt(
+      const jwt = await createJwt(
         username,
         config.jwtSecret,
-        config.jwtExpirationSeconds
+        config.jwtExpirationSeconds,
       );
 
       return c.json({
         success: true,
         username,
-        token,
+        token: jwt,
         expiresIn: config.jwtExpirationSeconds,
       });
     } catch (error) {
@@ -326,7 +345,7 @@ function createApp(
           success: false,
           error: error instanceof Error ? error.message : String(error),
         },
-        500
+        500,
       );
     }
   });
@@ -342,7 +361,7 @@ function createApp(
       if (!authHeader?.startsWith("Bearer ")) {
         return c.json(
           { success: false, error: "Authorization header required" },
-          401
+          401,
         );
       }
 
@@ -357,14 +376,17 @@ function createApp(
       if (!oldPassword || !newPassword) {
         return c.json(
           { success: false, error: "oldPassword and newPassword are required" },
-          400
+          400,
         );
       }
 
       if (newPassword.length < 8) {
         return c.json(
-          { success: false, error: "newPassword must be at least 8 characters" },
-          400
+          {
+            success: false,
+            error: "newPassword must be at least 8 characters",
+          },
+          400,
         );
       }
 
@@ -378,7 +400,7 @@ function createApp(
         serverIdentityPrivateKeyPem,
         serverIdentityPublicKeyHex,
         serverEncryptionPublicKeyHex,
-        serverEncryptionPrivateKeyPem
+        serverEncryptionPrivateKeyPem,
       );
 
       return c.json({
@@ -399,7 +421,7 @@ function createApp(
       console.error("Change password error:", error);
       return c.json(
         { success: false, error: message },
-        500
+        500,
       );
     }
   });
@@ -419,7 +441,7 @@ function createApp(
       if (!username) {
         return c.json(
           { success: false, error: "username is required" },
-          400
+          400,
         );
       }
 
@@ -432,7 +454,7 @@ function createApp(
         serverIdentityPrivateKeyPem,
         serverIdentityPublicKeyHex,
         serverEncryptionPublicKeyHex,
-        appKey
+        appKey,
       );
 
       return c.json({
@@ -447,14 +469,14 @@ function createApp(
       if (message.includes("not found")) {
         return c.json(
           { success: false, error: "User not found" },
-          404
+          404,
         );
       }
 
       console.error("Request password reset error:", error);
       return c.json(
         { success: false, error: message },
-        500
+        500,
       );
     }
   });
@@ -465,7 +487,8 @@ function createApp(
    */
   app.post("/api/v1/auth/reset-password", async (c: Context) => {
     try {
-      const { token, username, resetToken, newPassword } = await c.req.json() as any;
+      const { token, username, resetToken, newPassword } = await c.req
+        .json() as any;
 
       if (!token || typeof token !== "string") {
         return c.json({ success: false, error: "token is required" }, 400);
@@ -473,15 +496,21 @@ function createApp(
       const { appKey } = parseAppToken(token);
       if (!username || !resetToken || !newPassword) {
         return c.json(
-          { success: false, error: "username, resetToken and newPassword are required" },
-          400
+          {
+            success: false,
+            error: "username, resetToken and newPassword are required",
+          },
+          400,
         );
       }
 
       if (newPassword.length < 8) {
         return c.json(
-          { success: false, error: "newPassword must be at least 8 characters" },
-          400
+          {
+            success: false,
+            error: "newPassword must be at least 8 characters",
+          },
+          400,
         );
       }
 
@@ -496,14 +525,14 @@ function createApp(
         serverEncryptionPublicKeyHex,
         serverEncryptionPrivateKeyPem,
         username,
-        appKey
+        appKey,
       );
 
       // Issue new JWT
       const newToken = await createJwt(
         resetUsername,
         config.jwtSecret,
-        config.jwtExpirationSeconds
+        config.jwtExpirationSeconds,
       );
 
       return c.json({
@@ -523,7 +552,7 @@ function createApp(
       console.error("Reset password error:", error);
       return c.json(
         { success: false, error: message },
-        500
+        500,
       );
     }
   });
@@ -539,7 +568,7 @@ function createApp(
       if (!authHeader?.startsWith("Bearer ")) {
         return c.json(
           { success: false, error: "Authorization header required" },
-          401
+          401,
         );
       }
 
@@ -554,14 +583,14 @@ function createApp(
       if (!uri) {
         return c.json(
           { success: false, error: "uri is required" },
-          400
+          400,
         );
       }
 
       if (data === undefined) {
         return c.json(
           { success: false, error: "data is required" },
-          400
+          400,
         );
       }
 
@@ -596,7 +625,7 @@ function createApp(
       console.error("Proxy write error:", error);
       return c.json(
         { success: false, error: message },
-        500
+        500,
       );
     }
   });
@@ -620,10 +649,14 @@ async function main() {
   const serverKeys = loadServerKeys();
   const serverPublicKey = serverKeys.identityKey.publicKeyHex;
   console.log(`   ✓ Server Identity: ${serverPublicKey.slice(0, 16)}...`);
-  console.log(`   ✓ Server Encryption: ${serverKeys.encryptionKey.publicKeyHex.slice(
-    0,
-    16
-  )}...`);
+  console.log(
+    `   ✓ Server Encryption: ${
+      serverKeys.encryptionKey.publicKeyHex.slice(
+        0,
+        16,
+      )
+    }...`,
+  );
 
   // Initialize b3nd clients
   console.log("📡 Initializing b3nd clients...");
@@ -642,10 +675,14 @@ async function main() {
       console.log("   POST   /api/v1/auth/signup - Register new user");
       console.log("   POST   /api/v1/auth/login - Authenticate user");
       console.log("   POST   /api/v1/auth/change-password - Change password");
-      console.log("   POST   /api/v1/auth/request-password-reset - Request reset token");
+      console.log(
+        "   POST   /api/v1/auth/request-password-reset - Request reset token",
+      );
       console.log("   POST   /api/v1/auth/reset-password - Reset with token");
       console.log("   POST   /api/v1/proxy/write - Proxy write request");
-      console.log("   GET    /api/v1/public-keys - Get current user's public keys");
+      console.log(
+        "   GET    /api/v1/public-keys - Get current user's public keys",
+      );
       console.log("   GET    /api/v1/server-keys - Get server public keys");
       console.log("   GET    /api/v1/health - Health check\n");
     },

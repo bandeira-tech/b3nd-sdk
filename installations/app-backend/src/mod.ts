@@ -50,7 +50,20 @@ async function main() {
   app.get("/api/v1/health", (c) => c.json({ status: "ok", server: "b3nd-app-backend", ts: new Date().toISOString() }));
 
   // Register app with schema and keys (requires identity and encryption)
+  // Helper to require wallet auth and get username
+  async function requireWalletAuth(c: Context): Promise<{ username: string } | null> {
+    const auth = c.req.header("Authorization");
+    if (!auth?.startsWith("Bearer ")) return null;
+    const r = await fetch(`${config.walletServerUrl}${config.walletApiBasePath}/auth/verify`, { headers: { Authorization: auth } });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => ({}));
+    if (!j?.success || !j?.username) return null;
+    return { username: j.username };
+  }
+
   app.post("/api/v1/apps/register", async (c) => {
+    const auth = await requireWalletAuth(c);
+    if (!auth) return c.json({ success: false, error: "unauthorized" }, 401);
     const body = (await c.req.json()) as AppRegistration;
     if (!body || !body.appKey || !body.accountPrivateKeyPem || !Array.isArray(body.allowedOrigins) || !Array.isArray(body.actions)) {
       return c.json({ success: false, error: "invalid registration payload" }, 400);
@@ -58,6 +71,10 @@ async function main() {
     // Require encryption public key to be set at registration time so future encrypted actions are possible
     if (!body.encryptionPublicKeyHex) {
       return c.json({ success: false, error: "encryptionPublicKeyHex required in registration" }, 400);
+    }
+    // Also accept/encourage storing encryption private key to enable server-side decryption for app reads
+    if (!body.encryptionPrivateKeyPem) {
+      return c.json({ success: false, error: "encryptionPrivateKeyPem required in registration" }, 400);
     }
     // create a token id and return composite token `${appKey}.${tokenId}`
     const tokenIdBytes = crypto.getRandomValues(new Uint8Array(16));
@@ -73,11 +90,13 @@ async function main() {
       { ...body, tokens: [tokenId] },
     );
     if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
-    return c.json({ success: true, token });
+    return c.json({ success: true, token, owner: auth.username });
   });
 
   // Update schema only
   app.post("/api/v1/apps/:appKey/schema", async (c) => {
+    const auth = await requireWalletAuth(c);
+    if (!auth) return c.json({ success: false, error: "unauthorized" }, 401);
     const appKey = c.req.param("appKey");
     const actions = (await c.req.json()) as any[];
     if (!Array.isArray(actions)) return c.json({ success: false, error: "invalid actions payload" }, 400);
@@ -116,6 +135,8 @@ async function main() {
 
   // Fetch current schema (redacted; no secrets)
   app.get("/api/v1/apps/:appKey/schema", async (c) => {
+    const auth = await requireWalletAuth(c);
+    if (!auth) return c.json({ success: false, error: "unauthorized" }, 401);
     const appKey = c.req.param("appKey");
     try {
       const loaded = await loadAppConfig(
@@ -127,6 +148,47 @@ async function main() {
       return c.json({ success: true, config: loaded.config });
     } catch (e) {
       return c.json({ success: false, error: (e as Error).message || "not found" }, 404);
+    }
+  });
+
+  // Read and (if needed) decrypt a record for an app
+  app.get("/api/v1/app/:appKey/read", async (c) => {
+    const appKey = c.req.param("appKey");
+    const url = new URL(c.req.url);
+    const uri = url.searchParams.get("uri");
+    if (!uri) return c.json({ success: false, error: "uri is required" }, 400);
+
+    try {
+      const loaded = await loadAppConfig(
+        dataClient,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.encryptionKey.privateKeyPem,
+        appKey,
+      );
+
+      const readRes = await dataClient.read<any>(uri);
+      if (!readRes.success || !readRes.record) {
+        return c.json({ success: false, error: readRes.error || "not found" }, 404);
+      }
+
+      const raw = readRes.record.data;
+      let data: unknown = raw;
+      const hasPayload = raw && typeof raw === 'object' && 'payload' in (raw as any);
+      // If encrypted, decrypt using app's encryption private key
+      const maybeEncrypted = hasPayload && (raw as any).payload && typeof (raw as any).payload === 'object' && 'nonce' in (raw as any).payload && 'data' in (raw as any).payload;
+      if (maybeEncrypted) {
+        if (!loaded.encryptionPrivateKeyPem) return c.json({ success: false, error: "no encryptionPrivateKeyPem configured for app" }, 400);
+        const { verifyAndDecrypt } = await import("@b3nd/sdk/encrypt");
+        const encPriv = await pemToCryptoKey(loaded.encryptionPrivateKeyPem, "X25519");
+        const dec = await verifyAndDecrypt(raw as any, encPriv);
+        data = dec.data;
+      } else if (hasPayload) {
+        data = (raw as any).payload;
+      }
+
+      return c.json({ success: true, uri, record: { ts: readRes.record.ts, data }, raw: readRes.record.data });
+    } catch (e) {
+      return c.json({ success: false, error: (e as Error).message || "read failed" }, 500);
     }
   });
 
@@ -222,6 +284,7 @@ async function main() {
       console.log("   POST   /api/v1/apps/:appKey/schema");
       console.log("   GET    /api/v1/apps/:appKey/schema");
       console.log("   POST   /api/v1/app/:appKey/session");
+      console.log("   GET    /api/v1/app/:appKey/read");
       console.log("   POST   /api/v1/app/:appKey/:action\n");
     },
     handler: app.fetch,
