@@ -179,6 +179,7 @@ export class MockHttpServer {
     const limit = parseInt(url.searchParams.get("limit") || "50");
 
     const result: ListResult = {
+      success: true,
       data: items.slice((page - 1) * limit, page * limit),
       pagination: {
         page,

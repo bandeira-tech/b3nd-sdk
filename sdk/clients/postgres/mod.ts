@@ -33,6 +33,7 @@ export interface SqlExecutorResult {
 
 export interface SqlExecutor {
   query: (sql: string, args?: unknown[]) => Promise<SqlExecutorResult>;
+  cleanup?: () => Promise<void>;
 }
 
 export class PostgresClient implements NodeProtocolInterface {
@@ -298,9 +299,10 @@ export class PostgresClient implements NodeProtocolInterface {
   }
 
   async cleanup(): Promise<void> {
-    // Close database connections
+    if (this.executor.cleanup) {
+      await this.executor.cleanup();
+    }
     this.connected = false;
-    // In real implementation: await this.pool.end();
   }
 
   /**

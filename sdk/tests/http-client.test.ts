@@ -62,7 +62,6 @@ Deno.test("HttpClient - custom headers configuration", () => {
 Deno.test("HttpClient - instance ID configuration", () => {
   const client = new HttpClient({
     url: "https://api.example.com",
-    instanceId: "production",
   });
 
   // Validate construction doesn't throw

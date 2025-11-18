@@ -1,17 +1,66 @@
 import type { Schema } from "../../sdk/src/types.ts";
+import {
+  authValidation,
+  createPubkeyBasedAccess,
+} from "../../sdk/auth/mod.ts";
 
 const schema: Schema = {
-  "users://": async ({ value }) => {
-    if (typeof value === "object" && value !== null && "name" in (value as any)) {
-      return { valid: true };
+  "mutable://open": () => Promise.resolve({ valid: true }),
+
+  "mutable://accounts": async ({ uri, value }) => {
+    try {
+      // Use pubkey-based access control: extract pubkey from URI path
+      const getAccess = createPubkeyBasedAccess();
+      const validator = authValidation(getAccess);
+
+      // Call the validator with the expected format
+      const isValid = await validator({ uri, value });
+
+      return {
+        valid: isValid,
+        error: isValid ? undefined : "Signature verification failed",
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : "Validation error",
+      };
     }
-    return { valid: false, error: "users requires a name field" };
   },
-  // Allow all values under test:// for E2E write-list-read
-  "test://": async ({ value }) => {
-    // accept any JSON value for tests
-    try { JSON.stringify(value); } catch { return { valid: false, error: 'invalid json' }; }
-    return { valid: true };
+
+  "immutable://open": async ({ uri, value, read }) => {
+    const result = await read(uri);
+    return Promise.resolve({ valid: !result.success });
+  },
+
+  "immutable://accounts": async ({ uri, value, read }) => {
+    try {
+      // Use pubkey-based access control: extract pubkey from URI path
+      const getAccess = createPubkeyBasedAccess();
+      const validator = authValidation(getAccess);
+
+      // Call the validator with the expected format
+      const isValid = await validator({ uri, value });
+
+      if (isValid) {
+        const result = await read(uri);
+
+        return {
+          valid: !result.success,
+          ...(result.success ? { error: "immutable object exists" } : {}),
+        };
+      }
+
+      return {
+        valid: isValid,
+        error: isValid ? undefined : "Signature verification failed",
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : "Validation error",
+      };
+    }
   },
 };
 
