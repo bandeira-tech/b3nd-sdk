@@ -18,6 +18,7 @@ export type {
   MemoryClientConfig,
   NodeProtocolInterface,
   PersistenceRecord,
+  MongoClientConfig,
   PostgresClientConfig,
   ReadResult,
   Schema,
@@ -33,6 +34,7 @@ export { MemoryClient } from "../clients/memory/mod.ts";
 export { HttpClient } from "../clients/http/mod.ts";
 export { WebSocketClient } from "../clients/websocket/mod.ts";
 export { PostgresClient } from "../clients/postgres/mod.ts";
+export { MongoClient } from "../clients/mongo/mod.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 

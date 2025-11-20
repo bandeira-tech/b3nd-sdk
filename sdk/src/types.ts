@@ -305,6 +305,27 @@ export interface PostgresClientConfig {
 }
 
 /**
+ * Configuration for MongoClient
+ */
+export interface MongoClientConfig {
+  /**
+   * MongoDB connection string
+   * Example: "mongodb://user:password@localhost:27017/database"
+   */
+  connectionString: string;
+
+  /**
+   * Schema for validation - must be explicitly provided
+   */
+  schema: Schema;
+
+  /**
+   * Collection name for b3nd data - must be explicitly provided
+   */
+  collectionName: string;
+}
+
+/**
  * Error class for client operations
  * Preserves error context without hiding details
  */

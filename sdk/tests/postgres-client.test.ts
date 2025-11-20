@@ -69,6 +69,18 @@ const postgresSetupPromise: Promise<PostgresSetupResult> = (async () => {
   const password = Deno.env.get("POSTGRES_PASSWORD") ?? "postgres";
   const port = Number(Deno.env.get("POSTGRES_PORT") ?? "55432");
 
+  // Best-effort cleanup of any stray container from previous runs
+  try {
+    const rm = new Deno.Command("docker", {
+      args: ["rm", "-f", containerName],
+      stdout: "null",
+      stderr: "null",
+    });
+    await rm.output();
+  } catch {
+    // ignore
+  }
+
   const run = new Deno.Command("docker", {
     args: [
       "run",
