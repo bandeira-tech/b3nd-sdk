@@ -2,3 +2,4 @@ deno.lock
 */data/*.db*
 dist
 sdk/node_modules
+.env
