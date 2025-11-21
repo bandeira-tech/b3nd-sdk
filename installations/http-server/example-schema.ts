@@ -2,7 +2,7 @@ import type { Schema } from "../../sdk/src/types.ts";
 import {
   authValidation,
   createPubkeyBasedAccess,
-} from "../../sdk/auth/mod.ts";
+} from "@bandeira-tech/b3nd-sdk/auth";
 
 const schema: Schema = {
   "mutable://open": () => Promise.resolve({ valid: true }),
@@ -59,4 +59,3 @@ const schema: Schema = {
 };
 
 export default schema;
-

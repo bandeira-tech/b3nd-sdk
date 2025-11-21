@@ -43,7 +43,6 @@ function BackendManager() {
   const [formData, setFormData] = useState({
     name: '',
     baseUrl: '',
-    instanceId: 'default',
   });
 
   const handleAddBackend = (e: React.FormEvent) => {
@@ -54,12 +53,12 @@ function BackendManager() {
 
     addBackend({
       name: formData.name,
-      adapter: new HttpAdapter(formData.baseUrl, formData.instanceId),
+      adapter: new HttpAdapter(formData.baseUrl),
       isActive: false,
     });
 
     // Reset form
-    setFormData({ name: '', baseUrl: '', instanceId: 'default' });
+    setFormData({ name: '', baseUrl: '' });
     setShowAddForm(false);
   };
 
@@ -122,16 +121,6 @@ function BackendManager() {
               className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Instance ID</label>
-            <input
-              type="text"
-              value={formData.instanceId}
-              onChange={(e) => setFormData({ ...formData, instanceId: e.target.value })}
-              placeholder="default"
-              className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
           <div className="flex space-x-2">
             <button
               type="submit"
@@ -143,7 +132,7 @@ function BackendManager() {
               type="button"
               onClick={() => {
                 setShowAddForm(false);
-                setFormData({ name: '', baseUrl: '', instanceId: 'default' });
+                setFormData({ name: '', baseUrl: '' });
               }}
               className="flex-1 px-3 py-2 bg-muted text-foreground rounded text-sm hover:bg-muted/80 transition-colors"
             >

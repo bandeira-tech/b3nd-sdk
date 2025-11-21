@@ -18,7 +18,6 @@ interface SerializableBackendConfig {
   name: string;
   type: "http";
   baseUrl: string;
-  instanceId: string;
   isActive: boolean;
 }
 
@@ -59,11 +58,10 @@ async function createBackendsFromConfig(): Promise<BackendConfig[]> {
     const instanceConfig = instances[name];
     if (instanceConfig.type === "http") {
       const baseUrl: string = instanceConfig.baseUrl;
-      const instanceId: string = instanceConfig.instanceId;
       backends.push({
         id: name,
         name: instanceConfig.name || name,
-        adapter: new HttpAdapter(baseUrl, instanceId),
+        adapter: new HttpAdapter(baseUrl),
         isActive: name === defaultInstance,
       });
     }
@@ -354,7 +352,6 @@ export const useAppStore = create<AppStore>()(
             name: b.name,
             type: "http" as const,
             baseUrl: b.adapter.baseUrl || "",
-            instanceId: (b.adapter as any).instanceId || "default",
             isActive: b.isActive,
           }));
 
@@ -379,7 +376,7 @@ export const useAppStore = create<AppStore>()(
           const restoredUserBackends: BackendConfig[] = userBackends.map((b) => ({
             id: b.id,
             name: b.name,
-            adapter: Object.assign(new HttpAdapter(b.baseUrl, b.instanceId), { isUserAdded: true }),
+            adapter: Object.assign(new HttpAdapter(b.baseUrl), { isUserAdded: true }),
             isActive: b.isActive,
           }));
 

@@ -60,7 +60,7 @@ export interface BackendAdapter {
   ): Promise<PaginatedResponse<SearchResult>>;
 
   // Metadata
-  getSchema(): Promise<Record<string, string[]>>; // Returns schemas by instance: { instanceId: [uris] }
+  getSchema(): Promise<Record<string, string[]>>; // Schemas keyed by backend (single entry)
   healthCheck(): Promise<boolean>;
 }
 

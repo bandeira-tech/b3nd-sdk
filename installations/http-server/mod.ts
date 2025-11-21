@@ -7,8 +7,8 @@ import {
   parallelBroadcast,
   PostgresClient,
   servers,
-} from "../../sdk/src/mod.ts";
-import type { NodeProtocolInterface, Schema } from "../../sdk/src/types.ts";
+} from "@bandeira-tech/b3nd-sdk";
+import type { NodeProtocolInterface, Schema } from "@bandeira-tech/b3nd-sdk";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
 import { Hono } from "hono";

@@ -12,12 +12,10 @@ export class HttpAdapter implements BackendAdapter {
   name = "HTTP Backend";
   type = "http" as const;
   baseUrl: string;
-  instanceId: string;
   private client: HttpClient;
 
-  constructor(baseUrl: string, instanceId: string) {
+  constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
-    this.instanceId = instanceId;
     this.client = new HttpClient({ url: baseUrl });
   }
 
@@ -97,7 +95,7 @@ export class HttpAdapter implements BackendAdapter {
 
   async getSchema(): Promise<Record<string, string[]>> {
     const schemas = await this.client.getSchema();
-    return { [this.instanceId]: schemas };
+    return { default: schemas };
   }
 
   async healthCheck(): Promise<boolean> {
