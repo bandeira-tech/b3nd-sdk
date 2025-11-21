@@ -8,11 +8,4 @@ export default defineConfig({
   server: {
     port: 5175
   },
-  resolve: {
-    alias: {
-      '@bandeira-tech/b3nd-sdk/wallet': path.resolve(__dirname, '../../sdk/wallet/mod.ts'),
-      '@bandeira-tech/b3nd-sdk/apps': path.resolve(__dirname, '../../sdk/apps/mod.ts'),
-      '@bandeira-tech/b3nd-sdk': path.resolve(__dirname, '../../sdk/src/mod.ts'),
-    },
-  },
 })

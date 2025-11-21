@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@bandeira-tech/b3nd-web": "file:../../sdk/dist",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "@bandeira-tech/b3nd-sdk": "^0.1.2"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/react": "^19.1.13",
@@ -21,4 +21,3 @@
     "vite": "^7.1.7"
   }
 }
-
