@@ -1,9 +1,0 @@
-{
-  "tasks": {
-    "dev": "deno run --watch -A mod.ts"
-  },
-  "imports": {
-    "@std/encoding": "jsr:@std/encoding@^1.0.10",
-    "hono": "npm:hono"
-  }
-}

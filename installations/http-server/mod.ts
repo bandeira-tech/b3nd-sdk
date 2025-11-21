@@ -1,19 +1,16 @@
 /// <reference lib="deno.ns" />
 import {
-  MongoClient,
-  MemoryClient,
-  PostgresClient,
   createServerNode,
-  parallelBroadcast,
   firstMatchSequence,
+  MemoryClient,
+  MongoClient,
+  parallelBroadcast,
+  PostgresClient,
   servers,
 } from "../../sdk/src/mod.ts";
-import type {
-  NodeProtocolInterface,
-  Schema,
-} from "../../sdk/src/types.ts";
-import { createPostgresExecutor } from "../http-postgres/pg-executor.ts";
-import { createMongoExecutor } from "../http-mongo/mongo-executor.ts";
+import type { NodeProtocolInterface, Schema } from "../../sdk/src/types.ts";
+import { createPostgresExecutor } from "./pg-executor.ts";
+import { createMongoExecutor } from "./mongo-executor.ts";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
@@ -97,8 +94,7 @@ for (const spec of backendSpecs) {
         `MongoDB backend spec must include database in path: ${spec}`,
       );
     }
-    const collectionName =
-      url.searchParams.get("collection") ?? "b3nd_data";
+    const collectionName = url.searchParams.get("collection") ?? "b3nd_data";
 
     const executor = await createMongoExecutor(
       spec,
