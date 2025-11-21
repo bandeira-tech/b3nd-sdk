@@ -1,5 +1,3 @@
-deno.lock
-*/data/*.db*
 dist
-sdk/node_modules
+node_modules
 .env

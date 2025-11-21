@@ -45,8 +45,8 @@ test-e2e-http:
 
 .PHONY: build-sdk
 build-sdk:
-	@echo "Building SDK for npm..."
-	@cd sdk && npm run build
+	@echo "Building web package and validating JSR exports..."
+	@cd sdk && npm run build && deno task check
 
 .PHONY: publish-sdk
 publish-sdk:
