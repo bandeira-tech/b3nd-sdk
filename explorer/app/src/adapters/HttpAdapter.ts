@@ -1,12 +1,12 @@
 import type {
   BackendAdapter,
-  PersistenceRecord,
   NavigationNode,
-  SearchResult,
-  SearchFilters,
   PaginatedResponse,
+  PersistenceRecord,
+  SearchFilters,
+  SearchResult,
 } from "../types";
-import { HttpClient } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient } from "@bandeira-tech/b3nd-web";
 
 export class HttpAdapter implements BackendAdapter {
   name = "HTTP Backend";
@@ -23,11 +23,13 @@ export class HttpAdapter implements BackendAdapter {
 
   async listPath(
     path: string,
-    options?: { page?: number; limit?: number }
+    options?: { page?: number; limit?: number },
   ): Promise<PaginatedResponse<NavigationNode>> {
     // Root path should be handled by schema-driven navigation
     if (path === "/" || path === "") {
-      throw new Error("Root path should be handled by schema-driven navigation, not listPath");
+      throw new Error(
+        "Root path should be handled by schema-driven navigation, not listPath",
+      );
     }
 
     // Convert Explorer path format to URI: "/users/alice" -> "users://alice/"
@@ -81,7 +83,7 @@ export class HttpAdapter implements BackendAdapter {
   async searchPaths(
     _query: string,
     _filters?: SearchFilters,
-    options?: { page?: number; limit?: number }
+    options?: { page?: number; limit?: number },
   ): Promise<PaginatedResponse<SearchResult>> {
     // Not implemented yet; return empty set with pagination info
     return {
@@ -119,7 +121,9 @@ export class HttpAdapter implements BackendAdapter {
 
     // Root path "/" should not be converted - this is handled by schema-driven navigation
     if (parts.length === 0) {
-      throw new Error("Cannot convert root path '/' to URI - use schema-driven navigation");
+      throw new Error(
+        "Cannot convert root path '/' to URI - use schema-driven navigation",
+      );
     }
 
     // Allow protocol root: "/test" or "/test/" -> "test://"

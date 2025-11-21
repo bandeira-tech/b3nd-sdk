@@ -125,7 +125,7 @@ export function App() {
       privateKey,
       publicKeyHex: appKey,
     }], encPublicKeyHex);
-    return { auth: message.auth, payload: message.payload, encrypted: true };
+    return { auth: message.auth, payload: message.payload };
   };
 
   const resolveUriWithKey = (uri: string) => {
