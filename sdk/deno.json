@@ -1,5 +1,5 @@
 {
-  "name": "@b3nd/sdk",
+  "name": "@bandeira-tech/b3nd-sdk",
   "version": "0.2.0",
   "exports": {
     ".": "./src/mod.ts",
@@ -18,14 +18,11 @@
     "@std/encoding": "jsr:@std/encoding@^1.0.10"
   },
   "tasks": {
-    "build:npm": "deno run -A build-npm.ts",
-    "build": "deno run -A build-final.ts",
     "test": "deno test -A tests/",
     "lint": "deno lint src/",
     "fmt": "deno fmt src/",
     "check": "deno check src/mod.ts",
-    "publish:jsr": "deno publish --allow-dirty",
-    "publish:npm": "npm run prepublishOnly && cd dist && npm publish"
+    "publish:jsr": "deno publish --allow-dirty"
   },
   "compilerOptions": {
     "strict": true,

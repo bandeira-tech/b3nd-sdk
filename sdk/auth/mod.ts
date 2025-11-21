@@ -1,4 +1,4 @@
-import { decodeHex } from "@std/encoding/hex";
+import { decodeHex } from "../shared/encoding.ts";
 
 type AuthMessage<T> = {
   auth: { pubkey: string; signature: string }[];

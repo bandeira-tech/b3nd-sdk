@@ -1,66 +1,49 @@
 {
-  "name": "@bandeira-tech/b3nd-sdk",
-  "version": "0.2.0",
-  "description": "Universal B3nd persistence interface for all platforms",
-  "main": "./dist/mod.ts",
-  "module": "./dist/mod.ts",
-  "types": "./dist/mod.ts",
+  "name": "@bandeira-tech/b3nd-web",
+  "version": "0.2.1",
+  "description": "Browser-focused B3nd SDK bundle",
+  "type": "module",
+  "main": "./dist/src/mod.web.js",
+  "module": "./dist/src/mod.web.js",
+  "types": "./dist/src/mod.web.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/mod.ts",
-      "require": "./dist/mod.ts",
-      "types": "./dist/mod.ts"
-    },
-    "./auth": {
-      "import": "./dist/auth/mod.ts",
-      "require": "./dist/auth/mod.ts",
-      "types": "./dist/auth/mod.ts"
+      "import": "./dist/src/mod.web.js",
+      "types": "./dist/src/mod.web.d.ts"
     },
     "./encrypt": {
-      "import": "./dist/encrypt/mod.ts",
-      "require": "./dist/encrypt/mod.ts",
-      "types": "./dist/encrypt/mod.ts"
-    },
-    "./clients/memory": {
-      "import": "./dist/clients/memory/mod.ts",
-      "require": "./dist/clients/memory/mod.ts",
-      "types": "./dist/clients/memory/mod.ts"
+      "import": "./dist/encrypt/mod.js",
+      "types": "./dist/encrypt/mod.d.ts"
     },
     "./clients/http": {
-      "import": "./dist/clients/http/mod.ts",
-      "require": "./dist/clients/http/mod.ts",
-      "types": "./dist/clients/http/mod.ts"
+      "import": "./dist/clients/http/mod.js",
+      "types": "./dist/clients/http/mod.d.ts"
     },
     "./clients/local-storage": {
-      "import": "./dist/clients/local-storage/mod.ts",
-      "require": "./dist/clients/local-storage/mod.ts",
-      "types": "./dist/clients/local-storage/mod.ts"
+      "import": "./dist/clients/local-storage/mod.js",
+      "types": "./dist/clients/local-storage/mod.d.ts"
+    },
+    "./clients/websocket": {
+      "import": "./dist/clients/websocket/mod.js",
+      "types": "./dist/clients/websocket/mod.d.ts"
     },
     "./wallet": {
-      "import": "./dist/wallet/mod.ts",
-      "require": "./dist/wallet/mod.ts",
-      "types": "./dist/wallet/mod.ts"
+      "import": "./dist/wallet/mod.js",
+      "types": "./dist/wallet/mod.d.ts"
+    },
+    "./apps": {
+      "import": "./dist/apps/mod.js",
+      "types": "./dist/apps/mod.d.ts"
     }
   },
   "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
+    "dist"
   ],
   "scripts": {
-    "build": "deno run --allow-read --allow-write --allow-net --allow-run build-npm.ts",
-    "build:watch": "deno run --allow-read --allow-write --allow-net --allow-run build.ts --watch",
+    "build": "tsup src/mod.web.ts wallet/mod.ts apps/mod.ts encrypt/mod.ts clients/http/mod.ts clients/local-storage/mod.ts clients/websocket/mod.ts --dts --format esm --out-dir dist --clean --tsconfig tsconfig.web.json",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build",
-    "test": "deno test -A tests/",
-    "test:coverage": "deno test -A --coverage tests/",
     "lint": "deno lint src/",
-    "format": "deno fmt src/",
-    "publish:dry-run": "npm publish --dry-run",
-    "publish:package": "npm publish",
-    "version:patch": "npm version patch",
-    "version:minor": "npm version minor",
-    "version:major": "npm version major"
+    "format": "deno fmt src/"
   },
   "keywords": [
     "persistence",
@@ -88,12 +71,12 @@
   "homepage": "https://github.com/bandeira-tech/b3nd-sdk#readme",
   "dependencies": {},
   "devDependencies": {
-    "fake-indexeddb": "6.2.4",
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.10.1"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=24.11.1"
   },
   "publishConfig": {
     "access": "public"

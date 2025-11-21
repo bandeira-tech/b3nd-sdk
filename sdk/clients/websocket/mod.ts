@@ -23,11 +23,11 @@ export class WebSocketClient implements NodeProtocolInterface {
   private ws: WebSocket | null = null;
   private connected = false;
   private reconnectAttempts = 0;
-  private reconnectTimer: number | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingRequests = new Map<string, {
     resolve: (value: WebSocketResponse) => void;
     reject: (error: Error) => void;
-    timeout: number;
+    timeout: ReturnType<typeof setTimeout>;
   }>();
   private messageHandler = this.handleMessage.bind(this);
   private closeHandler = this.handleClose.bind(this);

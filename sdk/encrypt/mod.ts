@@ -1,14 +1,9 @@
-/**
- * b3nd/encrypt - Client-side encryption/decryption for private data
- *
- * Provides functions to encrypt and decrypt payloads before sending to storage
- * to enable support for encrypted private data.
- *
- * Uses Ed25519 for signing/authentication and X25519 + AES-GCM for encryption.
- */
-
-import { encodeHex, decodeHex } from "jsr:@std/encoding@1/hex";
-import { encodeBase64, decodeBase64 } from "jsr:@std/encoding@1/base64";
+import {
+  decodeBase64,
+  decodeHex,
+  encodeBase64,
+  encodeHex,
+} from "../shared/encoding.ts";
 
 // Types
 export interface KeyPair {
@@ -117,7 +112,7 @@ export async function signWithHex<T>(
   privateKeyHex: string,
   payload: T,
 ): Promise<string> {
-  const privateKeyBytes = decodeHex(privateKeyHex);
+  const privateKeyBytes = decodeHex(privateKeyHex).buffer;
 
   const privateKey = await crypto.subtle.importKey(
     "pkcs8",
@@ -142,7 +137,7 @@ export async function verify<T>(
   payload: T,
 ): Promise<boolean> {
   try {
-    const publicKeyBytes = decodeHex(publicKeyHex);
+    const publicKeyBytes = decodeHex(publicKeyHex).buffer;
     const publicKey = await crypto.subtle.importKey(
       "raw",
       publicKeyBytes,
@@ -156,7 +151,7 @@ export async function verify<T>(
 
     const encoder = new TextEncoder();
     const data = encoder.encode(JSON.stringify(payload));
-    const signatureBytes = decodeHex(signatureHex);
+    const signatureBytes = decodeHex(signatureHex).buffer;
 
     return await crypto.subtle.verify(
       "Ed25519",
@@ -182,7 +177,7 @@ export async function encrypt(
   const ephemeralKeyPair = await generateEncryptionKeyPair();
 
   // Import recipient's public key
-  const recipientPublicKeyBytes = decodeHex(recipientPublicKeyHex);
+  const recipientPublicKeyBytes = decodeHex(recipientPublicKeyHex).buffer;
   const recipientPublicKey = await crypto.subtle.importKey(
     "raw",
     recipientPublicKeyBytes,
@@ -253,7 +248,7 @@ export async function decrypt(
   // Import ephemeral public key
   const ephemeralPublicKeyBytes = decodeHex(
     encryptedPayload.ephemeralPublicKey,
-  );
+  ).buffer;
   const ephemeralPublicKey = await crypto.subtle.importKey(
     "raw",
     ephemeralPublicKeyBytes,
@@ -288,8 +283,8 @@ export async function decrypt(
   );
 
   // Decrypt data
-  const ciphertext = decodeBase64(encryptedPayload.data);
-  const nonce = decodeBase64(encryptedPayload.nonce);
+  const ciphertext = new Uint8Array(decodeBase64(encryptedPayload.data));
+  const nonce = new Uint8Array(decodeBase64(encryptedPayload.nonce));
 
   const plaintext = await crypto.subtle.decrypt(
     {
@@ -312,7 +307,7 @@ export async function decryptWithHex(
   encryptedPayload: EncryptedPayload,
   recipientPrivateKeyHex: string,
 ): Promise<unknown> {
-  const privateKeyBytes = decodeHex(recipientPrivateKeyHex);
+  const privateKeyBytes = decodeHex(recipientPrivateKeyHex).buffer;
   const privateKey = await crypto.subtle.importKey(
     "raw",
     privateKeyBytes,
