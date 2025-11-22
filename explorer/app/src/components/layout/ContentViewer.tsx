@@ -220,13 +220,10 @@ function FileViewer({
         <div className="ml-4">
           [<br />
           {data.map((item, i) => (
-            <>
-              <div style={{ paddingLeft: `${level * 2 + 1}rem` }}>
-                {formatData(item, level + 1)}
-              </div>
+            <div key={`arr-${level}-${i}`} style={{ paddingLeft: `${level * 2 + 1}rem` }}>
+              {formatData(item, level + 1)}
               {i < data.length - 1 && ","}
-              <br />
-            </>
+            </div>
           ))}
           <br />]
         </div>
@@ -235,15 +232,15 @@ function FileViewer({
     if (typeof data === "object" && data !== null) {
       return (
         <div className="ml-4">
-          {Object.entries(data).map(([k, v]) => (
-            <>
-              <div style={{ paddingLeft: `${level * 2 + 1}rem` }}>
+          {Object.entries(data).map(([k, v]) => {
+            const key = `obj-${level}-${k}`;
+            return (
+              <div key={key} style={{ paddingLeft: `${level * 2 + 1}rem` }}>
                 <span className="json-key">"{k}"</span>:{" "}
                 {formatData(v, level + 1)}
               </div>
-              <br />
-            </>
-          ))}
+            );
+          })}
         </div>
       );
     }

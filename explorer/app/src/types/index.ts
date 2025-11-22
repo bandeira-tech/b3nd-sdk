@@ -73,6 +73,8 @@ export interface BackendConfig {
 
 // Application state types
 export type AppMode = "filesystem" | "search" | "watched";
+export type AppExperience = "explorer" | "writer";
+export type WriterSection = "config" | "backend" | "app" | "auth";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -80,6 +82,13 @@ export interface PanelState {
   left: boolean;
   right: boolean;
   bottom: boolean;
+}
+
+export interface AppLogEntry {
+  timestamp: number;
+  source: string;
+  message: string;
+  level?: "info" | "success" | "warning" | "error";
 }
 
 export interface AppState {
@@ -100,6 +109,8 @@ export interface AppState {
   panels: PanelState;
   theme: ThemeMode;
   mode: AppMode;
+  activeApp: AppExperience;
+  writerSection: WriterSection;
 
   // Search
   searchQuery: string;
@@ -108,6 +119,9 @@ export interface AppState {
 
   // Watched paths
   watchedPaths: string[];
+
+  // Logs
+  logs: AppLogEntry[];
 }
 
 // Action types for state management
@@ -130,6 +144,8 @@ export interface AppActions {
   togglePanel: (panel: keyof PanelState) => void;
   setTheme: (theme: ThemeMode) => void;
   setMode: (mode: AppMode) => void;
+  setActiveApp: (app: AppExperience) => void;
+  setWriterSection: (section: WriterSection) => void;
 
   // Search actions
   setSearchQuery: (query: string) => void;
@@ -139,4 +155,8 @@ export interface AppActions {
   // Watched paths actions
   addWatchedPath: (path: string) => void;
   removeWatchedPath: (path: string) => void;
+
+  // Logs
+  addLogEntry: (entry: Omit<AppLogEntry, "timestamp"> & { timestamp?: number }) => void;
+  clearLogs: () => void;
 }

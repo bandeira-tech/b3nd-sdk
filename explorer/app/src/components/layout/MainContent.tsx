@@ -2,12 +2,18 @@
 import { Fragment } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { ContentViewer } from "./ContentViewer";
-import { FileText, User, Database } from "lucide-react";
+import { FileText, User, Database, PenSquare, ChevronRight } from "lucide-react";
+import { WriterMainContent } from "../writer/WriterMainContent";
+import type { WriterSection } from "../../types";
 
 export function MainContent() {
-  const { mode, currentPath } = useAppStore();
+  const { mode, currentPath, activeApp } = useAppStore();
 
   const renderContent = () => {
+    if (activeApp === "writer") {
+      return <WriterMainContent />;
+    }
+
     switch (mode) {
       case "filesystem":
         return <ContentViewer path={currentPath} />;
@@ -22,9 +28,12 @@ export function MainContent() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Breadcrumb Navigation */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-muted/30">
-        <Breadcrumb path={currentPath} />
+        {activeApp === "writer" ? (
+          <WriterBreadcrumb />
+        ) : (
+          <Breadcrumb path={currentPath} />
+        )}
       </div>
 
       {/* Main Content Area */}
@@ -98,5 +107,32 @@ function WatchedPathsView() {
         </p>
       </div>
     </div>
+  );
+}
+
+function WriterBreadcrumb() {
+  const { writerSection, setWriterSection } = useAppStore();
+
+  const labels: Record<WriterSection, string> = {
+    config: "Configuration",
+    backend: "Backend",
+    app: "App",
+    auth: "Auth",
+  };
+
+  return (
+    <nav className="flex items-center space-x-2 text-sm">
+      <div className="flex items-center space-x-2">
+        <PenSquare className="h-4 w-4 text-muted-foreground" />
+        <button
+          onClick={() => setWriterSection("config")}
+          className="px-2 py-1 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          Writer
+        </button>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      <span className="text-foreground font-medium">{labels[writerSection]}</span>
+    </nav>
   );
 }

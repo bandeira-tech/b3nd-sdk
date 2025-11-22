@@ -7,6 +7,8 @@ import type {
   ThemeMode,
   AppMode,
   PanelState,
+  AppExperience,
+  WriterSection,
 } from "../types";
 import { HttpAdapter } from "../adapters/HttpAdapter";
 import { generateId } from "../utils";
@@ -87,10 +89,13 @@ const initialState: Omit<AppState, "backendsReady"> = {
   },
   theme: "system" as ThemeMode,
   mode: "filesystem" as AppMode,
+  activeApp: "explorer" as AppExperience,
+  writerSection: "config" as WriterSection,
   searchQuery: "",
   searchHistory: [],
   searchResults: [],
   watchedPaths: [],
+  logs: [],
 };
 
 interface AppStore extends AppState, AppActions {
@@ -305,6 +310,14 @@ export const useAppStore = create<AppStore>()(
           }
         },
 
+        setActiveApp: (activeApp: AppExperience) => {
+          set({ activeApp });
+        },
+
+        setWriterSection: (section: WriterSection) => {
+          set({ writerSection: section });
+        },
+
         setSearchQuery: (query: string) => {
           set({ searchQuery: query });
         },
@@ -339,6 +352,18 @@ export const useAppStore = create<AppStore>()(
             watchedPaths: state.watchedPaths.filter((p) => p !== path),
           }));
         },
+
+        addLogEntry: (entry) => {
+          set((state) => {
+            const timestamp = entry.timestamp ?? Date.now();
+            const logEntry = { ...entry, timestamp };
+            return { logs: [...state.logs, logEntry].slice(-300) };
+          });
+        },
+
+        clearLogs: () => {
+          set({ logs: [] });
+        },
       };
     },
     {
@@ -357,6 +382,8 @@ export const useAppStore = create<AppStore>()(
 
         return {
           activeBackendId: state.activeBackendId,
+          activeApp: state.activeApp,
+          writerSection: state.writerSection,
           panels: state.panels,
           theme: state.theme,
           searchHistory: state.searchHistory,
@@ -412,6 +439,9 @@ export const useAppStore = create<AppStore>()(
           state.searchQuery = "";
           state.searchResults = [];
           state.mode = "filesystem";
+          state.activeApp = state.activeApp || "explorer";
+          state.writerSection = state.writerSection || "config";
+          state.logs = [];
           state.schemas = {};
           state.rootNodes = [];
 

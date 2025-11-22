@@ -2,9 +2,25 @@
 import { useAppStore } from "../../stores/appStore";
 import { NavigationTree } from "./NavigationTree";
 import { Search, Eye } from "lucide-react";
+import { WriterNavigation } from "../writer/WriterNavigation";
 
 export function LeftPanel() {
-  const { mode } = useAppStore();
+  const { mode, activeApp } = useAppStore();
+
+  if (activeApp === "writer") {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+          <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+            Navigation
+          </h2>
+        </div>
+        <div className="flex-1 overflow-auto custom-scrollbar">
+          <WriterNavigation />
+        </div>
+      </div>
+    );
+  }
 
   const renderContent = () => {
     switch (mode) {

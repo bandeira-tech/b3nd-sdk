@@ -1,12 +1,25 @@
 // React import not needed with react-jsx runtime
 import { useAppStore } from '../../stores/appStore';
-import { FolderTree, Search, Eye, PanelLeftOpen, PanelBottomOpen } from 'lucide-react';
+import { FolderTree, Search, Eye, PanelLeftOpen, PanelBottomOpen, PenSquare, Compass } from 'lucide-react';
 import { cn } from '../../utils';
-import type { AppMode } from '../../types';
+import type { AppExperience, AppMode } from '../../types';
 import type { ReactNode } from 'react';
 
 export function AppModeBar() {
-  const { mode, setMode, togglePanel, panels } = useAppStore();
+  const { mode, setMode, togglePanel, panels, activeApp, setActiveApp } = useAppStore();
+
+  const apps: Array<{ key: AppExperience; label: string; icon: ReactNode }> = [
+    {
+      key: 'explorer',
+      label: 'Explorer',
+      icon: <Compass className="h-4 w-4" />,
+    },
+    {
+      key: 'writer',
+      label: 'Writer',
+      icon: <PenSquare className="h-4 w-4" />,
+    },
+  ];
 
   const modes: Array<{ key: AppMode; label: string; icon: ReactNode }> = [
     {
@@ -27,7 +40,7 @@ export function AppModeBar() {
   ];
 
   return (
-    <div className="h-12 bg-background border-b border-border flex items-center justify-between px-4">
+    <div className="h-12 bg-background border-b border-border flex items-center justify-between px-4 gap-4">
       {/* Left side - Panel toggles */}
       <div className="flex items-center space-x-1">
         <button
@@ -55,31 +68,51 @@ export function AppModeBar() {
         </button>
       </div>
 
-      {/* Center - Mode switcher */}
-      <div className="flex items-center bg-muted rounded-lg p-1">
-        {modes.map(({ key, label, icon }) => (
-          <button
-            key={key}
-            onClick={() => setMode(key)}
-            className={cn(
-              "flex items-center space-x-2 px-3 py-1.5 rounded text-sm font-medium transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              mode === key
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-            )}
-          >
-            {icon}
-            <span>{label}</span>
-          </button>
-        ))}
+      {/* Center - App switcher + contextual modes */}
+      <div className="flex items-center space-x-2">
+        <div className="flex items-center bg-muted rounded-lg p-1">
+          {apps.map(({ key, label, icon }) => (
+            <button
+              key={key}
+              onClick={() => setActiveApp(key)}
+              className={cn(
+                "flex items-center space-x-2 px-3 py-1.5 rounded text-sm font-medium transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                activeApp === key
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              )}
+            >
+              {icon}
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {activeApp === 'explorer' && (
+          <div className="hidden md:flex items-center bg-muted rounded-lg p-1">
+            {modes.map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => setMode(key)}
+                className={cn(
+                  "flex items-center space-x-2 px-3 py-1.5 rounded text-sm font-medium transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  mode === key
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                {icon}
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Right side - Additional controls */}
-      <div className="flex items-center space-x-1">
-        {/* Placeholder for future controls */}
-        <div className="w-16" />
-      </div>
+      <div className="flex items-center space-x-1" aria-hidden />
     </div>
   );
 }
