@@ -3,50 +3,37 @@ import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
 import { HttpClient } from "@bandeira-tech/b3nd-web";
 import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
-import { Activity, KeyRound, Settings, ShieldCheck, Server, Play, Wand2 } from "lucide-react";
-import { useAppStore } from "../../stores/appStore";
-import type { AppLogEntry } from "../../types";
-
-type Config = {
-  walletUrl: string;
-  apiBasePath: string;
-  backendUrl: string;
-  appServerUrl: string;
-  appApiBasePath: string;
-  googleClientId: string;
-};
-
-type KeyBundle = {
-  appKey: string;
-  accountPrivateKeyPem: string;
-  encryptionPublicKeyHex: string;
-  encryptionPrivateKeyPem: string;
-};
-
-const KEY_STORAGE_KEY = "b3nd-writer-app-keys";
-const CONFIG_STORAGE_KEY = "b3nd-writer-config";
-
-const EMPTY_CONFIG: Config = {
-  walletUrl: "",
-  apiBasePath: "",
-  backendUrl: "",
-  appServerUrl: "",
-  appApiBasePath: "",
-  googleClientId: "",
-};
+import { Activity, KeyRound, ShieldCheck, Server, Play, Wand2, PanelRightOpen, ChevronRight, PenSquare } from "lucide-react";
+import { useAppStore, useActiveBackend } from "../../stores/appStore";
+import type { AppLogEntry, KeyBundle } from "../../types";
+import { HttpAdapter } from "../../adapters/HttpAdapter";
 
 const PRIMARY_BUTTON =
   "inline-flex items-center justify-center rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const SECONDARY_BUTTON =
   "inline-flex items-center justify-center rounded border border-border bg-muted px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const DEFAULT_API_BASE_PATH = "/api/v1";
 
 export function WriterMainContent() {
-  const { writerSection, addLogEntry } = useAppStore();
-  const [cfg, setCfg] = useState<Config>(EMPTY_CONFIG);
+  const {
+    writerSection,
+    addLogEntry,
+    keyBundle,
+    setKeyBundle,
+    googleClientId,
+    setGoogleClientId,
+    walletServers,
+    activeWalletServerId,
+    appServers,
+    activeAppServerId,
+    panels,
+  } = useAppStore();
+  const activeWallet = walletServers.find((w) => w.id === activeWalletServerId && w.isActive);
+  const activeAppServer = appServers.find((w) => w.id === activeAppServerId && w.isActive);
+  const activeBackend = useActiveBackend();
+
   const [session, setSession] = useState<{ username: string; token: string; expiresIn: number } | null>(null);
-  const [appKey, setAppKey] = useState("");
   const [appToken, setAppToken] = useState("");
-  const [accountPrivateKeyPem, setAccountPrivateKeyPem] = useState("");
   const [appSession, setAppSession] = useState("");
   const [writeUri, setWriteUri] = useState("");
   const [writePayload, setWritePayload] = useState("");
@@ -59,76 +46,43 @@ export function WriterMainContent() {
   const [writePlainPath, setWritePlainPath] = useState("");
   const [writeEncPath, setWriteEncPath] = useState("");
   const [actionPayload, setActionPayload] = useState("");
-  const [encPublicKeyHex, setEncPublicKeyHex] = useState("");
-  const [encPrivateKeyPem, setEncPrivateKeyPem] = useState("");
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const [googleMode, setGoogleMode] = useState<"signup" | "login">("signup");
-  const hasLoadedKeys = useRef(false);
-  const hasLoadedConfig = useRef(false);
 
-  const keyBundle: KeyBundle = {
-    appKey,
-    accountPrivateKeyPem,
-    encryptionPublicKeyHex: encPublicKeyHex,
-    encryptionPrivateKeyPem: encPrivateKeyPem,
-  };
-
-  const isConfigReady =
-    !!cfg.walletUrl &&
-    !!cfg.apiBasePath &&
-    !!cfg.backendUrl &&
-    !!cfg.appServerUrl &&
-    !!cfg.appApiBasePath;
-
-  const assertConfigReady = () => {
-    if (!isConfigReady) {
-      throw new Error("Writer configuration incomplete: walletUrl, apiBasePath, backendUrl, appServerUrl, and appApiBasePath are required");
-    }
-  };
-
-  const getWallet = () => {
-    assertConfigReady();
-    return new WalletClient({
-      walletServerUrl: cfg.walletUrl.replace(/\/$/, ""),
-      apiBasePath: cfg.apiBasePath,
-    });
-  };
-
-  const getBackend = () => {
-    assertConfigReady();
-    return new HttpClient({ url: cfg.backendUrl.replace(/\/$/, "") });
-  };
-
-  const getApps = () => {
-    assertConfigReady();
-    return new AppsClient({
-      appServerUrl: cfg.appServerUrl.replace(/\/$/, ""),
-      apiBasePath: cfg.appApiBasePath,
-    });
-  };
+  const { appKey, accountPrivateKeyPem, encryptionPublicKeyHex, encryptionPrivateKeyPem } = keyBundle;
 
   const logLine = (source: string, message: string, level: AppLogEntry["level"] = "info") => {
     addLogEntry({ source, message, level });
   };
 
-  const persistKeys = (bundle: KeyBundle) => {
-    localStorage.setItem(KEY_STORAGE_KEY, JSON.stringify(bundle));
+  const getWallet = () => {
+    if (!activeWallet) {
+      throw new Error("Active wallet server is required");
+    }
+    return new WalletClient({
+      walletServerUrl: activeWallet.url.replace(/\/$/, ""),
+      apiBasePath: DEFAULT_API_BASE_PATH,
+    });
   };
 
-  const applyKeyBundle = (bundle: KeyBundle) => {
-    setAppKey(bundle.appKey);
-    setAccountPrivateKeyPem(bundle.accountPrivateKeyPem);
-    setEncPublicKeyHex(bundle.encryptionPublicKeyHex);
-    setEncPrivateKeyPem(bundle.encryptionPrivateKeyPem);
-    persistKeys(bundle);
+  const getBackendClient = () => {
+    if (!activeBackend?.adapter || !(activeBackend.adapter instanceof HttpAdapter)) {
+      throw new Error("Active backend with HTTP adapter is required");
+    }
+    if (!activeBackend.adapter.baseUrl) {
+      throw new Error("Active backend URL is required");
+    }
+    return new HttpClient({ url: activeBackend.adapter.baseUrl.replace(/\/$/, "") });
   };
 
-  const updateKeyBundle = (patch: Partial<KeyBundle>) => {
-    applyKeyBundle({ ...keyBundle, ...patch });
-  };
-
-  const persistConfig = (next: Config) => {
-    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(next));
+  const getApps = () => {
+    if (!activeAppServer) {
+      throw new Error("Active app server is required");
+    }
+    return new AppsClient({
+      appServerUrl: activeAppServer.url.replace(/\/$/, ""),
+      apiBasePath: DEFAULT_API_BASE_PATH,
+    });
   };
 
   const ensureValue = (value: string, label: string) => {
@@ -159,7 +113,7 @@ export function WriterMainContent() {
   };
 
   const signAndEncryptPayload = async (payload: any) => {
-    ensureValue(encPublicKeyHex, "Encryption public key");
+    ensureValue(encryptionPublicKeyHex, "Encryption public key");
     const privateKey = await loadSigningKey();
     const message = await encrypt.createSignedEncryptedMessage(
       payload,
@@ -169,7 +123,7 @@ export function WriterMainContent() {
           publicKeyHex: appKey,
         },
       ],
-      encPublicKeyHex,
+      encryptionPublicKeyHex,
     );
     return { auth: message.auth, payload: message.payload };
   };
@@ -182,48 +136,14 @@ export function WriterMainContent() {
     return uri;
   };
 
-  const applyConfig = () => {
-    persistConfig(cfg);
-    logLine("local", "Config applied", "success");
-  };
-
   const handleAction = async (label: string, action: () => Promise<void>) => {
     try {
-      assertConfigReady();
       await action();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setOutput({ error: message });
       logLine("local", `${label} failed: ${message}`, "error");
     }
-  };
-
-  const walletHealth = async () => {
-    const wallet = getWallet();
-    const h = await wallet.health();
-    setOutput(h);
-    logLine("wallet", `Health: ${"status" in h ? (h as any).status : "ok"}`, "info");
-  };
-
-  const backendHealth = async () => {
-    const backend = getBackend();
-    const h = await backend.health();
-    setOutput(h);
-    logLine("backend", `Health: ${"status" in h ? (h as any).status : "ok"}`, "info");
-  };
-
-  const appsHealth = async () => {
-    const apps = getApps();
-    const h = await apps.health();
-    setOutput(h);
-    logLine("apps", "Health ok", "info");
-  };
-
-  const serverKeys = async () => {
-    const wallet = getWallet();
-    const k = await wallet.getServerKeys();
-    setOutput(k);
-    logLine("wallet", "Server keys ok", "info");
   };
 
   const genAppKeys = async () => {
@@ -236,8 +156,11 @@ export function WriterMainContent() {
     const privB64 = btoa(String.fromCharCode(...new Uint8Array(priv)));
     const privPem = `-----BEGIN PRIVATE KEY-----\n${(privB64.match(/.{1,64}/g) || []).join("\n")}\n-----END PRIVATE KEY-----`;
 
-    // @ts-ignore X25519 supported in runtime
-    const encKp = (await crypto.subtle.generateKey({ name: "X25519", namedCurve: "X25519" } as any, true, ["deriveBits"])) as CryptoKeyPair;
+    const encKp = (await crypto.subtle.generateKey(
+      { name: "X25519", namedCurve: "X25519" } as unknown as EcKeyGenParams,
+      true,
+      ["deriveBits"],
+    )) as CryptoKeyPair;
     const encPubRaw = await crypto.subtle.exportKey("raw", encKp.publicKey);
     const encPubHex = Array.from(new Uint8Array(encPubRaw))
       .map((b) => b.toString(16).padStart(2, "0"))
@@ -246,7 +169,7 @@ export function WriterMainContent() {
     const encPrivB64 = btoa(String.fromCharCode(...new Uint8Array(encPrivPkcs8)));
     const encPrivPem = `-----BEGIN PRIVATE KEY-----\n${(encPrivB64.match(/.{1,64}/g) || []).join("\n")}\n-----END PRIVATE KEY-----`;
 
-    applyKeyBundle({
+    setKeyBundle({
       appKey: pubHex,
       accountPrivateKeyPem: privPem,
       encryptionPublicKeyHex: encPubHex,
@@ -261,64 +184,13 @@ export function WriterMainContent() {
     logLine("local", "Generated app keys (identity + encryption)", "success");
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (hasLoadedKeys.current) return;
-    const stored = localStorage.getItem(KEY_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Partial<KeyBundle>;
-      if (
-        parsed.appKey &&
-        parsed.accountPrivateKeyPem &&
-        parsed.encryptionPublicKeyHex &&
-        parsed.encryptionPrivateKeyPem
-      ) {
-        applyKeyBundle({
-          appKey: parsed.appKey,
-          accountPrivateKeyPem: parsed.accountPrivateKeyPem,
-          encryptionPublicKeyHex: parsed.encryptionPublicKeyHex,
-          encryptionPrivateKeyPem: parsed.encryptionPrivateKeyPem,
-        });
-        logLine("local", "Keys loaded from local storage", "info");
-      }
-    }
-    hasLoadedKeys.current = true;
-  }, []);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (hasLoadedConfig.current) return;
-    const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Partial<Config>;
-      if (
-        parsed.walletUrl &&
-        parsed.apiBasePath &&
-        parsed.backendUrl &&
-        parsed.appServerUrl &&
-        parsed.appApiBasePath
-      ) {
-        setCfg({
-          walletUrl: parsed.walletUrl,
-          apiBasePath: parsed.apiBasePath,
-          backendUrl: parsed.backendUrl,
-          appServerUrl: parsed.appServerUrl,
-          appApiBasePath: parsed.appApiBasePath,
-          googleClientId: parsed.googleClientId || "",
-        });
-        logLine("local", "Config loaded from local storage", "info");
-      }
-    }
-    hasLoadedConfig.current = true;
-  }, []);
-
   const registerApp = async () => {
     const act: any = {
       action: actionName,
       validation: validationFormat ? { stringValue: { format: validationFormat } } : undefined,
       write: writeKind === "encrypted" ? { encrypted: writeEncPath } : { plain: writePlainPath },
     };
-    if (writeKind === "encrypted" && !encPublicKeyHex) {
+    if (writeKind === "encrypted" && !encryptionPublicKeyHex) {
       throw new Error("Encryption public key required for encrypted actions");
     }
     const payload: any = {
@@ -326,8 +198,8 @@ export function WriterMainContent() {
       accountPrivateKeyPem,
       allowedOrigins: ["*"],
       actions: [act],
-      encryptionPublicKeyHex: encPublicKeyHex,
-      encryptionPrivateKeyPem: encPrivateKeyPem,
+      encryptionPublicKeyHex,
+      encryptionPrivateKeyPem,
     };
     const res = await getApps().registerApp(payload);
     setOutput(res);
@@ -371,16 +243,17 @@ export function WriterMainContent() {
 
   const login = async (username: string, password: string) => {
     const wallet = getWallet();
-    const appsClient = getApps();
+    const apps = getApps();
     const s = await wallet.loginWithTokenSession(appToken, appSession, { username, password });
     setSession(s);
-    appsClient.setAuthToken(s.token);
+    apps.setAuthToken(s.token);
     logLine("wallet", "Login ok", "success");
     setOutput(s);
   };
 
   const googleSignup = async (googleIdToken: string) => {
-    const response = await fetch(`${cfg.walletUrl}${cfg.apiBasePath}/auth/google/signup`, {
+    if (!activeWallet) throw new Error("Active wallet server is required");
+    const response = await fetch(`${activeWallet.url.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/google/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token: appToken, googleIdToken }),
@@ -395,14 +268,14 @@ export function WriterMainContent() {
       expiresIn: data.expiresIn,
     };
     setSession(s);
-    const appsClient = getApps();
-    appsClient.setAuthToken(s.token);
+    getApps().setAuthToken(s.token);
     logLine("wallet", `Google signup ok: ${data.email}`, "success");
     setOutput({ ...s, email: data.email, name: data.name, picture: data.picture });
   };
 
   const googleLogin = async (googleIdToken: string) => {
-    const response = await fetch(`${cfg.walletUrl}${cfg.apiBasePath}/auth/google/login`, {
+    if (!activeWallet) throw new Error("Active wallet server is required");
+    const response = await fetch(`${activeWallet.url.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/google/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token: appToken, session: appSession, googleIdToken }),
@@ -417,8 +290,7 @@ export function WriterMainContent() {
       expiresIn: data.expiresIn,
     };
     setSession(s);
-    const appsClient = getApps();
-    appsClient.setAuthToken(s.token);
+    getApps().setAuthToken(s.token);
     logLine("wallet", `Google login ok: ${data.email}`, "success");
     setOutput({ ...s, email: data.email, name: data.name, picture: data.picture });
   };
@@ -434,11 +306,10 @@ export function WriterMainContent() {
 
   const backendWritePlain = async () => {
     ensureValue(writePayload, "Write payload");
-    const backend = getBackend();
     const payload = JSON.parse(writePayload);
     const value = await signPayload(payload);
     const targetUri = resolveUriWithKey(writeUri);
-    const r = await backend.write(targetUri, value);
+    const r = await getBackendClient().write(targetUri, value);
     setOutput(r);
     setLastResolvedUri(targetUri);
     logLine("backend", `Backend write (plain): ${r.success ? "success" : "failed"}`, r.success ? "success" : "warning");
@@ -446,11 +317,10 @@ export function WriterMainContent() {
 
   const backendWriteEnc = async () => {
     ensureValue(writePayload, "Write payload");
-    const backend = getBackend();
     const payload = JSON.parse(writePayload);
     const value = await signAndEncryptPayload(payload);
     const targetUri = resolveUriWithKey(writeUri);
-    const r = await backend.write(targetUri, value);
+    const r = await getBackendClient().write(targetUri, value);
     setOutput(r);
     setLastResolvedUri(targetUri);
     logLine("backend", `Backend write (encrypted path): ${r.success ? "success" : "failed"}`, r.success ? "success" : "warning");
@@ -484,7 +354,7 @@ export function WriterMainContent() {
 
   const readLast = async () => {
     const target = lastAppUri || lastResolvedUri || resolveUriWithKey(writeUri);
-    const res = lastAppUri ? await getApps().read(appKey, target) : await getBackend().read(target);
+    const res = lastAppUri ? await getApps().read(appKey, target) : await getBackendClient().read(target);
     setOutput(res);
     logLine(lastAppUri ? "apps" : "backend", `Read ${res.success ? "ok" : "failed"}`, res.success ? "info" : "warning");
   };
@@ -496,10 +366,8 @@ export function WriterMainContent() {
     logLine("apps", `Invoked action '${actionName}'`, "info");
   };
 
-  // Google Identity render button
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!cfg.googleClientId) return;
+    if (!googleClientId) return;
     const initializeGoogleSignIn = () => {
       const googleApi = (window as any).google?.accounts?.id;
       if (!googleApi) {
@@ -508,7 +376,7 @@ export function WriterMainContent() {
       }
 
       googleApi.initialize({
-        client_id: cfg.googleClientId,
+        client_id: googleClientId,
         callback: (response: { credential: string }) => {
           if (googleMode === "signup") {
             void handleAction("Google signup", () => googleSignup(response.credential));
@@ -541,91 +409,90 @@ export function WriterMainContent() {
     } else {
       initializeGoogleSignIn();
     }
-  }, [cfg.googleClientId, googleMode]);
+  }, [googleClientId, googleMode]);
+
+  const rightOpen = panels.right;
 
   return (
-    <div className="h-full overflow-auto custom-scrollbar">
-      <div className="p-6 space-y-4">
-        <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-4">
-            {writerSection === "config" && (
-              <ConfigurationSection
-                cfg={cfg}
-                appKey={appKey}
-                encPublicKeyHex={encPublicKeyHex}
-                accountPrivateKeyPem={accountPrivateKeyPem}
-                encPrivateKeyPem={encPrivateKeyPem}
-                setCfg={setCfg}
-                updateKeyBundle={updateKeyBundle}
-                genAppKeys={() => handleAction("Generate keys", genAppKeys)}
-                applyConfig={applyConfig}
-                walletHealth={() => handleAction("Wallet health", walletHealth)}
-                backendHealth={() => handleAction("Backend health", backendHealth)}
-                serverKeys={() => handleAction("Server keys", serverKeys)}
-                appsHealth={() => handleAction("Apps health", appsHealth)}
-              />
-            )}
+    <div className="h-full flex overflow-hidden bg-background text-foreground">
+      <div className="flex-1 overflow-auto custom-scrollbar">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-muted/30">
+          <WriterBreadcrumb writerSection={writerSection} />
+        </div>
+        <div className="p-6 space-y-4 max-w-6xl mx-auto">
+          {writerSection === "backend" && (
+            <BackendSection
+              writeUri={writeUri}
+              writePayload={writePayload}
+              setWriteUri={setWriteUri}
+              setWritePayload={setWritePayload}
+              backendWritePlain={() => handleAction("Backend write (plain)", backendWritePlain)}
+              backendWriteEnc={() => handleAction("Backend write (encrypted)", backendWriteEnc)}
+              readLast={() => handleAction("Read last", readLast)}
+            />
+          )}
 
-            {writerSection === "backend" && (
-              <BackendSection
-                writeUri={writeUri}
-                writePayload={writePayload}
-                setWriteUri={setWriteUri}
-                setWritePayload={setWritePayload}
-                backendWritePlain={() => handleAction("Backend write (plain)", backendWritePlain)}
-                backendWriteEnc={() => handleAction("Backend write (encrypted)", backendWriteEnc)}
-                readLast={() => handleAction("Read last", readLast)}
-              />
-            )}
+          {writerSection === "app" && (
+            <AppSection
+              appKey={appKey}
+              setKeyBundle={(patch) => setKeyBundle({ ...keyBundle, ...patch })}
+              appToken={appToken}
+              appSession={appSession}
+              actionName={actionName}
+              validationFormat={validationFormat}
+              writeKind={writeKind}
+              writePlainPath={writePlainPath}
+              writeEncPath={writeEncPath}
+              actionPayload={actionPayload}
+              setAppToken={setAppToken}
+              setAppSession={setAppSession}
+              setActionName={setActionName}
+              setValidationFormat={setValidationFormat}
+              setWriteKind={setWriteKind}
+              setWritePlainPath={setWritePlainPath}
+              setWriteEncPath={setWriteEncPath}
+              setActionPayload={setActionPayload}
+              registerApp={() => handleAction("Register app", registerApp)}
+              createSession={() => handleAction("Create session", createSession)}
+              fetchSchema={() => handleAction("Fetch schema", fetchSchema)}
+              updateSchema={() => handleAction("Update schema", updateSchema)}
+              testAction={() => handleAction("Invoke action", testAction)}
+              genAppKeys={() => handleAction("Generate keys", genAppKeys)}
+              encryptionPublicKeyHex={encryptionPublicKeyHex}
+              accountPrivateKeyPem={accountPrivateKeyPem}
+              encryptionPrivateKeyPem={encryptionPrivateKeyPem}
+              googleClientId={googleClientId}
+              setGoogleClientId={setGoogleClientId}
+            />
+          )}
 
-            {writerSection === "app" && (
-              <AppSection
-                appKey={appKey}
-                appToken={appToken}
-                appSession={appSession}
-                actionName={actionName}
-                validationFormat={validationFormat}
-                writeKind={writeKind}
-                writePlainPath={writePlainPath}
-                writeEncPath={writeEncPath}
-                actionPayload={actionPayload}
-                setAppKey={setAppKey}
-                setAppToken={setAppToken}
-                setAppSession={setAppSession}
-                setActionName={setActionName}
-                setValidationFormat={setValidationFormat}
-                setWriteKind={setWriteKind}
-                setWritePlainPath={setWritePlainPath}
-                setWriteEncPath={setWriteEncPath}
-                setActionPayload={setActionPayload}
-                registerApp={() => handleAction("Register app", registerApp)}
-                createSession={() => handleAction("Create session", createSession)}
-                fetchSchema={() => handleAction("Fetch schema", fetchSchema)}
-                updateSchema={() => handleAction("Update schema", updateSchema)}
-                testAction={() => handleAction("Invoke action", testAction)}
-              />
-            )}
+          {writerSection === "auth" && (
+            <AuthSection
+              writeUri={writeUri}
+              setWriteUri={setWriteUri}
+              writePayload={writePayload}
+              setWritePayload={setWritePayload}
+              signup={(u, p) => handleAction("Signup", () => signup(u, p))}
+              login={(u, p) => handleAction("Login", () => login(u, p))}
+              myKeys={() => handleAction("My keys", myKeys)}
+              writePlain={() => handleAction("Proxy write plain", writePlain)}
+              writeEnc={() => handleAction("Proxy write encrypted", writeEnc)}
+              googleClientId={googleClientId}
+              googleMode={googleMode}
+              setGoogleMode={setGoogleMode}
+              googleButtonRef={googleButtonRef}
+            />
+          )}
+        </div>
+      </div>
 
-            {writerSection === "auth" && (
-              <AuthSection
-                writeUri={writeUri}
-                setWriteUri={setWriteUri}
-                writePayload={writePayload}
-                setWritePayload={setWritePayload}
-                signup={(u, p) => handleAction("Signup", () => signup(u, p))}
-                login={(u, p) => handleAction("Login", () => login(u, p))}
-                myKeys={() => handleAction("My keys", myKeys)}
-                writePlain={() => handleAction("Proxy write plain", writePlain)}
-                writeEnc={() => handleAction("Proxy write encrypted", writeEnc)}
-                googleClientId={cfg.googleClientId}
-                googleMode={googleMode}
-                setGoogleMode={setGoogleMode}
-                googleButtonRef={googleButtonRef}
-              />
-            )}
+      {rightOpen && (
+        <aside className="w-96 border-l border-border bg-card flex flex-col">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <PanelRightOpen className="h-4 w-4" />
+            <span className="text-sm font-semibold">Output & State</span>
           </div>
-
-          <div className="space-y-4">
+          <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-4">
             <OutputPanel output={output} />
             <StatePanel
               appKey={appKey}
@@ -636,9 +503,30 @@ export function WriterMainContent() {
               lastAppUri={lastAppUri}
             />
           </div>
-        </div>
-      </div>
+        </aside>
+      )}
     </div>
+  );
+}
+
+function WriterBreadcrumb({ writerSection }: { writerSection: "backend" | "app" | "auth" }) {
+  const labels: Record<"backend" | "app" | "auth", string> = {
+    backend: "Backend",
+    app: "App",
+    auth: "Auth",
+  };
+
+  return (
+    <nav className="flex items-center space-x-2 text-sm">
+      <div className="flex items-center space-x-2">
+        <PenSquare className="h-4 w-4 text-muted-foreground" />
+        <span className="px-2 py-1 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring">
+          Writer
+        </span>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      <span className="text-foreground font-medium">{labels[writerSection]}</span>
+    </nav>
   );
 }
 
@@ -654,150 +542,6 @@ function SectionCard({ title, icon, children }: { title: string; icon: ReactNode
   );
 }
 
-function ConfigurationSection(props: {
-  cfg: Config;
-  setCfg: (cfg: Config) => void;
-  appKey: string;
-  encPublicKeyHex: string;
-  accountPrivateKeyPem: string;
-  encPrivateKeyPem: string;
-  updateKeyBundle: (patch: Partial<KeyBundle>) => void;
-  genAppKeys: () => void;
-  applyConfig: () => void;
-  walletHealth: () => void;
-  backendHealth: () => void;
-  serverKeys: () => void;
-  appsHealth: () => void;
-}) {
-  const { cfg, setCfg, appKey, encPublicKeyHex, accountPrivateKeyPem, encPrivateKeyPem } = props;
-  return (
-    <SectionCard title="Configuration" icon={<Settings className="h-4 w-4" />}>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">App Public Key (hex)</label>
-          <input
-            value={appKey}
-            onChange={(e) => props.updateKeyBundle({ appKey: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="hex"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Encryption Public Key (X25519, hex)</label>
-          <input
-            value={encPublicKeyHex}
-            onChange={(e) => props.updateKeyBundle({ encryptionPublicKeyHex: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="hex"
-          />
-        </div>
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Account Private Key (PEM)</label>
-          <textarea
-            value={accountPrivateKeyPem}
-            onChange={(e) => props.updateKeyBundle({ accountPrivateKeyPem: e.target.value })}
-            className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="-----BEGIN PRIVATE KEY-----"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Encryption Private Key (PEM)</label>
-          <textarea
-            value={encPrivateKeyPem}
-            onChange={(e) => props.updateKeyBundle({ encryptionPrivateKeyPem: e.target.value })}
-            className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="-----BEGIN PRIVATE KEY-----"
-          />
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button onClick={props.genAppKeys} className={PRIMARY_BUTTON}>
-          Generate Keys
-        </button>
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Backend URL</label>
-          <input
-            value={cfg.backendUrl}
-            onChange={(e) => setCfg({ ...cfg, backendUrl: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="http://localhost:8080"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Wallet URL</label>
-          <input
-            value={cfg.walletUrl}
-            onChange={(e) => setCfg({ ...cfg, walletUrl: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="http://localhost:3001"
-          />
-        </div>
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">API Base Path</label>
-          <input
-            value={cfg.apiBasePath}
-            onChange={(e) => setCfg({ ...cfg, apiBasePath: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="/api/v1"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">App Server URL</label>
-          <input
-            value={cfg.appServerUrl}
-            onChange={(e) => setCfg({ ...cfg, appServerUrl: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="http://localhost:3003"
-          />
-        </div>
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">App API Base Path</label>
-          <input
-            value={cfg.appApiBasePath}
-            onChange={(e) => setCfg({ ...cfg, appApiBasePath: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="/api/v1"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Google Client ID</label>
-          <input
-            value={cfg.googleClientId}
-            onChange={(e) => setCfg({ ...cfg, googleClientId: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="your-client-id.apps.googleusercontent.com"
-          />
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button onClick={props.applyConfig} className={PRIMARY_BUTTON}>
-          Apply Config
-        </button>
-        <button onClick={props.walletHealth} className={SECONDARY_BUTTON}>
-          Wallet Health
-        </button>
-        <button onClick={props.backendHealth} className={SECONDARY_BUTTON}>
-          Backend Health
-        </button>
-        <button onClick={props.appsHealth} className={SECONDARY_BUTTON}>
-          App Server Health
-        </button>
-        <button onClick={props.serverKeys} className={SECONDARY_BUTTON}>
-          Server Keys
-        </button>
-      </div>
-    </SectionCard>
-  );
-}
-
 function BackendSection(props: {
   writeUri: string;
   setWriteUri: (v: string) => void;
@@ -809,25 +553,23 @@ function BackendSection(props: {
 }) {
   return (
     <SectionCard title="Backend" icon={<Server className="h-4 w-4" />}>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">URI</label>
-          <input
-            value={props.writeUri}
-            onChange={(e) => props.setWriteUri(e.target.value)}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="mutable://accounts/:key/profile"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Payload (JSON)</label>
-          <textarea
-            value={props.writePayload}
-            onChange={(e) => props.setWritePayload(e.target.value)}
-            className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder='{"name":"Test User","timestamp":""}'
-          />
-        </div>
+      <div className="space-y-2">
+        <label className="text-sm text-muted-foreground">URI</label>
+        <input
+          value={props.writeUri}
+          onChange={(e) => props.setWriteUri(e.target.value)}
+          className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+          placeholder="mutable://accounts/:key/profile"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm text-muted-foreground">Payload (JSON)</label>
+        <textarea
+          value={props.writePayload}
+          onChange={(e) => props.setWritePayload(e.target.value)}
+          className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
+          placeholder='{"name":"Test User","timestamp":""}'
+        />
       </div>
       <div className="flex flex-wrap gap-2">
         <button onClick={props.backendWritePlain} className={PRIMARY_BUTTON}>
@@ -846,7 +588,7 @@ function BackendSection(props: {
 
 function AppSection(props: {
   appKey: string;
-  setAppKey: (v: string) => void;
+  setKeyBundle: (bundle: Partial<KeyBundle>) => void;
   appToken: string;
   setAppToken: (v: string) => void;
   appSession: string;
@@ -868,6 +610,12 @@ function AppSection(props: {
   fetchSchema: () => void;
   updateSchema: () => void;
   testAction: () => void;
+  genAppKeys: () => void;
+  encryptionPublicKeyHex: string;
+  accountPrivateKeyPem: string;
+  encryptionPrivateKeyPem: string;
+  googleClientId: string;
+  setGoogleClientId: (v: string) => void;
 }) {
   return (
     <SectionCard title="App" icon={<Activity className="h-4 w-4" />}>
@@ -876,7 +624,7 @@ function AppSection(props: {
           <label className="text-sm text-muted-foreground">App Public Key (hex)</label>
           <input
             value={props.appKey}
-            onChange={(e) => props.setAppKey(e.target.value)}
+            onChange={(e) => props.setKeyBundle({ appKey: e.target.value })}
             className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
             placeholder="hex"
           />
@@ -993,6 +741,47 @@ function AppSection(props: {
         <button onClick={props.testAction} className={PRIMARY_BUTTON}>
           Invoke Action
         </button>
+        <button onClick={props.genAppKeys} className={SECONDARY_BUTTON}>
+          Generate Keys
+        </button>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm text-muted-foreground">Google Client ID</label>
+        <input
+          value={props.googleClientId}
+          onChange={(e) => props.setGoogleClientId(e.target.value)}
+          className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+          placeholder="your-client-id.apps.googleusercontent.com"
+        />
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">Encryption Public Key (X25519, hex)</label>
+          <input
+            value={props.encryptionPublicKeyHex}
+            onChange={(e) => props.setKeyBundle({ encryptionPublicKeyHex: e.target.value })}
+            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+            placeholder="hex"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">Encryption Private Key (PEM)</label>
+          <textarea
+            value={props.encryptionPrivateKeyPem}
+            onChange={(e) => props.setKeyBundle({ encryptionPrivateKeyPem: e.target.value })}
+            className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
+            placeholder="-----BEGIN PRIVATE KEY-----"
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm text-muted-foreground">Account Private Key (PEM)</label>
+        <textarea
+          value={props.accountPrivateKeyPem}
+          onChange={(e) => props.setKeyBundle({ accountPrivateKeyPem: e.target.value })}
+          className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
+          placeholder="-----BEGIN PRIVATE KEY-----"
+        />
       </div>
     </SectionCard>
   );

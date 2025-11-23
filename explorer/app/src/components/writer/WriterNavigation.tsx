@@ -1,4 +1,4 @@
-import { Settings, Server, PenSquare, ShieldCheck } from "lucide-react";
+import { Server, PenSquare, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import type { WriterSection } from "../../types";
 import { useAppStore } from "../../stores/appStore";
@@ -13,12 +13,6 @@ export function WriterNavigation() {
     description: string;
     icon: ReactNode;
   }> = [
-    {
-      key: "config",
-      label: "Configuration",
-      description: "Keys, wallet, and app server setup",
-      icon: <Settings className="h-4 w-4" />,
-    },
     {
       key: "backend",
       label: "Backend",

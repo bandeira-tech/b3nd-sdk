@@ -71,10 +71,18 @@ export interface BackendConfig {
   isActive: boolean;
 }
 
+export interface EndpointConfig {
+  id: string;
+  name: string;
+  url: string;
+  isActive: boolean;
+}
+
 // Application state types
 export type AppMode = "filesystem" | "search" | "watched";
 export type AppExperience = "explorer" | "writer";
-export type WriterSection = "config" | "backend" | "app" | "auth";
+export type WriterSection = "backend" | "app" | "auth";
+export type AppMainView = "content" | "settings";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -91,10 +99,25 @@ export interface AppLogEntry {
   level?: "info" | "success" | "warning" | "error";
 }
 
+export interface KeyBundle {
+  appKey: string;
+  accountPrivateKeyPem: string;
+  encryptionPublicKeyHex: string;
+  encryptionPrivateKeyPem: string;
+}
+
 export interface AppState {
   // Backend management
   backends: BackendConfig[];
   activeBackendId: string | null;
+
+  walletServers: EndpointConfig[];
+  activeWalletServerId: string | null;
+
+  appServers: EndpointConfig[];
+  activeAppServerId: string | null;
+  googleClientId: string;
+  keyBundle: KeyBundle;
 
   // Schema and root navigation
   schemas: Record<string, string[]>; // Schemas by instance: { instanceId: [uris] }
@@ -110,6 +133,7 @@ export interface AppState {
   theme: ThemeMode;
   mode: AppMode;
   activeApp: AppExperience;
+  mainView: AppMainView;
   writerSection: WriterSection;
 
   // Search
@@ -130,6 +154,15 @@ export interface AppActions {
   addBackend: (config: Omit<BackendConfig, "id">) => void;
   removeBackend: (id: string) => void;
   setActiveBackend: (id: string) => void;
+  addWalletServer: (config: Omit<EndpointConfig, "id">) => void;
+  removeWalletServer: (id: string) => void;
+  setActiveWalletServer: (id: string) => void;
+  addAppServer: (config: Omit<EndpointConfig, "id">) => void;
+  removeAppServer: (id: string) => void;
+  setActiveAppServer: (id: string) => void;
+  setGoogleClientId: (id: string) => void;
+  setKeyBundle: (bundle: Partial<KeyBundle>) => void;
+  closeSettings: () => void;
 
   // Schema actions
   loadSchemas: () => Promise<void>;
@@ -145,6 +178,7 @@ export interface AppActions {
   setTheme: (theme: ThemeMode) => void;
   setMode: (mode: AppMode) => void;
   setActiveApp: (app: AppExperience) => void;
+  setMainView: (view: AppMainView) => void;
   setWriterSection: (section: WriterSection) => void;
 
   // Search actions

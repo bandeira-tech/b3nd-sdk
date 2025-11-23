@@ -9,6 +9,7 @@ import type {
   PanelState,
   AppExperience,
   WriterSection,
+  AppMainView,
 } from "../types";
 import { HttpAdapter } from "../adapters/HttpAdapter";
 import { generateId } from "../utils";
@@ -72,11 +73,37 @@ async function createBackendsFromConfig(): Promise<BackendConfig[]> {
   return backends;
 }
 
-let initialBackends: BackendConfig[] = [];
-
 const initialState: Omit<AppState, "backendsReady"> = {
-  backends: initialBackends,
-  activeBackendId: "local-api", // Default to local API
+  backends: [
+    {
+      id: "local-api",
+      name: "Local HTTP API",
+      adapter: new HttpAdapter("http://localhost:8842"),
+      isActive: true,
+    },
+    {
+      id: "testnet",
+      name: "Testnet Evergreen",
+      adapter: new HttpAdapter("https://testnet-evergreen.fire.cat"),
+      isActive: false,
+    },
+  ],
+  activeBackendId: "local-api",
+  walletServers: [
+    { id: "local-wallet", name: "Local Wallet", url: "http://localhost:8843", isActive: true },
+  ],
+  activeWalletServerId: "local-wallet",
+  appServers: [
+    { id: "local-app", name: "Local App Server", url: "http://localhost:8844", isActive: true },
+  ],
+  activeAppServerId: "local-app",
+  googleClientId: "",
+  keyBundle: {
+    appKey: "",
+    accountPrivateKeyPem: "",
+    encryptionPublicKeyHex: "",
+    encryptionPrivateKeyPem: "",
+  },
   schemas: {},
   rootNodes: [],
   currentPath: "/",
@@ -84,13 +111,14 @@ const initialState: Omit<AppState, "backendsReady"> = {
   expandedPaths: new Set<string>(),
   panels: {
     left: true,
-    right: false,
+    right: true,
     bottom: false,
   },
   theme: "system" as ThemeMode,
   mode: "filesystem" as AppMode,
   activeApp: "explorer" as AppExperience,
-  writerSection: "config" as WriterSection,
+  mainView: "content" as AppMainView,
+  writerSection: "backend" as WriterSection,
   searchQuery: "",
   searchHistory: [],
   searchResults: [],
@@ -119,6 +147,64 @@ export const useAppStore = create<AppStore>()(
               backends: [...state.backends, { ...config, id: generateId(), adapter }],
             };
           });
+        },
+
+        addWalletServer: (config) => {
+          set((state) => ({
+            walletServers: [...state.walletServers, { ...config, id: generateId() }],
+          }));
+        },
+
+        removeWalletServer: (id) => {
+          set((state) => {
+            const walletServers = state.walletServers.filter((w) => w.id !== id);
+            const activeWalletServerId = state.activeWalletServerId === id ? walletServers[0]?.id || null : state.activeWalletServerId;
+            return { walletServers, activeWalletServerId };
+          });
+        },
+
+        setActiveWalletServer: (id) => {
+          set((state) => ({
+            activeWalletServerId: id,
+            walletServers: state.walletServers.map((w) => ({ ...w, isActive: w.id === id })),
+          }));
+        },
+
+        addAppServer: (config) => {
+          set((state) => ({
+            appServers: [...state.appServers, { ...config, id: generateId() }],
+          }));
+        },
+
+        removeAppServer: (id) => {
+          set((state) => {
+            const appServers = state.appServers.filter((w) => w.id !== id);
+            const activeAppServerId = state.activeAppServerId === id ? appServers[0]?.id || null : state.activeAppServerId;
+            return { appServers, activeAppServerId };
+          });
+        },
+
+        setActiveAppServer: (id) => {
+          set((state) => ({
+            activeAppServerId: id,
+            appServers: state.appServers.map((w) => ({ ...w, isActive: w.id === id })),
+          }));
+        },
+
+        setGoogleClientId: (googleClientId: string) => {
+          set({ googleClientId });
+        },
+
+        setKeyBundle: (bundle) => {
+          set((state) => ({
+            keyBundle: { ...state.keyBundle, ...bundle },
+          }));
+        },
+
+        closeSettings: () => {
+          set((state) => ({
+            panels: { ...state.panels, right: false },
+          }));
         },
 
         removeBackend: (id) => {
@@ -238,6 +324,7 @@ export const useAppStore = create<AppStore>()(
             return {
               currentPath: path,
               navigationHistory: history,
+              panels: { ...state.panels, right: false },
             };
           });
         },
@@ -311,11 +398,21 @@ export const useAppStore = create<AppStore>()(
         },
 
         setActiveApp: (activeApp: AppExperience) => {
-          set({ activeApp });
+          set(() => ({
+            activeApp,
+            mainView: "content",
+          }));
+        },
+
+        setMainView: (view: AppMainView) => {
+          set({ mainView: view });
         },
 
         setWriterSection: (section: WriterSection) => {
-          set({ writerSection: section });
+          set(() => ({
+            writerSection: section,
+            mainView: "content",
+          }));
         },
 
         setSearchQuery: (query: string) => {
@@ -384,6 +481,13 @@ export const useAppStore = create<AppStore>()(
           activeBackendId: state.activeBackendId,
           activeApp: state.activeApp,
           writerSection: state.writerSection,
+          mainView: state.mainView,
+          walletServers: state.walletServers,
+          activeWalletServerId: state.activeWalletServerId,
+          appServers: state.appServers,
+          activeAppServerId: state.activeAppServerId,
+          googleClientId: state.googleClientId,
+          keyBundle: state.keyBundle,
           panels: state.panels,
           theme: state.theme,
           searchHistory: state.searchHistory,
@@ -440,10 +544,22 @@ export const useAppStore = create<AppStore>()(
           state.searchResults = [];
           state.mode = "filesystem";
           state.activeApp = state.activeApp || "explorer";
-          state.writerSection = state.writerSection || "config";
+          state.writerSection = state.writerSection || "backend";
+          state.mainView = state.mainView || "content";
           state.logs = [];
           state.schemas = {};
           state.rootNodes = [];
+          state.walletServers = state.walletServers && state.walletServers.length > 0 ? state.walletServers : initialState.walletServers;
+          state.appServers = state.appServers && state.appServers.length > 0 ? state.appServers : initialState.appServers;
+          state.activeWalletServerId = state.activeWalletServerId || initialState.activeWalletServerId;
+          state.activeAppServerId = state.activeAppServerId || initialState.activeAppServerId;
+          state.googleClientId = state.googleClientId || "";
+          state.keyBundle = state.keyBundle || {
+            appKey: "",
+            accountPrivateKeyPem: "",
+            encryptionPublicKeyHex: "",
+            encryptionPrivateKeyPem: "",
+          };
 
           state.backendsReady = true;
 

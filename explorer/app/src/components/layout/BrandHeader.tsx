@@ -4,7 +4,7 @@ import { Settings, Sun, Moon, Monitor } from 'lucide-react';
 import { cn } from '../../utils';
 
 export function BrandHeader() {
-  const { theme, setTheme, togglePanel, panels } = useAppStore();
+  const { theme, setTheme, setMainView, mainView } = useAppStore();
 
   const handleThemeToggle = () => {
     const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
@@ -46,13 +46,13 @@ export function BrandHeader() {
         </button>
 
         <button
-          onClick={() => togglePanel('right')}
+          onClick={() => setMainView(mainView === 'settings' ? 'content' : 'settings')}
           className={cn(
             "p-1.5 rounded hover:bg-white/10 transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-            panels.right && "bg-white/10"
+            mainView === 'settings' && "bg-white/10"
           )}
-          title="Toggle settings panel"
+          title="Toggle settings"
         >
           <Settings className="h-4 w-4" />
         </button>

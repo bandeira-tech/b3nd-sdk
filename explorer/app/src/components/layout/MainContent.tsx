@@ -7,13 +7,15 @@ import { WriterMainContent } from "../writer/WriterMainContent";
 import type { WriterSection } from "../../types";
 
 export function MainContent() {
-  const { mode, currentPath, activeApp } = useAppStore();
+  const mode = useAppStore((state) => state.mode);
+  const currentPath = useAppStore((state) => state.currentPath);
+  const activeApp = useAppStore((state) => state.activeApp) as any;
+
+  if (activeApp === "writer") {
+    return <WriterMainContent />;
+  }
 
   const renderContent = () => {
-    if (activeApp === "writer") {
-      return <WriterMainContent />;
-    }
-
     switch (mode) {
       case "filesystem":
         return <ContentViewer path={currentPath} />;
@@ -27,7 +29,7 @@ export function MainContent() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full overflow-auto custom-scrollbar">
       <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-muted/30">
         {activeApp === "writer" ? (
           <WriterBreadcrumb />
@@ -36,8 +38,7 @@ export function MainContent() {
         )}
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-auto custom-scrollbar">
+      <div className="flex-1">
         {renderContent()}
       </div>
     </div>
@@ -114,7 +115,6 @@ function WriterBreadcrumb() {
   const { writerSection, setWriterSection } = useAppStore();
 
   const labels: Record<WriterSection, string> = {
-    config: "Configuration",
     backend: "Backend",
     app: "App",
     auth: "Auth",
@@ -125,7 +125,7 @@ function WriterBreadcrumb() {
       <div className="flex items-center space-x-2">
         <PenSquare className="h-4 w-4 text-muted-foreground" />
         <button
-          onClick={() => setWriterSection("config")}
+          onClick={() => setWriterSection("backend")}
           className="px-2 py-1 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
         >
           Writer
