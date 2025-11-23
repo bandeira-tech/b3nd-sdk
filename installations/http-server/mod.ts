@@ -2,6 +2,7 @@
 import {
   createServerNode,
   firstMatchSequence,
+  HttpClient,
   MemoryClient,
   MongoClient,
   parallelBroadcast,
@@ -94,7 +95,8 @@ for (const spec of backendSpecs) {
         `MongoDB backend spec must include database in path: ${spec}`,
       );
     }
-    const collectionName = url.searchParams.get("collection") ?? "b3nd_data";
+    const collectionName =
+      url.searchParams.get("collection") ?? "b3nd_data";
 
     const executor = await createMongoExecutor(
       spec,
@@ -112,6 +114,14 @@ for (const spec of backendSpecs) {
     );
 
     clients.push(mongo);
+    continue;
+  }
+
+  if (spec.startsWith("http://") || spec.startsWith("https://")) {
+    const httpClient = new HttpClient({
+      url: spec,
+    });
+    clients.push(httpClient);
     continue;
   }
 
