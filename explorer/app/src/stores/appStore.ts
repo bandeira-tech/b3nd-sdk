@@ -1,15 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
-  AppState,
   AppActions,
-  BackendConfig,
-  ThemeMode,
-  AppMode,
-  PanelState,
   AppExperience,
-  WriterSection,
   AppMainView,
+  AppMode,
+  AppState,
+  BackendConfig,
+  EndpointConfig,
+  PanelState,
+  ThemeMode,
+  WriterSection,
 } from "../types";
 import { HttpAdapter } from "../adapters/HttpAdapter";
 import { generateId } from "../utils";
@@ -24,79 +25,115 @@ interface SerializableBackendConfig {
   isActive: boolean;
 }
 
+interface InstancesConfig {
+  defaults?: {
+    backend?: string;
+    wallet?: string;
+    appServer?: string;
+  };
+  backends?: Record<string, { name?: string; baseUrl?: string }>;
+  walletServers?: Record<string, { name?: string; url?: string }>;
+  appServers?: Record<string, { name?: string; url?: string }>;
+}
+
 // Load instance configuration
-async function loadInstanceConfig() {
+async function loadInstanceConfig(): Promise<InstancesConfig> {
   try {
     const response = await fetch("/instances.json");
     if (!response.ok) {
       throw new Error("Failed to load instances config");
     }
-    return await response.json();
+    return await response.json() as InstancesConfig;
   } catch (error) {
     console.error("Failed to load instances config:", error);
     // Fallback to default config
     return {
-      default: "local-api",
-      instances: {
-        "local-api": {
-          type: "http",
-          name: "Local HTTP API",
-          baseUrl: "http://localhost:8000",
-          instanceId: "default",
-        },
+      defaults: {
+        backend: "local-api",
+        wallet: "local-wallet",
+        appServer: "local-app",
+      },
+      backends: {
+        "local-api": { name: "Local HTTP API", baseUrl: "http://localhost:8842" },
+      },
+      walletServers: {
+        "local-wallet": { name: "Local Wallet", url: "http://localhost:8843" },
+      },
+      appServers: {
+        "local-app": { name: "Local App Server", url: "http://localhost:8844" },
       },
     };
   }
 }
 
-// Create backend configs directly from instances.json
-async function createBackendsFromConfig(): Promise<BackendConfig[]> {
+async function loadAllEndpoints(): Promise<{
+  backends: BackendConfig[];
+  walletServers: EndpointConfig[];
+  appServers: EndpointConfig[];
+  defaults: { backend?: string; wallet?: string; appServer?: string };
+}> {
   const config = await loadInstanceConfig();
+
   const backends: BackendConfig[] = [];
-
-  const defaultInstance: string | undefined = (config as any).default;
-  const instances = (config as any).instances || {};
-
-  for (const name of Object.keys(instances)) {
-    const instanceConfig = instances[name];
-    if (instanceConfig.type === "http") {
-      const baseUrl: string = instanceConfig.baseUrl;
+  if (config.backends) {
+    const defaultBackendId = config.defaults?.backend;
+    for (const id of Object.keys(config.backends)) {
+      const entry = config.backends[id];
+      if (!entry?.baseUrl) continue;
       backends.push({
-        id: name,
-        name: instanceConfig.name || name,
-        adapter: new HttpAdapter(baseUrl),
-        isActive: name === defaultInstance,
+        id,
+        name: entry.name || id,
+        adapter: new HttpAdapter(entry.baseUrl),
+        isActive: id === defaultBackendId,
       });
     }
   }
 
-  return backends;
+  const walletServers: EndpointConfig[] = [];
+  if (config.walletServers) {
+    const defaultWalletId = config.defaults?.wallet;
+    for (const id of Object.keys(config.walletServers)) {
+      const entry = config.walletServers[id];
+      if (!entry?.url) continue;
+      walletServers.push({
+        id,
+        name: entry.name || id,
+        url: entry.url,
+        isActive: id === defaultWalletId,
+      });
+    }
+  }
+
+  const appServers: EndpointConfig[] = [];
+  if (config.appServers) {
+    const defaultAppId = config.defaults?.appServer;
+    for (const id of Object.keys(config.appServers)) {
+      const entry = config.appServers[id];
+      if (!entry?.url) continue;
+      appServers.push({
+        id,
+        name: entry.name || id,
+        url: entry.url,
+        isActive: id === defaultAppId,
+      });
+    }
+  }
+
+  return {
+    backends,
+    walletServers,
+    appServers,
+    defaults: config.defaults || {},
+  };
 }
 
 const initialState: Omit<AppState, "backendsReady"> = {
-  backends: [
-    {
-      id: "local-api",
-      name: "Local HTTP API",
-      adapter: new HttpAdapter("http://localhost:8842"),
-      isActive: true,
-    },
-    {
-      id: "testnet",
-      name: "Testnet Evergreen",
-      adapter: new HttpAdapter("https://testnet-evergreen.fire.cat"),
-      isActive: false,
-    },
-  ],
-  activeBackendId: "local-api",
-  walletServers: [
-    { id: "local-wallet", name: "Local Wallet", url: "http://localhost:8843", isActive: true },
-  ],
-  activeWalletServerId: "local-wallet",
-  appServers: [
-    { id: "local-app", name: "Local App Server", url: "http://localhost:8844", isActive: true },
-  ],
-  activeAppServerId: "local-app",
+  backends: [],
+  activeBackendId: null,
+  walletServers: [],
+  activeWalletServerId: null,
+  appServers: [],
+  activeAppServerId: null,
   googleClientId: "",
   keyBundle: {
     appKey: "",
@@ -144,21 +181,32 @@ export const useAppStore = create<AppStore>()(
             (adapter as any).isUserAdded = true;
 
             return {
-              backends: [...state.backends, { ...config, id: generateId(), adapter }],
+              backends: [...state.backends, {
+                ...config,
+                id: generateId(),
+                adapter,
+              }],
             };
           });
         },
 
         addWalletServer: (config) => {
           set((state) => ({
-            walletServers: [...state.walletServers, { ...config, id: generateId() }],
+            walletServers: [...state.walletServers, {
+              ...config,
+              id: generateId(),
+            }],
           }));
         },
 
         removeWalletServer: (id) => {
           set((state) => {
-            const walletServers = state.walletServers.filter((w) => w.id !== id);
-            const activeWalletServerId = state.activeWalletServerId === id ? walletServers[0]?.id || null : state.activeWalletServerId;
+            const walletServers = state.walletServers.filter((w) =>
+              w.id !== id
+            );
+            const activeWalletServerId = state.activeWalletServerId === id
+              ? walletServers[0]?.id || null
+              : state.activeWalletServerId;
             return { walletServers, activeWalletServerId };
           });
         },
@@ -166,7 +214,10 @@ export const useAppStore = create<AppStore>()(
         setActiveWalletServer: (id) => {
           set((state) => ({
             activeWalletServerId: id,
-            walletServers: state.walletServers.map((w) => ({ ...w, isActive: w.id === id })),
+            walletServers: state.walletServers.map((w) => ({
+              ...w,
+              isActive: w.id === id,
+            })),
           }));
         },
 
@@ -179,7 +230,9 @@ export const useAppStore = create<AppStore>()(
         removeAppServer: (id) => {
           set((state) => {
             const appServers = state.appServers.filter((w) => w.id !== id);
-            const activeAppServerId = state.activeAppServerId === id ? appServers[0]?.id || null : state.activeAppServerId;
+            const activeAppServerId = state.activeAppServerId === id
+              ? appServers[0]?.id || null
+              : state.activeAppServerId;
             return { appServers, activeAppServerId };
           });
         },
@@ -187,7 +240,10 @@ export const useAppStore = create<AppStore>()(
         setActiveAppServer: (id) => {
           set((state) => ({
             activeAppServerId: id,
-            appServers: state.appServers.map((w) => ({ ...w, isActive: w.id === id })),
+            appServers: state.appServers.map((w) => ({
+              ...w,
+              isActive: w.id === id,
+            })),
           }));
         },
 
@@ -248,9 +304,16 @@ export const useAppStore = create<AppStore>()(
 
         loadSchemas: async () => {
           const state = get();
-          const backend = state.backends.find((b) => b.id === state.activeBackendId);
+          const backend = state.backends.find((b) =>
+            b.id === state.activeBackendId
+          );
 
-          console.log("[loadSchemas] Called. ActiveBackendId:", state.activeBackendId, "Backend found:", !!backend);
+          console.log(
+            "[loadSchemas] Called. ActiveBackendId:",
+            state.activeBackendId,
+            "Backend found:",
+            !!backend,
+          );
 
           if (!backend) {
             console.warn("[loadSchemas] No active backend found");
@@ -262,13 +325,16 @@ export const useAppStore = create<AppStore>()(
 
             // Add timeout to prevent hanging indefinitely
             const timeoutPromise = new Promise<never>((_, reject) => {
-              setTimeout(() => reject(new Error("Schema fetch timeout after 10s")), 10000);
+              setTimeout(
+                () => reject(new Error("Schema fetch timeout after 10s")),
+                10000,
+              );
             });
 
             // Fetch schemas from backend (organized by instance) with timeout
             const schemasByInstance = await Promise.race([
               backend.adapter.getSchema(),
-              timeoutPromise
+              timeoutPromise,
             ]);
             console.log("[loadSchemas] Raw response:", schemasByInstance);
 
@@ -282,7 +348,10 @@ export const useAppStore = create<AppStore>()(
               }
             }
 
-            console.log("[loadSchemas] Collected URIs:", Array.from(allSchemaUris));
+            console.log(
+              "[loadSchemas] Collected URIs:",
+              Array.from(allSchemaUris),
+            );
 
             // Build root navigation nodes from all schemas
             const nodes: import("../types").NavigationNode[] = [];
@@ -292,9 +361,16 @@ export const useAppStore = create<AppStore>()(
                 const protocol = url.protocol.replace(":", "");
                 const domain = url.hostname;
                 const path = `/${protocol}/${domain}`;
-                nodes.push({ path, name: `${protocol}://${domain}`, type: "directory" });
+                nodes.push({
+                  path,
+                  name: `${protocol}://${domain}`,
+                  type: "directory",
+                });
               } catch (error) {
-                console.error(`[loadSchemas] Failed to parse schema URI: ${uri}`, error);
+                console.error(
+                  `[loadSchemas] Failed to parse schema URI: ${uri}`,
+                  error,
+                );
               }
             }
 
@@ -468,7 +544,9 @@ export const useAppStore = create<AppStore>()(
       partialize: (state) => {
         // Serialize user-added backends (those not from instances.json)
         const userBackends: SerializableBackendConfig[] = state.backends
-          .filter((b) => b.adapter.type === "http" && (b.adapter as any).isUserAdded)
+          .filter((b) =>
+            b.adapter.type === "http" && (b.adapter as any).isUserAdded
+          )
           .map((b) => ({
             id: b.id,
             name: b.name,
@@ -497,12 +575,9 @@ export const useAppStore = create<AppStore>()(
       },
       onRehydrateStorage: () => async (state) => {
         console.log("[onRehydrate] Starting rehydration");
-        if (state) {
-          // Load backends from configuration
-          const backends = await createBackendsFromConfig();
-          console.log("[onRehydrate] Loaded backends from config:", backends.map(b => b.id));
+        const { backends, walletServers, appServers, defaults } = await loadAllEndpoints();
 
-          // Restore user-added backends from localStorage
+        if (state) {
           const userBackends: SerializableBackendConfig[] = (state as any).userBackends || [];
           const restoredUserBackends: BackendConfig[] = userBackends.map((b) => ({
             id: b.id,
@@ -511,32 +586,21 @@ export const useAppStore = create<AppStore>()(
             isActive: b.isActive,
           }));
 
-          // Combine system backends with user backends
           state.backends = [...backends, ...restoredUserBackends];
-          console.log("[onRehydrate] Total backends after merge:", state.backends.map(b => b.id));
-
-          // Use saved activeBackendId if valid (check both system and user backends)
           const allBackends = [...backends, ...restoredUserBackends];
-          const validBackendId = allBackends.find(
-            (b) => b.id === state.activeBackendId
-          )?.id;
-          const defaultBackend = backends.find((b) => b.isActive);
-          state.activeBackendId = validBackendId || defaultBackend?.id || allBackends[0]?.id;
-          console.log("[onRehydrate] Set activeBackendId to:", state.activeBackendId);
+          const validBackendId = allBackends.find((b) => b.id === state.activeBackendId)?.id;
+          const defaultBackend = backends.find((b) => b.isActive) || backends.find((b) => b.id === defaults.backend);
+          state.activeBackendId = validBackendId || defaultBackend?.id || allBackends[0]?.id || null;
 
-          // Apply theme
           const theme = state.theme || "system";
           const root = document.documentElement;
           if (theme === "dark") root.classList.add("dark");
           else if (theme === "light") root.classList.remove("dark");
           else {
-            const isDark = window.matchMedia(
-              "(prefers-color-scheme: dark)",
-            ).matches;
+            const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
             root.classList.toggle("dark", isDark);
           }
 
-          // Reset runtime state
           state.currentPath = "/";
           state.navigationHistory = ["/"];
           state.expandedPaths = new Set();
@@ -549,10 +613,20 @@ export const useAppStore = create<AppStore>()(
           state.logs = [];
           state.schemas = {};
           state.rootNodes = [];
-          state.walletServers = state.walletServers && state.walletServers.length > 0 ? state.walletServers : initialState.walletServers;
-          state.appServers = state.appServers && state.appServers.length > 0 ? state.appServers : initialState.appServers;
-          state.activeWalletServerId = state.activeWalletServerId || initialState.activeWalletServerId;
-          state.activeAppServerId = state.activeAppServerId || initialState.activeAppServerId;
+          state.walletServers = state.walletServers && state.walletServers.length > 0 ? state.walletServers : walletServers;
+          state.appServers = state.appServers && state.appServers.length > 0 ? state.appServers : appServers;
+          state.activeWalletServerId =
+            state.activeWalletServerId ||
+            walletServers.find((w) => w.isActive)?.id ||
+            walletServers.find((w) => w.id === defaults.wallet)?.id ||
+            walletServers[0]?.id ||
+            null;
+          state.activeAppServerId =
+            state.activeAppServerId ||
+            appServers.find((w) => w.isActive)?.id ||
+            appServers.find((w) => w.id === defaults.appServer)?.id ||
+            appServers[0]?.id ||
+            null;
           state.googleClientId = state.googleClientId || "";
           state.keyBundle = state.keyBundle || {
             appKey: "",
@@ -563,13 +637,32 @@ export const useAppStore = create<AppStore>()(
 
           state.backendsReady = true;
 
-          console.log("[onRehydrate] Scheduling loadSchemas call");
-          // Load schemas asynchronously after rehydration
           setTimeout(() => {
-            console.log("[onRehydrate] Executing loadSchemas from setTimeout");
             const store = useAppStore.getState();
             store.loadSchemas();
           }, 0);
+        } else {
+          useAppStore.setState({
+            backends,
+            activeBackendId:
+              backends.find((b) => b.isActive)?.id ||
+              backends.find((b) => b.id === defaults.backend)?.id ||
+              backends[0]?.id ||
+              null,
+            walletServers,
+            activeWalletServerId:
+              walletServers.find((w) => w.isActive)?.id ||
+              walletServers.find((w) => w.id === defaults.wallet)?.id ||
+              walletServers[0]?.id ||
+              null,
+            appServers,
+            activeAppServerId:
+              appServers.find((w) => w.isActive)?.id ||
+              appServers.find((w) => w.id === defaults.appServer)?.id ||
+              appServers[0]?.id ||
+              null,
+            backendsReady: true,
+          });
         }
       },
     },

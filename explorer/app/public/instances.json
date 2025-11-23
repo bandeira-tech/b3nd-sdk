@@ -1,21 +1,29 @@
 {
-  "default": "local-api",
-  "instances": {
+  "defaults": {
+    "backend": "local-api",
+    "wallet": "local-wallet",
+    "appServer": "local-app"
+  },
+  "backends": {
     "local-api": {
-      "type": "http",
       "name": "Local HTTP API",
-      "baseUrl": "http://localhost:8000",
-      "instanceId": "local"
+      "baseUrl": "http://localhost:8842"
     },
     "testnet": {
-      "type": "http",
       "name": "Testnet Evergreen",
-      "baseUrl": "https://testnet-evergreen.fire.cat",
-      "instanceId": "testnet"
-    },
-    "mock": {
-      "type": "mock",
-      "name": "Mock Data (Browser)"
+      "baseUrl": "https://testnet-evergreen.fire.cat"
+    }
+  },
+  "walletServers": {
+    "local-wallet": {
+      "name": "Local Wallet",
+      "url": "http://localhost:8843"
+    }
+  },
+  "appServers": {
+    "local-app": {
+      "name": "Local App Server",
+      "url": "http://localhost:8844"
     }
   }
 }
