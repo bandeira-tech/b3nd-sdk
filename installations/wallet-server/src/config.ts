@@ -16,14 +16,15 @@ interface WalletConfig {
   serverKeysPath: string;
   allowedOrigins: string[];
   passwordResetTokenTtlSeconds: number;
+  googleClientId: string | null; // Google OAuth Client ID (optional)
 }
 
 export function loadConfig(): WalletConfig {
-  const port = Number(Deno.env.get("WALLET_PORT") || "3001");
+  const port = Number(Deno.env.get("WALLET_PORT") || "8843");
   const credentialNodeUrl = Deno.env.get("CREDENTIAL_NODE_URL") ||
-    "http://localhost:8080";
+    "http://localhost:8842";
   const proxyNodeUrl = Deno.env.get("PROXY_NODE_URL") ||
-    "http://localhost:8080";
+    "http://localhost:8842";
   const jwtSecret = Deno.env.get("JWT_SECRET");
   const jwtExpirationSeconds = Number(
     Deno.env.get("JWT_EXPIRATION_SECONDS") || "86400",

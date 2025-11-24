@@ -432,39 +432,54 @@ export function WriterMainContent() {
             />
           )}
 
-          {writerSection === "app" && (
-            <AppSection
-              appKey={appKey}
-              setKeyBundle={(patch) => setKeyBundle({ ...keyBundle, ...patch })}
-              appToken={appToken}
-              appSession={appSession}
-              actionName={actionName}
-              validationFormat={validationFormat}
-              writeKind={writeKind}
-              writePlainPath={writePlainPath}
-              writeEncPath={writeEncPath}
-              actionPayload={actionPayload}
-              setAppToken={setAppToken}
-              setAppSession={setAppSession}
-              setActionName={setActionName}
-              setValidationFormat={setValidationFormat}
-              setWriteKind={setWriteKind}
-              setWritePlainPath={setWritePlainPath}
-              setWriteEncPath={setWriteEncPath}
-              setActionPayload={setActionPayload}
-              registerApp={() => handleAction("Register app", registerApp)}
-              createSession={() => handleAction("Create session", createSession)}
-              fetchSchema={() => handleAction("Fetch schema", fetchSchema)}
-              updateSchema={() => handleAction("Update schema", updateSchema)}
-              testAction={() => handleAction("Invoke action", testAction)}
-              genAppKeys={() => handleAction("Generate keys", genAppKeys)}
-              encryptionPublicKeyHex={encryptionPublicKeyHex}
-              accountPrivateKeyPem={accountPrivateKeyPem}
-              encryptionPrivateKeyPem={encryptionPrivateKeyPem}
-              googleClientId={googleClientId}
-              setGoogleClientId={setGoogleClientId}
-            />
-          )}
+            {writerSection === "app" && (
+              <div className="space-y-4">
+                <AppCredentialsCard
+                  appKey={appKey}
+                  appToken={appToken}
+                  setKeyBundle={(patch) => setKeyBundle({ ...keyBundle, ...patch })}
+                  setAppToken={setAppToken}
+                  registerApp={() => handleAction("Register app", registerApp)}
+                  fetchSchema={() => handleAction("Fetch schema", fetchSchema)}
+                />
+                <SessionCard
+                  appSession={appSession}
+                  setAppSession={setAppSession}
+                  createSession={() => handleAction("Create session", createSession)}
+                />
+                <ActionRegistryCard
+                  actionName={actionName}
+                  setActionName={setActionName}
+                  validationFormat={validationFormat}
+                  setValidationFormat={setValidationFormat}
+                  writeKind={writeKind}
+                  setWriteKind={setWriteKind}
+                  writePlainPath={writePlainPath}
+                  setWritePlainPath={setWritePlainPath}
+                  writeEncPath={writeEncPath}
+                  setWriteEncPath={setWriteEncPath}
+                  updateSchema={() => handleAction("Update schema", updateSchema)}
+                />
+                <InvokeActionCard
+                  actionName={actionName}
+                  setActionName={setActionName}
+                  actionPayload={actionPayload}
+                  setActionPayload={setActionPayload}
+                  testAction={() => handleAction("Invoke action", testAction)}
+                />
+                <KeysCard
+                  encryptionPublicKeyHex={encryptionPublicKeyHex}
+                  encryptionPrivateKeyPem={encryptionPrivateKeyPem}
+                  accountPrivateKeyPem={accountPrivateKeyPem}
+                  setKeyBundle={(patch) => setKeyBundle({ ...keyBundle, ...patch })}
+                  genAppKeys={() => handleAction("Generate keys", genAppKeys)}
+                />
+                <MiscCard
+                  googleClientId={googleClientId}
+                  setGoogleClientId={setGoogleClientId}
+                />
+              </div>
+            )}
 
           {writerSection === "auth" && (
             <AuthSection
@@ -586,13 +601,55 @@ function BackendSection(props: {
   );
 }
 
-function AppSection(props: {
+function AppCredentialsCard(props: {
   appKey: string;
-  setKeyBundle: (bundle: Partial<KeyBundle>) => void;
   appToken: string;
+  setKeyBundle: (bundle: Partial<KeyBundle>) => void;
   setAppToken: (v: string) => void;
+  registerApp: () => void;
+  fetchSchema: () => void;
+}) {
+  return (
+    <SectionCard title="App Credentials" icon={<Activity className="h-4 w-4" />}>
+      <div className="grid md:grid-cols-2 gap-4">
+        <Field
+          label="App Public Key (hex)"
+          value={props.appKey}
+          onChange={(v) => props.setKeyBundle({ appKey: v })}
+          placeholder="hex"
+        />
+        <Field label="App Token" value={props.appToken} onChange={props.setAppToken} />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button onClick={props.registerApp} className={PRIMARY_BUTTON}>
+          Register App
+        </button>
+        <button onClick={props.fetchSchema} className={SECONDARY_BUTTON}>
+          Fetch Schema
+        </button>
+      </div>
+    </SectionCard>
+  );
+}
+
+function SessionCard(props: {
   appSession: string;
   setAppSession: (v: string) => void;
+  createSession: () => void;
+}) {
+  return (
+    <SectionCard title="Session" icon={<KeyRound className="h-4 w-4" />}>
+      <Field label="Session Key" value={props.appSession} onChange={props.setAppSession} />
+      <div className="flex flex-wrap gap-2">
+        <button onClick={props.createSession} className={SECONDARY_BUTTON}>
+          Create Session
+        </button>
+      </div>
+    </SectionCard>
+  );
+}
+
+function ActionRegistryCard(props: {
   actionName: string;
   setActionName: (v: string) => void;
   validationFormat: "email" | "";
@@ -603,70 +660,12 @@ function AppSection(props: {
   setWritePlainPath: (v: string) => void;
   writeEncPath: string;
   setWriteEncPath: (v: string) => void;
-  actionPayload: string;
-  setActionPayload: (v: string) => void;
-  registerApp: () => void;
-  createSession: () => void;
-  fetchSchema: () => void;
   updateSchema: () => void;
-  testAction: () => void;
-  genAppKeys: () => void;
-  encryptionPublicKeyHex: string;
-  accountPrivateKeyPem: string;
-  encryptionPrivateKeyPem: string;
-  googleClientId: string;
-  setGoogleClientId: (v: string) => void;
 }) {
   return (
-    <SectionCard title="App" icon={<Activity className="h-4 w-4" />}>
+    <SectionCard title="Actions Registry & Schema" icon={<Activity className="h-4 w-4" />}>
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">App Public Key (hex)</label>
-          <input
-            value={props.appKey}
-            onChange={(e) => props.setKeyBundle({ appKey: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="hex"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">App Token</label>
-          <input
-            value={props.appToken}
-            onChange={(e) => props.setAppToken(e.target.value)}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-          />
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button onClick={props.registerApp} className={PRIMARY_BUTTON}>
-          Register App
-        </button>
-        <button onClick={props.createSession} className={SECONDARY_BUTTON}>
-          Create Session
-        </button>
-        <button onClick={props.fetchSchema} className={SECONDARY_BUTTON}>
-          Fetch Schema
-        </button>
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm text-muted-foreground">Session Key</label>
-        <input
-          value={props.appSession}
-          onChange={(e) => props.setAppSession(e.target.value)}
-          className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-        />
-      </div>
-      <hr className="border-border" />
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Action Name</label>
-          <input
-            value={props.actionName}
-            onChange={(e) => props.setActionName(e.target.value)}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-          />
-        </div>
+        <Field label="Action Name" value={props.actionName} onChange={props.setActionName} />
         <div className="space-y-2">
           <label className="text-sm text-muted-foreground">Validation Format</label>
           <select
@@ -692,25 +691,19 @@ function AppSection(props: {
           </select>
         </div>
         {props.writeKind === "plain" ? (
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">Plain Path</label>
-            <input
-              value={props.writePlainPath}
-              onChange={(e) => props.setWritePlainPath(e.target.value)}
-              className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-              placeholder="mutable://accounts/:key/subscribers/updates/:signature"
-            />
-          </div>
+          <Field
+            label="Plain Path"
+            value={props.writePlainPath}
+            onChange={props.setWritePlainPath}
+            placeholder="mutable://accounts/:key/subscribers/updates/:signature"
+          />
         ) : (
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">Encrypted Path</label>
-            <input
-              value={props.writeEncPath}
-              onChange={(e) => props.setWriteEncPath(e.target.value)}
-              className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-              placeholder="immutable://accounts/:key/subscribers/updates/:signature"
-            />
-          </div>
+          <Field
+            label="Encrypted Path"
+            value={props.writeEncPath}
+            onChange={props.setWriteEncPath}
+            placeholder="immutable://accounts/:key/subscribers/updates/:signature"
+          />
         )}
       </div>
       <div className="flex flex-wrap gap-2">
@@ -718,71 +711,81 @@ function AppSection(props: {
           Update Schema
         </button>
       </div>
-      <hr className="border-border" />
+    </SectionCard>
+  );
+}
+
+function InvokeActionCard(props: {
+  actionName: string;
+  setActionName: (v: string) => void;
+  actionPayload: string;
+  setActionPayload: (v: string) => void;
+  testAction: () => void;
+}) {
+  return (
+    <SectionCard title="Invoke Action" icon={<Activity className="h-4 w-4" />}>
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Action</label>
-          <input
-            value={props.actionName}
-            onChange={(e) => props.setActionName(e.target.value)}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Test Payload (string)</label>
-          <input
-            value={props.actionPayload}
-            onChange={(e) => props.setActionPayload(e.target.value)}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-          />
-        </div>
+        <Field label="Action" value={props.actionName} onChange={props.setActionName} />
+        <Field
+          label="Test Payload (string)"
+          value={props.actionPayload}
+          onChange={props.setActionPayload}
+        />
       </div>
       <div className="flex flex-wrap gap-2">
         <button onClick={props.testAction} className={PRIMARY_BUTTON}>
           Invoke Action
         </button>
+      </div>
+    </SectionCard>
+  );
+}
+
+function KeysCard(props: {
+  encryptionPublicKeyHex: string;
+  encryptionPrivateKeyPem: string;
+  accountPrivateKeyPem: string;
+  setKeyBundle: (bundle: Partial<KeyBundle>) => void;
+  genAppKeys: () => void;
+}) {
+  return (
+    <SectionCard title="Keys" icon={<KeyRound className="h-4 w-4" />}>
+      <div className="grid md:grid-cols-2 gap-4">
+        <Field
+          label="Encryption Public Key (X25519, hex)"
+          value={props.encryptionPublicKeyHex}
+          onChange={(v) => props.setKeyBundle({ encryptionPublicKeyHex: v })}
+          placeholder="hex"
+        />
+        <TextArea
+          label="Encryption Private Key (PEM)"
+          value={props.encryptionPrivateKeyPem}
+          onChange={(v) => props.setKeyBundle({ encryptionPrivateKeyPem: v })}
+        />
+      </div>
+      <TextArea
+        label="Account Private Key (PEM)"
+        value={props.accountPrivateKeyPem}
+        onChange={(v) => props.setKeyBundle({ accountPrivateKeyPem: v })}
+      />
+      <div className="flex flex-wrap gap-2">
         <button onClick={props.genAppKeys} className={SECONDARY_BUTTON}>
           Generate Keys
         </button>
       </div>
-      <div className="space-y-2">
-        <label className="text-sm text-muted-foreground">Google Client ID</label>
-        <input
-          value={props.googleClientId}
-          onChange={(e) => props.setGoogleClientId(e.target.value)}
-          className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-          placeholder="your-client-id.apps.googleusercontent.com"
-        />
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Encryption Public Key (X25519, hex)</label>
-          <input
-            value={props.encryptionPublicKeyHex}
-            onChange={(e) => props.setKeyBundle({ encryptionPublicKeyHex: e.target.value })}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="hex"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Encryption Private Key (PEM)</label>
-          <textarea
-            value={props.encryptionPrivateKeyPem}
-            onChange={(e) => props.setKeyBundle({ encryptionPrivateKeyPem: e.target.value })}
-            className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
-            placeholder="-----BEGIN PRIVATE KEY-----"
-          />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm text-muted-foreground">Account Private Key (PEM)</label>
-        <textarea
-          value={props.accountPrivateKeyPem}
-          onChange={(e) => props.setKeyBundle({ accountPrivateKeyPem: e.target.value })}
-          className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
-          placeholder="-----BEGIN PRIVATE KEY-----"
-        />
-      </div>
+    </SectionCard>
+  );
+}
+
+function MiscCard(props: { googleClientId: string; setGoogleClientId: (v: string) => void }) {
+  return (
+    <SectionCard title="Misc" icon={<Activity className="h-4 w-4" />}>
+      <Field
+        label="Google Client ID"
+        value={props.googleClientId}
+        onChange={props.setGoogleClientId}
+        placeholder="your-client-id.apps.googleusercontent.com"
+      />
     </SectionCard>
   );
 }
@@ -972,6 +975,52 @@ function AuthForm({
           <div ref={googleButtonRef} />
         </div>
       )}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm text-muted-foreground">{label}</label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+function TextArea({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm text-muted-foreground">{label}</label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
+        placeholder="-----BEGIN PRIVATE KEY-----"
+      />
     </div>
   );
 }

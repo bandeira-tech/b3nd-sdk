@@ -401,6 +401,7 @@ export const useAppStore = create<AppStore>()(
               currentPath: path,
               navigationHistory: history,
               panels: { ...state.panels, right: false },
+              mainView: "content",
             };
           });
         },
