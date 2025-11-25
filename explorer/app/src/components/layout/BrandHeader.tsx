@@ -1,13 +1,17 @@
 // React import not needed with react-jsx runtime
-import { useAppStore } from '../../stores/appStore';
-import { Settings, Sun, Moon, Monitor } from 'lucide-react';
-import { cn } from '../../utils';
+import { useAppStore } from "../../stores/appStore";
+import { Monitor, Moon, Settings, Sun } from "lucide-react";
+import { cn } from "../../utils";
 
 export function BrandHeader() {
   const { theme, setTheme, setMainView, mainView } = useAppStore();
 
   const handleThemeToggle = () => {
-    const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
+    const themes: Array<"light" | "dark" | "system"> = [
+      "light",
+      "dark",
+      "system",
+    ];
     const currentIndex = themes.indexOf(theme);
     const nextTheme = themes[(currentIndex + 1) % themes.length];
     setTheme(nextTheme);
@@ -15,11 +19,11 @@ export function BrandHeader() {
 
   const getThemeIcon = () => {
     switch (theme) {
-      case 'light':
+      case "light":
         return <Sun className="h-4 w-4" />;
-      case 'dark':
+      case "dark":
         return <Moon className="h-4 w-4" />;
-      case 'system':
+      case "system":
         return <Monitor className="h-4 w-4" />;
     }
   };
@@ -29,7 +33,7 @@ export function BrandHeader() {
       {/* Left side - Brand */}
       <div className="flex items-center space-x-4">
         <div className="font-semibold">b3nd</div>
-        <div className="text-brand-fg/60">superapp</div>
+        <div className="text-brand-fg/60">rig</div>
       </div>
 
       {/* Right side - Global controls */}
@@ -38,7 +42,7 @@ export function BrandHeader() {
           onClick={handleThemeToggle}
           className={cn(
             "p-1.5 rounded hover:bg-white/10 transition-colors",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
           )}
           title={`Current theme: ${theme}. Click to cycle themes.`}
         >
@@ -46,11 +50,12 @@ export function BrandHeader() {
         </button>
 
         <button
-          onClick={() => setMainView(mainView === 'settings' ? 'content' : 'settings')}
+          onClick={() =>
+            setMainView(mainView === "settings" ? "content" : "settings")}
           className={cn(
             "p-1.5 rounded hover:bg-white/10 transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-            mainView === 'settings' && "bg-white/10"
+            mainView === "settings" && "bg-white/10",
           )}
           title="Toggle settings"
         >

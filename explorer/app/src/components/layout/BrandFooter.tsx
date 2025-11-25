@@ -5,8 +5,8 @@ export function BrandFooter() {
     <footer className="brand-header h-6 flex items-center justify-between px-4 text-xs">
       {/* Left side - Status */}
       <div className="flex items-center space-x-4">
-        <div className="text-brand-fg/60">b3nd/superapp</div>
-        <div className="text-brand-fg/40">v1.0.0-dev</div>
+        <div className="text-brand-fg/60">b3nd/rig</div>
+        <div className="text-brand-fg/40">v0.1.0-dev</div>
       </div>
 
       {/* Right side - Additional info */}
