@@ -52,7 +52,7 @@ async function test() {
     console.log(`✓ App ready`);
 
     console.log(`\nSigning up ${username} (app-scoped)...`);
-    const signupSession = await wallet.signupWithToken(token, { username, password });
+    const signupSession = await wallet.signupWithToken(appKey, token, { username, password });
     console.log(`✓ Signup successful (${signupSession.username})`);
     console.log(`  Token expires in: ${signupSession.expiresIn}s`);
 
@@ -62,7 +62,7 @@ async function test() {
     // 4. Get User's Public Keys
     console.log(`\nRetrieving public keys for ${username}...`);
     try {
-      const keys = await wallet.getMyPublicKeys();
+      const keys = await wallet.getMyPublicKeys(appKey);
       console.log(`✓ Public keys retrieved`);
       console.log(`  Account: ${keys.accountPublicKeyHex.substring(0, 16)}...`);
       console.log(`  Encryption: ${keys.encryptionPublicKeyHex.substring(0, 16)}...`);
@@ -130,7 +130,7 @@ async function test() {
     console.log(`✓ Logout (authenticated: ${wallet.isAuthenticated()})`);
 
     // 10. Test Login
-    const loginSession = await wallet.loginWithTokenSession(token, sessionKey, { username, password });
+    const loginSession = await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password });
     wallet.setSession(loginSession);
     console.log(`✓ Login (authenticated: ${wallet.isAuthenticated()})`);
 
@@ -158,7 +158,7 @@ async function test() {
 
     // 13. Test Login with Wrong Password (Error Case)
     try {
-      await wallet.loginWithTokenSession(token, sessionKey, { username, password: "wrong-password-123" });
+      await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password: "wrong-password-123" });
       console.log(`✗ ERROR: Login should have failed but succeeded!`);
       throw new Error("Login with wrong password should fail");
     } catch (error) {
@@ -188,7 +188,7 @@ async function test() {
     }
 
     // Re-login for cleanup
-    const cleanupSession = await wallet.loginWithTokenSession(token, sessionKey, { username, password });
+    const cleanupSession = await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password });
     wallet.setSession(cleanupSession);
 
     // Optional: invoke action via app backend

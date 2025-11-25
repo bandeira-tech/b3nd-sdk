@@ -38,7 +38,6 @@ import {
 
 interface BootstrapState {
   appKey: string;
-  token: string;
   createdAt: string;
   appServerUrl: string;
   apiBasePath: string;
@@ -56,7 +55,7 @@ async function readBootstrapState(path: string): Promise<BootstrapState | null> 
   try {
     const text = await Deno.readTextFile(path);
     const parsed = JSON.parse(text) as Partial<BootstrapState>;
-    if (!parsed.appKey || !parsed.token || !parsed.createdAt || !parsed.appServerUrl || !parsed.apiBasePath) {
+    if (!parsed.appKey || !parsed.createdAt || !parsed.appServerUrl || !parsed.apiBasePath) {
       throw new Error(`Invalid bootstrap state file at ${path}`);
     }
     return parsed as BootstrapState;
@@ -120,7 +119,7 @@ async function ensureWalletAppRegistered(
   });
   const body = await res.json().catch(() => ({}));
 
-  if (!res.ok || !body?.success || typeof body.token !== "string") {
+  if (!res.ok || !body?.success) {
     throw new Error(
       `Wallet app bootstrap registration failed: ${body?.error || res.statusText}`,
     );
@@ -128,7 +127,6 @@ async function ensureWalletAppRegistered(
 
   const state: BootstrapState = {
     appKey,
-    token: body.token,
     createdAt: new Date().toISOString(),
     appServerUrl,
     apiBasePath: normalizedApiBase,
@@ -218,11 +216,16 @@ function createApp(
   });
 
   /**
-   * GET /api/v1/public-keys - Get current user's public keys (requires auth)
+   * GET /api/v1/auth/public-keys/:appKey - Get current user's public keys (requires auth)
    */
-  app.get("/api/v1/public-keys", async (c: Context) => {
+  app.get("/api/v1/auth/public-keys/:appKey", async (c: Context) => {
     try {
+      const appKey = c.req.param("appKey");
       const authHeader = c.req.header("Authorization");
+
+      if (!appKey || typeof appKey !== "string") {
+        return c.json({ success: false, error: "appKey is required in URL" }, 400);
+      }
       if (!authHeader?.startsWith("Bearer ")) {
         return c.json(
           { success: false, error: "Authorization header required" },
@@ -258,12 +261,18 @@ function createApp(
   });
 
   /**
-   * GET /api/v1/auth/verify - Verify JWT and return identity
+   * GET /api/v1/auth/verify/:appKey - Verify JWT and return identity
    * Headers: Authorization: Bearer <jwt>
    */
-  app.get("/api/v1/auth/verify", async (c: Context) => {
+  app.get("/api/v1/auth/verify/:appKey", async (c: Context) => {
     try {
+      const appKey = c.req.param("appKey");
       const authHeader = c.req.header("Authorization");
+
+      if (!appKey || typeof appKey !== "string") {
+        return c.json({ success: false, error: "appKey is required in URL" }, 400);
+      }
+
       if (!authHeader?.startsWith("Bearer ")) {
         return c.json({ success: false, error: "Authorization header required" }, 401);
       }
@@ -275,18 +284,11 @@ function createApp(
     }
   });
 
-  function parseAppToken(token: string): { appKey: string; tokenId: string } {
-    const [appKey, tokenId] = token.split(".");
-    if (!appKey || !tokenId) throw new Error("invalid token format");
-    return { appKey, tokenId };
-  }
-
   async function sessionExists(
     appKey: string,
-    tokenId: string,
     sessionKey: string,
   ): Promise<boolean> {
-    const input = new TextEncoder().encode(`${tokenId}.${sessionKey}`);
+    const input = new TextEncoder().encode(sessionKey);
     const digest = await crypto.subtle.digest("SHA-256", input);
     const sigHex = Array.from(new Uint8Array(digest)).map((b) =>
       b.toString(16).padStart(2, "0")
@@ -297,19 +299,17 @@ function createApp(
   }
 
   /**
-   * POST /api/v1/auth/credentials/:token/signup - Create new user account with any credential type
+   * POST /api/v1/auth/signup/:appKey - Create new user account with any credential type
    * Body: { type: "password" | "google", ...type-specific fields }
    */
-  app.post("/api/v1/auth/credentials/:token/signup", async (c: Context) => {
+  app.post("/api/v1/auth/signup/:appKey", async (c: Context) => {
     try {
-      const token = c.req.param("token");
+      const appKey = c.req.param("appKey");
       const payload = await c.req.json() as CredentialPayload;
 
-      if (!token || typeof token !== "string") {
-        return c.json({ success: false, error: "token is required in URL" }, 400);
+      if (!appKey || typeof appKey !== "string") {
+        return c.json({ success: false, error: "appKey is required in URL" }, 400);
       }
-
-      const { appKey } = parseAppToken(token);
 
       if (!payload.type || typeof payload.type !== "string") {
         return c.json(
@@ -386,23 +386,21 @@ function createApp(
   });
 
   /**
-   * POST /api/v1/auth/credentials/:token/login - Authenticate user with any credential type
+   * POST /api/v1/auth/login/:appKey - Authenticate user with any credential type
    * Body: { type: "password" | "google", session: string, ...type-specific fields }
    */
-  app.post("/api/v1/auth/credentials/:token/login", async (c: Context) => {
+  app.post("/api/v1/auth/login/:appKey", async (c: Context) => {
     try {
-      const token = c.req.param("token");
+      const appKey = c.req.param("appKey");
       const payload = await c.req.json() as CredentialPayload;
 
-      if (!token || typeof token !== "string") {
-        return c.json({ success: false, error: "token is required in URL" }, 400);
+      if (!appKey || typeof appKey !== "string") {
+        return c.json({ success: false, error: "appKey is required in URL" }, 400);
       }
 
       if (!payload.session || typeof payload.session !== "string") {
         return c.json({ success: false, error: "session is required" }, 400);
       }
-
-      const { appKey, tokenId } = parseAppToken(token);
 
       if (!payload.type || typeof payload.type !== "string") {
         return c.json(
@@ -415,7 +413,7 @@ function createApp(
       }
 
       // Verify session exists
-      const hasSession = await sessionExists(appKey, tokenId, payload.session);
+      const hasSession = await sessionExists(appKey, payload.session);
       if (!hasSession) {
         return c.json({ success: false, error: "Invalid session" }, 401);
       }
@@ -478,13 +476,19 @@ function createApp(
   });
 
   /**
-   * POST /api/v1/auth/change-password - Change user password
+   * POST /api/v1/auth/credentials/change-password/:appKey - Change user password
    * Headers: Authorization: Bearer <jwt>
    * Body: { oldPassword: string, newPassword: string }
    */
-  app.post("/api/v1/auth/change-password", async (c: Context) => {
+  app.post("/api/v1/auth/credentials/change-password/:appKey", async (c: Context) => {
     try {
+      const appKey = c.req.param("appKey");
       const authHeader = c.req.header("Authorization");
+
+      if (!appKey || typeof appKey !== "string") {
+        return c.json({ success: false, error: "appKey is required in URL" }, 400);
+      }
+
       if (!authHeader?.startsWith("Bearer ")) {
         return c.json(
           { success: false, error: "Authorization header required" },
@@ -528,6 +532,7 @@ function createApp(
         serverIdentityPublicKeyHex,
         serverEncryptionPublicKeyHex,
         serverEncryptionPrivateKeyPem,
+        appKey,
       );
 
       return c.json({
@@ -554,18 +559,17 @@ function createApp(
   });
 
   /**
-   * POST /api/v1/auth/:token/request-password-reset - Request password reset token
+   * POST /api/v1/auth/credentials/request-password-reset/:appKey - Request password reset token
    * Body: { username: string }
    */
-  app.post("/api/v1/auth/:token/request-password-reset", async (c: Context) => {
+  app.post("/api/v1/auth/credentials/request-password-reset/:appKey", async (c: Context) => {
     try {
-      const token = c.req.param("token");
+      const appKey = c.req.param("appKey");
       const { username } = await c.req.json() as any;
 
-      if (!token || typeof token !== "string") {
-        return c.json({ success: false, error: "token is required in URL" }, 400);
+      if (!appKey || typeof appKey !== "string") {
+        return c.json({ success: false, error: "appKey is required in URL" }, 400);
       }
-      const { appKey } = parseAppToken(token);
       if (!username) {
         return c.json(
           { success: false, error: "username is required" },
@@ -610,19 +614,18 @@ function createApp(
   });
 
   /**
-   * POST /api/v1/auth/:token/reset-password - Reset password with token
+   * POST /api/v1/auth/credentials/reset-password/:appKey - Reset password with token
    * Body: { username: string, resetToken: string, newPassword: string }
    */
-  app.post("/api/v1/auth/:token/reset-password", async (c: Context) => {
+  app.post("/api/v1/auth/credentials/reset-password/:appKey", async (c: Context) => {
     try {
-      const token = c.req.param("token");
+      const appKey = c.req.param("appKey");
       const { username, resetToken, newPassword } = await c.req
         .json() as any;
 
-      if (!token || typeof token !== "string") {
-        return c.json({ success: false, error: "token is required in URL" }, 400);
+      if (!appKey || typeof appKey !== "string") {
+        return c.json({ success: false, error: "appKey is required in URL" }, 400);
       }
-      const { appKey } = parseAppToken(token);
       if (!username || !resetToken || !newPassword) {
         return c.json(
           {
@@ -804,7 +807,6 @@ async function main() {
   if (bootstrapState) {
     console.log("\n🧭 Wallet app bootstrap");
     console.log(`   App Key: ${bootstrapState.appKey}`);
-    console.log(`   App Token: ${bootstrapState.token}`);
     console.log(`   Stored at: ${config.bootstrapStatePath}`);
     console.log(
       `   App Backend: ${bootstrapState.appServerUrl}${bootstrapState.apiBasePath}`,
@@ -821,19 +823,19 @@ async function main() {
     onListen: (addr) => {
       console.log(`\n✅ Server running at http://localhost:${config.port}`);
       console.log("\n📚 Available endpoints:");
-      console.log("   POST   /api/v1/auth/credentials/:token/signup - Register with any credential type");
-      console.log("   POST   /api/v1/auth/credentials/:token/login - Login with any credential type");
-      console.log("   POST   /api/v1/auth/change-password - Change password");
+      console.log("   POST   /api/v1/auth/signup/:appKey - Register with any credential type");
+      console.log("   POST   /api/v1/auth/login/:appKey - Login with any credential type");
+      console.log("   POST   /api/v1/auth/credentials/change-password/:appKey - Change password");
       console.log(
-        "   POST   /api/v1/auth/:token/request-password-reset - Request reset token",
+        "   POST   /api/v1/auth/credentials/request-password-reset/:appKey - Request reset token",
       );
-      console.log("   POST   /api/v1/auth/:token/reset-password - Reset with token");
+      console.log("   POST   /api/v1/auth/credentials/reset-password/:appKey - Reset with token");
       console.log("   POST   /api/v1/proxy/write - Proxy write request");
       console.log(
-        "   GET    /api/v1/public-keys - Get current user's public keys",
+        "   GET    /api/v1/auth/public-keys/:appKey - Get current user's public keys",
       );
       console.log("   GET    /api/v1/server-keys - Get server public keys");
-      console.log("   GET    /api/v1/auth/verify - Verify JWT token");
+      console.log("   GET    /api/v1/auth/verify/:appKey - Verify JWT token");
       console.log("   GET    /api/v1/health - Health check");
       const supportedTypes = getSupportedCredentialTypes();
       console.log(`\n🔑 Supported credential types: ${supportedTypes.join(", ")}`);

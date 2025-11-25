@@ -41,13 +41,17 @@ deno task dev
 ```
 
 Server running at `http://localhost:3001`
+Set `APP_KEY` from the bootstrap state written on startup (default `wallet-app-bootstrap.json`):
+```bash
+APP_KEY=$(jq -r '.appKey' wallet-app-bootstrap.json)
+```
 
 ## Basic Usage (2 minutes)
 
 ### Sign Up
 
 ```bash
-curl -X POST http://localhost:3001/auth/signup \
+curl -X POST http://localhost:3001/api/v1/auth/signup/${APP_KEY} \
   -H "Content-Type: application/json" \
   -d '{"username":"alice","password":"password123"}'
 ```
@@ -59,7 +63,7 @@ Save the returned `token`.
 ```bash
 TOKEN="paste-token-here"
 
-curl -X POST http://localhost:3001/proxy/write \
+curl -X POST http://localhost:3001/api/v1/proxy/write \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -71,7 +75,8 @@ curl -X POST http://localhost:3001/proxy/write \
 ### Get Public Keys
 
 ```bash
-curl http://localhost:3001/public-keys/alice
+curl http://localhost:3001/api/v1/auth/public-keys/${APP_KEY} \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## What's Happening

@@ -33,11 +33,13 @@ export interface UserCredentials {
 }
 
 export interface SignupWithTokenRequest {
+  appKey: string;
   token: string;
   credentials: UserCredentials;
 }
 
 export interface LoginWithTokenRequest {
+  appKey: string;
   token: string;
   session: string;
   credentials: UserCredentials;
@@ -167,4 +169,37 @@ export interface HealthResponse extends ApiResponse {
 export interface ServerKeysResponse extends ApiResponse {
   identityPublicKeyHex: string;
   encryptionPublicKeyHex: string;
+}
+
+/**
+ * Google OAuth session (extended AuthSession with Google profile info)
+ */
+export interface GoogleAuthSession extends AuthSession {
+  email: string;
+  name?: string;
+  picture?: string;
+}
+
+/**
+ * Google signup response
+ */
+export interface GoogleSignupResponse extends ApiResponse {
+  username: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  token: string;
+  expiresIn: number;
+}
+
+/**
+ * Google login response
+ */
+export interface GoogleLoginResponse extends ApiResponse {
+  username: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  token: string;
+  expiresIn: number;
 }

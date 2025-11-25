@@ -23,6 +23,9 @@ import type {
   ResetPasswordResponse,
   HealthResponse,
   ServerKeysResponse,
+  GoogleAuthSession,
+  GoogleSignupResponse,
+  GoogleLoginResponse,
 } from "./types.ts";
 
 /**
@@ -78,6 +81,18 @@ export class WalletClient {
     } else {
       this.fetchImpl = fetch;
     }
+  }
+
+  private buildUrl(path: string): string {
+    const normalized = path.startsWith("/") ? path : `/${path}`;
+    return `${this.walletServerUrl}${this.apiBasePath}${normalized}`;
+  }
+
+  private buildAppKeyUrl(path: string, appKey: string): string {
+    if (!appKey || typeof appKey !== "string") {
+      throw new Error("appKey is required");
+    }
+    return `${this.buildUrl(path)}/${appKey}`;
   }
 
   /**
@@ -157,13 +172,13 @@ export class WalletClient {
    * Change password for current user
    * Requires active authentication session
    */
-  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  async changePassword(appKey: string, oldPassword: string, newPassword: string): Promise<void> {
     if (!this.currentSession) {
       throw new Error("Not authenticated. Please login first.");
     }
 
     const response = await this.fetchImpl(
-      `${this.walletServerUrl}${this.apiBasePath}/auth/change-password`,
+      this.buildAppKeyUrl("/auth/credentials/change-password", appKey),
       {
         method: "POST",
         headers: {
@@ -189,7 +204,7 @@ export class WalletClient {
    * Does not require authentication
    */
   async requestPasswordReset(_username: string): Promise<PasswordResetToken> {
-    throw new Error("Use requestPasswordResetWithToken(token, username)");
+    throw new Error("Use requestPasswordResetWithToken(appKey, token, username)");
   }
 
   /**
@@ -197,18 +212,23 @@ export class WalletClient {
    * Returns session data - call setSession() to activate it
    */
   async resetPassword(_username: string, _resetToken: string, _newPassword: string): Promise<AuthSession> {
-    throw new Error("Use resetPasswordWithToken(token, username, resetToken, newPassword)");
+    throw new Error("Use resetPasswordWithToken(appKey, token, username, resetToken, newPassword)");
   }
 
   /**
    * Sign up with app token (scoped to an app)
    */
-  async signupWithToken(token: string, credentials: UserCredentials): Promise<AuthSession> {
+  async signupWithToken(appKey: string, token: string, credentials: UserCredentials): Promise<AuthSession> {
     if (!token) throw new Error("token is required");
-    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/signup`, {
+    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/signup", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, username: credentials.username, password: credentials.password }),
+      body: JSON.stringify({
+        token,
+        type: "password",
+        username: credentials.username,
+        password: credentials.password,
+      }),
     });
     const data: SignupResponse = await response.json();
     if (!response.ok || !data.success) {
@@ -220,13 +240,19 @@ export class WalletClient {
   /**
    * Login with app token and session (scoped to an app)
    */
-  async loginWithTokenSession(token: string, session: string, credentials: UserCredentials): Promise<AuthSession> {
+  async loginWithTokenSession(appKey: string, token: string, session: string, credentials: UserCredentials): Promise<AuthSession> {
     if (!token) throw new Error("token is required");
     if (!session) throw new Error("session is required");
-    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/login`, {
+    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/login", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, session, username: credentials.username, password: credentials.password }),
+      body: JSON.stringify({
+        token,
+        session,
+        type: "password",
+        username: credentials.username,
+        password: credentials.password,
+      }),
     });
     const data: LoginResponse = await response.json();
     if (!response.ok || !data.success) {
@@ -238,9 +264,9 @@ export class WalletClient {
   /**
    * Request password reset scoped to app token
    */
-  async requestPasswordResetWithToken(token: string, username: string): Promise<PasswordResetToken> {
+  async requestPasswordResetWithToken(appKey: string, token: string, username: string): Promise<PasswordResetToken> {
     if (!token) throw new Error("token is required");
-    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/request-password-reset`, {
+    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/credentials/request-password-reset", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, username }),
@@ -255,9 +281,9 @@ export class WalletClient {
   /**
    * Reset password scoped to app token
    */
-  async resetPasswordWithToken(token: string, username: string, resetToken: string, newPassword: string): Promise<AuthSession> {
+  async resetPasswordWithToken(appKey: string, token: string, username: string, resetToken: string, newPassword: string): Promise<AuthSession> {
     if (!token) throw new Error("token is required");
-    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/auth/reset-password`, {
+    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/credentials/reset-password", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, username, resetToken, newPassword }),
@@ -273,13 +299,17 @@ export class WalletClient {
    * Get public keys for the current authenticated user.
    * Requires an active authentication session.
    */
-  async getPublicKeys(): Promise<UserPublicKeys> {
+  async getPublicKeys(appKey: string): Promise<UserPublicKeys> {
     if (!this.currentSession) {
       throw new Error("Not authenticated. Please login first.");
     }
 
+    if (!appKey || typeof appKey !== "string") {
+      throw new Error("appKey is required");
+    }
+
     const response = await this.fetchImpl(
-      `${this.walletServerUrl}${this.apiBasePath}/public-keys`,
+      this.buildAppKeyUrl("/auth/public-keys", appKey),
       {
         headers: {
           Authorization: `Bearer ${this.currentSession.token}`,
@@ -337,8 +367,8 @@ export class WalletClient {
    * Convenience method: Get current user's public keys
    * Requires active authentication session
    */
-  async getMyPublicKeys(): Promise<UserPublicKeys> {
-    return this.getPublicKeys();
+  async getMyPublicKeys(appKey: string): Promise<UserPublicKeys> {
+    return this.getPublicKeys(appKey);
   }
 
   /**
@@ -366,6 +396,74 @@ export class WalletClient {
     return {
       identityPublicKeyHex: data.identityPublicKeyHex,
       encryptionPublicKeyHex: data.encryptionPublicKeyHex,
+    };
+  }
+
+  /**
+   * Sign up with Google OAuth (scoped to app token)
+   * Returns session data with Google profile info - call setSession() to activate it
+   *
+   * @param token - App token from app server
+   * @param googleIdToken - Google ID token from Google Sign-In
+   * @returns GoogleAuthSession with username, JWT token, and Google profile info
+   */
+  async signupWithGoogle(appKey: string, token: string, googleIdToken: string): Promise<GoogleAuthSession> {
+    if (!token) throw new Error("token is required");
+    if (!googleIdToken) throw new Error("googleIdToken is required");
+
+    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/signup", appKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, type: "google", googleIdToken }),
+    });
+
+    const data: GoogleSignupResponse = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || `Google signup failed: ${response.statusText}`);
+    }
+
+    return {
+      username: data.username,
+      token: data.token,
+      expiresIn: data.expiresIn,
+      email: data.email,
+      name: data.name,
+      picture: data.picture,
+    };
+  }
+
+  /**
+   * Login with Google OAuth (scoped to app token and session)
+   * Returns session data with Google profile info - call setSession() to activate it
+   *
+   * @param token - App token from app server
+   * @param session - Session key from app server
+   * @param googleIdToken - Google ID token from Google Sign-In
+   * @returns GoogleAuthSession with username, JWT token, and Google profile info
+   */
+  async loginWithGoogle(appKey: string, token: string, session: string, googleIdToken: string): Promise<GoogleAuthSession> {
+    if (!token) throw new Error("token is required");
+    if (!session) throw new Error("session is required");
+    if (!googleIdToken) throw new Error("googleIdToken is required");
+
+    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/login", appKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, session, type: "google", googleIdToken }),
+    });
+
+    const data: GoogleLoginResponse = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || `Google login failed: ${response.statusText}`);
+    }
+
+    return {
+      username: data.username,
+      token: data.token,
+      expiresIn: data.expiresIn,
+      email: data.email,
+      name: data.name,
+      picture: data.picture,
     };
   }
 }

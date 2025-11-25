@@ -18,33 +18,38 @@ export class WalletClient {
     if (!r.ok) throw new Error(`Health failed: ${r.statusText}`);
     return await r.json();
   }
-  async signupWithToken(token, credentials) {
-    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/signup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, username: credentials.username, password: credentials.password }) });
+  async signupWithToken(appKey, token, credentials) {
+    if (!appKey) throw new Error("appKey required");
+    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/signup/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, type: "password", username: credentials.username, password: credentials.password }) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return { username: j.username, token: j.token, expiresIn: j.expiresIn };
   }
-  async loginWithTokenSession(token, session, credentials) {
-    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, session, username: credentials.username, password: credentials.password }) });
+  async loginWithTokenSession(appKey, token, session, credentials) {
+    if (!appKey) throw new Error("appKey required");
+    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/login/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, session, type: "password", username: credentials.username, password: credentials.password }) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return { username: j.username, token: j.token, expiresIn: j.expiresIn };
   }
-  async requestPasswordResetWithToken(token, username) {
-    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/request-password-reset`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, username }) });
+  async requestPasswordResetWithToken(appKey, token, username) {
+    if (!appKey) throw new Error("appKey required");
+    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/credentials/request-password-reset/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, username }) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return { resetToken: j.resetToken, expiresIn: j.expiresIn };
   }
-  async resetPasswordWithToken(token, username, resetToken, newPassword) {
-    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, username, resetToken, newPassword }) });
+  async resetPasswordWithToken(appKey, token, username, resetToken, newPassword) {
+    if (!appKey) throw new Error("appKey required");
+    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/credentials/reset-password/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, username, resetToken, newPassword }) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return { username: j.username, token: j.token, expiresIn: j.expiresIn };
   }
-  async getPublicKeys() {
+  async getPublicKeys(appKey) {
     if (!this._session) throw new Error('Not authenticated. Please login first.');
-    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/public-keys`, { headers: { Authorization: `Bearer ${this._session.token}` } });
+    if (!appKey) throw new Error("appKey required");
+    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/public-keys/${appKey}`, { headers: { Authorization: `Bearer ${this._session.token}` } });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return { accountPublicKeyHex: j.accountPublicKeyHex, encryptionPublicKeyHex: j.encryptionPublicKeyHex };
@@ -63,4 +68,3 @@ export class WalletClient {
     return { identityPublicKeyHex: j.identityPublicKeyHex, encryptionPublicKeyHex: j.encryptionPublicKeyHex };
   }
 }
-

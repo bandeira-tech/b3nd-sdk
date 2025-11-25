@@ -14,8 +14,8 @@
  * });
  *
  * // App-scoped signup/login (requires app token and session)
- * // const session = await wallet.signupWithToken(token, { username, password });
- * // const session = await wallet.loginWithTokenSession(token, sessionKey, { username, password });
+ * // const session = await wallet.signupWithToken(appKey, token, { username, password });
+ * // const session = await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password });
  *
  * // Activate session
  * wallet.setSession(session);
@@ -48,4 +48,7 @@ export type {
   RequestPasswordResetResponse,
   ResetPasswordResponse,
   HealthResponse,
+  GoogleAuthSession,
+  GoogleSignupResponse,
+  GoogleLoginResponse,
 } from "./types.ts";

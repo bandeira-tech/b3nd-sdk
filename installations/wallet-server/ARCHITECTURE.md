@@ -30,14 +30,15 @@ The wallet server provides a **familiar web experience**:
         │  ┌─────────────────────────────────┐ │
         │  │    Hono HTTP Framework          │ │
         │  │                                 │ │
-        │  ├─ /auth/signup                  │ │
-        │  ├─ /auth/login                   │ │
-        │  ├─ /auth/change-password         │ │
-        │  ├─ /auth/request-password-reset  │ │
-        │  ├─ /auth/reset-password          │ │
-        │  ├─ /proxy/write                  │ │
-        │  └─ /public-keys/:username        │ │
-        │  └─ /health                       │ │
+        │  ├─ /api/v1/auth/signup/:appKey                  │ │
+        │  ├─ /api/v1/auth/login/:appKey                   │ │
+        │  ├─ /api/v1/auth/verify/:appKey                  │ │
+        │  ├─ /api/v1/auth/credentials/change-password/:appKey │ │
+        │  ├─ /api/v1/auth/credentials/request-password-reset/:appKey │ │
+        │  ├─ /api/v1/auth/credentials/reset-password/:appKey │ │
+        │  ├─ /api/v1/proxy/write                          │ │
+        │  ├─ /api/v1/auth/public-keys/:appKey             │ │
+        │  └─ /api/v1/health                               │ │
         │  └────────────────────────────────┘ │
         │                                       │
         │  ┌─────────────────────────────────┐ │
@@ -135,7 +136,7 @@ The wallet server provides a **familiar web experience**:
 ```
 User                  Wallet Server                  B3nd Backends
   │                      │                               │
-  ├─ POST /auth/signup   │                               │
+  ├─ POST /api/v1/auth/signup/:appKey   │                 │
   │─────────────────────>│                               │
   │                      ├─ Validate username/password   │
   │                      │                               │
@@ -191,8 +192,7 @@ App                   Wallet Server          Credential Backend    Proxy Backend
 ```
 User                  Wallet Server              B3nd Backend
  │                         │                         │
- ├─ POST /auth/request-     │                         │
- │   password-reset         │                         │
+ ├─ POST /api/v1/auth/credentials/request-password-reset/:appKey │   │
  │────────────────────────> │                         │
  │                          ├─ Generate token        │
  │                          │                         │
@@ -202,8 +202,7 @@ User                  Wallet Server              B3nd Backend
  │<─ {resetToken}           │                         │
  │<────────────────────────┤                         │
  │                          │                         │
- ├─ POST /auth/reset-       │                         │
- │   password               │                         │
+ ├─ POST /api/v1/auth/credentials/reset-password/:appKey │      │
  │ + resetToken             │                         │
  │────────────────────────> │                         │
  │                          ├─ Verify token          │

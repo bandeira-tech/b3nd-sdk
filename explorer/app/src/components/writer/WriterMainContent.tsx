@@ -243,9 +243,10 @@ export function WriterMainContent() {
   };
 
   const signup = async (username: string, password: string) => {
+    ensureValue(appKey, "App key");
     const wallet = getWallet();
     const apps = getApps();
-    const s = await wallet.signupWithToken(appToken, { username, password });
+    const s = await wallet.signupWithToken(appKey, appToken, { username, password });
     setSession(s);
     apps.setAuthToken(s.token);
     logLine("wallet", "Signup ok", "success");
@@ -253,9 +254,10 @@ export function WriterMainContent() {
   };
 
   const login = async (username: string, password: string) => {
+    ensureValue(appKey, "App key");
     const wallet = getWallet();
     const apps = getApps();
-    const s = await wallet.loginWithTokenSession(appToken, appSession, { username, password });
+    const s = await wallet.loginWithTokenSession(appKey, appToken, appSession, { username, password });
     setSession(s);
     apps.setAuthToken(s.token);
     logLine("wallet", "Login ok", "success");
@@ -264,11 +266,15 @@ export function WriterMainContent() {
 
   const googleSignup = async (googleIdToken: string) => {
     if (!activeWallet) throw new Error("Active wallet server is required");
-    const response = await fetch(`${activeWallet.url.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/google/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: appToken, googleIdToken }),
-    });
+    ensureValue(appKey, "App key");
+    const response = await fetch(
+      `${activeWallet.url.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/signup/${appKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: appToken, type: "google", googleIdToken }),
+      },
+    );
     const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Google signup failed: ${response.statusText}`);
@@ -286,11 +292,20 @@ export function WriterMainContent() {
 
   const googleLogin = async (googleIdToken: string) => {
     if (!activeWallet) throw new Error("Active wallet server is required");
-    const response = await fetch(`${activeWallet.url.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/google/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: appToken, session: appSession, googleIdToken }),
-    });
+    ensureValue(appKey, "App key");
+    const response = await fetch(
+      `${activeWallet.url.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/login/${appKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: appToken,
+          session: appSession,
+          type: "google",
+          googleIdToken,
+        }),
+      },
+    );
     const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Google login failed: ${response.statusText}`);
@@ -308,9 +323,10 @@ export function WriterMainContent() {
 
   const myKeys = async () => {
     if (!session) throw new Error("Session required");
+    ensureValue(appKey, "App key");
     const wallet = getWallet();
     wallet.setSession(session);
-    const k = await wallet.getPublicKeys();
+    const k = await wallet.getPublicKeys(appKey);
     setOutput(k);
     logLine("wallet", "My keys ok", "info");
   };

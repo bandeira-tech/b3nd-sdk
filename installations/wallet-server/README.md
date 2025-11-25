@@ -94,11 +94,17 @@ The server will:
 
 ### Authentication
 
-#### POST `/auth/signup`
+All authentication routes include the wallet app key as the final path segment. Set an environment variable for examples:
+
+```bash
+APP_KEY="<wallet-app-key>"
+```
+
+#### POST `/api/v1/auth/signup/:appKey`
 Create a new user account and generate keys.
 
 ```bash
-curl -X POST http://localhost:3001/auth/signup \
+curl -X POST http://localhost:3001/api/v1/auth/signup/${APP_KEY} \
   -H "Content-Type: application/json" \
   -d '{
     "username": "alice",
@@ -116,11 +122,11 @@ Response:
 }
 ```
 
-#### POST `/auth/login`
+#### POST `/api/v1/auth/login/:appKey`
 Authenticate with username/password and get JWT token.
 
 ```bash
-curl -X POST http://localhost:3001/auth/login \
+curl -X POST http://localhost:3001/api/v1/auth/login/${APP_KEY} \
   -H "Content-Type: application/json" \
   -d '{
     "username": "alice",
@@ -128,11 +134,19 @@ curl -X POST http://localhost:3001/auth/login \
   }'
 ```
 
-#### POST `/auth/change-password`
+#### GET `/api/v1/auth/verify/:appKey`
+Validate a JWT and retrieve the username/expiration.
+
+```bash
+curl http://localhost:3001/api/v1/auth/verify/${APP_KEY} \
+  -H "Authorization: Bearer <jwt-token>"
+```
+
+#### POST `/api/v1/auth/credentials/change-password/:appKey`
 Change the user's password (requires JWT).
 
 ```bash
-curl -X POST http://localhost:3001/auth/change-password \
+curl -X POST http://localhost:3001/api/v1/auth/credentials/change-password/${APP_KEY} \
   -H "Authorization: Bearer <jwt-token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -141,11 +155,11 @@ curl -X POST http://localhost:3001/auth/change-password \
   }'
 ```
 
-#### POST `/auth/request-password-reset`
+#### POST `/api/v1/auth/credentials/request-password-reset/:appKey`
 Request a password reset token.
 
 ```bash
-curl -X POST http://localhost:3001/auth/request-password-reset \
+curl -X POST http://localhost:3001/api/v1/auth/credentials/request-password-reset/${APP_KEY} \
   -H "Content-Type: application/json" \
   -d '{"username": "alice"}'
 ```
@@ -159,11 +173,11 @@ Response:
 }
 ```
 
-#### POST `/auth/reset-password`
+#### POST `/api/v1/auth/credentials/reset-password/:appKey`
 Reset password with a reset token.
 
 ```bash
-curl -X POST http://localhost:3001/auth/reset-password \
+curl -X POST http://localhost:3001/api/v1/auth/credentials/reset-password/${APP_KEY} \
   -H "Content-Type: application/json" \
   -d '{
     "resetToken": "abc123...",
@@ -173,11 +187,11 @@ curl -X POST http://localhost:3001/auth/reset-password \
 
 ### Write Proxy
 
-#### POST `/proxy/write`
+#### POST `/api/v1/proxy/write`
 Proxy a write request with server signing.
 
 ```bash
-curl -X POST http://localhost:3001/proxy/write \
+curl -X POST http://localhost:3001/api/v1/proxy/write \
   -H "Authorization: Bearer <jwt-token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -189,7 +203,7 @@ curl -X POST http://localhost:3001/proxy/write \
 
 For encrypted writes (using server's encryption key):
 ```bash
-curl -X POST http://localhost:3001/proxy/write \
+curl -X POST http://localhost:3001/api/v1/proxy/write \
   -H "Authorization: Bearer <jwt-token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -201,18 +215,18 @@ curl -X POST http://localhost:3001/proxy/write \
 
 ### Public Keys
 
-#### GET `/public-keys/:username`
-Get user's public keys (no authentication required).
+#### GET `/api/v1/auth/public-keys/:appKey`
+Get the current user's public keys in the context of the wallet app (requires JWT).
 
 ```bash
-curl http://localhost:3001/public-keys/alice
+curl http://localhost:3001/api/v1/auth/public-keys/${APP_KEY} \
+  -H "Authorization: Bearer <jwt-token>"
 ```
 
 Response:
 ```json
 {
   "success": true,
-  "username": "alice",
   "accountPublicKeyHex": "abc123...",
   "encryptionPublicKeyHex": "def456..."
 }
@@ -220,11 +234,11 @@ Response:
 
 ### Health
 
-#### GET `/health`
+#### GET `/api/v1/health`
 Health check endpoint.
 
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:3001/api/v1/health
 ```
 
 ## Data Storage Schema

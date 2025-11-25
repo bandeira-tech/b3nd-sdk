@@ -40,7 +40,7 @@ const wallet = new WalletClient({
 });
 
 // App-scoped signup/login (requires app token and session from App Backend)
-// const session = await wallet.signupWithToken(token, { username: "alice", password: "secure-password-123" });
+// const session = await wallet.signupWithToken(appKey, token, { username: "alice", password: "secure-password-123" });
 
 // Set the session to authenticate subsequent requests
 wallet.setSession(session);
@@ -76,11 +76,11 @@ new WalletClient(config: WalletClientConfig)
 
 ### Authentication Methods
 
-#### `signupWithToken(token, credentials)`
+#### `signupWithToken(appKey, token, credentials)`
 
 Create a new user account for a given app token. Returns session data - call `setSession()` to activate it.
 
-#### `loginWithTokenSession(token, session, credentials)`
+#### `loginWithTokenSession(appKey, token, session, credentials)`
 
 Login with app token and session. Returns session data - call `setSession()` to activate it.
 
@@ -92,19 +92,19 @@ Clear the current session.
 wallet.logout();
 ```
 
-#### `changePassword(oldPassword, newPassword)`
+#### `changePassword(appKey, oldPassword, newPassword)`
 
 Change the password for the current user. Requires authentication.
 
 ```typescript
-await wallet.changePassword("old-password", "new-password");
+await wallet.changePassword(appKey, "old-password", "new-password");
 ```
 
-#### `requestPasswordResetWithToken(token, username)`
+#### `requestPasswordResetWithToken(appKey, token, username)`
 
 Request a password reset token scoped to an app.
 
-#### `resetPasswordWithToken(token, username, resetToken, newPassword)`
+#### `resetPasswordWithToken(appKey, token, username, resetToken, newPassword)`
 
 Reset password using a reset token scoped to an app. Returns session data - call `setSession()` to activate it.
 
@@ -159,19 +159,19 @@ const token = wallet.getToken();
 
 ### Key Management
 
-#### `getPublicKeys()`
+#### `getPublicKeys(appKey)`
 
-Get public keys for the current authenticated user. Requires authentication.
+Get public keys for the current authenticated user, scoped to a wallet app. Requires authentication.
 
 ```typescript
-const keys = await wallet.getPublicKeys();
+const keys = await wallet.getPublicKeys(appKey);
 console.log("Account key:", keys.accountPublicKeyHex);
 console.log("Encryption key:", keys.encryptionPublicKeyHex);
 ```
 
-#### `getMyPublicKeys()`
+#### `getMyPublicKeys(appKey)`
 
-Alias for `getPublicKeys()`.
+Alias for `getPublicKeys(appKey)`.
 
 ### Proxy Methods
 
@@ -215,8 +215,8 @@ if (savedSession) {
 }
 
 // Login and save session
-async function login(token: string, sessionKey: string, username: string, password: string) {
-  const session = await wallet.loginWithTokenSession(token, sessionKey, { username, password });
+async function login(appKey: string, token: string, sessionKey: string, username: string, password: string) {
+  const session = await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password });
 
   // Activate the session
   wallet.setSession(session);

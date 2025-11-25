@@ -12,6 +12,10 @@ async function main() {
     walletServerUrl: "http://localhost:3001",
     apiBasePath: "/api/v1",
   });
+  const appKey = Deno.env.get("APP_KEY");
+  if (!appKey) {
+    throw new Error("APP_KEY is required (set to your wallet app public key)");
+  }
 
   console.log("🔗 B3nd Wallet Client Example\n");
 
@@ -46,7 +50,7 @@ async function main() {
 
     // Get user's public keys
     console.log("4️⃣  Retrieving user public keys...");
-    const keys = await wallet.getMyPublicKeys();
+    const keys = await wallet.getMyPublicKeys(appKey);
     console.log(`   🔑 Account key: ${keys.accountPublicKeyHex.substring(0, 16)}...`);
     console.log(
       `   🔐 Encryption key: ${keys.encryptionPublicKeyHex.substring(0, 16)}...\n`
@@ -80,7 +84,7 @@ async function main() {
     // Change password
     console.log("7️⃣  Changing password...");
     const newPassword = "new-secure-password-456";
-    await wallet.changePassword(password, newPassword);
+    await wallet.changePassword(appKey, password, newPassword);
     console.log(`   ✅ Password changed successfully\n`);
 
     // Logout
@@ -108,7 +112,7 @@ async function main() {
 
     // Get public keys for the current user (requires auth)
     console.log("1️⃣1️⃣  Getting my public keys again (requires auth)...");
-    const publicKeys = await wallet.getMyPublicKeys();
+    const publicKeys = await wallet.getMyPublicKeys(appKey);
     console.log(`   ✅ Retrieved public keys`);
     console.log(`   🔑 Account key: ${publicKeys.accountPublicKeyHex.substring(0, 16)}...`);
     console.log(
