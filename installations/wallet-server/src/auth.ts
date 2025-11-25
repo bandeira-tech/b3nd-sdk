@@ -12,6 +12,7 @@ import {
   createSignedEncryptedPayload,
   decryptSignedEncryptedPayload,
 } from "./obfuscation.ts";
+import type { GoogleTokenPayload } from "./google-oauth.ts";
 
 /**
  * Generate a random salt for password hashing
@@ -385,4 +386,144 @@ export async function resetPasswordWithToken(
   await client.delete(`mutable://accounts/${serverPublicKey}/${tokenPath}`);
 
   return tokenUsername;
+}
+
+/**
+ * Check if a Google user exists by their Google sub ID
+ */
+export async function googleUserExists(
+  client: NodeProtocolInterface,
+  serverPublicKey: string,
+  googleSub: string,
+  appScope?: string
+): Promise<boolean> {
+  const path = await deriveObfuscatedPath(
+    serverPublicKey,
+    googleSub,
+    "google-profile",
+    ...(appScope ? [appScope] : [])
+  );
+  const result = await client.read(
+    `mutable://accounts/${serverPublicKey}/${path}`
+  );
+  return result.success;
+}
+
+/**
+ * Create a new user from Google OAuth
+ * Stores Google profile info instead of password credentials
+ */
+export async function createGoogleUser(
+  client: NodeProtocolInterface,
+  serverPublicKey: string,
+  username: string,
+  googlePayload: GoogleTokenPayload,
+  serverIdentityPrivateKeyPem: string,
+  serverIdentityPublicKeyHex: string,
+  serverEncryptionPublicKeyHex: string,
+  appScope?: string
+): Promise<{ username: string; googleSub: string }> {
+  // Check if Google user already exists
+  if (await googleUserExists(client, serverPublicKey, googlePayload.sub, appScope)) {
+    throw new Error("Google account already registered");
+  }
+
+  // Check if username already exists (from password-based signup)
+  if (await userExists(client, serverPublicKey, username, appScope)) {
+    throw new Error("Username already exists");
+  }
+
+  // Store user profile with signed+encryption
+  const profilePath = await deriveObfuscatedPath(
+    serverPublicKey,
+    username,
+    "profile",
+    ...(appScope ? [appScope] : [])
+  );
+  const profileData = {
+    username,
+    authProvider: "google",
+    googleSub: googlePayload.sub,
+    email: googlePayload.email,
+    name: googlePayload.name,
+    picture: googlePayload.picture,
+    createdAt: new Date().toISOString(),
+  };
+  const profileSigned = await createSignedEncryptedPayload(
+    profileData,
+    serverIdentityPrivateKeyPem,
+    serverIdentityPublicKeyHex,
+    serverEncryptionPublicKeyHex
+  );
+  await client.write(
+    `mutable://accounts/${serverPublicKey}/${profilePath}`,
+    profileSigned
+  );
+
+  // Store Google sub -> username mapping for login lookup
+  const googleProfilePath = await deriveObfuscatedPath(
+    serverPublicKey,
+    googlePayload.sub,
+    "google-profile",
+    ...(appScope ? [appScope] : [])
+  );
+  const googleProfileData = {
+    googleSub: googlePayload.sub,
+    username,
+    email: googlePayload.email,
+    createdAt: new Date().toISOString(),
+  };
+  const googleProfileSigned = await createSignedEncryptedPayload(
+    googleProfileData,
+    serverIdentityPrivateKeyPem,
+    serverIdentityPublicKeyHex,
+    serverEncryptionPublicKeyHex
+  );
+  await client.write(
+    `mutable://accounts/${serverPublicKey}/${googleProfilePath}`,
+    googleProfileSigned
+  );
+
+  return { username, googleSub: googlePayload.sub };
+}
+
+/**
+ * Authenticate user via Google OAuth
+ * Returns the username if Google sub ID is found
+ */
+export async function authenticateGoogleUser(
+  client: NodeProtocolInterface,
+  serverPublicKey: string,
+  googleSub: string,
+  serverEncryptionPrivateKeyPem: string,
+  appScope?: string
+): Promise<string | null> {
+  // Look up Google sub -> username mapping
+  const googleProfilePath = await deriveObfuscatedPath(
+    serverPublicKey,
+    googleSub,
+    "google-profile",
+    ...(appScope ? [appScope] : [])
+  );
+
+  const result = await client.read<any>(
+    `mutable://accounts/${serverPublicKey}/${googleProfilePath}`
+  );
+
+  if (!result.success || !result.record?.data) {
+    return null;
+  }
+
+  // Decrypt and verify the signed payload
+  const { data, verified } = await decryptSignedEncryptedPayload(
+    result.record.data,
+    serverEncryptionPrivateKeyPem
+  );
+
+  if (!verified) {
+    console.warn("Google profile signature verification failed for sub:", googleSub);
+  }
+
+  const { username } = data as { username: string };
+  return username;
 }

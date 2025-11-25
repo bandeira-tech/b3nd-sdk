@@ -21,16 +21,121 @@ import type { Context } from "hono";
 import { loadConfig } from "./config.ts";
 import { loadServerKeys, signWithServerKey } from "./server-keys.ts";
 import {
-  authenticateUser,
   changePassword,
   createPasswordResetToken,
-  createUser,
   resetPasswordWithToken,
   userExists,
 } from "./auth.ts";
 import { createJwt, verifyJwt } from "./jwt.ts";
-import { generateUserKeys, getUserPublicKeys } from "./keys.ts";
+import { getUserPublicKeys } from "./keys.ts";
 import { proxyWrite } from "./proxy.ts";
+import {
+  getCredentialHandler,
+  getSupportedCredentialTypes,
+  type CredentialPayload,
+  type CredentialContext,
+} from "./credentials.ts";
+
+interface BootstrapState {
+  appKey: string;
+  token: string;
+  createdAt: string;
+  appServerUrl: string;
+  apiBasePath: string;
+}
+
+function normalizeApiBasePath(path: string): string {
+  if (!path || typeof path !== "string") {
+    throw new Error("APP_BACKEND_API_BASE_PATH is required");
+  }
+  const base = path.startsWith("/") ? path : `/${path}`;
+  return base.replace(/\/$/, "");
+}
+
+async function readBootstrapState(path: string): Promise<BootstrapState | null> {
+  try {
+    const text = await Deno.readTextFile(path);
+    const parsed = JSON.parse(text) as Partial<BootstrapState>;
+    if (!parsed.appKey || !parsed.token || !parsed.createdAt || !parsed.appServerUrl || !parsed.apiBasePath) {
+      throw new Error(`Invalid bootstrap state file at ${path}`);
+    }
+    return parsed as BootstrapState;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function writeBootstrapState(path: string, state: BootstrapState): Promise<void> {
+  await Deno.writeTextFile(path, JSON.stringify(state, null, 2));
+}
+
+async function ensureWalletAppRegistered(
+  config: ReturnType<typeof loadConfig>,
+  serverKeys: ReturnType<typeof loadServerKeys>,
+): Promise<BootstrapState | null> {
+  if (!config.appBackendUrl) {
+    console.warn("⚠️  APP_BACKEND_URL not set; skipping wallet app bootstrap registration");
+    return null;
+  }
+
+  const normalizedApiBase = normalizeApiBasePath(config.appBackendApiBasePath);
+  const appServerUrl = config.appBackendUrl.replace(/\/$/, "");
+  const appKey = serverKeys.identityKey.publicKeyHex;
+
+  const existingState = await readBootstrapState(config.bootstrapStatePath);
+  if (existingState) {
+    if (existingState.appKey !== appKey) {
+      throw new Error(
+        `Bootstrap state at ${config.bootstrapStatePath} belongs to ${existingState.appKey}, expected ${appKey}`,
+      );
+    }
+    return existingState;
+  }
+
+  const bootstrapJwt = await createJwt(
+    "__wallet_bootstrap__",
+    config.jwtSecret,
+    config.jwtExpirationSeconds,
+  );
+
+  const payload = {
+    appKey,
+    accountPrivateKeyPem: serverKeys.identityKey.privateKeyPem,
+    encryptionPublicKeyHex: serverKeys.encryptionKey.publicKeyHex,
+    encryptionPrivateKeyPem: serverKeys.encryptionKey.privateKeyPem,
+    allowedOrigins: config.allowedOrigins,
+    actions: [] as any[],
+  };
+
+  const res = await fetch(`${appServerUrl}${normalizedApiBase}/apps/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bootstrapJwt}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+
+  if (!res.ok || !body?.success || typeof body.token !== "string") {
+    throw new Error(
+      `Wallet app bootstrap registration failed: ${body?.error || res.statusText}`,
+    );
+  }
+
+  const state: BootstrapState = {
+    appKey,
+    token: body.token,
+    createdAt: new Date().toISOString(),
+    appServerUrl,
+    apiBasePath: normalizedApiBase,
+  };
+  await writeBootstrapState(config.bootstrapStatePath, state);
+  return state;
+}
 
 /**
  * Initialize HTTP clients for credential and proxy backends
@@ -70,8 +175,7 @@ function createApp(
     "/*",
     cors({
       origin: (origin) =>
-        console.log(config) ||
-          config.allowedOrigins[0] === "*"
+        config.allowedOrigins[0] === "*"
           ? origin
           : config.allowedOrigins.join(","),
       allowMethods: ["GET", "POST", "OPTIONS"],
@@ -193,84 +297,87 @@ function createApp(
   }
 
   /**
-   * POST /api/v1/auth/signup - Create new user account (scoped to app token)
-   * Body: { username: string, password: string }
+   * POST /api/v1/auth/credentials/:token/signup - Create new user account with any credential type
+   * Body: { type: "password" | "google", ...type-specific fields }
    */
-  app.post("/api/v1/auth/signup", async (c: Context) => {
+  app.post("/api/v1/auth/credentials/:token/signup", async (c: Context) => {
     try {
-      const { token, username, password } = await c.req.json() as any;
+      const token = c.req.param("token");
+      const payload = await c.req.json() as CredentialPayload;
 
       if (!token || typeof token !== "string") {
-        return c.json({ success: false, error: "token is required" }, 400);
-      }
-      const { appKey } = parseAppToken(token);
-      if (!username || typeof username !== "string") {
-        return c.json(
-          { success: false, error: "username is required" },
-          400,
-        );
+        return c.json({ success: false, error: "token is required in URL" }, 400);
       }
 
-      if (!password || typeof password !== "string" || password.length < 8) {
+      const { appKey } = parseAppToken(token);
+
+      if (!payload.type || typeof payload.type !== "string") {
         return c.json(
           {
             success: false,
-            error: "password is required and must be at least 8 characters",
+            error: `type is required. Supported types: ${getSupportedCredentialTypes().join(", ")}`,
           },
           400,
         );
       }
 
-      // Create user with password
-      console.log(`Creating user: ${username}`);
-      await createUser(
-        credentialClient,
-        serverPublicKey,
-        username,
-        password,
-        serverIdentityPrivateKeyPem,
-        serverIdentityPublicKeyHex,
-        serverEncryptionPublicKeyHex,
-        appKey,
-      );
-      console.log(`✅ User created: ${username}`);
+      // Get the appropriate credential handler
+      const handler = getCredentialHandler(payload.type);
 
-      // Generate user keys
-      console.log(`Generating keys for user: ${username}`);
-      await generateUserKeys(
-        credentialClient,
+      // Build credential context
+      const context: CredentialContext = {
+        client: credentialClient,
         serverPublicKey,
-        username,
         serverIdentityPrivateKeyPem,
         serverIdentityPublicKeyHex,
         serverEncryptionPublicKeyHex,
-      );
-      console.log(`✅ Keys generated for user: ${username}`);
+        serverEncryptionPrivateKeyPem: serverKeys.encryptionKey.privateKeyPem,
+        appKey,
+        googleClientId: config.googleClientId,
+      };
+
+      // Execute signup via handler
+      const result = await handler.signup(payload, context);
 
       // Create JWT token
       const jwt = await createJwt(
-        username,
+        result.username,
         config.jwtSecret,
         config.jwtExpirationSeconds,
       );
 
       return c.json({
         success: true,
-        username,
+        username: result.username,
         token: jwt,
         expiresIn: config.jwtExpirationSeconds,
+        ...result.metadata,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
-      if (message.includes("already exists")) {
+      if (message.includes("already exists") || message.includes("already registered")) {
         return c.json(
-          { success: false, error: "User already exists" },
+          { success: false, error: message },
           409,
         );
       }
 
-      console.error("Signup error:", error);
+      if (message.includes("Unknown credential type")) {
+        return c.json(
+          { success: false, error: message },
+          400,
+        );
+      }
+
+      if (message.includes("not configured") || message.includes("Google") || message.includes("token")) {
+        return c.json(
+          { success: false, error: message },
+          401,
+        );
+      }
+
+      console.error("Credential signup error:", error);
       return c.json(
         { success: false, error: message },
         500,
@@ -279,72 +386,92 @@ function createApp(
   });
 
   /**
-   * POST /api/v1/auth/login - Authenticate user and get JWT (requires app token and session)
-   * Body: { username: string, password: string }
+   * POST /api/v1/auth/credentials/:token/login - Authenticate user with any credential type
+   * Body: { type: "password" | "google", session: string, ...type-specific fields }
    */
-  app.post("/api/v1/auth/login", async (c: Context) => {
+  app.post("/api/v1/auth/credentials/:token/login", async (c: Context) => {
     try {
-      const { token, session, username, password } = await c.req.json() as any;
+      const token = c.req.param("token");
+      const payload = await c.req.json() as CredentialPayload;
 
       if (!token || typeof token !== "string") {
-        return c.json({ success: false, error: "token is required" }, 400);
+        return c.json({ success: false, error: "token is required in URL" }, 400);
       }
-      if (!session || typeof session !== "string") {
+
+      if (!payload.session || typeof payload.session !== "string") {
         return c.json({ success: false, error: "session is required" }, 400);
       }
+
       const { appKey, tokenId } = parseAppToken(token);
 
-      if (!username || !password) {
+      if (!payload.type || typeof payload.type !== "string") {
         return c.json(
-          { success: false, error: "username and password are required" },
+          {
+            success: false,
+            error: `type is required. Supported types: ${getSupportedCredentialTypes().join(", ")}`,
+          },
           400,
         );
       }
 
       // Verify session exists
-      const hasSession = await sessionExists(appKey, tokenId, session);
+      const hasSession = await sessionExists(appKey, tokenId, payload.session);
       if (!hasSession) {
         return c.json({ success: false, error: "Invalid session" }, 401);
       }
 
-      // Verify credentials
-      const isValid = await authenticateUser(
-        credentialClient,
-        serverPublicKey,
-        username,
-        password,
-        serverIdentityPublicKeyHex,
-        serverEncryptionPrivateKeyPem,
-        appKey,
-      );
+      // Get the appropriate credential handler
+      const handler = getCredentialHandler(payload.type);
 
-      if (!isValid) {
-        return c.json(
-          { success: false, error: "Invalid username or password" },
-          401,
-        );
-      }
+      // Build credential context
+      const context: CredentialContext = {
+        client: credentialClient,
+        serverPublicKey,
+        serverIdentityPrivateKeyPem,
+        serverIdentityPublicKeyHex,
+        serverEncryptionPublicKeyHex,
+        serverEncryptionPrivateKeyPem: serverKeys.encryptionKey.privateKeyPem,
+        appKey,
+        googleClientId: config.googleClientId,
+      };
+
+      // Execute login via handler
+      const result = await handler.login(payload, context);
 
       // Create JWT token
       const jwt = await createJwt(
-        username,
+        result.username,
         config.jwtSecret,
         config.jwtExpirationSeconds,
       );
 
       return c.json({
         success: true,
-        username,
+        username: result.username,
         token: jwt,
         expiresIn: config.jwtExpirationSeconds,
+        ...result.metadata,
       });
     } catch (error) {
-      console.error("Login error:", error);
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (message.includes("Unknown credential type")) {
+        return c.json(
+          { success: false, error: message },
+          400,
+        );
+      }
+
+      if (message.includes("not configured") || message.includes("Google") || message.includes("token")) {
+        return c.json(
+          { success: false, error: message },
+          401,
+        );
+      }
+
+      console.error("Credential login error:", error);
       return c.json(
-        {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        },
+        { success: false, error: message },
         500,
       );
     }
@@ -427,15 +554,16 @@ function createApp(
   });
 
   /**
-   * POST /api/v1/auth/request-password-reset - Request password reset token
+   * POST /api/v1/auth/:token/request-password-reset - Request password reset token
    * Body: { username: string }
    */
-  app.post("/api/v1/auth/request-password-reset", async (c: Context) => {
+  app.post("/api/v1/auth/:token/request-password-reset", async (c: Context) => {
     try {
-      const { token, username } = await c.req.json() as any;
+      const token = c.req.param("token");
+      const { username } = await c.req.json() as any;
 
       if (!token || typeof token !== "string") {
-        return c.json({ success: false, error: "token is required" }, 400);
+        return c.json({ success: false, error: "token is required in URL" }, 400);
       }
       const { appKey } = parseAppToken(token);
       if (!username) {
@@ -482,16 +610,17 @@ function createApp(
   });
 
   /**
-   * POST /api/v1/auth/reset-password - Reset password with token
+   * POST /api/v1/auth/:token/reset-password - Reset password with token
    * Body: { username: string, resetToken: string, newPassword: string }
    */
-  app.post("/api/v1/auth/reset-password", async (c: Context) => {
+  app.post("/api/v1/auth/:token/reset-password", async (c: Context) => {
     try {
-      const { token, username, resetToken, newPassword } = await c.req
+      const token = c.req.param("token");
+      const { username, resetToken, newPassword } = await c.req
         .json() as any;
 
       if (!token || typeof token !== "string") {
-        return c.json({ success: false, error: "token is required" }, 400);
+        return c.json({ success: false, error: "token is required in URL" }, 400);
       }
       const { appKey } = parseAppToken(token);
       if (!username || !resetToken || !newPassword) {
@@ -643,6 +772,15 @@ async function main() {
   console.log(`   Port: ${config.port}`);
   console.log(`   Credential Node: ${config.credentialNodeUrl}`);
   console.log(`   Proxy Node: ${config.proxyNodeUrl}`);
+  if (config.appBackendUrl) {
+    console.log(
+      `   App Backend: ${config.appBackendUrl}${
+        normalizeApiBasePath(config.appBackendApiBasePath)
+      }`,
+    );
+  } else {
+    console.log("   App Backend: (not configured)");
+  }
 
   // Load server keys from environment variables
   console.log("🔑 Loading server keys from environment variables...");
@@ -662,6 +800,17 @@ async function main() {
   console.log("📡 Initializing b3nd clients...");
   const { credentialClient, proxyClient } = await initializeClients(config);
 
+  const bootstrapState = await ensureWalletAppRegistered(config, serverKeys);
+  if (bootstrapState) {
+    console.log("\n🧭 Wallet app bootstrap");
+    console.log(`   App Key: ${bootstrapState.appKey}`);
+    console.log(`   App Token: ${bootstrapState.token}`);
+    console.log(`   Stored at: ${config.bootstrapStatePath}`);
+    console.log(
+      `   App Backend: ${bootstrapState.appServerUrl}${bootstrapState.apiBasePath}`,
+    );
+  }
+
   // Create Hono app
   console.log("🌐 Setting up HTTP server...");
   const app = createApp(config, credentialClient, proxyClient, serverKeys);
@@ -672,19 +821,28 @@ async function main() {
     onListen: (addr) => {
       console.log(`\n✅ Server running at http://localhost:${config.port}`);
       console.log("\n📚 Available endpoints:");
-      console.log("   POST   /api/v1/auth/signup - Register new user");
-      console.log("   POST   /api/v1/auth/login - Authenticate user");
+      console.log("   POST   /api/v1/auth/credentials/:token/signup - Register with any credential type");
+      console.log("   POST   /api/v1/auth/credentials/:token/login - Login with any credential type");
       console.log("   POST   /api/v1/auth/change-password - Change password");
       console.log(
-        "   POST   /api/v1/auth/request-password-reset - Request reset token",
+        "   POST   /api/v1/auth/:token/request-password-reset - Request reset token",
       );
-      console.log("   POST   /api/v1/auth/reset-password - Reset with token");
+      console.log("   POST   /api/v1/auth/:token/reset-password - Reset with token");
       console.log("   POST   /api/v1/proxy/write - Proxy write request");
       console.log(
         "   GET    /api/v1/public-keys - Get current user's public keys",
       );
       console.log("   GET    /api/v1/server-keys - Get server public keys");
-      console.log("   GET    /api/v1/health - Health check\n");
+      console.log("   GET    /api/v1/auth/verify - Verify JWT token");
+      console.log("   GET    /api/v1/health - Health check");
+      const supportedTypes = getSupportedCredentialTypes();
+      console.log(`\n🔑 Supported credential types: ${supportedTypes.join(", ")}`);
+      if (config.googleClientId) {
+        console.log(`   Google OAuth enabled (Client ID: ${config.googleClientId.slice(0, 20)}...)`);
+      } else {
+        console.log("   Google OAuth not configured (set GOOGLE_CLIENT_ID to enable)");
+      }
+      console.log("");
     },
     handler: app.fetch,
   });

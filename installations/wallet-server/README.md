@@ -55,6 +55,11 @@ JWT_EXPIRATION_SECONDS=86400               # 24 hours
 # Server keys storage
 SERVER_KEYS_PATH=./server-keys.json
 
+# App backend bootstrap (register wallet app on startup)
+APP_BACKEND_URL=http://localhost:8844
+APP_BACKEND_API_BASE_PATH=/api/v1
+BOOTSTRAP_APP_STATE_PATH=./wallet-app-bootstrap.json
+
 # CORS configuration
 ALLOWED_ORIGINS=http://localhost:3000,https://app.example.com
 
@@ -75,7 +80,15 @@ deno run --allow-net --allow-read --allow-write --allow-env src/mod.ts
 The server will:
 1. Initialize server keys (creates `server-keys.json` if it doesn't exist)
 2. Connect to credential and proxy b3nd backends
-3. Start listening on the configured port
+3. Register a "wallet app" on the app-backend using the server keys (writes state to `BOOTSTRAP_APP_STATE_PATH`)
+4. Start listening on the configured port
+
+### Wallet app bootstrap
+
+- On startup the wallet server registers an app on the configured app-backend using the server identity/encryption keys.
+- The resulting app token (format: `<appKey>.<tokenId>`) is stored in `BOOTSTRAP_APP_STATE_PATH` and logged at startup.
+- To log into the wallet server for the first time, use that app token to create a session via the app-backend (`POST /api/v1/app/{appKey}/session`) and then call the wallet signup/login endpoints with the token + session.
+- Registering any other app still requires a wallet JWT, so you must be logged into the wallet server first.
 
 ## API Endpoints
 

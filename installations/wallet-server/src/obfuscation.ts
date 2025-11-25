@@ -31,7 +31,8 @@ type OperationType =
   | "account-key"
   | "encryption-key"
   | "profile"
-  | "reset-tokens";
+  | "reset-tokens"
+  | "google-profile";
 
 /**
  * Derive obfuscated path deterministically using HMAC-SHA256
