@@ -10,6 +10,7 @@ type Config = {
   backendUrl: string;
   appServerUrl: string;
   appApiBasePath: string;
+  googleClientId: string;
 };
 
 type KeyBundle = {
@@ -29,6 +30,7 @@ export function App() {
     backendUrl: "http://localhost:8080",
     appServerUrl: "http://localhost:3003",
     appApiBasePath: "/api/v1",
+    googleClientId: "", // Set your Google OAuth Client ID here
   });
   const [session, setSession] = useState<
     { username: string; token: string; expiresIn: number } | null
@@ -282,6 +284,7 @@ export function App() {
           backendUrl: parsed.backendUrl,
           appServerUrl: parsed.appServerUrl,
           appApiBasePath: parsed.appApiBasePath,
+          googleClientId: parsed.googleClientId || "",
         });
         logLine("local", "Config loaded from local storage");
       }
@@ -348,7 +351,10 @@ export function App() {
   };
 
   const signup = async (username: string, password: string) => {
-    const s = await wallet.signupWithToken(appToken, { username, password });
+    if (!appKey) {
+      throw new Error("App key is required to sign up");
+    }
+    const s = await wallet.signupWithToken(appKey, appToken, { username, password });
     setSession(s);
     apps.setAuthToken(s.token);
     logLine("wallet", "Signup ok");
@@ -356,7 +362,10 @@ export function App() {
   };
 
   const login = async (username: string, password: string) => {
-    const s = await wallet.loginWithTokenSession(appToken, appSession, {
+    if (!appKey) {
+      throw new Error("App key is required to log in");
+    }
+    const s = await wallet.loginWithTokenSession(appKey, appToken, appSession, {
       username,
       password,
     });
@@ -364,6 +373,71 @@ export function App() {
     apps.setAuthToken(s.token);
     logLine("wallet", "Login ok");
     setOutput(s);
+  };
+
+  const googleSignup = async (googleIdToken: string) => {
+    try {
+      if (!appKey) {
+        throw new Error("App key is required to sign up with Google");
+      }
+      // Direct HTTP call for Google signup (SDK method not yet published)
+      const response = await fetch(`${cfg.walletUrl}${cfg.apiBasePath}/auth/signup/${appKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: appToken, type: "google", googleIdToken }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || `Google signup failed: ${response.statusText}`);
+      }
+      const s = {
+        username: data.username,
+        token: data.token,
+        expiresIn: data.expiresIn,
+      };
+      setSession(s);
+      apps.setAuthToken(s.token);
+      logLine("wallet", `Google signup ok: ${data.email}`);
+      setOutput({ ...s, email: data.email, name: data.name, picture: data.picture });
+    } catch (error: any) {
+      logLine("wallet", `Google signup failed: ${error?.message || String(error)}`);
+      setOutput({ error: error?.message || String(error) });
+    }
+  };
+
+  const googleLogin = async (googleIdToken: string) => {
+    try {
+      if (!appKey) {
+        throw new Error("App key is required to log in with Google");
+      }
+      // Direct HTTP call for Google login (SDK method not yet published)
+      const response = await fetch(`${cfg.walletUrl}${cfg.apiBasePath}/auth/login/${appKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: appToken,
+          session: appSession,
+          type: "google",
+          googleIdToken,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || `Google login failed: ${response.statusText}`);
+      }
+      const s = {
+        username: data.username,
+        token: data.token,
+        expiresIn: data.expiresIn,
+      };
+      setSession(s);
+      apps.setAuthToken(s.token);
+      logLine("wallet", `Google login ok: ${data.email}`);
+      setOutput({ ...s, email: data.email, name: data.name, picture: data.picture });
+    } catch (error: any) {
+      logLine("wallet", `Google login failed: ${error?.message || String(error)}`);
+      setOutput({ error: error?.message || String(error) });
+    }
   };
 
   const myKeys = async () => {
@@ -619,6 +693,26 @@ export function App() {
               <div className="actions" style={{ marginTop: 8 }}>
                 <button onClick={appsHealth}>App Server Health</button>
               </div>
+              <hr
+                style={{
+                  border: "none",
+                  borderTop: "1px solid #2a366f",
+                  margin: "16px 0",
+                }}
+              />
+              <h3>Google OAuth</h3>
+              <div className="row" style={{ marginTop: 8 }}>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label>Google Client ID</label>
+                  <input
+                    value={cfg.googleClientId}
+                    onChange={(e) =>
+                      setCfg({ ...cfg, googleClientId: e.target.value })}
+                    placeholder="your-client-id.apps.googleusercontent.com"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+              </div>
               <div className="actions" style={{ marginTop: 12 }}>
                 <button className="primary" onClick={applyConfig}>
                   Apply Config
@@ -782,7 +876,13 @@ export function App() {
           {section === "auth" && (
             <section className="card">
               <h3>Auth</h3>
-              <AuthForm onSignup={signup} onLogin={login} />
+              <AuthForm
+                onSignup={signup}
+                onLogin={login}
+                onGoogleSignup={googleSignup}
+                onGoogleLogin={googleLogin}
+                googleClientId={cfg.googleClientId}
+              />
               <div className="actions" style={{ marginTop: 8 }}>
                 <button onClick={myKeys}>My Keys</button>
               </div>
@@ -856,13 +956,68 @@ export function App() {
 }
 
 function AuthForm(
-  { onSignup, onLogin }: {
+  { onSignup, onLogin, onGoogleSignup, onGoogleLogin, googleClientId }: {
     onSignup: (u: string, p: string) => void;
     onLogin: (u: string, p: string) => void;
+    onGoogleSignup: (googleIdToken: string) => void;
+    onGoogleLogin: (googleIdToken: string) => void;
+    googleClientId: string;
   },
 ) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [googleMode, setGoogleMode] = useState<"signup" | "login">("signup");
+  const googleButtonRef = React.useRef<HTMLDivElement>(null);
+
+  // Initialize Google Identity Services
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    // Load the Google Identity Services script
+    const existingScript = document.getElementById("google-gsi-script");
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.id = "google-gsi-script";
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => initializeGoogleSignIn();
+      document.head.appendChild(script);
+    } else {
+      initializeGoogleSignIn();
+    }
+
+    function initializeGoogleSignIn() {
+      if (!(window as any).google?.accounts?.id) {
+        // Retry after a short delay if google is not ready yet
+        setTimeout(initializeGoogleSignIn, 100);
+        return;
+      }
+
+      (window as any).google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (response: { credential: string }) => {
+          if (googleMode === "signup") {
+            onGoogleSignup(response.credential);
+          } else {
+            onGoogleLogin(response.credential);
+          }
+        },
+      });
+
+      if (googleButtonRef.current) {
+        // Clear any existing button
+        googleButtonRef.current.innerHTML = "";
+        (window as any).google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: "filled_blue",
+          size: "large",
+          text: googleMode === "signup" ? "signup_with" : "signin_with",
+          width: 280,
+        });
+      }
+    }
+  }, [googleClientId, googleMode, onGoogleSignup, onGoogleLogin]);
+
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -882,6 +1037,41 @@ function AuthForm(
         <button onClick={() => onSignup(username, password)}>Signup</button>
         <button onClick={() => onLogin(username, password)}>Login</button>
       </div>
+
+      {googleClientId && (
+        <>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              margin: "16px 0",
+              color: "#8899bb",
+            }}
+          >
+            <hr style={{ flex: 1, border: "none", borderTop: "1px solid #2a366f" }} />
+            <span>or</span>
+            <hr style={{ flex: 1, border: "none", borderTop: "1px solid #2a366f" }} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <label style={{ marginRight: 8 }}>Google mode:</label>
+            <select
+              value={googleMode}
+              onChange={(e) => setGoogleMode(e.target.value as "signup" | "login")}
+              style={{ padding: "4px 8px" }}
+            >
+              <option value="signup">Sign Up</option>
+              <option value="login">Login</option>
+            </select>
+          </div>
+          <div ref={googleButtonRef} style={{ marginTop: 8 }} />
+          {!googleClientId && (
+            <p style={{ color: "#ff6b6b", fontSize: 12, marginTop: 8 }}>
+              Set Google Client ID in Configuration to enable Google Sign-In
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

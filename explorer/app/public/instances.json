@@ -1,8 +1,8 @@
 {
   "defaults": {
-    "backend": "local-api",
-    "wallet": "local-wallet",
-    "appServer": "local-app"
+    "backend": "testnet",
+    "wallet": "testnet-wallet",
+    "appServer": "testnet-app"
   },
   "backends": {
     "local-api": {
@@ -18,12 +18,20 @@
     "local-wallet": {
       "name": "Local Wallet",
       "url": "http://localhost:8843"
+    },
+    "testnet-wallet": {
+      "name": "Testnet Wallet",
+      "url": "https://testnet-wallet.fire.cat"
     }
   },
   "appServers": {
     "local-app": {
       "name": "Local App Server",
       "url": "http://localhost:8844"
+    },
+    "testnet-app": {
+      "name": "Testnet App Server",
+      "url": "https://testnet-app.fire.cat"
     }
   }
 }
