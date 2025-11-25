@@ -156,6 +156,7 @@ const initialState: Omit<AppState, "backendsReady"> = {
   activeApp: "explorer" as AppExperience,
   mainView: "content" as AppMainView,
   writerSection: "backend" as WriterSection,
+  formState: {},
   searchQuery: "",
   searchHistory: [],
   searchResults: [],
@@ -492,6 +493,28 @@ export const useAppStore = create<AppStore>()(
           }));
         },
 
+        setFormValue: (formId, field, value) => {
+          set((state) => ({
+            formState: {
+              ...state.formState,
+              [formId]: { ...(state.formState[formId] || {}), [field]: value },
+            },
+          }));
+        },
+
+        getFormValue: (formId, field, defaultValue = "") => {
+          const form = get().formState[formId];
+          return form && field in form ? form[field] : defaultValue;
+        },
+
+        resetForm: (formId) => {
+          set((state) => {
+            const next = { ...state.formState };
+            delete next[formId];
+            return { formState: next };
+          });
+        },
+
         setSearchQuery: (query: string) => {
           set({ searchQuery: query });
         },
@@ -561,6 +584,7 @@ export const useAppStore = create<AppStore>()(
           activeApp: state.activeApp,
           writerSection: state.writerSection,
           mainView: state.mainView,
+          formState: state.formState,
           walletServers: state.walletServers,
           activeWalletServerId: state.activeWalletServerId,
           appServers: state.appServers,
@@ -605,11 +629,16 @@ export const useAppStore = create<AppStore>()(
           state.currentPath = "/";
           state.navigationHistory = ["/"];
           state.expandedPaths = new Set();
+          state.formState = state.formState || {};
           state.searchQuery = "";
           state.searchResults = [];
           state.mode = "filesystem";
           state.activeApp = state.activeApp || "explorer";
           state.writerSection = state.writerSection || "backend";
+          state.panels = state.panels || { left: true, right: true, bottom: false };
+          if (state.activeApp === "explorer" && state.writerSection) {
+            state.panels.right = true;
+          }
           state.mainView = state.mainView || "content";
           state.logs = [];
           state.schemas = {};

@@ -27,6 +27,8 @@ export function WriterMainContent() {
     appServers,
     activeAppServerId,
     panels,
+    setFormValue,
+    getFormValue,
   } = useAppStore();
   const activeWallet = walletServers.find((w) => w.id === activeWalletServerId && w.isActive);
   const activeAppServer = appServers.find((w) => w.id === activeAppServerId && w.isActive);
@@ -35,21 +37,30 @@ export function WriterMainContent() {
   const [session, setSession] = useState<{ username: string; token: string; expiresIn: number } | null>(null);
   const [appToken, setAppToken] = useState("");
   const [appSession, setAppSession] = useState("");
-  const [writeUri, setWriteUri] = useState("");
-  const [writePayload, setWritePayload] = useState("");
   const [output, setOutput] = useState<any>(null);
   const [lastResolvedUri, setLastResolvedUri] = useState<string | null>(null);
   const [lastAppUri, setLastAppUri] = useState<string | null>(null);
-  const [actionName, setActionName] = useState("registerForReceiveUpdates");
-  const [validationFormat, setValidationFormat] = useState<"email" | "">("");
-  const [writeKind, setWriteKind] = useState<"plain" | "encrypted">("plain");
-  const [writePlainPath, setWritePlainPath] = useState("");
-  const [writeEncPath, setWriteEncPath] = useState("");
-  const [actionPayload, setActionPayload] = useState("");
+  const FORM_BACKEND = "writer-backend";
+  const FORM_APP = "writer-app";
+  const FORM_AUTH = "writer-auth";
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const [googleMode, setGoogleMode] = useState<"signup" | "login">("signup");
 
   const { appKey, accountPrivateKeyPem, encryptionPublicKeyHex, encryptionPrivateKeyPem } = keyBundle;
+  const actionName = getFormValue(FORM_APP, "actionName", "registerForReceiveUpdates") as string;
+  const validationFormat = (getFormValue(FORM_APP, "validationFormat") as "email" | "") || "";
+  const writeKind = (getFormValue(FORM_APP, "writeKind", "plain") as "plain" | "encrypted") || "plain";
+  const actionPayload = getFormValue(FORM_APP, "actionPayload", "");
+  const writePlainPath = getFormValue(FORM_APP, "writePlainPath", "");
+  const writeEncPath = getFormValue(FORM_APP, "writeEncPath", "");
+  const writeUri = getFormValue(FORM_BACKEND, "writeUri", "");
+  const writePayload = getFormValue(FORM_BACKEND, "writePayload", "");
+  const authWriteUri = getFormValue(FORM_AUTH, "writeUri", "");
+  const authWritePayload = getFormValue(FORM_AUTH, "writePayload", "");
+  const setValidationFormat = (v: "email" | "") => setFormValue(FORM_APP, "validationFormat", v);
+  const setWriteKind = (v: "plain" | "encrypted") => setFormValue(FORM_APP, "writeKind", v);
+  const setWritePlainPath = (v: string) => setFormValue(FORM_APP, "writePlainPath", v);
+  const setWriteEncPath = (v: string) => setFormValue(FORM_APP, "writeEncPath", v);
 
   const logLine = (source: string, message: string, level: AppLogEntry["level"] = "info") => {
     addLogEntry({ source, message, level });
@@ -330,9 +341,9 @@ export function WriterMainContent() {
     if (!session) throw new Error("Session required");
     const wallet = getWallet();
     wallet.setSession(session);
-    ensureValue(writePayload, "Write payload");
-    const data = JSON.parse(writePayload);
-    const targetUri = resolveUriWithKey(writeUri);
+    ensureValue(authWritePayload, "Write payload");
+    const data = JSON.parse(authWritePayload);
+    const targetUri = resolveUriWithKey(authWriteUri);
     const r = await wallet.proxyWrite({ uri: targetUri, data, encrypt: false });
     setOutput(r);
     if ((r as any).resolvedUri) setLastResolvedUri((r as any).resolvedUri);
@@ -343,9 +354,9 @@ export function WriterMainContent() {
     if (!session) throw new Error("Session required");
     const wallet = getWallet();
     wallet.setSession(session);
-    ensureValue(writePayload, "Write payload");
-    const data = JSON.parse(writePayload);
-    const targetUri = resolveUriWithKey(writeUri);
+    ensureValue(authWritePayload, "Write payload");
+    const data = JSON.parse(authWritePayload);
+    const targetUri = resolveUriWithKey(authWriteUri);
     const r = await wallet.proxyWrite({ uri: targetUri, data, encrypt: true });
     setOutput(r);
     if ((r as any).resolvedUri) setLastResolvedUri((r as any).resolvedUri);
@@ -422,71 +433,64 @@ export function WriterMainContent() {
         <div className="p-6 space-y-4 max-w-6xl mx-auto">
           {writerSection === "backend" && (
             <BackendSection
-              writeUri={writeUri}
-              writePayload={writePayload}
-              setWriteUri={setWriteUri}
-              setWritePayload={setWritePayload}
+              formId={FORM_BACKEND}
               backendWritePlain={() => handleAction("Backend write (plain)", backendWritePlain)}
               backendWriteEnc={() => handleAction("Backend write (encrypted)", backendWriteEnc)}
               readLast={() => handleAction("Read last", readLast)}
             />
           )}
 
-            {writerSection === "app" && (
-              <div className="space-y-4">
-                <AppCredentialsCard
-                  appKey={appKey}
-                  appToken={appToken}
-                  setKeyBundle={(patch) => setKeyBundle({ ...keyBundle, ...patch })}
-                  setAppToken={setAppToken}
-                  registerApp={() => handleAction("Register app", registerApp)}
-                  fetchSchema={() => handleAction("Fetch schema", fetchSchema)}
-                />
-                <SessionCard
-                  appSession={appSession}
-                  setAppSession={setAppSession}
-                  createSession={() => handleAction("Create session", createSession)}
-                />
-                <ActionRegistryCard
-                  actionName={actionName}
-                  setActionName={setActionName}
-                  validationFormat={validationFormat}
-                  setValidationFormat={setValidationFormat}
-                  writeKind={writeKind}
-                  setWriteKind={setWriteKind}
-                  writePlainPath={writePlainPath}
-                  setWritePlainPath={setWritePlainPath}
-                  writeEncPath={writeEncPath}
-                  setWriteEncPath={setWriteEncPath}
-                  updateSchema={() => handleAction("Update schema", updateSchema)}
-                />
-                <InvokeActionCard
-                  actionName={actionName}
-                  setActionName={setActionName}
-                  actionPayload={actionPayload}
-                  setActionPayload={setActionPayload}
-                  testAction={() => handleAction("Invoke action", testAction)}
-                />
-                <KeysCard
-                  encryptionPublicKeyHex={encryptionPublicKeyHex}
-                  encryptionPrivateKeyPem={encryptionPrivateKeyPem}
-                  accountPrivateKeyPem={accountPrivateKeyPem}
-                  setKeyBundle={(patch) => setKeyBundle({ ...keyBundle, ...patch })}
-                  genAppKeys={() => handleAction("Generate keys", genAppKeys)}
-                />
-                <MiscCard
-                  googleClientId={googleClientId}
-                  setGoogleClientId={setGoogleClientId}
-                />
-              </div>
-            )}
+          {writerSection === "app" && (
+            <div className="space-y-4">
+              <AppCredentialsCard
+                appKey={appKey}
+                appToken={appToken}
+                setKeyBundle={(patch) => setKeyBundle({ ...keyBundle, ...patch })}
+                setAppToken={setAppToken}
+                registerApp={() => handleAction("Register app", registerApp)}
+                fetchSchema={() => handleAction("Fetch schema", fetchSchema)}
+              />
+              <SessionCard
+                appSession={appSession}
+                setAppSession={setAppSession}
+                createSession={() => handleAction("Create session", createSession)}
+              />
+              <ActionRegistryCard
+                formId={FORM_APP}
+                actionName={actionName}
+                validationFormat={validationFormat}
+                setValidationFormat={setValidationFormat}
+                writeKind={writeKind}
+                setWriteKind={setWriteKind}
+                writePlainPath={writePlainPath}
+                setWritePlainPath={setWritePlainPath}
+                writeEncPath={writeEncPath}
+                setWriteEncPath={setWriteEncPath}
+                updateSchema={() => handleAction("Update schema", updateSchema)}
+              />
+              <InvokeActionCard
+                formId={FORM_APP}
+                actionName={actionName}
+                actionPayload={actionPayload}
+                testAction={() => handleAction("Invoke action", testAction)}
+              />
+              <KeysCard
+                encryptionPublicKeyHex={encryptionPublicKeyHex}
+                encryptionPrivateKeyPem={encryptionPrivateKeyPem}
+                accountPrivateKeyPem={accountPrivateKeyPem}
+                setKeyBundle={(patch) => setKeyBundle({ ...keyBundle, ...patch })}
+                genAppKeys={() => handleAction("Generate keys", genAppKeys)}
+              />
+              <MiscCard
+                googleClientId={googleClientId}
+                setGoogleClientId={setGoogleClientId}
+              />
+            </div>
+          )}
 
           {writerSection === "auth" && (
             <AuthSection
-              writeUri={writeUri}
-              setWriteUri={setWriteUri}
-              writePayload={writePayload}
-              setWritePayload={setWritePayload}
+              formId={FORM_AUTH}
               signup={(u, p) => handleAction("Signup", () => signup(u, p))}
               login={(u, p) => handleAction("Login", () => login(u, p))}
               myKeys={() => handleAction("My keys", myKeys)}
@@ -558,34 +562,25 @@ function SectionCard({ title, icon, children }: { title: string; icon: ReactNode
 }
 
 function BackendSection(props: {
-  writeUri: string;
-  setWriteUri: (v: string) => void;
-  writePayload: string;
-  setWritePayload: (v: string) => void;
+  formId: string;
   backendWritePlain: () => void;
   backendWriteEnc: () => void;
   readLast: () => void;
 }) {
   return (
     <SectionCard title="Backend" icon={<Server className="h-4 w-4" />}>
-      <div className="space-y-2">
-        <label className="text-sm text-muted-foreground">URI</label>
-        <input
-          value={props.writeUri}
-          onChange={(e) => props.setWriteUri(e.target.value)}
-          className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-          placeholder="mutable://accounts/:key/profile"
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm text-muted-foreground">Payload (JSON)</label>
-        <textarea
-          value={props.writePayload}
-          onChange={(e) => props.setWritePayload(e.target.value)}
-          className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
-          placeholder='{"name":"Test User","timestamp":""}'
-        />
-      </div>
+      <Field
+        label="URI"
+        formId={props.formId}
+        name="writeUri"
+        placeholder="mutable://accounts/:key/profile"
+      />
+      <TextArea
+        label="Payload (JSON)"
+        formId={props.formId}
+        name="writePayload"
+        placeholder='{"name":"Test User","timestamp":""}'
+      />
       <div className="flex flex-wrap gap-2">
         <button onClick={props.backendWritePlain} className={PRIMARY_BUTTON}>
           Write Plain
@@ -650,8 +645,8 @@ function SessionCard(props: {
 }
 
 function ActionRegistryCard(props: {
+  formId: string;
   actionName: string;
-  setActionName: (v: string) => void;
   validationFormat: "email" | "";
   setValidationFormat: (v: "email" | "") => void;
   writeKind: "plain" | "encrypted";
@@ -665,7 +660,13 @@ function ActionRegistryCard(props: {
   return (
     <SectionCard title="Actions Registry & Schema" icon={<Activity className="h-4 w-4" />}>
       <div className="grid md:grid-cols-2 gap-4">
-        <Field label="Action Name" value={props.actionName} onChange={props.setActionName} />
+        <Field
+          label="Action Name"
+          formId={props.formId}
+          name="actionName"
+          defaultValue="registerForReceiveUpdates"
+          value={props.actionName}
+        />
         <div className="space-y-2">
           <label className="text-sm text-muted-foreground">Validation Format</label>
           <select
@@ -716,21 +717,16 @@ function ActionRegistryCard(props: {
 }
 
 function InvokeActionCard(props: {
+  formId: string;
   actionName: string;
-  setActionName: (v: string) => void;
   actionPayload: string;
-  setActionPayload: (v: string) => void;
   testAction: () => void;
 }) {
   return (
     <SectionCard title="Invoke Action" icon={<Activity className="h-4 w-4" />}>
       <div className="grid md:grid-cols-2 gap-4">
-        <Field label="Action" value={props.actionName} onChange={props.setActionName} />
-        <Field
-          label="Test Payload (string)"
-          value={props.actionPayload}
-          onChange={props.setActionPayload}
-        />
+        <Field label="Action" formId={props.formId} name="actionName" defaultValue="registerForReceiveUpdates" value={props.actionName} />
+        <Field label="Test Payload (string)" formId={props.formId} name="actionPayload" value={props.actionPayload} />
       </div>
       <div className="flex flex-wrap gap-2">
         <button onClick={props.testAction} className={PRIMARY_BUTTON}>
@@ -761,12 +757,14 @@ function KeysCard(props: {
           label="Encryption Private Key (PEM)"
           value={props.encryptionPrivateKeyPem}
           onChange={(v) => props.setKeyBundle({ encryptionPrivateKeyPem: v })}
+          placeholder="-----BEGIN PRIVATE KEY-----"
         />
       </div>
       <TextArea
         label="Account Private Key (PEM)"
         value={props.accountPrivateKeyPem}
         onChange={(v) => props.setKeyBundle({ accountPrivateKeyPem: v })}
+        placeholder="-----BEGIN PRIVATE KEY-----"
       />
       <div className="flex flex-wrap gap-2">
         <button onClick={props.genAppKeys} className={SECONDARY_BUTTON}>
@@ -791,10 +789,7 @@ function MiscCard(props: { googleClientId: string; setGoogleClientId: (v: string
 }
 
 function AuthSection(props: {
-  writeUri: string;
-  setWriteUri: (v: string) => void;
-  writePayload: string;
-  setWritePayload: (v: string) => void;
+  formId: string;
   signup: (u: string, p: string) => void;
   login: (u: string, p: string) => void;
   myKeys: () => void;
@@ -821,22 +816,8 @@ function AuthSection(props: {
         </button>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">URI</label>
-          <input
-            value={props.writeUri}
-            onChange={(e) => props.setWriteUri(e.target.value)}
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Payload (JSON)</label>
-          <textarea
-            value={props.writePayload}
-            onChange={(e) => props.setWritePayload(e.target.value)}
-            className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
-          />
-        </div>
+        <Field label="URI" formId={props.formId} name="writeUri" placeholder="mutable://accounts/:key/profile" />
+        <TextArea label="Payload (JSON)" formId={props.formId} name="writePayload" placeholder='{"name":"Test User"}' />
       </div>
       <div className="flex flex-wrap gap-2">
         <button onClick={props.writePlain} className={PRIMARY_BUTTON}>
@@ -984,18 +965,35 @@ function Field({
   value,
   onChange,
   placeholder,
+  formId,
+  name,
+  defaultValue = "",
 }: {
   label: string;
-  value: string;
-  onChange: (v: string) => void;
+  value?: string;
+  onChange?: (v: string) => void;
   placeholder?: string;
+  formId?: string;
+  name?: string;
+  defaultValue?: string;
 }) {
+  const { getFormValue, setFormValue } = useAppStore();
+  const isBound = formId && name;
+  const resolvedValue = isBound
+    ? getFormValue(formId as string, name as string, defaultValue)
+    : value ?? "";
+
+  const handleChange = (next: string) => {
+    if (isBound) setFormValue(formId as string, name as string, next);
+    if (onChange) onChange(next);
+  };
+
   return (
     <div className="space-y-2">
       <label className="text-sm text-muted-foreground">{label}</label>
       <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={resolvedValue}
+        onChange={(e) => handleChange(e.target.value)}
         className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
         placeholder={placeholder}
       />
@@ -1007,19 +1005,38 @@ function TextArea({
   label,
   value,
   onChange,
+  formId,
+  name,
+  defaultValue = "",
+  placeholder = "",
 }: {
   label: string;
-  value: string;
-  onChange: (v: string) => void;
+  value?: string;
+  onChange?: (v: string) => void;
+  formId?: string;
+  name?: string;
+  defaultValue?: string;
+  placeholder?: string;
 }) {
+  const { getFormValue, setFormValue } = useAppStore();
+  const isBound = formId && name;
+  const resolvedValue = isBound
+    ? getFormValue(formId as string, name as string, defaultValue)
+    : value ?? "";
+
+  const handleChange = (next: string) => {
+    if (isBound) setFormValue(formId as string, name as string, next);
+    if (onChange) onChange(next);
+  };
+
   return (
     <div className="space-y-2">
       <label className="text-sm text-muted-foreground">{label}</label>
       <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={resolvedValue}
+        onChange={(e) => handleChange(e.target.value)}
         className="w-full min-h-[120px] rounded border border-border bg-background px-3 py-2 text-sm"
-        placeholder="-----BEGIN PRIVATE KEY-----"
+        placeholder={placeholder}
       />
     </div>
   );

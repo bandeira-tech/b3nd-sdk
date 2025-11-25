@@ -136,6 +136,8 @@ export interface AppState {
   mainView: AppMainView;
   writerSection: WriterSection;
 
+  formState: Record<string, Record<string, string>>;
+
   // Search
   searchQuery: string;
   searchHistory: string[];
@@ -180,6 +182,10 @@ export interface AppActions {
   setActiveApp: (app: AppExperience) => void;
   setMainView: (view: AppMainView) => void;
   setWriterSection: (section: WriterSection) => void;
+
+  setFormValue: (formId: string, field: string, value: string) => void;
+  getFormValue: (formId: string, field: string, defaultValue?: string) => string;
+  resetForm: (formId: string) => void;
 
   // Search actions
   setSearchQuery: (query: string) => void;
