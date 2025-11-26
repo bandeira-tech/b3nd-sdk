@@ -85,6 +85,15 @@ export function WriterMainContent() {
   const [allowedOrigins, setAllowedOrigins] = useState("*");
   const [currentAppProfile, setCurrentAppProfile] = useState<any | null>(null);
   const [appProfileError, setAppProfileError] = useState<string | null>(null);
+  const [backendHistory, setBackendHistory] = useState<
+    Array<{ id: string; label: string; uri: string; result: any }>
+  >([]);
+  const [backendKeys, setBackendKeys] = useState<KeyBundle>({
+    appKey: "",
+    accountPrivateKeyPem: "",
+    encryptionPublicKeyHex: "",
+    encryptionPrivateKeyPem: "",
+  });
 
   const {
     appKey,
@@ -188,6 +197,18 @@ export function WriterMainContent() {
       encryptionPrivateKeyPem: bundle.encryptionPrivateKeyPem,
     });
     logLine("local", "Generated app keys (identity + encryption)", "success");
+  };
+  const genBackendKeys = async () => {
+    const bundle = await generateAppKeys();
+    setBackendKeys(bundle);
+    setOutput({
+      context: "backend",
+      publicKeyHex: bundle.appKey,
+      privateKeyPem: bundle.accountPrivateKeyPem,
+      encryptionPublicKeyHex: bundle.encryptionPublicKeyHex,
+      encryptionPrivateKeyPem: bundle.encryptionPrivateKeyPem,
+    });
+    logLine("local", "Generated backend keys (identity + encryption)", "success");
   };
 
   const updateOrigins = async () => {
@@ -353,13 +374,22 @@ export function WriterMainContent() {
   const backendWritePlain = async () => {
     const { targetUri, response } = await backendWritePlainService({
       backendClient: requireBackendClient(),
-      appKey,
-      accountPrivateKeyPem,
+      appKey: backendKeys.appKey,
+      accountPrivateKeyPem: backendKeys.accountPrivateKeyPem,
       writeUri,
       writePayload,
     });
     setOutput(response);
     setLastResolvedUri(targetUri);
+    setBackendHistory((prev) => [
+      {
+        id: crypto.randomUUID(),
+        label: "Plain write",
+        uri: targetUri,
+        result: response,
+      },
+      ...prev,
+    ]);
     logLine(
       "backend",
       `Backend write (plain): ${response.success ? "success" : "failed"}`,
@@ -368,17 +398,26 @@ export function WriterMainContent() {
   };
 
   const backendWriteEnc = async () => {
-    ensureValue(encryptionPublicKeyHex, "Encryption public key");
+    ensureValue(backendKeys.encryptionPublicKeyHex, "Encryption public key");
     const { targetUri, response } = await backendWriteEncService({
       backendClient: requireBackendClient(),
-      appKey,
-      accountPrivateKeyPem,
-      encryptionPublicKeyHex,
+      appKey: backendKeys.appKey,
+      accountPrivateKeyPem: backendKeys.accountPrivateKeyPem,
+      encryptionPublicKeyHex: backendKeys.encryptionPublicKeyHex,
       writeUri,
       writePayload,
     });
     setOutput(response);
     setLastResolvedUri(targetUri);
+    setBackendHistory((prev) => [
+      {
+        id: crypto.randomUUID(),
+        label: "Encrypted write",
+        uri: targetUri,
+        result: response,
+      },
+      ...prev,
+    ]);
     logLine(
       "backend",
       `Backend write (encrypted path): ${
@@ -420,19 +459,6 @@ export function WriterMainContent() {
     setOutput(r);
     if ((r as any).resolvedUri) setLastResolvedUri((r as any).resolvedUri);
     logLine("wallet", "Write enc ok", "success");
-  };
-
-  const readLast = async () => {
-    const target = lastAppUri || lastResolvedUri || resolveWithAppKey(writeUri);
-    const res = lastAppUri
-      ? await requireAppsClient().read(appKey, target)
-      : await requireBackendClient().read(target);
-    setOutput(res);
-    logLine(
-      lastAppUri ? "apps" : "backend",
-      `Read ${res.success ? "ok" : "failed"}`,
-      res.success ? "info" : "warning",
-    );
   };
 
   const testAction = async () => {
@@ -532,108 +558,10 @@ export function WriterMainContent() {
           <WriterBreadcrumb writerSection={writerSection} />
         </div>
         <div className="p-6 space-y-4 max-w-6xl mx-auto">
-          {writerSection === "backend" && (
-            <BackendSection
-              formId={FORM_BACKEND}
-              backendWritePlain={() =>
-                handleAction("Backend write (plain)", backendWritePlain)}
-              backendWriteEnc={() =>
-                handleAction("Backend write (encrypted)", backendWriteEnc)}
-              readLast={() => handleAction("Read last", readLast)}
-            />
-          )}
-
-          {writerSection === "actions" && (
-            <div className="space-y-4">
-              <InvokeActionCard
-                formId={FORM_APP}
-                actionName={actionName}
-                actionPayload={actionPayload}
-                testAction={() => handleAction("Invoke action", testAction)}
-              />
-            </div>
-          )}
-
-          {writerSection === "configuration" && (
-            <div className="space-y-4">
-              <KeysCard
-                appKey={appKey}
-                encryptionPublicKeyHex={encryptionPublicKeyHex}
-                encryptionPrivateKeyPem={encryptionPrivateKeyPem}
-                accountPrivateKeyPem={accountPrivateKeyPem}
-                setKeyBundle={(patch) =>
-                  setKeyBundle({ ...keyBundle, ...patch })}
-                genAppKeys={() => handleAction("Generate keys", genAppKeys)}
-              />
-              <AppProfileCard
-                googleClientId={googleClientId}
-                setGoogleClientId={setGoogleClientId}
-                allowedOrigins={allowedOrigins}
-                setAllowedOrigins={setAllowedOrigins}
-                currentProfile={currentAppProfile}
-                appProfileError={appProfileError}
-                reloadAppProfile={() =>
-                  handleAction("Load app profile", loadAppProfile)}
-                saveAppProfile={() =>
-                  handleAction("Save app profile", saveAppProfile)}
-              />
-            </div>
-          )}
-
-          {writerSection === "schema" && (
-            <div className="space-y-4">
-              <ActionRegistryCard
-                formId={FORM_APP}
-                actionName={actionName}
-                validationFormat={validationFormat}
-                setValidationFormat={setValidationFormat}
-                writeKind={writeKind}
-                setWriteKind={setWriteKind}
-                writePlainPath={writePlainPath}
-                setWritePlainPath={setWritePlainPath}
-                writeEncPath={writeEncPath}
-                setWriteEncPath={setWriteEncPath}
-                updateSchema={() => handleAction("Update schema", updateSchema)}
-                fetchSchema={() => handleAction("Fetch schema", fetchSchema)}
-              />
-            </div>
-          )}
-
-          {writerSection === "auth" && (
-            <div className="space-y-4">
-              <SessionCard
-                appSession={appSession}
-                setAppSession={setAppSession}
-                createSession={() =>
-                  handleAction("Create session", createSession)}
-              />
-              <AuthSection
-                signup={(u, p) => handleAction("Signup", () => signup(u, p))}
-                login={(u, p) => handleAction("Login", () => login(u, p))}
-                myKeys={() => handleAction("My keys", myKeys)}
-                googleClientId={googleClientId}
-                googleMode={googleMode}
-                setGoogleMode={setGoogleMode}
-                googleButtonRef={googleButtonRef}
-              />
-              <ProxyWriteSection
-                formId={FORM_AUTH}
-                writePlain={() => handleAction("Proxy write plain", writePlain)}
-                writeEnc={() => handleAction("Proxy write encrypted", writeEnc)}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {rightOpen && (
-        <aside className="w-96 border-l border-border bg-card flex flex-col">
-          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-            <PanelRightOpen className="h-4 w-4" />
-            <span className="text-sm font-semibold">Output & State</span>
-          </div>
-          <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-4">
-            <OutputPanel output={output} />
+          <OutputPanel output={output} />
+          {writerSection === "backend" ? (
+            <BackendHistory history={backendHistory} />
+          ) : (
             <StatePanel
               appKey={appKey}
               appSession={appSession}
@@ -641,6 +569,116 @@ export function WriterMainContent() {
               lastResolvedUri={lastResolvedUri}
               lastAppUri={lastAppUri}
             />
+          )}
+        </div>
+      </div>
+
+      {rightOpen && (
+        <aside className="w-[420px] border-l border-border bg-card flex flex-col">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <PanelRightOpen className="h-4 w-4" />
+            <span className="text-sm font-semibold">Controls</span>
+          </div>
+          <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-4">
+            {writerSection === "backend" && (
+              <div className="space-y-4">
+                <BackendSection
+                  formId={FORM_BACKEND}
+                  backendWritePlain={() =>
+                    handleAction("Backend write (plain)", backendWritePlain)}
+                  backendWriteEnc={() =>
+                    handleAction("Backend write (encrypted)", backendWriteEnc)}
+                />
+                <KeysCard
+                  appKey={backendKeys.appKey}
+                  encryptionPublicKeyHex={backendKeys.encryptionPublicKeyHex}
+                  encryptionPrivateKeyPem={backendKeys.encryptionPrivateKeyPem}
+                  accountPrivateKeyPem={backendKeys.accountPrivateKeyPem}
+                  setKeyBundle={(patch) =>
+                    setBackendKeys({ ...backendKeys, ...patch })}
+                  genAppKeys={() => handleAction("Generate backend keys", genBackendKeys)}
+                />
+              </div>
+            )}
+
+            {writerSection === "actions" && (
+              <div className="space-y-4">
+                <InvokeActionCard
+                  formId={FORM_APP}
+                  actionName={actionName}
+                  actionPayload={actionPayload}
+                  testAction={() => handleAction("Invoke action", testAction)}
+                />
+              </div>
+            )}
+
+            {writerSection === "configuration" && (
+              <div className="space-y-4">
+                <KeysCard
+                  appKey={appKey}
+                  encryptionPublicKeyHex={encryptionPublicKeyHex}
+                  encryptionPrivateKeyPem={encryptionPrivateKeyPem}
+                  accountPrivateKeyPem={accountPrivateKeyPem}
+                  setKeyBundle={(patch) =>
+                    setKeyBundle({ ...keyBundle, ...patch })}
+                  genAppKeys={() => handleAction("Generate keys", genAppKeys)}
+                />
+                <AppProfileCard
+                  googleClientId={googleClientId}
+                  setGoogleClientId={setGoogleClientId}
+                  allowedOrigins={allowedOrigins}
+                  setAllowedOrigins={setAllowedOrigins}
+                  currentProfile={currentAppProfile}
+                  appProfileError={appProfileError}
+                  reloadAppProfile={() =>
+                    handleAction("Load app profile", loadAppProfile)}
+                  saveAppProfile={() =>
+                    handleAction("Save app profile", saveAppProfile)}
+                />
+              </div>
+            )}
+
+            {writerSection === "schema" && (
+              <div className="space-y-4">
+                <ActionRegistryCard
+                  formId={FORM_APP}
+                  actionName={actionName}
+                  validationFormat={validationFormat}
+                  setValidationFormat={setValidationFormat}
+                  writeKind={writeKind}
+                  setWriteKind={setWriteKind}
+                  writePlainPath={writePlainPath}
+                  setWritePlainPath={setWritePlainPath}
+                  writeEncPath={writeEncPath}
+                  setWriteEncPath={setWriteEncPath}
+                  updateSchema={() => handleAction("Update schema", updateSchema)}
+                  fetchSchema={() => handleAction("Fetch schema", fetchSchema)}
+                />
+              </div>
+            )}
+
+            {writerSection === "auth" && (
+              <div className="space-y-4">
+                <SessionCard
+                  createSession={() =>
+                    handleAction("Create session", createSession)}
+                />
+                <AuthSection
+                  signup={(u, p) => handleAction("Signup", () => signup(u, p))}
+                  login={(u, p) => handleAction("Login", () => login(u, p))}
+                  myKeys={() => handleAction("My keys", myKeys)}
+                  googleClientId={googleClientId}
+                  googleMode={googleMode}
+                  setGoogleMode={setGoogleMode}
+                  googleButtonRef={googleButtonRef}
+                />
+                <ProxyWriteSection
+                  formId={FORM_AUTH}
+                  writePlain={() => handleAction("Proxy write plain", writePlain)}
+                  writeEnc={() => handleAction("Proxy write encrypted", writeEnc)}
+                />
+              </div>
+            )}
           </div>
         </aside>
       )}
@@ -702,7 +740,6 @@ function BackendSection(props: {
   formId: string;
   backendWritePlain: () => void;
   backendWriteEnc: () => void;
-  readLast: () => void;
 }) {
   return (
     <SectionCard title="Backend" icon={<Server className="h-4 w-4" />}>
@@ -725,9 +762,42 @@ function BackendSection(props: {
         <button onClick={props.backendWriteEnc} className={SECONDARY_BUTTON}>
           Write Encrypted
         </button>
-        <button onClick={props.readLast} className={SECONDARY_BUTTON}>
-          Read Last
-        </button>
+      </div>
+    </SectionCard>
+  );
+}
+
+function BackendHistory(
+  { history }: { history: Array<{ id: string; label: string; uri: string; result: any }> },
+) {
+  if (!history.length) {
+    return (
+      <SectionCard
+        title="Recent Writes"
+        icon={<Activity className="h-4 w-4" />}
+      >
+        <div className="text-sm text-muted-foreground">No writes yet.</div>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <SectionCard title="Recent Writes" icon={<Activity className="h-4 w-4" />}>
+      <div className="space-y-3">
+        {history.map((entry) => (
+          <div
+            key={entry.id}
+            className="rounded-lg border border-border p-3 bg-muted/40 space-y-2"
+          >
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{entry.label}</span>
+              <span className="truncate max-w-[60%]">{entry.uri}</span>
+            </div>
+            <pre className="text-xs bg-background border border-border rounded p-2 overflow-auto">
+              {JSON.stringify(entry.result, null, 2)}
+            </pre>
+          </div>
+        ))}
       </div>
     </SectionCard>
   );
@@ -756,17 +826,10 @@ function OriginsCard(props: {
 }
 
 function SessionCard(props: {
-  appSession: string;
-  setAppSession: (v: string) => void;
   createSession: () => void;
 }) {
   return (
     <SectionCard title="Session" icon={<KeyRound className="h-4 w-4" />}>
-      <Field
-        label="Session Key"
-        value={props.appSession}
-        onChange={props.setAppSession}
-      />
       <div className="flex flex-wrap gap-2">
         <button onClick={props.createSession} className={SECONDARY_BUTTON}>
           Create Session
@@ -1114,20 +1177,18 @@ function ProxyWriteSection(props: {
 }) {
   return (
     <SectionCard title="Proxy Write" icon={<Server className="h-4 w-4" />}>
-      <div className="grid md:grid-cols-2 gap-4">
-        <Field
-          label="URI"
-          formId={props.formId}
-          name="writeUri"
-          placeholder="mutable://accounts/:key/profile"
-        />
-        <TextArea
-          label="Payload (JSON)"
-          formId={props.formId}
-          name="writePayload"
-          placeholder='{"name":"Test User"}'
-        />
-      </div>
+      <Field
+        label="URI"
+        formId={props.formId}
+        name="writeUri"
+        placeholder="mutable://accounts/:key/profile"
+      />
+      <TextArea
+        label="Payload (JSON)"
+        formId={props.formId}
+        name="writePayload"
+        placeholder='{"name":"Test User"}'
+      />
       <div className="flex flex-wrap gap-2">
         <button onClick={props.writePlain} className={PRIMARY_BUTTON}>
           Proxy Write Plain
