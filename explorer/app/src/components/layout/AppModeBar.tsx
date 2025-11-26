@@ -1,25 +1,11 @@
 // React import not needed with react-jsx runtime
 import { useAppStore } from '../../stores/appStore';
-import { FolderTree, Search, Eye, PanelLeftOpen, PanelBottomOpen, PenSquare, Compass, PanelRightOpen } from 'lucide-react';
+import { FolderTree, Search, Eye, PanelLeftOpen, PanelBottomOpen, PanelRightOpen } from 'lucide-react';
 import { cn } from '../../utils';
-import type { AppExperience, AppMode } from '../../types';
-import type { ReactNode } from 'react';
+import type { AppMode } from '../../types';
 
 export function AppModeBar() {
-  const { mode, setMode, togglePanel, panels, activeApp, setActiveApp, setMainView, mainView } = useAppStore();
-
-  const apps: Array<{ key: AppExperience; label: string; icon: ReactNode }> = [
-    {
-      key: 'explorer',
-      label: 'Explorer',
-      icon: <Compass className="h-4 w-4" />,
-    },
-    {
-      key: 'writer',
-      label: 'Writer',
-      icon: <PenSquare className="h-4 w-4" />,
-    },
-  ];
+  const { mode, setMode, togglePanel, panels, activeApp, mainView } = useAppStore();
 
   const modes: Array<{ key: AppMode; label: string; icon: ReactNode }> = [
     {
@@ -41,7 +27,7 @@ export function AppModeBar() {
 
   return (
     <div className="h-12 bg-background border-b border-border flex items-center justify-between px-4 gap-4">
-      {/* Left side - Panel toggles */}
+      {/* Left: panel toggles */}
       <div className="flex items-center space-x-1">
         <button
           onClick={() => togglePanel('left')}
@@ -68,30 +54,8 @@ export function AppModeBar() {
         </button>
       </div>
 
-      {/* Center - App switcher + contextual modes */}
+      {/* Center: contextual modes */}
       <div className="flex items-center space-x-2">
-        <div className="flex items-center bg-muted rounded-lg p-1">
-          {apps.map(({ key, label, icon }) => (
-            <button
-            key={key}
-            onClick={() => {
-              if (panels.right) setMainView('content');
-              setActiveApp(key);
-            }}
-              className={cn(
-                "flex items-center space-x-2 px-3 py-1.5 rounded text-sm font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                activeApp === key
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-              )}
-            >
-              {icon}
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
-
         {activeApp === 'explorer' && (
           <div className="hidden md:flex items-center bg-muted rounded-lg p-1">
             {modes.map(({ key, label, icon }) => (
@@ -114,7 +78,7 @@ export function AppModeBar() {
         )}
       </div>
 
-      {/* Right side - Additional controls */}
+      {/* Right: Additional controls */}
       <div className="flex items-center space-x-1">
         {(activeApp === 'writer' || mainView === 'settings') && (
           <button

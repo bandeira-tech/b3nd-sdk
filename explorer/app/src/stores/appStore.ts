@@ -634,6 +634,10 @@ export const useAppStore = create<AppStore>()(
           state.searchResults = [];
           state.mode = "filesystem";
           state.activeApp = state.activeApp || "explorer";
+          // Migrate old "app" section to "configuration"
+          if (state.writerSection === "app" as any) {
+            state.writerSection = "configuration";
+          }
           state.writerSection = state.writerSection || "backend";
           state.panels = state.panels || { left: true, right: true, bottom: false };
           if (state.activeApp === "explorer" && state.writerSection) {

@@ -40,7 +40,7 @@ const wallet = new WalletClient({
 });
 
 // App-scoped signup/login (requires app token and session from App Backend)
-// const session = await wallet.signupWithToken(appKey, token, { username: "alice", password: "secure-password-123" });
+// const session = await wallet.signupWithToken(appKey, { username: "alice", password: "secure-password-123" });
 
 // Set the session to authenticate subsequent requests
 wallet.setSession(session);
@@ -76,11 +76,11 @@ new WalletClient(config: WalletClientConfig)
 
 ### Authentication Methods
 
-#### `signupWithToken(appKey, token, credentials)`
+#### `signupWithToken(appKey, credentials)`
 
 Create a new user account for a given app token. Returns session data - call `setSession()` to activate it.
 
-#### `loginWithTokenSession(appKey, token, session, credentials)`
+#### `loginWithTokenSession(appKey, session, credentials)`
 
 Login with app token and session. Returns session data - call `setSession()` to activate it.
 
@@ -100,11 +100,11 @@ Change the password for the current user. Requires authentication.
 await wallet.changePassword(appKey, "old-password", "new-password");
 ```
 
-#### `requestPasswordResetWithToken(appKey, token, username)`
+#### `requestPasswordResetWithToken(appKey, username)`
 
 Request a password reset token scoped to an app.
 
-#### `resetPasswordWithToken(appKey, token, username, resetToken, newPassword)`
+#### `resetPasswordWithToken(appKey, username, resetToken, newPassword)`
 
 Reset password using a reset token scoped to an app. Returns session data - call `setSession()` to activate it.
 
@@ -215,8 +215,8 @@ if (savedSession) {
 }
 
 // Login and save session
-async function login(appKey: string, token: string, sessionKey: string, username: string, password: string) {
-  const session = await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password });
+async function login(appKey: string, sessionKey: string, username: string, password: string) {
+  const session = await wallet.loginWithTokenSession(appKey, sessionKey, { username, password });
 
   // Activate the session
   wallet.setSession(session);

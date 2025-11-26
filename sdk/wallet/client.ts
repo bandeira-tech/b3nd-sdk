@@ -204,7 +204,7 @@ export class WalletClient {
    * Does not require authentication
    */
   async requestPasswordReset(_username: string): Promise<PasswordResetToken> {
-    throw new Error("Use requestPasswordResetWithToken(appKey, token, username)");
+    throw new Error("Use requestPasswordResetWithToken(appKey, username)");
   }
 
   /**
@@ -212,19 +212,26 @@ export class WalletClient {
    * Returns session data - call setSession() to activate it
    */
   async resetPassword(_username: string, _resetToken: string, _newPassword: string): Promise<AuthSession> {
-    throw new Error("Use resetPasswordWithToken(appKey, token, username, resetToken, newPassword)");
+    throw new Error("Use resetPasswordWithToken(appKey, username, resetToken, newPassword)");
   }
 
   /**
    * Sign up with app token (scoped to an app)
    */
-  async signupWithToken(appKey: string, token: string, credentials: UserCredentials): Promise<AuthSession> {
-    if (!token) throw new Error("token is required");
+  async signupWithToken(
+    appKey: string,
+    tokenOrCredentials: string | UserCredentials,
+    maybeCredentials?: UserCredentials,
+  ): Promise<AuthSession> {
+    const credentials = (typeof tokenOrCredentials === "string" ? maybeCredentials : tokenOrCredentials) as
+      | UserCredentials
+      | undefined;
+    if (!credentials) throw new Error("credentials are required");
     const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/signup", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        token,
+        token: typeof tokenOrCredentials === "string" ? tokenOrCredentials : undefined,
         type: "password",
         username: credentials.username,
         password: credentials.password,
@@ -240,14 +247,20 @@ export class WalletClient {
   /**
    * Login with app token and session (scoped to an app)
    */
-  async loginWithTokenSession(appKey: string, token: string, session: string, credentials: UserCredentials): Promise<AuthSession> {
-    if (!token) throw new Error("token is required");
-    if (!session) throw new Error("session is required");
+  async loginWithTokenSession(
+    appKey: string,
+    tokenOrSession: string,
+    sessionOrCredentials: string | UserCredentials,
+    maybeCredentials?: UserCredentials,
+  ): Promise<AuthSession> {
+    const session = typeof sessionOrCredentials === "string" && maybeCredentials ? sessionOrCredentials : tokenOrSession;
+    const credentials = (maybeCredentials || sessionOrCredentials) as UserCredentials;
+    if (!session || typeof session !== "string") throw new Error("session is required");
     const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/login", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        token,
+        token: typeof tokenOrSession === "string" && maybeCredentials ? tokenOrSession : undefined,
         session,
         type: "password",
         username: credentials.username,
@@ -264,12 +277,12 @@ export class WalletClient {
   /**
    * Request password reset scoped to app token
    */
-  async requestPasswordResetWithToken(appKey: string, token: string, username: string): Promise<PasswordResetToken> {
-    if (!token) throw new Error("token is required");
+  async requestPasswordResetWithToken(appKey: string, tokenOrUsername: string, maybeUsername?: string): Promise<PasswordResetToken> {
+    const username = maybeUsername || tokenOrUsername;
     const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/credentials/request-password-reset", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, username }),
+      body: JSON.stringify({ username }),
     });
     const data: RequestPasswordResetResponse = await response.json();
     if (!response.ok || !data.success) {
@@ -279,14 +292,23 @@ export class WalletClient {
   }
 
   /**
-   * Reset password scoped to app token
+   * Reset password scoped to an app
    */
-  async resetPasswordWithToken(appKey: string, token: string, username: string, resetToken: string, newPassword: string): Promise<AuthSession> {
-    if (!token) throw new Error("token is required");
+  async resetPasswordWithToken(
+    appKey: string,
+    tokenOrUsername: string,
+    usernameOrReset: string,
+    resetToken?: string,
+    newPassword?: string,
+  ): Promise<AuthSession> {
+    const username = usernameOrReset;
+    if (!resetToken || !newPassword) {
+      throw new Error("resetToken and newPassword are required");
+    }
     const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/credentials/reset-password", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, username, resetToken, newPassword }),
+      body: JSON.stringify({ username, resetToken, newPassword }),
     });
     const data: ResetPasswordResponse = await response.json();
     if (!response.ok || !data.success) {

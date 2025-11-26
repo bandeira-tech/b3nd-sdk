@@ -17,6 +17,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HttpClient } from "@b3nd/sdk";
 import type { Context } from "hono";
+import { createAuthenticatedMessage } from "@b3nd/sdk/encrypt";
 
 import { loadConfig } from "./config.ts";
 import { loadServerKeys, signWithServerKey } from "./server-keys.ts";
@@ -100,28 +101,47 @@ async function ensureWalletAppRegistered(
     config.jwtExpirationSeconds,
   );
 
-  const payload = {
-    appKey,
-    accountPrivateKeyPem: serverKeys.identityKey.privateKeyPem,
-    encryptionPublicKeyHex: serverKeys.encryptionKey.publicKeyHex,
-    encryptionPrivateKeyPem: serverKeys.encryptionKey.privateKeyPem,
-    allowedOrigins: config.allowedOrigins,
-    actions: [] as any[],
-  };
+  const signMessage = async (payload: unknown) =>
+    await createAuthenticatedMessage(payload, [{
+      privateKey: await pemToCryptoKey(serverKeys.identityKey.privateKeyPem, "Ed25519"),
+      publicKeyHex: appKey,
+    }]);
 
-  const res = await fetch(`${appServerUrl}${normalizedApiBase}/apps/register`, {
+  const originsMessage = await signMessage({
+    allowedOrigins: config.allowedOrigins,
+    encryptionPublicKeyHex: serverKeys.encryptionKey.publicKeyHex,
+  });
+  const originsRes = await fetch(`${appServerUrl}${normalizedApiBase}/apps/origins/${appKey}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${bootstrapJwt}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(originsMessage),
   });
-  const body = await res.json().catch(() => ({}));
-
-  if (!res.ok || !body?.success) {
+  const originsBody = await originsRes.json().catch(() => ({}));
+  if (!originsRes.ok || !originsBody?.success) {
     throw new Error(
-      `Wallet app bootstrap registration failed: ${body?.error || res.statusText}`,
+      `Wallet app origins bootstrap failed: ${originsBody?.error || originsRes.statusText}`,
+    );
+  }
+
+  const schemaMessage = await signMessage({
+    actions: [] as any[],
+    encryptionPublicKeyHex: serverKeys.encryptionKey.publicKeyHex,
+  });
+  const schemaRes = await fetch(`${appServerUrl}${normalizedApiBase}/apps/schema/${appKey}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bootstrapJwt}`,
+    },
+    body: JSON.stringify(schemaMessage),
+  });
+  const schemaBody = await schemaRes.json().catch(() => ({}));
+  if (!schemaRes.ok || !schemaBody?.success) {
+    throw new Error(
+      `Wallet app schema bootstrap failed: ${schemaBody?.error || schemaRes.statusText}`,
     );
   }
 
@@ -133,6 +153,22 @@ async function ensureWalletAppRegistered(
   };
   await writeBootstrapState(config.bootstrapStatePath, state);
   return state;
+}
+
+async function pemToCryptoKey(
+  pem: string,
+  algorithm: "Ed25519" | "X25519" = "Ed25519",
+): Promise<CryptoKey> {
+  const base64 = pem.split("\n").filter((l) => !l.startsWith("-----")).join("");
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  if (algorithm === "Ed25519") {
+    return await crypto.subtle.importKey("pkcs8", buffer, { name: "Ed25519", namedCurve: "Ed25519" }, false, ["sign"]);
+  } else {
+    return await crypto.subtle.importKey("pkcs8", buffer, { name: "X25519", namedCurve: "X25519" }, false, ["deriveBits"]);
+  }
 }
 
 /**
@@ -324,6 +360,27 @@ function createApp(
       // Get the appropriate credential handler
       const handler = getCredentialHandler(payload.type);
 
+      // For Google auth, read the app's profile from the standard location
+      let googleClientId: string | undefined = undefined;
+      if (payload.type === "google") {
+        const appProfileUri = `mutable://accounts/${appKey}/app-profile`;
+        const appProfileResult = await credentialClient.read(appProfileUri);
+        if (appProfileResult.success && appProfileResult.record?.data) {
+          // App profile is a signed message, so it has { auth, payload } structure
+          const appProfile = appProfileResult.record.data as any;
+          if (appProfile.payload) {
+            googleClientId = appProfile.payload.googleClientId || undefined;
+          } else {
+            // Fallback: might be direct data (for backwards compatibility)
+            googleClientId = appProfile.googleClientId || undefined;
+          }
+        }
+
+        if (!googleClientId) {
+          throw new Error("Google Client ID not configured for this app. Please set it in the app profile at mutable://accounts/{appKey}/app-profile");
+        }
+      }
+
       // Build credential context
       const context: CredentialContext = {
         client: credentialClient,
@@ -333,7 +390,7 @@ function createApp(
         serverEncryptionPublicKeyHex,
         serverEncryptionPrivateKeyPem: serverKeys.encryptionKey.privateKeyPem,
         appKey,
-        googleClientId: config.googleClientId,
+        googleClientId: googleClientId || config.googleClientId,
       };
 
       // Execute signup via handler
@@ -421,6 +478,27 @@ function createApp(
       // Get the appropriate credential handler
       const handler = getCredentialHandler(payload.type);
 
+      // For Google auth, read the app's profile from the standard location
+      let googleClientId: string | undefined = undefined;
+      if (payload.type === "google") {
+        const appProfileUri = `mutable://accounts/${appKey}/app-profile`;
+        const appProfileResult = await credentialClient.read(appProfileUri);
+        if (appProfileResult.success && appProfileResult.record?.data) {
+          // App profile is a signed message, so it has { auth, payload } structure
+          const appProfile = appProfileResult.record.data as any;
+          if (appProfile.payload) {
+            googleClientId = appProfile.payload.googleClientId || undefined;
+          } else {
+            // Fallback: might be direct data (for backwards compatibility)
+            googleClientId = appProfile.googleClientId || undefined;
+          }
+        }
+
+        if (!googleClientId) {
+          throw new Error("Google Client ID not configured for this app. Please set it in the app profile at mutable://accounts/{appKey}/app-profile");
+        }
+      }
+
       // Build credential context
       const context: CredentialContext = {
         client: credentialClient,
@@ -430,7 +508,7 @@ function createApp(
         serverEncryptionPublicKeyHex,
         serverEncryptionPrivateKeyPem: serverKeys.encryptionKey.privateKeyPem,
         appKey,
-        googleClientId: config.googleClientId,
+        googleClientId: googleClientId || config.googleClientId,
       };
 
       // Execute login via handler

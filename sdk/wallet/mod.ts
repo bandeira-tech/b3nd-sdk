@@ -14,8 +14,8 @@
  * });
  *
  * // App-scoped signup/login (requires app token and session)
- * // const session = await wallet.signupWithToken(appKey, token, { username, password });
- * // const session = await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password });
+ * // const session = await wallet.signupWithToken(appKey, { username, password });
+ * // const session = await wallet.loginWithTokenSession(appKey, sessionKey, { username, password });
  *
  * // Activate session
  * wallet.setSession(session);

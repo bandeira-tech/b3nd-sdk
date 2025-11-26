@@ -8,6 +8,7 @@
 import { WalletClient } from "./mod.ts";
 import { AppsClient } from "../apps/mod.ts";
 import { HttpClient } from "../clients/http/mod.ts";
+import { createAuthenticatedMessage } from "../encrypt/mod.ts";
 
 const WALLET_SERVER_URL = "http://localhost:3001";
 const API_BASE_PATH = "/api/v1";
@@ -45,14 +46,17 @@ async function test() {
     const actions = [
       { action: "registerForReceiveUpdates", validation: { stringValue: { format: "email" } }, write: { plain: "mutable://accounts/:key/subscribers/updates/:signature" } },
     ];
-    const regRes: any = await apps.registerApp({ appKey, accountPrivateKeyPem, allowedOrigins: ["*"], actions });
-    const token = regRes.token as string;
-    const sessRes = await apps.createSession(appKey, token);
-    const sessionKey = sessRes.session as string;
+    const originsMsg = await createAppSignedMessage(appKey, accountPrivateKeyPem, { allowedOrigins: ["*"], encryptionPublicKeyHex: null });
+    await apps.updateOrigins(appKey, originsMsg);
+    const schemaMsg = await createAppSignedMessage(appKey, accountPrivateKeyPem, { actions, encryptionPublicKeyHex: null });
+    await apps.updateSchema(appKey, schemaMsg);
+    const sessionKey = crypto.randomUUID().replace(/-/g, "");
+    const sessionMsg = await createAppSignedMessage(appKey, accountPrivateKeyPem, { session: sessionKey });
+    await apps.createSession(appKey, sessionMsg);
     console.log(`✓ App ready`);
 
     console.log(`\nSigning up ${username} (app-scoped)...`);
-    const signupSession = await wallet.signupWithToken(appKey, token, { username, password });
+    const signupSession = await wallet.signupWithToken(appKey, { username, password });
     console.log(`✓ Signup successful (${signupSession.username})`);
     console.log(`  Token expires in: ${signupSession.expiresIn}s`);
 
@@ -130,7 +134,7 @@ async function test() {
     console.log(`✓ Logout (authenticated: ${wallet.isAuthenticated()})`);
 
     // 10. Test Login
-    const loginSession = await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password });
+    const loginSession = await wallet.loginWithTokenSession(appKey, sessionKey, { username, password });
     wallet.setSession(loginSession);
     console.log(`✓ Login (authenticated: ${wallet.isAuthenticated()})`);
 
@@ -158,7 +162,7 @@ async function test() {
 
     // 13. Test Login with Wrong Password (Error Case)
     try {
-      await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password: "wrong-password-123" });
+      await wallet.loginWithTokenSession(appKey, sessionKey, { username, password: "wrong-password-123" });
       console.log(`✗ ERROR: Login should have failed but succeeded!`);
       throw new Error("Login with wrong password should fail");
     } catch (error) {
@@ -188,12 +192,13 @@ async function test() {
     }
 
     // Re-login for cleanup
-    const cleanupSession = await wallet.loginWithTokenSession(appKey, token, sessionKey, { username, password });
+    const cleanupSession = await wallet.loginWithTokenSession(appKey, sessionKey, { username, password });
     wallet.setSession(cleanupSession);
 
     // Optional: invoke action via app backend
     const email = `${username}@example.com`;
-    const invokeRes = await apps.invokeAction(appKey, "registerForReceiveUpdates", email, "http://localhost");
+    const signedInvoke = await createAppSignedMessage(appKey, accountPrivateKeyPem, email);
+    const invokeRes = await apps.invokeAction(appKey, "registerForReceiveUpdates", signedInvoke, "http://localhost");
     console.log(`✓ Action invoked, wrote to ${invokeRes.uri}`);
 
     // Success
@@ -215,6 +220,23 @@ if (import.meta.main) {
 }
 
 // Helpers
+async function pemToPrivateKey(pem: string): Promise<CryptoKey> {
+  const base64 = pem.split("\n").filter((l) => !l.startsWith("-----")).join("");
+  const binary = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  return await crypto.subtle.importKey(
+    "pkcs8",
+    binary,
+    { name: "Ed25519", namedCurve: "Ed25519" },
+    false,
+    ["sign"],
+  );
+}
+
+async function createAppSignedMessage<T>(appKey: string, privateKeyPem: string, payload: T) {
+  const privateKey = await pemToPrivateKey(privateKeyPem);
+  return await createAuthenticatedMessage(payload, [{ privateKey, publicKeyHex: appKey }]);
+}
+
 async function generateEd25519(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
   const keyPair = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]) as CryptoKeyPair;
   const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);

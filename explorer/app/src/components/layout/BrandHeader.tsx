@@ -1,10 +1,19 @@
 // React import not needed with react-jsx runtime
 import { useAppStore } from "../../stores/appStore";
-import { Monitor, Moon, Settings, Sun } from "lucide-react";
+import { Monitor, Moon, Settings, Sun, PenSquare, Compass } from "lucide-react";
 import { cn } from "../../utils";
+import type { ReactNode } from "react";
 
 export function BrandHeader() {
-  const { theme, setTheme, setMainView, mainView } = useAppStore();
+  const {
+    theme,
+    setTheme,
+    setMainView,
+    mainView,
+    activeApp,
+    setActiveApp,
+    panels,
+  } = useAppStore();
 
   const handleThemeToggle = () => {
     const themes: Array<"light" | "dark" | "system"> = [
@@ -36,6 +45,28 @@ export function BrandHeader() {
         <div className="text-brand-fg/60">rig</div>
       </div>
 
+      {/* Center - App switcher */}
+      <div className="flex items-center bg-white/5 rounded-lg p-1 space-x-1">
+        <AppSwitchButton
+          active={activeApp === "explorer"}
+          label="Explorer"
+          icon={<Compass className="h-4 w-4" />}
+          onClick={() => {
+            if (panels.right) setMainView("content");
+            setActiveApp("explorer");
+          }}
+        />
+        <AppSwitchButton
+          active={activeApp === "writer"}
+          label="Writer"
+          icon={<PenSquare className="h-4 w-4" />}
+          onClick={() => {
+            if (panels.right) setMainView("content");
+            setActiveApp("writer");
+          }}
+        />
+      </div>
+
       {/* Right side - Global controls */}
       <div className="flex items-center space-x-2">
         <button
@@ -63,5 +94,30 @@ export function BrandHeader() {
         </button>
       </div>
     </header>
+  );
+}
+
+function AppSwitchButton(
+  { active, label, icon, onClick }: {
+    active: boolean;
+    label: string;
+    icon: ReactNode;
+    onClick: () => void;
+  },
+) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center space-x-2 px-3 py-1.5 rounded text-sm font-medium transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+        active
+          ? "bg-white/20 text-white shadow-sm"
+          : "text-white/70 hover:text-white hover:bg-white/10",
+      )}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
   );
 }

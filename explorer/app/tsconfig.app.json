@@ -23,7 +23,15 @@
     // Allow SDK parameter properties and decorators
     "erasableSyntaxOnly": false,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@bandeira-tech/b3nd-web": ["../../sdk/src/mod.web.ts"],
+      "@bandeira-tech/b3nd-web/wallet": ["../../sdk/wallet/mod.ts"],
+      "@bandeira-tech/b3nd-web/apps": ["../../sdk/apps/mod.ts"],
+      "@bandeira-tech/b3nd-web/encrypt": ["../../sdk/encrypt/mod.ts"],
+      "@bandeira-tech/b3nd-web/clients/http": ["../../sdk/clients/http/mod.ts"]
+    }
   },
   "include": ["src"]
 }

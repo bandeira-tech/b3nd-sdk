@@ -34,13 +34,11 @@ export interface UserCredentials {
 
 export interface SignupWithTokenRequest {
   appKey: string;
-  token: string;
   credentials: UserCredentials;
 }
 
 export interface LoginWithTokenRequest {
   appKey: string;
-  token: string;
   session: string;
   credentials: UserCredentials;
 }

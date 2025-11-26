@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@bandeira-tech/b3nd-web": "^0.2.1",
+    "@bandeira-tech/b3nd-web": "file:../../sdk",
     "@tanstack/react-query": "^5.90.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.544.0",

@@ -18,30 +18,38 @@ export class WalletClient {
     if (!r.ok) throw new Error(`Health failed: ${r.statusText}`);
     return await r.json();
   }
-  async signupWithToken(appKey, token, credentials) {
+  async signupWithToken(appKey, tokenOrCredentials, maybeCredentials) {
     if (!appKey) throw new Error("appKey required");
-    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/signup/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, type: "password", username: credentials.username, password: credentials.password }) });
+    const credentials = typeof tokenOrCredentials === "string" ? maybeCredentials : tokenOrCredentials;
+    if (!credentials) throw new Error("credentials required");
+    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/signup/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: typeof tokenOrCredentials === "string" ? tokenOrCredentials : undefined, type: "password", username: credentials.username, password: credentials.password }) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return { username: j.username, token: j.token, expiresIn: j.expiresIn };
   }
-  async loginWithTokenSession(appKey, token, session, credentials) {
+  async loginWithTokenSession(appKey, tokenOrSession, sessionOrCredentials, maybeCredentials) {
     if (!appKey) throw new Error("appKey required");
-    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/login/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, session, type: "password", username: credentials.username, password: credentials.password }) });
+    const session = typeof sessionOrCredentials === "string" && maybeCredentials ? sessionOrCredentials : tokenOrSession;
+    const credentials = maybeCredentials || sessionOrCredentials;
+    if (!session) throw new Error("session required");
+    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/login/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: typeof tokenOrSession === "string" && maybeCredentials ? tokenOrSession : undefined, session, type: "password", username: credentials.username, password: credentials.password }) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return { username: j.username, token: j.token, expiresIn: j.expiresIn };
   }
-  async requestPasswordResetWithToken(appKey, token, username) {
+  async requestPasswordResetWithToken(appKey, tokenOrUsername, maybeUsername) {
     if (!appKey) throw new Error("appKey required");
-    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/credentials/request-password-reset/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, username }) });
+    const username = maybeUsername || tokenOrUsername;
+    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/credentials/request-password-reset/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return { resetToken: j.resetToken, expiresIn: j.expiresIn };
   }
-  async resetPasswordWithToken(appKey, token, username, resetToken, newPassword) {
+  async resetPasswordWithToken(appKey, tokenOrUsername, usernameOrReset, resetToken, newPassword) {
     if (!appKey) throw new Error("appKey required");
-    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/credentials/reset-password/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, username, resetToken, newPassword }) });
+    const username = usernameOrReset;
+    if (!resetToken || !newPassword) throw new Error("resetToken and newPassword required");
+    const r = await this._fetch(`${this.walletServerUrl}${this.apiBasePath}/auth/credentials/reset-password/${appKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, resetToken, newPassword }) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return { username: j.username, token: j.token, expiresIn: j.expiresIn };

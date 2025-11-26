@@ -11,29 +11,34 @@ export class AppsClient {
     if (!r.ok) throw new Error(`health failed: ${r.statusText}`);
     return r.json();
   }
-  async registerApp(reg) {
-    const r = await this.f(`${this.base}${this.api}/apps/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reg) });
+  async updateOrigins(appKey, message) {
+    const r = await this.f(`${this.base}${this.api}/apps/origins/${encodeURIComponent(appKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(message) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return j;
   }
-  async updateSchema(appKey, actions) {
-    const r = await this.f(`${this.base}${this.api}/apps/${encodeURIComponent(appKey)}/schema`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(actions) });
+  async updateSchema(appKey, message) {
+    const r = await this.f(`${this.base}${this.api}/apps/schema/${encodeURIComponent(appKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(message) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return j;
   }
-  async createSession(appKey, token) {
-    const r = await this.f(`${this.base}${this.api}/app/${encodeURIComponent(appKey)}/session`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+  async getSchema(appKey) {
+    const r = await this.f(`${this.base}${this.api}/apps/schema/${encodeURIComponent(appKey)}`);
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return j;
   }
-  async invokeAction(appKey, action, payload, origin) {
-    const r = await this.f(`${this.base}${this.api}/app/${encodeURIComponent(appKey)}/${encodeURIComponent(action)}`, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...(origin ? { Origin: origin } : {}) }, body: payload });
+  async createSession(appKey, message) {
+    const r = await this.f(`${this.base}${this.api}/app/${encodeURIComponent(appKey)}/session`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(message) });
+    const j = await r.json();
+    if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
+    return j;
+  }
+  async invokeAction(appKey, action, signedMessage, origin) {
+    const r = await this.f(`${this.base}${this.api}/app/${encodeURIComponent(appKey)}/${encodeURIComponent(action)}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(origin ? { Origin: origin } : {}) }, body: JSON.stringify(signedMessage) });
     const j = await r.json();
     if (!r.ok || !j.success) throw new Error(j.error || r.statusText);
     return j;
   }
 }
-
