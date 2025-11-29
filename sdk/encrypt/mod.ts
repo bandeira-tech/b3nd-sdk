@@ -411,6 +411,56 @@ export async function verifyAndDecrypt(
   };
 }
 
+/**
+ * Create an authenticated message with hex-encoded keys (convenience wrapper)
+ */
+export async function createAuthenticatedMessageWithHex<T>(
+  payload: T,
+  pubkeyHex: string,
+  privateKeyHex: string,
+): Promise<AuthenticatedMessage<T>> {
+  const signature = await signWithHex(privateKeyHex, payload);
+  return {
+    auth: [{ pubkey: pubkeyHex, signature }],
+    payload,
+  };
+}
+
+/**
+ * Derive an encryption key from seed and salt using PBKDF2
+ * Returns hex-encoded key suitable for encrypt/decrypt functions
+ */
+export async function deriveKeyFromSeed(
+  seed: string,
+  salt: string,
+  iterations: number = 100000,
+): Promise<string> {
+  const encoder = new TextEncoder();
+
+  // Import seed as key material
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(seed),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+
+  // Derive 256-bit key
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: encoder.encode(salt),
+      iterations,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    256,
+  );
+
+  return encodeHex(new Uint8Array(derivedBits));
+}
+
 // Utility functions
 export function generateNonce(length = 12): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(length));

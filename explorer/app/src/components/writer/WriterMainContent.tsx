@@ -59,6 +59,7 @@ export function WriterMainContent() {
     appServers,
     activeAppServerId,
     panels,
+    togglePanel,
     setFormValue,
     getFormValue,
   } = useAppStore();
@@ -208,7 +209,11 @@ export function WriterMainContent() {
       encryptionPublicKeyHex: bundle.encryptionPublicKeyHex,
       encryptionPrivateKeyPem: bundle.encryptionPrivateKeyPem,
     });
-    logLine("local", "Generated backend keys (identity + encryption)", "success");
+    logLine(
+      "local",
+      "Generated backend keys (identity + encryption)",
+      "success",
+    );
   };
 
   const updateOrigins = async () => {
@@ -499,6 +504,12 @@ export function WriterMainContent() {
   }, [appKey, activeBackend]);
 
   useEffect(() => {
+    if (!panels.right) {
+      togglePanel("right");
+    }
+  }, [panels.right, togglePanel]);
+
+  useEffect(() => {
     if (!googleClientId || !googleButtonRef.current) return;
     const initializeGoogleSignIn = () => {
       const googleApi = (window as any).google?.accounts?.id;
@@ -558,18 +569,27 @@ export function WriterMainContent() {
           <WriterBreadcrumb writerSection={writerSection} />
         </div>
         <div className="p-6 space-y-4 max-w-6xl mx-auto">
-          <OutputPanel output={output} />
-          {writerSection === "backend" ? (
-            <BackendHistory history={backendHistory} />
-          ) : (
-            <StatePanel
-              appKey={appKey}
-              appSession={appSession}
-              session={session}
-              lastResolvedUri={lastResolvedUri}
-              lastAppUri={lastAppUri}
-            />
+          {writerSection === "configuration" && (
+            <>
+              <KeyDisplayCard title="Current App Keys" bundle={keyBundle} />
+              <CurrentProfileCard
+                currentProfile={currentAppProfile}
+                error={appProfileError}
+              />
+            </>
           )}
+          <OutputPanel output={output} />
+          {writerSection === "backend"
+            ? <BackendHistory history={backendHistory} />
+            : (
+              <StatePanel
+                appKey={appKey}
+                appSession={appSession}
+                session={session}
+                lastResolvedUri={lastResolvedUri}
+                lastAppUri={lastAppUri}
+              />
+            )}
         </div>
       </div>
 
@@ -589,14 +609,9 @@ export function WriterMainContent() {
                   backendWriteEnc={() =>
                     handleAction("Backend write (encrypted)", backendWriteEnc)}
                 />
-                <KeysCard
-                  appKey={backendKeys.appKey}
-                  encryptionPublicKeyHex={backendKeys.encryptionPublicKeyHex}
-                  encryptionPrivateKeyPem={backendKeys.encryptionPrivateKeyPem}
-                  accountPrivateKeyPem={backendKeys.accountPrivateKeyPem}
-                  setKeyBundle={(patch) =>
-                    setBackendKeys({ ...backendKeys, ...patch })}
-                  genAppKeys={() => handleAction("Generate backend keys", genBackendKeys)}
+                <GenerateKeysCard
+                  onGenerate={() =>
+                    handleAction("Generate backend keys", genBackendKeys)}
                 />
               </div>
             )}
@@ -614,24 +629,14 @@ export function WriterMainContent() {
 
             {writerSection === "configuration" && (
               <div className="space-y-4">
-                <KeysCard
-                  appKey={appKey}
-                  encryptionPublicKeyHex={encryptionPublicKeyHex}
-                  encryptionPrivateKeyPem={encryptionPrivateKeyPem}
-                  accountPrivateKeyPem={accountPrivateKeyPem}
-                  setKeyBundle={(patch) =>
-                    setKeyBundle({ ...keyBundle, ...patch })}
-                  genAppKeys={() => handleAction("Generate keys", genAppKeys)}
+                <GenerateKeysCard
+                  onGenerate={() => handleAction("Generate keys", genAppKeys)}
                 />
                 <AppProfileCard
                   googleClientId={googleClientId}
                   setGoogleClientId={setGoogleClientId}
                   allowedOrigins={allowedOrigins}
                   setAllowedOrigins={setAllowedOrigins}
-                  currentProfile={currentAppProfile}
-                  appProfileError={appProfileError}
-                  reloadAppProfile={() =>
-                    handleAction("Load app profile", loadAppProfile)}
                   saveAppProfile={() =>
                     handleAction("Save app profile", saveAppProfile)}
                 />
@@ -651,7 +656,8 @@ export function WriterMainContent() {
                   setWritePlainPath={setWritePlainPath}
                   writeEncPath={writeEncPath}
                   setWriteEncPath={setWriteEncPath}
-                  updateSchema={() => handleAction("Update schema", updateSchema)}
+                  updateSchema={() =>
+                    handleAction("Update schema", updateSchema)}
                   fetchSchema={() => handleAction("Fetch schema", fetchSchema)}
                 />
               </div>
@@ -674,8 +680,10 @@ export function WriterMainContent() {
                 />
                 <ProxyWriteSection
                   formId={FORM_AUTH}
-                  writePlain={() => handleAction("Proxy write plain", writePlain)}
-                  writeEnc={() => handleAction("Proxy write encrypted", writeEnc)}
+                  writePlain={() =>
+                    handleAction("Proxy write plain", writePlain)}
+                  writeEnc={() =>
+                    handleAction("Proxy write encrypted", writeEnc)}
                 />
               </div>
             )}
@@ -768,7 +776,9 @@ function BackendSection(props: {
 }
 
 function BackendHistory(
-  { history }: { history: Array<{ id: string; label: string; uri: string; result: any }> },
+  { history }: {
+    history: Array<{ id: string; label: string; uri: string; result: any }>;
+  },
 ) {
   if (!history.length) {
     return (
@@ -790,7 +800,9 @@ function BackendHistory(
             className="rounded-lg border border-border p-3 bg-muted/40 space-y-2"
           >
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{entry.label}</span>
+              <span className="font-semibold text-foreground">
+                {entry.label}
+              </span>
               <span className="truncate max-w-[60%]">{entry.uri}</span>
             </div>
             <pre className="text-xs bg-background border border-border rounded p-2 overflow-auto">
@@ -956,46 +968,52 @@ function InvokeActionCard(props: {
   );
 }
 
-function KeysCard(props: {
-  appKey: string;
-  encryptionPublicKeyHex: string;
-  encryptionPrivateKeyPem: string;
-  accountPrivateKeyPem: string;
-  setKeyBundle: (bundle: Partial<KeyBundle>) => void;
-  genAppKeys: () => void;
+function AppProfileCard(props: {
+  googleClientId: string;
+  setGoogleClientId: (v: string) => void;
+  allowedOrigins: string;
+  setAllowedOrigins: (v: string) => void;
+  saveAppProfile: () => void;
 }) {
   return (
-    <SectionCard title="Keys" icon={<KeyRound className="h-4 w-4" />}>
-      <div className="grid md:grid-cols-2 gap-4">
+    <SectionCard title="App Profile" icon={<FileText className="h-4 w-4" />}>
+      <div className="text-xs text-muted-foreground mb-3">
+        Configure your app profile at{" "}
+        <code className="text-xs">mutable://accounts/:appKey/app-profile</code>
+      </div>
+      <div className="space-y-4">
         <Field
-          label="App Public Key (Ed25519, hex)"
-          value={props.appKey}
-          onChange={(v) => props.setKeyBundle({ appKey: v })}
-          placeholder="hex"
+          label="Google Client ID"
+          value={props.googleClientId}
+          onChange={props.setGoogleClientId}
+          placeholder="your-client-id.apps.googleusercontent.com"
         />
-        <TextArea
-          label="Account Private Key (Ed25519, PEM)"
-          value={props.accountPrivateKeyPem}
-          onChange={(v) => props.setKeyBundle({ accountPrivateKeyPem: v })}
-          placeholder="-----BEGIN PRIVATE KEY-----"
+
+        <Field
+          label="Allowed Origins (comma separated)"
+          value={props.allowedOrigins}
+          onChange={props.setAllowedOrigins}
+          placeholder="*,https://example.com"
         />
       </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <Field
-          label="Encryption Public Key (X25519, hex)"
-          value={props.encryptionPublicKeyHex}
-          onChange={(v) => props.setKeyBundle({ encryptionPublicKeyHex: v })}
-          placeholder="hex"
-        />
-        <TextArea
-          label="Encryption Private Key (X25519, PEM)"
-          value={props.encryptionPrivateKeyPem}
-          onChange={(v) => props.setKeyBundle({ encryptionPrivateKeyPem: v })}
-          placeholder="-----BEGIN PRIVATE KEY-----"
-        />
+
+      <div className="flex flex-wrap gap-2 mt-2">
+        <button onClick={props.saveAppProfile} className={PRIMARY_BUTTON}>
+          Save App Profile
+        </button>
+      </div>
+    </SectionCard>
+  );
+}
+
+function GenerateKeysCard({ onGenerate }: { onGenerate: () => void }) {
+  return (
+    <SectionCard title="Keys" icon={<KeyRound className="h-4 w-4" />}>
+      <div className="text-xs text-muted-foreground">
+        Generate a new identity and encryption key pair.
       </div>
       <div className="flex flex-wrap gap-2">
-        <button onClick={props.genAppKeys} className={SECONDARY_BUTTON}>
+        <button onClick={onGenerate} className={PRIMARY_BUTTON}>
           Generate Keys
         </button>
       </div>
@@ -1003,88 +1021,57 @@ function KeysCard(props: {
   );
 }
 
-function AppProfileCard(props: {
-  googleClientId: string;
-  setGoogleClientId: (v: string) => void;
-  allowedOrigins: string;
-  setAllowedOrigins: (v: string) => void;
-  currentProfile: any | null;
-  appProfileError: string | null;
-  reloadAppProfile: () => void;
-  saveAppProfile: () => void;
-}) {
-  const formatCurrent = (
-    value: string | string[] | null | undefined,
-  ): string => {
-    if (props.appProfileError) return `Error: ${props.appProfileError}`;
-    if (!props.currentProfile) return "—";
-    if (Array.isArray(value)) return value.join(", ");
-    if (value === null || value === undefined || value === "") return "—";
-    return String(value);
-  };
-
-  const ProfileRow = (
-    { label, current, children }: {
-      label: string;
-      current: string;
-      children: ReactNode;
-    },
-  ) => (
-    <div className="grid md:grid-cols-3 gap-2 items-center">
-      <div className="text-sm font-semibold">{label}</div>
-      <div className="text-xs text-muted-foreground break-all">
-        {current}
-      </div>
-      <div>{children}</div>
-    </div>
-  );
-
+function KeyDisplayCard(
+  { title, bundle }: { title: string; bundle: KeyBundle },
+) {
   return (
-    <SectionCard title="App Profile" icon={<FileText className="h-4 w-4" />}>
-      <div className="text-xs text-muted-foreground mb-3">
-        Configure your app profile at{" "}
-        <code className="text-xs">mutable://accounts/:appKey/app-profile</code>
-      </div>
-      <div className="grid gap-3">
-        <div className="hidden md:grid md:grid-cols-3 text-xs text-muted-foreground">
-          <span />
-          <span>Current</span>
-          <span>New</span>
+    <SectionCard title={title} icon={<KeyRound className="h-4 w-4" />}>
+      <div className="space-y-2 text-xs font-mono bg-muted rounded p-3">
+        <div>
+          <div className="text-muted-foreground">App Public Key</div>
+          <div className="break-all">{bundle.appKey || "—"}</div>
         </div>
-
-        <ProfileRow
-          label="Google Client ID"
-          current={formatCurrent(props.currentProfile?.googleClientId)}
-        >
-          <Field
-            label="New Google Client ID"
-            value={props.googleClientId}
-            onChange={props.setGoogleClientId}
-            placeholder="your-client-id.apps.googleusercontent.com"
-          />
-        </ProfileRow>
-
-        <ProfileRow
-          label="Allowed Origins"
-          current={formatCurrent(props.currentProfile?.allowedOrigins)}
-        >
-          <Field
-            label="New Allowed Origins (comma separated)"
-            value={props.allowedOrigins}
-            onChange={props.setAllowedOrigins}
-            placeholder="*,https://example.com"
-          />
-        </ProfileRow>
+        <div>
+          <div className="text-muted-foreground">Account Private Key (PEM)</div>
+          <pre className="bg-background border border-border rounded p-2 overflow-auto max-h-40">
+            {bundle.accountPrivateKeyPem || "—"}
+          </pre>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Encryption Public Key</div>
+          <div className="break-all">
+            {bundle.encryptionPublicKeyHex || "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Encryption Private Key (PEM)</div>
+          <pre className="bg-background border border-border rounded p-2 overflow-auto max-h-40">
+            {bundle.encryptionPrivateKeyPem || "—"}
+          </pre>
+        </div>
       </div>
+    </SectionCard>
+  );
+}
 
-      <div className="flex flex-wrap gap-2 mt-2">
-        <button onClick={props.reloadAppProfile} className={SECONDARY_BUTTON}>
-          Reload App Profile
-        </button>
-        <button onClick={props.saveAppProfile} className={PRIMARY_BUTTON}>
-          Save App Profile
-        </button>
-      </div>
+function CurrentProfileCard(
+  { currentProfile, error }: { currentProfile: any; error: string | null },
+) {
+  return (
+    <SectionCard title="Current App Profile" icon={<FileText className="h-4 w-4" />}>
+      {error && (
+        <div className="text-sm text-destructive mb-2">
+          {error}
+        </div>
+      )}
+      {!currentProfile && !error && (
+        <div className="text-sm text-muted-foreground">No profile loaded.</div>
+      )}
+      {currentProfile && (
+        <pre className="bg-muted rounded p-3 text-xs max-h-[320px] overflow-auto custom-scrollbar">
+          {JSON.stringify(currentProfile, null, 2)}
+        </pre>
+      )}
     </SectionCard>
   );
 }
