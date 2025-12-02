@@ -94,7 +94,7 @@ export interface ProxyWriteResponse {
 /**
  * API response wrapper
  */
-export interface ApiResponse<T = unknown> {
+export interface ApiResponse {
   success: boolean;
   error?: string;
   [key: string]: unknown;

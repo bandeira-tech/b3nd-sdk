@@ -296,7 +296,7 @@ export class WalletClient {
    */
   async resetPasswordWithToken(
     appKey: string,
-    tokenOrUsername: string,
+    _tokenOrUsername: string,
     usernameOrReset: string,
     resetToken?: string,
     newPassword?: string,
