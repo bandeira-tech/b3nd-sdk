@@ -1,10 +1,21 @@
 // React import not needed with react-jsx runtime
-import { useMemo } from 'react';
-import { useAppStore } from '../../stores/appStore';
-import { Terminal, Activity, Bug, X, ChevronUp, Clock } from 'lucide-react';
+import { useMemo, useState } from "react";
+import { useAppStore } from "../../stores/appStore";
+import {
+  Terminal,
+  Activity,
+  Bug,
+  X,
+  ChevronUp,
+  Clock,
+  KeyRound,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 export function BottomPanel() {
-  const { togglePanel } = useAppStore();
+  const { togglePanel, bottomMaximized, toggleBottomPanelMaximized } = useAppStore();
+  const [activeTab, setActiveTab] = useState<BottomTab>("console");
 
   return (
     <div className="h-full flex flex-col">
@@ -15,13 +26,43 @@ export function BottomPanel() {
             Tools & Logs
           </h2>
           <div className="flex space-x-1">
-            <TabButton active icon={<Terminal className="h-3 w-3" />} label="Console" />
-            <TabButton icon={<Activity className="h-3 w-3" />} label="Network" />
-            <TabButton icon={<Bug className="h-3 w-3" />} label="Debug" />
+            <TabButton
+              active={activeTab === "console"}
+              onClick={() => setActiveTab("console")}
+              icon={<Terminal className="h-3 w-3" />}
+              label="Console"
+            />
+            <TabButton
+              active={activeTab === "state"}
+              onClick={() => setActiveTab("state")}
+              icon={<KeyRound className="h-3 w-3" />}
+              label="State"
+            />
+            <TabButton
+              active={activeTab === "network"}
+              onClick={() => setActiveTab("network")}
+              icon={<Activity className="h-3 w-3" />}
+              label="Network"
+            />
+            <TabButton
+              active={activeTab === "debug"}
+              onClick={() => setActiveTab("debug")}
+              icon={<Bug className="h-3 w-3" />}
+              label="Debug"
+            />
           </div>
         </div>
 
         <div className="flex items-center space-x-1">
+          <button
+            onClick={toggleBottomPanelMaximized}
+            className="p-1.5 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+            title={bottomMaximized ? "Restore panel" : "Maximize panel"}
+          >
+            {bottomMaximized
+              ? <Minimize2 className="h-4 w-4" />
+              : <Maximize2 className="h-4 w-4" />}
+          </button>
           <button
             onClick={() => togglePanel('bottom')}
             className="p-1.5 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
@@ -41,23 +82,32 @@ export function BottomPanel() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto custom-scrollbar bg-background">
-        <ConsoleView />
+        {activeTab === "console" && <ConsoleView />}
+        {activeTab === "state" && <WriterStateView />}
+        {activeTab !== "console" && activeTab !== "state" && (
+          <PlaceholderView label={activeTab === "network" ? "Network" : "Debug"} />
+        )}
       </div>
     </div>
   );
 }
 
+type BottomTab = "console" | "state" | "network" | "debug";
+
 function TabButton({
   active = false,
   icon,
-  label
+  label,
+  onClick,
 }: {
   active?: boolean;
   icon: import('react').ReactNode;
   label: string;
+  onClick: () => void;
 }) {
   return (
     <button
+      onClick={onClick}
       className={`flex items-center space-x-2 px-3 py-1.5 rounded text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
         active
           ? 'bg-background text-foreground shadow-sm'
@@ -67,6 +117,76 @@ function TabButton({
       {icon}
       <span>{label}</span>
     </button>
+  );
+}
+
+function WriterStateView() {
+  const {
+    keyBundle,
+    writerAppSession,
+    writerSession,
+    writerLastResolvedUri,
+    writerLastAppUri,
+    activeApp,
+  } = useAppStore();
+
+  if (activeApp !== "writer") {
+    return (
+      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+        Switch to the Writer experience to view app state.
+      </div>
+    );
+  }
+
+  const rows: Array<{ label: string; value: string }> = [
+    { label: "App Key", value: keyBundle.appKey },
+    { label: "App Session", value: writerAppSession },
+    { label: "User", value: writerSession?.username || "" },
+    { label: "Authenticated", value: writerSession ? "yes" : "no" },
+    { label: "Login Session (JWT)", value: writerSession?.token || "" },
+    {
+      label: "Expires In",
+      value: writerSession?.expiresIn !== undefined
+        ? String(writerSession.expiresIn)
+        : "",
+    },
+    { label: "Last URI", value: writerLastResolvedUri || "" },
+    { label: "Last App URI", value: writerLastAppUri || "" },
+  ];
+
+  return (
+    <div className="p-4 space-y-3 text-sm">
+      <div className="flex items-center gap-2 text-muted-foreground uppercase tracking-wide text-xs font-semibold">
+        <KeyRound className="h-3 w-3" />
+        <span>Current State</span>
+      </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        {rows.map((row) => (
+          <StateRow key={row.label} label={row.label} value={row.value} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StateRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs text-muted-foreground uppercase tracking-wide">
+        {label}
+      </div>
+      <div className="rounded border border-border bg-muted/30 px-3 py-2 text-sm font-mono break-all min-h-[38px] flex items-center">
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+
+function PlaceholderView({ label }: { label: string }) {
+  return (
+    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+      {label} tools coming soon.
+    </div>
   );
 }
 

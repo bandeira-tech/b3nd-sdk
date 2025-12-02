@@ -3,6 +3,7 @@ import { useAppStore } from '../../stores/appStore';
 import { FolderTree, Search, Eye, PanelLeftOpen, PanelBottomOpen, PanelRightOpen } from 'lucide-react';
 import { cn } from '../../utils';
 import type { AppMode } from '../../types';
+import type { ReactNode } from 'react';
 
 export function AppModeBar() {
   const { mode, setMode, togglePanel, panels, activeApp, mainView } = useAppStore();

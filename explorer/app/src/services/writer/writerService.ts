@@ -77,9 +77,7 @@ export const createWalletClient = (walletServerUrl: string) => {
   });
 };
 
-export const createBackendClient = (activeBackend: {
-  adapter?: unknown;
-}) => {
+export const createBackendClient = (activeBackend: { adapter?: unknown } | null) => {
   if (!activeBackend?.adapter || !(activeBackend.adapter instanceof HttpAdapter)) {
     throw new Error("Active backend with HTTP adapter is required");
   }
@@ -158,15 +156,12 @@ export const updateOrigins = async (params: {
     encryptionPublicKeyHex,
   } = params;
   ensureValue(appKey, "App key");
-  const message = await signPayload(
-    {
-      allowedOrigins: allowedOrigins.length > 0 ? allowedOrigins : ["*"],
-      encryptionPublicKeyHex: encryptionPublicKeyHex || null,
-    },
-    appKey,
-    accountPrivateKeyPem,
-  );
-  return appsClient.updateOrigins(appKey, message);
+  const payload = {
+    allowedOrigins: allowedOrigins.length > 0 ? allowedOrigins : ["*"],
+    encryptionPublicKeyHex: encryptionPublicKeyHex || null,
+  };
+  const message = await signPayload(payload, appKey, accountPrivateKeyPem);
+  return appsClient.updateOrigins(appKey, message as any);
 };
 
 export const saveAppProfile = async (params: {
@@ -249,15 +244,12 @@ export const updateSchema = async (params: {
   if (writeKind === "encrypted" && !encryptionPublicKeyHex) {
     throw new Error("Encryption public key required for encrypted actions");
   }
-  const message = await signPayload(
-    {
-      actions: [act],
-      encryptionPublicKeyHex: encryptionPublicKeyHex || null,
-    },
-    appKey,
-    accountPrivateKeyPem,
-  );
-  return appsClient.updateSchema(appKey, message);
+  const schemaPayload = {
+    actions: [act],
+    encryptionPublicKeyHex: encryptionPublicKeyHex || null,
+  };
+  const message = await signPayload(schemaPayload, appKey, accountPrivateKeyPem);
+  return appsClient.updateSchema(appKey, message as any);
 };
 
 export const fetchSchema = async (params: {
@@ -277,7 +269,7 @@ export const createSession = async (params: {
   ensureValue(appKey, "App key");
   const sessionValue = crypto.randomUUID().replace(/-/g, "");
   const message = await signPayload({ session: sessionValue }, appKey, accountPrivateKeyPem);
-  return appsClient.createSession(appKey, message);
+  return appsClient.createSession(appKey, message as any);
 };
 
 export const signupWithPassword = async (params: {

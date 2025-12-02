@@ -106,6 +106,12 @@ export interface KeyBundle {
   encryptionPrivateKeyPem: string;
 }
 
+export interface WriterUserSession {
+  username: string;
+  token: string;
+  expiresIn: number;
+}
+
 export interface AppState {
   // Backend management
   backends: BackendConfig[];
@@ -130,11 +136,16 @@ export interface AppState {
 
   // UI state
   panels: PanelState;
+  bottomMaximized: boolean;
   theme: ThemeMode;
   mode: AppMode;
   activeApp: AppExperience;
   mainView: AppMainView;
   writerSection: WriterSection;
+  writerAppSession: string;
+  writerSession: WriterUserSession | null;
+  writerLastResolvedUri: string | null;
+  writerLastAppUri: string | null;
 
   formState: Record<string, Record<string, string>>;
 
@@ -177,11 +188,16 @@ export interface AppActions {
 
   // UI actions
   togglePanel: (panel: keyof PanelState) => void;
+  toggleBottomPanelMaximized: () => void;
   setTheme: (theme: ThemeMode) => void;
   setMode: (mode: AppMode) => void;
   setActiveApp: (app: AppExperience) => void;
   setMainView: (view: AppMainView) => void;
   setWriterSection: (section: WriterSection) => void;
+  setWriterAppSession: (session: string) => void;
+  setWriterSession: (session: WriterUserSession | null) => void;
+  setWriterLastResolvedUri: (uri: string | null) => void;
+  setWriterLastAppUri: (uri: string | null) => void;
 
   setFormValue: (formId: string, field: string, value: string) => void;
   getFormValue: (formId: string, field: string, defaultValue?: string) => string;

@@ -116,8 +116,10 @@ function WriterBreadcrumb() {
 
   const labels: Record<WriterSection, string> = {
     backend: "Backend",
-    app: "App",
     auth: "Auth",
+    actions: "Actions",
+    configuration: "Configuration",
+    schema: "Schema",
   };
 
   return (

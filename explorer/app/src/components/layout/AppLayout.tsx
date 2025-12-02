@@ -1,4 +1,5 @@
 // React import not needed with react-jsx runtime
+import { useEffect } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { BrandHeader } from "./BrandHeader";
 import { AppModeBar } from "./AppModeBar";
@@ -10,8 +11,38 @@ import { cn } from "../../utils";
 import { SettingsView, SettingsSidePanel } from "../settings/SettingsView";
 
 export function AppLayout() {
-  const { panels, mainView } = useAppStore();
+  const { panels, mainView, bottomMaximized, toggleBottomPanelMaximized, togglePanel } =
+    useAppStore();
   const showSettings = mainView === "settings";
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isCtrlZ = event.ctrlKey &&
+        !event.metaKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "z";
+      if (!isCtrlZ) return;
+
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        const isEditable = target.isContentEditable ||
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT";
+        if (isEditable) return;
+      }
+
+      event.preventDefault();
+      if (!panels.bottom) {
+        togglePanel("bottom");
+      }
+      toggleBottomPanelMaximized();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [panels.bottom, toggleBottomPanelMaximized, togglePanel]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -60,7 +91,12 @@ export function AppLayout() {
 
           {/* Bottom Panel */}
           {panels.bottom && (
-            <div className="h-48 border-t border-gray-200 dark:border-gray-800 bg-card">
+            <div
+              className={cn(
+                "border-t border-gray-200 dark:border-gray-800 bg-card",
+                bottomMaximized ? "h-[70vh]" : "h-48",
+              )}
+            >
               <BottomPanel />
             </div>
           )}

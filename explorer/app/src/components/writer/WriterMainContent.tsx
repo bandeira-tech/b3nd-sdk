@@ -15,7 +15,6 @@ import {
   Play,
   Server,
   ShieldCheck,
-  Wand2,
 } from "lucide-react";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import type { AppLogEntry, KeyBundle } from "../../types";
@@ -38,7 +37,6 @@ import {
   signAppPayload,
   signEncryptedAppPayload,
   signupWithPassword,
-  updateOrigins as updateOriginsService,
   updateSchema as updateSchemaService,
 } from "../../services/writer/writerService";
 
@@ -59,10 +57,18 @@ export function WriterMainContent() {
     appServers,
     activeAppServerId,
     panels,
-    togglePanel,
-    setFormValue,
-    getFormValue,
-  } = useAppStore();
+  togglePanel,
+  setFormValue,
+  getFormValue,
+  writerAppSession,
+  writerSession,
+  setWriterAppSession,
+  setWriterSession,
+  setWriterLastResolvedUri,
+  setWriterLastAppUri,
+} = useAppStore();
+  const session = writerSession;
+  const appSession = writerAppSession;
   const activeWallet = walletServers.find((w) =>
     w.id === activeWalletServerId && w.isActive
   );
@@ -71,20 +77,14 @@ export function WriterMainContent() {
   );
   const activeBackend = useActiveBackend();
 
-  const [session, setSession] = useState<
-    { username: string; token: string; expiresIn: number } | null
-  >(null);
-  const [appSession, setAppSession] = useState("");
   const [output, setOutput] = useState<any>(null);
-  const [lastResolvedUri, setLastResolvedUri] = useState<string | null>(null);
-  const [lastAppUri, setLastAppUri] = useState<string | null>(null);
   const FORM_BACKEND = "writer-backend";
   const FORM_APP = "writer-app";
   const FORM_AUTH = "writer-auth";
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const [googleMode, setGoogleMode] = useState<"signup" | "login">("signup");
   const [allowedOrigins, setAllowedOrigins] = useState("*");
-  const [currentAppProfile, setCurrentAppProfile] = useState<any | null>(null);
+  const [currentAppProfile, setCurrentAppProfile] = useState<unknown>(null);
   const [appProfileError, setAppProfileError] = useState<string | null>(null);
   const [backendHistory, setBackendHistory] = useState<
     Array<{ id: string; label: string; uri: string; result: any }>
@@ -100,7 +100,6 @@ export function WriterMainContent() {
     appKey,
     accountPrivateKeyPem,
     encryptionPublicKeyHex,
-    encryptionPrivateKeyPem,
   } = keyBundle;
   const actionName = getFormValue(
     FORM_APP,
@@ -160,7 +159,12 @@ export function WriterMainContent() {
     return createWalletClient(activeWallet.url);
   };
 
-  const requireBackendClient = () => createBackendClient(activeBackend);
+  const requireBackendClient = () => {
+    if (!activeBackend) {
+      throw new Error("Active backend is required");
+    }
+    return createBackendClient(activeBackend);
+  };
 
   const requireAppsClient = () => {
     if (!activeAppServer) {
@@ -168,9 +172,6 @@ export function WriterMainContent() {
     }
     return createAppsClient(activeAppServer.url);
   };
-
-  const resolveWithAppKey = (uri: string) =>
-    uri.includes(":key") ? uri.replace(/:key/g, appKey) : uri;
 
   const loadAppProfile = async () => {
     ensureValue(appKey, "App key");
@@ -214,23 +215,6 @@ export function WriterMainContent() {
       "Generated backend keys (identity + encryption)",
       "success",
     );
-  };
-
-  const updateOrigins = async () => {
-    ensureValue(appKey, "App key");
-    const origins = allowedOrigins
-      .split(",")
-      .map((o) => o.trim())
-      .filter((o) => o.length > 0);
-    const res = await updateOriginsService({
-      appsClient: requireAppsClient(),
-      appKey,
-      accountPrivateKeyPem,
-      allowedOrigins: origins.length > 0 ? origins : ["*"],
-      encryptionPublicKeyHex: encryptionPublicKeyHex || null,
-    });
-    setOutput(res);
-    logLine("apps", "Origins updated", "success");
   };
 
   const saveAppProfile = async () => {
@@ -290,7 +274,7 @@ export function WriterMainContent() {
       appKey,
       accountPrivateKeyPem,
     });
-    setAppSession(res.session);
+    setWriterAppSession(res.session);
     setOutput(res);
     logLine("apps", "Session created", "success");
   };
@@ -302,7 +286,7 @@ export function WriterMainContent() {
       username,
       password,
     });
-    setSession(s);
+    setWriterSession(s);
     logLine("wallet", "Signup ok", "success");
     setOutput(s);
   };
@@ -315,7 +299,7 @@ export function WriterMainContent() {
       username,
       password,
     });
-    setSession(s);
+    setWriterSession(s);
     logLine("wallet", "Login ok", "success");
     setOutput(s);
   };
@@ -332,7 +316,7 @@ export function WriterMainContent() {
       token: data.token,
       expiresIn: data.expiresIn,
     };
-    setSession(s);
+    setWriterSession(s);
     logLine("wallet", `Google signup ok: ${data.email}`, "success");
     setOutput({
       ...s,
@@ -355,7 +339,7 @@ export function WriterMainContent() {
       token: data.token,
       expiresIn: data.expiresIn,
     };
-    setSession(s);
+    setWriterSession(s);
     logLine("wallet", `Google login ok: ${data.email}`, "success");
     setOutput({
       ...s,
@@ -385,7 +369,7 @@ export function WriterMainContent() {
       writePayload,
     });
     setOutput(response);
-    setLastResolvedUri(targetUri);
+    setWriterLastResolvedUri(targetUri);
     setBackendHistory((prev) => [
       {
         id: crypto.randomUUID(),
@@ -413,7 +397,7 @@ export function WriterMainContent() {
       writePayload,
     });
     setOutput(response);
-    setLastResolvedUri(targetUri);
+    setWriterLastResolvedUri(targetUri);
     setBackendHistory((prev) => [
       {
         id: crypto.randomUUID(),
@@ -445,7 +429,9 @@ export function WriterMainContent() {
       encrypt: false,
     });
     setOutput(r);
-    if ((r as any).resolvedUri) setLastResolvedUri((r as any).resolvedUri);
+    if ((r as any).resolvedUri) {
+      setWriterLastResolvedUri((r as any).resolvedUri);
+    }
     logLine("wallet", "Write plain ok", "success");
   };
 
@@ -462,7 +448,9 @@ export function WriterMainContent() {
       encrypt: true,
     });
     setOutput(r);
-    if ((r as any).resolvedUri) setLastResolvedUri((r as any).resolvedUri);
+    if ((r as any).resolvedUri) {
+      setWriterLastResolvedUri((r as any).resolvedUri);
+    }
     logLine("wallet", "Write enc ok", "success");
   };
 
@@ -490,7 +478,7 @@ export function WriterMainContent() {
       window.location.origin,
     );
     setOutput(res);
-    if (res?.uri) setLastAppUri(res.uri);
+    if (res?.uri) setWriterLastAppUri(res.uri);
     logLine("apps", `Invoked action '${actionName}'`, "info");
   };
 
@@ -581,15 +569,7 @@ export function WriterMainContent() {
           <OutputPanel output={output} />
           {writerSection === "backend"
             ? <BackendHistory history={backendHistory} />
-            : (
-              <StatePanel
-                appKey={appKey}
-                appSession={appSession}
-                session={session}
-                lastResolvedUri={lastResolvedUri}
-                lastAppUri={lastAppUri}
-              />
-            )}
+            : null}
         </div>
       </div>
 
@@ -815,28 +795,6 @@ function BackendHistory(
   );
 }
 
-function OriginsCard(props: {
-  allowedOrigins: string;
-  setAllowedOrigins: (v: string) => void;
-  updateOrigins: () => void;
-}) {
-  return (
-    <SectionCard title="Origins" icon={<Activity className="h-4 w-4" />}>
-      <Field
-        label="Allowed Origins (comma separated)"
-        value={props.allowedOrigins}
-        onChange={props.setAllowedOrigins}
-        placeholder="*,https://example.com"
-      />
-      <div className="flex flex-wrap gap-2">
-        <button onClick={props.updateOrigins} className={PRIMARY_BUTTON}>
-          Save Origins
-        </button>
-      </div>
-    </SectionCard>
-  );
-}
-
 function SessionCard(props: {
   createSession: () => void;
 }) {
@@ -1026,37 +984,83 @@ function KeyDisplayCard(
 ) {
   return (
     <SectionCard title={title} icon={<KeyRound className="h-4 w-4" />}>
-      <div className="space-y-2 text-xs font-mono bg-muted rounded p-3">
-        <div>
-          <div className="text-muted-foreground">App Public Key</div>
-          <div className="break-all">{bundle.appKey || "—"}</div>
-        </div>
-        <div>
-          <div className="text-muted-foreground">Account Private Key (PEM)</div>
-          <pre className="bg-background border border-border rounded p-2 overflow-auto max-h-40">
-            {bundle.accountPrivateKeyPem || "—"}
-          </pre>
-        </div>
-        <div>
-          <div className="text-muted-foreground">Encryption Public Key</div>
-          <div className="break-all">
-            {bundle.encryptionPublicKeyHex || "—"}
-          </div>
-        </div>
-        <div>
-          <div className="text-muted-foreground">Encryption Private Key (PEM)</div>
-          <pre className="bg-background border border-border rounded p-2 overflow-auto max-h-40">
-            {bundle.encryptionPrivateKeyPem || "—"}
-          </pre>
-        </div>
+      <div className="text-xs text-muted-foreground mb-3">
+        Private keys are hidden; add a copy action when you need them.
       </div>
+      <KeysTable bundle={bundle} />
     </SectionCard>
   );
 }
 
-function CurrentProfileCard(
-  { currentProfile, error }: { currentProfile: any; error: string | null },
+function KeysTable({ bundle }: { bundle: KeyBundle }) {
+  const rows: Array<{
+    label: string;
+    value: string;
+    isSecret?: boolean;
+  }> = [
+    { label: "App Public Key", value: bundle.appKey },
+    { label: "Encryption Public Key", value: bundle.encryptionPublicKeyHex },
+    {
+      label: "Account Private Key",
+      value: bundle.accountPrivateKeyPem,
+      isSecret: true,
+    },
+    {
+      label: "Encryption Private Key",
+      value: bundle.encryptionPrivateKeyPem,
+      isSecret: true,
+    },
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <table className="w-full text-sm">
+        <tbody className="divide-y divide-border">
+          {rows.map((row) => (
+            <KeyRow
+              key={row.label}
+              label={row.label}
+              value={row.value}
+              isSecret={row.isSecret}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function KeyRow(
+  { label, value, isSecret }: { label: string; value: string; isSecret?: boolean },
 ) {
+  const resolvedValue = value || "Not set";
+
+  return (
+    <tr className="align-top">
+      <td className="w-1/3 bg-muted/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </td>
+      <td className="px-3 py-2">
+        {isSecret
+          ? (
+            <span className="text-muted-foreground">
+              Hidden for now; copying will be available soon.
+            </span>
+          )
+          : <span className="font-mono break-all">{resolvedValue}</span>}
+      </td>
+    </tr>
+  );
+}
+
+function CurrentProfileCard(
+  { currentProfile, error }: { currentProfile: unknown; error: string | null },
+) {
+  const profileObject = isRecord(currentProfile) ? currentProfile : null;
+  const hasProfileEntries = profileObject
+    ? Object.keys(profileObject).length > 0
+    : false;
+
   return (
     <SectionCard title="Current App Profile" icon={<FileText className="h-4 w-4" />}>
       {error && (
@@ -1067,13 +1071,79 @@ function CurrentProfileCard(
       {!currentProfile && !error && (
         <div className="text-sm text-muted-foreground">No profile loaded.</div>
       )}
-      {currentProfile && (
+      {profileObject && hasProfileEntries && (
+        <ProfileTable profile={profileObject} />
+      )}
+      {profileObject && !hasProfileEntries && (
+        <div className="text-sm text-muted-foreground">Profile is empty.</div>
+      )}
+      {currentProfile && !profileObject && (
         <pre className="bg-muted rounded p-3 text-xs max-h-[320px] overflow-auto custom-scrollbar">
           {JSON.stringify(currentProfile, null, 2)}
         </pre>
       )}
     </SectionCard>
   );
+}
+
+function ProfileTable({ profile }: { profile: Record<string, unknown> }) {
+  const entries = Object.entries(profile);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <table className="w-full text-sm">
+        <tbody className="divide-y divide-border">
+          {entries.map(([key, value]) => (
+            <tr key={key} className="align-top">
+              <td className="w-1/3 bg-muted/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {key}
+              </td>
+              <td className="px-3 py-2">
+                <ProfileValue value={value} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ProfileValue({ value }: { value: unknown }) {
+  if (value === null || value === undefined) {
+    return <span className="text-muted-foreground">Not set</span>;
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {value.map((item, index) => (
+          <span
+            key={`${String(item)}-${index}`}
+            className="rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground"
+          >
+            {typeof item === "string" || typeof item === "number"
+              ? String(item)
+              : JSON.stringify(item)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  if (typeof value === "object") {
+    return (
+      <pre className="text-xs bg-background border border-border rounded p-2 overflow-auto max-h-40">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+
+  return <span className="font-mono break-all">{String(value)}</span>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function AuthSection(props: {
@@ -1201,53 +1271,6 @@ function OutputPanel({ output }: { output: any }) {
         </pre>
       </div>
     </section>
-  );
-}
-
-function StatePanel({
-  appKey,
-  appSession,
-  session,
-  lastResolvedUri,
-  lastAppUri,
-}: {
-  appKey: string;
-  appSession: string;
-  session: { username: string; token: string; expiresIn: number } | null;
-  lastResolvedUri: string | null;
-  lastAppUri: string | null;
-}) {
-  return (
-    <section className="border border-border rounded-xl bg-card shadow-sm">
-      <div className="px-4 py-3 border-b border-border flex items-center space-x-2">
-        <KeyRound className="h-4 w-4" />
-        <h3 className="font-semibold">State</h3>
-      </div>
-      <div className="p-4 space-y-2 text-sm">
-        <StateRow label="App Key" value={appKey} />
-        <StateRow label="App Session" value={appSession} />
-        <StateRow label="User" value={session?.username || "-"} />
-        <StateRow label="Authenticated" value={session ? "yes" : "no"} />
-        <StateRow label="Login Session (JWT)" value={session?.token || "-"} />
-        <StateRow
-          label="Expires In"
-          value={session?.expiresIn?.toString() || "-"}
-        />
-        <StateRow label="Last URI" value={lastResolvedUri || "-"} />
-        <StateRow label="Last App URI" value={lastAppUri || "-"} />
-      </div>
-    </section>
-  );
-}
-
-function StateRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-muted-foreground">{label}:</span>
-      <span className="font-mono text-xs text-right truncate max-w-[180px]">
-        {value || "-"}
-      </span>
-    </div>
   );
 }
 

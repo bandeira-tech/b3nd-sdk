@@ -11,6 +11,7 @@ import type {
   PanelState,
   ThemeMode,
   WriterSection,
+  WriterUserSession,
 } from "../types";
 import { HttpAdapter } from "../adapters/HttpAdapter";
 import { generateId } from "../utils";
@@ -151,11 +152,16 @@ const initialState: Omit<AppState, "backendsReady"> = {
     right: true,
     bottom: false,
   },
+  bottomMaximized: false,
   theme: "system" as ThemeMode,
   mode: "filesystem" as AppMode,
   activeApp: "explorer" as AppExperience,
   mainView: "content" as AppMainView,
   writerSection: "backend" as WriterSection,
+  writerAppSession: "",
+  writerSession: null,
+  writerLastResolvedUri: null,
+  writerLastAppUri: null,
   formState: {},
   searchQuery: "",
   searchHistory: [],
@@ -452,6 +458,13 @@ export const useAppStore = create<AppStore>()(
           }));
         },
 
+        toggleBottomPanelMaximized: () => {
+          set((state) => ({
+            panels: { ...state.panels, bottom: true },
+            bottomMaximized: !state.bottomMaximized,
+          }));
+        },
+
         setTheme: (theme: ThemeMode) => {
           set({ theme });
 
@@ -491,6 +504,22 @@ export const useAppStore = create<AppStore>()(
             writerSection: section,
             mainView: "content",
           }));
+        },
+
+        setWriterAppSession: (session: string) => {
+          set({ writerAppSession: session });
+        },
+
+        setWriterSession: (session: WriterUserSession | null) => {
+          set({ writerSession: session });
+        },
+
+        setWriterLastResolvedUri: (uri: string | null) => {
+          set({ writerLastResolvedUri: uri });
+        },
+
+        setWriterLastAppUri: (uri: string | null) => {
+          set({ writerLastAppUri: uri });
         },
 
         setFormValue: (formId, field, value) => {
@@ -592,6 +621,7 @@ export const useAppStore = create<AppStore>()(
           googleClientId: state.googleClientId,
           keyBundle: state.keyBundle,
           panels: state.panels,
+          bottomMaximized: state.bottomMaximized,
           theme: state.theme,
           searchHistory: state.searchHistory,
           watchedPaths: state.watchedPaths,
@@ -639,6 +669,11 @@ export const useAppStore = create<AppStore>()(
             state.writerSection = "configuration";
           }
           state.writerSection = state.writerSection || "backend";
+          state.bottomMaximized = state.bottomMaximized || false;
+          state.writerAppSession = state.writerAppSession || "";
+          state.writerSession = state.writerSession || null;
+          state.writerLastResolvedUri = state.writerLastResolvedUri || null;
+          state.writerLastAppUri = state.writerLastAppUri || null;
           state.panels = state.panels || { left: true, right: true, bottom: false };
           if (state.activeApp === "explorer" && state.writerSection) {
             state.panels.right = true;
