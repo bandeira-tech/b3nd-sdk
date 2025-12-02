@@ -12,7 +12,6 @@ import {
   KeyRound,
   PanelRightOpen,
   PenSquare,
-  Play,
   Server,
   ShieldCheck,
 } from "lucide-react";
@@ -66,7 +65,8 @@ export function WriterMainContent() {
   setWriterSession,
   setWriterLastResolvedUri,
   setWriterLastAppUri,
-} = useAppStore();
+    addWriterOutput,
+  } = useAppStore();
   const session = writerSession;
   const appSession = writerAppSession;
   const activeWallet = walletServers.find((w) =>
@@ -77,7 +77,6 @@ export function WriterMainContent() {
   );
   const activeBackend = useActiveBackend();
 
-  const [output, setOutput] = useState<any>(null);
   const FORM_BACKEND = "writer-backend";
   const FORM_APP = "writer-app";
   const FORM_AUTH = "writer-auth";
@@ -147,7 +146,7 @@ export function WriterMainContent() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[Writer] ${label} failed`, error);
-      setOutput({ error: message });
+      addWriterOutput({ error: message });
       logLine("local", `${label} failed: ${message}`, "error");
     }
   };
@@ -192,7 +191,7 @@ export function WriterMainContent() {
   const genAppKeys = async () => {
     const bundle = await generateAppKeys();
     setKeyBundle(bundle);
-    setOutput({
+    addWriterOutput({
       publicKeyHex: bundle.appKey,
       privateKeyPem: bundle.accountPrivateKeyPem,
       encryptionPublicKeyHex: bundle.encryptionPublicKeyHex,
@@ -203,7 +202,7 @@ export function WriterMainContent() {
   const genBackendKeys = async () => {
     const bundle = await generateAppKeys();
     setBackendKeys(bundle);
-    setOutput({
+    addWriterOutput({
       context: "backend",
       publicKeyHex: bundle.appKey,
       privateKeyPem: bundle.accountPrivateKeyPem,
@@ -229,14 +228,14 @@ export function WriterMainContent() {
       backendClient: requireBackendClient(),
       appKey,
       accountPrivateKeyPem,
-      googleClientId: googleClientId || null,
+      googleClientId: null,
       allowedOrigins: origins.length > 0 ? origins : ["*"],
       encryptionPublicKeyHex: encryptionPublicKeyHex || null,
     });
 
     if (response.success) {
       logLine("backend", `App profile saved to ${uri}`, "success");
-      setOutput(response);
+      addWriterOutput(response, uri);
       await loadAppProfile();
     } else {
       throw new Error(response.error || "Failed to save app profile");
@@ -255,7 +254,7 @@ export function WriterMainContent() {
       accountPrivateKeyPem,
       encryptionPublicKeyHex: encryptionPublicKeyHex || null,
     });
-    setOutput(res);
+    setWriterOutput(res);
     logLine("apps", "Schema updated", "success");
   };
 
@@ -264,7 +263,7 @@ export function WriterMainContent() {
       appsClient: requireAppsClient(),
       appKey,
     });
-    setOutput(res);
+    addWriterOutput(res);
     logLine("apps", "Schema fetched", "info");
   };
 
@@ -275,7 +274,7 @@ export function WriterMainContent() {
       accountPrivateKeyPem,
     });
     setWriterAppSession(res.session);
-    setOutput(res);
+    addWriterOutput(res);
     logLine("apps", "Session created", "success");
   };
 
@@ -288,7 +287,7 @@ export function WriterMainContent() {
     });
     setWriterSession(s);
     logLine("wallet", "Signup ok", "success");
-    setOutput(s);
+    addWriterOutput(s);
   };
 
   const login = async (username: string, password: string) => {
@@ -301,7 +300,7 @@ export function WriterMainContent() {
     });
     setWriterSession(s);
     logLine("wallet", "Login ok", "success");
-    setOutput(s);
+    addWriterOutput(s);
   };
 
   const googleSignup = async (googleIdToken: string) => {
@@ -318,7 +317,7 @@ export function WriterMainContent() {
     };
     setWriterSession(s);
     logLine("wallet", `Google signup ok: ${data.email}`, "success");
-    setOutput({
+    addWriterOutput({
       ...s,
       email: data.email,
       name: data.name,
@@ -341,7 +340,7 @@ export function WriterMainContent() {
     };
     setWriterSession(s);
     logLine("wallet", `Google login ok: ${data.email}`, "success");
-    setOutput({
+    addWriterOutput({
       ...s,
       email: data.email,
       name: data.name,
@@ -356,7 +355,7 @@ export function WriterMainContent() {
       appKey,
       session,
     });
-    setOutput(k);
+    addWriterOutput(k);
     logLine("wallet", "My keys ok", "info");
   };
 
@@ -368,7 +367,7 @@ export function WriterMainContent() {
       writeUri,
       writePayload,
     });
-    setOutput(response);
+    addWriterOutput(response, targetUri);
     setWriterLastResolvedUri(targetUri);
     setBackendHistory((prev) => [
       {
@@ -396,7 +395,7 @@ export function WriterMainContent() {
       writeUri,
       writePayload,
     });
-    setOutput(response);
+    addWriterOutput(response, targetUri);
     setWriterLastResolvedUri(targetUri);
     setBackendHistory((prev) => [
       {
@@ -428,9 +427,10 @@ export function WriterMainContent() {
       data,
       encrypt: false,
     });
-    setOutput(r);
-    if ((r as any).resolvedUri) {
-      setWriterLastResolvedUri((r as any).resolvedUri);
+    const resolvedUri = (r as any).resolvedUri as string | undefined;
+    addWriterOutput(r, resolvedUri);
+    if (resolvedUri) {
+      setWriterLastResolvedUri(resolvedUri);
     }
     logLine("wallet", "Write plain ok", "success");
   };
@@ -447,9 +447,10 @@ export function WriterMainContent() {
       data,
       encrypt: true,
     });
-    setOutput(r);
-    if ((r as any).resolvedUri) {
-      setWriterLastResolvedUri((r as any).resolvedUri);
+    const resolvedUri = (r as any).resolvedUri as string | undefined;
+    addWriterOutput(r, resolvedUri);
+    if (resolvedUri) {
+      setWriterLastResolvedUri(resolvedUri);
     }
     logLine("wallet", "Write enc ok", "success");
   };
@@ -477,7 +478,7 @@ export function WriterMainContent() {
       signedMessage,
       window.location.origin,
     );
-    setOutput(res);
+    addWriterOutput(res, res?.uri);
     if (res?.uri) setWriterLastAppUri(res.uri);
     logLine("apps", `Invoked action '${actionName}'`, "info");
   };
@@ -497,56 +498,7 @@ export function WriterMainContent() {
     }
   }, [panels.right, togglePanel]);
 
-  useEffect(() => {
-    if (!googleClientId || !googleButtonRef.current) return;
-    const initializeGoogleSignIn = () => {
-      const googleApi = (window as any).google?.accounts?.id;
-      if (!googleApi) {
-        setTimeout(initializeGoogleSignIn, 100);
-        return;
-      }
-
-      googleApi.initialize({
-        client_id: googleClientId,
-        callback: (response: { credential: string }) => {
-          if (googleMode === "signup") {
-            void handleAction(
-              "Google signup",
-              () => googleSignup(response.credential),
-            );
-          } else {
-            void handleAction(
-              "Google login",
-              () => googleLogin(response.credential),
-            );
-          }
-        },
-      });
-
-      if (googleButtonRef.current) {
-        googleButtonRef.current.innerHTML = "";
-        googleApi.renderButton(googleButtonRef.current, {
-          theme: "filled_blue",
-          size: "large",
-          text: googleMode === "signup" ? "signup_with" : "signin_with",
-          width: 280,
-        });
-      }
-    };
-
-    const existingScript = document.getElementById("google-gsi-script");
-    if (!existingScript) {
-      const script = document.createElement("script");
-      script.id = "google-gsi-script";
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.defer = true;
-      script.onload = () => initializeGoogleSignIn();
-      document.head.appendChild(script);
-    } else {
-      initializeGoogleSignIn();
-    }
-  }, [googleClientId, googleMode, writerSection]);
+  // Google auth is temporarily disabled (no client ID input)
 
   const rightOpen = panels.right;
 
@@ -566,7 +518,6 @@ export function WriterMainContent() {
               />
             </>
           )}
-          <OutputPanel output={output} />
           {writerSection === "backend"
             ? <BackendHistory history={backendHistory} />
             : null}
@@ -613,8 +564,6 @@ export function WriterMainContent() {
                   onGenerate={() => handleAction("Generate keys", genAppKeys)}
                 />
                 <AppProfileCard
-                  googleClientId={googleClientId}
-                  setGoogleClientId={setGoogleClientId}
                   allowedOrigins={allowedOrigins}
                   setAllowedOrigins={setAllowedOrigins}
                   saveAppProfile={() =>
@@ -653,7 +602,6 @@ export function WriterMainContent() {
                   signup={(u, p) => handleAction("Signup", () => signup(u, p))}
                   login={(u, p) => handleAction("Login", () => login(u, p))}
                   myKeys={() => handleAction("My keys", myKeys)}
-                  googleClientId={googleClientId}
                   googleMode={googleMode}
                   setGoogleMode={setGoogleMode}
                   googleButtonRef={googleButtonRef}
@@ -927,8 +875,6 @@ function InvokeActionCard(props: {
 }
 
 function AppProfileCard(props: {
-  googleClientId: string;
-  setGoogleClientId: (v: string) => void;
   allowedOrigins: string;
   setAllowedOrigins: (v: string) => void;
   saveAppProfile: () => void;
@@ -940,13 +886,6 @@ function AppProfileCard(props: {
         <code className="text-xs">mutable://accounts/:appKey/app-profile</code>
       </div>
       <div className="space-y-4">
-        <Field
-          label="Google Client ID"
-          value={props.googleClientId}
-          onChange={props.setGoogleClientId}
-          placeholder="your-client-id.apps.googleusercontent.com"
-        />
-
         <Field
           label="Allowed Origins (comma separated)"
           value={props.allowedOrigins}
@@ -1150,7 +1089,6 @@ function AuthSection(props: {
   signup: (u: string, p: string) => void;
   login: (u: string, p: string) => void;
   myKeys: () => void;
-  googleClientId: string;
   googleMode: "signup" | "login";
   setGoogleMode: (mode: "signup" | "login") => void;
   googleButtonRef: RefObject<HTMLDivElement | null>;
@@ -1216,12 +1154,6 @@ function AuthSection(props: {
           Continue with Username & Password
         </button>
 
-        {props.googleClientId && (
-          <>
-            <hr className="border-border" />
-            <div ref={props.googleButtonRef} />
-          </>
-        )}
       </div>
     </SectionCard>
   );
@@ -1255,22 +1187,6 @@ function ProxyWriteSection(props: {
         </button>
       </div>
     </SectionCard>
-  );
-}
-
-function OutputPanel({ output }: { output: any }) {
-  return (
-    <section className="border border-border rounded-xl bg-card shadow-sm">
-      <div className="px-4 py-3 border-b border-border flex items-center space-x-2">
-        <Play className="h-4 w-4" />
-        <h3 className="font-semibold">Output</h3>
-      </div>
-      <div className="p-4">
-        <pre className="bg-muted rounded p-3 text-xs font-mono max-h-[420px] overflow-auto custom-scrollbar">
-          {output ? JSON.stringify(output, null, 2) : "No output yet"}
-        </pre>
-      </div>
-    </section>
   );
 }
 

@@ -11,11 +11,12 @@ import {
   KeyRound,
   Maximize2,
   Minimize2,
+  Play,
 } from "lucide-react";
 
 export function BottomPanel() {
   const { togglePanel, bottomMaximized, toggleBottomPanelMaximized } = useAppStore();
-  const [activeTab, setActiveTab] = useState<BottomTab>("console");
+  const [activeTab, setActiveTab] = useState<BottomTab>("output");
 
   return (
     <div className="h-full flex flex-col">
@@ -31,6 +32,12 @@ export function BottomPanel() {
               onClick={() => setActiveTab("console")}
               icon={<Terminal className="h-3 w-3" />}
               label="Console"
+            />
+            <TabButton
+              active={activeTab === "output"}
+              onClick={() => setActiveTab("output")}
+              icon={<Play className="h-3 w-3" />}
+              label="Output"
             />
             <TabButton
               active={activeTab === "state"}
@@ -83,8 +90,9 @@ export function BottomPanel() {
       {/* Content */}
       <div className="flex-1 overflow-auto custom-scrollbar bg-background">
         {activeTab === "console" && <ConsoleView />}
+        {activeTab === "output" && <WriterOutputView />}
         {activeTab === "state" && <WriterStateView />}
-        {activeTab !== "console" && activeTab !== "state" && (
+        {activeTab !== "console" && activeTab !== "output" && activeTab !== "state" && (
           <PlaceholderView label={activeTab === "network" ? "Network" : "Debug"} />
         )}
       </div>
@@ -92,7 +100,7 @@ export function BottomPanel() {
   );
 }
 
-type BottomTab = "console" | "state" | "network" | "debug";
+type BottomTab = "console" | "output" | "state" | "network" | "debug";
 
 function TabButton({
   active = false,
@@ -167,6 +175,71 @@ function WriterStateView() {
       </div>
     </div>
   );
+}
+
+function WriterOutputView() {
+  const { writerOutputs, activeApp } = useAppStore();
+
+  if (activeApp !== "writer") {
+    return (
+      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+        Switch to the Writer experience to view output.
+      </div>
+    );
+  }
+
+  const entries = writerOutputs;
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="flex items-center gap-2 text-muted-foreground uppercase tracking-wide text-xs font-semibold">
+        <Play className="h-3 w-3" />
+        <span>Output</span>
+      </div>
+      {entries.length === 0
+        ? (
+          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+            No output yet.
+          </div>
+        )
+        : (
+          <div className="space-y-3 max-h-[360px] overflow-auto custom-scrollbar pr-1">
+            {entries.map((entry) => {
+              const inferredUri = resolveOutputUri(entry);
+              return (
+                <div
+                  key={entry.id}
+                  className="border border-border rounded-lg bg-muted/40 p-3 font-mono text-xs"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-2">
+                    <span className="truncate" title={inferredUri || "No URI"}>
+                      {inferredUri || "No URI"}
+                    </span>
+                    <span>{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words">
+                    {JSON.stringify(entry.data, null, 2)}
+                  </pre>
+                </div>
+              );
+            })}
+          </div>
+        )}
+    </div>
+  );
+}
+
+function resolveOutputUri(entry: { uri?: string; data: unknown }) {
+  if (entry.uri) return entry.uri;
+  if (!entry.data || typeof entry.data !== "object") return undefined;
+  const record = entry.data as Record<string, unknown>;
+  return typeof record.uri === "string"
+    ? record.uri
+    : typeof record.resolvedUri === "string"
+    ? record.resolvedUri
+    : typeof record.targetUri === "string"
+    ? record.targetUri
+    : undefined;
 }
 
 function StateRow({ label, value }: { label: string; value: string }) {

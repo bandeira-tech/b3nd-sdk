@@ -146,6 +146,12 @@ export interface AppState {
   writerSession: WriterUserSession | null;
   writerLastResolvedUri: string | null;
   writerLastAppUri: string | null;
+  writerOutputs: Array<{
+    id: string;
+    data: unknown;
+    timestamp: number;
+    uri?: string;
+  }>;
 
   formState: Record<string, Record<string, string>>;
 
@@ -198,6 +204,7 @@ export interface AppActions {
   setWriterSession: (session: WriterUserSession | null) => void;
   setWriterLastResolvedUri: (uri: string | null) => void;
   setWriterLastAppUri: (uri: string | null) => void;
+  addWriterOutput: (output: unknown, uri?: string) => void;
 
   setFormValue: (formId: string, field: string, value: string) => void;
   getFormValue: (formId: string, field: string, defaultValue?: string) => string;

@@ -12,7 +12,6 @@ export function SettingsView() {
       <BackendManager />
       <WalletManager />
       <AppServerManager />
-      <KeyManager />
       <AppInfo />
     </>
   );
@@ -26,8 +25,6 @@ export function SettingsSidePanel() {
     activeWalletServerId,
     appServers,
     activeAppServerId,
-    googleClientId,
-    keyBundle,
   } = useAppStore();
 
   const activeBackend = useMemo(
@@ -66,17 +63,6 @@ export function SettingsSidePanel() {
           icon={<Server className="h-4 w-4" />}
           primary={activeApp?.name || "None selected"}
           secondary={activeApp?.url || ""}
-        />
-        <SummaryCard
-          title="Google Client ID"
-          icon={<Info className="h-4 w-4" />}
-          primary={googleClientId || "Not set"}
-        />
-        <SummaryCard
-          title="App Key"
-          icon={<KeyRound className="h-4 w-4" />}
-          primary={keyBundle.appKey ? `${keyBundle.appKey.slice(0, 12)}…` : "Not set"}
-          secondary={keyBundle.encryptionPublicKeyHex ? `Enc: ${keyBundle.encryptionPublicKeyHex.slice(0, 12)}…` : ""}
         />
       </div>
     </aside>
@@ -276,80 +262,6 @@ function AppServerManager() {
       ) : (
         <AddButton onClick={() => setShowAddForm(true)} label="Add App Server" />
       )}
-    </Section>
-  );
-}
-
-function KeyManager() {
-  const { keyBundle, setKeyBundle } = useAppStore();
-
-  const genAppKeys = async () => {
-    const kp = (await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"])) as CryptoKeyPair;
-    const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
-    const priv = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
-    const pubHex = Array.from(new Uint8Array(pub))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-    const privB64 = btoa(String.fromCharCode(...new Uint8Array(priv)));
-    const privPem = `-----BEGIN PRIVATE KEY-----\n${(privB64.match(/.{1,64}/g) || []).join("\n")}\n-----END PRIVATE KEY-----`;
-
-    const encKp = (await crypto.subtle.generateKey(
-      { name: "X25519", namedCurve: "X25519" } as unknown as EcKeyGenParams,
-      true,
-      ["deriveBits"],
-    )) as CryptoKeyPair;
-    const encPubRaw = await crypto.subtle.exportKey("raw", encKp.publicKey);
-    const encPubHex = Array.from(new Uint8Array(encPubRaw))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-    const encPrivPkcs8 = await crypto.subtle.exportKey("pkcs8", encKp.privateKey);
-    const encPrivB64 = btoa(String.fromCharCode(...new Uint8Array(encPrivPkcs8)));
-    const encPrivPem = `-----BEGIN PRIVATE KEY-----\n${(encPrivB64.match(/.{1,64}/g) || []).join("\n")}\n-----END PRIVATE KEY-----`;
-
-    setKeyBundle({
-      appKey: pubHex,
-      accountPrivateKeyPem: privPem,
-      encryptionPublicKeyHex: encPubHex,
-      encryptionPrivateKeyPem: encPrivPem,
-    });
-  };
-
-  return (
-    <Section title="Keys" icon={<KeyRound className="h-4 w-4" />}>
-      <div className="grid md:grid-cols-2 gap-4">
-        <Field
-          label="App Public Key (hex)"
-          value={keyBundle.appKey}
-          onChange={(v) => setKeyBundle({ ...keyBundle, appKey: v })}
-          placeholder="hex"
-        />
-        <Field
-          label="Encryption Public Key (X25519, hex)"
-          value={keyBundle.encryptionPublicKeyHex}
-          onChange={(v) => setKeyBundle({ ...keyBundle, encryptionPublicKeyHex: v })}
-          placeholder="hex"
-        />
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <TextArea
-          label="Account Private Key (PEM)"
-          value={keyBundle.accountPrivateKeyPem}
-          onChange={(v) => setKeyBundle({ ...keyBundle, accountPrivateKeyPem: v })}
-        />
-        <TextArea
-          label="Encryption Private Key (PEM)"
-          value={keyBundle.encryptionPrivateKeyPem}
-          onChange={(v) => setKeyBundle({ ...keyBundle, encryptionPrivateKeyPem: v })}
-        />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={genAppKeys}
-          className="inline-flex items-center justify-center rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Generate Keys
-        </button>
-      </div>
     </Section>
   );
 }

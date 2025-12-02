@@ -162,6 +162,7 @@ const initialState: Omit<AppState, "backendsReady"> = {
   writerSession: null,
   writerLastResolvedUri: null,
   writerLastAppUri: null,
+  writerOutputs: [],
   formState: {},
   searchQuery: "",
   searchHistory: [],
@@ -522,6 +523,15 @@ export const useAppStore = create<AppStore>()(
           set({ writerLastAppUri: uri });
         },
 
+        addWriterOutput: (output: unknown, uri?: string) => {
+          set((state) => ({
+            writerOutputs: [
+              { id: generateId(), data: output, timestamp: Date.now(), uri },
+              ...state.writerOutputs,
+            ].slice(0, 200),
+          }));
+        },
+
         setFormValue: (formId, field, value) => {
           set((state) => ({
             formState: {
@@ -622,6 +632,7 @@ export const useAppStore = create<AppStore>()(
           keyBundle: state.keyBundle,
           panels: state.panels,
           bottomMaximized: state.bottomMaximized,
+          writerOutputs: state.writerOutputs,
           theme: state.theme,
           searchHistory: state.searchHistory,
           watchedPaths: state.watchedPaths,
@@ -674,6 +685,7 @@ export const useAppStore = create<AppStore>()(
           state.writerSession = state.writerSession || null;
           state.writerLastResolvedUri = state.writerLastResolvedUri || null;
           state.writerLastAppUri = state.writerLastAppUri || null;
+          state.writerOutputs = state.writerOutputs || [];
           state.panels = state.panels || { left: true, right: true, bottom: false };
           if (state.activeApp === "explorer" && state.writerSection) {
             state.panels.right = true;
