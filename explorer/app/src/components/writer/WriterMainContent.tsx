@@ -1,10 +1,4 @@
-import {
-  type ReactNode,
-  type RefObject,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import {
   Activity,
   ChevronRight,
@@ -29,8 +23,6 @@ import {
   fetchMyKeys,
   fetchSchema as fetchSchemaService,
   generateAppKeys,
-  googleLogin as googleLoginService,
-  googleSignup as googleSignupService,
   loginWithPassword,
   proxyWrite,
   saveAppProfile as saveAppProfileService,
@@ -239,7 +231,7 @@ export function WriterMainContent() {
       accountPrivateKeyPem,
       encryptionPublicKeyHex: encryptionPublicKeyHex || null,
     });
-    setWriterOutput(res);
+    addWriterOutput(res);
     logLine("apps", "Schema updated", "success");
   };
 
@@ -288,50 +280,7 @@ export function WriterMainContent() {
     addWriterOutput(s);
   };
 
-  const googleSignup = async (googleIdToken: string) => {
-    if (!activeWallet) throw new Error("Active wallet server is required");
-    const data = await googleSignupService({
-      walletServerUrl: activeWallet.url,
-      appKey,
-      googleIdToken,
-    });
-    const s = {
-      username: data.username,
-      token: data.token,
-      expiresIn: data.expiresIn,
-    };
-    setWriterSession(s);
-    logLine("wallet", `Google signup ok: ${data.email}`, "success");
-    addWriterOutput({
-      ...s,
-      email: data.email,
-      name: data.name,
-      picture: data.picture,
-    });
-  };
-
-  const googleLogin = async (googleIdToken: string) => {
-    if (!activeWallet) throw new Error("Active wallet server is required");
-    const data = await googleLoginService({
-      walletServerUrl: activeWallet.url,
-      appKey,
-      appSession,
-      googleIdToken,
-    });
-    const s = {
-      username: data.username,
-      token: data.token,
-      expiresIn: data.expiresIn,
-    };
-    setWriterSession(s);
-    logLine("wallet", `Google login ok: ${data.email}`, "success");
-    addWriterOutput({
-      ...s,
-      email: data.email,
-      name: data.name,
-      picture: data.picture,
-    });
-  };
+  // Google auth temporarily disabled
 
   const myKeys = async () => {
     if (!session) throw new Error("Session required");
@@ -981,7 +930,7 @@ function CurrentProfileCard(
       {profileObject && !hasProfileEntries && (
         <div className="text-sm text-muted-foreground">Profile is empty.</div>
       )}
-      {currentProfile && !profileObject && (
+      {Boolean(currentProfile) && !profileObject && (
         <pre className="bg-muted rounded p-3 text-xs max-h-[320px] overflow-auto custom-scrollbar">
           {JSON.stringify(currentProfile, null, 2)}
         </pre>

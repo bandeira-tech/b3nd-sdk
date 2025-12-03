@@ -1,6 +1,6 @@
 // React import not needed with react-jsx runtime
 import { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { BrandHeader } from "./BrandHeader";
 import { AppModeBar } from "./AppModeBar";
@@ -28,7 +28,6 @@ export function AppLayout() {
     ensureRightPanelOpen,
   } = useAppStore();
   const location = useLocation();
-  const navigate = useNavigate();
   const showSettings = mainView === "settings";
   const showAccounts = mainView === "accounts";
 
@@ -122,16 +121,6 @@ export function AppLayout() {
       .filter(Boolean)
       .map((s) => decodeURIComponent(s));
     return "/" + segments.join("/");
-  };
-
-  const formatExplorerRoute = (pathValue: string) => {
-    if (!pathValue || pathValue === "/") return "/explorer";
-    const parts = pathValue
-      .replace(/^\/+/, "")
-      .split("/")
-      .filter(Boolean)
-      .map((p) => encodeURIComponent(p));
-    return `/explorer/${parts.join("/")}`;
   };
 
   return (

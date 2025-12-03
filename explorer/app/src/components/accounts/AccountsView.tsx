@@ -33,8 +33,7 @@ export function AccountsView() {
 }
 
 export function AccountsSidePanel() {
-  const { accounts, activeAccountId, addAccount, removeAccount, setActiveAccount } =
-    useAppStore();
+  const { accounts, addAccount } = useAppStore();
 
   const nameOptions = ["Pipi", "Bibi", "Tutu", "Gogo"] as const;
   const emojiMap: Record<typeof nameOptions[number], string> = {
@@ -44,14 +43,9 @@ export function AccountsSidePanel() {
     Gogo: "🐉",
   };
   const initialName = nameOptions[accounts.length % nameOptions.length];
-  const [name, setName] = useState(initialName);
+  const [name, setName] = useState<string>(initialName);
   const [emoji, setEmoji] = useState(emojiMap[initialName]);
   const [creating, setCreating] = useState(false);
-
-  const activeAccount = useMemo(
-    () => accounts.find((a) => a.id === activeAccountId) || null,
-    [accounts, activeAccountId],
-  );
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -144,7 +138,6 @@ function AccountsList() {
 }
 
 function ExplorerLink({ appKey }: { appKey: string }) {
-  const uri = `mutable://accounts/${appKey}`;
   const pathSegments = ["mutable", "accounts", appKey].map((seg) =>
     encodeURIComponent(seg)
   );

@@ -11,7 +11,6 @@ export function BrandHeader() {
     setTheme,
     mainView,
     activeApp,
-    panels,
     accounts,
     activeAccountId,
   } = useAppStore();
