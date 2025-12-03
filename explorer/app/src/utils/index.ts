@@ -62,3 +62,13 @@ export function isValidUrl(string: string): boolean {
 export function sanitizePath(path: string): string {
   return path.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
 }
+
+export function routeForExplorerPath(path: string): string {
+  if (!path || path === "/") return "/explorer";
+  const parts = path
+    .replace(/^\/+/, "")
+    .split("/")
+    .filter(Boolean)
+    .map((p) => encodeURIComponent(p));
+  return `/explorer/${parts.join("/")}`;
+}

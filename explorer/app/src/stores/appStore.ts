@@ -469,6 +469,12 @@ export const useAppStore = create<AppStore>()(
           }));
         },
 
+        ensureRightPanelOpen: () => {
+          set((state) => ({
+            panels: { ...state.panels, right: true },
+          }));
+        },
+
         setTheme: (theme: ThemeMode) => {
           set({ theme });
 
@@ -495,7 +501,6 @@ export const useAppStore = create<AppStore>()(
         setActiveApp: (activeApp: AppExperience) => {
           set(() => ({
             activeApp,
-            mainView: "content",
           }));
         },
 

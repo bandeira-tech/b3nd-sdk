@@ -102,7 +102,7 @@ export function BrandHeader() {
 
         <button
           onClick={() =>
-            setMainView(mainView === "settings" ? "content" : "settings")}
+            mainView === "settings" ? navigate("/explorer") : navigate("/settings")}
           className={cn(
             "p-1.5 rounded hover:bg-white/10 transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",

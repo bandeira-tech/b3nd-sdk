@@ -471,15 +471,6 @@ export function WriterMainContent() {
   };
 
   useEffect(() => {
-    if (!appKey) {
-      setCurrentAppProfile(null);
-      setAppProfileError(null);
-      return;
-    }
-    void handleAction("Load app profile", loadAppProfile);
-  }, [appKey, activeBackend]);
-
-  useEffect(() => {
     if (!panels.right) {
       togglePanel("right");
     }
@@ -549,6 +540,8 @@ export function WriterMainContent() {
                 <AppProfileCard
                   allowedOrigins={allowedOrigins}
                   setAllowedOrigins={setAllowedOrigins}
+                  loadAppProfile={() =>
+                    handleAction("Load app profile", loadAppProfile)}
                   saveAppProfile={() =>
                     handleAction("Save app profile", saveAppProfile)}
                 />
@@ -842,6 +835,7 @@ function InvokeActionCard(props: {
 function AppProfileCard(props: {
   allowedOrigins: string;
   setAllowedOrigins: (v: string) => void;
+  loadAppProfile: () => void;
   saveAppProfile: () => void;
 }) {
   return (
@@ -860,6 +854,12 @@ function AppProfileCard(props: {
       </div>
 
       <div className="flex flex-wrap gap-2 mt-2">
+        <button
+          onClick={props.loadAppProfile}
+          className={SECONDARY_BUTTON}
+        >
+          Load App Profile
+        </button>
         <button onClick={props.saveAppProfile} className={PRIMARY_BUTTON}>
           Save App Profile
         </button>

@@ -24,6 +24,8 @@ export function AppLayout() {
     activeApp,
     setActiveApp,
     setMainView,
+    setWriterSection,
+    ensureRightPanelOpen,
   } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -64,11 +66,30 @@ export function AppLayout() {
     if (path.startsWith("/writer")) {
       if (activeApp !== "writer") setActiveApp("writer");
       if (mainView !== "content") setMainView("content");
+      ensureRightPanelOpen();
+      const section = path.replace(/^\/writer\/?/, "") || "backend";
+      const allowed: Array<typeof setWriterSection extends (arg: infer A) => any ? A : never> = [
+        "backend",
+        "auth",
+        "actions",
+        "configuration",
+        "schema",
+      ];
+      if (allowed.includes(section as any)) {
+        setWriterSection(section as any);
+      } else {
+        setWriterSection("backend");
+      }
       return;
     }
     if (path.startsWith("/accounts")) {
       if (mainView !== "accounts") setMainView("accounts");
-      if (activeApp !== "explorer") setActiveApp("explorer");
+      ensureRightPanelOpen();
+      return;
+    }
+    if (path.startsWith("/settings")) {
+      if (mainView !== "settings") setMainView("settings");
+      ensureRightPanelOpen();
       return;
     }
     if (!path.startsWith("/explorer")) return;
@@ -79,6 +100,7 @@ export function AppLayout() {
     }
     if (activeApp !== "explorer") setActiveApp("explorer");
     if (mainView !== "content") setMainView("content");
+    ensureRightPanelOpen();
   }, [
     location.pathname,
     currentPath,
@@ -87,6 +109,8 @@ export function AppLayout() {
     setActiveApp,
     setMainView,
     mainView,
+    setWriterSection,
+    ensureRightPanelOpen,
   ]);
 
   const parseExplorerPath = (routePath: string) => {

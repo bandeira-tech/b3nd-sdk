@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { routeForExplorerPath } from "../../utils";
 import { useActiveBackend } from "../../stores/appStore";
 import type {
   PersistenceRecord,
@@ -331,13 +332,13 @@ function DirectoryViewer({ contents }: { contents: NavigationNode[] }) {
             className="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             onClick={() => {
               console.log("DirectoryViewer clicked item:", item.path); // Debug
-              navigate(routeForPath(item.path));
+              navigate(routeForExplorerPath(item.path));
             }}
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                navigate(routeForPath(item.path));
+                navigate(routeForExplorerPath(item.path));
               }
             }}
           >
@@ -361,14 +362,4 @@ function DirectoryViewer({ contents }: { contents: NavigationNode[] }) {
       </div>
     </div>
   );
-}
-
-function routeForPath(path: string) {
-  if (!path || path === "/") return "/explorer";
-  const parts = path
-    .replace(/^\/+/, "")
-    .split("/")
-    .filter(Boolean)
-    .map((p) => encodeURIComponent(p));
-  return `/explorer/${parts.join("/")}`;
 }

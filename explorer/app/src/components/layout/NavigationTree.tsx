@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
+import { routeForExplorerPath } from "../../utils";
 import type { NavigationNode } from "../../types";
 import { Folder } from "lucide-react";
 import { TreeNode } from "./TreeNode";
@@ -71,7 +72,7 @@ export function NavigationTree() {
 
   const handleNodeClick = useCallback(
     (node: NavigationNode) => {
-      navigate(routeForPath(node.path));
+      navigate(routeForExplorerPath(node.path));
       if (node.type === "directory") {
         handleToggle(node.path);
       }
@@ -118,14 +119,4 @@ export function NavigationTree() {
       )}
     </div>
   );
-}
-
-function routeForPath(path: string) {
-  if (!path || path === "/") return "/explorer";
-  const parts = path
-    .replace(/^\/+/, "")
-    .split("/")
-    .filter(Boolean)
-    .map((p) => encodeURIComponent(p));
-  return `/explorer/${parts.join("/")}`;
 }

@@ -2,6 +2,7 @@
 import { Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
+import { routeForExplorerPath } from "../../utils";
 import { ContentViewer } from "./ContentViewer";
 import { FileText, User, Database, PenSquare, ChevronRight } from "lucide-react";
 import { WriterMainContent } from "../writer/WriterMainContent";
@@ -67,7 +68,7 @@ function Breadcrumb({ path }: { path: string }) {
           <Fragment key={pathTo}>
             <span className="text-muted-foreground">/</span>
             <button
-              onClick={() => navigate(routeForPath(pathTo))}
+        onClick={() => navigate(routeForExplorerPath(pathTo))}
               className={`px-2 py-1 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
                 isLast
                   ? "text-foreground font-medium"
@@ -84,15 +85,6 @@ function Breadcrumb({ path }: { path: string }) {
   );
 }
 
-function routeForPath(path: string) {
-  if (!path || path === "/") return "/explorer";
-  const parts = path
-    .replace(/^\/+/, "")
-    .split("/")
-    .filter(Boolean)
-    .map((p) => encodeURIComponent(p));
-  return `/explorer/${parts.join("/")}`;
-}
 
 function SearchResults() {
   return (

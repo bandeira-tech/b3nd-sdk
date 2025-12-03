@@ -205,6 +205,7 @@ export interface AppActions {
   // UI actions
   togglePanel: (panel: keyof PanelState) => void;
   toggleBottomPanelMaximized: () => void;
+  ensureRightPanelOpen: () => void;
   setTheme: (theme: ThemeMode) => void;
   setMode: (mode: AppMode) => void;
   setActiveApp: (app: AppExperience) => void;

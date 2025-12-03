@@ -72,7 +72,8 @@ function App() {
           <Routes>
             <Route path="/explorer/*" element={<AppLayout />} />
             <Route path="/accounts" element={<AppLayout />} />
-            <Route path="/writer" element={<AppLayout />} />
+            <Route path="/writer/*" element={<AppLayout />} />
+            <Route path="/settings" element={<AppLayout />} />
             <Route path="*" element={<Navigate to="/explorer" replace />} />
           </Routes>
         </div>
