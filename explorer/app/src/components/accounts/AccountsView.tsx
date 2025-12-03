@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { generateAppKeys } from "../../services/writer/writerService";
 import type { ManagedAccount } from "../../types";
-import { cn } from "../../utils";
+import { cn, routeForExplorerPath } from "../../utils";
 import { SectionCard } from "../common/SectionCard";
 
 export function AccountsView() {
@@ -144,7 +144,7 @@ function ExplorerLink({ appKey }: { appKey: string }) {
   return (
     <Link
       className="text-xs font-mono text-primary hover:underline"
-      to={`/explorer/${pathSegments.join("/")}`}
+      to={routeForExplorerPath(`/${pathSegments.join("/")}`)}
     >
       Open in explorer
     </Link>

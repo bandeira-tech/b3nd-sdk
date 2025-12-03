@@ -183,7 +183,7 @@ export const useAppStore = create<AppStore>()(
     (set, get) => {
       return {
         ...initialState,
-        backendsReady: true,
+        backendsReady: false,
 
         addBackend: (config) => {
           set((state) => {
@@ -540,6 +540,49 @@ export const useAppStore = create<AppStore>()(
           }));
         },
 
+        loadEndpoints: async () => {
+          const { backends, walletServers, appServers, defaults } = await loadAllEndpoints();
+          set((state) => {
+            const nextBackends = state.backends.length ? state.backends : backends;
+            const nextWallets = state.walletServers.length ? state.walletServers : walletServers;
+            const nextApps = state.appServers.length ? state.appServers : appServers;
+
+            const activeBackendId = (() => {
+              const existing = nextBackends.find((b) => b.id === state.activeBackendId)?.id;
+              if (existing) return existing;
+              const defaultBackend = nextBackends.find((b) => b.isActive) ||
+                nextBackends.find((b) => b.id === defaults.backend);
+              return defaultBackend?.id || nextBackends[0]?.id || null;
+            })();
+
+            const activeWalletServerId = (() => {
+              const existing = nextWallets.find((w) => w.id === state.activeWalletServerId)?.id;
+              if (existing) return existing;
+              const defaultWallet = nextWallets.find((w) => w.isActive) ||
+                nextWallets.find((w) => w.id === defaults.wallet);
+              return defaultWallet?.id || nextWallets[0]?.id || null;
+            })();
+
+            const activeAppServerId = (() => {
+              const existing = nextApps.find((w) => w.id === state.activeAppServerId)?.id;
+              if (existing) return existing;
+              const defaultApp = nextApps.find((w) => w.isActive) ||
+                nextApps.find((w) => w.id === defaults.appServer);
+              return defaultApp?.id || nextApps[0]?.id || null;
+            })();
+
+            return {
+              backends: nextBackends,
+              walletServers: nextWallets,
+              appServers: nextApps,
+              activeBackendId,
+              activeWalletServerId,
+              activeAppServerId,
+              backendsReady: true,
+            };
+          });
+        },
+
         addAccount: (account: ManagedAccount) => {
           set((state) => ({
             accounts: [account, ...state.accounts],
@@ -632,7 +675,7 @@ export const useAppStore = create<AppStore>()(
       };
     },
     {
-      name: "b3nd-explorer-state",
+      name: "b3nd-rig-state",
       partialize: (state) => {
         // Serialize user-added backends (those not from instances.json)
         const userBackends: SerializableBackendConfig[] = state.backends
@@ -688,6 +731,20 @@ export const useAppStore = create<AppStore>()(
           const validBackendId = allBackends.find((b) => b.id === state.activeBackendId)?.id;
           const defaultBackend = backends.find((b) => b.isActive) || backends.find((b) => b.id === defaults.backend);
           state.activeBackendId = validBackendId || defaultBackend?.id || allBackends[0]?.id || null;
+
+          const mergedWalletServers = state.walletServers?.length ? state.walletServers : walletServers;
+          const validWalletId = mergedWalletServers.find((w) => w.id === state.activeWalletServerId)?.id;
+          const defaultWallet = mergedWalletServers.find((w) => w.isActive) ||
+            mergedWalletServers.find((w) => w.id === defaults.wallet);
+          state.walletServers = mergedWalletServers;
+          state.activeWalletServerId = validWalletId || defaultWallet?.id || mergedWalletServers[0]?.id || null;
+
+          const mergedAppServers = state.appServers?.length ? state.appServers : appServers;
+          const validAppServerId = mergedAppServers.find((w) => w.id === state.activeAppServerId)?.id;
+          const defaultAppServer = mergedAppServers.find((w) => w.isActive) ||
+            mergedAppServers.find((w) => w.id === defaults.appServer);
+          state.appServers = mergedAppServers;
+          state.activeAppServerId = validAppServerId || defaultAppServer?.id || mergedAppServers[0]?.id || null;
 
           const theme = state.theme || "system";
           const root = document.documentElement;

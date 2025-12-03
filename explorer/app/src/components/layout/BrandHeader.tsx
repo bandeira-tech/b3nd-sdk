@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { Monitor, Moon, Settings, Sun, PenSquare, Compass, Users } from "lucide-react";
-import { cn } from "../../utils";
+import { RIG_ACCOUNTS_PATH, RIG_EXPLORER_BASE_PATH, RIG_SETTINGS_PATH, RIG_WRITER_BASE_PATH, cn } from "../../utils";
 import type { ReactNode } from "react";
 
 export function BrandHeader() {
@@ -44,8 +44,8 @@ export function BrandHeader() {
     <header className="brand-header h-10 flex items-center justify-between px-4 text-sm">
       {/* Left side - Brand */}
       <div className="flex items-center space-x-4">
-        <div className="font-semibold">b3nd</div>
-        <div className="text-brand-fg/60">rig</div>
+        <div className="font-semibold">Rig</div>
+        <div className="text-brand-fg/60">Firecat network</div>
       </div>
 
       {/* Center - App switcher */}
@@ -55,7 +55,7 @@ export function BrandHeader() {
           label="Explorer"
           icon={<Compass className="h-4 w-4" />}
           onClick={() => {
-            navigate("/explorer");
+            navigate(RIG_EXPLORER_BASE_PATH);
           }}
         />
         <AppSwitchButton
@@ -63,7 +63,7 @@ export function BrandHeader() {
           label="Writer"
           icon={<PenSquare className="h-4 w-4" />}
           onClick={() => {
-            navigate("/writer");
+            navigate(RIG_WRITER_BASE_PATH);
           }}
         />
       </div>
@@ -75,9 +75,9 @@ export function BrandHeader() {
             <div className="text-lg leading-none">{activeAccount.emoji}</div>
           )}
           <button
-            onClick={() => {
-              navigate("/accounts");
-            }}
+          onClick={() => {
+            navigate(RIG_ACCOUNTS_PATH);
+          }}
             className={cn(
               "p-1.5 rounded hover:bg-white/10 transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
@@ -101,7 +101,9 @@ export function BrandHeader() {
 
         <button
           onClick={() =>
-            mainView === "settings" ? navigate("/explorer") : navigate("/settings")}
+            mainView === "settings"
+              ? navigate(RIG_EXPLORER_BASE_PATH)
+              : navigate(RIG_SETTINGS_PATH)}
           className={cn(
             "p-1.5 rounded hover:bg-white/10 transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",

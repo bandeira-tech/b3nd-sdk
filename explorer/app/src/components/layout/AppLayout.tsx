@@ -1,6 +1,6 @@
 // React import not needed with react-jsx runtime
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { BrandHeader } from "./BrandHeader";
 import { AppModeBar } from "./AppModeBar";
@@ -8,7 +8,7 @@ import { LeftPanel } from "./LeftPanel";
 import { MainContent } from "./MainContent";
 import { BottomPanel } from "./BottomPanel";
 import { BrandFooter } from "./BrandFooter";
-import { cn } from "../../utils";
+import { RIG_EXPLORER_BASE_PATH, cn } from "../../utils";
 import { SettingsView, SettingsSidePanel } from "../settings/SettingsView";
 import { AccountsView, AccountsSidePanel } from "../accounts/AccountsView";
 
@@ -28,6 +28,7 @@ export function AppLayout() {
     ensureRightPanelOpen,
   } = useAppStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const showSettings = mainView === "settings";
   const showAccounts = mainView === "accounts";
 
@@ -61,12 +62,13 @@ export function AppLayout() {
   }, [panels.bottom, toggleBottomPanelMaximized, togglePanel]);
 
   useEffect(() => {
-    const path = location.pathname;
-    if (path.startsWith("/writer")) {
+    const relativePath = location.pathname;
+
+    if (relativePath.startsWith("/writer")) {
       if (activeApp !== "writer") setActiveApp("writer");
       if (mainView !== "content") setMainView("content");
       ensureRightPanelOpen();
-      const section = path.replace(/^\/writer\/?/, "") || "backend";
+      const section = relativePath.replace(/^\/writer\/?/, "") || "backend";
       const allowed: Array<typeof setWriterSection extends (arg: infer A) => any ? A : never> = [
         "backend",
         "auth",
@@ -81,19 +83,19 @@ export function AppLayout() {
       }
       return;
     }
-    if (path.startsWith("/accounts")) {
+    if (relativePath.startsWith("/accounts")) {
       if (mainView !== "accounts") setMainView("accounts");
       ensureRightPanelOpen();
       return;
     }
-    if (path.startsWith("/settings")) {
+    if (relativePath.startsWith("/settings")) {
       if (mainView !== "settings") setMainView("settings");
       ensureRightPanelOpen();
       return;
     }
-    if (!path.startsWith("/explorer")) return;
+    if (!relativePath.startsWith("/explorer")) return;
 
-    const explorerPath = parseExplorerPath(path);
+    const explorerPath = parseExplorerPath(relativePath);
     if (explorerPath !== null && explorerPath !== currentPath) {
       navigateToPath(explorerPath);
     }
@@ -110,6 +112,7 @@ export function AppLayout() {
     mainView,
     setWriterSection,
     ensureRightPanelOpen,
+    navigate,
   ]);
 
   const parseExplorerPath = (routePath: string) => {

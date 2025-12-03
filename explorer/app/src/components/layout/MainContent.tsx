@@ -2,7 +2,7 @@
 import { Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
-import { routeForExplorerPath } from "../../utils";
+import { RIG_EXPLORER_BASE_PATH, routeForExplorerPath } from "../../utils";
 import { ContentViewer } from "./ContentViewer";
 import { FileText, User, Database, PenSquare, ChevronRight } from "lucide-react";
 import { WriterMainContent } from "../writer/WriterMainContent";
@@ -54,7 +54,7 @@ function Breadcrumb({ path }: { path: string }) {
   return (
     <nav className="flex items-center space-x-1 text-sm">
       <button
-        onClick={() => navigate("/explorer")}
+        onClick={() => navigate(RIG_EXPLORER_BASE_PATH)}
         className="px-2 py-1 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
       >
         <Database className="h-4 w-4" />
@@ -68,7 +68,7 @@ function Breadcrumb({ path }: { path: string }) {
           <Fragment key={pathTo}>
             <span className="text-muted-foreground">/</span>
             <button
-        onClick={() => navigate(routeForExplorerPath(pathTo))}
+              onClick={() => navigate(routeForExplorerPath(pathTo))}
               className={`px-2 py-1 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
                 isLast
                   ? "text-foreground font-medium"

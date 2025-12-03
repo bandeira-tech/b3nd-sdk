@@ -63,12 +63,17 @@ export function sanitizePath(path: string): string {
   return path.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
 }
 
+export const RIG_EXPLORER_BASE_PATH = "/explorer";
+export const RIG_WRITER_BASE_PATH = "/writer";
+export const RIG_SETTINGS_PATH = "/settings";
+export const RIG_ACCOUNTS_PATH = "/accounts";
+
 export function routeForExplorerPath(path: string): string {
-  if (!path || path === "/") return "/explorer";
+  if (!path || path === "/") return RIG_EXPLORER_BASE_PATH;
   const parts = path
     .replace(/^\/+/, "")
     .split("/")
     .filter(Boolean)
     .map((p) => encodeURIComponent(p));
-  return `/explorer/${parts.join("/")}`;
+  return `${RIG_EXPLORER_BASE_PATH}/${parts.join("/")}`;
 }

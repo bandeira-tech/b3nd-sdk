@@ -183,6 +183,7 @@ export interface AppActions {
   addBackend: (config: Omit<BackendConfig, "id">) => void;
   removeBackend: (id: string) => void;
   setActiveBackend: (id: string) => void;
+  loadEndpoints: () => Promise<void>;
   addWalletServer: (config: Omit<EndpointConfig, "id">) => void;
   removeWalletServer: (id: string) => void;
   setActiveWalletServer: (id: string) => void;
