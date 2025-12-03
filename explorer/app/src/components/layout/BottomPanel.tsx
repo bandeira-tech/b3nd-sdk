@@ -31,7 +31,7 @@ export function BottomPanel() {
               active={activeTab === "console"}
               onClick={() => setActiveTab("console")}
               icon={<Terminal className="h-3 w-3" />}
-              label="Console"
+              label="Log"
             />
             <TabButton
               active={activeTab === "output"}
@@ -267,7 +267,10 @@ function ConsoleView() {
   const logs = useAppStore((state) => state.logs);
   const clearLogs = useAppStore((state) => state.clearLogs);
 
-  const sortedLogs = useMemo(() => [...logs].sort((a, b) => a.timestamp - b.timestamp), [logs]);
+  const sortedLogs = useMemo(
+    () => [...logs].sort((a, b) => b.timestamp - a.timestamp),
+    [logs],
+  );
 
   return (
     <div className="p-4 font-mono text-sm space-y-3">

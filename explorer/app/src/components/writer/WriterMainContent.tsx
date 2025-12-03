@@ -10,7 +10,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
-import type { AppLogEntry, KeyBundle } from "../../types";
+import type { AppLogEntry, KeyBundle, WriterUserSession } from "../../types";
 import { SectionCard } from "../common/SectionCard";
 import {
   backendWriteEnc as backendWriteEncService,
@@ -32,10 +32,16 @@ import {
   updateSchema as updateSchemaService,
 } from "../../services/writer/writerService";
 
+type AuthKeys = {
+  accountPublicKeyHex: string;
+  encryptionPublicKeyHex: string;
+};
 const PRIMARY_BUTTON =
   "inline-flex items-center justify-center rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const SECONDARY_BUTTON =
   "inline-flex items-center justify-center rounded border border-border bg-muted px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const DISABLED_BUTTON =
+  "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted/70 disabled:text-muted-foreground disabled:border-muted";
 export function WriterMainContent() {
   const {
     writerSection,
@@ -82,6 +88,8 @@ export function WriterMainContent() {
   const [backendHistory, setBackendHistory] = useState<
     Array<{ id: string; label: string; uri: string; result: any }>
   >([]);
+  const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
+  const [authKeys, setAuthKeys] = useState<AuthKeys | null>(null);
   const {
     appKey,
     accountPrivateKeyPem,
@@ -251,8 +259,17 @@ export function WriterMainContent() {
       accountPrivateKeyPem,
     });
     setWriterAppSession(res.session);
+    setSessionStartedAt(Date.now());
     addWriterOutput(res);
     logLine("apps", "Session created", "success");
+  };
+
+  const finishSession = () => {
+    setWriterAppSession("");
+    setWriterSession(null);
+    setAuthKeys(null);
+    setSessionStartedAt(null);
+    logLine("apps", "Session cleared", "info");
   };
 
   const signup = async (username: string, password: string) => {
@@ -263,6 +280,7 @@ export function WriterMainContent() {
       password,
     });
     setWriterSession(s);
+    await fetchKeysForSession(s);
     logLine("wallet", "Signup ok", "success");
     addWriterOutput(s);
   };
@@ -276,22 +294,39 @@ export function WriterMainContent() {
       password,
     });
     setWriterSession(s);
+    await fetchKeysForSession(s);
     logLine("wallet", "Login ok", "success");
     addWriterOutput(s);
   };
 
   // Google auth temporarily disabled
 
-  const myKeys = async () => {
-    if (!session) throw new Error("Session required");
-    const k = await fetchMyKeys({
+  const fetchKeysForSession = async (currentSession: WriterUserSession) => {
+    const keys = await fetchMyKeys({
       walletClient: requireWalletClient(),
       appKey,
-      session,
+      session: currentSession,
     });
-    addWriterOutput(k);
+    setAuthKeys(keys);
+    addWriterOutput(keys);
     logLine("wallet", "My keys ok", "info");
   };
+
+  useEffect(() => {
+    if (!session) {
+      setAuthKeys(null);
+      return;
+    }
+    if (writerSection === "auth") {
+      void fetchKeysForSession(session);
+    }
+  }, [session, writerSection]);
+
+  useEffect(() => {
+    if (appSession && !sessionStartedAt) {
+      setSessionStartedAt(Date.now());
+    }
+  }, [appSession, sessionStartedAt]);
 
   const backendWritePlain = async () => {
     const account = requireActiveAccount();
@@ -445,6 +480,12 @@ export function WriterMainContent() {
               />
             </>
           )}
+          {writerSection === "auth" && (
+            <div className="space-y-4">
+              <SessionStateCard sessionId={appSession} startedAt={sessionStartedAt} />
+              <AuthenticationStateCard session={session} keys={authKeys} />
+            </div>
+          )}
           {writerSection === "backend"
             ? <BackendHistory history={backendHistory} />
             : null}
@@ -520,13 +561,14 @@ export function WriterMainContent() {
             {writerSection === "auth" && (
               <div className="space-y-4">
                 <SessionCard
-                  createSession={() =>
-                    handleAction("Create session", createSession)}
+                  onStart={() =>
+                    handleAction("Start session", createSession)}
+                  onFinish={finishSession}
+                  hasSession={Boolean(appSession)}
                 />
                 <AuthSection
                   signup={(u, p) => handleAction("Signup", () => signup(u, p))}
                   login={(u, p) => handleAction("Login", () => login(u, p))}
-                  myKeys={() => handleAction("My keys", myKeys)}
                   googleMode={googleMode}
                   setGoogleMode={setGoogleMode}
                   googleButtonRef={googleButtonRef}
@@ -650,17 +692,119 @@ function BackendHistory(
   );
 }
 
-function SessionCard(props: {
-  createSession: () => void;
-}) {
+function SessionCard(
+  { onStart, onFinish, hasSession }: {
+    onStart: () => void;
+    onFinish: () => void;
+    hasSession: boolean;
+  },
+) {
   return (
     <SectionCard title="Session" icon={<KeyRound className="h-4 w-4" />}>
       <div className="flex flex-wrap gap-2">
-        <button onClick={props.createSession} className={SECONDARY_BUTTON}>
-          Create Session
+        <button
+          onClick={onStart}
+          type="button"
+          className={`${SECONDARY_BUTTON} ${DISABLED_BUTTON}`}
+          disabled={hasSession}
+        >
+          Start
         </button>
+        {hasSession && (
+          <button
+            type="button"
+            onClick={onFinish}
+            className={PRIMARY_BUTTON}
+          >
+            Finish
+          </button>
+        )}
       </div>
     </SectionCard>
+  );
+}
+
+function SessionStateCard(
+  { sessionId, startedAt }: { sessionId: string; startedAt: number | null },
+) {
+  const hasSession = Boolean(sessionId);
+  const startedLabel = startedAt
+    ? new Date(startedAt).toLocaleString()
+    : hasSession
+    ? "Unknown"
+    : "Not started";
+
+  return (
+    <SectionCard
+      title="Session"
+      icon={<KeyRound className="h-4 w-4" />}
+    >
+      <InfoTable
+        rows={[
+          {
+            label: "Session Id",
+            value: sessionId || "Not created",
+          },
+          {
+            label: "Start Time",
+            value: startedLabel,
+          },
+        ]}
+      />
+    </SectionCard>
+  );
+}
+
+function AuthenticationStateCard(
+  { session, keys }: { session: WriterUserSession | null; keys: AuthKeys | null },
+) {
+  const rows = [
+    { label: "Status", value: session ? "Authenticated" : "Not authenticated" },
+    ...(session
+      ? [
+        { label: "User", value: session.username },
+        { label: "Expires In", value: String(session.expiresIn) },
+        { label: "Token", value: session.token },
+      ]
+      : []),
+    ...(keys
+      ? [
+        { label: "Account Public Key", value: keys.accountPublicKeyHex },
+        { label: "Encryption Public Key", value: keys.encryptionPublicKeyHex },
+      ]
+      : []),
+  ];
+
+  return (
+    <SectionCard
+      title="Authentication"
+      icon={<ShieldCheck className="h-4 w-4" />}
+    >
+      <InfoTable rows={rows} />
+    </SectionCard>
+  );
+}
+
+function InfoTable({ rows }: { rows: Array<{ label: string; value: string }> }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-background">
+      <table className="w-full text-sm">
+        <tbody className="divide-y divide-border">
+          {rows.map((row) => (
+            <tr key={row.label} className="align-top">
+              <td className="w-1/3 bg-muted/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {row.label}
+              </td>
+              <td className="px-3 py-2">
+                <span className="font-mono break-all text-xs">
+                  {row.value || "—"}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -1002,7 +1146,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function AuthSection(props: {
   signup: (u: string, p: string) => void;
   login: (u: string, p: string) => void;
-  myKeys: () => void;
   googleMode: "signup" | "login";
   setGoogleMode: (mode: "signup" | "login") => void;
   googleButtonRef: RefObject<HTMLDivElement | null>;
@@ -1042,9 +1185,6 @@ function AuthSection(props: {
           className={authMode === "login" ? PRIMARY_BUTTON : SECONDARY_BUTTON}
         >
           Login
-        </button>
-        <button onClick={props.myKeys} className={SECONDARY_BUTTON}>
-          My Keys
         </button>
       </div>
 

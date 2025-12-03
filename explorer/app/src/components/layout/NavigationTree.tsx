@@ -72,9 +72,11 @@ export function NavigationTree() {
 
   const handleNodeClick = useCallback(
     (node: NavigationNode) => {
-      navigate(routeForExplorerPath(node.path));
       if (node.type === "directory") {
         handleToggle(node.path);
+        navigate(routeForExplorerPath(node.path));
+      } else {
+        navigate(routeForExplorerPath(node.path));
       }
     },
     [navigate, handleToggle],
