@@ -8,6 +8,7 @@ import type {
   AppState,
   BackendConfig,
   EndpointConfig,
+  ManagedAccount,
   PanelState,
   ThemeMode,
   WriterSection,
@@ -163,6 +164,8 @@ const initialState: Omit<AppState, "backendsReady"> = {
   writerLastResolvedUri: null,
   writerLastAppUri: null,
   writerOutputs: [],
+  accounts: [],
+  activeAccountId: null,
   formState: {},
   searchQuery: "",
   searchHistory: [],
@@ -532,6 +535,27 @@ export const useAppStore = create<AppStore>()(
           }));
         },
 
+        addAccount: (account: ManagedAccount) => {
+          set((state) => ({
+            accounts: [account, ...state.accounts],
+            activeAccountId: account.id,
+          }));
+        },
+
+        removeAccount: (id: string) => {
+          set((state) => {
+            const nextAccounts = state.accounts.filter((a) => a.id !== id);
+            const nextActive = state.activeAccountId === id
+              ? nextAccounts[0]?.id || null
+              : state.activeAccountId;
+            return { accounts: nextAccounts, activeAccountId: nextActive };
+          });
+        },
+
+        setActiveAccount: (id: string | null) => {
+          set({ activeAccountId: id });
+        },
+
         setFormValue: (formId, field, value) => {
           set((state) => ({
             formState: {
@@ -633,6 +657,8 @@ export const useAppStore = create<AppStore>()(
           panels: state.panels,
           bottomMaximized: state.bottomMaximized,
           writerOutputs: state.writerOutputs,
+          accounts: state.accounts,
+          activeAccountId: state.activeAccountId,
           theme: state.theme,
           searchHistory: state.searchHistory,
           watchedPaths: state.watchedPaths,
@@ -686,6 +712,8 @@ export const useAppStore = create<AppStore>()(
           state.writerLastResolvedUri = state.writerLastResolvedUri || null;
           state.writerLastAppUri = state.writerLastAppUri || null;
           state.writerOutputs = state.writerOutputs || [];
+          state.accounts = state.accounts || [];
+          state.activeAccountId = state.activeAccountId || null;
           state.panels = state.panels || { left: true, right: true, bottom: false };
           if (state.activeApp === "explorer" && state.writerSection) {
             state.panels.right = true;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import type { NavigationNode } from "../../types";
 import { Folder } from "lucide-react";
@@ -14,7 +15,8 @@ export function NavigationTree() {
   const activeBackend = useAppStore((state) =>
     state.backends.find((b) => b.id === state.activeBackendId),
   );
-  const { navigateToPath, expandedPaths, togglePathExpansion, loadSchemas } = useAppStore();
+  const { expandedPaths, togglePathExpansion, loadSchemas } = useAppStore();
+  const navigate = useNavigate();
 
   console.log("[NavigationTree] Render. rootNodes:", rootNodes, "schemas:", Object.keys(schemas), "activeBackend:", activeBackend?.id, "loading:", loading);
 
@@ -69,12 +71,12 @@ export function NavigationTree() {
 
   const handleNodeClick = useCallback(
     (node: NavigationNode) => {
-      navigateToPath(node.path);
+      navigate(routeForPath(node.path));
       if (node.type === "directory") {
         handleToggle(node.path);
       }
     },
-    [navigateToPath, handleToggle],
+    [navigate, handleToggle],
   );
 
   if (loading) {
@@ -116,4 +118,14 @@ export function NavigationTree() {
       )}
     </div>
   );
+}
+
+function routeForPath(path: string) {
+  if (!path || path === "/") return "/explorer";
+  const parts = path
+    .replace(/^\/+/, "")
+    .split("/")
+    .filter(Boolean)
+    .map((p) => encodeURIComponent(p));
+  return `/explorer/${parts.join("/")}`;
 }

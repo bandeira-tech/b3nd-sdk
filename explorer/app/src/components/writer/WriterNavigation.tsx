@@ -42,7 +42,7 @@ export function WriterNavigation() {
     {
       key: "configuration",
       label: "Configuration",
-      description: "App keys, Google Client ID, and origins",
+      description: "Auth keys and origins",
       icon: <Settings className="h-4 w-4" />,
     },
     {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Database, Plus, Trash2, CheckCircle, Info, KeyRound, Shield, Server } from "lucide-react";
+import { Database, Plus, Trash2, CheckCircle, Info, Shield, Server } from "lucide-react";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
 import { useAppStore } from "../../stores/appStore";
 import type { EndpointConfig } from "../../types";

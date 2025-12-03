@@ -1,6 +1,7 @@
 // React import not needed with react-jsx runtime
+import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
-import { Monitor, Moon, Settings, Sun, PenSquare, Compass } from "lucide-react";
+import { Monitor, Moon, Settings, Sun, PenSquare, Compass, Users } from "lucide-react";
 import { cn } from "../../utils";
 import type { ReactNode } from "react";
 
@@ -8,12 +9,15 @@ export function BrandHeader() {
   const {
     theme,
     setTheme,
-    setMainView,
     mainView,
     activeApp,
-    setActiveApp,
     panels,
+    accounts,
+    activeAccountId,
   } = useAppStore();
+  const navigate = useNavigate();
+
+  const activeAccount = accounts.find((a) => a.id === activeAccountId) || null;
 
   const handleThemeToggle = () => {
     const themes: Array<"light" | "dark" | "system"> = [
@@ -52,8 +56,7 @@ export function BrandHeader() {
           label="Explorer"
           icon={<Compass className="h-4 w-4" />}
           onClick={() => {
-            if (panels.right) setMainView("content");
-            setActiveApp("explorer");
+            navigate("/explorer");
           }}
         />
         <AppSwitchButton
@@ -61,14 +64,31 @@ export function BrandHeader() {
           label="Writer"
           icon={<PenSquare className="h-4 w-4" />}
           onClick={() => {
-            if (panels.right) setMainView("content");
-            setActiveApp("writer");
+            navigate("/writer");
           }}
         />
       </div>
 
       {/* Right side - Global controls */}
       <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-1">
+          {activeAccount?.emoji && (
+            <div className="text-lg leading-none">{activeAccount.emoji}</div>
+          )}
+          <button
+            onClick={() => {
+              navigate("/accounts");
+            }}
+            className={cn(
+              "p-1.5 rounded hover:bg-white/10 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+              mainView === "accounts" && "bg-white/10",
+            )}
+            title="Manage accounts"
+          >
+            <Users className="h-4 w-4" />
+          </button>
+        </div>
         <button
           onClick={handleThemeToggle}
           className={cn(

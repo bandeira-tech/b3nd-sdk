@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import type { AppLogEntry, KeyBundle } from "../../types";
+import { SectionCard } from "../common/SectionCard";
 import {
   backendWriteEnc as backendWriteEncService,
   backendWritePlain as backendWritePlainService,
@@ -49,8 +50,6 @@ export function WriterMainContent() {
     addLogEntry,
     keyBundle,
     setKeyBundle,
-    googleClientId,
-    setGoogleClientId,
     walletServers,
     activeWalletServerId,
     appServers,
@@ -66,9 +65,12 @@ export function WriterMainContent() {
   setWriterLastResolvedUri,
   setWriterLastAppUri,
     addWriterOutput,
+    accounts,
+    activeAccountId,
   } = useAppStore();
   const session = writerSession;
   const appSession = writerAppSession;
+  const activeAccount = accounts.find((a) => a.id === activeAccountId) || null;
   const activeWallet = walletServers.find((w) =>
     w.id === activeWalletServerId && w.isActive
   );
@@ -88,13 +90,6 @@ export function WriterMainContent() {
   const [backendHistory, setBackendHistory] = useState<
     Array<{ id: string; label: string; uri: string; result: any }>
   >([]);
-  const [backendKeys, setBackendKeys] = useState<KeyBundle>({
-    appKey: "",
-    accountPrivateKeyPem: "",
-    encryptionPublicKeyHex: "",
-    encryptionPrivateKeyPem: "",
-  });
-
   const {
     appKey,
     accountPrivateKeyPem,
@@ -140,6 +135,13 @@ export function WriterMainContent() {
     }
   };
 
+  const requireActiveAccount = () => {
+    if (!activeAccount) {
+      throw new Error("Active account is required");
+    }
+    return activeAccount;
+  };
+
   const handleAction = async (label: string, action: () => Promise<void>) => {
     try {
       await action();
@@ -173,7 +175,7 @@ export function WriterMainContent() {
   };
 
   const loadAppProfile = async () => {
-    ensureValue(appKey, "App key");
+    ensureValue(appKey, "Auth key");
     const res = await fetchAppProfileService({
       backendClient: requireBackendClient(),
       appKey,
@@ -199,25 +201,8 @@ export function WriterMainContent() {
     });
     logLine("local", "Generated app keys (identity + encryption)", "success");
   };
-  const genBackendKeys = async () => {
-    const bundle = await generateAppKeys();
-    setBackendKeys(bundle);
-    addWriterOutput({
-      context: "backend",
-      publicKeyHex: bundle.appKey,
-      privateKeyPem: bundle.accountPrivateKeyPem,
-      encryptionPublicKeyHex: bundle.encryptionPublicKeyHex,
-      encryptionPrivateKeyPem: bundle.encryptionPrivateKeyPem,
-    });
-    logLine(
-      "local",
-      "Generated backend keys (identity + encryption)",
-      "success",
-    );
-  };
-
   const saveAppProfile = async () => {
-    ensureValue(appKey, "App key");
+    ensureValue(appKey, "Auth key");
 
     const origins = allowedOrigins
       .split(",")
@@ -360,10 +345,11 @@ export function WriterMainContent() {
   };
 
   const backendWritePlain = async () => {
+    const account = requireActiveAccount();
     const { targetUri, response } = await backendWritePlainService({
       backendClient: requireBackendClient(),
-      appKey: backendKeys.appKey,
-      accountPrivateKeyPem: backendKeys.accountPrivateKeyPem,
+      appKey: account.keyBundle.appKey,
+      accountPrivateKeyPem: account.keyBundle.accountPrivateKeyPem,
       writeUri,
       writePayload,
     });
@@ -386,12 +372,13 @@ export function WriterMainContent() {
   };
 
   const backendWriteEnc = async () => {
-    ensureValue(backendKeys.encryptionPublicKeyHex, "Encryption public key");
+    const account = requireActiveAccount();
+    ensureValue(account.keyBundle.encryptionPublicKeyHex, "Encryption public key");
     const { targetUri, response } = await backendWriteEncService({
       backendClient: requireBackendClient(),
-      appKey: backendKeys.appKey,
-      accountPrivateKeyPem: backendKeys.accountPrivateKeyPem,
-      encryptionPublicKeyHex: backendKeys.encryptionPublicKeyHex,
+      appKey: account.keyBundle.appKey,
+      accountPrivateKeyPem: account.keyBundle.accountPrivateKeyPem,
+      encryptionPublicKeyHex: account.keyBundle.encryptionPublicKeyHex,
       writeUri,
       writePayload,
     });
@@ -511,7 +498,7 @@ export function WriterMainContent() {
         <div className="p-6 space-y-4 max-w-6xl mx-auto">
           {writerSection === "configuration" && (
             <>
-              <KeyDisplayCard title="Current App Keys" bundle={keyBundle} />
+              <KeyDisplayCard title="Current Auth Keys" bundle={keyBundle} />
               <CurrentProfileCard
                 currentProfile={currentAppProfile}
                 error={appProfileError}
@@ -539,10 +526,6 @@ export function WriterMainContent() {
                     handleAction("Backend write (plain)", backendWritePlain)}
                   backendWriteEnc={() =>
                     handleAction("Backend write (encrypted)", backendWriteEnc)}
-                />
-                <GenerateKeysCard
-                  onGenerate={() =>
-                    handleAction("Generate backend keys", genBackendKeys)}
                 />
               </div>
             )}
@@ -651,24 +634,6 @@ function WriterBreadcrumb(
         {labels[writerSection]}
       </span>
     </nav>
-  );
-}
-
-function SectionCard(
-  { title, icon, children }: {
-    title: string;
-    icon: ReactNode;
-    children: ReactNode;
-  },
-) {
-  return (
-    <section className="border border-border rounded-xl bg-card shadow-sm">
-      <div className="px-4 py-3 border-b border-border flex items-center space-x-2">
-        {icon}
-        <h3 className="font-semibold">{title}</h3>
-      </div>
-      <div className="p-4 space-y-4">{children}</div>
-    </section>
   );
 }
 
@@ -937,7 +902,7 @@ function KeysTable({ bundle }: { bundle: KeyBundle }) {
     value: string;
     isSecret?: boolean;
   }> = [
-    { label: "App Public Key", value: bundle.appKey },
+    { label: "Auth Public Key", value: bundle.appKey },
     { label: "Encryption Public Key", value: bundle.encryptionPublicKeyHex },
     {
       label: "Account Private Key",

@@ -191,19 +191,19 @@ function WriterOutputView() {
   const entries = writerOutputs;
 
   return (
-    <div className="p-4 space-y-3">
-      <div className="flex items-center gap-2 text-muted-foreground uppercase tracking-wide text-xs font-semibold">
+    <div className="h-full flex flex-col p-4 space-y-3">
+      <div className="flex items-center gap-2 text-muted-foreground uppercase tracking-wide text-xs font-semibold shrink-0">
         <Play className="h-3 w-3" />
         <span>Output</span>
       </div>
       {entries.length === 0
         ? (
-          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
             No output yet.
           </div>
         )
         : (
-          <div className="space-y-3 max-h-[360px] overflow-auto custom-scrollbar pr-1">
+          <div className="flex-1 space-y-3 overflow-auto custom-scrollbar pr-1">
             {entries.map((entry) => {
               const inferredUri = resolveOutputUri(entry);
               return (
@@ -284,11 +284,7 @@ function ConsoleView() {
         </div>
       )}
 
-      <div className="mt-4 pt-2 border-t border-border/50 flex items-center justify-between">
-        <div className="flex items-center space-x-2 text-muted-foreground">
-          <Terminal className="h-4 w-4" />
-          <span className="text-xs">Console ready</span>
-        </div>
+      <div className="pt-2 border-t border-border/50 flex justify-end">
         <button
           onClick={clearLogs}
           className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted"

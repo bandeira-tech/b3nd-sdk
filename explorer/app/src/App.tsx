@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter as Router } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAppStore } from "./stores/appStore";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -69,7 +69,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <div className="min-h-screen bg-background text-foreground">
-          <AppLayout />
+          <Routes>
+            <Route path="/explorer/*" element={<AppLayout />} />
+            <Route path="/accounts" element={<AppLayout />} />
+            <Route path="/writer" element={<AppLayout />} />
+            <Route path="*" element={<Navigate to="/explorer" replace />} />
+          </Routes>
         </div>
       </Router>
     </QueryClientProvider>

@@ -1,5 +1,6 @@
 // React import not needed with react-jsx runtime
 import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { BrandHeader } from "./BrandHeader";
 import { AppModeBar } from "./AppModeBar";
@@ -9,11 +10,25 @@ import { BottomPanel } from "./BottomPanel";
 import { BrandFooter } from "./BrandFooter";
 import { cn } from "../../utils";
 import { SettingsView, SettingsSidePanel } from "../settings/SettingsView";
+import { AccountsView, AccountsSidePanel } from "../accounts/AccountsView";
 
 export function AppLayout() {
-  const { panels, mainView, bottomMaximized, toggleBottomPanelMaximized, togglePanel } =
-    useAppStore();
+  const {
+    panels,
+    mainView,
+    bottomMaximized,
+    toggleBottomPanelMaximized,
+    togglePanel,
+    navigateToPath,
+    currentPath,
+    activeApp,
+    setActiveApp,
+    setMainView,
+  } = useAppStore();
+  const location = useLocation();
+  const navigate = useNavigate();
   const showSettings = mainView === "settings";
+  const showAccounts = mainView === "accounts";
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -43,6 +58,57 @@ export function AppLayout() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [panels.bottom, toggleBottomPanelMaximized, togglePanel]);
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.startsWith("/writer")) {
+      if (activeApp !== "writer") setActiveApp("writer");
+      if (mainView !== "content") setMainView("content");
+      return;
+    }
+    if (path.startsWith("/accounts")) {
+      if (mainView !== "accounts") setMainView("accounts");
+      if (activeApp !== "explorer") setActiveApp("explorer");
+      return;
+    }
+    if (!path.startsWith("/explorer")) return;
+
+    const explorerPath = parseExplorerPath(path);
+    if (explorerPath !== null && explorerPath !== currentPath) {
+      navigateToPath(explorerPath);
+    }
+    if (activeApp !== "explorer") setActiveApp("explorer");
+    if (mainView !== "content") setMainView("content");
+  }, [
+    location.pathname,
+    currentPath,
+    navigateToPath,
+    activeApp,
+    setActiveApp,
+    setMainView,
+    mainView,
+  ]);
+
+  const parseExplorerPath = (routePath: string) => {
+    if (!routePath.startsWith("/explorer")) return null;
+    const raw = routePath.replace(/^\/explorer\/?/, "");
+    if (!raw) return "/";
+    const segments = raw
+      .split("/")
+      .filter(Boolean)
+      .map((s) => decodeURIComponent(s));
+    return "/" + segments.join("/");
+  };
+
+  const formatExplorerRoute = (pathValue: string) => {
+    if (!pathValue || pathValue === "/") return "/explorer";
+    const parts = pathValue
+      .replace(/^\/+/, "")
+      .split("/")
+      .filter(Boolean)
+      .map((p) => encodeURIComponent(p));
+    return `/explorer/${parts.join("/")}`;
+  };
 
   return (
     <div className="flex flex-col h-screen">
@@ -83,6 +149,26 @@ export function AppLayout() {
                     </div>
                   </div>
                   {panels.right && <SettingsSidePanel />}
+                </div>
+              ) : showAccounts ? (
+                <div className="h-full flex overflow-hidden bg-background text-foreground">
+                  <div className="flex-1 overflow-auto custom-scrollbar">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-muted/30">
+                      <nav className="flex items-center space-x-2 text-sm">
+                        <span className="font-medium text-foreground">Accounts</span>
+                      </nav>
+                    </div>
+                    <div className="p-6 space-y-4 w-full max-w-6xl mx-auto">
+                      <AccountsView />
+                    </div>
+                  </div>
+                  {panels.right && (
+                    <div className="w-[360px] border-l border-border bg-card">
+                      <div className="h-full overflow-auto custom-scrollbar p-4">
+                        <AccountsSidePanel />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <MainContent />

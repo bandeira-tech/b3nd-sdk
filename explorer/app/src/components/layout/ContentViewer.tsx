@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { useActiveBackend } from "../../stores/appStore";
@@ -315,7 +316,7 @@ function FileViewer({
 }
 
 function DirectoryViewer({ contents }: { contents: NavigationNode[] }) {
-  const { navigateToPath } = useAppStore();
+  const navigate = useNavigate();
 
   return (
     <div className="p-4 space-y-4">
@@ -330,13 +331,13 @@ function DirectoryViewer({ contents }: { contents: NavigationNode[] }) {
             className="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             onClick={() => {
               console.log("DirectoryViewer clicked item:", item.path); // Debug
-              navigateToPath(item.path);
+              navigate(routeForPath(item.path));
             }}
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                navigateToPath(item.path);
+                navigate(routeForPath(item.path));
               }
             }}
           >
@@ -360,4 +361,14 @@ function DirectoryViewer({ contents }: { contents: NavigationNode[] }) {
       </div>
     </div>
   );
+}
+
+function routeForPath(path: string) {
+  if (!path || path === "/") return "/explorer";
+  const parts = path
+    .replace(/^\/+/, "")
+    .split("/")
+    .filter(Boolean)
+    .map((p) => encodeURIComponent(p));
+  return `/explorer/${parts.join("/")}`;
 }

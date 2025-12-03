@@ -82,7 +82,7 @@ export interface EndpointConfig {
 export type AppMode = "filesystem" | "search" | "watched";
 export type AppExperience = "explorer" | "writer";
 export type WriterSection = "backend" | "auth" | "actions" | "configuration" | "schema";
-export type AppMainView = "content" | "settings";
+export type AppMainView = "content" | "settings" | "accounts";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -104,6 +104,14 @@ export interface KeyBundle {
   accountPrivateKeyPem: string;
   encryptionPublicKeyHex: string;
   encryptionPrivateKeyPem: string;
+}
+
+export interface ManagedAccount {
+  id: string;
+  name: string;
+  keyBundle: KeyBundle;
+  createdAt: number;
+  emoji: string;
 }
 
 export interface WriterUserSession {
@@ -152,6 +160,8 @@ export interface AppState {
     timestamp: number;
     uri?: string;
   }>;
+  accounts: ManagedAccount[];
+  activeAccountId: string | null;
 
   formState: Record<string, Record<string, string>>;
 
@@ -205,6 +215,9 @@ export interface AppActions {
   setWriterLastResolvedUri: (uri: string | null) => void;
   setWriterLastAppUri: (uri: string | null) => void;
   addWriterOutput: (output: unknown, uri?: string) => void;
+  addAccount: (account: ManagedAccount) => void;
+  removeAccount: (id: string) => void;
+  setActiveAccount: (id: string | null) => void;
 
   setFormValue: (formId: string, field: string, value: string) => void;
   getFormValue: (formId: string, field: string, defaultValue?: string) => string;

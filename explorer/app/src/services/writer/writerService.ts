@@ -35,7 +35,7 @@ const signPayload = async (
   appKey: string,
   accountPrivateKeyPem: string,
 ) => {
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   const privateKey = await loadSigningKey(accountPrivateKeyPem);
   const data = new TextEncoder().encode(JSON.stringify(payload));
   const sig = await crypto.subtle.sign("Ed25519", privateKey, data);
@@ -155,7 +155,7 @@ export const updateOrigins = async (params: {
     allowedOrigins,
     encryptionPublicKeyHex,
   } = params;
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   const payload = {
     allowedOrigins: allowedOrigins.length > 0 ? allowedOrigins : ["*"],
     encryptionPublicKeyHex: encryptionPublicKeyHex || null,
@@ -180,7 +180,7 @@ export const saveAppProfile = async (params: {
     allowedOrigins,
     encryptionPublicKeyHex,
   } = params;
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   const profile = {
     googleClientId: googleClientId || null,
     allowedOrigins: allowedOrigins.length > 0 ? allowedOrigins : ["*"],
@@ -197,7 +197,7 @@ export const fetchAppProfile = async (params: {
   appKey: string;
 }) => {
   const { backendClient, appKey } = params;
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   const uri = `mutable://accounts/${appKey}/app-profile`;
   const res = await backendClient.read(uri);
   if (!res.success || !res.record) {
@@ -230,7 +230,7 @@ export const updateSchema = async (params: {
     accountPrivateKeyPem,
     encryptionPublicKeyHex,
   } = params;
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
 
   const act: any = {
     action: actionName,
@@ -256,7 +256,7 @@ export const fetchSchema = async (params: {
   appsClient: AppsClient;
   appKey: string;
 }) => {
-  ensureValue(params.appKey, "App key");
+  ensureValue(params.appKey, "Auth key");
   return params.appsClient.getSchema(params.appKey);
 };
 
@@ -266,7 +266,7 @@ export const createSession = async (params: {
   accountPrivateKeyPem: string;
 }) => {
   const { appsClient, appKey, accountPrivateKeyPem } = params;
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   const sessionValue = crypto.randomUUID().replace(/-/g, "");
   const message = await signPayload({ session: sessionValue }, appKey, accountPrivateKeyPem);
   return appsClient.createSession(appKey, message as any);
@@ -279,7 +279,7 @@ export const signupWithPassword = async (params: {
   password: string;
 }) => {
   const { walletClient, appKey, username, password } = params;
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   return walletClient.signupWithToken(appKey, { username, password });
 };
 
@@ -291,7 +291,7 @@ export const loginWithPassword = async (params: {
   password: string;
 }) => {
   const { walletClient, appKey, session, username, password } = params;
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   ensureValue(session, "Session");
   return walletClient.loginWithTokenSession(appKey, session, { username, password });
 };
@@ -303,7 +303,7 @@ export const googleSignup = async (params: {
 }) => {
   const { walletServerUrl, appKey, googleIdToken } = params;
   ensureValue(walletServerUrl, "Wallet server URL");
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   const response = await fetch(
     `${walletServerUrl.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/signup/${appKey}`,
     {
@@ -334,7 +334,7 @@ export const googleLogin = async (params: {
 }) => {
   const { walletServerUrl, appKey, appSession, googleIdToken } = params;
   ensureValue(walletServerUrl, "Wallet server URL");
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   const response = await fetch(
     `${walletServerUrl.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/login/${appKey}`,
     {
@@ -367,7 +367,7 @@ export const fetchMyKeys = async (params: {
   session: { username: string; token: string; expiresIn: number };
 }) => {
   const { walletClient, appKey, session } = params;
-  ensureValue(appKey, "App key");
+  ensureValue(appKey, "Auth key");
   walletClient.setSession(session);
   return walletClient.getPublicKeys(appKey);
 };

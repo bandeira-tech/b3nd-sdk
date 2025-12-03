@@ -1,5 +1,6 @@
 // React import not needed with react-jsx runtime
 import { Fragment } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { ContentViewer } from "./ContentViewer";
 import { FileText, User, Database, PenSquare, ChevronRight } from "lucide-react";
@@ -46,13 +47,13 @@ export function MainContent() {
 }
 
 function Breadcrumb({ path }: { path: string }) {
-  const { navigateToPath } = useAppStore();
+  const navigate = useNavigate();
   const segments = path === "/" ? [] : path.split("/").filter(Boolean);
 
   return (
     <nav className="flex items-center space-x-1 text-sm">
       <button
-        onClick={() => navigateToPath("/")}
+        onClick={() => navigate("/explorer")}
         className="px-2 py-1 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
       >
         <Database className="h-4 w-4" />
@@ -66,7 +67,7 @@ function Breadcrumb({ path }: { path: string }) {
           <Fragment key={pathTo}>
             <span className="text-muted-foreground">/</span>
             <button
-              onClick={() => navigateToPath(pathTo)}
+              onClick={() => navigate(routeForPath(pathTo))}
               className={`px-2 py-1 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
                 isLast
                   ? "text-foreground font-medium"
@@ -81,6 +82,16 @@ function Breadcrumb({ path }: { path: string }) {
       })}
     </nav>
   );
+}
+
+function routeForPath(path: string) {
+  if (!path || path === "/") return "/explorer";
+  const parts = path
+    .replace(/^\/+/, "")
+    .split("/")
+    .filter(Boolean)
+    .map((p) => encodeURIComponent(p));
+  return `/explorer/${parts.join("/")}`;
 }
 
 function SearchResults() {
