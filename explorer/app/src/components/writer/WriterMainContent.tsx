@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   ChevronRight,
@@ -23,6 +23,8 @@ import {
   fetchMyKeys,
   fetchSchema as fetchSchemaService,
   generateAppKeys,
+  googleLogin,
+  googleSignup,
   loginWithPassword,
   proxyWrite,
   saveAppProfile as saveAppProfileService,
@@ -31,6 +33,8 @@ import {
   signupWithPassword,
   updateSchema as updateSchemaService,
 } from "../../services/writer/writerService";
+
+let googleScriptPromise: Promise<void> | null = null;
 
 type AuthKeys = {
   accountPublicKeyHex: string;
@@ -52,6 +56,8 @@ export function WriterMainContent() {
     activeWalletServerId,
     appServers,
     activeAppServerId,
+    googleClientId,
+    setGoogleClientId,
     panels,
   togglePanel,
   setFormValue,
@@ -80,8 +86,6 @@ export function WriterMainContent() {
   const FORM_BACKEND = "writer-backend";
   const FORM_APP = "writer-app";
   const FORM_AUTH = "writer-auth";
-  const googleButtonRef = useRef<HTMLDivElement>(null);
-  const [googleMode, setGoogleMode] = useState<"signup" | "login">("signup");
   const [allowedOrigins, setAllowedOrigins] = useState("*");
   const [currentAppProfile, setCurrentAppProfile] = useState<unknown>(null);
   const [appProfileError, setAppProfileError] = useState<string | null>(null);
@@ -160,6 +164,13 @@ export function WriterMainContent() {
     return createWalletClient(activeWallet.url);
   };
 
+  const requireActiveWalletServer = () => {
+    if (!activeWallet) {
+      throw new Error("Active wallet server is required");
+    }
+    return activeWallet;
+  };
+
   const requireBackendClient = () => {
     if (!activeBackend) {
       throw new Error("Active backend is required");
@@ -187,6 +198,15 @@ export function WriterMainContent() {
     }
     setCurrentAppProfile(res.payload);
     setAppProfileError(null);
+    if (res.payload && typeof res.payload === "object") {
+      const profile = res.payload as Record<string, unknown>;
+      if (Array.isArray(profile.allowedOrigins)) {
+        setAllowedOrigins(profile.allowedOrigins.join(","));
+      }
+      if (typeof profile.googleClientId === "string") {
+        setGoogleClientId(profile.googleClientId);
+      }
+    }
     logLine("backend", `Loaded app profile from ${res.uri}`, "info");
   };
 
@@ -213,7 +233,7 @@ export function WriterMainContent() {
       backendClient: requireBackendClient(),
       appKey,
       accountPrivateKeyPem,
-      googleClientId: null,
+      googleClientId: googleClientId ? googleClientId.trim() : null,
       allowedOrigins: origins.length > 0 ? origins : ["*"],
       encryptionPublicKeyHex: encryptionPublicKeyHex || null,
     });
@@ -299,7 +319,35 @@ export function WriterMainContent() {
     addWriterOutput(s);
   };
 
-  // Google auth temporarily disabled
+  const handleGoogleSignup = async (idToken: string) => {
+    ensureValue(idToken, "Google ID token");
+    const walletServer = requireActiveWalletServer();
+    const s = await googleSignup({
+      walletServerUrl: walletServer.url,
+      appKey,
+      googleIdToken: idToken,
+    });
+    setWriterSession(s);
+    await fetchKeysForSession(s);
+    logLine("wallet", "Google signup ok", "success");
+    addWriterOutput(s);
+  };
+
+  const handleGoogleLogin = async (idToken: string) => {
+    ensureValue(idToken, "Google ID token");
+    ensureValue(appSession, "Session");
+    const walletServer = requireActiveWalletServer();
+    const s = await googleLogin({
+      walletServerUrl: walletServer.url,
+      appKey,
+      appSession,
+      googleIdToken: idToken,
+    });
+    setWriterSession(s);
+    await fetchKeysForSession(s);
+    logLine("wallet", "Google login ok", "success");
+    addWriterOutput(s);
+  };
 
   const fetchKeysForSession = async (currentSession: WriterUserSession) => {
     const keys = await fetchMyKeys({
@@ -530,6 +578,8 @@ export function WriterMainContent() {
                 <AppProfileCard
                   allowedOrigins={allowedOrigins}
                   setAllowedOrigins={setAllowedOrigins}
+                  googleClientId={googleClientId}
+                  setGoogleClientId={setGoogleClientId}
                   loadAppProfile={() =>
                     handleAction("Load app profile", loadAppProfile)}
                   saveAppProfile={() =>
@@ -567,11 +617,19 @@ export function WriterMainContent() {
                   hasSession={Boolean(appSession)}
                 />
                 <AuthSection
+                  disabled={!appSession}
+                  googleEnabled={Boolean(googleClientId)}
+                  googleClientId={googleClientId}
                   signup={(u, p) => handleAction("Signup", () => signup(u, p))}
                   login={(u, p) => handleAction("Login", () => login(u, p))}
-                  googleMode={googleMode}
-                  setGoogleMode={setGoogleMode}
-                  googleButtonRef={googleButtonRef}
+                  onGoogleCredential={(mode, token) =>
+                    handleAction(
+                      `Google ${mode}`,
+                      () =>
+                        mode === "signup"
+                          ? handleGoogleSignup(token)
+                          : handleGoogleLogin(token),
+                    )}
                 />
                 <ProxyWriteSection
                   formId={FORM_AUTH}
@@ -928,6 +986,8 @@ function InvokeActionCard(props: {
 function AppProfileCard(props: {
   allowedOrigins: string;
   setAllowedOrigins: (v: string) => void;
+  googleClientId: string;
+  setGoogleClientId: (v: string) => void;
   loadAppProfile: () => void;
   saveAppProfile: () => void;
 }) {
@@ -943,6 +1003,12 @@ function AppProfileCard(props: {
           value={props.allowedOrigins}
           onChange={props.setAllowedOrigins}
           placeholder="*,https://example.com"
+        />
+        <Field
+          label="Google Client ID"
+          value={props.googleClientId}
+          onChange={props.setGoogleClientId}
+          placeholder="your-google-client-id.apps.googleusercontent.com"
         />
       </div>
 
@@ -1144,17 +1210,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function AuthSection(props: {
+  disabled: boolean;
+  googleEnabled: boolean;
+  googleClientId: string;
   signup: (u: string, p: string) => void;
   login: (u: string, p: string) => void;
-  googleMode: "signup" | "login";
-  setGoogleMode: (mode: "signup" | "login") => void;
-  googleButtonRef: RefObject<HTMLDivElement | null>;
+  onGoogleCredential: (mode: "signup" | "login", idToken: string) => void;
 }) {
   const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const authModeRef = useRef<"signup" | "login">(authMode);
+  const googleClientIdRef = useRef<string | null>(null);
 
   const handleAuth = () => {
+    if (props.disabled) return;
     if (authMode === "signup") {
       props.signup(username, password);
     } else {
@@ -1162,11 +1234,84 @@ function AuthSection(props: {
     }
   };
 
-  // Sync authMode with googleMode
   const handleModeChange = (mode: "signup" | "login") => {
     setAuthMode(mode);
-    props.setGoogleMode(mode);
+    authModeRef.current = mode;
   };
+
+  useEffect(() => {
+    authModeRef.current = authMode;
+
+    const clientId = props.googleClientId.trim();
+    if (!props.googleEnabled || props.disabled || !clientId) {
+      if (googleButtonRef.current) {
+        googleButtonRef.current.innerHTML = "";
+      }
+      setGoogleReady(false);
+      return;
+    }
+
+    if (!googleScriptPromise) {
+      googleScriptPromise = new Promise<void>((resolve) => {
+        if (typeof (window as any).google?.accounts?.id !== "undefined") {
+          resolve();
+          return;
+        }
+        const existing = document.querySelector(
+          'script[src="https://accounts.google.com/gsi/client"]',
+        ) as HTMLScriptElement | null;
+        if (existing) {
+          existing.addEventListener("load", () => resolve(), { once: true });
+          return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://accounts.google.com/gsi/client";
+        script.async = true;
+        script.defer = true;
+        script.onload = () => resolve();
+        document.head.appendChild(script);
+      });
+    }
+
+    let cancelled = false;
+    googleScriptPromise.then(() => {
+      if (cancelled) return;
+      const google = (window as any).google;
+      if (!google?.accounts?.id || !googleButtonRef.current) return;
+
+      if (googleClientIdRef.current !== clientId) {
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response: { credential?: string }) => {
+            if (response.credential) {
+              props.onGoogleCredential(authModeRef.current, response.credential);
+            }
+          },
+        });
+        googleClientIdRef.current = clientId;
+      }
+
+      googleButtonRef.current.innerHTML = "";
+      google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        type: "standard",
+        text: authModeRef.current === "signup" ? "signup_with" : "signin_with",
+        shape: "rectangular",
+        logo_alignment: "left",
+      });
+      setGoogleReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    authMode,
+    props.disabled,
+    props.googleClientId,
+    props.googleEnabled,
+    props.onGoogleCredential,
+  ]);
 
   return (
     <SectionCard
@@ -1176,13 +1321,15 @@ function AuthSection(props: {
       <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => handleModeChange("signup")}
-          className={authMode === "signup" ? PRIMARY_BUTTON : SECONDARY_BUTTON}
+          className={`${authMode === "signup" ? PRIMARY_BUTTON : SECONDARY_BUTTON} ${props.disabled ? DISABLED_BUTTON : ""}`}
+          disabled={props.disabled}
         >
           Signup
         </button>
         <button
           onClick={() => handleModeChange("login")}
-          className={authMode === "login" ? PRIMARY_BUTTON : SECONDARY_BUTTON}
+          className={`${authMode === "login" ? PRIMARY_BUTTON : SECONDARY_BUTTON} ${props.disabled ? DISABLED_BUTTON : ""}`}
+          disabled={props.disabled}
         >
           Login
         </button>
@@ -1195,6 +1342,7 @@ function AuthSection(props: {
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Username"
             className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+            disabled={props.disabled}
           />
           <input
             value={password}
@@ -1202,12 +1350,41 @@ function AuthSection(props: {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
             className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+            disabled={props.disabled}
           />
         </div>
-        <button onClick={handleAuth} className={PRIMARY_BUTTON}>
+        <button
+          onClick={handleAuth}
+          className={`${PRIMARY_BUTTON} ${props.disabled ? DISABLED_BUTTON : ""}`}
+          disabled={props.disabled}
+        >
           Continue with Username & Password
         </button>
 
+        {props.googleEnabled && (
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">
+                Continue with Google ({authMode})
+              </label>
+              <div
+                ref={googleButtonRef}
+                className={props.disabled ? "opacity-50 pointer-events-none" : ""}
+              />
+            </div>
+            {!googleReady && (
+              <div className="text-xs text-muted-foreground">
+                Loading Google auth…
+              </div>
+            )}
+          </div>
+        )}
+
+        {props.disabled && (
+          <div className="text-xs text-muted-foreground">
+            Start a session to enable authentication.
+          </div>
+        )}
       </div>
     </SectionCard>
   );
