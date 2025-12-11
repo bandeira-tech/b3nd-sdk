@@ -106,13 +106,37 @@ export interface KeyBundle {
   encryptionPrivateKeyPem: string;
 }
 
-export interface ManagedAccount {
+export type ManagedAccountType = "account" | "application" | "application-user";
+
+export interface AccountAuthKeys {
+  accountPublicKeyHex: string;
+  encryptionPublicKeyHex: string;
+}
+
+interface BaseManagedAccount {
   id: string;
   name: string;
-  keyBundle: KeyBundle;
   createdAt: number;
   emoji: string;
 }
+
+export interface ManagedKeyAccount extends BaseManagedAccount {
+  type: "account" | "application";
+  keyBundle: KeyBundle;
+}
+
+export interface ManagedApplicationUserAccount extends BaseManagedAccount {
+  type: "application-user";
+  appAccountId: string;
+  appName: string;
+  appKey: string;
+  appSession: string;
+  userSession: WriterUserSession;
+  authKeys: AccountAuthKeys;
+  googleClientId: string | null;
+}
+
+export type ManagedAccount = ManagedKeyAccount | ManagedApplicationUserAccount;
 
 export interface WriterUserSession {
   username: string;

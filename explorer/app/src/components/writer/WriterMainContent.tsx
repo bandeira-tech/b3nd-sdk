@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   ChevronRight,
@@ -10,8 +10,14 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
-import type { AppLogEntry, KeyBundle, WriterUserSession } from "../../types";
+import type {
+  AppLogEntry,
+  KeyBundle,
+  ManagedKeyAccount,
+  WriterUserSession,
+} from "../../types";
 import { SectionCard } from "../common/SectionCard";
+import { AuthSection } from "../auth/AuthSection";
 import {
   backendWriteEnc as backendWriteEncService,
   backendWritePlain as backendWritePlainService,
@@ -34,8 +40,6 @@ import {
   updateSchema as updateSchemaService,
 } from "../../services/writer/writerService";
 
-let googleScriptPromise: Promise<void> | null = null;
-
 type AuthKeys = {
   accountPublicKeyHex: string;
   encryptionPublicKeyHex: string;
@@ -50,8 +54,6 @@ export function WriterMainContent() {
   const {
     writerSection,
     addLogEntry,
-    keyBundle,
-    setKeyBundle,
     walletServers,
     activeWalletServerId,
     appServers,
@@ -90,15 +92,10 @@ export function WriterMainContent() {
   const [currentAppProfile, setCurrentAppProfile] = useState<unknown>(null);
   const [appProfileError, setAppProfileError] = useState<string | null>(null);
   const [backendHistory, setBackendHistory] = useState<
-    Array<{ id: string; label: string; uri: string; result: any }>
+    Array<{ id: string; label: string; uri: string; result: unknown }>
   >([]);
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
   const [authKeys, setAuthKeys] = useState<AuthKeys | null>(null);
-  const {
-    appKey,
-    accountPrivateKeyPem,
-    encryptionPublicKeyHex,
-  } = keyBundle;
   const actionName = getFormValue(
     FORM_APP,
     "actionName",
@@ -139,11 +136,27 @@ export function WriterMainContent() {
     }
   };
 
-  const requireActiveAccount = () => {
+  const extractResolvedUri = (value: unknown) => {
+    if (value && typeof value === "object" && "resolvedUri" in value) {
+      const uri = (value as { resolvedUri?: unknown }).resolvedUri;
+      return typeof uri === "string" ? uri : undefined;
+    }
+    return undefined;
+  };
+
+  const getActiveAccount = (): ManagedAccount => {
     if (!activeAccount) {
       throw new Error("Active account is required");
     }
     return activeAccount;
+  };
+
+  const requireSigningAccount = (): ManagedKeyAccount => {
+    const account = getActiveAccount();
+    if (account.type === "application-user") {
+      throw new Error("Select an account with signing keys");
+    }
+    return account;
   };
 
   const handleAction = async (label: string, action: () => Promise<void>) => {
@@ -185,8 +198,16 @@ export function WriterMainContent() {
     return createAppsClient(activeAppServer.url);
   };
 
+  const requireApplicationAccount = (): ManagedKeyAccount => {
+    if (!activeAccount || activeAccount.type !== "application") {
+      throw new Error("Select an application account to continue");
+    }
+    return activeAccount;
+  };
+
   const loadAppProfile = async () => {
-    ensureValue(appKey, "Auth key");
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
     const res = await fetchAppProfileService({
       backendClient: requireBackendClient(),
       appKey,
@@ -210,18 +231,11 @@ export function WriterMainContent() {
     logLine("backend", `Loaded app profile from ${res.uri}`, "info");
   };
 
-  const genAppKeys = async () => {
-    const bundle = await generateAppKeys();
-    setKeyBundle(bundle);
-    addWriterOutput({
-      publicKeyHex: bundle.appKey,
-      privateKeyPem: bundle.accountPrivateKeyPem,
-      encryptionPublicKeyHex: bundle.encryptionPublicKeyHex,
-      encryptionPrivateKeyPem: bundle.encryptionPrivateKeyPem,
-    });
-    logLine("local", "Generated app keys (identity + encryption)", "success");
-  };
   const saveAppProfile = async () => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
+    const accountPrivateKeyPem = appAccount.keyBundle.accountPrivateKeyPem;
+    const encryptionPublicKeyHex = appAccount.keyBundle.encryptionPublicKeyHex;
     ensureValue(appKey, "Auth key");
 
     const origins = allowedOrigins
@@ -248,6 +262,10 @@ export function WriterMainContent() {
   };
 
   const updateSchema = async () => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
+    const accountPrivateKeyPem = appAccount.keyBundle.accountPrivateKeyPem;
+    const encryptionPublicKeyHex = appAccount.keyBundle.encryptionPublicKeyHex;
     const res = await updateSchemaService({
       appsClient: requireAppsClient(),
       appKey,
@@ -264,6 +282,8 @@ export function WriterMainContent() {
   };
 
   const fetchSchema = async () => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
     const res = await fetchSchemaService({
       appsClient: requireAppsClient(),
       appKey,
@@ -273,6 +293,9 @@ export function WriterMainContent() {
   };
 
   const createSession = async () => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
+    const accountPrivateKeyPem = appAccount.keyBundle.accountPrivateKeyPem;
     const res = await createSessionService({
       appsClient: requireAppsClient(),
       appKey,
@@ -293,6 +316,8 @@ export function WriterMainContent() {
   };
 
   const signup = async (username: string, password: string) => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
     const s = await signupWithPassword({
       walletClient: requireWalletClient(),
       appKey,
@@ -306,6 +331,8 @@ export function WriterMainContent() {
   };
 
   const login = async (username: string, password: string) => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
     const s = await loginWithPassword({
       walletClient: requireWalletClient(),
       appKey,
@@ -320,6 +347,8 @@ export function WriterMainContent() {
   };
 
   const handleGoogleSignup = async (idToken: string) => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
     ensureValue(idToken, "Google ID token");
     const walletServer = requireActiveWalletServer();
     const s = await googleSignup({
@@ -334,6 +363,8 @@ export function WriterMainContent() {
   };
 
   const handleGoogleLogin = async (idToken: string) => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
     ensureValue(idToken, "Google ID token");
     ensureValue(appSession, "Session");
     const walletServer = requireActiveWalletServer();
@@ -350,6 +381,8 @@ export function WriterMainContent() {
   };
 
   const fetchKeysForSession = async (currentSession: WriterUserSession) => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
     const keys = await fetchMyKeys({
       walletClient: requireWalletClient(),
       appKey,
@@ -377,7 +410,38 @@ export function WriterMainContent() {
   }, [appSession, sessionStartedAt]);
 
   const backendWritePlain = async () => {
-    const account = requireActiveAccount();
+    const account = getActiveAccount();
+    if (account.type === "application-user") {
+      if (!account.userSession) {
+        throw new Error("User session is required");
+      }
+      ensureValue(writePayload, "Write payload");
+      const data = JSON.parse(writePayload);
+      const result = await proxyWrite({
+        walletClient: requireWalletClient(),
+        session: account.userSession,
+        uri: writeUri,
+        data,
+        encrypt: false,
+      });
+      const resolvedUri = extractResolvedUri(result);
+      addWriterOutput(result, resolvedUri);
+      if (resolvedUri) {
+        setWriterLastResolvedUri(resolvedUri);
+      }
+      logLine("wallet", "Proxy write (plain) ok", "success");
+      setBackendHistory((prev) => [
+        {
+          id: crypto.randomUUID(),
+          label: "Proxy write (plain)",
+          uri: resolvedUri || writeUri,
+          result,
+        },
+        ...prev,
+      ]);
+      return;
+    }
+
     const { targetUri, response } = await backendWritePlainService({
       backendClient: requireBackendClient(),
       appKey: account.keyBundle.appKey,
@@ -404,7 +468,38 @@ export function WriterMainContent() {
   };
 
   const backendWriteEnc = async () => {
-    const account = requireActiveAccount();
+    const account = getActiveAccount();
+    if (account.type === "application-user") {
+      if (!account.userSession) {
+        throw new Error("User session is required");
+      }
+      ensureValue(writePayload, "Write payload");
+      const data = JSON.parse(writePayload);
+      const result = await proxyWrite({
+        walletClient: requireWalletClient(),
+        session: account.userSession,
+        uri: writeUri,
+        data,
+        encrypt: true,
+      });
+      const resolvedUri = extractResolvedUri(result);
+      addWriterOutput(result, resolvedUri);
+      if (resolvedUri) {
+        setWriterLastResolvedUri(resolvedUri);
+      }
+      logLine("wallet", "Proxy write (encrypted) ok", "success");
+      setBackendHistory((prev) => [
+        {
+          id: crypto.randomUUID(),
+          label: "Proxy write (encrypted)",
+          uri: resolvedUri || writeUri,
+          result,
+        },
+        ...prev,
+      ]);
+      return;
+    }
+
     ensureValue(account.keyBundle.encryptionPublicKeyHex, "Encryption public key");
     const { targetUri, response } = await backendWriteEncService({
       backendClient: requireBackendClient(),
@@ -446,7 +541,7 @@ export function WriterMainContent() {
       data,
       encrypt: false,
     });
-    const resolvedUri = (r as any).resolvedUri as string | undefined;
+    const resolvedUri = extractResolvedUri(r);
     addWriterOutput(r, resolvedUri);
     if (resolvedUri) {
       setWriterLastResolvedUri(resolvedUri);
@@ -466,7 +561,7 @@ export function WriterMainContent() {
       data,
       encrypt: true,
     });
-    const resolvedUri = (r as any).resolvedUri as string | undefined;
+    const resolvedUri = extractResolvedUri(r);
     addWriterOutput(r, resolvedUri);
     if (resolvedUri) {
       setWriterLastResolvedUri(resolvedUri);
@@ -475,6 +570,10 @@ export function WriterMainContent() {
   };
 
   const testAction = async () => {
+    const appAccount = requireApplicationAccount();
+    const appKey = appAccount.keyBundle.appKey;
+    const accountPrivateKeyPem = appAccount.keyBundle.accountPrivateKeyPem;
+    const encryptionPublicKeyHex = appAccount.keyBundle.encryptionPublicKeyHex;
     ensureValue(actionPayload, "Action payload");
     if (writeKind === "encrypted") {
       ensureValue(encryptionPublicKeyHex, "Encryption public key");
@@ -521,7 +620,7 @@ export function WriterMainContent() {
         <div className="p-6 space-y-4 max-w-6xl mx-auto">
           {writerSection === "configuration" && (
             <>
-              <KeyDisplayCard title="Current Auth Keys" bundle={keyBundle} />
+              <ApplicationAccountContext activeAccount={activeAccount} />
               <CurrentProfileCard
                 currentProfile={currentAppProfile}
                 error={appProfileError}
@@ -572,9 +671,6 @@ export function WriterMainContent() {
 
             {writerSection === "configuration" && (
               <div className="space-y-4">
-                <GenerateKeysCard
-                  onGenerate={() => handleAction("Generate keys", genAppKeys)}
-                />
                 <AppProfileCard
                   allowedOrigins={allowedOrigins}
                   setAllowedOrigins={setAllowedOrigins}
@@ -584,6 +680,7 @@ export function WriterMainContent() {
                     handleAction("Load app profile", loadAppProfile)}
                   saveAppProfile={() =>
                     handleAction("Save app profile", saveAppProfile)}
+                  disabled={!activeAccount || activeAccount.type !== "application"}
                 />
               </div>
             )}
@@ -616,21 +713,27 @@ export function WriterMainContent() {
                   onFinish={finishSession}
                   hasSession={Boolean(appSession)}
                 />
-                <AuthSection
-                  disabled={!appSession}
-                  googleEnabled={Boolean(googleClientId)}
-                  googleClientId={googleClientId}
-                  signup={(u, p) => handleAction("Signup", () => signup(u, p))}
-                  login={(u, p) => handleAction("Login", () => login(u, p))}
-                  onGoogleCredential={(mode, token) =>
-                    handleAction(
-                      `Google ${mode}`,
-                      () =>
-                        mode === "signup"
-                          ? handleGoogleSignup(token)
-                          : handleGoogleLogin(token),
-                    )}
-                />
+                <SectionCard title="Authentication" icon={<ShieldCheck className="h-4 w-4" />}>
+                  <AuthSection
+                    disabled={!appSession}
+                    googleEnabled={Boolean(googleClientId)}
+                    googleClientId={googleClientId}
+                    signup={(u, p) =>
+                      handleAction("Signup", () => signup(u, p))}
+                    login={(u, p) => handleAction("Login", () => login(u, p))}
+                    onGoogleCredential={(mode, token) =>
+                      handleAction(
+                        `Google ${mode}`,
+                        () =>
+                          mode === "signup"
+                            ? handleGoogleSignup(token)
+                            : handleGoogleLogin(token),
+                      )}
+                    primaryButtonClass={PRIMARY_BUTTON}
+                    secondaryButtonClass={SECONDARY_BUTTON}
+                    disabledClass={DISABLED_BUTTON}
+                  />
+                </SectionCard>
                 <ProxyWriteSection
                   formId={FORM_AUTH}
                   writePlain={() =>
@@ -659,7 +762,7 @@ function WriterBreadcrumb(
     backend: "Backend",
     auth: "Auth",
     actions: "Actions",
-    configuration: "Configuration",
+    configuration: "Application",
     schema: "Schema",
   };
 
@@ -712,7 +815,7 @@ function BackendSection(props: {
 
 function BackendHistory(
   { history }: {
-    history: Array<{ id: string; label: string; uri: string; result: any }>;
+    history: Array<{ id: string; label: string; uri: string; result: unknown }>;
   },
 ) {
   if (!history.length) {
@@ -990,7 +1093,10 @@ function AppProfileCard(props: {
   setGoogleClientId: (v: string) => void;
   loadAppProfile: () => void;
   saveAppProfile: () => void;
+  disabled?: boolean;
 }) {
+  const disabled = props.disabled || false;
+
   return (
     <SectionCard title="App Profile" icon={<FileText className="h-4 w-4" />}>
       <div className="text-xs text-muted-foreground mb-3">
@@ -1001,12 +1107,14 @@ function AppProfileCard(props: {
         <Field
           label="Allowed Origins (comma separated)"
           value={props.allowedOrigins}
+          disabled={disabled}
           onChange={props.setAllowedOrigins}
           placeholder="*,https://example.com"
         />
         <Field
           label="Google Client ID"
           value={props.googleClientId}
+          disabled={disabled}
           onChange={props.setGoogleClientId}
           placeholder="your-google-client-id.apps.googleusercontent.com"
         />
@@ -1015,14 +1123,24 @@ function AppProfileCard(props: {
       <div className="flex flex-wrap gap-2 mt-2">
         <button
           onClick={props.loadAppProfile}
-          className={SECONDARY_BUTTON}
+          className={`${SECONDARY_BUTTON} ${disabled ? DISABLED_BUTTON : ""}`}
+          disabled={disabled}
         >
           Load App Profile
         </button>
-        <button onClick={props.saveAppProfile} className={PRIMARY_BUTTON}>
+        <button
+          onClick={props.saveAppProfile}
+          className={`${PRIMARY_BUTTON} ${disabled ? DISABLED_BUTTON : ""}`}
+          disabled={disabled}
+        >
           Save App Profile
         </button>
       </div>
+      {disabled && (
+        <div className="text-xs text-muted-foreground mt-2">
+          Select an application account to manage its profile.
+        </div>
+      )}
     </SectionCard>
   );
 }
@@ -1209,183 +1327,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function AuthSection(props: {
-  disabled: boolean;
-  googleEnabled: boolean;
-  googleClientId: string;
-  signup: (u: string, p: string) => void;
-  login: (u: string, p: string) => void;
-  onGoogleCredential: (mode: "signup" | "login", idToken: string) => void;
-}) {
-  const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const googleButtonRef = useRef<HTMLDivElement | null>(null);
-  const [googleReady, setGoogleReady] = useState(false);
-  const authModeRef = useRef<"signup" | "login">(authMode);
-  const googleClientIdRef = useRef<string | null>(null);
-
-  const handleAuth = () => {
-    if (props.disabled) return;
-    if (authMode === "signup") {
-      props.signup(username, password);
-    } else {
-      props.login(username, password);
-    }
-  };
-
-  const handleModeChange = (mode: "signup" | "login") => {
-    setAuthMode(mode);
-    authModeRef.current = mode;
-  };
-
-  useEffect(() => {
-    authModeRef.current = authMode;
-
-    const clientId = props.googleClientId.trim();
-    if (!props.googleEnabled || props.disabled || !clientId) {
-      if (googleButtonRef.current) {
-        googleButtonRef.current.innerHTML = "";
-      }
-      setGoogleReady(false);
-      return;
-    }
-
-    if (!googleScriptPromise) {
-      googleScriptPromise = new Promise<void>((resolve) => {
-        if (typeof (window as any).google?.accounts?.id !== "undefined") {
-          resolve();
-          return;
-        }
-        const existing = document.querySelector(
-          'script[src="https://accounts.google.com/gsi/client"]',
-        ) as HTMLScriptElement | null;
-        if (existing) {
-          existing.addEventListener("load", () => resolve(), { once: true });
-          return;
-        }
-        const script = document.createElement("script");
-        script.src = "https://accounts.google.com/gsi/client";
-        script.async = true;
-        script.defer = true;
-        script.onload = () => resolve();
-        document.head.appendChild(script);
-      });
-    }
-
-    let cancelled = false;
-    googleScriptPromise.then(() => {
-      if (cancelled) return;
-      const google = (window as any).google;
-      if (!google?.accounts?.id || !googleButtonRef.current) return;
-
-      if (googleClientIdRef.current !== clientId) {
-        google.accounts.id.initialize({
-          client_id: clientId,
-          callback: (response: { credential?: string }) => {
-            if (response.credential) {
-              props.onGoogleCredential(authModeRef.current, response.credential);
-            }
-          },
-        });
-        googleClientIdRef.current = clientId;
-      }
-
-      googleButtonRef.current.innerHTML = "";
-      google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: "outline",
-        size: "large",
-        type: "standard",
-        text: authModeRef.current === "signup" ? "signup_with" : "signin_with",
-        shape: "rectangular",
-        logo_alignment: "left",
-      });
-      setGoogleReady(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    authMode,
-    props.disabled,
-    props.googleClientId,
-    props.googleEnabled,
-    props.onGoogleCredential,
-  ]);
+function ApplicationAccountContext(
+  { activeAccount }: { activeAccount: ManagedAccount | null },
+) {
+  const isApplication = activeAccount?.type === "application";
 
   return (
-    <SectionCard
-      title="Authentication"
-      icon={<ShieldCheck className="h-4 w-4" />}
-    >
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button
-          onClick={() => handleModeChange("signup")}
-          className={`${authMode === "signup" ? PRIMARY_BUTTON : SECONDARY_BUTTON} ${props.disabled ? DISABLED_BUTTON : ""}`}
-          disabled={props.disabled}
-        >
-          Signup
-        </button>
-        <button
-          onClick={() => handleModeChange("login")}
-          className={`${authMode === "login" ? PRIMARY_BUTTON : SECONDARY_BUTTON} ${props.disabled ? DISABLED_BUTTON : ""}`}
-          disabled={props.disabled}
-        >
-          Login
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        <div className="grid md:grid-cols-2 gap-3">
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Username"
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            disabled={props.disabled}
-          />
-          <input
-            value={password}
-            type="password"
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
-            disabled={props.disabled}
-          />
-        </div>
-        <button
-          onClick={handleAuth}
-          className={`${PRIMARY_BUTTON} ${props.disabled ? DISABLED_BUTTON : ""}`}
-          disabled={props.disabled}
-        >
-          Continue with Username & Password
-        </button>
-
-        {props.googleEnabled && (
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">
-                Continue with Google ({authMode})
-              </label>
-              <div
-                ref={googleButtonRef}
-                className={props.disabled ? "opacity-50 pointer-events-none" : ""}
-              />
-            </div>
-            {!googleReady && (
-              <div className="text-xs text-muted-foreground">
-                Loading Google auth…
+    <SectionCard title="Application Context" icon={<KeyRound className="h-4 w-4" />}>
+      {isApplication
+        ? (
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-lg leading-none">{activeAccount.emoji}</span>
+              <div>
+                <div className="font-semibold">{activeAccount.name}</div>
+                <div className="text-[11px] uppercase text-muted-foreground tracking-wide">
+                  Application Account
+                </div>
+                <div className="text-xs text-muted-foreground font-mono">
+                  {activeAccount.keyBundle.appKey}
+                </div>
               </div>
-            )}
+            </div>
+          </div>
+        )
+        : (
+          <div className="text-sm text-muted-foreground">
+            Select an application account in Accounts to manage its profile.
           </div>
         )}
-
-        {props.disabled && (
-          <div className="text-xs text-muted-foreground">
-            Start a session to enable authentication.
-          </div>
-        )}
-      </div>
     </SectionCard>
   );
 }

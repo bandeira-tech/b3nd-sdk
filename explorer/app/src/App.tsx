@@ -5,10 +5,7 @@ import { useAppStore } from "./stores/appStore";
 import { AppLayout } from "./components/layout/AppLayout";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import {
-  RIG_ACCOUNTS_PATH,
   RIG_EXPLORER_BASE_PATH,
-  RIG_SETTINGS_PATH,
-  RIG_WRITER_BASE_PATH,
 } from "./utils";
 import "./index.css";
 

@@ -1,5 +1,5 @@
 // React import not needed with react-jsx runtime
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { BrandHeader } from "./BrandHeader";
@@ -8,9 +8,10 @@ import { LeftPanel } from "./LeftPanel";
 import { MainContent } from "./MainContent";
 import { BottomPanel } from "./BottomPanel";
 import { BrandFooter } from "./BrandFooter";
-import { RIG_EXPLORER_BASE_PATH, cn } from "../../utils";
+import { cn } from "../../utils";
 import { SettingsView, SettingsSidePanel } from "../settings/SettingsView";
 import { AccountsView, AccountsSidePanel } from "../accounts/AccountsView";
+import type { ManagedAccountType } from "../../types";
 
 export function AppLayout() {
   const {
@@ -31,6 +32,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const showSettings = mainView === "settings";
   const showAccounts = mainView === "accounts";
+  const [accountCreationType, setAccountCreationType] = useState<ManagedAccountType>("account");
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -181,7 +183,10 @@ export function AppLayout() {
                   {panels.right && (
                     <div className="w-[360px] border-l border-border bg-card">
                       <div className="h-full overflow-auto custom-scrollbar p-4">
-                        <AccountsSidePanel />
+                        <AccountsSidePanel
+                          creationType={accountCreationType}
+                          setCreationType={setAccountCreationType}
+                        />
                       </div>
                     </div>
                   )}

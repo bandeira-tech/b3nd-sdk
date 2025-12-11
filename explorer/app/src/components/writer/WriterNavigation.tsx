@@ -43,8 +43,8 @@ export function WriterNavigation() {
   }> = [
     {
       key: "configuration",
-      label: "Configuration",
-      description: "Auth keys and origins",
+      label: "Application",
+      description: "Manage app profile",
       icon: <Settings className="h-4 w-4" />,
     },
     {
