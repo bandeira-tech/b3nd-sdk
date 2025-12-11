@@ -42,6 +42,50 @@ export interface SignedEncryptedMessage {
 }
 
 /**
+ * Convert a PEM-encoded private key to a CryptoKey
+ */
+export async function pemToCryptoKey(
+  pem: string,
+  algorithm: "Ed25519" | "X25519",
+): Promise<CryptoKey> {
+  const lines = pem
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith("---"));
+
+  if (lines.length === 0) {
+    throw new Error("Invalid PEM: no key data");
+  }
+
+  const base64 = lines.join("");
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const buffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  );
+
+  if (algorithm === "Ed25519") {
+    return await crypto.subtle.importKey(
+      "pkcs8",
+      buffer,
+      { name: "Ed25519", namedCurve: "Ed25519" },
+      false,
+      ["sign"],
+    );
+  }
+
+  return await crypto.subtle.importKey(
+    "pkcs8",
+    buffer,
+    { name: "X25519", namedCurve: "X25519" },
+    false,
+    ["deriveBits"],
+  );
+}
+
+/**
  * Generate an Ed25519 keypair for signing
  */
 export async function generateSigningKeyPair(): Promise<KeyPair> {

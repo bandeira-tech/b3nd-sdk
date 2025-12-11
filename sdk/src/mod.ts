@@ -54,3 +54,7 @@ export { firstMatchSequence } from "../clients/combinators/first-match-sequence.
 export { createServerNode } from "../servers/node.ts";
 export * as servers from "../servers/http.ts";
 export * as wsservers from "../servers/websocket.ts";
+
+// Crypto utilities
+export { pemToCryptoKey } from "../encrypt/mod.ts";
+export { deriveObfuscatedPath } from "../encrypt/utils.ts";
