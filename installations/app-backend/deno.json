@@ -6,9 +6,9 @@
     "hono": "npm:hono",
     "hono/cors": "npm:hono/cors",
     "@std/encoding/hex": "https://deno.land/std@0.208.0/encoding/hex.ts",
-    "@b3nd/sdk": "../../sdk/src/mod.ts",
-    "@b3nd/sdk/types": "../../sdk/src/types.ts",
-    "@b3nd/sdk/encrypt": "../../sdk/encrypt/mod.ts"
+    "@b3nd/sdk": "jsr:@bandeira-tech/b3nd-sdk@^0.2.1",
+    "@b3nd/sdk/types": "jsr:@bandeira-tech/b3nd-sdk@^0.2.1/types",
+    "@b3nd/sdk/encrypt": "jsr:@bandeira-tech/b3nd-sdk@^0.2.1/encrypt"
   },
   "tasks": {
     "dev": "deno run --allow-net --allow-read --allow-env --env-file --watch src/mod.ts",
@@ -19,4 +19,3 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable", "deno.ns"]
   }
 }
-

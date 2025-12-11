@@ -31,10 +31,10 @@ import { createJwt, verifyJwt } from "./jwt.ts";
 import { getUserPublicKeys } from "./keys.ts";
 import { proxyWrite } from "./proxy.ts";
 import {
+  type CredentialContext,
+  type CredentialPayload,
   getCredentialHandler,
   getSupportedCredentialTypes,
-  type CredentialPayload,
-  type CredentialContext,
 } from "./credentials.ts";
 
 interface BootstrapState {
@@ -52,11 +52,16 @@ function normalizeApiBasePath(path: string): string {
   return base.replace(/\/$/, "");
 }
 
-async function readBootstrapState(path: string): Promise<BootstrapState | null> {
+async function readBootstrapState(
+  path: string,
+): Promise<BootstrapState | null> {
   try {
     const text = await Deno.readTextFile(path);
     const parsed = JSON.parse(text) as Partial<BootstrapState>;
-    if (!parsed.appKey || !parsed.createdAt || !parsed.appServerUrl || !parsed.apiBasePath) {
+    if (
+      !parsed.appKey || !parsed.createdAt || !parsed.appServerUrl ||
+      !parsed.apiBasePath
+    ) {
       throw new Error(`Invalid bootstrap state file at ${path}`);
     }
     return parsed as BootstrapState;
@@ -68,7 +73,10 @@ async function readBootstrapState(path: string): Promise<BootstrapState | null> 
   }
 }
 
-async function writeBootstrapState(path: string, state: BootstrapState): Promise<void> {
+async function writeBootstrapState(
+  path: string,
+  state: BootstrapState,
+): Promise<void> {
   await Deno.writeTextFile(path, JSON.stringify(state, null, 2));
 }
 
@@ -77,7 +85,9 @@ async function ensureWalletAppRegistered(
   serverKeys: ReturnType<typeof loadServerKeys>,
 ): Promise<BootstrapState | null> {
   if (!config.appBackendUrl) {
-    console.warn("⚠️  APP_BACKEND_URL not set; skipping wallet app bootstrap registration");
+    console.warn(
+      "⚠️  APP_BACKEND_URL not set; skipping wallet app bootstrap registration",
+    );
     return null;
   }
 
@@ -103,7 +113,10 @@ async function ensureWalletAppRegistered(
 
   const signMessage = async (payload: unknown) =>
     await createAuthenticatedMessage(payload, [{
-      privateKey: await pemToCryptoKey(serverKeys.identityKey.privateKeyPem, "Ed25519"),
+      privateKey: await pemToCryptoKey(
+        serverKeys.identityKey.privateKeyPem,
+        "Ed25519",
+      ),
       publicKeyHex: appKey,
     }]);
 
@@ -111,18 +124,23 @@ async function ensureWalletAppRegistered(
     allowedOrigins: config.allowedOrigins,
     encryptionPublicKeyHex: serverKeys.encryptionKey.publicKeyHex,
   });
-  const originsRes = await fetch(`${appServerUrl}${normalizedApiBase}/apps/origins/${appKey}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${bootstrapJwt}`,
+  const originsRes = await fetch(
+    `${appServerUrl}${normalizedApiBase}/apps/origins/${appKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${bootstrapJwt}`,
+      },
+      body: JSON.stringify(originsMessage),
     },
-    body: JSON.stringify(originsMessage),
-  });
+  );
   const originsBody = await originsRes.json().catch(() => ({}));
   if (!originsRes.ok || !originsBody?.success) {
     throw new Error(
-      `Wallet app origins bootstrap failed: ${originsBody?.error || originsRes.statusText}`,
+      `Wallet app origins bootstrap failed: ${
+        originsBody?.error || originsRes.statusText
+      }`,
     );
   }
 
@@ -130,18 +148,23 @@ async function ensureWalletAppRegistered(
     actions: [] as any[],
     encryptionPublicKeyHex: serverKeys.encryptionKey.publicKeyHex,
   });
-  const schemaRes = await fetch(`${appServerUrl}${normalizedApiBase}/apps/schema/${appKey}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${bootstrapJwt}`,
+  const schemaRes = await fetch(
+    `${appServerUrl}${normalizedApiBase}/apps/schema/${appKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${bootstrapJwt}`,
+      },
+      body: JSON.stringify(schemaMessage),
     },
-    body: JSON.stringify(schemaMessage),
-  });
+  );
   const schemaBody = await schemaRes.json().catch(() => ({}));
   if (!schemaRes.ok || !schemaBody?.success) {
     throw new Error(
-      `Wallet app schema bootstrap failed: ${schemaBody?.error || schemaRes.statusText}`,
+      `Wallet app schema bootstrap failed: ${
+        schemaBody?.error || schemaRes.statusText
+      }`,
     );
   }
 
@@ -162,12 +185,29 @@ async function pemToCryptoKey(
   const base64 = pem.split("\n").filter((l) => !l.startsWith("-----")).join("");
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  const buffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
   if (algorithm === "Ed25519") {
-    return await crypto.subtle.importKey("pkcs8", buffer, { name: "Ed25519", namedCurve: "Ed25519" }, false, ["sign"]);
+    return await crypto.subtle.importKey(
+      "pkcs8",
+      buffer,
+      { name: "Ed25519", namedCurve: "Ed25519" },
+      false,
+      ["sign"],
+    );
   } else {
-    return await crypto.subtle.importKey("pkcs8", buffer, { name: "X25519", namedCurve: "X25519" }, false, ["deriveBits"]);
+    return await crypto.subtle.importKey(
+      "pkcs8",
+      buffer,
+      { name: "X25519", namedCurve: "X25519" },
+      false,
+      ["deriveBits"],
+    );
   }
 }
 
@@ -260,7 +300,10 @@ function createApp(
       const authHeader = c.req.header("Authorization");
 
       if (!appKey || typeof appKey !== "string") {
-        return c.json({ success: false, error: "appKey is required in URL" }, 400);
+        return c.json(
+          { success: false, error: "appKey is required in URL" },
+          400,
+        );
       }
       if (!authHeader?.startsWith("Bearer ")) {
         return c.json(
@@ -306,17 +349,30 @@ function createApp(
       const authHeader = c.req.header("Authorization");
 
       if (!appKey || typeof appKey !== "string") {
-        return c.json({ success: false, error: "appKey is required in URL" }, 400);
+        return c.json(
+          { success: false, error: "appKey is required in URL" },
+          400,
+        );
       }
 
       if (!authHeader?.startsWith("Bearer ")) {
-        return c.json({ success: false, error: "Authorization header required" }, 401);
+        return c.json({
+          success: false,
+          error: "Authorization header required",
+        }, 401);
       }
       const token = authHeader.substring(7);
       const payload = await verifyJwt(token, config.jwtSecret);
-      return c.json({ success: true, username: payload.username, exp: payload.exp });
+      return c.json({
+        success: true,
+        username: payload.username,
+        exp: payload.exp,
+      });
     } catch (error) {
-      return c.json({ success: false, error: error instanceof Error ? error.message : String(error) }, 401);
+      return c.json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      }, 401);
     }
   });
 
@@ -344,14 +400,19 @@ function createApp(
       const payload = await c.req.json() as CredentialPayload;
 
       if (!appKey || typeof appKey !== "string") {
-        return c.json({ success: false, error: "appKey is required in URL" }, 400);
+        return c.json(
+          { success: false, error: "appKey is required in URL" },
+          400,
+        );
       }
 
       if (!payload.type || typeof payload.type !== "string") {
         return c.json(
           {
             success: false,
-            error: `type is required. Supported types: ${getSupportedCredentialTypes().join(", ")}`,
+            error: `type is required. Supported types: ${
+              getSupportedCredentialTypes().join(", ")
+            }`,
           },
           400,
         );
@@ -377,7 +438,9 @@ function createApp(
         }
 
         if (!googleClientId) {
-          throw new Error("Google Client ID not configured for this app. Please set it in the app profile at mutable://accounts/{appKey}/app-profile");
+          throw new Error(
+            "Google Client ID not configured for this app. Please set it in the app profile at mutable://accounts/{appKey}/app-profile",
+          );
         }
       }
 
@@ -390,7 +453,7 @@ function createApp(
         serverEncryptionPublicKeyHex,
         serverEncryptionPrivateKeyPem: serverKeys.encryptionKey.privateKeyPem,
         appKey,
-        googleClientId: googleClientId || config.googleClientId,
+        googleClientId,
       };
 
       // Execute signup via handler
@@ -413,7 +476,10 @@ function createApp(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
-      if (message.includes("already exists") || message.includes("already registered")) {
+      if (
+        message.includes("already exists") ||
+        message.includes("already registered")
+      ) {
         return c.json(
           { success: false, error: message },
           409,
@@ -427,7 +493,10 @@ function createApp(
         );
       }
 
-      if (message.includes("not configured") || message.includes("Google") || message.includes("token")) {
+      if (
+        message.includes("not configured") || message.includes("Google") ||
+        message.includes("token")
+      ) {
         return c.json(
           { success: false, error: message },
           401,
@@ -452,7 +521,10 @@ function createApp(
       const payload = await c.req.json() as CredentialPayload;
 
       if (!appKey || typeof appKey !== "string") {
-        return c.json({ success: false, error: "appKey is required in URL" }, 400);
+        return c.json(
+          { success: false, error: "appKey is required in URL" },
+          400,
+        );
       }
 
       if (!payload.session || typeof payload.session !== "string") {
@@ -463,7 +535,9 @@ function createApp(
         return c.json(
           {
             success: false,
-            error: `type is required. Supported types: ${getSupportedCredentialTypes().join(", ")}`,
+            error: `type is required. Supported types: ${
+              getSupportedCredentialTypes().join(", ")
+            }`,
           },
           400,
         );
@@ -495,7 +569,9 @@ function createApp(
         }
 
         if (!googleClientId) {
-          throw new Error("Google Client ID not configured for this app. Please set it in the app profile at mutable://accounts/{appKey}/app-profile");
+          throw new Error(
+            "Google Client ID not configured for this app. Please set it in the app profile at mutable://accounts/{appKey}/app-profile",
+          );
         }
       }
 
@@ -508,7 +584,7 @@ function createApp(
         serverEncryptionPublicKeyHex,
         serverEncryptionPrivateKeyPem: serverKeys.encryptionKey.privateKeyPem,
         appKey,
-        googleClientId: googleClientId || config.googleClientId,
+        googleClientId,
       };
 
       // Execute login via handler
@@ -538,7 +614,10 @@ function createApp(
         );
       }
 
-      if (message.includes("not configured") || message.includes("Google") || message.includes("token")) {
+      if (
+        message.includes("not configured") || message.includes("Google") ||
+        message.includes("token")
+      ) {
         return c.json(
           { success: false, error: message },
           401,
@@ -558,214 +637,235 @@ function createApp(
    * Headers: Authorization: Bearer <jwt>
    * Body: { oldPassword: string, newPassword: string }
    */
-  app.post("/api/v1/auth/credentials/change-password/:appKey", async (c: Context) => {
-    try {
-      const appKey = c.req.param("appKey");
-      const authHeader = c.req.header("Authorization");
+  app.post(
+    "/api/v1/auth/credentials/change-password/:appKey",
+    async (c: Context) => {
+      try {
+        const appKey = c.req.param("appKey");
+        const authHeader = c.req.header("Authorization");
 
-      if (!appKey || typeof appKey !== "string") {
-        return c.json({ success: false, error: "appKey is required in URL" }, 400);
-      }
+        if (!appKey || typeof appKey !== "string") {
+          return c.json(
+            { success: false, error: "appKey is required in URL" },
+            400,
+          );
+        }
 
-      if (!authHeader?.startsWith("Bearer ")) {
+        if (!authHeader?.startsWith("Bearer ")) {
+          return c.json(
+            { success: false, error: "Authorization header required" },
+            401,
+          );
+        }
+
+        const token = authHeader.substring(7);
+
+        // Verify JWT
+        const payload = await verifyJwt(token, config.jwtSecret);
+        const username = payload.username;
+
+        const { oldPassword, newPassword } = await c.req.json() as any;
+
+        if (!oldPassword || !newPassword) {
+          return c.json(
+            {
+              success: false,
+              error: "oldPassword and newPassword are required",
+            },
+            400,
+          );
+        }
+
+        if (newPassword.length < 8) {
+          return c.json(
+            {
+              success: false,
+              error: "newPassword must be at least 8 characters",
+            },
+            400,
+          );
+        }
+
+        // Change password
+        await changePassword(
+          credentialClient,
+          serverPublicKey,
+          username,
+          oldPassword,
+          newPassword,
+          serverIdentityPrivateKeyPem,
+          serverIdentityPublicKeyHex,
+          serverEncryptionPublicKeyHex,
+          serverEncryptionPrivateKeyPem,
+          appKey,
+        );
+
+        return c.json({
+          success: true,
+          message: "Password changed successfully",
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (message.includes("expired")) {
+          return c.json({ success: false, error: message }, 401);
+        }
+
+        if (message.includes("incorrect")) {
+          return c.json({ success: false, error: message }, 401);
+        }
+
+        console.error("Change password error:", error);
         return c.json(
-          { success: false, error: "Authorization header required" },
-          401,
+          { success: false, error: message },
+          500,
         );
       }
-
-      const token = authHeader.substring(7);
-
-      // Verify JWT
-      const payload = await verifyJwt(token, config.jwtSecret);
-      const username = payload.username;
-
-      const { oldPassword, newPassword } = await c.req.json() as any;
-
-      if (!oldPassword || !newPassword) {
-        return c.json(
-          { success: false, error: "oldPassword and newPassword are required" },
-          400,
-        );
-      }
-
-      if (newPassword.length < 8) {
-        return c.json(
-          {
-            success: false,
-            error: "newPassword must be at least 8 characters",
-          },
-          400,
-        );
-      }
-
-      // Change password
-      await changePassword(
-        credentialClient,
-        serverPublicKey,
-        username,
-        oldPassword,
-        newPassword,
-        serverIdentityPrivateKeyPem,
-        serverIdentityPublicKeyHex,
-        serverEncryptionPublicKeyHex,
-        serverEncryptionPrivateKeyPem,
-        appKey,
-      );
-
-      return c.json({
-        success: true,
-        message: "Password changed successfully",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-
-      if (message.includes("expired")) {
-        return c.json({ success: false, error: message }, 401);
-      }
-
-      if (message.includes("incorrect")) {
-        return c.json({ success: false, error: message }, 401);
-      }
-
-      console.error("Change password error:", error);
-      return c.json(
-        { success: false, error: message },
-        500,
-      );
-    }
-  });
+    },
+  );
 
   /**
    * POST /api/v1/auth/credentials/request-password-reset/:appKey - Request password reset token
    * Body: { username: string }
    */
-  app.post("/api/v1/auth/credentials/request-password-reset/:appKey", async (c: Context) => {
-    try {
-      const appKey = c.req.param("appKey");
-      const { username } = await c.req.json() as any;
+  app.post(
+    "/api/v1/auth/credentials/request-password-reset/:appKey",
+    async (c: Context) => {
+      try {
+        const appKey = c.req.param("appKey");
+        const { username } = await c.req.json() as any;
 
-      if (!appKey || typeof appKey !== "string") {
-        return c.json({ success: false, error: "appKey is required in URL" }, 400);
-      }
-      if (!username) {
+        if (!appKey || typeof appKey !== "string") {
+          return c.json(
+            { success: false, error: "appKey is required in URL" },
+            400,
+          );
+        }
+        if (!username) {
+          return c.json(
+            { success: false, error: "username is required" },
+            400,
+          );
+        }
+
+        // Create reset token
+        const resetToken = await createPasswordResetToken(
+          credentialClient,
+          serverPublicKey,
+          username,
+          config.passwordResetTokenTtlSeconds,
+          serverIdentityPrivateKeyPem,
+          serverIdentityPublicKeyHex,
+          serverEncryptionPublicKeyHex,
+          appKey,
+        );
+
+        return c.json({
+          success: true,
+          message: "Password reset token created",
+          resetToken,
+          expiresIn: config.passwordResetTokenTtlSeconds,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (message.includes("not found")) {
+          return c.json(
+            { success: false, error: "User not found" },
+            404,
+          );
+        }
+
+        console.error("Request password reset error:", error);
         return c.json(
-          { success: false, error: "username is required" },
-          400,
+          { success: false, error: message },
+          500,
         );
       }
-
-      // Create reset token
-      const resetToken = await createPasswordResetToken(
-        credentialClient,
-        serverPublicKey,
-        username,
-        config.passwordResetTokenTtlSeconds,
-        serverIdentityPrivateKeyPem,
-        serverIdentityPublicKeyHex,
-        serverEncryptionPublicKeyHex,
-        appKey,
-      );
-
-      return c.json({
-        success: true,
-        message: "Password reset token created",
-        resetToken,
-        expiresIn: config.passwordResetTokenTtlSeconds,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-
-      if (message.includes("not found")) {
-        return c.json(
-          { success: false, error: "User not found" },
-          404,
-        );
-      }
-
-      console.error("Request password reset error:", error);
-      return c.json(
-        { success: false, error: message },
-        500,
-      );
-    }
-  });
+    },
+  );
 
   /**
    * POST /api/v1/auth/credentials/reset-password/:appKey - Reset password with token
    * Body: { username: string, resetToken: string, newPassword: string }
    */
-  app.post("/api/v1/auth/credentials/reset-password/:appKey", async (c: Context) => {
-    try {
-      const appKey = c.req.param("appKey");
-      const { username, resetToken, newPassword } = await c.req
-        .json() as any;
+  app.post(
+    "/api/v1/auth/credentials/reset-password/:appKey",
+    async (c: Context) => {
+      try {
+        const appKey = c.req.param("appKey");
+        const { username, resetToken, newPassword } = await c.req
+          .json() as any;
 
-      if (!appKey || typeof appKey !== "string") {
-        return c.json({ success: false, error: "appKey is required in URL" }, 400);
-      }
-      if (!username || !resetToken || !newPassword) {
+        if (!appKey || typeof appKey !== "string") {
+          return c.json(
+            { success: false, error: "appKey is required in URL" },
+            400,
+          );
+        }
+        if (!username || !resetToken || !newPassword) {
+          return c.json(
+            {
+              success: false,
+              error: "username, resetToken and newPassword are required",
+            },
+            400,
+          );
+        }
+
+        if (newPassword.length < 8) {
+          return c.json(
+            {
+              success: false,
+              error: "newPassword must be at least 8 characters",
+            },
+            400,
+          );
+        }
+
+        // Reset password
+        const resetUsername = await resetPasswordWithToken(
+          credentialClient,
+          serverPublicKey,
+          resetToken,
+          newPassword,
+          serverIdentityPrivateKeyPem,
+          serverIdentityPublicKeyHex,
+          serverEncryptionPublicKeyHex,
+          serverEncryptionPrivateKeyPem,
+          username,
+          appKey,
+        );
+
+        // Issue new JWT
+        const newToken = await createJwt(
+          resetUsername,
+          config.jwtSecret,
+          config.jwtExpirationSeconds,
+        );
+
+        return c.json({
+          success: true,
+          message: "Password reset successful",
+          username: resetUsername,
+          token: newToken,
+          expiresIn: config.jwtExpirationSeconds,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (message.includes("invalid") || message.includes("expired")) {
+          return c.json({ success: false, error: message }, 400);
+        }
+
+        console.error("Reset password error:", error);
         return c.json(
-          {
-            success: false,
-            error: "username, resetToken and newPassword are required",
-          },
-          400,
+          { success: false, error: message },
+          500,
         );
       }
-
-      if (newPassword.length < 8) {
-        return c.json(
-          {
-            success: false,
-            error: "newPassword must be at least 8 characters",
-          },
-          400,
-        );
-      }
-
-      // Reset password
-      const resetUsername = await resetPasswordWithToken(
-        credentialClient,
-        serverPublicKey,
-        resetToken,
-        newPassword,
-        serverIdentityPrivateKeyPem,
-        serverIdentityPublicKeyHex,
-        serverEncryptionPublicKeyHex,
-        serverEncryptionPrivateKeyPem,
-        username,
-        appKey,
-      );
-
-      // Issue new JWT
-      const newToken = await createJwt(
-        resetUsername,
-        config.jwtSecret,
-        config.jwtExpirationSeconds,
-      );
-
-      return c.json({
-        success: true,
-        message: "Password reset successful",
-        username: resetUsername,
-        token: newToken,
-        expiresIn: config.jwtExpirationSeconds,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-
-      if (message.includes("invalid") || message.includes("expired")) {
-        return c.json({ success: false, error: message }, 400);
-      }
-
-      console.error("Reset password error:", error);
-      return c.json(
-        { success: false, error: message },
-        500,
-      );
-    }
-  });
+    },
+  );
 
   /**
    * POST /api/v1/proxy/write - Proxy a write request with server signing
@@ -901,13 +1001,21 @@ async function main() {
     onListen: (addr) => {
       console.log(`\n✅ Server running at http://localhost:${config.port}`);
       console.log("\n📚 Available endpoints:");
-      console.log("   POST   /api/v1/auth/signup/:appKey - Register with any credential type");
-      console.log("   POST   /api/v1/auth/login/:appKey - Login with any credential type");
-      console.log("   POST   /api/v1/auth/credentials/change-password/:appKey - Change password");
+      console.log(
+        "   POST   /api/v1/auth/signup/:appKey - Register with any credential type",
+      );
+      console.log(
+        "   POST   /api/v1/auth/login/:appKey - Login with any credential type",
+      );
+      console.log(
+        "   POST   /api/v1/auth/credentials/change-password/:appKey - Change password",
+      );
       console.log(
         "   POST   /api/v1/auth/credentials/request-password-reset/:appKey - Request reset token",
       );
-      console.log("   POST   /api/v1/auth/credentials/reset-password/:appKey - Reset with token");
+      console.log(
+        "   POST   /api/v1/auth/credentials/reset-password/:appKey - Reset with token",
+      );
       console.log("   POST   /api/v1/proxy/write - Proxy write request");
       console.log(
         "   GET    /api/v1/auth/public-keys/:appKey - Get current user's public keys",
@@ -916,12 +1024,9 @@ async function main() {
       console.log("   GET    /api/v1/auth/verify/:appKey - Verify JWT token");
       console.log("   GET    /api/v1/health - Health check");
       const supportedTypes = getSupportedCredentialTypes();
-      console.log(`\n🔑 Supported credential types: ${supportedTypes.join(", ")}`);
-      if (config.googleClientId) {
-        console.log(`   Google OAuth enabled (Client ID: ${config.googleClientId.slice(0, 20)}...)`);
-      } else {
-        console.log("   Google OAuth not configured (set GOOGLE_CLIENT_ID to enable)");
-      }
+      console.log(
+        `\n🔑 Supported credential types: ${supportedTypes.join(", ")}`,
+      );
       console.log("");
     },
     handler: app.fetch,

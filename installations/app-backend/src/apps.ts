@@ -1,8 +1,7 @@
 import type { NodeProtocolInterface } from "@b3nd/sdk/types";
-import { createSignedEncryptedPayload } from "../../wallet-server/src/obfuscation.ts";
-import { deriveObfuscatedPath } from "../../wallet-server/src/obfuscation.ts";
-import { decodeHex, encodeHex } from "@std/encoding/hex";
-import { createAuthenticatedMessage, createSignedEncryptedMessage } from "@b3nd/sdk/encrypt";
+import { createSignedEncryptedMessage, type AuthenticatedMessage, verifyAndDecrypt } from "@b3nd/sdk/encrypt";
+import { pemToCryptoKey } from "@b3nd/sdk";
+import { verify, type AuthenticatedMessage } from "@b3nd/sdk/encrypt";
 
 export interface AppActionDef {
   action: string;
@@ -10,48 +9,37 @@ export interface AppActionDef {
   write: { encrypted?: string; plain?: string };
 }
 
-export interface AppRegistration {
-  appKey: string; // account public key hex (Ed25519)
-  accountPrivateKeyPem: string; // private key PEM (Ed25519)
-  encryptionPublicKeyHex?: string; // X25519 public key hex (optional, used for encrypted writes)
-  encryptionPrivateKeyPem?: string; // X25519 private key PEM (optional, enables server-side decryption)
-  allowedOrigins: string[];
-  actions: AppActionDef[];
-  tokens?: string[]; // internal token ids (not full tokens)
-}
-
 export interface StoredAppConfig {
   appKey: string;
   allowedOrigins: string[];
   actions: AppActionDef[];
-  // secrets stored encrypted in the record payload
+  encryptionPublicKeyHex: string | null;
+  googleClientId?: string | null;
 }
 
-export async function registerApp(
+export async function saveAppConfig(
   client: NodeProtocolInterface,
   serverPublicKey: string,
   serverIdentityPrivateKeyPem: string,
   serverIdentityPublicKeyHex: string,
   serverEncryptionPublicKeyHex: string,
-  reg: AppRegistration,
+  config: StoredAppConfig,
 ) {
   const payload = {
-    appKey: reg.appKey,
-    allowedOrigins: reg.allowedOrigins,
-    actions: reg.actions,
-    secrets: {
-      accountPrivateKeyPem: reg.accountPrivateKeyPem,
-      encryptionPublicKeyHex: reg.encryptionPublicKeyHex || null,
-      encryptionPrivateKeyPem: reg.encryptionPrivateKeyPem || null,
-      tokens: reg.tokens || [],
-    },
+    appKey: config.appKey,
+    allowedOrigins: config.allowedOrigins,
+    actions: config.actions,
+    encryptionPublicKeyHex: config.encryptionPublicKeyHex || null,
+    googleClientId: config.googleClientId || null,
   };
 
-  const path = `apps/${reg.appKey}`;
+  const path = `apps/${config.appKey}`;
   const signed = await createSignedEncryptedPayload(
     payload,
-    serverIdentityPrivateKeyPem,
-    serverIdentityPublicKeyHex,
+    [{
+      privateKey: await pemToCryptoKey(serverIdentityPrivateKeyPem, "Ed25519"),
+      publicKeyHex: serverIdentityPublicKeyHex,
+    }],
     serverEncryptionPublicKeyHex,
   );
   const uri = `mutable://accounts/${serverPublicKey}/${path}`;
@@ -64,32 +52,30 @@ export async function loadAppConfig(
   serverPublicKey: string,
   serverEncryptionPrivateKeyPem: string,
   appKey: string,
-): Promise<{
-  config: StoredAppConfig;
-  accountPrivateKeyPem: string;
-  encryptionPublicKeyHex: string | null;
-  encryptionPrivateKeyPem: string | null;
-  tokens: string[];
-}> {
+): Promise<StoredAppConfig> {
   const path = `apps/${appKey}`;
   const uri = `mutable://accounts/${serverPublicKey}/${path}`;
   const result = await client.read<any>(uri);
-  if (!result.success || !result.record?.data) throw new Error("app config not found");
+  if (!result.success || !result.record?.data) {
+    return {
+      appKey,
+      allowedOrigins: ["*"],
+      actions: [],
+      encryptionPublicKeyHex: null,
+    };
+  }
 
-  // decrypt using the same helper as wallet-server
-  const { decryptSignedEncryptedPayload } = await import("../../wallet-server/src/obfuscation.ts");
-  const { data } = await decryptSignedEncryptedPayload(result.record.data, serverEncryptionPrivateKeyPem);
+  const { data } = await verifyAndDecrypt(
+    result.record.data,
+    await pemToCryptoKey(serverEncryptionPrivateKeyPem, "X25519"),
+  );
   const obj = data as any;
   return {
-    config: {
-      appKey: obj.appKey,
-      allowedOrigins: obj.allowedOrigins,
-      actions: obj.actions,
-    },
-    accountPrivateKeyPem: obj.secrets.accountPrivateKeyPem,
-    encryptionPublicKeyHex: obj.secrets.encryptionPublicKeyHex,
-    encryptionPrivateKeyPem: obj.secrets.encryptionPrivateKeyPem || null,
-    tokens: Array.isArray(obj.secrets.tokens) ? obj.secrets.tokens : [],
+    appKey: obj.appKey,
+    allowedOrigins: obj.allowedOrigins || ["*"],
+    actions: Array.isArray(obj.actions) ? obj.actions : [],
+    encryptionPublicKeyHex: obj.encryptionPublicKeyHex || null,
+    googleClientId: obj.googleClientId || null,
   };
 }
 
@@ -103,74 +89,35 @@ export function validateString(val: string, rule?: { format?: "email" }): boolea
   return true;
 }
 
+export interface SignedRequest<T = unknown> extends AuthenticatedMessage<T> {}
+
+export async function verifySignedRequest<T>(appKey: string, message: SignedRequest<T>): Promise<boolean> {
+  if (!message?.auth || !Array.isArray(message.auth) || message.auth.length === 0) return false;
+  const signer = message.auth.find((a) => a.pubkey === appKey);
+  if (!signer?.signature) return false;
+  return await verify(appKey, signer.signature, message.payload);
+}
+
 export async function performActionWrite(
   proxyClient: NodeProtocolInterface,
   action: AppActionDef,
   appKey: string,
-  accountPrivateKeyPem: string,
-  encryptionPublicKeyHex: string | null,
-  payload: string,
+  signedPayload: SignedRequest<any>,
 ) {
   const writePath = action.write.encrypted || action.write.plain;
   if (!writePath) throw new Error("action write path not configured");
 
-  // Build :signature placeholder deterministically from payload
-  const enc = new TextEncoder().encode(payload);
+  const payloadForHash = typeof signedPayload.payload === "string"
+    ? signedPayload.payload
+    : JSON.stringify(signedPayload.payload);
+  const enc = new TextEncoder().encode(payloadForHash);
   const digest = await crypto.subtle.digest("SHA-256", enc);
-  const digestHex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+  const digestHex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 
   const uri = writePath
     .replace(/:key/g, appKey)
     .replace(/:signature/g, digestHex.substring(0, 32));
 
-  // Build signed message; encrypt if asked and key available
-  const signerKey = await pemToCryptoKey(accountPrivateKeyPem, "Ed25519");
-  const signer = { privateKey: signerKey, publicKeyHex: appKey } as const;
-
-  let message: unknown;
-  if (action.write.encrypted) {
-    if (!encryptionPublicKeyHex) throw new Error("encryption public key not configured for encrypted write");
-    message = await createSignedEncryptedMessage(payload, [signer], encryptionPublicKeyHex);
-  } else {
-    message = await createAuthenticatedMessage(payload, [signer]);
-  }
-
-  const result = await proxyClient.write(uri, message);
+  const result = await proxyClient.write(uri, signedPayload);
   return { uri, result };
-}
-
-async function pemToCryptoKey(
-  pem: string,
-  algorithm: "Ed25519" | "X25519" = "Ed25519"
-): Promise<CryptoKey> {
-  const base64 = pem
-    .split("\n")
-    .filter((line) => !line.startsWith("-----"))
-    .join("");
-
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-
-  if (algorithm === "Ed25519") {
-    return await crypto.subtle.importKey(
-      "pkcs8",
-      buffer,
-      { name: "Ed25519", namedCurve: "Ed25519" },
-      false,
-      ["sign"]
-    );
-  } else {
-    return await crypto.subtle.importKey(
-      "pkcs8",
-      buffer,
-      { name: "X25519", namedCurve: "X25519" },
-      false,
-      ["deriveBits"]
-    );
-  }
 }

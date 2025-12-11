@@ -35,38 +35,58 @@ interface ServerKeys {
  * Example: openssl genpkey -algorithm ed25519 -outform PEM
  */
 export function loadServerKeys(): ServerKeys {
-  const identityPrivateKeyPem = Deno.env.get("SERVER_IDENTITY_PRIVATE_KEY_PEM");
-  const identityPublicKeyHex = Deno.env.get("SERVER_IDENTITY_PUBLIC_KEY_HEX");
-  const encryptionPrivateKeyPem = Deno.env.get(
-    "SERVER_ENCRYPTION_PRIVATE_KEY_PEM"
+  const unwrapEnvValue = (value: string) => {
+    const trimmed = value.trim();
+    if (
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
+      return trimmed.slice(1, -1);
+    }
+    return trimmed;
+  };
+
+  const identityPrivateKeyPemRaw = Deno.env.get(
+    "SERVER_IDENTITY_PRIVATE_KEY_PEM",
   );
-  const encryptionPublicKeyHex = Deno.env.get(
-    "SERVER_ENCRYPTION_PUBLIC_KEY_HEX"
+  const identityPublicKeyHexRaw = Deno.env.get(
+    "SERVER_IDENTITY_PUBLIC_KEY_HEX",
+  );
+  const encryptionPrivateKeyPemRaw = Deno.env.get(
+    "SERVER_ENCRYPTION_PRIVATE_KEY_PEM",
+  );
+  const encryptionPublicKeyHexRaw = Deno.env.get(
+    "SERVER_ENCRYPTION_PUBLIC_KEY_HEX",
   );
 
-  if (!identityPrivateKeyPem) {
+  if (!identityPrivateKeyPemRaw) {
     throw new Error(
       "SERVER_IDENTITY_PRIVATE_KEY_PEM environment variable is required"
     );
   }
 
-  if (!identityPublicKeyHex) {
+  if (!identityPublicKeyHexRaw) {
     throw new Error(
       "SERVER_IDENTITY_PUBLIC_KEY_HEX environment variable is required"
     );
   }
 
-  if (!encryptionPrivateKeyPem) {
+  if (!encryptionPrivateKeyPemRaw) {
     throw new Error(
       "SERVER_ENCRYPTION_PRIVATE_KEY_PEM environment variable is required"
     );
   }
 
-  if (!encryptionPublicKeyHex) {
+  if (!encryptionPublicKeyHexRaw) {
     throw new Error(
       "SERVER_ENCRYPTION_PUBLIC_KEY_HEX environment variable is required"
     );
   }
+
+  const identityPrivateKeyPem = unwrapEnvValue(identityPrivateKeyPemRaw);
+  const identityPublicKeyHex = unwrapEnvValue(identityPublicKeyHexRaw);
+  const encryptionPrivateKeyPem = unwrapEnvValue(encryptionPrivateKeyPemRaw);
+  const encryptionPublicKeyHex = unwrapEnvValue(encryptionPublicKeyHexRaw);
 
   // Validate that public keys are exactly 64 hex characters (32 bytes raw)
   if (identityPublicKeyHex.length !== 64) {

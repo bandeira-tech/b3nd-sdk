@@ -42,7 +42,7 @@ Create a `.env` file (or set environment variables):
 
 ```bash
 # Server port
-WALLET_PORT=3001
+PORT=3001
 
 # B3nd backend URLs
 CREDENTIAL_NODE_URL=http://localhost:8080  # For storing user keys
@@ -172,6 +172,30 @@ Response:
   "expiresIn": 3600
 }
 ```
+
+## Container image
+
+Build an OCI image with the bundled Dockerfile:
+```bash
+docker build -t b3nd-wallet-server -f installations/wallet-server/Dockerfile installations/wallet-server
+```
+
+Run with your required configuration passed explicitly:
+```bash
+docker run --rm -p 8843:8843 \
+  -e PORT=8843 \
+  -e CREDENTIAL_NODE_URL=http://backend:8842 \
+  -e PROXY_NODE_URL=http://backend:8842 \
+  -e JWT_SECRET=replace-with-32-plus-char-secret \
+  -e SERVER_KEYS_PATH=/data/server-keys.json \
+  -e BOOTSTRAP_APP_STATE_PATH=/data/wallet-app-bootstrap.json \
+  -v "$(pwd)/wallet-data:/data" \
+  b3nd-wallet-server
+```
+
+Provide additional environment variables as needed (for example `APP_BACKEND_URL`, `APP_BACKEND_API_BASE_PATH`, or `ALLOWED_ORIGINS`). Mount a persistent volume for any files you expect to survive container restarts, such as the server key material and bootstrap state. You can also supply a prepared `.env` file via `--env-file` if you prefer to manage configuration outside the image.
+
+When using `--env-file`, avoid quoting the hex public keys; use `SERVER_IDENTITY_PUBLIC_KEY_HEX=abc...` (64 hex chars) rather than `"abc..."`. PEM values may include escaped newlines and can be quoted if needed.
 
 #### POST `/api/v1/auth/credentials/reset-password/:appKey`
 Reset password with a reset token.

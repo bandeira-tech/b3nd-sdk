@@ -6,7 +6,7 @@ interface AppBackendConfig {
 }
 
 export function loadConfig(): AppBackendConfig {
-  const port = Number(Deno.env.get("APP_PORT") || "8844");
+  const port = Number(Deno.env.get("PORT") || "8844");
   const dataNodeUrl = Deno.env.get("DATA_NODE_URL") || "http://localhost:8842";
   const walletServerUrl = Deno.env.get("WALLET_SERVER_URL") ||
     "http://localhost:8843";

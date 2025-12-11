@@ -19,11 +19,10 @@ interface WalletConfig {
   bootstrapStatePath: string;
   allowedOrigins: string[];
   passwordResetTokenTtlSeconds: number;
-  googleClientId: string | null; // Google OAuth Client ID (optional)
 }
 
 export function loadConfig(): WalletConfig {
-  const port = Number(Deno.env.get("WALLET_PORT") || "8843");
+  const port = Number(Deno.env.get("PORT") || "8843");
   const credentialNodeUrl = Deno.env.get("CREDENTIAL_NODE_URL") ||
     "http://localhost:8842";
   const proxyNodeUrl = Deno.env.get("PROXY_NODE_URL") ||
@@ -43,7 +42,6 @@ export function loadConfig(): WalletConfig {
   const passwordResetTokenTtlSeconds = Number(
     Deno.env.get("PASSWORD_RESET_TOKEN_TTL_SECONDS") || "3600",
   ); // 1 hour
-  const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID") || null;
 
   if (!jwtSecret || jwtSecret.length < 32) {
     throw new Error(
@@ -63,6 +61,5 @@ export function loadConfig(): WalletConfig {
     appBackendApiBasePath,
     allowedOrigins,
     passwordResetTokenTtlSeconds,
-    googleClientId,
   };
 }

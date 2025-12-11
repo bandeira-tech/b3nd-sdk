@@ -6,30 +6,16 @@ import type { Context } from "hono";
 import { HttpClient } from "@b3nd/sdk";
 
 import { loadConfig } from "./config.ts";
-import { loadServerKeys } from "../../wallet-server/src/server-keys.ts";
+import { loadServerKeys } from "./server-keys.ts";
 import {
-  registerApp,
   loadAppConfig,
   validateString,
   performActionWrite,
-  type AppRegistration,
+  saveAppConfig,
+  verifySignedRequest,
+  type SignedRequest,
+  type StoredAppConfig,
 } from "./apps.ts";
-
-async function pemToCryptoKey(
-  pem: string,
-  algorithm: "Ed25519" | "X25519" = "Ed25519",
-): Promise<CryptoKey> {
-  const base64 = pem.split("\n").filter((l) => !l.startsWith("-----")).join("");
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-  if (algorithm === "Ed25519") {
-    return await crypto.subtle.importKey("pkcs8", buffer, { name: "Ed25519", namedCurve: "Ed25519" }, false, ["sign"]);
-  } else {
-    return await crypto.subtle.importKey("pkcs8", buffer, { name: "X25519", namedCurve: "X25519" }, false, ["deriveBits"]);
-  }
-}
 
 async function main() {
   const config = loadConfig();
@@ -49,94 +35,132 @@ async function main() {
 
   app.get("/api/v1/health", (c) => c.json({ status: "ok", server: "b3nd-app-backend", ts: new Date().toISOString() }));
 
-  // Register app with schema and keys (requires identity and encryption)
-  // Helper to require wallet auth and get username
-  async function requireWalletAuth(c: Context): Promise<{ username: string } | null> {
-    const auth = c.req.header("Authorization");
-    if (!auth?.startsWith("Bearer ")) return null;
-    const r = await fetch(`${config.walletServerUrl}${config.walletApiBasePath}/auth/verify`, { headers: { Authorization: auth } });
-    if (!r.ok) return null;
-    const j = await r.json().catch(() => ({}));
-    if (!j?.success || !j?.username) return null;
-    return { username: j.username };
+  async function readSignedRequest<T>(c: Context): Promise<SignedRequest<T>> {
+    const body = await c.req.json().catch(() => null);
+    if (!body || typeof body !== "object") throw new Error("invalid signed request");
+    return body as SignedRequest<T>;
   }
 
-  app.post("/api/v1/apps/register", async (c) => {
-    const auth = await requireWalletAuth(c);
-    if (!auth) return c.json({ success: false, error: "unauthorized" }, 401);
-    const body = (await c.req.json()) as AppRegistration;
-    if (!body || !body.appKey || !body.accountPrivateKeyPem || !Array.isArray(body.allowedOrigins) || !Array.isArray(body.actions)) {
-      return c.json({ success: false, error: "invalid registration payload" }, 400);
-    }
-    // Require encryption public key to be set at registration time so future encrypted actions are possible
-    if (!body.encryptionPublicKeyHex) {
-      return c.json({ success: false, error: "encryptionPublicKeyHex required in registration" }, 400);
-    }
-    // Also accept/encourage storing encryption private key to enable server-side decryption for app reads
-    if (!body.encryptionPrivateKeyPem) {
-      return c.json({ success: false, error: "encryptionPrivateKeyPem required in registration" }, 400);
-    }
-    // create a token id and return composite token `${appKey}.${tokenId}`
-    const tokenIdBytes = crypto.getRandomValues(new Uint8Array(16));
-    const tokenId = Array.from(tokenIdBytes).map(b=>b.toString(16).padStart(2,"0")).join("");
-    const token = `${body.appKey}.${tokenId}`;
-
-    const res = await registerApp(
-      dataClient,
-      serverKeys.identityKey.publicKeyHex,
-      serverKeys.identityKey.privateKeyPem,
-      serverKeys.identityKey.publicKeyHex,
-      serverKeys.encryptionKey.publicKeyHex,
-      { ...body, tokens: [tokenId] },
-    );
-    if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
-    return c.json({ success: true, token, owner: auth.username });
-  });
-
-  // Update schema only
-  app.post("/api/v1/apps/:appKey/schema", async (c) => {
-    const auth = await requireWalletAuth(c);
-    if (!auth) return c.json({ success: false, error: "unauthorized" }, 401);
+  // Update allowed origins (and optional encryption public key)
+  app.post("/api/v1/apps/origins/:appKey", async (c) => {
     const appKey = c.req.param("appKey");
-    const actions = (await c.req.json()) as any[];
-    if (!Array.isArray(actions)) return c.json({ success: false, error: "invalid actions payload" }, 400);
+    try {
+      const message = await readSignedRequest<{
+        allowedOrigins?: string[];
+        encryptionPublicKeyHex?: string | null;
+      }>(c);
+      const valid = await verifySignedRequest(appKey, message);
+      if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
 
-    // Load current to preserve secrets and origins
-    const loaded = await loadAppConfig(
-      dataClient,
-      serverKeys.identityKey.publicKeyHex,
-      serverKeys.encryptionKey.privateKeyPem,
-      appKey,
-    );
-    // If new actions include encrypted writes but the stored config has no encryption key, block update
-    const wantsEncrypted = Array.isArray(actions) && actions.some((a: any) => a?.write?.encrypted);
-    if (wantsEncrypted && !loaded.encryptionPublicKeyHex) {
-      return c.json({ success: false, error: "encrypted actions require encryptionPublicKeyHex in app registration" }, 400);
+      const allowedOrigins = Array.isArray(message.payload.allowedOrigins) ? message.payload.allowedOrigins : ["*"];
+      const loaded = await loadAppConfig(
+        dataClient,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.encryptionKey.privateKeyPem,
+        appKey,
+      );
+      const merged: StoredAppConfig = {
+        appKey,
+        allowedOrigins,
+        actions: loaded.actions,
+        encryptionPublicKeyHex: message.payload.encryptionPublicKeyHex ?? loaded.encryptionPublicKeyHex ?? null,
+        googleClientId: loaded.googleClientId ?? null,
+      };
+      const res = await saveAppConfig(
+        dataClient,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.identityKey.privateKeyPem,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.encryptionKey.publicKeyHex,
+        merged,
+      );
+      if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json({ success: false, error: (error as Error).message || "failed" }, 400);
     }
-
-    const reg: AppRegistration = {
-      appKey,
-      accountPrivateKeyPem: loaded.accountPrivateKeyPem,
-      encryptionPublicKeyHex: loaded.encryptionPublicKeyHex || undefined,
-      allowedOrigins: loaded.config.allowedOrigins,
-      actions: actions as any,
-    };
-    const res = await registerApp(
-      dataClient,
-      serverKeys.identityKey.publicKeyHex,
-      serverKeys.identityKey.privateKeyPem,
-      serverKeys.identityKey.publicKeyHex,
-      serverKeys.encryptionKey.publicKeyHex,
-      reg,
-    );
-    if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
-    return c.json({ success: true });
   });
 
-  // Fetch current schema (redacted; no secrets)
-  app.get("/api/v1/apps/:appKey/schema", async (c) => {
-    const auth = await requireWalletAuth(c);
-    if (!auth) return c.json({ success: false, error: "unauthorized" }, 401);
+  // Update Google Client ID (signed by app key)
+  app.post("/api/v1/apps/google-client-id/:appKey", async (c) => {
+    const appKey = c.req.param("appKey");
+    try {
+      const message = await readSignedRequest<{ googleClientId: string | null }>(c);
+      const valid = await verifySignedRequest(appKey, message);
+      if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
+
+      const loaded = await loadAppConfig(
+        dataClient,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.encryptionKey.privateKeyPem,
+        appKey,
+      );
+      const merged: StoredAppConfig = {
+        ...loaded,
+        googleClientId: message.payload.googleClientId ?? null,
+      };
+      const res = await saveAppConfig(
+        dataClient,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.identityKey.privateKeyPem,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.encryptionKey.publicKeyHex,
+        merged,
+      );
+      if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json({ success: false, error: (error as Error).message || "failed" }, 400);
+    }
+  });
+
+  // Update schema only (signed by app key)
+  app.post("/api/v1/apps/schema/:appKey", async (c) => {
+    const appKey = c.req.param("appKey");
+    try {
+      const message = await readSignedRequest<{ actions: any[]; encryptionPublicKeyHex?: string | null }>(c);
+      const valid = await verifySignedRequest(appKey, message);
+      if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
+      if (!Array.isArray(message.payload.actions)) {
+        return c.json({ success: false, error: "invalid actions payload" }, 400);
+      }
+
+      const loaded = await loadAppConfig(
+        dataClient,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.encryptionKey.privateKeyPem,
+        appKey,
+      );
+      const wantsEncrypted = message.payload.actions.some((a: any) => a?.write?.encrypted);
+      const encryptionPublicKeyHex = message.payload.encryptionPublicKeyHex ?? loaded.encryptionPublicKeyHex ?? null;
+      if (wantsEncrypted && !encryptionPublicKeyHex) {
+        return c.json({ success: false, error: "encrypted actions require encryptionPublicKeyHex" }, 400);
+      }
+
+      const merged: StoredAppConfig = {
+        appKey,
+        allowedOrigins: loaded.allowedOrigins,
+        actions: message.payload.actions as any,
+        encryptionPublicKeyHex,
+        googleClientId: loaded.googleClientId ?? null,
+      };
+      const res = await saveAppConfig(
+        dataClient,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.identityKey.privateKeyPem,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.encryptionKey.publicKeyHex,
+        merged,
+      );
+      if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json({ success: false, error: (error as Error).message || "failed" }, 400);
+    }
+  });
+
+  // Fetch current schema (public)
+  app.get("/api/v1/apps/schema/:appKey", async (c) => {
     const appKey = c.req.param("appKey");
     try {
       const loaded = await loadAppConfig(
@@ -145,7 +169,7 @@ async function main() {
         serverKeys.encryptionKey.privateKeyPem,
         appKey,
       );
-      return c.json({ success: true, config: loaded.config });
+      return c.json({ success: true, config: loaded });
     } catch (e) {
       return c.json({ success: false, error: (e as Error).message || "not found" }, 404);
     }
@@ -174,15 +198,9 @@ async function main() {
       const raw = readRes.record.data;
       let data: unknown = raw;
       const hasPayload = raw && typeof raw === 'object' && 'payload' in (raw as any);
-      // If encrypted, decrypt using app's encryption private key
+      // If payload is present and not encrypted, unwrap it for convenience
       const maybeEncrypted = hasPayload && (raw as any).payload && typeof (raw as any).payload === 'object' && 'nonce' in (raw as any).payload && 'data' in (raw as any).payload;
-      if (maybeEncrypted) {
-        if (!loaded.encryptionPrivateKeyPem) return c.json({ success: false, error: "no encryptionPrivateKeyPem configured for app" }, 400);
-        const { verifyAndDecrypt } = await import("@b3nd/sdk/encrypt");
-        const encPriv = await pemToCryptoKey(loaded.encryptionPrivateKeyPem, "X25519");
-        const dec = await verifyAndDecrypt(raw as any, encPriv);
-        data = dec.data;
-      } else if (hasPayload) {
+      if (!maybeEncrypted && hasPayload) {
         data = (raw as any).payload;
       }
 
@@ -192,43 +210,40 @@ async function main() {
     }
   });
 
-  // Register a session for an app; body: { token: string }
+  // Register a session for an app; body: signed message { auth, payload: { session } }
   app.post("/api/v1/app/:appKey/session", async (c) => {
     const appKey = c.req.param("appKey");
     const origin = c.req.header("Origin") || c.req.header("origin");
-    if (!origin) return c.json({ success: false, error: "origin header required" }, 400);
-    const body = await c.req.json().catch(() => ({})) as { token?: string };
-    const token = body.token;
-    if (!token || typeof token !== "string") return c.json({ success: false, error: "token required" }, 400);
-    const [tokenAppKey, tokenId] = token.split(".");
-    if (!tokenAppKey || !tokenId || tokenAppKey !== appKey) return c.json({ success: false, error: "invalid token" }, 400);
+    try {
+      const message = await readSignedRequest<{ session?: string }>(c);
+      const valid = await verifySignedRequest(appKey, message);
+      if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
+      const session = message.payload.session;
+      if (!session || typeof session !== "string") {
+        return c.json({ success: false, error: "session required" }, 400);
+      }
 
-    const { config, accountPrivateKeyPem, encryptionPublicKeyHex, tokens } = await loadAppConfig(
-      dataClient,
-      serverKeys.identityKey.publicKeyHex,
-      serverKeys.encryptionKey.privateKeyPem,
-      appKey,
-    );
-    if (!config.allowedOrigins.includes("*") && !config.allowedOrigins.some((o) => origin.startsWith(o))) {
-      return c.json({ success: false, error: "origin not allowed" }, 403);
+      const loaded = await loadAppConfig(
+        dataClient,
+        serverKeys.identityKey.publicKeyHex,
+        serverKeys.encryptionKey.privateKeyPem,
+        appKey,
+      );
+      if (origin && !loaded.allowedOrigins.includes("*") && !loaded.allowedOrigins.some((o) => origin.startsWith(o))) {
+        return c.json({ success: false, error: "origin not allowed" }, 403);
+      }
+
+      const sigInput = new TextEncoder().encode(session);
+      const digest = await crypto.subtle.digest("SHA-256", sigInput);
+      const sigHex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("").substring(0, 32);
+      const uri = `mutable://accounts/${appKey}/sessions/${sigHex}`;
+
+      const res = await dataClient.write(uri, message);
+      if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
+      return c.json({ success: true, session, uri });
+    } catch (error) {
+      return c.json({ success: false, error: (error as Error).message || "failed" }, 400);
     }
-    if (!tokens.includes(tokenId)) return c.json({ success: false, error: "unknown token" }, 400);
-
-    // create session key
-    const sessionBytes = crypto.getRandomValues(new Uint8Array(16));
-    const session = Array.from(sessionBytes).map(b=>b.toString(16).padStart(2,"0")).join("");
-    const sigInput = new TextEncoder().encode(`${tokenId}.${session}`);
-    const digest = await crypto.subtle.digest("SHA-256", sigInput);
-    const sigHex = Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("").substring(0,32);
-    const uri = `mutable://accounts/${appKey}/sessions/${sigHex}`;
-
-    // sign (no encryption) with app account key
-    const { createAuthenticatedMessage } = await import("@b3nd/sdk/encrypt");
-    const signerKey = await pemToCryptoKey(accountPrivateKeyPem, "Ed25519");
-    const msg = await createAuthenticatedMessage(session, [{ privateKey: signerKey, publicKeyHex: appKey }]);
-    const res = await dataClient.write(uri, msg);
-    if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
-    return c.json({ success: true, session, uri });
   });
 
   // Invoke action (generic catch-all, must come after specific routes like /session)
@@ -239,10 +254,12 @@ async function main() {
     const origin = c.req.header("Origin") || c.req.header("origin");
     if (!origin) return c.json({ success: false, error: "origin header required" }, 400);
 
-    const payload = await c.req.text();
-    if (!payload || typeof payload !== "string") return c.json({ success: false, error: "string payload required" }, 400);
+    const signedMessage = await readSignedRequest<any>(c);
+    const valid = await verifySignedRequest(appKey, signedMessage);
+    if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
+    const payload = signedMessage.payload;
 
-    const { config, accountPrivateKeyPem, encryptionPublicKeyHex } = await loadAppConfig(
+    const config = await loadAppConfig(
       dataClient,
       serverKeys.identityKey.publicKeyHex,
       serverKeys.encryptionKey.privateKeyPem,
@@ -256,20 +273,12 @@ async function main() {
     const action = config.actions.find((a) => a.action === actionName);
     if (!action) return c.json({ success: false, error: "action not found" }, 404);
 
-    // Validate
-    if (!validateString(payload, action.validation?.stringValue)) {
+    // Validate (only for plain string payloads)
+    if (!action.write.encrypted && typeof payload === "string" && !validateString(payload, action.validation?.stringValue)) {
       return c.json({ success: false, error: "validation failed" }, 400);
     }
 
-    // Perform write
-    const { uri, result } = await performActionWrite(
-      dataClient,
-      action,
-      appKey,
-      accountPrivateKeyPem,
-      encryptionPublicKeyHex,
-      payload,
-    );
+    const { uri, result } = await performActionWrite(dataClient, action, appKey, signedMessage);
     if (!result.success) return c.json({ success: false, error: result.error || "write failed" }, 400);
     return c.json({ success: true, uri, record: result.record });
   });
@@ -280,9 +289,10 @@ async function main() {
     onListen: () => {
       console.log(`\n✅ App backend on http://localhost:${config.port}`);
       console.log("   GET    /api/v1/health");
-      console.log("   POST   /api/v1/apps/register");
-      console.log("   POST   /api/v1/apps/:appKey/schema");
-      console.log("   GET    /api/v1/apps/:appKey/schema");
+      console.log("   POST   /api/v1/apps/origins/:appKey");
+      console.log("   POST   /api/v1/apps/google-client-id/:appKey");
+      console.log("   POST   /api/v1/apps/schema/:appKey");
+      console.log("   GET    /api/v1/apps/schema/:appKey");
       console.log("   POST   /api/v1/app/:appKey/session");
       console.log("   GET    /api/v1/app/:appKey/read");
       console.log("   POST   /api/v1/app/:appKey/:action\n");

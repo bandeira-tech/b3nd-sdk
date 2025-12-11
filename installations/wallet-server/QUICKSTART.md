@@ -103,7 +103,7 @@ All user data stored in b3nd at:
 
 **Port 3001 already in use:**
 ```bash
-WALLET_PORT=3002 deno task dev
+PORT=3002 deno task dev
 ```
 
 **SDK module not found:**
