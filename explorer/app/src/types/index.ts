@@ -21,6 +21,8 @@ export interface SearchResult {
   snippet?: string;
 }
 
+export type ExplorerSection = "index" | "account";
+
 export interface SearchFilters {
   protocol?: string;
   domain?: string;
@@ -163,6 +165,10 @@ export interface AppState {
 
   // Navigation
   currentPath: string;
+  explorerSection: ExplorerSection;
+  explorerIndexPath: string;
+  explorerAccountKey: string | null;
+  explorerAccountPath: string;
   navigationHistory: string[];
   expandedPaths: Set<string>;
 
@@ -222,7 +228,14 @@ export interface AppActions {
   loadSchemas: () => Promise<void>;
 
   // Navigation actions
-  navigateToPath: (path: string) => void;
+  navigateToPath: (
+    path: string,
+    options?: { section?: ExplorerSection; accountKey?: string | null },
+  ) => void;
+  setExplorerSection: (section: ExplorerSection) => void;
+  setExplorerIndexPath: (path: string) => void;
+  setExplorerAccountKey: (accountKey: string | null) => void;
+  setExplorerAccountPath: (path: string) => void;
   togglePathExpansion: (path: string) => void;
   goBack: () => void;
   goForward: () => void;

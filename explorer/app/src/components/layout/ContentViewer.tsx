@@ -24,15 +24,17 @@ import { HttpAdapter } from "../../adapters/HttpAdapter";
 
 interface ContentViewerProps {
   path: string;
+  buildRoute?: (path: string) => string;
 }
 
-export function ContentViewer({ path }: ContentViewerProps) {
+export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
   const [record, setRecord] = useState<PersistenceRecord | null>(null);
   const [directoryContents, setDirectoryContents] = useState<NavigationNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeBackend = useActiveBackend();
   const { mode, rootNodes } = useAppStore();
+  const resolveRoute = buildRoute || routeForExplorerPath;
 
   const loadContent = useCallback(async () => {
     console.log(
@@ -99,7 +101,7 @@ export function ContentViewer({ path }: ContentViewerProps) {
   useEffect(() => {
     console.log("ContentViewer useEffect triggered for path:", path); // Debug
     loadContent();
-  }, [loadContent]); // Depend on callback (re-runs when path changes)
+  }, [loadContent, path]); // Depend on callback (re-runs when path changes)
 
   const copyToClipboard = async () => {
     if (!record) {
@@ -139,7 +141,7 @@ export function ContentViewer({ path }: ContentViewerProps) {
   }
 
   if (directoryContents.length > 0) {
-    return <DirectoryViewer contents={directoryContents} />;
+    return <DirectoryViewer contents={directoryContents} buildRoute={resolveRoute} />;
   }
 
   return (
@@ -316,7 +318,9 @@ function FileViewer({
   );
 }
 
-function DirectoryViewer({ contents }: { contents: NavigationNode[] }) {
+function DirectoryViewer(
+  { contents, buildRoute }: { contents: NavigationNode[]; buildRoute: (path: string) => string },
+) {
   const navigate = useNavigate();
 
   return (
@@ -332,13 +336,13 @@ function DirectoryViewer({ contents }: { contents: NavigationNode[] }) {
             className="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             onClick={() => {
               console.log("DirectoryViewer clicked item:", item.path); // Debug
-              navigate(routeForExplorerPath(item.path));
+              navigate(buildRoute(item.path));
             }}
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                navigate(routeForExplorerPath(item.path));
+                navigate(buildRoute(item.path));
               }
             }}
           >

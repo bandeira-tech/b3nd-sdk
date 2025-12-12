@@ -50,7 +50,9 @@ type IdentityDefaults = { name: string; emoji: string };
 
 export function AccountsView() {
   const { accounts, activeAccountId } = useAppStore();
-  const [listFilter, setListFilter] = useState<ManagedAccountType | "all">("all");
+  const [listFilter, setListFilter] = useState<ManagedAccountType | "all">(
+    "all",
+  );
   const activeAccount = useMemo(
     () => accounts.find((a) => a.id === activeAccountId) || null,
     [accounts, activeAccountId],
@@ -58,33 +60,41 @@ export function AccountsView() {
 
   return (
     <div className="space-y-4">
-      <SectionCard title="Active account" icon={<UserCircle className="h-4 w-4" />}>
+      <SectionCard
+        title="Active account"
+        icon={<UserCircle className="h-4 w-4" />}
+      >
         <ActiveAccountSummary activeAccount={activeAccount} />
       </SectionCard>
-      <SectionCard title="Accounts list" icon={<UserCircle className="h-4 w-4" />}>
+      <SectionCard
+        title="Accounts list"
+        icon={<UserCircle className="h-4 w-4" />}
+      >
         <div className="flex flex-wrap gap-2 mb-3">
-          {(["all", "account", "application", "application-user"] as const).map((type) => (
-            <button
-              key={type}
-              onClick={() => setListFilter(type)}
-              className={cn(
-                "inline-flex items-center gap-2 rounded px-3 py-1.5 text-xs font-semibold transition-colors border",
-                listFilter === type
-                  ? "border-primary bg-primary/10 text-foreground"
-                  : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/60",
-              )}
-            >
-              <span>{type === "all" ? "All" : ACCOUNT_TYPE_LABEL[type]}</span>
-            </button>
-          ))}
+          {(["all", "account", "application", "application-user"] as const).map(
+            (type) => (
+              <button
+                key={type}
+                onClick={() => setListFilter(type)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded px-3 py-1.5 text-xs font-semibold transition-colors border",
+                  listFilter === type
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                )}
+              >
+                <span>{type === "all" ? "All" : ACCOUNT_TYPE_LABEL[type]}</span>
+              </button>
+            )
+          )}
         </div>
-        {accounts.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
-            No accounts yet. Use the right panel to create one.
-          </div>
-        ) : (
-          <AccountsList filter={listFilter} />
-        )}
+        {accounts.length === 0
+          ? (
+            <div className="text-sm text-muted-foreground">
+              No accounts yet. Use the right panel to create one.
+            </div>
+          )
+          : <AccountsList filter={listFilter} />}
       </SectionCard>
     </div>
   );
@@ -129,12 +139,14 @@ export function AccountsSidePanel(
     return identityForIndex(nextIndex);
   };
   const applicationAccounts = useMemo(
-    () => accounts.filter((a): a is ManagedKeyAccount => a.type === "application"),
+    () =>
+      accounts.filter((a): a is ManagedKeyAccount => a.type === "application"),
     [accounts],
   );
 
   const requireAppsClient = () => {
-    const activeApp = appServers.find((w) => w.id === activeAppServerId && w.isActive) ||
+    const activeApp =
+      appServers.find((w) => w.id === activeAppServerId && w.isActive) ||
       appServers.find((w) => w.isActive);
     if (!activeApp) {
       throw new Error("Active app server is required");
@@ -143,9 +155,9 @@ export function AccountsSidePanel(
   };
 
   const requireWalletClient = () => {
-    const activeWallet = walletServers.find((w) =>
-      w.id === activeWalletServerId && w.isActive
-    ) || walletServers.find((w) => w.isActive);
+    const activeWallet =
+      walletServers.find((w) => w.id === activeWalletServerId && w.isActive) ||
+      walletServers.find((w) => w.isActive);
     if (!activeWallet) {
       throw new Error("Active wallet server is required");
     }
@@ -153,9 +165,9 @@ export function AccountsSidePanel(
   };
 
   const requireActiveWalletServer = () => {
-    const activeWallet = walletServers.find((w) =>
-      w.id === activeWalletServerId && w.isActive
-    ) || walletServers.find((w) => w.isActive);
+    const activeWallet =
+      walletServers.find((w) => w.id === activeWalletServerId && w.isActive) ||
+      walletServers.find((w) => w.isActive);
     if (!activeWallet) {
       throw new Error("Active wallet server is required");
     }
@@ -171,9 +183,16 @@ export function AccountsSidePanel(
 
   return (
     <div className="space-y-4">
-      <SectionCard title="Create account" icon={<UserCircle className="h-4 w-4" />}>
+      <SectionCard
+        title="Create account"
+        icon={<UserCircle className="h-4 w-4" />}
+      >
         <div className="flex flex-wrap gap-2 mb-3">
-          {(["account", "application", "application-user"] as ManagedAccountType[]).map((type) => (
+          {([
+            "account",
+            "application",
+            "application-user",
+          ] as ManagedAccountType[]).map((type) => (
             <button
               key={type}
               onClick={() => setCreationType(type)}
@@ -225,9 +244,11 @@ export function AccountsSidePanel(
 }
 
 function AccountsList({ filter }: { filter: ManagedAccountType | "all" }) {
-  const { accounts, activeAccountId, setActiveAccount, removeAccount } = useAppStore();
+  const { accounts, activeAccountId, setActiveAccount, removeAccount } =
+    useAppStore();
   const filteredAccounts = useMemo(
-    () => filter === "all" ? accounts : accounts.filter((a) => a.type === filter),
+    () =>
+      filter === "all" ? accounts : accounts.filter((a) => a.type === filter),
     [accounts, filter],
   );
 
@@ -254,14 +275,11 @@ function AccountsList({ filter }: { filter: ManagedAccountType | "all" }) {
   );
 }
 
-function ExplorerLink({ appKey }: { appKey: string }) {
-  const pathSegments = ["mutable", "accounts", appKey].map((seg) =>
-    encodeURIComponent(seg)
-  );
+function ExplorerLink({ accountKey }: { accountKey: string }) {
   return (
     <Link
       className="text-xs font-mono text-primary hover:underline"
-      to={routeForExplorerPath(`/${pathSegments.join("/")}`)}
+      to={routeForExplorerPath("/", { section: "account", accountKey })}
     >
       Open in explorer
     </Link>
@@ -274,7 +292,8 @@ function ActiveAccountSummary(
   if (!activeAccount) {
     return (
       <div className="text-sm text-muted-foreground">
-        No active account selected. Use the list or create one in the right panel.
+        No active account selected. Use the list or create one in the right
+        panel.
       </div>
     );
   }
@@ -298,8 +317,8 @@ function ActiveAccountSummary(
         </div>
       </div>
       {activeAccount.type !== "application-user"
-        ? <ExplorerLink appKey={activeAccount.keyBundle.appKey} />
-        : <ExplorerLink appKey={activeAccount.appKey} />}
+        ? <ExplorerLink accountKey={activeAccount.keyBundle.appKey} />
+        : <ExplorerLink accountKey={activeAccount.authKeys.accountPublicKeyHex} />}
     </div>
   );
 }
@@ -310,33 +329,32 @@ function AccountDetailsTable({ account }: { account: ManagedAccount }) {
     { label: "Created", value: new Date(account.createdAt).toLocaleString() },
   ];
 
-  const rows =
-    account.type === "application-user"
-      ? [
-        ...baseRows,
-        { label: "User", value: account.userSession.username },
-        { label: "App", value: account.appName },
-        { label: "App Key", value: account.appKey },
-        {
-          label: "Account Public Key",
-          value: account.authKeys.accountPublicKeyHex,
-        },
-        {
-          label: "Encryption Public Key",
-          value: account.authKeys.encryptionPublicKeyHex,
-        },
-        ...(account.googleClientId
-          ? [{ label: "Google Client ID", value: account.googleClientId }]
-          : []),
-      ]
-      : [
-        ...baseRows,
-        { label: "Auth key", value: account.keyBundle.appKey },
-        {
-          label: "Encryption key",
-          value: account.keyBundle.encryptionPublicKeyHex,
-        },
-      ];
+  const rows = account.type === "application-user"
+    ? [
+      ...baseRows,
+      { label: "User", value: account.userSession.username },
+      { label: "App", value: account.appName },
+      { label: "App Key", value: account.appKey },
+      {
+        label: "Account Public Key",
+        value: account.authKeys.accountPublicKeyHex,
+      },
+      {
+        label: "Encryption Public Key",
+        value: account.authKeys.encryptionPublicKeyHex,
+      },
+      ...(account.googleClientId
+        ? [{ label: "Google Client ID", value: account.googleClientId }]
+        : []),
+    ]
+    : [
+      ...baseRows,
+      { label: "Auth key", value: account.keyBundle.appKey },
+      {
+        label: "Encryption key",
+        value: account.keyBundle.encryptionPublicKeyHex,
+      },
+    ];
 
   return (
     <div className="overflow-hidden rounded border border-border bg-background/60">
@@ -469,7 +487,10 @@ function KeyAccountForm(
       <button
         onClick={handleCreate}
         disabled={creating}
-        className={cn(PRIMARY_BUTTON, creating && "opacity-70 cursor-not-allowed")}
+        className={cn(
+          PRIMARY_BUTTON,
+          creating && "opacity-70 cursor-not-allowed",
+        )}
       >
         <Plus className="h-4 w-4 mr-2" />
         Create {ACCOUNT_TYPE_LABEL[accountType]}
@@ -491,7 +512,9 @@ function ApplicationUserAccountForm(
   },
 ) {
   const [selectedAppId, setSelectedAppId] = useState("");
-  const [userSession, setUserSession] = useState<WriterUserSession | null>(null);
+  const [userSession, setUserSession] = useState<WriterUserSession | null>(
+    null,
+  );
   const [appSessionForAccount, setAppSessionForAccount] = useState("");
   const [authKeys, setAuthKeys] = useState<AccountAuthKeys | null>(null);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
@@ -500,7 +523,9 @@ function ApplicationUserAccountForm(
   const [authBusy, setAuthBusy] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
-  const [authMethod, setAuthMethod] = useState<"password" | "google">("password");
+  const [authMethod, setAuthMethod] = useState<"password" | "google">(
+    "password",
+  );
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [googleCredential, setGoogleCredential] = useState<string | null>(null);
@@ -513,7 +538,8 @@ function ApplicationUserAccountForm(
     setEmoji(props.defaultIdentity.emoji);
   }, [props.defaultIdentity]);
 
-  const selectedApp = props.applications.find((a) => a.id === selectedAppId) || null;
+  const selectedApp = props.applications.find((a) => a.id === selectedAppId) ||
+    null;
 
   useEffect(() => {
     setUserSession(null);
@@ -556,7 +582,9 @@ function ApplicationUserAccountForm(
     if (!googleScriptPromiseRef.current) {
       googleScriptPromiseRef.current = new Promise<void>((resolve) => {
         // @ts-expect-error Google script check
-        if (typeof window !== "undefined" && (window as any).google?.accounts?.id) {
+        if (
+          typeof window !== "undefined" && (window as any).google?.accounts?.id
+        ) {
           resolve();
           return;
         }
@@ -847,8 +875,8 @@ function ApplicationUserAccountForm(
       <ApplicationSelector
         applications={props.applications}
         selectedAppId={selectedAppId}
-    setSelectedAppId={setSelectedAppId}
-  />
+        setSelectedAppId={setSelectedAppId}
+      />
 
       <AuthSelector
         disabled={!selectedApp || authBusy || profileLoading}
@@ -884,7 +912,9 @@ function ApplicationUserAccountForm(
   );
 }
 
-function InfoTable({ rows }: { rows: Array<{ label: string; value: string }> }) {
+function InfoTable(
+  { rows }: { rows: Array<{ label: string; value: string }> },
+) {
   return (
     <div className="overflow-hidden rounded border border-border bg-background/60">
       <table className="w-full text-xs">
@@ -919,6 +949,7 @@ function NameEmojiFields(
       <div className="flex items-end gap-3">
         <div className="space-y-1">
           <label className="text-sm text-muted-foreground">Emoji</label>
+          <br />
           <input
             value={emoji}
             onChange={(e) => setEmoji(e.target.value)}
@@ -1036,11 +1067,9 @@ function AuthSelector(
           </label>
           <div
             ref={props.googleButtonRef}
-            className={
-              disabled || !props.googleClientId
-                ? "opacity-50 pointer-events-none"
-                : ""
-            }
+            className={disabled || !props.googleClientId
+              ? "opacity-50 pointer-events-none"
+              : ""}
           />
           {!props.googleReady && (
             <div className="text-xs text-muted-foreground">

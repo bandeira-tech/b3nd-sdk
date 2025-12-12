@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { ExplorerSection } from '../types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -68,12 +69,31 @@ export const RIG_WRITER_BASE_PATH = "/writer";
 export const RIG_SETTINGS_PATH = "/settings";
 export const RIG_ACCOUNTS_PATH = "/accounts";
 
-export function routeForExplorerPath(path: string): string {
-  if (!path || path === "/") return RIG_EXPLORER_BASE_PATH;
-  const parts = path
+export function routeForExplorerPath(
+  path: string,
+  options?: { section?: ExplorerSection; accountKey?: string | null },
+): string {
+  const section: ExplorerSection = options?.section || "index";
+  const normalized = sanitizePath(path);
+  const parts = normalized
     .replace(/^\/+/, "")
     .split("/")
     .filter(Boolean)
     .map((p) => encodeURIComponent(p));
+
+  if (section === "account") {
+    const accountKey = options?.accountKey;
+    if (!accountKey) {
+      if (parts.length > 0) {
+        throw new Error("Account key is required for account explorer routes");
+      }
+      return `${RIG_EXPLORER_BASE_PATH}/account`;
+    }
+    const accountSegment = encodeURIComponent(accountKey);
+    const segments = ["account", accountSegment, ...parts];
+    return `${RIG_EXPLORER_BASE_PATH}/${segments.join("/")}`;
+  }
+
+  if (!parts.length) return RIG_EXPLORER_BASE_PATH;
   return `${RIG_EXPLORER_BASE_PATH}/${parts.join("/")}`;
 }

@@ -6,7 +6,15 @@ import type { AppMode } from '../../types';
 import type { ReactNode } from 'react';
 
 export function AppModeBar() {
-  const { mode, setMode, togglePanel, panels, activeApp, mainView } = useAppStore();
+  const {
+    mode,
+    setMode,
+    togglePanel,
+    panels,
+    activeApp,
+    mainView,
+    explorerSection,
+  } = useAppStore();
 
   const modes: Array<{ key: AppMode; label: string; icon: ReactNode }> = [
     {
@@ -81,7 +89,7 @@ export function AppModeBar() {
 
       {/* Right: Additional controls */}
       <div className="flex items-center space-x-1">
-        {(activeApp === 'writer' || mainView === 'settings') && (
+        {(activeApp === 'writer' || mainView === 'settings' || (activeApp === 'explorer' && explorerSection === 'account')) && (
           <button
             onClick={() => togglePanel('right')}
             className={cn(

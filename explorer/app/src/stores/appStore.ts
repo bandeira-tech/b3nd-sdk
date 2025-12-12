@@ -13,9 +13,10 @@ import type {
   ThemeMode,
   WriterSection,
   WriterUserSession,
+  ExplorerSection,
 } from "../types";
 import { HttpAdapter } from "../adapters/HttpAdapter";
-import { generateId } from "../utils";
+import { generateId, joinPath, sanitizePath } from "../utils";
 // Using latest sdk HttpClient via HttpAdapter; no external client manager
 
 // Serializable backend config for persistence
@@ -146,6 +147,10 @@ const initialState: Omit<AppState, "backendsReady"> = {
   schemas: {},
   rootNodes: [],
   currentPath: "/",
+  explorerSection: "index" as ExplorerSection,
+  explorerIndexPath: "/",
+  explorerAccountKey: null,
+  explorerAccountPath: "/",
   navigationHistory: ["/"],
   expandedPaths: new Set<string>(),
   panels: {
@@ -300,6 +305,9 @@ export const useAppStore = create<AppStore>()(
                 backends: updatedBackends,
                 activeBackendId: id,
                 currentPath: "/", // Reset to root when switching
+                explorerSection: "index" as ExplorerSection,
+                explorerIndexPath: "/",
+                explorerAccountPath: "/",
                 navigationHistory: ["/"],
                 expandedPaths: new Set(),
                 schemas: {}, // Clear schemas when switching
@@ -401,18 +409,166 @@ export const useAppStore = create<AppStore>()(
           }
         },
 
-        navigateToPath: (path) => {
+        navigateToPath: (path, options) => {
           set((state) => {
+            const section: ExplorerSection = options?.section || state.explorerSection || "index";
+            const nextHistory = [...state.navigationHistory];
+            const normalized = sanitizePath(path);
+
+            if (section === "account") {
+              const accountKey = options?.accountKey || state.explorerAccountKey;
+              if (!accountKey) {
+                throw new Error("Account key is required when navigating account explorer paths");
+              }
+              const segments = normalized.split("/").filter(Boolean);
+              if (segments.length === 0) {
+                if (nextHistory[nextHistory.length - 1] !== "/") {
+                  nextHistory.push("/");
+                }
+                if (nextHistory.length > 50) nextHistory.shift();
+                return {
+                  explorerSection: "account" as ExplorerSection,
+                  explorerAccountKey: accountKey,
+                  explorerAccountPath: "/",
+                  currentPath: "/",
+                  navigationHistory: nextHistory,
+                  panels: { ...state.panels, right: false },
+                  mainView: "content",
+                };
+              }
+
+              const hasProtocol = segments[0] === "mutable" || segments[0] === "immutable";
+              const protocol = hasProtocol ? segments[0] : "mutable";
+              const remainder = hasProtocol ? segments.slice(1) : segments;
+              const resolved = joinPath(protocol, "accounts", accountKey, ...remainder);
+              const storedPath = "/" + [protocol, ...remainder].filter(Boolean).join("/");
+              if (nextHistory[nextHistory.length - 1] !== resolved) {
+                nextHistory.push(resolved);
+              }
+              if (nextHistory.length > 50) nextHistory.shift();
+              return {
+                explorerSection: "account" as ExplorerSection,
+                explorerAccountKey: accountKey,
+                explorerAccountPath: storedPath,
+                currentPath: resolved,
+                navigationHistory: nextHistory,
+                panels: { ...state.panels, right: false },
+                mainView: "content",
+              };
+            }
+
+            if (nextHistory[nextHistory.length - 1] !== normalized) {
+              nextHistory.push(normalized);
+            }
+            if (nextHistory.length > 50) nextHistory.shift();
+
+            return {
+              explorerSection: "index" as ExplorerSection,
+              explorerIndexPath: normalized,
+              currentPath: normalized,
+              navigationHistory: nextHistory,
+              panels: { ...state.panels, right: false },
+              mainView: "content",
+            };
+          });
+        },
+
+        setExplorerSection: (section: ExplorerSection) => {
+          set((state) => {
+            if (section === "account") {
+              if (!state.explorerAccountKey) {
+                return {
+                  explorerSection: section,
+                  currentPath: "/",
+                };
+              }
+              const normalized = sanitizePath(state.explorerAccountPath || "/");
+              const resolved = joinPath(
+                "mutable",
+                "accounts",
+                state.explorerAccountKey,
+                normalized === "/" ? "" : normalized,
+              );
+              return {
+                explorerSection: section,
+                currentPath: resolved,
+              };
+            }
+            const nextPath = sanitizePath(state.explorerIndexPath || "/");
+            return {
+              explorerSection: section,
+              currentPath: nextPath,
+            };
+          });
+        },
+
+        setExplorerIndexPath: (path: string) => {
+          set((state) => {
+            const normalized = sanitizePath(path);
             const history = [...state.navigationHistory];
-            if (history[history.length - 1] !== path) {
-              history.push(path);
+            if (history[history.length - 1] !== normalized) {
+              history.push(normalized);
             }
             if (history.length > 50) history.shift();
             return {
-              currentPath: path,
+              explorerIndexPath: normalized,
+              currentPath: state.explorerSection === "index" ? normalized : state.currentPath,
               navigationHistory: history,
-              panels: { ...state.panels, right: false },
-              mainView: "content",
+            };
+          });
+        },
+
+        setExplorerAccountKey: (accountKey: string | null) => {
+          set((state) => {
+            if (!accountKey) {
+              return {
+                explorerAccountKey: null,
+                currentPath: state.explorerSection === "account" ? "/" : state.currentPath,
+              };
+            }
+            const normalizedPath = sanitizePath(state.explorerAccountPath || "/");
+            const resolved = joinPath("mutable", "accounts", accountKey, normalizedPath === "/" ? "" : normalizedPath);
+            return {
+              explorerAccountKey: accountKey,
+              currentPath: state.explorerSection === "account" ? resolved : state.currentPath,
+            };
+          });
+        },
+
+        setExplorerAccountPath: (path: string) => {
+          set((state) => {
+            const normalized = sanitizePath(path);
+            const history = [...state.navigationHistory];
+            const accountKey = state.explorerAccountKey;
+            if (!accountKey) {
+              throw new Error("Account key is required when setting the account explorer path");
+            }
+            const segments = normalized.split("/").filter(Boolean);
+            if (segments.length === 0) {
+              if (history[history.length - 1] !== "/") {
+                history.push("/");
+              }
+              if (history.length > 50) history.shift();
+              return {
+                explorerAccountPath: "/",
+                currentPath: state.explorerSection === "account" ? "/" : state.currentPath,
+                navigationHistory: history,
+              };
+            }
+            const hasProtocol = segments[0] === "mutable" || segments[0] === "immutable";
+            const protocol = hasProtocol ? segments[0] : "mutable";
+            const remainder = hasProtocol ? segments.slice(1) : segments;
+            const resolved = joinPath(protocol, "accounts", accountKey, ...remainder);
+            const storedPath = "/" + [protocol, ...remainder].filter(Boolean).join("/");
+            if (history[history.length - 1] !== resolved) {
+              history.push(resolved);
+            }
+            if (history.length > 50) history.shift();
+
+            return {
+              explorerAccountPath: storedPath,
+              currentPath: state.explorerSection === "account" ? resolved : state.currentPath,
+              navigationHistory: history,
             };
           });
         },
@@ -695,6 +851,10 @@ export const useAppStore = create<AppStore>()(
           activeApp: state.activeApp,
           writerSection: state.writerSection,
           mainView: state.mainView,
+          explorerSection: state.explorerSection,
+          explorerIndexPath: state.explorerIndexPath,
+          explorerAccountKey: state.explorerAccountKey,
+          explorerAccountPath: state.explorerAccountPath,
           formState: state.formState,
           walletServers: state.walletServers,
           activeWalletServerId: state.activeWalletServerId,
@@ -756,6 +916,10 @@ export const useAppStore = create<AppStore>()(
           }
 
           state.currentPath = "/";
+          state.explorerSection = state.explorerSection || "index";
+          state.explorerIndexPath = state.explorerIndexPath || "/";
+          state.explorerAccountKey = state.explorerAccountKey || null;
+          state.explorerAccountPath = state.explorerAccountPath || "/";
           state.navigationHistory = ["/"];
           state.expandedPaths = new Set();
           state.formState = state.formState || {};
@@ -832,6 +996,10 @@ export const useAppStore = create<AppStore>()(
               appServers.find((w) => w.id === defaults.appServer)?.id ||
               appServers[0]?.id ||
               null,
+            explorerSection: "index",
+            explorerIndexPath: "/",
+            explorerAccountKey: null,
+            explorerAccountPath: "/",
             backendsReady: true,
           });
         }

@@ -8,10 +8,11 @@ import { LeftPanel } from "./LeftPanel";
 import { MainContent } from "./MainContent";
 import { BottomPanel } from "./BottomPanel";
 import { BrandFooter } from "./BrandFooter";
-import { cn } from "../../utils";
+import { cn, joinPath, sanitizePath } from "../../utils";
 import { SettingsView, SettingsSidePanel } from "../settings/SettingsView";
 import { AccountsView, AccountsSidePanel } from "../accounts/AccountsView";
-import type { ManagedAccountType } from "../../types";
+import { ExplorerAccountPanel } from "../explorer/ExplorerAccountPanel";
+import type { ExplorerSection, ManagedAccountType, WriterSection } from "../../types";
 
 export function AppLayout() {
   const {
@@ -27,6 +28,9 @@ export function AppLayout() {
     setMainView,
     setWriterSection,
     ensureRightPanelOpen,
+    setExplorerSection,
+    setExplorerAccountKey,
+    explorerSection,
   } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -70,16 +74,16 @@ export function AppLayout() {
       if (activeApp !== "writer") setActiveApp("writer");
       if (mainView !== "content") setMainView("content");
       ensureRightPanelOpen();
-      const section = relativePath.replace(/^\/writer\/?/, "") || "backend";
-      const allowed: Array<typeof setWriterSection extends (arg: infer A) => any ? A : never> = [
+      const section = (relativePath.replace(/^\/writer\/?/, "") || "backend") as WriterSection;
+      const allowed: WriterSection[] = [
         "backend",
         "auth",
         "actions",
         "configuration",
         "schema",
       ];
-      if (allowed.includes(section as any)) {
-        setWriterSection(section as any);
+      if (allowed.includes(section)) {
+        setWriterSection(section);
       } else {
         setWriterSection("backend");
       }
@@ -97,13 +101,39 @@ export function AppLayout() {
     }
     if (!relativePath.startsWith("/explorer")) return;
 
-    const explorerPath = parseExplorerPath(relativePath);
-    if (explorerPath !== null && explorerPath !== currentPath) {
-      navigateToPath(explorerPath);
-    }
+    const explorerRoute = parseExplorerPath(relativePath);
+    if (!explorerRoute) return;
+
     if (activeApp !== "explorer") setActiveApp("explorer");
     if (mainView !== "content") setMainView("content");
     ensureRightPanelOpen();
+
+    if (explorerRoute.section === "account") {
+      setExplorerSection("account");
+      setExplorerAccountKey(explorerRoute.accountKey);
+      if (explorerRoute.accountKey) {
+        const normalizedPath = sanitizePath(explorerRoute.path || "/");
+        const resolvedPath = joinPath(
+          "mutable",
+          "accounts",
+          explorerRoute.accountKey,
+          normalizedPath === "/" ? "" : normalizedPath,
+        );
+        if (resolvedPath !== currentPath) {
+          navigateToPath(normalizedPath, {
+            section: "account",
+            accountKey: explorerRoute.accountKey,
+          });
+        }
+      }
+      return;
+    }
+
+    setExplorerSection("index");
+    const normalizedIndexPath = sanitizePath(explorerRoute.path || "/");
+    if (normalizedIndexPath !== currentPath) {
+      navigateToPath(normalizedIndexPath, { section: "index" });
+    }
   }, [
     location.pathname,
     currentPath,
@@ -115,17 +145,47 @@ export function AppLayout() {
     setWriterSection,
     ensureRightPanelOpen,
     navigate,
+    setExplorerSection,
+    setExplorerAccountKey,
   ]);
 
-  const parseExplorerPath = (routePath: string) => {
+  const parseExplorerPath = (
+    routePath: string,
+  ): { section: ExplorerSection; path: string; accountKey: string | null } | null => {
     if (!routePath.startsWith("/explorer")) return null;
     const raw = routePath.replace(/^\/explorer\/?/, "");
-    if (!raw) return "/";
+    if (!raw) return { section: "index", path: "/", accountKey: null };
     const segments = raw
       .split("/")
       .filter(Boolean)
       .map((s) => decodeURIComponent(s));
-    return "/" + segments.join("/");
+
+    if (segments[0] === "account") {
+      const accountKey = segments[1] || null;
+      const pathSegments = segments.slice(2);
+      const joined = pathSegments.join("/");
+      const path = joined ? `/${joined}` : "/";
+      return {
+        section: "account",
+        accountKey,
+        path,
+      };
+    }
+
+    if (segments[0] === "index") {
+      const joined = segments.slice(1).join("/");
+      return {
+        section: "index",
+        accountKey: null,
+        path: joined ? `/${joined}` : "/",
+      };
+    }
+
+    return {
+      section: "index",
+      accountKey: null,
+      path: segments.length ? `/${segments.join("/")}` : "/",
+    };
   };
 
   return (
@@ -192,7 +252,18 @@ export function AppLayout() {
                   )}
                 </div>
               ) : (
-                <MainContent />
+                <div className="h-full flex overflow-hidden bg-background text-foreground">
+                  <div className="flex-1 overflow-hidden">
+                    <MainContent />
+                  </div>
+                  {panels.right && explorerSection === "account" && activeApp === "explorer" && (
+                    <div className="w-[360px] border-l border-border bg-card">
+                      <div className="h-full overflow-auto custom-scrollbar p-4">
+                        <ExplorerAccountPanel />
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
