@@ -89,7 +89,7 @@ export function AppModeBar() {
 
       {/* Right: Additional controls */}
       <div className="flex items-center space-x-1">
-        {(activeApp === 'writer' || mainView === 'settings' || (activeApp === 'explorer' && explorerSection === 'account')) && (
+        {(mainView === 'settings' || mainView === 'accounts' || (activeApp === 'explorer' && explorerSection === 'account')) && (
           <button
             onClick={() => togglePanel('right')}
             className={cn(

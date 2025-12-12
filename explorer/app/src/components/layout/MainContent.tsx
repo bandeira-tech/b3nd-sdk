@@ -4,23 +4,17 @@ import { useNavigate } from "react-router-dom";
 import { useAppStore, useActiveBackend } from "../../stores/appStore";
 import { RIG_EXPLORER_BASE_PATH, cn, routeForExplorerPath, sanitizePath, joinPath } from "../../utils";
 import { ContentViewer } from "./ContentViewer";
-import { FileText, User, Database, PenSquare, ChevronRight, KeyRound } from "lucide-react";
-import { WriterMainContent } from "../writer/WriterMainContent";
-import type { NavigationNode, WriterSection } from "../../types";
+import { FileText, User, Database, ChevronRight, KeyRound } from "lucide-react";
+import type { NavigationNode } from "../../types";
 
-export function MainContent() {
+export function ExplorerMainContent() {
   const mode = useAppStore((state) => state.mode);
   const currentPath = useAppStore((state) => state.currentPath);
-  const activeApp = useAppStore((state) => state.activeApp);
   const explorerSection = useAppStore((state) => state.explorerSection);
   const explorerIndexPath = useAppStore((state) => state.explorerIndexPath);
   const explorerAccountKey = useAppStore((state) => state.explorerAccountKey);
   const explorerAccountPath = useAppStore((state) => state.explorerAccountPath);
   const navigate = useNavigate();
-
-  if (activeApp === "writer") {
-    return <WriterMainContent />;
-  }
 
   const normalizedIndexPath = sanitizePath(explorerIndexPath || "/");
   const normalizedAccountPath = sanitizePath(explorerAccountPath || "/");
@@ -92,18 +86,14 @@ export function MainContent() {
   return (
     <div className="h-full overflow-auto custom-scrollbar">
       <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-muted/30">
-        {activeApp === "writer" ? (
-          <WriterBreadcrumb />
-        ) : (
-          explorerSection === "account"
-            ? (
-              <AccountBreadcrumb
-                accountKey={explorerAccountKey}
-                path={normalizedAccountPath}
-              />
-            )
-            : <Breadcrumb path={normalizedIndexPath} />
-        )}
+        {explorerSection === "account"
+          ? (
+            <AccountBreadcrumb
+              accountKey={explorerAccountKey}
+              path={normalizedAccountPath}
+            />
+          )
+          : <Breadcrumb path={normalizedIndexPath} />}
       </div>
 
       <div className="flex-1">
@@ -426,33 +416,5 @@ function WatchedPathsView() {
         </p>
       </div>
     </div>
-  );
-}
-
-function WriterBreadcrumb() {
-  const { writerSection, setWriterSection } = useAppStore();
-
-  const labels: Record<WriterSection, string> = {
-    backend: "Backend",
-    auth: "Auth",
-    actions: "Actions",
-    configuration: "Configuration",
-    schema: "Schema",
-  };
-
-  return (
-    <nav className="flex items-center space-x-2 text-sm">
-      <div className="flex items-center space-x-2">
-        <PenSquare className="h-4 w-4 text-muted-foreground" />
-        <button
-          onClick={() => setWriterSection("backend")}
-          className="px-2 py-1 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          Writer
-        </button>
-      </div>
-      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-      <span className="text-foreground font-medium">{labels[writerSection]}</span>
-    </nav>
   );
 }

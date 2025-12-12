@@ -85,7 +85,7 @@ export function AccountsView() {
               >
                 <span>{type === "all" ? "All" : ACCOUNT_TYPE_LABEL[type]}</span>
               </button>
-            )
+            ),
           )}
         </div>
         {accounts.length === 0
@@ -275,11 +275,11 @@ function AccountsList({ filter }: { filter: ManagedAccountType | "all" }) {
   );
 }
 
-function ExplorerLink({ accountKey }: { accountKey: string }) {
+function ExplorerLink({ appKey }: { appKey: string }) {
   return (
     <Link
       className="text-xs font-mono text-primary hover:underline"
-      to={routeForExplorerPath("/", { section: "account", accountKey })}
+      to={routeForExplorerPath("/", { section: "account", accountKey: appKey })}
     >
       Open in explorer
     </Link>
@@ -317,8 +317,8 @@ function ActiveAccountSummary(
         </div>
       </div>
       {activeAccount.type !== "application-user"
-        ? <ExplorerLink accountKey={activeAccount.keyBundle.appKey} />
-        : <ExplorerLink accountKey={activeAccount.authKeys.accountPublicKeyHex} />}
+        ? <ExplorerLink appKey={activeAccount.keyBundle.appKey} />
+        : <ExplorerLink appKey={activeAccount.appKey} />}
     </div>
   );
 }
