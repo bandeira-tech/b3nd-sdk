@@ -179,8 +179,23 @@ const initialState: Omit<AppState, "backendsReady"> = {
   logs: [],
 };
 
-interface AppStore extends AppState, AppActions {
+export interface AppStore extends AppState, AppActions {
   backendsReady: boolean;
+  panelPreferences: {
+    right: Record<string, boolean>;
+  };
+}
+
+export function rightPanelContextKey(state: AppState): string {
+  if (state.mainView === "settings") return "settings";
+  if (state.mainView === "accounts") return "accounts";
+  if (state.activeApp === "writer") {
+    return `writer:${state.writerSection}`;
+  }
+  if (state.activeApp === "explorer") {
+    return `explorer:${state.mode}:${state.explorerSection}`;
+  }
+  return "global";
 }
 
 export const useAppStore = create<AppStore>()(
@@ -189,6 +204,7 @@ export const useAppStore = create<AppStore>()(
       return {
         ...initialState,
         backendsReady: false,
+        panelPreferences: { right: {} },
 
         addBackend: (config) => {
           set((state) => {
@@ -432,7 +448,6 @@ export const useAppStore = create<AppStore>()(
                   explorerAccountPath: "/",
                   currentPath: "/",
                   navigationHistory: nextHistory,
-                  panels: { ...state.panels, right: false },
                   mainView: "content",
                 };
               }
@@ -452,7 +467,6 @@ export const useAppStore = create<AppStore>()(
                 explorerAccountPath: storedPath,
                 currentPath: resolved,
                 navigationHistory: nextHistory,
-                panels: { ...state.panels, right: false },
                 mainView: "content",
               };
             }
@@ -467,7 +481,6 @@ export const useAppStore = create<AppStore>()(
               explorerIndexPath: normalized,
               currentPath: normalized,
               navigationHistory: nextHistory,
-              panels: { ...state.panels, right: false },
               mainView: "content",
             };
           });
@@ -610,12 +623,46 @@ export const useAppStore = create<AppStore>()(
         },
 
         togglePanel: (panel: keyof PanelState) => {
-          set((state) => ({
-            panels: {
-              ...state.panels,
-              [panel]: !state.panels[panel],
-            },
-          }));
+          set((state) => {
+            if (panel === "right") {
+              const key = rightPanelContextKey(state);
+              const next = !state.panels.right;
+              return {
+                panels: { ...state.panels, right: next },
+                panelPreferences: {
+                  ...state.panelPreferences,
+                  right: { ...state.panelPreferences.right, [key]: next },
+                },
+              };
+            }
+            return {
+              panels: {
+                ...state.panels,
+                [panel]: !state.panels[panel],
+              },
+            };
+          });
+        },
+
+        setPanelOpen: (panel: keyof PanelState, open: boolean) => {
+          set((state) => {
+            if (panel === "right") {
+              const key = rightPanelContextKey(state);
+              return {
+                panels: { ...state.panels, right: open },
+                panelPreferences: {
+                  ...state.panelPreferences,
+                  right: { ...state.panelPreferences.right, [key]: open },
+                },
+              };
+            }
+            return {
+              panels: {
+                ...state.panels,
+                [panel]: open,
+              },
+            };
+          });
         },
 
         toggleBottomPanelMaximized: () => {
@@ -626,9 +673,31 @@ export const useAppStore = create<AppStore>()(
         },
 
         ensureRightPanelOpen: () => {
-          set((state) => ({
-            panels: { ...state.panels, right: true },
-          }));
+          set((state) => {
+            const key = rightPanelContextKey(state);
+            if (state.panels.right) return state;
+            return {
+              panels: { ...state.panels, right: true },
+              panelPreferences: {
+                ...state.panelPreferences,
+                right: { ...state.panelPreferences.right, [key]: true },
+              },
+            };
+          });
+        },
+
+        applyRightPanelPreference: (keyOverride?: string) => {
+          const currentState = get();
+          const key = keyOverride || rightPanelContextKey(currentState);
+          const preferred = currentState.panelPreferences.right[key];
+          const next = preferred === undefined ? true : preferred;
+          if (currentState.panels.right === next) return;
+          set((state) => {
+            if (state.panels.right === next) return state;
+            return {
+              panels: { ...state.panels, right: next },
+            };
+          });
         },
 
         setTheme: (theme: ThemeMode) => {
@@ -864,6 +933,7 @@ export const useAppStore = create<AppStore>()(
           keyBundle: state.keyBundle,
           panels: state.panels,
           bottomMaximized: state.bottomMaximized,
+          panelPreferences: state.panelPreferences,
           writerOutputs: state.writerOutputs,
           accounts: state.accounts,
           activeAccountId: state.activeAccountId,
@@ -941,6 +1011,7 @@ export const useAppStore = create<AppStore>()(
           state.accounts = state.accounts || [];
           state.activeAccountId = state.activeAccountId || null;
           state.panels = state.panels || { left: true, right: true, bottom: false };
+          state.panelPreferences = state.panelPreferences || { right: {} };
           if (state.activeApp === "explorer" && state.writerSection) {
             state.panels.right = true;
           }

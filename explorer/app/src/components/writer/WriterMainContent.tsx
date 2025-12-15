@@ -12,7 +12,7 @@ import {
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import type {
   AppLogEntry,
-  KeyBundle,
+  ManagedAccount,
   ManagedKeyAccount,
   WriterUserSession,
 } from "../../types";
@@ -28,7 +28,6 @@ import {
   fetchAppProfile as fetchAppProfileService,
   fetchMyKeys,
   fetchSchema as fetchSchemaService,
-  generateAppKeys,
   googleLogin,
   googleSignup,
   loginWithPassword,
@@ -149,14 +148,6 @@ export function WriterMainContent() {
       throw new Error("Active account is required");
     }
     return activeAccount;
-  };
-
-  const requireSigningAccount = (): ManagedKeyAccount => {
-    const account = getActiveAccount();
-    if (account.type === "application-user") {
-      throw new Error("Select an account with signing keys");
-    }
-    return account;
   };
 
   const handleAction = async (label: string, action: () => Promise<void>) => {
@@ -601,12 +592,6 @@ export function WriterMainContent() {
     logLine("apps", `Invoked action '${actionName}'`, "info");
   };
 
-  useEffect(() => {
-    if (!panels.right) {
-      togglePanel("right");
-    }
-  }, [panels.right, togglePanel]);
-
   // Google auth is temporarily disabled (no client ID input)
 
   const rightOpen = panels.right;
@@ -641,9 +626,19 @@ export function WriterMainContent() {
 
       {rightOpen && (
         <aside className="w-[420px] border-l border-border bg-card flex flex-col">
-          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-            <PanelRightOpen className="h-4 w-4" />
-            <span className="text-sm font-semibold">Controls</span>
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <PanelRightOpen className="h-4 w-4" />
+              <span className="text-sm font-semibold">Controls</span>
+            </div>
+            <button
+              onClick={() => togglePanel("right")}
+              className="p-1 rounded hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title="Close panel"
+            >
+              <span className="sr-only">Close</span>
+              &times;
+            </button>
           </div>
           <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-4">
             {writerSection === "backend" && (
@@ -1145,95 +1140,6 @@ function AppProfileCard(props: {
   );
 }
 
-function GenerateKeysCard({ onGenerate }: { onGenerate: () => void }) {
-  return (
-    <SectionCard title="Keys" icon={<KeyRound className="h-4 w-4" />}>
-      <div className="text-xs text-muted-foreground">
-        Generate a new identity and encryption key pair.
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button onClick={onGenerate} className={PRIMARY_BUTTON}>
-          Generate Keys
-        </button>
-      </div>
-    </SectionCard>
-  );
-}
-
-function KeyDisplayCard(
-  { title, bundle }: { title: string; bundle: KeyBundle },
-) {
-  return (
-    <SectionCard title={title} icon={<KeyRound className="h-4 w-4" />}>
-      <div className="text-xs text-muted-foreground mb-3">
-        Private keys are hidden; add a copy action when you need them.
-      </div>
-      <KeysTable bundle={bundle} />
-    </SectionCard>
-  );
-}
-
-function KeysTable({ bundle }: { bundle: KeyBundle }) {
-  const rows: Array<{
-    label: string;
-    value: string;
-    isSecret?: boolean;
-  }> = [
-    { label: "Auth Public Key", value: bundle.appKey },
-    { label: "Encryption Public Key", value: bundle.encryptionPublicKeyHex },
-    {
-      label: "Account Private Key",
-      value: bundle.accountPrivateKeyPem,
-      isSecret: true,
-    },
-    {
-      label: "Encryption Private Key",
-      value: bundle.encryptionPrivateKeyPem,
-      isSecret: true,
-    },
-  ];
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <table className="w-full text-sm">
-        <tbody className="divide-y divide-border">
-          {rows.map((row) => (
-            <KeyRow
-              key={row.label}
-              label={row.label}
-              value={row.value}
-              isSecret={row.isSecret}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function KeyRow(
-  { label, value, isSecret }: { label: string; value: string; isSecret?: boolean },
-) {
-  const resolvedValue = value || "Not set";
-
-  return (
-    <tr className="align-top">
-      <td className="w-1/3 bg-muted/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </td>
-      <td className="px-3 py-2">
-        {isSecret
-          ? (
-            <span className="text-muted-foreground">
-              Hidden for now; copying will be available soon.
-            </span>
-          )
-          : <span className="font-mono break-all">{resolvedValue}</span>}
-      </td>
-    </tr>
-  );
-}
-
 function CurrentProfileCard(
   { currentProfile, error }: { currentProfile: unknown; error: string | null },
 ) {
@@ -1399,6 +1305,7 @@ function Field({
   formId,
   name,
   defaultValue = "",
+  disabled = false,
 }: {
   label: string;
   value?: string;
@@ -1407,6 +1314,7 @@ function Field({
   formId?: string;
   name?: string;
   defaultValue?: string;
+  disabled?: boolean;
 }) {
   const { getFormValue, setFormValue } = useAppStore();
   const isBound = formId && name;
@@ -1427,6 +1335,7 @@ function Field({
         onChange={(e) => handleChange(e.target.value)}
         className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
         placeholder={placeholder}
+        disabled={disabled}
       />
     </div>
   );

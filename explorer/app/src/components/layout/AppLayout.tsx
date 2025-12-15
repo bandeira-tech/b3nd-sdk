@@ -1,20 +1,14 @@
 // React import not needed with react-jsx runtime
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useAppStore } from "../../stores/appStore";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
+import { useAppStore, rightPanelContextKey } from "../../stores/appStore";
 import { BrandHeader } from "./BrandHeader";
 import { AppModeBar } from "./AppModeBar";
-import { ExplorerMainContent } from "./MainContent";
 import { BottomPanel } from "./BottomPanel";
 import { BrandFooter } from "./BrandFooter";
 import { cn, joinPath, sanitizePath } from "../../utils";
-import { SettingsView, SettingsSidePanel } from "../settings/SettingsView";
-import { AccountsView, AccountsSidePanel } from "../accounts/AccountsView";
-import { ExplorerAccountPanel } from "../explorer/ExplorerAccountPanel";
-import { ExplorerNavigation } from "../explorer/ExplorerNavigation";
-import { WriterNavigation } from "../writer/WriterNavigation";
-import { WriterMainContent } from "../writer/WriterMainContent";
-import type { ExplorerSection, ManagedAccountType, PanelState, WriterSection } from "../../types";
+import { useLayoutSlots } from "./useLayoutSlots";
+import type { WriterSection, ExplorerSection } from "../../types";
 
 export function AppLayout() {
   const {
@@ -30,15 +24,14 @@ export function AppLayout() {
     setMainView,
     setWriterSection,
     ensureRightPanelOpen,
+    setPanelOpen,
     setExplorerSection,
     setExplorerAccountKey,
-    explorerSection,
   } = useAppStore();
   const location = useLocation();
-  const navigate = useNavigate();
-  const showSettings = mainView === "settings";
-  const showAccounts = mainView === "accounts";
-  const [accountCreationType, setAccountCreationType] = useState<ManagedAccountType>("account");
+  const { LeftSlot, MainSlot } = useLayoutSlots();
+  const applyRightPanelPreference = useAppStore((state) => state.applyRightPanelPreference);
+  const rightPanelKey = useAppStore((state) => rightPanelContextKey(state));
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -70,6 +63,10 @@ export function AppLayout() {
   }, [panels.bottom, toggleBottomPanelMaximized, togglePanel]);
 
   useEffect(() => {
+    applyRightPanelPreference();
+  }, [rightPanelKey, applyRightPanelPreference]);
+
+  useEffect(() => {
     const relativePath = location.pathname;
 
     if (relativePath.startsWith("/writer")) {
@@ -92,12 +89,12 @@ export function AppLayout() {
     }
     if (relativePath.startsWith("/accounts")) {
       if (mainView !== "accounts") setMainView("accounts");
-      ensureRightPanelOpen();
+      setPanelOpen("right", true);
       return;
     }
     if (relativePath.startsWith("/settings")) {
       if (mainView !== "settings") setMainView("settings");
-      ensureRightPanelOpen();
+      setPanelOpen("right", true);
       return;
     }
     if (!relativePath.startsWith("/explorer")) return;
@@ -111,6 +108,7 @@ export function AppLayout() {
     if (explorerRoute.section === "account") {
       setExplorerSection("account");
       setExplorerAccountKey(explorerRoute.accountKey);
+      setPanelOpen("right", Boolean(explorerRoute.accountKey));
       if (explorerRoute.accountKey) {
         const normalizedPath = sanitizePath(explorerRoute.path || "/");
         const resolvedPath = joinPath(
@@ -131,6 +129,7 @@ export function AppLayout() {
     }
 
     setExplorerSection("index");
+    setPanelOpen("right", false);
     const normalizedIndexPath = sanitizePath(explorerRoute.path || "/");
     if (normalizedIndexPath !== currentPath) {
       navigateToPath(normalizedIndexPath, { section: "index" });
@@ -145,7 +144,6 @@ export function AppLayout() {
     mainView,
     setWriterSection,
     ensureRightPanelOpen,
-    navigate,
     setExplorerSection,
     setExplorerAccountKey,
   ]);
@@ -207,24 +205,16 @@ export function AppLayout() {
         >
           {panels.left && (
             <div className="h-full overflow-hidden">
-              {leftPanelContent(showSettings, showAccounts, activeApp, explorerSection)}
+              <LeftSlot />
             </div>
           )}
         </div>
 
         {/* Main Content */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden">
-              {renderMainContent({
-                showSettings,
-                showAccounts,
-                panels,
-                accountCreationType,
-                setAccountCreationType,
-                explorerSection,
-                activeApp,
-              })}
-            </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-hidden">
+            <MainSlot />
+          </div>
 
           {/* Bottom Panel */}
           {panels.bottom && (
@@ -242,154 +232,6 @@ export function AppLayout() {
 
       {/* Superapp Footer */}
       <BrandFooter />
-    </div>
-  );
-}
-
-function leftPanelContent(
-  showSettings: boolean,
-  showAccounts: boolean,
-  activeApp: string,
-  explorerSection: ExplorerSection,
-) {
-  if (showSettings) return <SimpleLeftPanel title="Settings" />;
-  if (showAccounts) return <SimpleLeftPanel title="Accounts" />;
-  if (activeApp === "writer") return <WriterLeftPanel />;
-  if (activeApp === "explorer" && explorerSection === "account") {
-    return <ExplorerLeftPanel label="Account Explorer" />;
-  }
-  return <ExplorerLeftPanel label="Explorer" />;
-}
-
-function renderMainContent(
-  params: {
-    showSettings: boolean;
-    showAccounts: boolean;
-    panels: PanelState;
-    accountCreationType: ManagedAccountType;
-    setAccountCreationType: (type: ManagedAccountType) => void;
-    explorerSection: ExplorerSection;
-    activeApp: string;
-  },
-) {
-  const {
-    showSettings,
-    showAccounts,
-    panels,
-    accountCreationType,
-    setAccountCreationType,
-    explorerSection,
-    activeApp,
-  } = params;
-
-  if (showSettings) {
-    return (
-      <div className="h-full flex overflow-hidden bg-background text-foreground">
-        <div className="flex-1 overflow-auto custom-scrollbar">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-muted/30">
-            <nav className="flex items-center space-x-2 text-sm">
-              <span className="font-medium text-foreground">Settings</span>
-            </nav>
-          </div>
-          <div className="p-6 space-y-4 w-full max-w-6xl mx-auto">
-            <SettingsView />
-          </div>
-        </div>
-        {panels.right && <SettingsSidePanel />}
-      </div>
-    );
-  }
-
-  if (showAccounts) {
-    return (
-      <div className="h-full flex overflow-hidden bg-background text-foreground">
-        <div className="flex-1 overflow-auto custom-scrollbar">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-muted/30">
-            <nav className="flex items-center space-x-2 text-sm">
-              <span className="font-medium text-foreground">Accounts</span>
-            </nav>
-          </div>
-          <div className="p-6 space-y-4 w-full max-w-6xl mx-auto">
-            <AccountsView />
-          </div>
-        </div>
-        {panels.right && (
-          <div className="w-[360px] border-l border-border bg-card">
-            <div className="h-full overflow-auto custom-scrollbar p-4">
-              <AccountsSidePanel
-                creationType={accountCreationType}
-                setCreationType={setAccountCreationType}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (activeApp === "writer") {
-    return <WriterMainContent />;
-  }
-
-  return (
-    <div className="h-full flex overflow-hidden bg-background text-foreground">
-      <div className="flex-1 overflow-hidden">
-        <ExplorerMainContent />
-      </div>
-      {panels.right && explorerSection === "account" && (
-        <div className="w-[360px] border-l border-border bg-card">
-          <div className="h-full overflow-auto custom-scrollbar p-4">
-            <ExplorerAccountPanel />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ExplorerLeftPanel({ label }: { label: string }) {
-  return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-        <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-          {label}
-        </h2>
-      </div>
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        <ExplorerNavigation />
-      </div>
-    </div>
-  );
-}
-
-function WriterLeftPanel() {
-  return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-        <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-          Navigation
-        </h2>
-      </div>
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        <WriterNavigation />
-      </div>
-    </div>
-  );
-}
-
-function SimpleLeftPanel({ title }: { title: string }) {
-  return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-        <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-          {title}
-        </h2>
-      </div>
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        <div className="p-4 text-sm text-muted-foreground">
-          Select an item on the right.
-        </div>
-      </div>
     </div>
   );
 }

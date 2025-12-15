@@ -4,6 +4,7 @@ import { FolderTree, Search, Eye, PanelLeftOpen, PanelBottomOpen, PanelRightOpen
 import { cn } from '../../utils';
 import type { AppMode } from '../../types';
 import type { ReactNode } from 'react';
+import { useLayoutSlots } from './useLayoutSlots';
 
 export function AppModeBar() {
   const {
@@ -12,9 +13,8 @@ export function AppModeBar() {
     togglePanel,
     panels,
     activeApp,
-    mainView,
-    explorerSection,
   } = useAppStore();
+  const { rightPanelToggleVisible } = useLayoutSlots();
 
   const modes: Array<{ key: AppMode; label: string; icon: ReactNode }> = [
     {
@@ -89,7 +89,7 @@ export function AppModeBar() {
 
       {/* Right: Additional controls */}
       <div className="flex items-center space-x-1">
-        {(mainView === 'settings' || mainView === 'accounts' || (activeApp === 'explorer' && explorerSection === 'account')) && (
+        {rightPanelToggleVisible && (
           <button
             onClick={() => togglePanel('right')}
             className={cn(

@@ -512,9 +512,6 @@ function ApplicationUserAccountForm(
   },
 ) {
   const [selectedAppId, setSelectedAppId] = useState("");
-  const [userSession, setUserSession] = useState<WriterUserSession | null>(
-    null,
-  );
   const [appSessionForAccount, setAppSessionForAccount] = useState("");
   const [authKeys, setAuthKeys] = useState<AccountAuthKeys | null>(null);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
@@ -542,7 +539,6 @@ function ApplicationUserAccountForm(
     null;
 
   useEffect(() => {
-    setUserSession(null);
     setAuthKeys(null);
     setGoogleClientId(null);
     setAppSessionForAccount("");
@@ -581,7 +577,6 @@ function ApplicationUserAccountForm(
 
     if (!googleScriptPromiseRef.current) {
       googleScriptPromiseRef.current = new Promise<void>((resolve) => {
-        // @ts-expect-error Google script check
         if (
           typeof window !== "undefined" && (window as any).google?.accounts?.id
         ) {
@@ -607,8 +602,9 @@ function ApplicationUserAccountForm(
     let cancelled = false;
     googleScriptPromiseRef.current.then(() => {
       if (cancelled) return;
-      // @ts-expect-error google namespace
-      const google = (window as any).google;
+      const google = (window as any).google as
+        | { accounts?: { id?: { initialize: (opts: { client_id: string; callback: (response: { credential?: string }) => void }) => void; renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void } } }
+        | undefined;
       const api = google?.accounts?.id;
       if (!api || !googleButtonRef.current) return;
 
@@ -685,73 +681,6 @@ function ApplicationUserAccountForm(
     return keys;
   };
 
-  const handleSignup = async (username: string, password: string) => {
-    const app = requireSelectedApp();
-    setAuthBusy(true);
-    try {
-      const session = await signupWithPassword({
-        walletClient: props.requireWalletClient(),
-        appKey: app.keyBundle.appKey,
-        username,
-        password,
-      });
-      setUserSession(session);
-      await fetchKeysForSession(session);
-      await startAppSession();
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const handleLogin = async (username: string, password: string) => {
-    const app = requireSelectedApp();
-    setAuthBusy(true);
-    try {
-      const appSession = await startAppSession();
-      const session = await loginWithPassword({
-        walletClient: props.requireWalletClient(),
-        appKey: app.keyBundle.appKey,
-        session: appSession,
-        username,
-        password,
-      });
-      setUserSession(session);
-      await fetchKeysForSession(session);
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const handleGoogleCredential = async (
-    mode: "signup" | "login",
-    idToken: string,
-  ) => {
-    const app = requireSelectedApp();
-    setAuthBusy(true);
-    try {
-      const walletServer = props.requireActiveWalletServer();
-      const session = mode === "signup"
-        ? await googleSignup({
-          walletServerUrl: walletServer.url,
-          appKey: app.keyBundle.appKey,
-          googleIdToken: idToken,
-        })
-        : await googleLogin({
-          walletServerUrl: walletServer.url,
-          appKey: app.keyBundle.appKey,
-          appSession: await startAppSession(),
-          googleIdToken: idToken,
-        });
-      setUserSession(session);
-      await fetchKeysForSession(session);
-      if (mode === "signup") {
-        await startAppSession();
-      }
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
   const saveAccount = async () => {
     const app = requireSelectedApp();
     if (!name.trim()) {
@@ -822,7 +751,6 @@ function ApplicationUserAccountForm(
       }
 
       const keys = await fetchKeysForSession(session);
-      setUserSession(session);
       if (appSession) {
         setAppSessionForAccount(appSession);
       }
@@ -854,7 +782,6 @@ function ApplicationUserAccountForm(
       setUsername("");
       setPassword("");
       setGoogleCredential(null);
-      setUserSession(null);
       setAuthKeys(null);
       setAppSessionForAccount("");
     } finally {
@@ -912,29 +839,6 @@ function ApplicationUserAccountForm(
   );
 }
 
-function InfoTable(
-  { rows }: { rows: Array<{ label: string; value: string }> },
-) {
-  return (
-    <div className="overflow-hidden rounded border border-border bg-background/60">
-      <table className="w-full text-xs">
-        <tbody className="divide-y divide-border">
-          {rows.map((row) => (
-            <tr key={row.label} className="align-top">
-              <td className="w-1/3 bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {row.label}
-              </td>
-              <td className="px-3 py-2">
-                <div className="font-mono text-xs break-all">{row.value}</div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function NameEmojiFields(
   { name, setName, emoji, setEmoji, nameLabel }: {
     name: string;
@@ -982,7 +886,7 @@ function AuthSelector(
     setPassword: (v: string) => void;
     googleClientId: string | null;
     googleReady: boolean;
-    googleButtonRef: React.RefObject<HTMLDivElement>;
+    googleButtonRef: React.RefObject<HTMLDivElement | null>;
     googleCredential: string | null;
     setGoogleCredential: (v: string | null) => void;
   },

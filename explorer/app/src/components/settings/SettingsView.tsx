@@ -299,11 +299,28 @@ function EndpointItem({
   activeId: string | null;
 }) {
   const isActive = item.id === activeId;
+  const activate = () => {
+    if (!isActive) onActivate();
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      activate();
+    }
+  };
+
+  const baseClasses = isActive
+    ? "border-primary bg-primary/5"
+    : "border-border hover:bg-accent cursor-pointer";
+
   return (
     <div
-      className={`flex items-center justify-between p-3 rounded border transition-colors ${
-        isActive ? "border-primary bg-primary/5" : "border-border hover:bg-accent"
-      }`}
+      role="button"
+      tabIndex={0}
+      onClick={activate}
+      onKeyDown={handleKeyDown}
+      className={`flex items-center justify-between p-3 rounded border transition-colors ${baseClasses}`}
     >
       <div className="flex items-center space-x-3 min-w-0 flex-1">
         <div className="flex items-center space-x-2">
@@ -322,14 +339,20 @@ function EndpointItem({
         {!isActive && (
           <>
             <button
-              onClick={onActivate}
+              onClick={(e) => {
+                e.stopPropagation();
+                onActivate();
+              }}
               className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title="Set active"
             >
               <CheckCircle className="h-3 w-3" />
             </button>
             <button
-              onClick={onRemove}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
               className="p-1 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
               title="Remove"
             >
