@@ -79,6 +79,7 @@ export function AppLayout() {
         "actions",
         "configuration",
         "schema",
+        "shareable",
       ];
       if (allowed.includes(section)) {
         setWriterSection(section);

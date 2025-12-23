@@ -1,19 +1,28 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  IdentityKey,
+  SecretEncryptionKey,
+  createSignedEncryptedMessage,
+} from "@bandeira-tech/b3nd-web/encrypt";
 import {
   Activity,
   ChevronRight,
   FileText,
   KeyRound,
+  Lock,
   PanelRightOpen,
   PenSquare,
   Server,
   ShieldCheck,
+  Share2,
 } from "lucide-react";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import type {
   AppLogEntry,
   ManagedAccount,
   ManagedKeyAccount,
+  WriterSection,
   WriterUserSession,
 } from "../../types";
 import { SectionCard } from "../common/SectionCard";
@@ -38,6 +47,7 @@ import {
   signupWithPassword,
   updateSchema as updateSchemaService,
 } from "../../services/writer/writerService";
+import { routeForExplorerPath, sanitizePath } from "../../utils";
 
 type AuthKeys = {
   accountPublicKeyHex: string;
@@ -95,6 +105,14 @@ export function WriterMainContent() {
   >([]);
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
   const [authKeys, setAuthKeys] = useState<AuthKeys | null>(null);
+  const [shareIdentityKey, setShareIdentityKey] = useState<{
+    identity: IdentityKey;
+    publicKeyHex: string;
+    privateKeyPem: string;
+  } | null>(null);
+  const [lastShareUri, setLastShareUri] = useState<string | null>(null);
+  const [lastShareLink, setLastShareLink] = useState<string | null>(null);
+  const [lastExplorerRoute, setLastExplorerRoute] = useState<string | null>(null);
   const actionName = getFormValue(
     FORM_APP,
     "actionName",
@@ -141,6 +159,12 @@ export function WriterMainContent() {
       return typeof uri === "string" ? uri : undefined;
     }
     return undefined;
+  };
+
+  const generateShareIdentity = async () => {
+    const { key, privateKeyPem, publicKeyHex } = await IdentityKey.generate();
+    setShareIdentityKey({ identity: key, publicKeyHex, privateKeyPem });
+    return { publicKeyHex, privateKeyPem };
   };
 
   const getActiveAccount = (): ManagedAccount => {
@@ -592,6 +616,49 @@ export function WriterMainContent() {
     logLine("apps", `Invoked action '${actionName}'`, "info");
   };
 
+  const saveShareableContent = async () => {
+    const shareLocation = getFormValue("shareable-content", "share-location", "") as string;
+    const shareMatter = getFormValue("shareable-content", "share-matter", "") as string;
+    const shareContent = getFormValue("shareable-content", "share-content", "") as string;
+    if (!shareIdentityKey) {
+      throw new Error("Generate an identity key first");
+    }
+    const rawLocation = shareLocation.trim();
+    ensureValue(rawLocation, "Location");
+    ensureValue(shareMatter, "Encryption matter");
+    ensureValue(shareContent, "Content");
+    const resolvedLocation = rawLocation.replace(/:key/g, shareIdentityKey.publicKeyHex);
+    if (!resolvedLocation) {
+      throw new Error("Location must not be empty");
+    }
+    const secretKey = await SecretEncryptionKey.fromSecret({
+      secret: shareMatter,
+      salt: shareIdentityKey.publicKeyHex,
+    });
+    const explorerRoute = explorerRouteFromUri(resolvedLocation);
+    const linkLocation = (() => {
+      const match = resolvedLocation.match(/^([a-z]+):\/\/accounts\/([^/]+)\/(.+)$/);
+      if (match && match[2] === shareIdentityKey.publicKeyHex) {
+        return match[3];
+      }
+      return resolvedLocation;
+    })();
+    const targetUri = resolvedLocation;
+    const signed = await createSignedEncryptedMessage({
+      data: shareContent,
+      identity: shareIdentityKey.identity,
+      encryptionKey: secretKey,
+    });
+    const backendClient = requireBackendClient();
+    const response = await backendClient.write(targetUri, signed);
+    const shareLink = `${shareMatter}#l=${shareIdentityKey.publicKeyHex}/${linkLocation}`;
+    setLastShareUri(targetUri);
+    setLastShareLink(shareLink);
+    setLastExplorerRoute(explorerRoute);
+    addWriterOutput({ uri: targetUri, response, shareLink });
+    logLine("backend", `Encrypted content saved to ${targetUri}`, "success");
+  };
+
   // Google auth is temporarily disabled (no client ID input)
 
   const rightOpen = panels.right;
@@ -621,6 +688,42 @@ export function WriterMainContent() {
           {writerSection === "backend"
             ? <BackendHistory history={backendHistory} />
             : null}
+          {writerSection === "shareable" && (
+            <SectionCard title="Shareable Content" icon={<Share2 className="h-4 w-4" />}>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  Generate a one-off identity key, derive an encryption key from a shared phrase,
+                  and store encrypted content at a specific account path. Share the generated link
+                  to let apps derive the key and locate the payload.
+                </p>
+                {lastShareLink && (
+                  <div className="rounded border border-border bg-muted/30 p-3 space-y-1">
+                    <div className="text-xs font-semibold text-muted-foreground">
+                      Shareable link fragment
+                    </div>
+                    <code className="block text-xs break-all text-foreground">
+                      {lastShareLink}
+                    </code>
+                    {lastShareUri && (
+                      <div className="text-xs text-muted-foreground">
+                        Written to <span className="font-mono text-foreground">{lastShareUri}</span>
+                      </div>
+                    )}
+                    {lastExplorerRoute && (
+                      <div>
+                        <Link
+                          to={lastExplorerRoute}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Open in Explorer
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          )}
         </div>
       </div>
 
@@ -738,6 +841,58 @@ export function WriterMainContent() {
                 />
               </div>
             )}
+
+            {writerSection === "shareable" && (
+              <div className="space-y-4">
+                <SectionCard title="Shareable Secret" icon={<Lock className="h-4 w-4" />}>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void generateShareIdentity();
+                        }}
+                        className={SECONDARY_BUTTON}
+                      >
+                        Generate identity key
+                      </button>
+                      {shareIdentityKey && (
+                        <span className="text-xs text-muted-foreground truncate">
+                          {shareIdentityKey.publicKeyHex}
+                        </span>
+                      )}
+                    </div>
+                    <Field
+                      label="Location"
+                      formId="shareable-content"
+                      name="share-location"
+                      placeholder="path/to/content"
+                    />
+                    <Field
+                      label="Encryption matter"
+                      formId="shareable-content"
+                      name="share-matter"
+                      placeholder="phrase used to derive key"
+                    />
+                    <TextArea
+                      label="Content"
+                      formId="shareable-content"
+                      name="share-content"
+                      placeholder="Secret content to encrypt"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAction("Create shareable content", saveShareableContent)}
+                        className={PRIMARY_BUTTON}
+                      >
+                        Encrypt & Save
+                      </button>
+                    </div>
+                  </div>
+                </SectionCard>
+              </div>
+            )}
           </div>
         </aside>
       )}
@@ -747,11 +902,11 @@ export function WriterMainContent() {
 
 function WriterBreadcrumb(
   { writerSection }: {
-    writerSection: "backend" | "auth" | "actions" | "configuration" | "schema";
+    writerSection: WriterSection;
   },
 ) {
   const labels: Record<
-    "backend" | "auth" | "actions" | "configuration" | "schema",
+    WriterSection,
     string
   > = {
     backend: "Backend",
@@ -759,6 +914,7 @@ function WriterBreadcrumb(
     actions: "Actions",
     configuration: "Application",
     schema: "Schema",
+    shareable: "Shareable",
   };
 
   return (
@@ -1380,4 +1536,12 @@ function TextArea({
       />
     </div>
   );
+}
+
+function explorerRouteFromUri(uri: string): string {
+  const match = uri.match(/^([a-z0-9+.-]+):\/\/(.+)$/i);
+  const protocol = match ? match[1] : null;
+  const rest = match ? match[2] : uri;
+  const path = protocol ? `/${protocol}/${rest}` : rest;
+  return routeForExplorerPath(sanitizePath(path));
 }

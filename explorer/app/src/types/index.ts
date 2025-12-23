@@ -83,7 +83,13 @@ export interface EndpointConfig {
 // Application state types
 export type AppMode = "filesystem" | "search" | "watched";
 export type AppExperience = "explorer" | "writer";
-export type WriterSection = "backend" | "auth" | "actions" | "configuration" | "schema";
+export type WriterSection =
+  | "backend"
+  | "auth"
+  | "actions"
+  | "configuration"
+  | "schema"
+  | "shareable";
 export type AppMainView = "content" | "settings" | "accounts";
 
 export type ThemeMode = "light" | "dark" | "system";

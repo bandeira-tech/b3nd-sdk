@@ -7,6 +7,9 @@ import {
 const schema: Schema = {
   "mutable://open": () => Promise.resolve({ valid: true }),
 
+  "immutable://inbox": async ({ uri, value }) => {
+  },
+
   "mutable://accounts": async ({ uri, value }) => {
     try {
       const getAccess = createPubkeyBasedAccess();

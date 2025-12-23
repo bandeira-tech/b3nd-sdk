@@ -41,6 +41,178 @@ export interface SignedEncryptedMessage {
   payload: EncryptedPayload;
 }
 
+export interface SignedSymmetricMessage {
+  auth: Array<{
+    pubkey: string;
+    signature: string;
+  }>;
+  payload: EncryptedPayload;
+}
+
+export class IdentityKey {
+  private constructor(
+    private readonly privateKey: CryptoKey,
+    readonly publicKeyHex: string,
+  ) {}
+
+  static async generate(): Promise<{
+    key: IdentityKey;
+    privateKeyPem: string;
+    publicKeyHex: string;
+  }> {
+    const pair = await generateSigningKeyPair();
+    const privateKeyPem = await exportPrivateKeyPem(pair.privateKey, "PRIVATE KEY");
+    return {
+      key: new IdentityKey(pair.privateKey, pair.publicKeyHex),
+      privateKeyPem,
+      publicKeyHex: pair.publicKeyHex,
+    };
+  }
+
+  static async fromPem(pem: string, publicKeyHex: string): Promise<IdentityKey> {
+    const privateKey = await pemToCryptoKey(pem, "Ed25519");
+    return new IdentityKey(privateKey, publicKeyHex);
+  }
+
+  static async fromHex(
+    params: { privateKeyHex: string; publicKeyHex: string },
+  ): Promise<IdentityKey> {
+    const privateKeyBytes = decodeHex(params.privateKeyHex).buffer;
+    const privateKey = await crypto.subtle.importKey(
+      "pkcs8",
+      privateKeyBytes,
+      { name: "Ed25519", namedCurve: "Ed25519" },
+      false,
+      ["sign"],
+    );
+    return new IdentityKey(privateKey, params.publicKeyHex);
+  }
+
+  async sign(payload: unknown): Promise<string> {
+    return await sign(this.privateKey, payload);
+  }
+}
+
+export class PublicEncryptionKey {
+  constructor(
+    readonly publicKeyHex: string,
+    readonly publicKey: CryptoKey | null,
+  ) {}
+
+  static async fromHex(publicKeyHex: string): Promise<PublicEncryptionKey> {
+    const publicKeyBytes = decodeHex(publicKeyHex).buffer;
+    const publicKey = await crypto.subtle.importKey(
+      "raw",
+      publicKeyBytes,
+      { name: "X25519", namedCurve: "X25519" },
+      false,
+      [],
+    );
+    return new PublicEncryptionKey(publicKeyHex, publicKey);
+  }
+
+  static async generatePair(): Promise<{
+    publicKey: PublicEncryptionKey;
+    privateKeyHex: string;
+  }> {
+    const pair = await generateEncryptionKeyPair();
+    const privateKeyBytes = new Uint8Array(
+      await crypto.subtle.exportKey("pkcs8", pair.privateKey),
+    );
+    return {
+      publicKey: new PublicEncryptionKey(pair.publicKeyHex, pair.publicKey),
+      privateKeyHex: encodeHex(privateKeyBytes),
+    };
+  }
+
+  async encrypt(data: unknown): Promise<EncryptedPayload> {
+    return await encrypt(data, this.publicKeyHex);
+  }
+
+  toHex(): string {
+    return this.publicKeyHex;
+  }
+}
+
+export class SecretEncryptionKey {
+  private constructor(readonly keyHex: string) {}
+
+  static async fromSecret(params: {
+    secret: string;
+    salt: string;
+    iterations?: number;
+  }): Promise<SecretEncryptionKey> {
+    const keyHex = await deriveKeyFromSeed(
+      params.secret,
+      params.salt,
+      params.iterations ?? 100000,
+    );
+    return new SecretEncryptionKey(keyHex);
+  }
+
+  static fromHex(keyHex: string): SecretEncryptionKey {
+    return new SecretEncryptionKey(keyHex);
+  }
+
+  async encrypt(data: unknown): Promise<EncryptedPayload> {
+    return await encryptSymmetric(data, this.keyHex);
+  }
+
+  async decrypt(payload: EncryptedPayload): Promise<unknown> {
+    return await decryptSymmetric(payload, this.keyHex);
+  }
+}
+
+export class PrivateEncryptionKey {
+  constructor(
+    readonly privateKey: CryptoKey,
+    readonly privateKeyHex: string,
+    readonly publicKeyHex: string,
+  ) {}
+
+  static async fromHex(params: { privateKeyHex: string; publicKeyHex: string }): Promise<PrivateEncryptionKey> {
+    const { privateKeyHex, publicKeyHex } = params;
+    const privateKeyBytes = decodeHex(privateKeyHex).buffer;
+    const privateKey = await crypto.subtle.importKey(
+      "pkcs8",
+      privateKeyBytes,
+      { name: "X25519", namedCurve: "X25519" },
+      false,
+      ["deriveBits"],
+    );
+
+    return new PrivateEncryptionKey(privateKey, privateKeyHex, publicKeyHex);
+  }
+
+  static async generatePair(): Promise<{
+    privateKey: PrivateEncryptionKey;
+    publicKey: PublicEncryptionKey;
+  }> {
+    const pair = await generateEncryptionKeyPair();
+    const privateKeyBytes = new Uint8Array(
+      await crypto.subtle.exportKey("pkcs8", pair.privateKey),
+    );
+    const privateKeyHex = encodeHex(privateKeyBytes);
+    const publicKey = new PublicEncryptionKey(pair.publicKeyHex, pair.publicKey);
+    return {
+      privateKey: new PrivateEncryptionKey(pair.privateKey, privateKeyHex, pair.publicKeyHex),
+      publicKey,
+    };
+  }
+
+  toPublic(): PublicEncryptionKey {
+    return new PublicEncryptionKey(this.publicKeyHex, null);
+  }
+
+  async decrypt(payload: EncryptedPayload): Promise<unknown> {
+    return await decrypt(payload, this.privateKey);
+  }
+
+  toHex(): string {
+    return this.privateKeyHex;
+  }
+}
+
 /**
  * Convert a PEM-encoded private key to a CryptoKey
  */
@@ -390,72 +562,6 @@ export async function createAuthenticatedMessage<T>(
 }
 
 /**
- * Create a signed and encrypted message
- */
-export async function createSignedEncryptedMessage(
-  data: unknown,
-  signers: Array<{ privateKey: CryptoKey; publicKeyHex: string }>,
-  recipientPublicKeyHex: string,
-): Promise<SignedEncryptedMessage> {
-  // First encrypt the data
-  const encrypted = await encrypt(data, recipientPublicKeyHex);
-
-  // Then sign the encrypted payload
-  const auth = await Promise.all(
-    signers.map(async (signer) => {
-      const signature = await sign(signer.privateKey, encrypted);
-      return {
-        pubkey: signer.publicKeyHex,
-        signature,
-      };
-    }),
-  );
-
-  return {
-    auth,
-    payload: encrypted,
-  };
-}
-
-/**
- * Verify and decrypt a signed encrypted message
- */
-export async function verifyAndDecrypt(
-  message: SignedEncryptedMessage,
-  recipientPrivateKey: CryptoKey,
-): Promise<{
-  data: unknown;
-  verified: boolean;
-  signers: string[];
-}> {
-  // Verify all signatures
-  const verificationResults = await Promise.all(
-    message.auth.map(async (authEntry) => {
-      const verified = await verify(
-        authEntry.pubkey,
-        authEntry.signature,
-        message.payload,
-      );
-      return { pubkey: authEntry.pubkey, verified };
-    }),
-  );
-
-  const verified = verificationResults.every((r) => r.verified);
-  const signers = verificationResults
-    .filter((r) => r.verified)
-    .map((r) => r.pubkey);
-
-  // Decrypt the data
-  const data = await decrypt(message.payload, recipientPrivateKey);
-
-  return {
-    data,
-    verified,
-    signers,
-  };
-}
-
-/**
  * Create an authenticated message with hex-encoded keys (convenience wrapper)
  */
 export async function createAuthenticatedMessageWithHex<T>(
@@ -512,4 +618,191 @@ export function generateNonce(length = 12): Uint8Array {
 
 export function generateRandomData(size: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(size));
+}
+
+export async function exportPrivateKeyPem(privateKey: CryptoKey, label: string) {
+  const der = new Uint8Array(await crypto.subtle.exportKey("pkcs8", privateKey));
+  return toPem(der, label);
+}
+
+function toPem(der: Uint8Array, label: string) {
+  const base64 = encodeBase64(der);
+  const formatted = base64.match(/.{1,64}/g)?.join("\n") ?? base64;
+  return `-----BEGIN ${label}-----\n${formatted}\n-----END ${label}-----`;
+}
+
+export async function signPayload(
+  params: { payload: unknown; identity: IdentityKey },
+): Promise<Array<{ pubkey: string; signature: string }>> {
+  const { payload, identity } = params;
+  const signature = await identity.sign(payload);
+  return [{ pubkey: identity.publicKeyHex, signature }];
+}
+
+export async function verifyPayload(
+  params: {
+    payload: unknown;
+    auth: Array<{ pubkey: string; signature: string }>;
+  },
+): Promise<{ verified: boolean; signers: string[] }> {
+  const { payload, auth } = params;
+  const results = await Promise.all(auth.map(async (entry) => {
+    const ok = await verify(entry.pubkey, entry.signature, payload);
+    return { pubkey: entry.pubkey, ok };
+  }));
+  const verified = results.every((r) => r.ok);
+  const signers = results.filter((r) => r.ok).map((r) => r.pubkey);
+  return { verified, signers };
+}
+
+export async function createSignedEncryptedMessage(
+  params: {
+    data: unknown;
+    identity: IdentityKey;
+    encryptionKey: SecretEncryptionKey | PublicEncryptionKey;
+  },
+): Promise<SignedEncryptedMessage>;
+export async function createSignedEncryptedMessage(
+  data: unknown,
+  signers: Array<{ privateKey: CryptoKey; publicKeyHex: string }>,
+  recipientPublicKeyHex: string,
+): Promise<SignedEncryptedMessage>;
+export async function createSignedEncryptedMessage(
+  paramsOrData:
+    | {
+      data: unknown;
+      identity: IdentityKey;
+      encryptionKey: SecretEncryptionKey | PublicEncryptionKey;
+    }
+    | unknown,
+  signers?: Array<{ privateKey: CryptoKey; publicKeyHex: string }>,
+  recipientPublicKeyHex?: string,
+): Promise<SignedEncryptedMessage> {
+  if (
+    typeof paramsOrData === "object" && paramsOrData !== null &&
+    "encryptionKey" in paramsOrData
+  ) {
+    const { data, identity, encryptionKey } = paramsOrData as {
+      data: unknown;
+      identity: IdentityKey;
+      encryptionKey: SecretEncryptionKey | PublicEncryptionKey;
+    };
+    const payload = await encryptionKey.encrypt(data);
+    const auth = await signPayload({ payload, identity });
+    return { auth, payload };
+  }
+
+  if (!signers || !recipientPublicKeyHex) {
+    throw new Error("Invalid arguments for legacy createSignedEncryptedMessage");
+  }
+
+  const encrypted = await encrypt(paramsOrData, recipientPublicKeyHex);
+  const auth = await Promise.all(
+    signers.map(async (signer) => {
+      const signature = await sign(signer.privateKey, encrypted);
+      return { pubkey: signer.publicKeyHex, signature };
+    }),
+  );
+  return { auth, payload: encrypted };
+}
+
+export async function verifyAndDecryptMessage(
+  params: {
+    message: SignedEncryptedMessage;
+    encryptionKey: SecretEncryptionKey | PrivateEncryptionKey;
+  },
+): Promise<{ data: unknown; verified: boolean; signers: string[] }> {
+  const { message, encryptionKey } = params;
+  const { verified, signers } = await verifyPayload({
+    payload: message.payload,
+    auth: message.auth,
+  });
+  const data = encryptionKey instanceof SecretEncryptionKey
+    ? await encryptionKey.decrypt(message.payload)
+    : await encryptionKey.decrypt(message.payload);
+  return { data, verified, signers };
+}
+
+/**
+ * Encrypt data using a symmetric key (AES-GCM) provided as hex
+ */
+export async function encryptSymmetric(
+  data: unknown,
+  keyHex: string,
+): Promise<EncryptedPayload> {
+  const keyBytes = decodeHex(keyHex).buffer;
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "AES-GCM" },
+    false,
+    ["encrypt"],
+  );
+
+  const nonce = generateNonce();
+  const encoder = new TextEncoder();
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: nonce as BufferSource },
+    aesKey,
+    encoder.encode(JSON.stringify(data)),
+  );
+
+  return {
+    data: encodeBase64(new Uint8Array(ciphertext)),
+    nonce: encodeBase64(nonce),
+  };
+}
+
+/**
+ * Decrypt data using a symmetric key (AES-GCM) provided as hex
+ */
+export async function decryptSymmetric(
+  payload: EncryptedPayload,
+  keyHex: string,
+): Promise<unknown> {
+  const keyBytes = decodeHex(keyHex).buffer;
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "AES-GCM" },
+    false,
+    ["decrypt"],
+  );
+  const ciphertext = new Uint8Array(decodeBase64(payload.data));
+  const nonce = new Uint8Array(decodeBase64(payload.nonce));
+
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: nonce as BufferSource },
+    aesKey,
+    ciphertext,
+  );
+
+  const decoder = new TextDecoder();
+  return JSON.parse(decoder.decode(plaintext));
+}
+
+/**
+ * Create a signed symmetric message (signs encrypted payload)
+ */
+export async function createSignedSymmetricMessage(
+  data: unknown,
+  signers: Array<{ privateKey: CryptoKey; publicKeyHex: string }>,
+  keyHex: string,
+): Promise<SignedSymmetricMessage> {
+  const encryptedPayload = await encryptSymmetric(data, keyHex);
+
+  const auth = await Promise.all(
+    signers.map(async (signer) => {
+      const signature = await sign(signer.privateKey, encryptedPayload);
+      return {
+        pubkey: signer.publicKeyHex,
+        signature,
+      };
+    }),
+  );
+
+  return {
+    auth,
+    payload: encryptedPayload,
+  };
 }

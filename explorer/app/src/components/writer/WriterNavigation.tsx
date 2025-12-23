@@ -33,6 +33,12 @@ export function WriterNavigation() {
       description: "Invoke registered actions",
       icon: <Play className="h-4 w-4" />,
     },
+    {
+      key: "shareable",
+      label: "Shareable",
+      description: "Encrypt content for sharing",
+      icon: <FileText className="h-4 w-4" />,
+    },
   ];
 
   const appSections: Array<{
