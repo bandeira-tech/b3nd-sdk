@@ -468,11 +468,10 @@ export class MemoryWalletClient {
       encrypt: request.encrypt,
     });
 
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || `Proxy write failed: ${response.statusText}`);
-    }
+    const data = await response.json() as ProxyWriteResponse;
 
+    // Return the response directly - let caller check success
+    // This matches the type signature and enables error checking without try/catch
     return data;
   }
 
@@ -480,11 +479,10 @@ export class MemoryWalletClient {
     const url = `/proxy/read?uri=${encodeURIComponent(request.uri)}`;
     const response = await this.authRequest("GET", url);
 
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || `Proxy read failed: ${response.statusText}`);
-    }
+    const data = await response.json() as ProxyReadResponse;
 
+    // Return the response directly - let caller check success
+    // This matches the type signature and enables error checking without try/catch
     return data;
   }
 

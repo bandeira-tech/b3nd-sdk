@@ -5,6 +5,70 @@
  */
 
 /**
+ * Common interface for wallet clients (WalletClient and MemoryWalletClient)
+ *
+ * Implement this interface to create custom wallet clients or use
+ * for dependency injection in tests.
+ *
+ * @example
+ * ```typescript
+ * function setupApp(wallet: WalletClientInterface) {
+ *   // Works with both WalletClient and MemoryWalletClient
+ *   await wallet.proxyWrite({ uri: "...", data: {...} });
+ * }
+ *
+ * // Production
+ * setupApp(new WalletClient({ walletServerUrl: "...", apiBasePath: "/api/v1" }));
+ *
+ * // Tests
+ * setupApp(await MemoryWalletClient.create());
+ * ```
+ */
+export interface WalletClientInterface {
+  // Session management
+  getSession(): AuthSession | null;
+  setSession(session: AuthSession | null): void;
+  isAuthenticated(): boolean;
+  getUsername(): string | null;
+  getToken(): string | null;
+  logout(): void;
+
+  // Health & server info
+  health(): Promise<HealthResponse>;
+  getServerKeys(): Promise<{ identityPublicKeyHex: string; encryptionPublicKeyHex: string }>;
+
+  // Authentication
+  signupWithToken(
+    appKey: string,
+    tokenOrCredentials: string | UserCredentials,
+    maybeCredentials?: UserCredentials
+  ): Promise<AuthSession>;
+  loginWithTokenSession(
+    appKey: string,
+    tokenOrSession: string,
+    sessionOrCredentials: string | UserCredentials,
+    maybeCredentials?: UserCredentials
+  ): Promise<AuthSession>;
+
+  // Password management
+  changePassword(appKey: string, oldPassword: string, newPassword: string): Promise<void>;
+  requestPasswordResetWithToken(appKey: string, tokenOrUsername: string, maybeUsername?: string): Promise<PasswordResetToken>;
+  resetPasswordWithToken(appKey: string, tokenOrUsername: string, usernameOrReset: string, resetToken?: string, newPassword?: string): Promise<AuthSession>;
+
+  // Public keys
+  getPublicKeys(appKey: string): Promise<UserPublicKeys>;
+  getMyPublicKeys(appKey: string): Promise<UserPublicKeys>;
+
+  // Proxy operations
+  proxyWrite(request: ProxyWriteRequest): Promise<ProxyWriteResponse>;
+  proxyRead(request: ProxyReadRequest): Promise<ProxyReadResponse>;
+
+  // Google OAuth
+  signupWithGoogle(appKey: string, token: string, googleIdToken: string): Promise<GoogleAuthSession>;
+  loginWithGoogle(appKey: string, token: string, session: string, googleIdToken: string): Promise<GoogleAuthSession>;
+}
+
+/**
  * Configuration for wallet client
  */
 export interface WalletClientConfig {

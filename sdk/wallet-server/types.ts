@@ -134,6 +134,7 @@ export interface ProxyWriteResponse {
  */
 export interface ProxyReadResponse {
   success: boolean;
+  uri?: string;
   error?: string;
   record?: {
     data: unknown;

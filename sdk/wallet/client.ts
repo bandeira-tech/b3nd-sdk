@@ -357,6 +357,8 @@ export class WalletClient {
    * Proxy a write request through the wallet server
    * The server signs the write with its identity key
    * Requires active authentication session
+   *
+   * @returns ProxyWriteResponse - check `success` field for result
    */
   async proxyWrite(request: ProxyWriteRequest): Promise<ProxyWriteResponse> {
     if (!this.currentSession) {
@@ -378,12 +380,8 @@ export class WalletClient {
 
     const data: ProxyWriteResponse = await response.json();
 
-    if (!response.ok || !data.success) {
-      throw new Error(
-        (data as any).error || `Proxy write failed: ${response.statusText}`
-      );
-    }
-
+    // Return the response directly - let caller check success
+    // This enables error checking without try/catch
     return data;
   }
 
@@ -391,6 +389,8 @@ export class WalletClient {
    * Proxy a read request through the wallet server
    * The server decrypts encrypted data using user's encryption key
    * Requires active authentication session
+   *
+   * @returns ProxyReadResponse - check `success` field for result, `decrypted` for decrypted data
    */
   async proxyRead(request: ProxyReadRequest): Promise<ProxyReadResponse> {
     if (!this.currentSession) {
@@ -409,12 +409,8 @@ export class WalletClient {
 
     const data: ProxyReadResponse = await response.json();
 
-    if (!response.ok || !data.success) {
-      throw new Error(
-        data.error || `Proxy read failed: ${response.statusText}`
-      );
-    }
-
+    // Return the response directly - let caller check success
+    // This enables error checking without try/catch
     return data;
   }
 

@@ -42,8 +42,13 @@ export { WalletClient } from "./client.ts";
 export { MemoryWalletClient, generateTestServerKeys } from "./memory-client.ts";
 export type { MemoryWalletClientConfig } from "./memory-client.ts";
 
+// Export test utilities
+export { createTestEnvironment } from "./testing.ts";
+export type { TestEnvironmentConfig, TestEnvironment } from "./testing.ts";
+
 // Export all types
 export type {
+  WalletClientInterface,
   WalletClientConfig,
   UserCredentials,
   AuthSession,

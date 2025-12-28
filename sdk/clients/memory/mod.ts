@@ -22,8 +22,31 @@ type MemoryClientStorage = Map<
 >;
 
 export interface MemoryClientConfig {
+  /**
+   * Schema mapping protocol://hostname to validators.
+   *
+   * Keys MUST be in format: "protocol://hostname"
+   * Examples: "mutable://accounts", "immutable://data", "mutable://open"
+   *
+   * @example
+   * ```typescript
+   * const schema = {
+   *   "mutable://accounts": async () => ({ valid: true }),
+   *   "immutable://accounts": async () => ({ valid: true }),
+   * };
+   * const client = new MemoryClient({ schema });
+   * ```
+   */
   schema: Schema;
   storage?: MemoryClientStorage;
+}
+
+/**
+ * Validate schema key format
+ * Keys must be in format: "protocol://hostname"
+ */
+function validateSchemaKey(key: string): boolean {
+  return /^[a-z]+:\/\/[a-z0-9-]+$/.test(key);
 }
 
 type TargetResult =
@@ -67,7 +90,23 @@ function target(
 export class MemoryClient implements NodeProtocolInterface {
   protected storage: MemoryClientStorage;
   protected schema: Schema;
+
+  /**
+   * Create a new MemoryClient
+   *
+   * @param config - Configuration with schema mapping
+   * @throws Error if schema keys are not in "protocol://hostname" format
+   */
   constructor(config: MemoryClientConfig) {
+    // Validate schema key format
+    const invalidKeys = Object.keys(config.schema).filter(key => !validateSchemaKey(key));
+    if (invalidKeys.length > 0) {
+      throw new Error(
+        `Invalid schema key format: ${invalidKeys.map(k => `"${k}"`).join(", ")}. ` +
+        `Keys must be in "protocol://hostname" format (e.g., "mutable://accounts", "immutable://data").`
+      );
+    }
+
     this.schema = config.schema!;
     this.storage = config.storage || new Map();
     this.cleanup();
@@ -282,4 +321,27 @@ export class MemoryClient implements NodeProtocolInterface {
       success: true,
     });
   }
+}
+
+/**
+ * Default schema for testing that accepts all writes.
+ * Includes common b3nd protocol prefixes.
+ *
+ * @example
+ * ```typescript
+ * import { MemoryClient, createTestSchema } from "@bandeira-tech/b3nd-web/clients/memory";
+ *
+ * const backend = new MemoryClient({ schema: createTestSchema() });
+ * ```
+ */
+export function createTestSchema(): Schema {
+  const acceptAll = async () => ({ valid: true });
+  return {
+    "mutable://accounts": acceptAll,
+    "mutable://open": acceptAll,
+    "mutable://data": acceptAll,
+    "immutable://accounts": acceptAll,
+    "immutable://open": acceptAll,
+    "immutable://data": acceptAll,
+  };
 }

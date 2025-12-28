@@ -103,33 +103,50 @@ export async function proxyWrite(
 
 /**
  * Proxy a read request (with optional decryption)
+ *
+ * Data encrypted with proxyWrite is encrypted with the user's encryption key,
+ * so we need to load the user's encryption key to decrypt it.
  */
 export async function proxyRead(
   proxyClient: NodeProtocolInterface,
-  uri: string,
-  serverEncryptionPrivateKeyPem?: string
+  credentialClient: NodeProtocolInterface,
+  serverPublicKey: string,
+  username: string,
+  serverEncryptionPrivateKeyPem: string,
+  uri: string
 ): Promise<ProxyReadResponse> {
   try {
-    const result = await proxyClient.read(uri);
+    // Resolve :key placeholder with the user's account public key
+    const accountKey = await loadUserAccountKey(
+      credentialClient,
+      serverPublicKey,
+      username,
+      serverEncryptionPrivateKeyPem
+    );
+    const resolvedUri = uri.replace(/:key/g, accountKey.publicKeyHex);
+
+    const result = await proxyClient.read(resolvedUri);
 
     if (!result.success) {
       return {
         success: false,
+        uri: resolvedUri,
         error: result.error || "Read failed",
       };
     }
 
     const response: ProxyReadResponse = {
       success: true,
+      uri: resolvedUri,
       record: result.record,
     };
 
-    // If private key is provided and data looks encrypted, try to decrypt
-    if (serverEncryptionPrivateKeyPem && result.record?.data) {
+    // Try to decrypt if data looks encrypted
+    if (result.record?.data) {
       try {
         const data = result.record.data as Record<string, unknown>;
 
-        // Check if this is an encrypted payload structure
+        // Check if this is a signed+encrypted payload structure
         if (
           typeof data === "object" &&
           data.payload &&
@@ -137,8 +154,16 @@ export async function proxyRead(
         ) {
           const payload = data.payload as Record<string, unknown>;
           if (payload.data && payload.nonce && payload.ephemeralPublicKey) {
+            // Load user's encryption key to decrypt (data was encrypted with user's public key)
+            const userEncryptionKey = await loadUserEncryptionKey(
+              credentialClient,
+              serverPublicKey,
+              username,
+              serverEncryptionPrivateKeyPem
+            );
+
             const privateKey = await pemToCryptoKey(
-              serverEncryptionPrivateKeyPem,
+              userEncryptionKey.privateKeyPem,
               "X25519"
             );
             const encryptedPayload: EncryptedPayload = {
@@ -165,6 +190,7 @@ export async function proxyRead(
   } catch (error) {
     return {
       success: false,
+      uri,
       error: `Proxy read failed: ${
         error instanceof Error ? error.message : String(error)
       }`,

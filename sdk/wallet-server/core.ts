@@ -817,7 +817,7 @@ export class WalletServerCore {
         }
 
         const token = authHeader.substring(7);
-        await verifyJwt(token, this.config.jwtSecret);
+        const payload = await verifyJwt(token, this.config.jwtSecret);
 
         const uri = c.req.query("uri");
         if (!uri) {
@@ -826,8 +826,11 @@ export class WalletServerCore {
 
         const result = await proxyRead(
           this.proxyClient,
-          uri,
-          serverEncryptionPrivateKeyPem
+          this.credentialClient,
+          serverPublicKey,
+          payload.username,
+          serverEncryptionPrivateKeyPem,
+          uri
         );
 
         if (!result.success) {
@@ -836,7 +839,7 @@ export class WalletServerCore {
 
         return c.json({
           success: true,
-          uri,
+          uri: result.uri,
           record: result.record,
           decrypted: result.decrypted,
         });
