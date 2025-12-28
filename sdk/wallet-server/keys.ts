@@ -4,24 +4,15 @@
  * Generates and manages user Ed25519 (account/signing) and X25519 (encryption) keys.
  */
 
-import { encodeHex } from "@std/encoding/hex";
-import type { NodeProtocolInterface } from "@b3nd/sdk/types";
+import { encodeHex } from "../shared/encoding.ts";
+import type { NodeProtocolInterface } from "../src/types.ts";
+import type { Logger } from "./interfaces.ts";
+import type { UserKeys } from "./types.ts";
 import {
   deriveObfuscatedPath,
   createSignedEncryptedPayload,
   decryptSignedEncryptedPayload,
 } from "./obfuscation.ts";
-
-interface UserKeys {
-  accountKey: {
-    privateKeyPem: string;
-    publicKeyHex: string;
-  };
-  encryptionKey: {
-    privateKeyPem: string;
-    publicKeyHex: string;
-  };
-}
 
 /**
  * Convert Uint8Array to base64
@@ -46,7 +37,10 @@ async function generateAccountKeyPair(): Promise<{
     "pkcs8",
     keyPair.privateKey
   );
-  const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const publicKeyBuffer = await crypto.subtle.exportKey(
+    "raw",
+    keyPair.publicKey
+  );
 
   const privateKeyBase64 = bytesToBase64(new Uint8Array(privateKeyBuffer));
   const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64
@@ -78,7 +72,10 @@ async function generateEncryptionKeyPair(): Promise<{
     "pkcs8",
     keyPair.privateKey
   );
-  const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const publicKeyBuffer = await crypto.subtle.exportKey(
+    "raw",
+    keyPair.publicKey
+  );
 
   const privateKeyBase64 = bytesToBase64(new Uint8Array(privateKeyBuffer));
   const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64
@@ -156,7 +153,8 @@ export async function loadUserAccountKey(
   client: NodeProtocolInterface,
   serverPublicKey: string,
   username: string,
-  serverEncryptionPrivateKeyPem: string
+  serverEncryptionPrivateKeyPem: string,
+  logger?: Logger
 ): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
   // Derive obfuscated path
   const path = await deriveObfuscatedPath(
@@ -166,7 +164,7 @@ export async function loadUserAccountKey(
   );
 
   // Read signed+encrypted account key
-  const result = await client.read<any>(
+  const result = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${path}`
   );
 
@@ -176,12 +174,15 @@ export async function loadUserAccountKey(
 
   // Decrypt and verify the signed payload
   const { data, verified } = await decryptSignedEncryptedPayload(
-    result.record.data,
+    result.record.data as Parameters<typeof decryptSignedEncryptedPayload>[0],
     serverEncryptionPrivateKeyPem
   );
 
   if (!verified) {
-    console.warn("Account key signature verification failed for user:", username);
+    logger?.warn(
+      "Account key signature verification failed for user:",
+      username
+    );
   }
 
   return data as { privateKeyPem: string; publicKeyHex: string };
@@ -194,7 +195,8 @@ export async function loadUserEncryptionKey(
   client: NodeProtocolInterface,
   serverPublicKey: string,
   username: string,
-  serverEncryptionPrivateKeyPem: string
+  serverEncryptionPrivateKeyPem: string,
+  logger?: Logger
 ): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
   // Derive obfuscated path
   const path = await deriveObfuscatedPath(
@@ -204,7 +206,7 @@ export async function loadUserEncryptionKey(
   );
 
   // Read signed+encrypted encryption key
-  const result = await client.read<any>(
+  const result = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${path}`
   );
 
@@ -214,12 +216,15 @@ export async function loadUserEncryptionKey(
 
   // Decrypt and verify the signed payload
   const { data, verified } = await decryptSignedEncryptedPayload(
-    result.record.data,
+    result.record.data as Parameters<typeof decryptSignedEncryptedPayload>[0],
     serverEncryptionPrivateKeyPem
   );
 
   if (!verified) {
-    console.warn("Encryption key signature verification failed for user:", username);
+    logger?.warn(
+      "Encryption key signature verification failed for user:",
+      username
+    );
   }
 
   return data as { privateKeyPem: string; publicKeyHex: string };
@@ -232,11 +237,24 @@ export async function loadUserKeys(
   client: NodeProtocolInterface,
   serverPublicKey: string,
   username: string,
-  serverEncryptionPrivateKeyPem: string
+  serverEncryptionPrivateKeyPem: string,
+  logger?: Logger
 ): Promise<UserKeys> {
   const [accountKey, encryptionKey] = await Promise.all([
-    loadUserAccountKey(client, serverPublicKey, username, serverEncryptionPrivateKeyPem),
-    loadUserEncryptionKey(client, serverPublicKey, username, serverEncryptionPrivateKeyPem),
+    loadUserAccountKey(
+      client,
+      serverPublicKey,
+      username,
+      serverEncryptionPrivateKeyPem,
+      logger
+    ),
+    loadUserEncryptionKey(
+      client,
+      serverPublicKey,
+      username,
+      serverEncryptionPrivateKeyPem,
+      logger
+    ),
   ]);
 
   return { accountKey, encryptionKey };
@@ -249,13 +267,15 @@ export async function getUserPublicKeys(
   client: NodeProtocolInterface,
   serverPublicKey: string,
   username: string,
-  serverEncryptionPrivateKeyPem: string
+  serverEncryptionPrivateKeyPem: string,
+  logger?: Logger
 ): Promise<{ accountPublicKeyHex: string; encryptionPublicKeyHex: string }> {
   const { accountKey, encryptionKey } = await loadUserKeys(
     client,
     serverPublicKey,
     username,
-    serverEncryptionPrivateKeyPem
+    serverEncryptionPrivateKeyPem,
+    logger
   );
 
   return {

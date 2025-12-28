@@ -1,6 +1,6 @@
 {
   "name": "@bandeira-tech/b3nd-web",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Browser-focused B3nd SDK bundle",
   "type": "module",
   "main": "./dist/src/mod.web.js",
@@ -34,13 +34,21 @@
     "./apps": {
       "import": "./dist/apps/mod.js",
       "types": "./dist/apps/mod.d.ts"
+    },
+    "./wallet-server": {
+      "import": "./dist/wallet-server/mod.js",
+      "types": "./dist/wallet-server/mod.d.ts"
+    },
+    "./wallet-server/adapters/browser": {
+      "import": "./dist/wallet-server/adapters/browser.js",
+      "types": "./dist/wallet-server/adapters/browser.d.ts"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/mod.web.ts wallet/mod.ts apps/mod.ts encrypt/mod.ts clients/http/mod.ts clients/local-storage/mod.ts clients/websocket/mod.ts --dts --format esm --out-dir dist --clean --tsconfig tsconfig.web.json",
+    "build": "tsup src/mod.web.ts wallet/mod.ts apps/mod.ts encrypt/mod.ts clients/http/mod.ts clients/local-storage/mod.ts clients/websocket/mod.ts wallet-server/mod.ts wallet-server/adapters/browser.ts --dts --format esm --out-dir dist --clean --tsconfig tsconfig.web.json",
     "clean": "rm -rf dist",
     "lint": "deno lint src/",
     "format": "deno fmt src/"
@@ -69,7 +77,9 @@
     "url": "https://github.com/bandeira-tech/b3nd-sdk/issues"
   },
   "homepage": "https://github.com/bandeira-tech/b3nd-sdk#readme",
-  "dependencies": {},
+  "dependencies": {
+    "hono": "^4.6.0"
+  },
   "devDependencies": {
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",

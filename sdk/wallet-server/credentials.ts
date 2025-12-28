@@ -5,14 +5,18 @@
  * Each credential type has a handler that implements signup and login logic.
  */
 
-import type { NodeProtocolInterface } from "@b3nd/sdk/types";
+import type { NodeProtocolInterface } from "../src/types.ts";
+import type { Logger, HttpFetch } from "./interfaces.ts";
 import {
   createUser,
   authenticateUser,
   createGoogleUser,
   authenticateGoogleUser,
 } from "./auth.ts";
-import { verifyGoogleIdToken, generateGoogleUsername } from "./google-oauth.ts";
+import {
+  verifyGoogleIdToken,
+  generateGoogleUsername,
+} from "./google-oauth.ts";
 import type { GoogleTokenPayload } from "./google-oauth.ts";
 import { generateUserKeys } from "./keys.ts";
 
@@ -59,22 +63,18 @@ export type CredentialPayload =
 /**
  * Credential handler interface
  */
-export interface CredentialHandler<T extends BaseCredentialPayload = BaseCredentialPayload> {
+export interface CredentialHandler<
+  T extends BaseCredentialPayload = BaseCredentialPayload
+> {
   /**
    * Handle signup with this credential type
    */
-  signup(
-    payload: T,
-    context: CredentialContext,
-  ): Promise<CredentialResult>;
+  signup(payload: T, context: CredentialContext): Promise<CredentialResult>;
 
   /**
    * Handle login with this credential type
    */
-  login(
-    payload: T,
-    context: CredentialContext,
-  ): Promise<CredentialResult>;
+  login(payload: T, context: CredentialContext): Promise<CredentialResult>;
 }
 
 /**
@@ -89,15 +89,19 @@ export interface CredentialContext {
   serverEncryptionPrivateKeyPem: string;
   appKey: string;
   googleClientId?: string | null;
+  logger?: Logger;
+  fetch?: HttpFetch;
 }
 
 /**
  * Password credential handler
  */
-class PasswordCredentialHandler implements CredentialHandler<PasswordCredentialPayload> {
+class PasswordCredentialHandler
+  implements CredentialHandler<PasswordCredentialPayload>
+{
   async signup(
     payload: PasswordCredentialPayload,
-    context: CredentialContext,
+    context: CredentialContext
   ): Promise<CredentialResult> {
     const { username, password } = payload;
 
@@ -106,10 +110,12 @@ class PasswordCredentialHandler implements CredentialHandler<PasswordCredentialP
     }
 
     if (!password || typeof password !== "string" || password.length < 8) {
-      throw new Error("password is required and must be at least 8 characters");
+      throw new Error(
+        "password is required and must be at least 8 characters"
+      );
     }
 
-    console.log(`Creating password user: ${username}`);
+    context.logger?.log(`Creating password user: ${username}`);
     await createUser(
       context.client,
       context.serverPublicKey,
@@ -118,28 +124,28 @@ class PasswordCredentialHandler implements CredentialHandler<PasswordCredentialP
       context.serverIdentityPrivateKeyPem,
       context.serverIdentityPublicKeyHex,
       context.serverEncryptionPublicKeyHex,
-      context.appKey,
+      context.appKey
     );
-    console.log(`✅ Password user created: ${username}`);
+    context.logger?.log(`Password user created: ${username}`);
 
     // Generate user keys
-    console.log(`Generating keys for user: ${username}`);
+    context.logger?.log(`Generating keys for user: ${username}`);
     await generateUserKeys(
       context.client,
       context.serverPublicKey,
       username,
       context.serverIdentityPrivateKeyPem,
       context.serverIdentityPublicKeyHex,
-      context.serverEncryptionPublicKeyHex,
+      context.serverEncryptionPublicKeyHex
     );
-    console.log(`✅ Keys generated for user: ${username}`);
+    context.logger?.log(`Keys generated for user: ${username}`);
 
     return { username };
   }
 
   async login(
     payload: PasswordCredentialPayload,
-    context: CredentialContext,
+    context: CredentialContext
   ): Promise<CredentialResult> {
     const { username, password } = payload;
 
@@ -156,6 +162,7 @@ class PasswordCredentialHandler implements CredentialHandler<PasswordCredentialP
       context.serverIdentityPublicKeyHex,
       context.serverEncryptionPrivateKeyPem,
       context.appKey,
+      context.logger
     );
 
     if (!isValid) {
@@ -169,10 +176,12 @@ class PasswordCredentialHandler implements CredentialHandler<PasswordCredentialP
 /**
  * Google OAuth credential handler
  */
-class GoogleCredentialHandler implements CredentialHandler<GoogleCredentialPayload> {
+class GoogleCredentialHandler
+  implements CredentialHandler<GoogleCredentialPayload>
+{
   async signup(
     payload: GoogleCredentialPayload,
-    context: CredentialContext,
+    context: CredentialContext
   ): Promise<CredentialResult> {
     if (!context.googleClientId) {
       throw new Error("Google OAuth is not configured");
@@ -185,16 +194,17 @@ class GoogleCredentialHandler implements CredentialHandler<GoogleCredentialPaylo
     }
 
     // Verify Google ID token
-    console.log("Verifying Google ID token...");
+    context.logger?.log("Verifying Google ID token...");
     const googlePayload = await verifyGoogleIdToken(
       googleIdToken,
       context.googleClientId,
+      context.fetch
     );
-    console.log(`✅ Google token verified for: ${googlePayload.email}`);
+    context.logger?.log(`Google token verified for: ${googlePayload.email}`);
 
     // Generate a username from Google sub
     const username = await generateGoogleUsername(googlePayload.sub);
-    console.log(`Creating Google user: ${username}`);
+    context.logger?.log(`Creating Google user: ${username}`);
 
     // Create user with Google profile
     await createGoogleUser(
@@ -205,21 +215,21 @@ class GoogleCredentialHandler implements CredentialHandler<GoogleCredentialPaylo
       context.serverIdentityPrivateKeyPem,
       context.serverIdentityPublicKeyHex,
       context.serverEncryptionPublicKeyHex,
-      context.appKey,
+      context.appKey
     );
-    console.log(`✅ Google user created: ${username}`);
+    context.logger?.log(`Google user created: ${username}`);
 
     // Generate user keys
-    console.log(`Generating keys for Google user: ${username}`);
+    context.logger?.log(`Generating keys for Google user: ${username}`);
     await generateUserKeys(
       context.client,
       context.serverPublicKey,
       username,
       context.serverIdentityPrivateKeyPem,
       context.serverIdentityPublicKeyHex,
-      context.serverEncryptionPublicKeyHex,
+      context.serverEncryptionPublicKeyHex
     );
-    console.log(`✅ Keys generated for Google user: ${username}`);
+    context.logger?.log(`Keys generated for Google user: ${username}`);
 
     return {
       username,
@@ -233,7 +243,7 @@ class GoogleCredentialHandler implements CredentialHandler<GoogleCredentialPaylo
 
   async login(
     payload: GoogleCredentialPayload,
-    context: CredentialContext,
+    context: CredentialContext
   ): Promise<CredentialResult> {
     if (!context.googleClientId) {
       throw new Error("Google OAuth is not configured");
@@ -246,12 +256,13 @@ class GoogleCredentialHandler implements CredentialHandler<GoogleCredentialPaylo
     }
 
     // Verify Google ID token
-    console.log("Verifying Google ID token for login...");
+    context.logger?.log("Verifying Google ID token for login...");
     const googlePayload = await verifyGoogleIdToken(
       googleIdToken,
       context.googleClientId,
+      context.fetch
     );
-    console.log(`✅ Google token verified for: ${googlePayload.email}`);
+    context.logger?.log(`Google token verified for: ${googlePayload.email}`);
 
     // Look up user by Google sub
     const username = await authenticateGoogleUser(
@@ -260,13 +271,14 @@ class GoogleCredentialHandler implements CredentialHandler<GoogleCredentialPaylo
       googlePayload.sub,
       context.serverEncryptionPrivateKeyPem,
       context.appKey,
+      context.logger
     );
 
     if (!username) {
       throw new Error("Google account not registered. Please sign up first.");
     }
 
-    console.log(`✅ Google login successful for user: ${username}`);
+    context.logger?.log(`Google login successful for user: ${username}`);
 
     return {
       username,
@@ -303,7 +315,7 @@ export function getCredentialHandler(type: string): CredentialHandler {
  */
 export function registerCredentialHandler(
   type: string,
-  handler: CredentialHandler,
+  handler: CredentialHandler
 ): void {
   credentialHandlers.set(type, handler);
 }

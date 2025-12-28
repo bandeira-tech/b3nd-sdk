@@ -4,9 +4,7 @@
  * Creates and validates JWT tokens for authenticated sessions.
  */
 
-import { encodeHex, decodeHex } from "@std/encoding/hex";
-
-interface JwtPayload {
+export interface JwtPayload {
   username: string;
   iat: number; // issued at
   exp: number; // expiration
@@ -74,7 +72,11 @@ export async function createJwt(
     ["sign"]
   );
 
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(message)
+  );
   const signatureEncoded = base64urlEncode(
     String.fromCharCode(...new Uint8Array(signature))
   );
@@ -113,7 +115,11 @@ export async function verifyJwt(
     .replace(/-/g, "+")
     .replace(/_/g, "/")
     .padEnd(signatureEncoded.length + ((4 - (signatureEncoded.length % 4)) % 4), "=");
-  const signatureBytes = new Uint8Array(atob(signaturePadded).split("").map((c) => c.charCodeAt(0)));
+  const signatureBytes = new Uint8Array(
+    atob(signaturePadded)
+      .split("")
+      .map((c) => c.charCodeAt(0))
+  );
 
   const isValid = await crypto.subtle.verify(
     "HMAC",

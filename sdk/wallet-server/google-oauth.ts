@@ -5,9 +5,10 @@
  * Supports both signup and login flows with Google OAuth2.
  */
 
-import { encodeHex } from "@std/encoding/hex";
+import { encodeHex } from "../shared/encoding.ts";
+import type { HttpFetch } from "./interfaces.ts";
 
-interface GoogleTokenPayload {
+export interface GoogleTokenPayload {
   iss: string; // Issuer (accounts.google.com or https://accounts.google.com)
   azp: string; // Authorized party
   aud: string; // Audience (your Google Client ID)
@@ -42,13 +43,15 @@ let cacheExpiry = 0;
 /**
  * Fetch Google's public keys for JWT verification
  */
-async function getGooglePublicKeys(): Promise<GooglePublicKey[]> {
+async function getGooglePublicKeys(
+  fetchImpl: HttpFetch = fetch
+): Promise<GooglePublicKey[]> {
   const now = Date.now();
   if (cachedKeys.length > 0 && now < cacheExpiry) {
     return cachedKeys;
   }
 
-  const response = await fetch(
+  const response = await fetchImpl(
     "https://www.googleapis.com/oauth2/v3/certs"
   );
 
@@ -71,6 +74,14 @@ async function getGooglePublicKeys(): Promise<GooglePublicKey[]> {
   cacheExpiry = now + maxAge * 1000;
 
   return cachedKeys;
+}
+
+/**
+ * Clear the cached Google public keys
+ */
+export function clearGooglePublicKeyCache(): void {
+  cachedKeys = [];
+  cacheExpiry = 0;
 }
 
 /**
@@ -120,7 +131,8 @@ async function importRsaPublicKey(key: GooglePublicKey): Promise<CryptoKey> {
  */
 export async function verifyGoogleIdToken(
   idToken: string,
-  clientId: string
+  clientId: string,
+  fetchImpl: HttpFetch = fetch
 ): Promise<GoogleTokenPayload> {
   // Split the JWT into parts
   const parts = idToken.split(".");
@@ -140,20 +152,20 @@ export async function verifyGoogleIdToken(
   }
 
   // Get Google's public keys
-  const keys = await getGooglePublicKeys();
-  const key = keys.find((k) => k.kid === kid);
+  let keys = await getGooglePublicKeys(fetchImpl);
+  let key = keys.find((k) => k.kid === kid);
 
   if (!key) {
     // Refresh keys and try again
-    cachedKeys = [];
-    const freshKeys = await getGooglePublicKeys();
-    const freshKey = freshKeys.find((k) => k.kid === kid);
-    if (!freshKey) {
+    clearGooglePublicKeyCache();
+    keys = await getGooglePublicKeys(fetchImpl);
+    key = keys.find((k) => k.kid === kid);
+    if (!key) {
       throw new Error("Google public key not found for token");
     }
   }
 
-  const publicKey = await importRsaPublicKey(key || keys.find((k) => k.kid === kid)!);
+  const publicKey = await importRsaPublicKey(key);
 
   // Verify signature
   const signatureData = base64UrlDecode(signatureB64);
@@ -205,7 +217,9 @@ export async function verifyGoogleIdToken(
  * Generate a deterministic username from Google user info
  * Uses the Google sub (unique user ID) to create a consistent username
  */
-export async function generateGoogleUsername(googleSub: string): Promise<string> {
+export async function generateGoogleUsername(
+  googleSub: string
+): Promise<string> {
   // Create a hash of the Google sub to use as username suffix
   const encoder = new TextEncoder();
   const data = encoder.encode(`google:${googleSub}`);
@@ -215,8 +229,3 @@ export async function generateGoogleUsername(googleSub: string): Promise<string>
   // Use first 12 chars of hash for uniqueness
   return `g_${hashHex.substring(0, 12)}`;
 }
-
-/**
- * Exported type for Google token payload
- */
-export type { GoogleTokenPayload };

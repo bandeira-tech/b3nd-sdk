@@ -13,20 +13,20 @@
  * but the path itself reveals nothing about the data.
  */
 
-import { encodeHex } from "@std/encoding/hex";
+import { encodeHex } from "../shared/encoding.ts";
 import {
   encrypt as encryptData,
   decrypt as decryptData,
   createSignedEncryptedMessage,
-  verifyAndDecrypt,
+  verifyPayload,
   type EncryptedPayload,
-  type SignedEncryptedMessage
-} from "@b3nd/sdk/encrypt";
+  type SignedEncryptedMessage,
+} from "../encrypt/mod.ts";
 
 /**
  * Operation types for path obfuscation
  */
-type OperationType =
+export type OperationType =
   | "password"
   | "account-key"
   | "encryption-key"
@@ -72,7 +72,11 @@ export async function deriveObfuscatedPath(
     ["sign"]
   );
 
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(input));
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(input)
+  );
 
   // Return first 32 hex characters (128 bits) for reasonable path length
   return encodeHex(new Uint8Array(signature)).substring(0, 32);
@@ -81,7 +85,7 @@ export async function deriveObfuscatedPath(
 /**
  * Convert PEM string to CryptoKey
  */
-async function pemToCryptoKey(
+export async function pemToCryptoKey(
   pem: string,
   algorithm: "Ed25519" | "X25519" = "Ed25519"
 ): Promise<CryptoKey> {
@@ -130,7 +134,10 @@ export async function createSignedEncryptedPayload(
   serverIdentityPublicKeyHex: string,
   serverEncryptionPublicKeyHex: string
 ): Promise<SignedEncryptedMessage> {
-  const identityPrivateKey = await pemToCryptoKey(serverIdentityPrivateKeyPem, "Ed25519");
+  const identityPrivateKey = await pemToCryptoKey(
+    serverIdentityPrivateKeyPem,
+    "Ed25519"
+  );
 
   return await createSignedEncryptedMessage(
     data,
@@ -146,8 +153,21 @@ export async function decryptSignedEncryptedPayload(
   signedMessage: SignedEncryptedMessage,
   serverEncryptionPrivateKeyPem: string
 ): Promise<{ data: unknown; verified: boolean; signers: string[] }> {
-  const encryptionPrivateKey = await pemToCryptoKey(serverEncryptionPrivateKeyPem, "X25519");
-  return await verifyAndDecrypt(signedMessage, encryptionPrivateKey);
+  const encryptionPrivateKey = await pemToCryptoKey(
+    serverEncryptionPrivateKeyPem,
+    "X25519"
+  );
+
+  // Verify the signature on the encrypted payload
+  const { verified, signers } = await verifyPayload({
+    payload: signedMessage.payload,
+    auth: signedMessage.auth,
+  });
+
+  // Decrypt the payload
+  const data = await decryptData(signedMessage.payload, encryptionPrivateKey);
+
+  return { data, verified, signers };
 }
 
 /**
@@ -169,7 +189,10 @@ export async function decryptFromBackend(
   encryptedPayload: EncryptedPayload,
   serverEncryptionPrivateKeyPem: string
 ): Promise<unknown> {
-  const privateKey = await pemToCryptoKey(serverEncryptionPrivateKeyPem, "X25519");
+  const privateKey = await pemToCryptoKey(
+    serverEncryptionPrivateKeyPem,
+    "X25519"
+  );
   return await decryptData(encryptedPayload, privateKey);
 }
 
@@ -214,7 +237,7 @@ export async function encryptedRead(
   ...params: string[]
 ): Promise<unknown> {
   // Verify path matches (optional, but good for consistency)
-  const expectedPath = await deriveObfuscatedPath(
+  const _expectedPath = await deriveObfuscatedPath(
     serverPublicKey,
     username,
     operationType,
@@ -224,3 +247,6 @@ export async function encryptedRead(
   // Path verification happens externally, just decrypt here
   return await decryptFromBackend(encryptedPayload, serverEncryptionPrivateKeyPem);
 }
+
+// Re-export types from encrypt module
+export type { EncryptedPayload, SignedEncryptedMessage };

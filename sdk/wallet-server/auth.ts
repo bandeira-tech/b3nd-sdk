@@ -5,8 +5,9 @@
  * All data is encrypted before writing to backend using obfuscated paths.
  */
 
-import { encodeHex, decodeHex } from "@std/encoding/hex";
-import type { NodeProtocolInterface } from "@b3nd/sdk/types";
+import { encodeHex, decodeHex } from "../shared/encoding.ts";
+import type { NodeProtocolInterface } from "../src/types.ts";
+import type { Logger } from "./interfaces.ts";
 import {
   deriveObfuscatedPath,
   createSignedEncryptedPayload,
@@ -158,7 +159,8 @@ export async function authenticateUser(
   password: string,
   serverIdentityPublicKeyHex: string,
   serverEncryptionPrivateKeyPem: string,
-  appScope?: string
+  appScope?: string,
+  logger?: Logger
 ): Promise<boolean> {
   // Derive obfuscated path to password credential
   const passwordPath = await deriveObfuscatedPath(
@@ -169,7 +171,7 @@ export async function authenticateUser(
   );
 
   // Read signed+encrypted password credential
-  const result = await client.read<any>(
+  const result = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${passwordPath}`
   );
 
@@ -179,12 +181,15 @@ export async function authenticateUser(
 
   // Decrypt and verify the signed payload
   const { data, verified } = await decryptSignedEncryptedPayload(
-    result.record.data,
+    result.record.data as Parameters<typeof decryptSignedEncryptedPayload>[0],
     serverEncryptionPrivateKeyPem
   );
 
   if (!verified) {
-    console.warn("Password credential signature verification failed for user:", username);
+    logger?.warn(
+      "Password credential signature verification failed for user:",
+      username
+    );
     // Continue anyway - credentials might be legitimately unsigned in migration scenarios
   }
 
@@ -314,7 +319,8 @@ export async function resetPasswordWithToken(
   serverEncryptionPublicKeyHex: string,
   serverEncryptionPrivateKeyPem: string,
   username: string,
-  appScope?: string
+  appScope?: string,
+  logger?: Logger
 ): Promise<string> {
   // Derive obfuscated path to reset token using username hint
   const tokenPath = await deriveObfuscatedPath(
@@ -326,7 +332,7 @@ export async function resetPasswordWithToken(
   );
 
   // Read signed+encrypted reset token
-  const result = await client.read<any>(
+  const result = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${tokenPath}`
   );
 
@@ -336,16 +342,22 @@ export async function resetPasswordWithToken(
 
   // Decrypt and verify the token data
   const { data: tokenData, verified } = await decryptSignedEncryptedPayload(
-    result.record.data,
+    result.record.data as Parameters<typeof decryptSignedEncryptedPayload>[0],
     serverEncryptionPrivateKeyPem
   );
 
   if (!verified) {
-    console.warn("Reset token signature verification failed for user:", username);
+    logger?.warn(
+      "Reset token signature verification failed for user:",
+      username
+    );
     // Continue anyway - tokens might be legitimately unsigned in migration scenarios
   }
 
-  const { username: tokenUsername, expiresAt } = tokenData as { username: string; expiresAt: string };
+  const { username: tokenUsername, expiresAt } = tokenData as {
+    username: string;
+    expiresAt: string;
+  };
 
   // Verify username matches
   if (tokenUsername !== username) {
@@ -424,7 +436,9 @@ export async function createGoogleUser(
   appScope?: string
 ): Promise<{ username: string; googleSub: string }> {
   // Check if Google user already exists
-  if (await googleUserExists(client, serverPublicKey, googlePayload.sub, appScope)) {
+  if (
+    await googleUserExists(client, serverPublicKey, googlePayload.sub, appScope)
+  ) {
     throw new Error("Google account already registered");
   }
 
@@ -496,7 +510,8 @@ export async function authenticateGoogleUser(
   serverPublicKey: string,
   googleSub: string,
   serverEncryptionPrivateKeyPem: string,
-  appScope?: string
+  appScope?: string,
+  logger?: Logger
 ): Promise<string | null> {
   // Look up Google sub -> username mapping
   const googleProfilePath = await deriveObfuscatedPath(
@@ -506,7 +521,7 @@ export async function authenticateGoogleUser(
     ...(appScope ? [appScope] : [])
   );
 
-  const result = await client.read<any>(
+  const result = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${googleProfilePath}`
   );
 
@@ -516,12 +531,15 @@ export async function authenticateGoogleUser(
 
   // Decrypt and verify the signed payload
   const { data, verified } = await decryptSignedEncryptedPayload(
-    result.record.data,
+    result.record.data as Parameters<typeof decryptSignedEncryptedPayload>[0],
     serverEncryptionPrivateKeyPem
   );
 
   if (!verified) {
-    console.warn("Google profile signature verification failed for sub:", googleSub);
+    logger?.warn(
+      "Google profile signature verification failed for sub:",
+      googleSub
+    );
   }
 
   const { username } = data as { username: string };
