@@ -1,6 +1,6 @@
 {
   "name": "@bandeira-tech/b3nd-web",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Browser-focused B3nd SDK bundle",
   "type": "module",
   "main": "./dist/src/mod.web.js",
@@ -27,6 +27,10 @@
       "import": "./dist/clients/websocket/mod.js",
       "types": "./dist/clients/websocket/mod.d.ts"
     },
+    "./clients/memory": {
+      "import": "./dist/clients/memory/mod.js",
+      "types": "./dist/clients/memory/mod.d.ts"
+    },
     "./wallet": {
       "import": "./dist/wallet/mod.js",
       "types": "./dist/wallet/mod.d.ts"
@@ -48,7 +52,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/mod.web.ts wallet/mod.ts apps/mod.ts encrypt/mod.ts clients/http/mod.ts clients/local-storage/mod.ts clients/websocket/mod.ts wallet-server/mod.ts wallet-server/adapters/browser.ts --dts --format esm --out-dir dist --clean --tsconfig tsconfig.web.json",
+    "build": "tsup src/mod.web.ts wallet/mod.ts apps/mod.ts encrypt/mod.ts clients/http/mod.ts clients/local-storage/mod.ts clients/websocket/mod.ts clients/memory/mod.ts wallet-server/mod.ts wallet-server/adapters/browser.ts --dts --format esm --out-dir dist --clean --tsconfig tsconfig.web.json",
     "clean": "rm -rf dist",
     "lint": "deno lint src/",
     "format": "deno fmt src/"
