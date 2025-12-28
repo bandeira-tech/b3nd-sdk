@@ -38,6 +38,10 @@
 // Export main client
 export { WalletClient } from "./client.ts";
 
+// Export in-memory client for testing
+export { MemoryWalletClient, generateTestServerKeys } from "./memory-client.ts";
+export type { MemoryWalletClientConfig } from "./memory-client.ts";
+
 // Export all types
 export type {
   WalletClientConfig,
