@@ -15,6 +15,8 @@ import type {
   PasswordResetToken,
   ProxyWriteRequest,
   ProxyWriteResponse,
+  ProxyReadRequest,
+  ProxyReadResponse,
   SignupResponse,
   LoginResponse,
   PublicKeysResponse,
@@ -379,6 +381,37 @@ export class WalletClient {
     if (!response.ok || !data.success) {
       throw new Error(
         (data as any).error || `Proxy write failed: ${response.statusText}`
+      );
+    }
+
+    return data;
+  }
+
+  /**
+   * Proxy a read request through the wallet server
+   * The server decrypts encrypted data using user's encryption key
+   * Requires active authentication session
+   */
+  async proxyRead(request: ProxyReadRequest): Promise<ProxyReadResponse> {
+    if (!this.currentSession) {
+      throw new Error("Not authenticated. Please login first.");
+    }
+
+    const url = new URL(`${this.walletServerUrl}${this.apiBasePath}/proxy/read`);
+    url.searchParams.set("uri", request.uri);
+
+    const response = await this.fetchImpl(url.toString(), {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.currentSession.token}`,
+      },
+    });
+
+    const data: ProxyReadResponse = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data.error || `Proxy read failed: ${response.statusText}`
       );
     }
 

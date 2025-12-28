@@ -20,11 +20,18 @@
  * // Activate session
  * wallet.setSession(session);
  *
- * // Write data
+ * // Write data (with optional encryption)
  * await wallet.proxyWrite({
  *   uri: "mutable://data/my-app/profile",
- *   data: { name: "Alice" }
+ *   data: { name: "Alice" },
+ *   encrypt: true
  * });
+ *
+ * // Read data (with automatic decryption)
+ * const result = await wallet.proxyRead({
+ *   uri: "mutable://data/my-app/profile"
+ * });
+ * console.log(result.decrypted); // Decrypted data
  * ```
  */
 
@@ -40,6 +47,8 @@ export type {
   PasswordResetToken,
   ProxyWriteRequest,
   ProxyWriteResponse,
+  ProxyReadRequest,
+  ProxyReadResponse,
   ApiResponse,
   SignupResponse,
   LoginResponse,

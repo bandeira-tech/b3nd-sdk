@@ -92,6 +92,27 @@ export interface ProxyWriteResponse {
 }
 
 /**
+ * Read proxy request
+ */
+export interface ProxyReadRequest {
+  uri: string;
+}
+
+/**
+ * Read proxy response
+ */
+export interface ProxyReadResponse {
+  success: boolean;
+  uri: string;
+  record?: {
+    data: unknown;
+    ts: number;
+  };
+  decrypted?: unknown; // Decrypted data if encryption was detected
+  error?: string;
+}
+
+/**
  * API response wrapper
  */
 export interface ApiResponse {
