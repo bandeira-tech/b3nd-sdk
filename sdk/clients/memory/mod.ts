@@ -254,8 +254,8 @@ export class MemoryClient implements NodeProtocolInterface {
       [key, child],
     ) => ({
       uri: path.endsWith("/")
-        ? `${program}://${path}${key}`
-        : `${program}://${path}/${key}`,
+        ? `${program}${path}${key}`
+        : `${program}${path}/${key}`,
       type: child.value ? "file" : "directory",
     }));
 
