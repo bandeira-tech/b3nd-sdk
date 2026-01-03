@@ -1,0 +1,20 @@
+{
+  "name": "@bandeira-tech/b3nd-mcp",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "imports": {
+    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.52.0",
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.0.0",
+    "@bandeira-tech/b3nd-sdk": "../sdk/src/mod.ts"
+  },
+  "tasks": {
+    "start": "deno run -A mod.ts",
+    "dev": "deno run --watch -A mod.ts"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["ES2020", "deno.ns"]
+  }
+}

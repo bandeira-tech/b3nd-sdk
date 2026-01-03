@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "b3nd": {
+      "command": "deno",
+      "args": ["run", "-A", "./mcp-server/mod.ts"],
+      "env": {
+        "B3ND_BACKENDS": "${B3ND_BACKENDS:-local=http://localhost:8842}"
+      }
+    }
+  }
+}
