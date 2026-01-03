@@ -375,7 +375,7 @@ export class ClientError extends Error {
  */
 export interface WebSocketRequest {
   id: string;
-  type: "write" | "read" | "list" | "delete" | "health" | "getSchema";
+  type: "write" | "read" | "readMulti" | "list" | "delete" | "health" | "getSchema";
   payload: unknown;
 }
 
