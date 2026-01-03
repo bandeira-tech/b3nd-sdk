@@ -7,6 +7,7 @@
     "jsr:@std/internal@^1.0.10": "1.0.10",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "npm:@types/node@^22.10.1": "22.19.1",
+    "npm:hono@^4.6.0": "4.9.9",
     "npm:mongodb@*": "7.0.0",
     "npm:pg@*": "8.16.3",
     "npm:tsup@^8.3.5": "8.5.1_typescript@5.9.3_esbuild@0.27.0",
@@ -498,6 +499,9 @@
         "path-scurry"
       ],
       "bin": true
+    },
+    "hono@4.9.9": {
+      "integrity": "sha512-Hxw4wT6zjJGZJdkJzAx9PyBdf7ZpxaTSA0NfxqjLghwMrLBX8p33hJBzoETRakF3UJu6OdNQBZAlNSkGqKFukw=="
     },
     "is-fullwidth-code-point@3.0.0": {
       "integrity": "sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg=="
@@ -1004,6 +1008,7 @@
     "packageJson": {
       "dependencies": [
         "npm:@types/node@^22.10.1",
+        "npm:hono@^4.6.0",
         "npm:tsup@^8.3.5",
         "npm:typescript@^5.6.3"
       ]
