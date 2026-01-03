@@ -6,6 +6,8 @@ import type {
   ListResult,
   NodeProtocolInterface,
   PersistenceRecord,
+  ReadMultiResult,
+  ReadMultiResultItem,
   ReadResult,
   Schema,
   WriteResult,
@@ -187,6 +189,35 @@ export class MemoryClient implements NodeProtocolInterface {
       record: current.value as PersistenceRecord<T>,
     });
   }
+
+  public async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    // Enforce batch size limit
+    if (uris.length > 50) {
+      return {
+        success: false,
+        results: [],
+        summary: { total: uris.length, succeeded: 0, failed: uris.length },
+      };
+    }
+
+    const results: ReadMultiResultItem<T>[] = await Promise.all(
+      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
+        const result = await this.read<T>(uri);
+        if (result.success && result.record) {
+          return { uri, success: true, record: result.record };
+        }
+        return { uri, success: false, error: result.error || "Read failed" };
+      })
+    );
+
+    const succeeded = results.filter((r) => r.success).length;
+    return {
+      success: succeeded > 0,
+      results,
+      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+    };
+  }
+
   public list(uri: string, options?: ListOptions): Promise<ListResult> {
     const result = target(uri, this.schema, this.storage);
     if (!result.success) {

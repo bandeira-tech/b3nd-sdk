@@ -27,7 +27,7 @@ import type {
 
 import { createJwt, verifyJwt } from "./jwt.ts";
 import { getUserPublicKeys } from "./keys.ts";
-import { proxyWrite, proxyRead } from "./proxy.ts";
+import { proxyWrite, proxyRead, proxyReadMulti } from "./proxy.ts";
 import { pemToCryptoKey } from "./obfuscation.ts";
 import {
   changePassword,
@@ -849,6 +849,43 @@ export class WalletServerCore {
           return c.json({ success: false, error: message }, 401);
         }
         this.logger.error("Proxy read error:", error);
+        return c.json({ success: false, error: message }, 500);
+      }
+    });
+
+    // Proxy read-multi (batch read)
+    app.post("/api/v1/proxy/read-multi", async (c: Context) => {
+      try {
+        const authHeader = c.req.header("Authorization");
+        if (!authHeader?.startsWith("Bearer ")) {
+          return c.json({ success: false, error: "Authorization required" }, 401);
+        }
+
+        const token = authHeader.substring(7);
+        const payload = await verifyJwt(token, this.config.jwtSecret);
+
+        const body = (await c.req.json()) as { uris?: string[] };
+
+        if (!Array.isArray(body.uris)) {
+          return c.json({ success: false, error: "uris must be an array" }, 400);
+        }
+
+        const result = await proxyReadMulti(
+          this.proxyClient,
+          this.credentialClient,
+          serverPublicKey,
+          payload.username,
+          serverEncryptionPrivateKeyPem,
+          body.uris
+        );
+
+        return c.json(result);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("expired")) {
+          return c.json({ success: false, error: message }, 401);
+        }
+        this.logger.error("Proxy read-multi error:", error);
         return c.json({ success: false, error: message }, 500);
       }
     });

@@ -37,6 +37,8 @@ import type {
   ProxyWriteResponse,
   ProxyReadRequest,
   ProxyReadResponse,
+  ProxyReadMultiRequest,
+  ProxyReadMultiResponse,
   HealthResponse,
   GoogleAuthSession,
 } from "./types.ts";
@@ -484,6 +486,14 @@ export class MemoryWalletClient {
     // Return the response directly - let caller check success
     // This matches the type signature and enables error checking without try/catch
     return data;
+  }
+
+  async proxyReadMulti(request: ProxyReadMultiRequest): Promise<ProxyReadMultiResponse> {
+    const response = await this.authRequest("POST", "/proxy/read-multi", {
+      uris: request.uris,
+    });
+
+    return await response.json() as ProxyReadMultiResponse;
   }
 
   // ============================================================

@@ -12,6 +12,8 @@ import type {
   ListOptions,
   ListResult,
   NodeProtocolInterface,
+  ReadMultiResult,
+  ReadMultiResultItem,
   ReadResult,
   WriteResult,
 } from "../../src/types.ts";
@@ -143,6 +145,60 @@ export class HttpClient implements NodeProtocolInterface {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    // Enforce batch size limit
+    if (uris.length > 50) {
+      return {
+        success: false,
+        results: [],
+        summary: { total: uris.length, succeeded: 0, failed: uris.length },
+      };
+    }
+
+    try {
+      const response = await this.request("/api/v1/read-multi", {
+        method: "POST",
+        body: JSON.stringify({ uris }),
+      });
+
+      if (!response.ok) {
+        // Fallback to individual reads if endpoint not available
+        if (response.status === 404) {
+          return this.readMultiFallback<T>(uris);
+        }
+        return {
+          success: false,
+          results: uris.map((uri) => ({ uri, success: false, error: response.statusText })),
+          summary: { total: uris.length, succeeded: 0, failed: uris.length },
+        };
+      }
+
+      return await response.json();
+    } catch (error) {
+      // Fallback to individual reads on error
+      return this.readMultiFallback<T>(uris);
+    }
+  }
+
+  private async readMultiFallback<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    const results: ReadMultiResultItem<T>[] = await Promise.all(
+      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
+        const result = await this.read<T>(uri);
+        if (result.success && result.record) {
+          return { uri, success: true, record: result.record };
+        }
+        return { uri, success: false, error: result.error || "Read failed" };
+      })
+    );
+
+    const succeeded = results.filter((r) => r.success).length;
+    return {
+      success: succeeded > 0,
+      results,
+      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+    };
   }
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {

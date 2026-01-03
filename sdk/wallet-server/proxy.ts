@@ -16,7 +16,13 @@ import {
 } from "../encrypt/mod.ts";
 import { loadUserAccountKey, loadUserEncryptionKey } from "./keys.ts";
 import { pemToCryptoKey } from "./obfuscation.ts";
-import type { ProxyWriteRequest, ProxyWriteResponse, ProxyReadResponse } from "./types.ts";
+import type {
+  ProxyWriteRequest,
+  ProxyWriteResponse,
+  ProxyReadResponse,
+  ProxyReadMultiResponse,
+  ProxyReadMultiResultItem,
+} from "./types.ts";
 
 /**
  * Proxy a write request with user signing
@@ -192,6 +198,129 @@ export async function proxyRead(
       success: false,
       uri,
       error: `Proxy read failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+}
+
+/**
+ * Proxy multiple read requests (with optional decryption)
+ *
+ * Batch version of proxyRead that reads multiple URIs efficiently.
+ * Max 50 URIs per request.
+ */
+export async function proxyReadMulti(
+  proxyClient: NodeProtocolInterface,
+  credentialClient: NodeProtocolInterface,
+  serverPublicKey: string,
+  username: string,
+  serverEncryptionPrivateKeyPem: string,
+  uris: string[]
+): Promise<ProxyReadMultiResponse> {
+  // Enforce batch size limit
+  if (uris.length > 50) {
+    return {
+      success: false,
+      results: [],
+      summary: { total: uris.length, succeeded: 0, failed: uris.length },
+      error: "Maximum 50 URIs per request",
+    };
+  }
+
+  try {
+    // Load user's keys once for all reads
+    const [accountKey, userEncryptionKey] = await Promise.all([
+      loadUserAccountKey(
+        credentialClient,
+        serverPublicKey,
+        username,
+        serverEncryptionPrivateKeyPem
+      ),
+      loadUserEncryptionKey(
+        credentialClient,
+        serverPublicKey,
+        username,
+        serverEncryptionPrivateKeyPem
+      ),
+    ]);
+
+    // Resolve all URIs with :key placeholder
+    const resolvedUris = uris.map((uri) =>
+      uri.replace(/:key/g, accountKey.publicKeyHex)
+    );
+
+    // Batch read from backend
+    const multiResult = await proxyClient.readMulti(resolvedUris);
+
+    // Prepare user's private key for decryption (once)
+    const privateKey = await pemToCryptoKey(
+      userEncryptionKey.privateKeyPem,
+      "X25519"
+    );
+
+    // Process each result with decryption
+    const results: ProxyReadMultiResultItem[] = await Promise.all(
+      multiResult.results.map(async (item, i): Promise<ProxyReadMultiResultItem> => {
+        const originalUri = uris[i];
+
+        if (!item.success) {
+          return {
+            uri: originalUri,
+            success: false,
+            error: "error" in item ? item.error : "Read failed",
+          };
+        }
+
+        const result: ProxyReadMultiResultItem = {
+          uri: originalUri,
+          success: true,
+          record: "record" in item ? item.record : undefined,
+        };
+
+        // Try to decrypt if data looks encrypted
+        if (result.record?.data) {
+          try {
+            const data = result.record.data as Record<string, unknown>;
+
+            // Check if this is a signed+encrypted payload structure
+            if (
+              typeof data === "object" &&
+              data.payload &&
+              typeof data.payload === "object"
+            ) {
+              const payload = data.payload as Record<string, unknown>;
+              if (payload.data && payload.nonce && payload.ephemeralPublicKey) {
+                const encryptedPayload: EncryptedPayload = {
+                  data: payload.data as string,
+                  nonce: payload.nonce as string,
+                  ephemeralPublicKey: payload.ephemeralPublicKey as string,
+                };
+                const decrypted = await decrypt(encryptedPayload, privateKey);
+                return { ...result, decrypted };
+              }
+            }
+          } catch {
+            // Silently fail decryption - return original data
+          }
+        }
+
+        return result;
+      })
+    );
+
+    const succeeded = results.filter((r) => r.success).length;
+    return {
+      success: succeeded > 0,
+      results,
+      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      results: [],
+      summary: { total: uris.length, succeeded: 0, failed: uris.length },
+      error: `Proxy read-multi failed: ${
         error instanceof Error ? error.message : String(error)
       }`,
     };

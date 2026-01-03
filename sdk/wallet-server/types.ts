@@ -144,6 +144,41 @@ export interface ProxyReadResponse {
 }
 
 /**
+ * Proxy read-multi request
+ */
+export interface ProxyReadMultiRequest {
+  uris: string[];
+}
+
+/**
+ * Proxy read-multi result item
+ */
+export interface ProxyReadMultiResultItem {
+  uri: string;
+  success: boolean;
+  record?: {
+    data: unknown;
+    ts: number;
+  };
+  decrypted?: unknown;
+  error?: string;
+}
+
+/**
+ * Proxy read-multi response
+ */
+export interface ProxyReadMultiResponse {
+  success: boolean;
+  results: ProxyReadMultiResultItem[];
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+  };
+  error?: string;
+}
+
+/**
  * Auth session response
  */
 export interface AuthSessionResponse {

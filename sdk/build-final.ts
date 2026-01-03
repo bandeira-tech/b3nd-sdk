@@ -67,6 +67,27 @@ async function copySourceFiles() {
     console.log("  ℹ️  encrypt directory not found, skipping");
   }
 
+  // Copy wallet directory if it exists
+  try {
+    await copyDirectory("./wallet", join(DIST_DIR, "wallet"));
+  } catch {
+    console.log("  ℹ️  wallet directory not found, skipping");
+  }
+
+  // Copy wallet-server directory if it exists
+  try {
+    await copyDirectory("./wallet-server", join(DIST_DIR, "wallet-server"));
+  } catch {
+    console.log("  ℹ️  wallet-server directory not found, skipping");
+  }
+
+  // Copy shared directory if it exists
+  try {
+    await copyDirectory("./shared", join(DIST_DIR, "shared"));
+  } catch {
+    console.log("  ℹ️  shared directory not found, skipping");
+  }
+
   // Skip copying servers directory (Deno-specific, not needed for browser)
   console.log("  ℹ️  Skipping servers directory (Deno-specific)");
 }
@@ -163,6 +184,16 @@ async function createPackageJson() {
         "import": "./clients/local-storage/mod.ts",
         "require": "./clients/local-storage/mod.ts",
         "types": "./clients/local-storage/mod.ts"
+      },
+      "./wallet": {
+        "import": "./wallet/mod.ts",
+        "require": "./wallet/mod.ts",
+        "types": "./wallet/mod.ts"
+      },
+      "./wallet-server": {
+        "import": "./wallet-server/mod.ts",
+        "require": "./wallet-server/mod.ts",
+        "types": "./wallet-server/mod.ts"
       }
     },
 
@@ -174,6 +205,9 @@ async function createPackageJson() {
       "clients/**/*.ts",
       "auth/**/*.ts",
       "encrypt/**/*.ts",
+      "wallet/**/*.ts",
+      "wallet-server/**/*.ts",
+      "shared/**/*.ts",
       "README.md",
       "LICENSE",
       "USAGE.md"

@@ -17,6 +17,8 @@ import type {
   ProxyWriteResponse,
   ProxyReadRequest,
   ProxyReadResponse,
+  ProxyReadMultiRequest,
+  ProxyReadMultiResponse,
   SignupResponse,
   LoginResponse,
   PublicKeysResponse,
@@ -412,6 +414,34 @@ export class WalletClient {
     // Return the response directly - let caller check success
     // This enables error checking without try/catch
     return data;
+  }
+
+  /**
+   * Proxy multiple read requests through the wallet server
+   * Reads multiple URIs in a single request (max 50 URIs)
+   * The server decrypts encrypted data using user's encryption key
+   * Requires active authentication session
+   *
+   * @returns ProxyReadMultiResponse - check `success` for overall result, `results` for per-URI results
+   */
+  async proxyReadMulti(request: ProxyReadMultiRequest): Promise<ProxyReadMultiResponse> {
+    if (!this.currentSession) {
+      throw new Error("Not authenticated. Please login first.");
+    }
+
+    const response = await this.fetchImpl(
+      `${this.walletServerUrl}${this.apiBasePath}/proxy/read-multi`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.currentSession.token}`,
+        },
+        body: JSON.stringify({ uris: request.uris }),
+      }
+    );
+
+    return await response.json();
   }
 
   /**

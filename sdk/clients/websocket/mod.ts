@@ -11,6 +11,8 @@ import type {
   ListOptions,
   ListResult,
   NodeProtocolInterface,
+  ReadMultiResult,
+  ReadMultiResultItem,
   ReadResult,
   WebSocketClientConfig,
   WebSocketRequest,
@@ -249,6 +251,40 @@ export class WebSocketClient implements NodeProtocolInterface {
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    if (uris.length > 50) {
+      return {
+        success: false,
+        results: [],
+        summary: { total: uris.length, succeeded: 0, failed: uris.length },
+      };
+    }
+
+    // Try the readMulti request first (server may support it)
+    try {
+      const result = await this.sendRequest<ReadMultiResult<T>>("readMulti", { uris });
+      return result;
+    } catch {
+      // Fallback to individual reads
+      const results: ReadMultiResultItem<T>[] = await Promise.all(
+        uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
+          const result = await this.read<T>(uri);
+          if (result.success && result.record) {
+            return { uri, success: true, record: result.record };
+          }
+          return { uri, success: false, error: result.error || "Read failed" };
+        })
+      );
+
+      const succeeded = results.filter((r) => r.success).length;
+      return {
+        success: succeeded > 0,
+        results,
+        summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
       };
     }
   }

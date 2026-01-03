@@ -20,6 +20,8 @@ export type {
   PersistenceRecord,
   MongoClientConfig,
   PostgresClientConfig,
+  ReadMultiResult,
+  ReadMultiResultItem,
   ReadResult,
   Schema,
   ValidationFn,

@@ -30,6 +30,29 @@ export interface ReadResult<T> {
 }
 
 /**
+ * Result for a single URI in a multi-read operation
+ */
+export type ReadMultiResultItem<T = unknown> =
+  | { uri: string; success: true; record: PersistenceRecord<T> }
+  | { uri: string; success: false; error: string };
+
+/**
+ * Result of reading multiple URIs in a single operation
+ */
+export interface ReadMultiResult<T = unknown> {
+  /** true if at least one read succeeded */
+  success: boolean;
+  /** Per-URI results */
+  results: ReadMultiResultItem<T>[];
+  /** Summary statistics */
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+  };
+}
+
+/**
  * Result of a delete operation
  */
 export interface DeleteResult {
@@ -120,6 +143,13 @@ export interface NodeProtocolWriteInterface {
 export interface NodeProtocolReadInterface {
   /** Read data from a URI */
   read<T = unknown>(uri: string): Promise<ReadResult<T>>;
+  /**
+   * Read multiple URIs in a single operation.
+   * Implementations may optimize for batch reads (e.g., SQL IN clause).
+   * @param uris - Array of URIs to read (max 50)
+   * @returns ReadMultiResult with per-URI results and summary
+   */
+  readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>>;
   /** List items at a URI path */
   list(uri: string, options?: ListOptions): Promise<ListResult>;
   /** Health status */

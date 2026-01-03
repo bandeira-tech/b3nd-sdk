@@ -62,6 +62,7 @@ export interface WalletClientInterface {
   // Proxy operations
   proxyWrite(request: ProxyWriteRequest): Promise<ProxyWriteResponse>;
   proxyRead(request: ProxyReadRequest): Promise<ProxyReadResponse>;
+  proxyReadMulti(request: ProxyReadMultiRequest): Promise<ProxyReadMultiResponse>;
 
   // Google OAuth
   signupWithGoogle(appKey: string, token: string, googleIdToken: string): Promise<GoogleAuthSession>;
@@ -173,6 +174,41 @@ export interface ProxyReadResponse {
     ts: number;
   };
   decrypted?: unknown; // Decrypted data if encryption was detected
+  error?: string;
+}
+
+/**
+ * Read-multi proxy request
+ */
+export interface ProxyReadMultiRequest {
+  uris: string[];
+}
+
+/**
+ * Read-multi proxy result item
+ */
+export interface ProxyReadMultiResultItem {
+  uri: string;
+  success: boolean;
+  record?: {
+    data: unknown;
+    ts: number;
+  };
+  decrypted?: unknown;
+  error?: string;
+}
+
+/**
+ * Read-multi proxy response
+ */
+export interface ProxyReadMultiResponse {
+  success: boolean;
+  results: ProxyReadMultiResultItem[];
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+  };
   error?: string;
 }
 
