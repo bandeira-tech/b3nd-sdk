@@ -1,6 +1,6 @@
 ---
 name: b3nd-webapp
-description: Building React/Vite web applications with B3nd SDK. Use when creating browser apps, React components, or frontend integrations with B3nd.
+description: React/Vite web apps with B3nd SDK, resource visibility UI, password dialogs, encrypted storage. Use when building React apps with B3nd, implementing visibility controls, password-protected resources, Zustand state management, or React Query with B3nd.
 ---
 
 # B3nd Web Application Development

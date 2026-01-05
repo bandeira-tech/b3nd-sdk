@@ -1,6 +1,6 @@
 ---
 name: b3nd-web
-description: NPM package @bandeira-tech/b3nd-web for browser applications. Use when writing browser/React code that imports from the B3nd npm package.
+description: NPM package @bandeira-tech/b3nd-web for browsers. Use when importing B3nd from npm, using HttpClient/WalletClient/LocalStorageClient in browser, or building frontend apps with B3nd persistence.
 ---
 
 # @bandeira-tech/b3nd-web (NPM Package)

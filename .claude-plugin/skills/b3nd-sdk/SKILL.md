@@ -1,6 +1,6 @@
 ---
 name: b3nd-sdk
-description: Deno/JSR package @bandeira-tech/b3nd-sdk for server-side and Deno applications. Use when writing Deno code, server implementations, or importing from JSR.
+description: Deno/JSR package @bandeira-tech/b3nd-sdk for servers. Use when importing from JSR, setting up B3nd HTTP servers, using PostgresClient, MongoClient, MemoryClient, or building multi-backend Deno servers.
 ---
 
 # @bandeira-tech/b3nd-sdk (Deno/JSR Package)

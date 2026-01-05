@@ -1,6 +1,6 @@
 ---
 name: b3nd-general
-description: B3nd universal persistence protocol and SDK architecture. Use when working with B3nd data layer, URI schemes, clients, servers, schemas, or wallet authentication.
+description: B3nd SDK architecture, URI schemes, resource visibility, and encryption. Use when user asks about B3nd, mutable/immutable protocols, private/protected/public resources, deterministic key derivation, client-side encryption, wallet authentication, or NodeProtocolInterface.
 ---
 
 # B3nd SDK - Universal Persistence Protocol
