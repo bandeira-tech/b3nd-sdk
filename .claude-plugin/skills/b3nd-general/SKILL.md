@@ -110,6 +110,101 @@ await wallet.proxyWrite({
 });
 ```
 
+## Resource Visibility Strategy
+
+B3nd enables private, protected, and public resources through deterministic key generation and client-side encryption. The network stores encrypted data; access control is cryptographic.
+
+### Visibility Levels
+
+| Level | Key Derivation | Access |
+|-------|---------------|--------|
+| **Private** | `SALT:uri:ownerPubkey` | Owner only (uses account pubkey as password) |
+| **Protected** | `SALT:uri:password` | Anyone with password |
+| **Public** | `SALT:uri:""` | Anyone with URI (empty password) |
+
+### Deterministic Key Derivation
+
+Keys are derived from location + secret, never stored:
+
+```typescript
+async function deriveResourceKey(
+  uri: string,
+  password: string = ""
+): Promise<string> {
+  const seed = `${APP_SALT}:${uri}:${password}`;
+  return await deriveKeyFromSeed(seed, APP_SALT, 100000); // PBKDF2
+}
+```
+
+### Resource Identity with Keypairs
+
+Each resource has an Ed25519 keypair for identity and signing:
+
+```typescript
+interface ResourceKeyBundle {
+  publicKeyHex: string;   // Resource address/identity
+  privateKeyHex: string;  // For signing writes (owner only)
+}
+
+// Resource URI uses pubkey: mutable://accounts/{resourcePubkey}/data
+```
+
+### Encryption Pattern
+
+```typescript
+// 1. Derive symmetric key from location + password
+const key = await deriveResourceKey(uri, password);
+
+// 2. Encrypt data
+const encrypted = await encrypt(data, key);
+
+// 3. Sign with resource's private key
+const signed = await sign(encrypted, resourcePrivateKey);
+
+// 4. Write to network
+await client.write(uri, signed);
+```
+
+### Visibility-Aware Access
+
+```typescript
+async function loadResource(pubkey: string, visibility: Visibility, password: string) {
+  const uri = `mutable://accounts/${pubkey}/data`;
+  const signed = await client.read(uri);
+  const encrypted = extractPayload(signed);
+
+  // Derive key based on visibility
+  const decryptPassword = visibility === "private"
+    ? ownerAccountPubkey  // Private: owner's pubkey as password
+    : password;           // Protected/Public: user-provided (or empty)
+
+  const data = await tryDecrypt(encrypted, uri, decryptPassword);
+  return data; // null if wrong password
+}
+```
+
+### Index Storage Pattern
+
+User's resource index stored encrypted at their account:
+
+```typescript
+// At: mutable://accounts/{userPubkey}/resources
+interface UserResourceEntry {
+  resourcePubkey: string;
+  resourcePrivateKeyHex: string;  // For signing
+  visibility: "private" | "protected" | "public";
+}
+```
+
+### Security Properties
+
+- **Passwords never stored** - only used to derive keys via KDF
+- **Wrong password = no access** - decryption fails, returns null
+- **Deterministic keys** - same URI + password = same key
+- **Strong KDF** - 100,000 PBKDF2 iterations
+- **Signed data** - Ed25519 prevents tampering
+- **Network assumes no trust** - all data encrypted client-side
+
 ## Project Structure
 
 ```

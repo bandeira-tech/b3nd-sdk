@@ -241,6 +241,196 @@ function NavigationTree({ path }: { path: string }) {
 }
 ```
 
+## Resource Visibility in React
+
+Implement private, protected, and public resources with client-side encryption.
+
+### Crypto Utilities
+
+```typescript
+// crypto/keys.ts
+import nacl from "tweetnacl";
+
+const APP_SALT = "myapp-v1-salt";
+
+export async function deriveKey(uri: string, password: string = ""): Promise<string> {
+  const seed = `${APP_SALT}:${uri}:${password}`;
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw", encoder.encode(seed), "PBKDF2", false, ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: encoder.encode(APP_SALT), iterations: 100000, hash: "SHA-256" },
+    keyMaterial, 256
+  );
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+export function generateKeypair() {
+  const keyPair = nacl.sign.keyPair();
+  return {
+    publicKeyHex: bytesToHex(keyPair.publicKey),
+    privateKeyHex: bytesToHex(keyPair.secretKey),
+  };
+}
+```
+
+### Visibility Types
+
+```typescript
+// types/visibility.ts
+export type Visibility = "private" | "protected" | "public";
+export type VisibilityCode = "pvt" | "pro" | "pub";
+
+export const visibilityToCode: Record<Visibility, VisibilityCode> = {
+  private: "pvt", protected: "pro", public: "pub"
+};
+
+export const codeToVisibility: Record<VisibilityCode, Visibility> = {
+  pvt: "private", pro: "protected", pub: "public"
+};
+
+// URL: /resources/{visibilityCode}/{resourceId}
+export function getResourcePath(id: string, visibility: Visibility): string {
+  return `/resources/${visibilityToCode[visibility]}/${id}`;
+}
+```
+
+### Resource API with Encryption
+
+```typescript
+// api/resources.ts
+export class ResourceAPI {
+  private passwordCache = new Map<string, string>();
+
+  async createResource(data: ResourceData, visibility: Visibility, password?: string) {
+    const keys = generateKeypair();
+    const uri = `mutable://accounts/${keys.publicKeyHex}/data`;
+
+    // Derive encryption key based on visibility
+    const encryptPassword = visibility === "private"
+      ? this.getAccountPubkey()  // Owner's pubkey for private
+      : (password || "");         // User password or empty for public
+
+    const encrypted = await this.encrypt(data, uri, encryptPassword);
+    const signed = await this.sign(encrypted, keys.privateKeyHex);
+
+    await httpClient.write(uri, signed);
+
+    // Cache password for session
+    this.passwordCache.set(keys.publicKeyHex, encryptPassword);
+
+    return { id: keys.publicKeyHex, visibility };
+  }
+
+  async loadResource(id: string, visibility: Visibility, password?: string) {
+    const uri = `mutable://accounts/${id}/data`;
+    const result = await httpClient.read(uri);
+    if (!result.success) return null;
+
+    const decryptPassword = visibility === "private"
+      ? this.getAccountPubkey()
+      : (password || "");
+
+    try {
+      return await this.decrypt(result.record.data, uri, decryptPassword);
+    } catch {
+      return null; // Wrong password
+    }
+  }
+}
+```
+
+### Password Dialog Component
+
+```typescript
+// components/PasswordDialog.tsx
+function PasswordDialog({
+  isOpen,
+  onSubmit,
+  onCancel
+}: {
+  isOpen: boolean;
+  onSubmit: (password: string) => void;
+  onCancel: () => void;
+}) {
+  const [password, setPassword] = useState("");
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+      <div className="bg-white p-6 rounded-lg">
+        <h2>Enter Password</h2>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="border p-2 w-full"
+        />
+        <div className="flex gap-2 mt-4">
+          <button onClick={() => onSubmit(password)}>Unlock</button>
+          <button onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Visibility-Aware Route
+
+```typescript
+// pages/ResourcePage.tsx
+function ResourcePage() {
+  const { visibilityCode, id } = useParams<{ visibilityCode: VisibilityCode; id: string }>();
+  const visibility = codeToVisibility[visibilityCode!];
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [resource, setResource] = useState<Resource | null>(null);
+
+  useEffect(() => {
+    if (visibility === "protected") {
+      setShowPasswordDialog(true);
+    } else {
+      loadResource(id!, visibility, "").then(setResource);
+    }
+  }, [id, visibility]);
+
+  const handlePassword = async (password: string) => {
+    const data = await loadResource(id!, visibility, password);
+    if (data) {
+      setResource(data);
+      setShowPasswordDialog(false);
+    } else {
+      alert("Wrong password");
+    }
+  };
+
+  return (
+    <>
+      <PasswordDialog
+        isOpen={showPasswordDialog}
+        onSubmit={handlePassword}
+        onCancel={() => navigate("/")}
+      />
+      {resource && <ResourceViewer data={resource} />}
+    </>
+  );
+}
+```
+
+### Router Setup
+
+```typescript
+// App.tsx
+<Routes>
+  <Route path="/resources/:visibilityCode/:id" element={<ResourcePage />} />
+  {/* /resources/pub/{id} - public */}
+  {/* /resources/pro/{id} - protected (shows password dialog) */}
+  {/* /resources/pvt/{id} - private (requires owner login) */}
+</Routes>
+```
+
 ## Configuration Files
 
 ### instances.json (runtime config)
