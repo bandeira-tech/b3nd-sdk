@@ -23,7 +23,7 @@ description: B3nd SDK and Firecat network - URI schemes, resource visibility, en
 const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
 
 // Or local development
-const client = new HttpClient({ url: "http://localhost:8842" });
+const client = new HttpClient({ url: "http://localhost:43100" });
 ```
 
 ## Firecat Endpoints

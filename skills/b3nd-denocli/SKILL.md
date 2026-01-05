@@ -87,7 +87,7 @@ main();
 #!/usr/bin/env -S deno run -A
 import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 
-const BACKEND_URL = Deno.env.get("BACKEND_URL") || "http://localhost:8842";
+const BACKEND_URL = Deno.env.get("BACKEND_URL") || "http://localhost:43100";
 const client = new HttpClient({ url: BACKEND_URL });
 
 async function main() {
@@ -124,7 +124,7 @@ import {
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-const PORT = Number(Deno.env.get("PORT") || "8080");
+const PORT = Number(Deno.env.get("PORT") || "43100");
 const CORS_ORIGIN = Deno.env.get("CORS_ORIGIN") || "*";
 
 const schema = {
@@ -201,7 +201,7 @@ Deno.test("validation error", async () => {
 
 ```bash
 # .env
-PORT=8080
+PORT=43100
 CORS_ORIGIN=*
 BACKEND_URL=postgres://user:pass@localhost:5432/db
 SCHEMA_MODULE=./schema.ts

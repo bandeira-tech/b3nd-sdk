@@ -19,11 +19,11 @@ export const FIRECAT = {
   app: "https://testnet-app.fire.cat",
 };
 
-// For local development
+// For local development (ports: 43100, 43200, 43300...)
 export const LOCAL = {
-  backend: "http://localhost:8842",
-  wallet: "http://localhost:8843",
-  app: "http://localhost:8844",
+  backend: "http://localhost:43100",
+  wallet: "http://localhost:43200",
+  app: "http://localhost:43300",
 };
 
 export const config = import.meta.env.DEV ? LOCAL : FIRECAT;
@@ -166,7 +166,7 @@ export const useAppStore = create<AppState & AppActions>()(
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { HttpClient } from "@bandeira-tech/b3nd-web";
 
-const client = new HttpClient({ url: "http://localhost:8842" });
+const client = new HttpClient({ url: "http://localhost:43100" });
 
 // Read query
 export function useRecord(uri: string) {
@@ -215,7 +215,7 @@ export function useWrite() {
 import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
 
 const wallet = new WalletClient({
-  walletServerUrl: "http://localhost:8843",
+  walletServerUrl: "http://localhost:43200",
   apiBasePath: "/api/v1",
 });
 
@@ -477,11 +477,11 @@ function ResourcePage() {
   },
   "backends": {
     "firecat-testnet": { "name": "Firecat Testnet", "baseUrl": "https://testnet-evergreen.fire.cat" },
-    "local": { "name": "Local Dev", "baseUrl": "http://localhost:8842" }
+    "local": { "name": "Local Dev", "baseUrl": "http://localhost:43100" }
   },
   "walletServers": {
     "firecat-wallet": { "name": "Firecat Wallet", "url": "https://testnet-wallet.fire.cat" },
-    "local-wallet": { "name": "Local Wallet", "url": "http://localhost:8843" }
+    "local-wallet": { "name": "Local Wallet", "url": "http://localhost:43200" }
   }
 }
 ```

@@ -103,7 +103,7 @@ const app = new Hono();
 const frontend = servers.httpServer(app);
 
 const node = createServerNode({ frontend, backend, schema });
-node.listen(8080);
+node.listen(43100);
 ```
 
 ### Multi-Backend Server
@@ -226,7 +226,7 @@ import type {
 ## Environment Variables (HTTP Server Installation)
 
 ```bash
-PORT=8080
+PORT=43100
 CORS_ORIGIN=*
 BACKEND_URL=postgres://user:pass@localhost:5432/db
 SCHEMA_MODULE=./my-schema.ts
@@ -235,5 +235,5 @@ SCHEMA_MODULE=./my-schema.ts
 Multiple backends supported:
 
 ```bash
-BACKEND_URL=memory://,postgres://...,http://other-node:8080
+BACKEND_URL=memory://,postgres://...,http://other-node:43100
 ```
