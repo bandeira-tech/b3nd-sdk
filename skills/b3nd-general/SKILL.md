@@ -131,6 +131,123 @@ const data = await wallet.proxyRead({
 });
 ```
 
+## Resource Identity Pattern
+
+**Every resource has its own Ed25519 keypair.** The public key becomes the resource's permanent identity/address.
+
+### Resource Keypair
+
+```typescript
+interface ResourceKeyBundle {
+  publicKeyHex: string;   // Resource ID/address
+  privateKeyHex: string;  // For signing writes (owner stores this)
+}
+
+// Generate new resource identity
+const resourceKeys = await generateSigningKeyPair();
+const resourceId = resourceKeys.publicKeyHex;
+
+// Resource lives at: mutable://accounts/{resourceId}/data
+const resourceUri = `mutable://accounts/${resourceId}/data`;
+```
+
+### Key Storage in User Account
+
+Resource private keys are stored **encrypted in the user's account index**:
+
+```typescript
+// User's resource index at: mutable://accounts/{userPubkey}/resources
+interface UserResourceEntry {
+  resourcePubkey: string;       // Resource identity
+  resourcePrivateKeyHex: string; // For signing (encrypted to user)
+  visibility: "private" | "protected" | "public";
+}
+
+// Store index via wallet (encrypted to user's X25519 key)
+await wallet.proxyWrite({
+  uri: `mutable://accounts/${userPubkey}/resources`,
+  data: { resources: entries },
+  encrypt: true,
+});
+```
+
+### User Account Structure
+
+```
+mutable://accounts/{userPubkey}/
+├── profile          (encrypted to user - private settings)
+├── public-profile   (encrypted with app key - discoverable)
+├── resources        (encrypted to user - resource keys index)
+└── executions       (encrypted to user - activity log)
+```
+
+## App Identity Pattern
+
+Apps derive a **deterministic keypair** from the app key for app-owned shared resources:
+
+```typescript
+// All app instances derive the same identity
+const appIdentity = await deriveKeypairFromSeed(appKey);
+
+// App owns shared indexes at:
+// mutable://accounts/{appPubkey}/public-resources
+// mutable://accounts/{appPubkey}/discovery-index
+```
+
+### App-Owned Resources
+
+```typescript
+// Public discovery index (app signs these entries)
+const indexUri = `mutable://accounts/${appPubkey}/public-resources/${resourceId}`;
+
+// Normalized entry - references only, no duplication
+const entry = {
+  resourcePubkey: resourceId,
+  authorPubkey: userPubkey,
+  publishedAt: Date.now(),
+};
+
+// Sign with app's key
+const signed = await sign(entry, appIdentity.privateKeyHex);
+await client.write(indexUri, signed);
+```
+
+## Public Discovery Index
+
+Public resources are announced to app-owned indexes for discoverability:
+
+```typescript
+// Publish to discovery (normalized - no data duplication)
+interface NormalizedIndexEntry {
+  resourcePubkey: string;  // Reference to resource
+  authorPubkey: string;    // Reference to author
+  publishedAt: number;
+}
+
+// Browse discovery - batch resolve references
+const entries = await client.list(`mutable://accounts/${appPubkey}/public-resources`);
+const resourceIds = entries.map(e => e.resourcePubkey);
+const resources = await batchResolve(resourceIds); // Fetch actual data
+```
+
+## Meta Files
+
+Public/protected resources store metadata for features like suggestions:
+
+```typescript
+// At: mutable://accounts/{resourcePubkey}/meta
+interface ResourceMeta {
+  suggestionPubkey: string;  // Owner's X25519 key for encrypted suggestions
+}
+
+// Suggestions written to inbox
+await wallet.proxyWrite({
+  uri: `immutable://inbox/${resourcePubkey}/suggestions/${timestamp}`,
+  data: suggestion,
+  encrypt: true,  // Encrypted to owner's suggestionPubkey
+});
+```
+
 ## Resource Visibility Strategy
 
 Visibility is achieved through client-side encryption, not server access control.
