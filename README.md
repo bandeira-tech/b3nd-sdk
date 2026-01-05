@@ -1,101 +1,81 @@
-b3nd is an all-purpose multi-tenant domain storage backend supporting frontend-only development of multiple applications.
+# B3nd SDK
 
-b3nd provides APIs for URL oriented resource management which enables client applications to manage their resources as needed.
+Universal persistence protocol for building applications with URI-based data addressing.
 
-## How it works
+## Build with Claude Code
 
-Say you want to write an application to manage memories with a photo, so you create an HTML with a form
-
-```html
-<form src="https://b3nd.fire.cat/api/v1/add">
-    <input type="hidden" name="-appkey" value="myappkey" />
-    <input type="hidden" name="-uri" value="/memories" />
-    <input type="file" name="img" />
-    <textarea name="txt" />
-    <submit>save</submit>
-</form>
-```
-
-each part is described
-
-- `src=/api/v1/add` will post to the b3nd/v1/add api which adds a new list item to the given uri
-- `-appkey input` is the unique key generated for your app
-- `-uri input` is the context resource that is being updated by the form
-- both `img` and `txt` are custom inputs makeup the data being submitted by the form
-
-then in the backend a record is created like
-
-```json
-{
-  img: "<id to image data>",
-  txt: "<encrypted text>"
-}
-```
-
-then display it later with
-
-```html
-<script src="https://b3nd.fire.cat/js/v1/html-view.js" />
-
-<ul data-b3nd-appkey="myappkey"
-    data-b3nd-source="/memories"
-    data-b3nd-filter="">
-        <li>
-            <img data-b3nd-item-src="img" />
-            <span data-b3nd-item-value="-id" />
-            <span data-b3nd-item-value="-creation" />
-            <p data-b3nd-item-value="txt" />
-        </li>
-</ul>
-```
-
-and also work with client side sdk
-
-```js
-const b3nd = require('fire.cat/b3nd/frontend-sdk')
-const authenticated = b3nd.withUserKey("myuserkey") // you have to register and request a userkey
-const app = authenticated.withAppKey("my-app-xyz")
-const [error, result] = await app.add('/memories', { img: '', txt: '' })
-const [error, result] = await app.create('/memories', [])
-const [error, result] = await app.create('/plans/tokyo-2030', "we going baby")
-const [error, result] = await app.update('/plans/tokyo-2030', "we going baby, it gone be good")
-```
-
-so the persistence looks like
-
-```
-/users/<userkey>/~>/
-/users/<userkey>/<appkey>/<app-uri>
-/apps/<appkey>/~>/
-/apps/<appkey>/<app-uri>
-
-/users/nataliarsand/~>/pubkeys/
-/users/nataliarsand/~>/pubkeys/
-/users/nataliarsand/milestory.me/books/<book id>/~>/writers
-/users/nataliarsand/milestory.me/books/<book id>/entries/1/{title, images, description, ...}
-```
-
-## Installation Options
-
-The b3nd HTTP API can be deployed using Docker with various backend configurations:
-
-### PostgreSQL Installation (Recommended for Production)
-
-A batteries-included Docker setup with PostgreSQL persistence:
+Install the B3nd plugin to get AI-assisted development with full SDK knowledge:
 
 ```bash
-cd httpapi/installations/postgres
+claude plugin marketplace add https://github.com/bandeira-tech/b3nd
+claude plugin install b3nd
+```
+
+Then just ask Claude naturally:
+- "Create a B3nd HTTP client for my React app"
+- "Set up a multi-backend server with Postgres"
+- "Add wallet authentication to my app"
+
+### What's Included
+
+| Skill | What Claude Learns |
+|-------|-------------------|
+| **b3nd-general** | Core architecture, URI schemes, interfaces |
+| **b3nd-sdk** | Deno/JSR package for servers |
+| **b3nd-web** | NPM package for browsers |
+| **b3nd-webapp** | React/Vite patterns |
+| **b3nd-denocli** | Deno CLI and server patterns |
+
+Plus MCP tools for direct data operations: `b3nd_read`, `b3nd_write`, `b3nd_list`, `b3nd_backends_switch`
+
+---
+
+## Packages
+
+| Package | Registry | Use Case |
+|---------|----------|----------|
+| [@bandeira-tech/b3nd-sdk](https://jsr.io/@bandeira-tech/b3nd-sdk) | JSR | Deno, servers |
+| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | NPM | Browser, React |
+
+```typescript
+// Deno/Server
+import { HttpClient, MemoryClient } from "@bandeira-tech/b3nd-sdk";
+
+// Browser/React
+import { HttpClient, WalletClient } from "@bandeira-tech/b3nd-web";
+```
+
+## Quick Example
+
+```typescript
+const client = new HttpClient({ url: "http://localhost:8842" });
+
+// Write
+await client.write("mutable://users/alice/profile", { name: "Alice" });
+
+// Read
+const result = await client.read("mutable://users/alice/profile");
+
+// List
+const items = await client.list("mutable://users/");
+```
+
+---
+
+## Server Deployment
+
+### Docker with PostgreSQL
+
+```bash
+cd installations/http-server
 docker-compose up -d
 ```
 
-This provides:
-- PostgreSQL 16 database with persistent storage
-- Pre-configured HTTP API with PostgreSQL client
-- Health checks for both services
-- Easy environment variable configuration
+### Deno
 
-See [httpapi/installations/postgres/README.md](httpapi/installations/postgres/README.md) for detailed setup instructions and configuration options.
+```bash
+cd installations/http-server
+deno task start
+```
 
-### Other Installation Options
-
-Additional installation configurations are available in `httpapi/installations/` for different deployment scenarios and backend choices.
+See [installations/](./installations/) for more deployment options.
