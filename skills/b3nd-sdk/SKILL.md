@@ -235,5 +235,5 @@ SCHEMA_MODULE=./my-schema.ts
 Multiple backends supported:
 
 ```bash
-BACKEND_URL=memory://,postgres://...,http://other-node:43100
+BACKEND_URL=memory://,postgres://...,http://other-node:9942
 ```

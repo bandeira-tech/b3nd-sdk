@@ -87,7 +87,7 @@ main();
 #!/usr/bin/env -S deno run -A
 import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 
-const BACKEND_URL = Deno.env.get("BACKEND_URL") || "http://localhost:43100";
+const BACKEND_URL = Deno.env.get("BACKEND_URL") || "http://localhost:9942";
 const client = new HttpClient({ url: BACKEND_URL });
 
 async function main() {

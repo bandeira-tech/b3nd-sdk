@@ -22,8 +22,8 @@ description: B3nd SDK and Firecat network - URI schemes, resource visibility, en
 // Connect to Firecat (production)
 const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
 
-// Or local development
-const client = new HttpClient({ url: "http://localhost:43100" });
+// Or local B3nd node
+const client = new HttpClient({ url: "http://localhost:9942" });
 ```
 
 ## Firecat Endpoints
