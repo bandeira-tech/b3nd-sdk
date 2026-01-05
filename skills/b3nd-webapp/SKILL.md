@@ -1,11 +1,45 @@
 ---
 name: b3nd-webapp
-description: React/Vite web apps with B3nd SDK, resource visibility UI, password dialogs, encrypted storage. Use when building React apps with B3nd, implementing visibility controls, password-protected resources, Zustand state management, or React Query with B3nd.
+description: React/Vite web apps with B3nd SDK and Firecat network. Use when building React apps with B3nd, implementing visibility controls, password-protected resources, Zustand state management, React Query, or connecting to Firecat.
 ---
 
 # B3nd Web Application Development
 
-Patterns for building React/Vite web applications with B3nd.
+React/Vite apps connecting to the Firecat network.
+
+## Firecat Configuration
+
+Default endpoints for production apps:
+
+```typescript
+// config/firecat.ts
+export const FIRECAT = {
+  backend: "https://testnet-evergreen.fire.cat",
+  wallet: "https://testnet-wallet.fire.cat",
+  app: "https://testnet-app.fire.cat",
+};
+
+// For local development
+export const LOCAL = {
+  backend: "http://localhost:8842",
+  wallet: "http://localhost:8843",
+  app: "http://localhost:8844",
+};
+
+export const config = import.meta.env.DEV ? LOCAL : FIRECAT;
+```
+
+## Available Protocols
+
+Use the canonical Firecat schema - don't create custom protocols:
+
+| Protocol | Use Case |
+|----------|----------|
+| `mutable://open/{path}` | Public data, no auth |
+| `mutable://accounts/{pubkey}/{path}` | User data, wallet auth |
+| `immutable://open/{path}` | Permanent public content |
+| `immutable://accounts/{pubkey}/{path}` | Permanent user content |
+| `immutable://inbox/{pubkey}/{path}` | Private messages |
 
 ## Project Setup
 
@@ -438,13 +472,15 @@ function ResourcePage() {
 ```json
 {
   "defaults": {
-    "backend": "local-api",
-    "wallet": "local-wallet"
+    "backend": "firecat-testnet",
+    "wallet": "firecat-wallet"
   },
   "backends": {
-    "local-api": { "name": "Local API", "baseUrl": "http://localhost:8842" }
+    "firecat-testnet": { "name": "Firecat Testnet", "baseUrl": "https://testnet-evergreen.fire.cat" },
+    "local": { "name": "Local Dev", "baseUrl": "http://localhost:8842" }
   },
   "walletServers": {
+    "firecat-wallet": { "name": "Firecat Wallet", "url": "https://testnet-wallet.fire.cat" },
     "local-wallet": { "name": "Local Wallet", "url": "http://localhost:8843" }
   }
 }
