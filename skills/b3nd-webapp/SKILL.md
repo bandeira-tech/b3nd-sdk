@@ -486,6 +486,318 @@ function ResourcePage() {
 }
 ```
 
+## E2E Testing with Playwright
+
+Full integration testing using in-memory B3nd clients that persist across page reloads.
+
+### Playwright Configuration
+
+```typescript
+// playwright.config.ts
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  use: {
+    // ?e2e triggers in-memory B3nd mode
+    baseURL: 'http://localhost:5173/?e2e',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+  },
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+  },
+});
+```
+
+### Backend Configuration with URL Params
+
+Detect test mode via URL parameters:
+
+```typescript
+// domain/clients/backend-config.ts
+export function parseUrlConfig(): Partial<BackendConfig> | null {
+  const params = new URLSearchParams(window.location.search);
+
+  // ?e2e triggers full in-memory mode
+  if (params.has('e2e')) {
+    return {
+      dataUrl: 'memory://',
+      walletUrl: 'memory://',
+      appUrl: 'memory://',
+      appKey: 'e2e-app-key',
+    };
+  }
+
+  // Or explicit params: ?data=memory://&wallet=memory://
+  const data = params.get('data');
+  const wallet = params.get('wallet');
+  if (data || wallet) {
+    return { dataUrl: data || undefined, walletUrl: wallet || undefined };
+  }
+
+  return null;
+}
+
+// Resolution priority: URL params > localStorage > environment
+export function resolveBackendConfig(): BackendConfig {
+  const urlConfig = parseUrlConfig();
+  if (urlConfig) return { ...getEnvConfig(), ...urlConfig };
+
+  const storedConfig = loadStoredConfig();
+  if (storedConfig) return storedConfig;
+
+  return getEnvConfig();
+}
+```
+
+### Persisted Memory Client
+
+Memory client that survives page reloads:
+
+```typescript
+// test/persisted-memory-client.ts
+import { MemoryClient, NodeProtocolInterface } from "@bandeira-tech/b3nd-web";
+
+export class PersistedMemoryClient implements NodeProtocolInterface {
+  private client: MemoryClient;
+  private storageKey: string;
+
+  constructor(config: { schema: Schema }, storageKey: string) {
+    this.storageKey = storageKey;
+    this.client = new MemoryClient(config);
+    this.loadFromStorage();
+  }
+
+  private loadFromStorage(): void {
+    const saved = localStorage.getItem(this.storageKey);
+    if (saved) {
+      const data = JSON.parse(saved);
+      // Restore internal storage map
+      for (const [key, value] of Object.entries(data)) {
+        (this.client as any).storage.set(key, value);
+      }
+    }
+  }
+
+  private persistStorage(): void {
+    const storage = (this.client as any).storage;
+    const serialized: Record<string, unknown> = {};
+    for (const [key, value] of storage.entries()) {
+      serialized[key] = value;
+    }
+    localStorage.setItem(this.storageKey, JSON.stringify(serialized));
+  }
+
+  async write<T>(uri: string, value: T) {
+    const result = await this.client.write(uri, value);
+    this.persistStorage();
+    return result;
+  }
+
+  async read<T>(uri: string) { return this.client.read<T>(uri); }
+  async list(uri: string, options?: ListOptions) { return this.client.list(uri, options); }
+  async delete(uri: string) {
+    const result = await this.client.delete(uri);
+    this.persistStorage();
+    return result;
+  }
+  async health() { return this.client.health(); }
+  async getSchema() { return this.client.getSchema(); }
+  async cleanup() { return this.client.cleanup(); }
+}
+```
+
+### Test Client Injection
+
+Replace production clients with test clients:
+
+```typescript
+// domain/clients/index.ts
+let httpClient: HttpClient | null = null;
+let testHttpClient: NodeProtocolInterface | null = null;
+
+export function getHttpClient(): NodeProtocolInterface {
+  if (testHttpClient) return testHttpClient;  // Test override
+  if (!httpClient) {
+    httpClient = new HttpClient({ url: config.backendUrl });
+  }
+  return httpClient;
+}
+
+// Called during E2E initialization
+export function configureTestClients(config: {
+  httpClient: NodeProtocolInterface;
+  localClient: NodeProtocolInterface;
+  walletFetch: (request: Request) => Response | Promise<Response>;
+}): void {
+  testHttpClient = config.httpClient;
+  testLocalClient = config.localClient;
+  testWalletFetch = config.walletFetch;
+}
+
+export function resetTestClients(): void {
+  testHttpClient = null;
+  testLocalClient = null;
+  testWalletFetch = null;
+}
+```
+
+### App Initialization for E2E
+
+Initialize test clients BEFORE AuthContext loads:
+
+```typescript
+// main.tsx
+const backendConfig = resolveBackendConfig();
+const useMemoryMode = backendConfig.dataUrl?.startsWith('memory://');
+
+async function startApp() {
+  // CRITICAL: Initialize test clients before AuthContext import
+  if (useMemoryMode) {
+    const { initializeLocalBackend } = await import('./domain/clients/local-backend');
+    await initializeLocalBackend(backendConfig);
+  }
+
+  // Dynamic imports after backend setup
+  const { AuthProvider } = await import('./contexts/AuthContext');
+  const { default: App } = await import('./App.tsx');
+
+  createRoot(document.getElementById('root')!).render(
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+}
+
+startApp();
+```
+
+### Test Helpers - User Management
+
+```typescript
+// e2e/helpers/auth.ts
+export const TEST_USERS = {
+  alice: { username: 'alice', email: 'alice@test.com', password: 'alice-password-123' },
+  bob: { username: 'bob', email: 'bob@test.com', password: 'bob-password-123' },
+};
+
+const createdUsers = new Set<string>();
+
+export async function signupTestUser(page: Page, userKey: keyof typeof TEST_USERS) {
+  const user = TEST_USERS[userKey];
+
+  await page.goto('/signup?e2e');
+  await page.getByLabel(/Email/).fill(user.email);
+  await page.getByLabel(/^Password/).first().fill(user.password);
+  await page.getByLabel(/Confirm Password/).fill(user.password);
+  await page.getByRole('button', { name: /create account/i }).click();
+
+  // Complete profile setup
+  await page.waitForURL(/\/account\/settings/);
+  await page.getByLabel(/Username/).fill(user.username);
+  await page.getByRole('button', { name: /save/i }).click();
+
+  // Save session for fast switching
+  await saveUserSession(page, userKey);
+  createdUsers.add(userKey);
+}
+
+async function saveUserSession(page: Page, userKey: string) {
+  await page.evaluate((key) => {
+    const keys = ['app-memory-storage', 'app-wallet-storage', 'app-server-keys'];
+    const data: Record<string, string> = {};
+    for (const k of keys) {
+      const v = localStorage.getItem(k);
+      if (v) data[k] = v;
+    }
+    const sessions = JSON.parse(localStorage.getItem('e2e-sessions') || '{}');
+    sessions[key] = data;
+    localStorage.setItem('e2e-sessions', JSON.stringify(sessions));
+  }, userKey);
+}
+
+export async function loginAsTestUser(page: Page, userKey: keyof typeof TEST_USERS) {
+  if (!createdUsers.has(userKey)) {
+    await signupTestUser(page, userKey);
+    return;
+  }
+  // Fast path: restore from saved session
+  await restoreUserSession(page, userKey);
+  await page.reload();
+}
+
+export async function clearTestData(page: Page) {
+  createdUsers.clear();
+  await page.goto('/?e2e');
+  await page.evaluate(() => {
+    const keys = ['app-memory-storage', 'app-wallet-storage', 'app-server-keys', 'e2e-sessions'];
+    keys.forEach(k => localStorage.removeItem(k));
+  });
+  await page.goto('/?e2e');
+}
+```
+
+### Example Test Pattern
+
+```typescript
+// e2e/resource-crud.spec.ts
+import { test, expect } from '@playwright/test';
+import { loginAsTestUser, clearTestData } from './helpers/auth';
+
+test.describe('Resource CRUD', () => {
+  test.beforeEach(async ({ page }) => {
+    await clearTestData(page);
+    await loginAsTestUser(page, 'alice');
+  });
+
+  test('can create and view resource', async ({ page }) => {
+    await page.goto('/create?e2e');
+    await page.getByLabel('Title').fill('Test Resource');
+    await page.getByRole('button', { name: /create/i }).click();
+
+    await expect(page).toHaveURL(/\/resources\//);
+    await expect(page.getByText('Test Resource')).toBeVisible();
+  });
+
+  test('user isolation - users see only their resources', async ({ page }) => {
+    // Alice creates resource
+    await page.goto('/create?e2e');
+    await page.getByLabel('Title').fill('Alice Resource');
+    await page.getByRole('button', { name: /create/i }).click();
+
+    // Switch to Bob
+    await loginAsTestUser(page, 'bob');
+    await page.goto('/my-resources?e2e');
+
+    // Bob doesn't see Alice's resource
+    await expect(page.getByText('Alice Resource')).not.toBeVisible();
+  });
+});
+```
+
+### npm Scripts
+
+```json
+{
+  "test": "vitest",
+  "test:e2e": "playwright test",
+  "test:e2e:ui": "playwright test --ui",
+  "test:e2e:headed": "playwright test --headed",
+  "test:e2e:debug": "playwright test --debug"
+}
+```
+
+### Key Patterns
+
+1. **URL Parameter Detection**: `?e2e` triggers in-memory mode
+2. **Early Initialization**: Backend setup before AuthContext import
+3. **Persisted Memory**: All storage survives page reloads via localStorage
+4. **Session Restoration**: Fast user switching without re-signup
+5. **Test Client Injection**: `configureTestClients()` replaces production clients
+6. **Data Isolation**: `clearTestData()` resets state between tests
+
 ## Key Files Reference
 
 - `explorer/app/src/App.tsx` - Main app with React Query + Zustand
