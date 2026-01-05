@@ -66,7 +66,7 @@ for (const spec of backendSpecs) {
     continue;
   }
 
-  if (spec.startsWith("postgres://")) {
+  if (spec.startsWith("postgresql://")) {
     // Treat spec as full PostgreSQL connection string
     const connectionString = spec;
     const executor = await createPostgresExecutor(connectionString);
