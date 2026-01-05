@@ -1,0 +1,16 @@
+{
+  "name": "b3nd-plugins",
+  "description": "B3nd SDK development plugins",
+  "version": "1.0.0",
+  "owner": {
+    "name": "Bandeira Tech",
+    "url": "https://github.com/bandeira-tech"
+  },
+  "plugins": [
+    {
+      "name": "b3nd",
+      "source": "./",
+      "description": "B3nd SDK development tools - skills for building apps with the B3nd universal persistence protocol"
+    }
+  ]
+}
