@@ -1,4 +1,5 @@
-import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
+import { WalletClient, generateSessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
+import type { SessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
 import { HttpClient } from "@bandeira-tech/b3nd-web";
 import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
@@ -260,16 +261,45 @@ export const fetchSchema = async (params: {
   return params.appsClient.getSchema(params.appKey);
 };
 
+/**
+ * Create a new session keypair and request approval from the app.
+ *
+ * New flow:
+ * 1. Generate session keypair (Ed25519)
+ * 2. Request approval via immutable inbox (permissionless)
+ * 3. App approves via mutable accounts (controlled)
+ *
+ * Returns the session keypair for use in login.
+ */
 export const createSession = async (params: {
   appsClient: AppsClient;
   appKey: string;
   accountPrivateKeyPem: string;
+  backendClient?: HttpClient; // Optional for direct approval in dev mode
 }) => {
-  const { appsClient, appKey, accountPrivateKeyPem } = params;
+  const { appsClient, appKey, accountPrivateKeyPem, backendClient } = params;
   ensureValue(appKey, "Auth key");
-  const sessionValue = crypto.randomUUID().replace(/-/g, "");
-  const message = await signPayload({ session: sessionValue }, appKey, accountPrivateKeyPem);
-  return appsClient.createSession(appKey, message as any);
+
+  // Generate session keypair using SDK crypto
+  const sessionKeypair = await generateSessionKeypair();
+
+  // Request session approval via app server (writes to inbox and approves)
+  const message = await signPayload(
+    { sessionPubkey: sessionKeypair.publicKeyHex },
+    appKey,
+    accountPrivateKeyPem
+  );
+
+  // Note: The app server should:
+  // 1. Write request to immutable://inbox/{appKey}/sessions/{sessionPubkey} = 1
+  // 2. Write approval to mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
+  const result = await appsClient.createSession(appKey, message as any);
+
+  // Return both the result and the keypair for use in login
+  return {
+    ...result,
+    sessionKeypair,
+  };
 };
 
 export const signupWithPassword = async (params: {
@@ -283,17 +313,23 @@ export const signupWithPassword = async (params: {
   return walletClient.signupWithToken(appKey, { username, password });
 };
 
+/**
+ * Login with password using session keypair.
+ * The session must be approved before calling this.
+ */
 export const loginWithPassword = async (params: {
   walletClient: WalletClient;
   appKey: string;
-  session: string;
+  sessionKeypair: SessionKeypair;
   username: string;
   password: string;
 }) => {
-  const { walletClient, appKey, session, username, password } = params;
+  const { walletClient, appKey, sessionKeypair, username, password } = params;
   ensureValue(appKey, "Auth key");
-  ensureValue(session, "Session");
-  return walletClient.loginWithTokenSession(appKey, session, { username, password });
+  if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
+    throw new Error("Session keypair is required");
+  }
+  return walletClient.loginWithTokenSession(appKey, sessionKeypair, { username, password });
 };
 
 export const googleSignup = async (params: {
@@ -326,24 +362,41 @@ export const googleSignup = async (params: {
   };
 };
 
+/**
+ * Login with Google OAuth using session keypair.
+ * The session must be approved before calling this.
+ */
 export const googleLogin = async (params: {
   walletServerUrl: string;
   appKey: string;
-  appSession: string;
+  sessionKeypair: SessionKeypair;
   googleIdToken: string;
 }) => {
-  const { walletServerUrl, appKey, appSession, googleIdToken } = params;
+  const { walletServerUrl, appKey, sessionKeypair, googleIdToken } = params;
   ensureValue(walletServerUrl, "Wallet server URL");
   ensureValue(appKey, "Auth key");
+  if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
+    throw new Error("Session keypair is required");
+  }
+
+  // Build the payload to sign
+  const payloadToSign = {
+    sessionPubkey: sessionKeypair.publicKeyHex,
+    type: "google",
+    googleIdToken,
+  };
+
+  // Sign the payload with session private key using SDK crypto
+  const sessionSignature = await encrypt.signWithHex(sessionKeypair.privateKeyHex, payloadToSign);
+
   const response = await fetch(
     `${walletServerUrl.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/login/${appKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        session: appSession,
-        type: "google",
-        googleIdToken,
+        ...payloadToSign,
+        sessionSignature,
       }),
     },
   );

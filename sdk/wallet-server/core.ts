@@ -29,6 +29,7 @@ import { createJwt, verifyJwt } from "./jwt.ts";
 import { getUserPublicKeys } from "./keys.ts";
 import { proxyWrite, proxyRead, proxyReadMulti } from "./proxy.ts";
 import { pemToCryptoKey } from "./obfuscation.ts";
+import { verify as verifySignature } from "../encrypt/mod.ts";
 import {
   changePassword,
   createPasswordResetToken,
@@ -315,19 +316,58 @@ export class WalletServerCore {
     await this.storage.writeTextFile(path, JSON.stringify(state, null, 2));
   }
 
+  /**
+   * Validate that a session is approved by the app.
+   * Sessions are keypairs - the sessionPubkey is used directly as the identifier.
+   * App approves sessions by writing 1 to mutable://accounts/{appKey}/sessions/{sessionPubkey}
+   *
+   * @param appKey - The app's public key
+   * @param sessionPubkey - The session's public key (hex encoded)
+   * @returns { valid: true } if approved, { valid: false, reason } if not
+   */
   private async sessionExists(
     appKey: string,
-    sessionKey: string
-  ): Promise<boolean> {
-    const input = new TextEncoder().encode(sessionKey);
-    const digest = await crypto.subtle.digest("SHA-256", input);
-    const sigHex = Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("")
-      .substring(0, 32);
-    const uri = `mutable://accounts/${appKey}/sessions/${sigHex}`;
+    sessionPubkey: string
+  ): Promise<{ valid: boolean; reason?: string }> {
+    const uri = `mutable://accounts/${appKey}/sessions/${sessionPubkey}`;
     const res = await this.proxyClient.read(uri);
-    return res.success;
+
+    if (!res.success) {
+      return { valid: false, reason: "session_not_approved" };
+    }
+
+    // Session status is stored as 1 (approved) or 0 (revoked)
+    if (res.record?.data === 1) {
+      return { valid: true };
+    }
+
+    if (res.record?.data === 0) {
+      return { valid: false, reason: "session_revoked" };
+    }
+
+    return { valid: false, reason: "invalid_session_status" };
+  }
+
+  /**
+   * Verify that a login request signature is valid for the given session pubkey.
+   * The signature should be over the stringified login payload (without the signature field).
+   * Uses SDK crypto for consistent verification across the codebase.
+   */
+  private async verifySessionSignature(
+    sessionPubkey: string,
+    signature: string,
+    payload: Record<string, unknown>
+  ): Promise<boolean> {
+    try {
+      // Reconstruct the payload that was signed (without signature and sessionSignature)
+      const { sessionSignature: _, ...signedPayload } = payload;
+
+      // Use SDK's verify function for consistent crypto implementation
+      return await verifySignature(sessionPubkey, signature, signedPayload);
+    } catch (error) {
+      this.logger.error("Session signature verification failed:", error);
+      return false;
+    }
   }
 
   private createApp(): Hono {
@@ -527,13 +567,20 @@ export class WalletServerCore {
     app.post("/api/v1/auth/login/:appKey", async (c: Context) => {
       try {
         const appKey = c.req.param("appKey");
-        const payload = (await c.req.json()) as CredentialPayload;
+        const payload = (await c.req.json()) as CredentialPayload & {
+          sessionPubkey?: string;
+          sessionSignature?: string;
+          session?: string; // Legacy field - will be removed
+        };
 
         if (!appKey) {
           return c.json({ success: false, error: "appKey is required" }, 400);
         }
-        if (!payload.session) {
-          return c.json({ success: false, error: "session is required" }, 400);
+        if (!payload.sessionPubkey) {
+          return c.json({ success: false, error: "sessionPubkey is required" }, 400);
+        }
+        if (!payload.sessionSignature) {
+          return c.json({ success: false, error: "sessionSignature is required" }, 400);
         }
         if (!payload.type) {
           return c.json({
@@ -542,9 +589,27 @@ export class WalletServerCore {
           }, 400);
         }
 
-        // Verify session
-        if (!(await this.sessionExists(appKey, payload.session))) {
-          return c.json({ success: false, error: "Invalid session" }, 401);
+        // Verify session signature (proves client has the session private key)
+        const signatureValid = await this.verifySessionSignature(
+          payload.sessionPubkey,
+          payload.sessionSignature,
+          payload as unknown as Record<string, unknown>
+        );
+        if (!signatureValid) {
+          return c.json({ success: false, error: "Invalid session signature" }, 401);
+        }
+
+        // Verify session is approved by app (status === 1)
+        const sessionResult = await this.sessionExists(appKey, payload.sessionPubkey);
+        if (!sessionResult.valid) {
+          return c.json({
+            success: false,
+            error: sessionResult.reason === "session_revoked"
+              ? "Session has been revoked"
+              : sessionResult.reason === "session_not_approved"
+              ? "Session not approved by app"
+              : "Invalid session",
+          }, 401);
         }
 
         const handler = getCredentialHandler(payload.type);

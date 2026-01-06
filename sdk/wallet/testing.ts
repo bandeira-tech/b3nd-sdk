@@ -23,11 +23,12 @@
  */
 
 import type { Schema } from "../src/types.ts";
-import type { AuthSession, UserPublicKeys } from "./types.ts";
+import type { AuthSession, UserPublicKeys, SessionKeypair } from "./types.ts";
 import { MemoryClient, createTestSchema } from "../clients/memory/mod.ts";
 import { MemoryWalletClient, generateTestServerKeys } from "./memory-client.ts";
 import type { MemoryWalletClientConfig } from "./memory-client.ts";
 import type { ServerKeys } from "../wallet-server/types.ts";
+import { generateSigningKeyPair } from "../encrypt/mod.ts";
 
 /**
  * Test environment configuration
@@ -89,19 +90,18 @@ export interface TestEnvironment {
 
   /**
    * Login a test user and set the session.
+   * Automatically generates and approves a session keypair for testing.
    *
    * @param appKey - App key for the login
-   * @param sessionKey - Session key (can be any string for tests)
    * @param username - Username
    * @param password - Password
-   * @returns Session and user public keys
+   * @returns Session, user public keys, and the session keypair used
    */
   loginTestUser(
     appKey: string,
-    sessionKey: string,
     username: string,
     password: string
-  ): Promise<{ session: AuthSession; keys: UserPublicKeys }>;
+  ): Promise<{ session: AuthSession; keys: UserPublicKeys; sessionKeypair: SessionKeypair }>;
 
   /**
    * Clean up the test environment.
@@ -184,14 +184,25 @@ export async function createTestEnvironment(
 
     async loginTestUser(
       appKey: string,
-      sessionKey: string,
       username: string,
       password: string
-    ): Promise<{ session: AuthSession; keys: UserPublicKeys }> {
-      const session = await wallet.loginWithTokenSession(appKey, sessionKey, { username, password });
+    ): Promise<{ session: AuthSession; keys: UserPublicKeys; sessionKeypair: SessionKeypair }> {
+      // Generate a session keypair
+      const keypair = await generateSigningKeyPair();
+      const sessionKeypair: SessionKeypair = {
+        publicKeyHex: keypair.publicKeyHex,
+        privateKeyHex: keypair.privateKeyHex,
+      };
+
+      // Approve the session by writing to the backend (simulates app approval)
+      const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+      await backend.write(sessionUri, 1);
+
+      // Now login with the approved session
+      const session = await wallet.loginWithTokenSession(appKey, sessionKeypair, { username, password });
       wallet.setSession(session);
       const keys = await wallet.getPublicKeys(appKey);
-      return { session, keys };
+      return { session, keys, sessionKeypair };
     },
 
     async cleanup(): Promise<void> {

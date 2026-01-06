@@ -33,7 +33,10 @@ export interface CredentialResult {
  */
 export interface BaseCredentialPayload {
   type: string;
-  session?: string; // Required for login, not for signup
+  /** Session public key (hex). Required for login - identifies the session. */
+  sessionPubkey?: string;
+  /** Signature of the login payload by session private key (hex). Required for login. */
+  sessionSignature?: string;
 }
 
 /**

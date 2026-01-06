@@ -210,17 +210,24 @@ async function main() {
     }
   });
 
-  // Register a session for an app; body: signed message { auth, payload: { session } }
+  // Register a session for an app; body: signed message { auth, payload: { sessionPubkey } }
+  // Session approval flow:
+  // 1. Client generates session keypair
+  // 2. Client requests approval here with sessionPubkey
+  // 3. App writes approval: mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
+  // 4. Client uses session keypair for login (wallet validates session exists and equals 1)
   app.post("/api/v1/app/:appKey/session", async (c) => {
     const appKey = c.req.param("appKey");
     const origin = c.req.header("Origin") || c.req.header("origin");
     try {
-      const message = await readSignedRequest<{ session?: string }>(c);
+      const message = await readSignedRequest<{ sessionPubkey?: string; session?: string }>(c);
       const valid = await verifySignedRequest(appKey, message);
       if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
-      const session = message.payload.session;
-      if (!session || typeof session !== "string") {
-        return c.json({ success: false, error: "session required" }, 400);
+
+      // Support both new (sessionPubkey) and legacy (session) fields during transition
+      const sessionPubkey = message.payload.sessionPubkey || message.payload.session;
+      if (!sessionPubkey || typeof sessionPubkey !== "string") {
+        return c.json({ success: false, error: "sessionPubkey required" }, 400);
       }
 
       const loaded = await loadAppConfig(
@@ -233,14 +240,14 @@ async function main() {
         return c.json({ success: false, error: "origin not allowed" }, 403);
       }
 
-      const sigInput = new TextEncoder().encode(session);
-      const digest = await crypto.subtle.digest("SHA-256", sigInput);
-      const sigHex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("").substring(0, 32);
-      const uri = `mutable://accounts/${appKey}/sessions/${sigHex}`;
+      // Write session approval with value 1 (approved)
+      // Session pubkey is used directly as the identifier (no hashing)
+      const uri = `mutable://accounts/${appKey}/sessions/${sessionPubkey}`;
 
-      const res = await dataClient.write(uri, message);
+      // Write just the value 1 to indicate approval (0 would mean revoked)
+      const res = await dataClient.write(uri, 1);
       if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
-      return c.json({ success: true, session, uri });
+      return c.json({ success: true, sessionPubkey, uri });
     } catch (error) {
       return c.json({ success: false, error: (error as Error).message || "failed" }, 400);
     }

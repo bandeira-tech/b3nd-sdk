@@ -43,11 +43,14 @@ export interface WalletClientInterface {
     tokenOrCredentials: string | UserCredentials,
     maybeCredentials?: UserCredentials
   ): Promise<AuthSession>;
+  /**
+   * Login with session keypair.
+   * Session must be approved by app at mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
+   */
   loginWithTokenSession(
     appKey: string,
-    tokenOrSession: string,
-    sessionOrCredentials: string | UserCredentials,
-    maybeCredentials?: UserCredentials
+    session: SessionKeypair,
+    credentials: UserCredentials
   ): Promise<AuthSession>;
 
   // Password management
@@ -66,7 +69,7 @@ export interface WalletClientInterface {
 
   // Google OAuth
   signupWithGoogle(appKey: string, token: string, googleIdToken: string): Promise<GoogleAuthSession>;
-  loginWithGoogle(appKey: string, token: string, session: string, googleIdToken: string): Promise<GoogleAuthSession>;
+  loginWithGoogle(appKey: string, token: string, session: SessionKeypair, googleIdToken: string): Promise<GoogleAuthSession>;
 }
 
 /**
@@ -97,6 +100,18 @@ export interface UserCredentials {
   password: string;
 }
 
+/**
+ * Session keypair for authentication
+ * Sessions are Ed25519 keypairs. The client creates the session, requests
+ * approval from the app, then uses the private key to sign login requests.
+ */
+export interface SessionKeypair {
+  /** Session public key (hex encoded) - used as session identifier */
+  publicKeyHex: string;
+  /** Session private key (hex encoded) - used to sign login requests */
+  privateKeyHex: string;
+}
+
 export interface SignupWithTokenRequest {
   appKey: string;
   credentials: UserCredentials;
@@ -104,7 +119,7 @@ export interface SignupWithTokenRequest {
 
 export interface LoginWithTokenRequest {
   appKey: string;
-  session: string;
+  session: SessionKeypair;
   credentials: UserCredentials;
 }
 
