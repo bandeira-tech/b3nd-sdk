@@ -287,6 +287,17 @@ function ExplorerLink({ appKey }: { appKey: string }) {
   );
 }
 
+function WriterLink() {
+  return (
+    <Link
+      className="text-xs font-mono text-primary hover:underline"
+      to="/writer/configuration"
+    >
+      Configure in Writer
+    </Link>
+  );
+}
+
 function ActiveAccountSummary(
   { activeAccount }: { activeAccount: ManagedAccount | null },
 ) {
@@ -317,9 +328,11 @@ function ActiveAccountSummary(
           )}
         </div>
       </div>
-      {activeAccount.type !== "application-user"
-        ? <ExplorerLink appKey={activeAccount.keyBundle.appKey} />
-        : <ExplorerLink appKey={activeAccount.appKey} />}
+      {activeAccount.type === "application"
+        ? <WriterLink />
+        : activeAccount.type !== "application-user"
+          ? <ExplorerLink appKey={activeAccount.keyBundle.appKey} />
+          : <ExplorerLink appKey={activeAccount.appKey} />}
     </div>
   );
 }
