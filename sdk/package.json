@@ -1,6 +1,6 @@
 {
   "name": "@bandeira-tech/b3nd-web",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "description": "Browser-focused B3nd SDK bundle",
   "type": "module",
   "main": "./dist/src/mod.web.js",
