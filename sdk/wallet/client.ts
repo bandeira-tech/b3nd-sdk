@@ -27,7 +27,7 @@ import type {
   HealthResponse,
   ServerKeysResponse,
 } from "./types.ts";
-import { generateSigningKeyPair, signWithHex } from "../encrypt/mod.ts";
+import { generateSigningKeyPair, createAuthenticatedMessageWithHex } from "../encrypt/mod.ts";
 
 /**
  * B3nd Wallet Client
@@ -219,36 +219,17 @@ export class WalletClient {
       throw new Error("session keypair is required");
     }
 
-    // Build the payload based on credential type
-    let payloadToSign: Record<string, unknown>;
-
-    if (credentials.type === 'password') {
-      payloadToSign = {
-        sessionPubkey: session.publicKeyHex,
-        type: 'password',
-        username: credentials.username,
-        password: credentials.password,
-      };
-    } else if (credentials.type === 'google') {
-      payloadToSign = {
-        sessionPubkey: session.publicKeyHex,
-        type: 'google',
-        googleIdToken: credentials.googleIdToken,
-      };
-    } else {
-      throw new Error(`Unknown credential type: ${(credentials as { type: string }).type}`);
-    }
-
-    // Sign the payload with session private key using SDK crypto
-    const sessionSignature = await signWithHex(session.privateKeyHex, payloadToSign);
+    // Build the authenticated message using standard SDK format
+    const message = await createAuthenticatedMessageWithHex(
+      credentials,
+      session.publicKeyHex,
+      session.privateKeyHex,
+    );
 
     const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/signup", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payloadToSign,
-        sessionSignature,
-      }),
+      body: JSON.stringify(message),
     });
 
     const data = await response.json();
@@ -291,36 +272,17 @@ export class WalletClient {
       throw new Error("session keypair is required");
     }
 
-    // Build the payload based on credential type
-    let payloadToSign: Record<string, unknown>;
-
-    if (credentials.type === 'password') {
-      payloadToSign = {
-        sessionPubkey: session.publicKeyHex,
-        type: 'password',
-        username: credentials.username,
-        password: credentials.password,
-      };
-    } else if (credentials.type === 'google') {
-      payloadToSign = {
-        sessionPubkey: session.publicKeyHex,
-        type: 'google',
-        googleIdToken: credentials.googleIdToken,
-      };
-    } else {
-      throw new Error(`Unknown credential type: ${(credentials as { type: string }).type}`);
-    }
-
-    // Sign the payload with session private key using SDK crypto
-    const sessionSignature = await signWithHex(session.privateKeyHex, payloadToSign);
+    // Build the authenticated message using standard SDK format
+    const message = await createAuthenticatedMessageWithHex(
+      credentials,
+      session.publicKeyHex,
+      session.privateKeyHex,
+    );
 
     const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/login", appKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payloadToSign,
-        sessionSignature,
-      }),
+      body: JSON.stringify(message),
     });
 
     const data = await response.json();

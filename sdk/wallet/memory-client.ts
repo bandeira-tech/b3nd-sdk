@@ -51,7 +51,7 @@ import {
   generateSigningKeyPair,
   generateEncryptionKeyPair,
   exportPrivateKeyPem,
-  signWithHex,
+  createAuthenticatedMessageWithHex,
 } from "../encrypt/mod.ts";
 
 export interface MemoryWalletClientConfig {
@@ -303,33 +303,14 @@ export class MemoryWalletClient {
       throw new Error("session keypair is required");
     }
 
-    // Build the payload based on credential type
-    let payloadToSign: Record<string, unknown>;
+    // Build the authenticated message using standard SDK format
+    const message = await createAuthenticatedMessageWithHex(
+      credentials,
+      session.publicKeyHex,
+      session.privateKeyHex,
+    );
 
-    if (credentials.type === 'password') {
-      payloadToSign = {
-        sessionPubkey: session.publicKeyHex,
-        type: 'password',
-        username: credentials.username,
-        password: credentials.password,
-      };
-    } else if (credentials.type === 'google') {
-      payloadToSign = {
-        sessionPubkey: session.publicKeyHex,
-        type: 'google',
-        googleIdToken: credentials.googleIdToken,
-      };
-    } else {
-      throw new Error(`Unknown credential type: ${(credentials as { type: string }).type}`);
-    }
-
-    // Sign the payload with session private key using SDK crypto
-    const sessionSignature = await signWithHex(session.privateKeyHex, payloadToSign);
-
-    const response = await this.request("POST", `/auth/signup/${appKey}`, {
-      ...payloadToSign,
-      sessionSignature,
-    });
+    const response = await this.request("POST", `/auth/signup/${appKey}`, message);
 
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -371,33 +352,14 @@ export class MemoryWalletClient {
       throw new Error("session keypair is required");
     }
 
-    // Build the payload based on credential type
-    let payloadToSign: Record<string, unknown>;
+    // Build the authenticated message using standard SDK format
+    const message = await createAuthenticatedMessageWithHex(
+      credentials,
+      session.publicKeyHex,
+      session.privateKeyHex,
+    );
 
-    if (credentials.type === 'password') {
-      payloadToSign = {
-        sessionPubkey: session.publicKeyHex,
-        type: 'password',
-        username: credentials.username,
-        password: credentials.password,
-      };
-    } else if (credentials.type === 'google') {
-      payloadToSign = {
-        sessionPubkey: session.publicKeyHex,
-        type: 'google',
-        googleIdToken: credentials.googleIdToken,
-      };
-    } else {
-      throw new Error(`Unknown credential type: ${(credentials as { type: string }).type}`);
-    }
-
-    // Sign the payload with session private key using SDK crypto
-    const sessionSignature = await signWithHex(session.privateKeyHex, payloadToSign);
-
-    const response = await this.request("POST", `/auth/login/${appKey}`, {
-      ...payloadToSign,
-      sessionSignature,
-    });
+    const response = await this.request("POST", `/auth/login/${appKey}`, message);
 
     const data = await response.json();
     if (!response.ok || !data.success) {

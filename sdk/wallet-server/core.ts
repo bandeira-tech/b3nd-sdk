@@ -29,7 +29,7 @@ import { createJwt, verifyJwt } from "./jwt.ts";
 import { getUserPublicKeys } from "./keys.ts";
 import { proxyWrite, proxyRead, proxyReadMulti } from "./proxy.ts";
 import { pemToCryptoKey } from "./obfuscation.ts";
-import { verify as verifySignature } from "../encrypt/mod.ts";
+import { verify as verifySignature, verifyPayload } from "../encrypt/mod.ts";
 import {
   changePassword,
   createPasswordResetToken,
@@ -497,39 +497,39 @@ export class WalletServerCore {
     app.post("/api/v1/auth/signup/:appKey", async (c: Context) => {
       try {
         const appKey = c.req.param("appKey");
-        const payload = (await c.req.json()) as CredentialPayload & {
-          sessionPubkey?: string;
-          sessionSignature?: string;
+        // Accept AuthenticatedMessage format: { auth: [{ pubkey, signature }], payload: credentials }
+        const message = (await c.req.json()) as {
+          auth?: Array<{ pubkey: string; signature: string }>;
+          payload?: CredentialPayload;
         };
 
         if (!appKey) {
           return c.json({ success: false, error: "appKey is required" }, 400);
         }
-        if (!payload.sessionPubkey) {
-          return c.json({ success: false, error: "sessionPubkey is required" }, 400);
+        if (!message.auth?.[0]?.pubkey) {
+          return c.json({ success: false, error: "auth[0].pubkey (session public key) is required" }, 400);
         }
-        if (!payload.sessionSignature) {
-          return c.json({ success: false, error: "sessionSignature is required" }, 400);
+        if (!message.auth?.[0]?.signature) {
+          return c.json({ success: false, error: "auth[0].signature is required" }, 400);
         }
-        if (!payload.type) {
+        if (!message.payload?.type) {
           return c.json({
             success: false,
-            error: `type is required. Supported: ${getSupportedCredentialTypes().join(", ")}`,
+            error: `payload.type is required. Supported: ${getSupportedCredentialTypes().join(", ")}`,
           }, 400);
         }
 
-        // Verify session signature (proves client has the session private key)
-        const signatureValid = await this.verifySessionSignature(
-          payload.sessionPubkey,
-          payload.sessionSignature,
-          payload as unknown as Record<string, unknown>
-        );
-        if (!signatureValid) {
+        const sessionPubkey = message.auth[0].pubkey;
+        const credentials = message.payload;
+
+        // Verify session signature using standard SDK verification
+        const { verified } = await verifyPayload({ payload: credentials, auth: message.auth });
+        if (!verified) {
           return c.json({ success: false, error: "Invalid session signature" }, 401);
         }
 
         // Verify session is approved by app (status === 1)
-        const sessionResult = await this.sessionExists(appKey, payload.sessionPubkey);
+        const sessionResult = await this.sessionExists(appKey, sessionPubkey);
         if (!sessionResult.valid) {
           return c.json({
             success: false,
@@ -541,11 +541,11 @@ export class WalletServerCore {
           }, 401);
         }
 
-        const handler = getCredentialHandler(payload.type);
+        const handler = getCredentialHandler(credentials.type);
 
         // For Google auth, read app profile
         let googleClientId: string | undefined;
-        if (payload.type === "google") {
+        if (credentials.type === "google") {
           const appProfileUri = `mutable://accounts/${appKey}/app-profile`;
           const appProfileResult = await this.credentialClient.read(appProfileUri);
           if (appProfileResult.success && appProfileResult.record?.data) {
@@ -574,7 +574,7 @@ export class WalletServerCore {
           fetch: this.fetchImpl,
         };
 
-        const result = await handler.signup(payload, context);
+        const result = await handler.signup(credentials, context);
 
         const jwt = await createJwt(
           result.username,
@@ -606,40 +606,39 @@ export class WalletServerCore {
     app.post("/api/v1/auth/login/:appKey", async (c: Context) => {
       try {
         const appKey = c.req.param("appKey");
-        const payload = (await c.req.json()) as CredentialPayload & {
-          sessionPubkey?: string;
-          sessionSignature?: string;
-          session?: string; // Legacy field - will be removed
+        // Accept AuthenticatedMessage format: { auth: [{ pubkey, signature }], payload: credentials }
+        const message = (await c.req.json()) as {
+          auth?: Array<{ pubkey: string; signature: string }>;
+          payload?: CredentialPayload;
         };
 
         if (!appKey) {
           return c.json({ success: false, error: "appKey is required" }, 400);
         }
-        if (!payload.sessionPubkey) {
-          return c.json({ success: false, error: "sessionPubkey is required" }, 400);
+        if (!message.auth?.[0]?.pubkey) {
+          return c.json({ success: false, error: "auth[0].pubkey (session public key) is required" }, 400);
         }
-        if (!payload.sessionSignature) {
-          return c.json({ success: false, error: "sessionSignature is required" }, 400);
+        if (!message.auth?.[0]?.signature) {
+          return c.json({ success: false, error: "auth[0].signature is required" }, 400);
         }
-        if (!payload.type) {
+        if (!message.payload?.type) {
           return c.json({
             success: false,
-            error: `type is required. Supported: ${getSupportedCredentialTypes().join(", ")}`,
+            error: `payload.type is required. Supported: ${getSupportedCredentialTypes().join(", ")}`,
           }, 400);
         }
 
-        // Verify session signature (proves client has the session private key)
-        const signatureValid = await this.verifySessionSignature(
-          payload.sessionPubkey,
-          payload.sessionSignature,
-          payload as unknown as Record<string, unknown>
-        );
-        if (!signatureValid) {
+        const sessionPubkey = message.auth[0].pubkey;
+        const credentials = message.payload;
+
+        // Verify session signature using standard SDK verification
+        const { verified } = await verifyPayload({ payload: credentials, auth: message.auth });
+        if (!verified) {
           return c.json({ success: false, error: "Invalid session signature" }, 401);
         }
 
         // Verify session is approved by app (status === 1)
-        const sessionResult = await this.sessionExists(appKey, payload.sessionPubkey);
+        const sessionResult = await this.sessionExists(appKey, sessionPubkey);
         if (!sessionResult.valid) {
           return c.json({
             success: false,
@@ -651,11 +650,11 @@ export class WalletServerCore {
           }, 401);
         }
 
-        const handler = getCredentialHandler(payload.type);
+        const handler = getCredentialHandler(credentials.type);
 
         // For Google auth, read app profile
         let googleClientId: string | undefined;
-        if (payload.type === "google") {
+        if (credentials.type === "google") {
           const appProfileUri = `mutable://accounts/${appKey}/app-profile`;
           const appProfileResult = await this.credentialClient.read(appProfileUri);
           if (appProfileResult.success && appProfileResult.record?.data) {
@@ -684,7 +683,7 @@ export class WalletServerCore {
           fetch: this.fetchImpl,
         };
 
-        const result = await handler.login(payload, context);
+        const result = await handler.login(credentials, context);
 
         const jwt = await createJwt(
           result.username,
