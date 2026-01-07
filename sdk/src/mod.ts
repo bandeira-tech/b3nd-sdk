@@ -1,7 +1,52 @@
 /**
- * @b3nd/sdk
+ * @module
+ * Universal B3nd persistence SDK for all platforms.
  *
- * Universal B3nd persistence interface for all platforms
+ * Provides URI-based data addressing with multiple backend support,
+ * encryption, and schema validation.
+ *
+ * @example Basic usage with MemoryClient
+ * ```typescript
+ * import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
+ *
+ * const client = new MemoryClient();
+ *
+ * // Write data
+ * await client.write("mutable://users/alice", { name: "Alice", age: 30 });
+ *
+ * // Read data
+ * const result = await client.read("mutable://users/alice");
+ * console.log(result.record?.data); // { name: "Alice", age: 30 }
+ *
+ * // List items
+ * const list = await client.list("mutable://users");
+ * console.log(list.data); // [{ uri: "mutable://users/alice", ... }]
+ * ```
+ *
+ * @example Using HttpClient with a remote backend
+ * ```typescript
+ * import { HttpClient } from "@bandeira-tech/b3nd-sdk";
+ *
+ * const client = new HttpClient({ url: "https://api.example.com" });
+ *
+ * // Same interface as MemoryClient
+ * await client.write("mutable://data/key", { value: 123 });
+ * const result = await client.read("mutable://data/key");
+ * ```
+ *
+ * @example Schema validation
+ * ```typescript
+ * import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
+ *
+ * const client = new MemoryClient({
+ *   schema: {
+ *     "mutable://users": async (uri, data) => {
+ *       if (!data?.name) return { valid: false, error: "name required" };
+ *       return { valid: true };
+ *     },
+ *   },
+ * });
+ * ```
  */
 
 // Core types
