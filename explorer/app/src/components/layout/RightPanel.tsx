@@ -117,7 +117,7 @@ function BackendManager() {
               type="text"
               value={formData.baseUrl}
               onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
-              placeholder="http://localhost:8842"
+              placeholder="http://localhost:9942"
               className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>

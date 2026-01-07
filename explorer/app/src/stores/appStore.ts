@@ -58,13 +58,13 @@ async function loadInstanceConfig(): Promise<InstancesConfig> {
         appServer: "local-app",
       },
       backends: {
-        "local-api": { name: "Local HTTP API", baseUrl: "http://localhost:8842" },
+        "local-api": { name: "Local HTTP API", baseUrl: "http://localhost:9942" },
       },
       walletServers: {
-        "local-wallet": { name: "Local Wallet", url: "http://localhost:8843" },
+        "local-wallet": { name: "Local Wallet", url: "http://localhost:9943" },
       },
       appServers: {
-        "local-app": { name: "Local App Server", url: "http://localhost:8844" },
+        "local-app": { name: "Local App Server", url: "http://localhost:9944" },
       },
     };
   }

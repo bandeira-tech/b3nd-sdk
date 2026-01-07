@@ -264,34 +264,43 @@ export const fetchSchema = async (params: {
 /**
  * Create a new session keypair and request approval from the app.
  *
- * New flow:
+ * Flow:
  * 1. Generate session keypair (Ed25519)
- * 2. Request approval via immutable inbox (permissionless)
+ * 2. Client posts SIGNED request to immutable inbox (proves key ownership)
  * 3. App approves via mutable accounts (controlled)
  *
  * Returns the session keypair for use in login.
  */
 export const createSession = async (params: {
   appsClient: AppsClient;
+  backendClient: HttpClient;
   appKey: string;
   accountPrivateKeyPem: string;
+  requestPayload?: Record<string, unknown>;
 }) => {
-  const { appsClient, appKey, accountPrivateKeyPem } = params;
+  const { appsClient, backendClient, appKey, accountPrivateKeyPem, requestPayload = {} } = params;
   ensureValue(appKey, "Auth key");
 
   // Generate session keypair using SDK crypto
   const sessionKeypair = await generateSessionKeypair();
 
-  // Request session approval via app server (writes to inbox and approves)
+  // 1. Client posts SIGNED request to inbox (proves session key ownership)
+  // Payload is arbitrary - app developers decide what info to require
+  const payload = { timestamp: Date.now(), ...requestPayload };
+  const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
+    payload,
+    sessionKeypair.publicKeyHex,
+    sessionKeypair.privateKeyHex
+  );
+  const inboxUri = `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  await backendClient.write(inboxUri, signedRequest);
+
+  // 2. Request app server to approve (writes to mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1)
   const message = await signPayload(
     { sessionPubkey: sessionKeypair.publicKeyHex },
     appKey,
     accountPrivateKeyPem
   );
-
-  // Note: The app server should:
-  // 1. Write request to immutable://inbox/{appKey}/sessions/{sessionPubkey} = 1
-  // 2. Write approval to mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
   const result = await appsClient.createSession(appKey, message as any);
 
   // Return both the result and the keypair for use in login

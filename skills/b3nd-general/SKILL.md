@@ -108,16 +108,54 @@ For `accounts` protocols, use WalletClient:
 
 ```typescript
 import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
+import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 
 const wallet = new WalletClient({
   walletServerUrl: "https://testnet-wallet.fire.cat",
   apiBasePath: "/api/v1",
 });
+```
 
-// Login
-const session = await wallet.login(appKey, { username, password });
+**IMPORTANT:** Both signup AND login require an approved session keypair.
+
+### Session Keypair Flow
+
+The protocol supports local approval (same process) and remote approval (async workflows):
+
+```typescript
+// 1. Generate session keypair
+const sessionKeypair = await encrypt.generateSigningKeyPair();
+
+// 2. Client posts SIGNED session request to app's inbox
+//    - Uses SDK's createAuthenticatedMessageWithHex for standard { auth, payload } format
+//    - Payload is arbitrary (app developers decide what info to require)
+const payload = { timestamp: Date.now(), deviceId: "...", /* app-defined fields */ };
+const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
+  payload,
+  sessionKeypair.publicKeyHex,
+  sessionKeypair.privateKeyHex
+);
+const requestUri = `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+await backendClient.write(requestUri, signedRequest);
+
+// 3. App APPROVES session (value = 1, signed by app)
+const approvalUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+await backendClient.write(approvalUri, signedApproval); // value = 1
+
+// 4. Signup (requires approved session)
+const session = await wallet.signupWithToken(appKey, sessionKeypair, { username, password });
+
+// 5. Login (requires approved session)
+const session = await wallet.loginWithToken(appKey, sessionKeypair, { username, password });
+
 wallet.setSession(session);
+```
 
+**Remote approval workflow:** App monitors `immutable://inbox/{appKey}/sessions`, validates signatures, examines payloads, and approves/denies asynchronously.
+
+### Writing/Reading User Data
+
+```typescript
 // Write to accounts (signed automatically)
 await wallet.proxyWrite({
   uri: "mutable://accounts/{userPubkey}/profile",

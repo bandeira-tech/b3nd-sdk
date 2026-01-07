@@ -70,49 +70,164 @@ async function generateAppKeys() {
 }
 ```
 
-### Create Session
+### Session Keypair Authentication
 
-**Important:** Sessions must be created BEFORE signup/login and passed to the auth call.
+**IMPORTANT:** Both signup AND login require an approved session keypair. This is a security feature that ensures apps control which authentication attempts are allowed.
+
+The protocol supports both local approval (same process) and remote approval (async workflows):
+
+#### 1. Generate Session Keypair
 
 ```typescript
-async function createSession(appKey: string, accountPrivateKey: string) {
-  const sessionValue = crypto.randomUUID().replace(/-/g, "");
-  const payload = { session: sessionValue };
-  const signedMessage = await signPayload(payload, appKey, accountPrivateKey);
+import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 
-  const result = await appsClient.createSession(appKey, signedMessage);
-  return { sessionValue, sessionData: result };
+async function generateSessionKeypair() {
+  const keypair = await encrypt.generateSigningKeyPair();
+  return {
+    publicKeyHex: keypair.publicKeyHex,
+    privateKeyHex: keypair.privateKeyHex,
+  };
+}
+```
+
+#### 2. Post Session Request (Client)
+
+The client posts a **signed** session request to the app's inbox. The signature proves ownership of the session private key. The payload is arbitrary - app developers decide what info to require:
+
+```typescript
+async function requestSession(
+  appKey: string,
+  sessionKeypair: { publicKeyHex: string; privateKeyHex: string },
+  requestPayload: Record<string, unknown> = {}
+) {
+  // Payload can include anything the app needs to make approval decisions
+  // e.g., device info, timestamp, reason, user agent, etc.
+  const payload = {
+    timestamp: Date.now(),
+    ...requestPayload,
+  };
+
+  // Create signed message using SDK method (standard { auth, payload } format)
+  const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
+    payload,
+    sessionKeypair.publicKeyHex,
+    sessionKeypair.privateKeyHex
+  );
+
+  // Write signed request to inbox
+  const requestUri = `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  await backendClient.write(requestUri, signedRequest);
 }
 
 // Usage:
-const { sessionValue } = await createSession(appKey, privateKey);
-// Then use sessionValue in login/signup
+const sessionKeypair = await generateSessionKeypair();
+await requestSession(appKey, sessionKeypair, {
+  deviceId: "browser-abc123",
+  userAgent: navigator.userAgent,
+});
+// Now wait for app to approve...
 ```
 
-### Signup with Password
+#### 3. Approve Session (App)
+
+The app monitors its inbox for session requests and approves them:
 
 ```typescript
-async function signup(username: string, password: string, appKey: string) {
-  const result = await walletClient.signupWithToken(appKey, { username, password });
+async function approveSession(appKey: string, sessionPubkey: string, accountPrivateKey: string) {
+  // Write approval to accounts (requires app's signature)
+  const approvalUri = `mutable://accounts/${appKey}/sessions/${sessionPubkey}`;
+  const signedApproval = await signPayload(1, appKey, accountPrivateKey);
+  await backendClient.write(approvalUri, signedApproval);
+}
 
-  // Returns: { success, username, token, expiresIn }
-  return result;
+// App can list pending requests:
+async function getPendingSessionRequests(appKey: string) {
+  const result = await backendClient.list(`immutable://inbox/${appKey}/sessions`);
+  return result.data; // List of session pubkeys awaiting approval
 }
 ```
 
-### Login with Password
+**For local approval** (app and client same process), combine steps 2 and 3:
 
 ```typescript
-async function login(username: string, password: string, appKey: string, appSession: string) {
-  const result = await walletClient.loginWithTokenSession(
+async function createAndApproveSession(
+  appKey: string,
+  accountPrivateKey: string,
+  requestPayload: Record<string, unknown> = {}
+) {
+  const sessionKeypair = await generateSessionKeypair();
+
+  // Post signed request to inbox (proves key ownership)
+  const payload = { timestamp: Date.now(), ...requestPayload };
+  const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
+    payload,
+    sessionKeypair.publicKeyHex,
+    sessionKeypair.privateKeyHex
+  );
+  await backendClient.write(
+    `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
+    signedRequest
+  );
+
+  // Immediately approve (value = 1)
+  const signedApproval = await signPayload(1, appKey, accountPrivateKey);
+  await backendClient.write(
+    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
+    signedApproval
+  );
+
+  return sessionKeypair;
+}
+```
+
+#### 4. Signup with Password (Requires Approved Session)
+
+```typescript
+async function signup(
+  username: string,
+  password: string,
+  appKey: string,
+  sessionKeypair: { publicKeyHex: string; privateKeyHex: string }
+) {
+  const result = await walletClient.signupWithToken(
     appKey,
-    appSession,
+    sessionKeypair,
     { username, password }
   );
 
   // Returns: { success, username, token, expiresIn }
   return result;
 }
+
+// Usage:
+const sessionKeypair = await generateSessionKeypair();
+await approveSession(appKey, sessionKeypair.publicKeyHex, accountPrivateKey);
+const result = await signup("alice", "password123", appKey, sessionKeypair);
+```
+
+#### 5. Login with Password (Requires Approved Session)
+
+```typescript
+async function login(
+  username: string,
+  password: string,
+  appKey: string,
+  sessionKeypair: { publicKeyHex: string; privateKeyHex: string }
+) {
+  const result = await walletClient.loginWithToken(
+    appKey,
+    sessionKeypair,
+    { username, password }
+  );
+
+  // Returns: { success, username, token, expiresIn }
+  return result;
+}
+
+// Usage:
+const sessionKeypair = await generateSessionKeypair();
+await approveSession(appKey, sessionKeypair.publicKeyHex, accountPrivateKey);
+const result = await login("alice", "password123", appKey, sessionKeypair);
 ```
 
 ### Google OAuth Setup
@@ -157,16 +272,31 @@ function initGoogleSignIn(clientId: string, onSignIn: (credential: string) => vo
 }
 ```
 
-#### 4. Signup with Google
+#### 4. Signup with Google (Requires Approved Session)
 
 ```typescript
-async function googleSignup(googleIdToken: string, appKey: string) {
+async function googleSignup(
+  googleIdToken: string,
+  appKey: string,
+  sessionKeypair: { publicKeyHex: string; privateKeyHex: string }
+) {
+  // Sign the payload with the session's private key
+  const payload = {
+    type: "google",
+    googleIdToken,
+    sessionPubkey: sessionKeypair.publicKeyHex,
+  };
+  const sessionSignature = await encrypt.signWithHex(sessionKeypair.privateKeyHex, payload);
+
   const response = await fetch(
     `https://testnet-wallet.fire.cat/api/v1/auth/signup/${appKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "google", googleIdToken })
+      body: JSON.stringify({
+        ...payload,
+        sessionSignature,
+      })
     }
   );
 
@@ -174,24 +304,49 @@ async function googleSignup(googleIdToken: string, appKey: string) {
   // Returns: { username, token, expiresIn, email, name, picture }
   return data;
 }
+
+// Usage:
+const sessionKeypair = await generateSessionKeypair();
+await approveSession(appKey, sessionKeypair.publicKeyHex, accountPrivateKey);
+const result = await googleSignup(googleCredential, appKey, sessionKeypair);
 ```
 
-#### 5. Login with Google
+#### 5. Login with Google (Requires Approved Session)
 
 ```typescript
-async function googleLogin(googleIdToken: string, appKey: string, appSession: string) {
+async function googleLogin(
+  googleIdToken: string,
+  appKey: string,
+  sessionKeypair: { publicKeyHex: string; privateKeyHex: string }
+) {
+  // Sign the payload with the session's private key
+  const payload = {
+    type: "google",
+    googleIdToken,
+    sessionPubkey: sessionKeypair.publicKeyHex,
+  };
+  const sessionSignature = await encrypt.signWithHex(sessionKeypair.privateKeyHex, payload);
+
   const response = await fetch(
     `https://testnet-wallet.fire.cat/api/v1/auth/login/${appKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: appSession, type: "google", googleIdToken })
+      body: JSON.stringify({
+        ...payload,
+        sessionSignature,
+      })
     }
   );
 
   const data = await response.json();
   return data;
 }
+
+// Usage:
+const sessionKeypair = await generateSessionKeypair();
+await approveSession(appKey, sessionKeypair.publicKeyHex, accountPrivateKey);
+const result = await googleLogin(googleCredential, appKey, sessionKeypair);
 ```
 
 ## Example: Event Invite System with Slug-Based Encryption

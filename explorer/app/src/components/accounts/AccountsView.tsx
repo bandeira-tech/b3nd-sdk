@@ -667,6 +667,7 @@ function ApplicationUserAccountForm(
     const app = requireSelectedApp();
     const res = await createSession({
       appsClient: props.requireAppsClient(),
+      backendClient: props.requireBackendClient(),
       appKey: app.keyBundle.appKey,
       accountPrivateKeyPem: app.keyBundle.accountPrivateKeyPem,
     });

@@ -164,7 +164,7 @@ function BackendManager() {
             setShowAddForm(false);
             setFormData({ name: "", baseUrl: "" });
           }}
-          placeholder="http://localhost:8842"
+          placeholder="http://localhost:9942"
           cta="Add backend"
         />
       ) : (

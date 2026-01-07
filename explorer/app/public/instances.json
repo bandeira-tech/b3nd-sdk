@@ -7,7 +7,7 @@
   "backends": {
     "local-api": {
       "name": "Local HTTP API",
-      "baseUrl": "http://localhost:8842"
+      "baseUrl": "http://localhost:9942"
     },
     "testnet": {
       "name": "Testnet Evergreen",
@@ -17,7 +17,7 @@
   "walletServers": {
     "local-wallet": {
       "name": "Local Wallet",
-      "url": "http://localhost:8843"
+      "url": "http://localhost:9943"
     },
     "testnet-wallet": {
       "name": "Testnet Wallet",
@@ -27,7 +27,7 @@
   "appServers": {
     "local-app": {
       "name": "Local App Server",
-      "url": "http://localhost:8844"
+      "url": "http://localhost:9944"
     },
     "testnet-app": {
       "name": "Testnet App Server",

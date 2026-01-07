@@ -314,6 +314,7 @@ export function WriterMainContent() {
     const accountPrivateKeyPem = appAccount.keyBundle.accountPrivateKeyPem;
     const res = await createSessionService({
       appsClient: requireAppsClient(),
+      backendClient: requireBackendClient(),
       appKey,
       accountPrivateKeyPem,
     });
