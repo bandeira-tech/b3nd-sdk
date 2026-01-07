@@ -225,28 +225,5 @@ export async function encryptedWrite(
   return { path, encryptedPayload };
 }
 
-/**
- * Complete read operation: get path and decrypt data
- */
-export async function encryptedRead(
-  serverPublicKey: string,
-  serverEncryptionPrivateKeyPem: string,
-  username: string,
-  operationType: OperationType,
-  encryptedPayload: EncryptedPayload,
-  ...params: string[]
-): Promise<unknown> {
-  // Verify path matches (optional, but good for consistency)
-  const _expectedPath = await deriveObfuscatedPath(
-    serverPublicKey,
-    username,
-    operationType,
-    ...params
-  );
-
-  // Path verification happens externally, just decrypt here
-  return await decryptFromBackend(encryptedPayload, serverEncryptionPrivateKeyPem);
-}
-
 // Re-export types from encrypt module
 export type { EncryptedPayload, SignedEncryptedMessage };

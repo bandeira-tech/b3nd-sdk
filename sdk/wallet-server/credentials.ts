@@ -17,7 +17,6 @@ import {
   verifyGoogleIdToken,
   generateGoogleUsername,
 } from "./google-oauth.ts";
-import type { GoogleTokenPayload } from "./google-oauth.ts";
 import { generateUserKeys } from "./keys.ts";
 
 /**
@@ -162,7 +161,6 @@ class PasswordCredentialHandler
       context.serverPublicKey,
       username,
       password,
-      context.serverIdentityPublicKeyHex,
       context.serverEncryptionPrivateKeyPem,
       context.appKey,
       context.logger

@@ -157,7 +157,6 @@ export async function authenticateUser(
   serverPublicKey: string,
   username: string,
   password: string,
-  serverIdentityPublicKeyHex: string,
   serverEncryptionPrivateKeyPem: string,
   appScope?: string,
   logger?: Logger
@@ -218,7 +217,6 @@ export async function changePassword(
     serverPublicKey,
     username,
     oldPassword,
-    serverIdentityPublicKeyHex,
     serverEncryptionPrivateKeyPem,
     appScope
   );
