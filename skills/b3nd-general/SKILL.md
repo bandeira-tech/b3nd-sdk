@@ -123,8 +123,8 @@ const wallet = new WalletClient({
 The protocol supports local approval (same process) and remote approval (async workflows):
 
 ```typescript
-// Simple direct flow - just writes to the data node (HttpClient)
-// No AppsClient needed when app has its own keys
+// Session flow - direct writes to data node
+// App needs its Ed25519 keypair (public key = appKey)
 
 const backendClient = new HttpClient({ url: "http://localhost:9942" });
 

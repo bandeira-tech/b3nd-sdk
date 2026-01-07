@@ -27,7 +27,6 @@ import {
   WebSocketClient,
   LocalStorageClient,
   WalletClient,
-  AppsClient,
   encrypt
 } from "@bandeira-tech/b3nd-web";
 ```
@@ -41,9 +40,8 @@ import { LocalStorageClient } from "@bandeira-tech/b3nd-web/clients/local-storag
 import { WebSocketClient } from "@bandeira-tech/b3nd-web/clients/websocket";
 import { MemoryClient } from "@bandeira-tech/b3nd-web/clients/memory";
 
-// Wallet and apps
+// Wallet
 import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
-import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
 
 // Encryption
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
@@ -115,22 +113,6 @@ const data = await wallet.proxyRead({
 });
 ```
 
-### AppsClient
-
-```typescript
-import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
-
-const apps = new AppsClient({
-  appServerUrl: "https://apps.example.com",
-  apiBasePath: "/api/v1",
-});
-
-// Get app schema
-const schema = await apps.getSchema(appKey);
-
-// Invoke action
-await apps.invokeAction(appKey, "create-post", signedMessage);
-```
 
 ## Types
 

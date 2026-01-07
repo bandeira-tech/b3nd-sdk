@@ -258,8 +258,8 @@ async function login(
   return result;
 }
 
-// Simple session flow - direct writes to data node (no AppsClient needed)
-// Use this when your app has access to the app's private key
+// Session flow - direct writes to data node
+// App needs its Ed25519 keypair (public key = appKey)
 
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 

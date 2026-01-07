@@ -81,9 +81,6 @@ import { PostgresClient } from "@bandeira-tech/b3nd-sdk/clients/postgres";
 
 // Wallet client
 import { WalletClient } from "@bandeira-tech/b3nd-sdk/wallet";
-
-// Apps client
-import { AppsClient } from "@bandeira-tech/b3nd-sdk/apps";
 ```
 
 ## Server Usage
