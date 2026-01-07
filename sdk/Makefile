@@ -6,14 +6,14 @@
 # Default target
 .DEFAULT_GOAL := help
 
-# Run all tests
+# Run all tests (excludes browser-only tests)
 test:
 ifdef t
 	@echo "Running tests for: $(t)"
 	@deno test --allow-all $(t)
 else
 	@echo "Running all tests..."
-	@deno test --allow-all tests/
+	@deno test --allow-all --ignore=tests/browser tests/
 endif
 
 # Run only MemoryClient tests
@@ -26,20 +26,25 @@ test-http:
 	@echo "Running HttpClient tests..."
 	@deno test --allow-all tests/http-client.test.ts
 
+# Run unit tests only (no external dependencies)
+test-unit:
+	@echo "Running unit tests..."
+	@deno test --allow-all tests/memory-client.test.ts tests/wallet.test.ts tests/read-multi.test.ts
+
 # Publish to both JSR and npm
-publish: test
+publish: test-unit
 	@echo "Publishing to JSR and npm..."
 	@$(MAKE) publish-jsr
 	@$(MAKE) publish-npm
 	@echo "Done! Don't forget to push the tag: git push origin v$$(jq -r .version deno.json)"
 
 # Publish to JSR only
-publish-jsr: test
+publish-jsr: test-unit
 	@echo "Publishing to JSR..."
 	@deno publish
 
 # Publish to npm only
-publish-npm: test
+publish-npm: test-unit
 	@echo "Building for npm..."
 	@npm run build
 	@echo "Publishing to npm..."
@@ -63,18 +68,18 @@ endif
 help:
 	@echo "Available commands:"
 	@echo ""
-	@echo "  make test              - Run all tests"
+	@echo "  make test              - Run all tests (requires Docker for some)"
 	@echo "  make test t=<path>     - Run specific test file"
+	@echo "  make test-unit         - Run unit tests only (no external deps)"
 	@echo "  make test-memory       - Run MemoryClient tests only"
 	@echo "  make test-http         - Run HttpClient tests only"
 	@echo ""
 	@echo "  make version v=X.Y.Z   - Bump version and create git tag"
-	@echo "  make publish           - Publish to JSR and npm (runs tests first)"
+	@echo "  make publish           - Publish to JSR and npm (runs unit tests)"
 	@echo "  make publish-jsr       - Publish to JSR only"
 	@echo "  make publish-npm       - Publish to npm only"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make test"
-	@echo "  make test t=tests/memory-client.test.ts"
+	@echo "  make test-unit"
 	@echo "  make version v=0.3.0"
 	@echo "  make publish"
