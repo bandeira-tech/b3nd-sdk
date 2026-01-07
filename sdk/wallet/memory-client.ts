@@ -291,21 +291,41 @@ export class MemoryWalletClient {
     throw new Error("Use loginWithTokenSession(appKey, session, credentials) — app token + session required");
   }
 
+  /**
+   * Sign up with session keypair (scoped to an app)
+   *
+   * The session must be approved by the app beforehand:
+   * 1. Client writes request to: immutable://inbox/{appKey}/sessions/{sessionPubkey} = 1
+   * 2. App approves by writing: mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
+   * 3. Client calls this method with the session keypair
+   *
+   * @param appKey - The app's public key
+   * @param session - Session keypair (generated via generateSessionKeypair)
+   * @param credentials - User credentials (username/password)
+   */
   async signupWithToken(
     appKey: string,
-    tokenOrCredentials: string | UserCredentials,
-    maybeCredentials?: UserCredentials
+    session: SessionKeypair,
+    credentials: UserCredentials,
   ): Promise<AuthSession> {
-    const credentials = (typeof tokenOrCredentials === "string"
-      ? maybeCredentials
-      : tokenOrCredentials) as UserCredentials | undefined;
-    if (!credentials) throw new Error("credentials are required");
+    if (!session?.publicKeyHex || !session?.privateKeyHex) {
+      throw new Error("session keypair is required");
+    }
 
-    const response = await this.request("POST", `/auth/signup/${appKey}`, {
-      token: typeof tokenOrCredentials === "string" ? tokenOrCredentials : undefined,
+    // Build the payload to sign (everything except the signature itself)
+    const payloadToSign = {
+      sessionPubkey: session.publicKeyHex,
       type: "password",
       username: credentials.username,
       password: credentials.password,
+    };
+
+    // Sign the payload with session private key using SDK crypto
+    const sessionSignature = await signWithHex(session.privateKeyHex, payloadToSign);
+
+    const response = await this.request("POST", `/auth/signup/${appKey}`, {
+      ...payloadToSign,
+      sessionSignature,
     });
 
     const data = await response.json();

@@ -76,17 +76,18 @@ export interface TestEnvironment {
 
   /**
    * Sign up a test user and set the session.
+   * Automatically generates and approves a session keypair for testing.
    *
    * @param appKey - App key for the signup
    * @param username - Username
    * @param password - Password
-   * @returns Session and user public keys
+   * @returns Session, user public keys, and the session keypair used
    */
   signupTestUser(
     appKey: string,
     username: string,
     password: string
-  ): Promise<{ session: AuthSession; keys: UserPublicKeys }>;
+  ): Promise<{ session: AuthSession; keys: UserPublicKeys; sessionKeypair: SessionKeypair }>;
 
   /**
    * Login a test user and set the session.
@@ -175,11 +176,23 @@ export async function createTestEnvironment(
       appKey: string,
       username: string,
       password: string
-    ): Promise<{ session: AuthSession; keys: UserPublicKeys }> {
-      const session = await wallet.signupWithToken(appKey, { username, password });
+    ): Promise<{ session: AuthSession; keys: UserPublicKeys; sessionKeypair: SessionKeypair }> {
+      // Generate a session keypair
+      const keypair = await generateSigningKeyPair();
+      const sessionKeypair: SessionKeypair = {
+        publicKeyHex: keypair.publicKeyHex,
+        privateKeyHex: keypair.privateKeyHex,
+      };
+
+      // Approve the session by writing to the backend (simulates app approval)
+      const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+      await backend.write(sessionUri, 1);
+
+      // Now signup with the approved session
+      const session = await wallet.signupWithToken(appKey, sessionKeypair, { username, password });
       wallet.setSession(session);
       const keys = await wallet.getPublicKeys(appKey);
-      return { session, keys };
+      return { session, keys, sessionKeypair };
     },
 
     async loginTestUser(

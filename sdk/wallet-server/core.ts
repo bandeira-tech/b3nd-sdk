@@ -490,16 +490,48 @@ export class WalletServerCore {
     app.post("/api/v1/auth/signup/:appKey", async (c: Context) => {
       try {
         const appKey = c.req.param("appKey");
-        const payload = (await c.req.json()) as CredentialPayload;
+        const payload = (await c.req.json()) as CredentialPayload & {
+          sessionPubkey?: string;
+          sessionSignature?: string;
+        };
 
         if (!appKey) {
           return c.json({ success: false, error: "appKey is required" }, 400);
+        }
+        if (!payload.sessionPubkey) {
+          return c.json({ success: false, error: "sessionPubkey is required" }, 400);
+        }
+        if (!payload.sessionSignature) {
+          return c.json({ success: false, error: "sessionSignature is required" }, 400);
         }
         if (!payload.type) {
           return c.json({
             success: false,
             error: `type is required. Supported: ${getSupportedCredentialTypes().join(", ")}`,
           }, 400);
+        }
+
+        // Verify session signature (proves client has the session private key)
+        const signatureValid = await this.verifySessionSignature(
+          payload.sessionPubkey,
+          payload.sessionSignature,
+          payload as unknown as Record<string, unknown>
+        );
+        if (!signatureValid) {
+          return c.json({ success: false, error: "Invalid session signature" }, 401);
+        }
+
+        // Verify session is approved by app (status === 1)
+        const sessionResult = await this.sessionExists(appKey, payload.sessionPubkey);
+        if (!sessionResult.valid) {
+          return c.json({
+            success: false,
+            error: sessionResult.reason === "session_revoked"
+              ? "Session has been revoked"
+              : sessionResult.reason === "session_not_approved"
+              ? "Session not approved by app"
+              : "Invalid session",
+          }, 401);
         }
 
         const handler = getCredentialHandler(payload.type);

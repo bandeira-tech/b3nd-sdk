@@ -38,10 +38,14 @@ export interface WalletClientInterface {
   getServerKeys(): Promise<{ identityPublicKeyHex: string; encryptionPublicKeyHex: string }>;
 
   // Authentication
+  /**
+   * Signup with session keypair.
+   * Session must be approved by app at mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
+   */
   signupWithToken(
     appKey: string,
-    tokenOrCredentials: string | UserCredentials,
-    maybeCredentials?: UserCredentials
+    session: SessionKeypair,
+    credentials: UserCredentials
   ): Promise<AuthSession>;
   /**
    * Login with session keypair.
@@ -114,6 +118,7 @@ export interface SessionKeypair {
 
 export interface SignupWithTokenRequest {
   appKey: string;
+  session: SessionKeypair;
   credentials: UserCredentials;
 }
 

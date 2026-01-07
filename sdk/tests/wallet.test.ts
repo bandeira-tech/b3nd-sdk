@@ -49,7 +49,7 @@ Deno.test("generateSessionKeypair - creates unique keypairs", async () => {
   assertEquals(session1.privateKeyHex !== session2.privateKeyHex, true);
 });
 
-Deno.test("MemoryWalletClient - signup works without session", async () => {
+Deno.test("MemoryWalletClient - signup works with approved session", async () => {
   const appKey = await createTestAppKey();
   const backend = new MemoryClient({
     schema: {
@@ -60,7 +60,12 @@ Deno.test("MemoryWalletClient - signup works without session", async () => {
 
   const wallet = await MemoryWalletClient.create({ backend });
 
-  const session = await wallet.signupWithToken(appKey, {
+  // Generate and approve session before signup
+  const sessionKeypair = await generateSessionKeypair();
+  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  await backend.write(sessionUri, 1);
+
+  const session = await wallet.signupWithToken(appKey, sessionKeypair, {
     username: "testuser",
     password: "testpass123",
   });
@@ -68,6 +73,33 @@ Deno.test("MemoryWalletClient - signup works without session", async () => {
   assertEquals(typeof session.token, "string");
   assertEquals(session.username, "testuser");
   assertEquals(typeof session.expiresIn, "number");
+});
+
+Deno.test("MemoryWalletClient - signup fails without session approval", async () => {
+  const appKey = await createTestAppKey();
+  const backend = new MemoryClient({
+    schema: {
+      "mutable://accounts": async () => ({ valid: true }),
+      "immutable://accounts": async () => ({ valid: true }),
+    },
+  });
+
+  const wallet = await MemoryWalletClient.create({ backend });
+
+  // Generate session but don't approve it
+  const sessionKeypair = await generateSessionKeypair();
+
+  // Signup should fail - session not approved
+  await assertRejects(
+    async () => {
+      await wallet.signupWithToken(appKey, sessionKeypair, {
+        username: "testuser",
+        password: "testpass123",
+      });
+    },
+    Error,
+    "not approved",
+  );
 });
 
 Deno.test("MemoryWalletClient - login fails without session approval", async () => {
@@ -81,8 +113,10 @@ Deno.test("MemoryWalletClient - login fails without session approval", async () 
 
   const wallet = await MemoryWalletClient.create({ backend });
 
-  // First signup
-  await wallet.signupWithToken(appKey, {
+  // First signup with approved session
+  const signupSession = await generateSessionKeypair();
+  await backend.write(`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1);
+  await wallet.signupWithToken(appKey, signupSession, {
     username: "testuser",
     password: "testpass123",
   });
@@ -115,8 +149,10 @@ Deno.test("MemoryWalletClient - login succeeds with approved session", async () 
 
   const wallet = await MemoryWalletClient.create({ backend });
 
-  // First signup
-  await wallet.signupWithToken(appKey, {
+  // First signup with approved session
+  const signupSession = await generateSessionKeypair();
+  await backend.write(`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1);
+  await wallet.signupWithToken(appKey, signupSession, {
     username: "testuser",
     password: "testpass123",
   });
@@ -148,8 +184,10 @@ Deno.test("MemoryWalletClient - login fails with revoked session", async () => {
 
   const wallet = await MemoryWalletClient.create({ backend });
 
-  // First signup
-  await wallet.signupWithToken(appKey, {
+  // First signup with approved session
+  const signupSession = await generateSessionKeypair();
+  await backend.write(`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1);
+  await wallet.signupWithToken(appKey, signupSession, {
     username: "testuser",
     password: "testpass123",
   });
@@ -184,8 +222,10 @@ Deno.test("MemoryWalletClient - login fails with wrong password", async () => {
 
   const wallet = await MemoryWalletClient.create({ backend });
 
-  // First signup
-  await wallet.signupWithToken(appKey, {
+  // First signup with approved session
+  const signupSession = await generateSessionKeypair();
+  await backend.write(`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1);
+  await wallet.signupWithToken(appKey, signupSession, {
     username: "testuser",
     password: "testpass123",
   });
@@ -219,8 +259,10 @@ Deno.test("MemoryWalletClient - session signature is validated", async () => {
 
   const wallet = await MemoryWalletClient.create({ backend });
 
-  // First signup
-  await wallet.signupWithToken(appKey, {
+  // First signup with approved session
+  const signupSession = await generateSessionKeypair();
+  await backend.write(`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1);
+  await wallet.signupWithToken(appKey, signupSession, {
     username: "testuser",
     password: "testpass123",
   });
@@ -264,8 +306,10 @@ Deno.test("MemoryWalletClient - proxyWrite/proxyRead work after login", async ()
 
   const wallet = await MemoryWalletClient.create({ backend });
 
-  // Signup
-  const signupSession = await wallet.signupWithToken(appKey, {
+  // Signup with approved session
+  const signupKeypair = await generateSessionKeypair();
+  await backend.write(`mutable://accounts/${appKey}/sessions/${signupKeypair.publicKeyHex}`, 1);
+  const signupSession = await wallet.signupWithToken(appKey, signupKeypair, {
     username: "testuser",
     password: "testpass123",
   });
@@ -326,8 +370,10 @@ Deno.test("session flow - full authentication cycle", async () => {
 
   const wallet = await MemoryWalletClient.create({ backend });
 
-  // 1. Signup (no session needed)
-  const signupResult = await wallet.signupWithToken(appKey, {
+  // 1. Signup (requires approved session)
+  const signupSession = await generateSessionKeypair();
+  await backend.write(`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1);
+  const signupResult = await wallet.signupWithToken(appKey, signupSession, {
     username: "fulltest",
     password: "fullpass123",
   });
