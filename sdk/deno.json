@@ -19,7 +19,8 @@
     "@std/encoding": "jsr:@std/encoding@^1.0.10"
   },
   "tasks": {
-    "test": "deno test -A --ignore=tests/browser tests/",
+    "test": "deno test -A --ignore=tests/browser --ignore=tests/mongo-client.test.ts --ignore=tests/postgres-client.test.ts --ignore=tests/websocket-client.test.ts tests/",
+    "test:all": "deno test -A tests/",
     "lint": "deno lint src/",
     "fmt": "deno fmt src/",
     "check": "deno check src/mod.ts",
@@ -35,6 +36,11 @@
     ]
   },
   "nodeModulesDir": "auto",
+  "test": {
+    "exclude": [
+      "tests/browser"
+    ]
+  },
   "publish": {
     "exclude": [
       "dist/",
