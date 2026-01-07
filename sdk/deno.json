@@ -1,6 +1,6 @@
 {
   "name": "@bandeira-tech/b3nd-sdk",
-  "version": "0.2.1",
+  "version": "0.3.2",
   "description": "Universal persistence SDK with URI-based addressing, encryption, and multi-backend support (PostgreSQL, HTTP, WebSocket, in-memory)",
   "exports": {
     ".": "./src/mod.ts",
@@ -27,7 +27,12 @@
   },
   "compilerOptions": {
     "strict": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable", "deno.ns"]
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable",
+      "deno.ns"
+    ]
   },
   "nodeModulesDir": "auto",
   "publish": {
