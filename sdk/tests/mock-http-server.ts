@@ -76,11 +76,22 @@ export class MockHttpServer {
       return new Response("Not Found", { status: 404 });
     };
 
+    // Create a promise that resolves when the server is actually listening
+    let resolveListening: (() => void) | null = null;
+    const listeningPromise = new Promise<void>((resolve) => {
+      resolveListening = resolve;
+    });
+
     this.server = Deno.serve({
       port: this.config.port,
       hostname: "127.0.0.1",
-      onListen: () => {},
+      onListen: () => {
+        if (resolveListening) resolveListening();
+      },
     }, handler);
+
+    // Wait for the server to actually be listening
+    await listeningPromise;
   }
 
   async stop(): Promise<void> {
@@ -137,8 +148,8 @@ export class MockHttpServer {
   }
 
   private handleRead(url: URL): Response {
-    // Parse URI from path: /api/v1/read/{instance}/{protocol}/{domain}{path}
-    const parts = url.pathname.split("/").slice(5); // Skip /api/v1/read/{instance}/
+    // Parse URI from path: /api/v1/read/{protocol}/{domain}{path}
+    const parts = url.pathname.split("/").slice(4); // Skip /api/v1/read/
     const protocol = parts[0];
     const domain = parts[1];
     const path = "/" + parts.slice(2).join("/");
@@ -154,8 +165,8 @@ export class MockHttpServer {
   }
 
   private handleList(url: URL): Response {
-    // Parse URI from path: /api/v1/list/{instance}/{protocol}/{domain}{path}
-    const parts = url.pathname.split("/").slice(5); // Skip /api/v1/list/{instance}/
+    // Parse URI from path: /api/v1/list/{protocol}/{domain}{path}
+    const parts = url.pathname.split("/").slice(4); // Skip /api/v1/list/
     const protocol = parts[0];
     const domain = parts[1];
     const pathPart = parts.length > 2 ? "/" + parts.slice(2).join("/") : "";
@@ -236,9 +247,6 @@ export async function createMockServers(): Promise<{
 
   await happy.start();
   await validationError.start();
-
-  // Small delay to ensure servers are ready
-  await new Promise((resolve) => setTimeout(resolve, 100));
 
   return {
     happy,
