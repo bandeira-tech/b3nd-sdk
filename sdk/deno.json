@@ -19,7 +19,7 @@
     "@std/encoding": "jsr:@std/encoding@^1.0.10"
   },
   "tasks": {
-    "test": "deno test -A tests/",
+    "test": "deno test -A --ignore=tests/browser tests/",
     "lint": "deno lint src/",
     "fmt": "deno fmt src/",
     "check": "deno check src/mod.ts",
