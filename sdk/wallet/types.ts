@@ -42,7 +42,7 @@ export interface WalletClientInterface {
    * Signup with session keypair.
    * Session must be approved by app at mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
    */
-  signupWithToken(
+  signup(
     appKey: string,
     session: SessionKeypair,
     credentials: UserCredentials
@@ -51,7 +51,7 @@ export interface WalletClientInterface {
    * Login with session keypair.
    * Session must be approved by app at mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
    */
-  loginWithTokenSession(
+  login(
     appKey: string,
     session: SessionKeypair,
     credentials: UserCredentials
@@ -71,9 +71,6 @@ export interface WalletClientInterface {
   proxyRead(request: ProxyReadRequest): Promise<ProxyReadResponse>;
   proxyReadMulti(request: ProxyReadMultiRequest): Promise<ProxyReadMultiResponse>;
 
-  // Google OAuth
-  signupWithGoogle(appKey: string, token: string, googleIdToken: string): Promise<GoogleAuthSession>;
-  loginWithGoogle(appKey: string, token: string, session: SessionKeypair, googleIdToken: string): Promise<GoogleAuthSession>;
 }
 
 /**
@@ -97,12 +94,27 @@ export interface WalletClientConfig {
 }
 
 /**
- * User credentials for authentication
+ * Password-based credentials
  */
-export interface UserCredentials {
+export interface PasswordCredentials {
+  type: 'password';
   username: string;
   password: string;
 }
+
+/**
+ * Google OAuth credentials
+ */
+export interface GoogleCredentials {
+  type: 'google';
+  googleIdToken: string;
+}
+
+/**
+ * User credentials for authentication (discriminated union)
+ * Use `type` field to distinguish between authentication methods.
+ */
+export type UserCredentials = PasswordCredentials | GoogleCredentials;
 
 /**
  * Session keypair for authentication
@@ -130,11 +142,18 @@ export interface LoginWithTokenRequest {
 
 /**
  * Authenticated session with JWT token
+ * For Google auth, includes optional profile fields.
  */
 export interface AuthSession {
   username: string;
   token: string;
   expiresIn: number;
+  /** Present when auth type is 'google' */
+  email?: string;
+  /** Present when auth type is 'google' */
+  name?: string;
+  /** Present when auth type is 'google' */
+  picture?: string;
 }
 
 /**
@@ -311,13 +330,10 @@ export interface ServerKeysResponse extends ApiResponse {
 }
 
 /**
- * Google OAuth session (extended AuthSession with Google profile info)
+ * Google OAuth session
+ * @deprecated Use AuthSession directly - Google profile fields are now optional on AuthSession
  */
-export interface GoogleAuthSession extends AuthSession {
-  email: string;
-  name?: string;
-  picture?: string;
-}
+export type GoogleAuthSession = AuthSession;
 
 /**
  * Google signup response

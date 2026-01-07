@@ -159,9 +159,9 @@ await backendClient.write(
 );
 
 // 4. Now signup or login works
-const session = await wallet.signupWithToken(APP_KEY, sessionKeypair, { username, password });
+const session = await wallet.signup(APP_KEY, sessionKeypair, { type: 'password', username, password });
 // or
-const session = await wallet.loginWithToken(APP_KEY, sessionKeypair, { username, password });
+const session = await wallet.login(APP_KEY, sessionKeypair, { type: 'password', username, password });
 
 wallet.setSession(session);
 ```

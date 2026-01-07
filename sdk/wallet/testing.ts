@@ -189,7 +189,7 @@ export async function createTestEnvironment(
       await backend.write(sessionUri, 1);
 
       // Now signup with the approved session
-      const session = await wallet.signupWithToken(appKey, sessionKeypair, { username, password });
+      const session = await wallet.signup(appKey, sessionKeypair, { type: 'password', username, password });
       wallet.setSession(session);
       const keys = await wallet.getPublicKeys(appKey);
       return { session, keys, sessionKeypair };
@@ -212,7 +212,7 @@ export async function createTestEnvironment(
       await backend.write(sessionUri, 1);
 
       // Now login with the approved session
-      const session = await wallet.loginWithTokenSession(appKey, sessionKeypair, { username, password });
+      const session = await wallet.login(appKey, sessionKeypair, { type: 'password', username, password });
       wallet.setSession(session);
       const keys = await wallet.getPublicKeys(appKey);
       return { session, keys, sessionKeypair };

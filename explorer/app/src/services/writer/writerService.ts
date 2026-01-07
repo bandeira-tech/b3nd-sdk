@@ -326,7 +326,7 @@ export const signupWithPassword = async (params: {
   if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
     throw new Error("Session keypair is required");
   }
-  return walletClient.signupWithToken(appKey, sessionKeypair, { username, password });
+  return walletClient.signup(appKey, sessionKeypair, { type: 'password', username, password });
 };
 
 /**
@@ -345,7 +345,7 @@ export const loginWithPassword = async (params: {
   if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
     throw new Error("Session keypair is required");
   }
-  return walletClient.loginWithTokenSession(appKey, sessionKeypair, { username, password });
+  return walletClient.login(appKey, sessionKeypair, { type: 'password', username, password });
 };
 
 /**

@@ -39,8 +39,8 @@ const wallet = new WalletClient({
   apiBasePath: "/api/v1",
 });
 
-// App-scoped signup/login (requires app token and session from App Backend)
-// const session = await wallet.signupWithToken(appKey, { username: "alice", password: "secure-password-123" });
+// App-scoped signup/login (requires approved session keypair)
+// const session = await wallet.signup(appKey, sessionKeypair, { username: "alice", password: "secure-password-123" });
 
 // Set the session to authenticate subsequent requests
 wallet.setSession(session);
@@ -76,13 +76,13 @@ new WalletClient(config: WalletClientConfig)
 
 ### Authentication Methods
 
-#### `signupWithToken(appKey, credentials)`
+#### `signup(appKey, session, credentials)`
 
-Create a new user account for a given app token. Returns session data - call `setSession()` to activate it.
+Create a new user account with an approved session keypair. Returns session data - call `setSession()` to activate it.
 
-#### `loginWithTokenSession(appKey, session, credentials)`
+#### `login(appKey, session, credentials)`
 
-Login with app token and session. Returns session data - call `setSession()` to activate it.
+Login with an approved session keypair. Returns session data - call `setSession()` to activate it.
 
 #### `logout()`
 
@@ -215,8 +215,8 @@ if (savedSession) {
 }
 
 // Login and save session
-async function login(appKey: string, sessionKey: string, username: string, password: string) {
-  const session = await wallet.loginWithTokenSession(appKey, sessionKey, { username, password });
+async function login(appKey: string, sessionKeypair: SessionKeypair, username: string, password: string) {
+  const session = await wallet.login(appKey, sessionKeypair, { username, password });
 
   // Activate the session
   wallet.setSession(session);

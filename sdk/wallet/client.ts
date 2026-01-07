@@ -20,17 +20,12 @@ import type {
   ProxyReadResponse,
   ProxyReadMultiRequest,
   ProxyReadMultiResponse,
-  SignupResponse,
-  LoginResponse,
   PublicKeysResponse,
   ChangePasswordResponse,
   RequestPasswordResetResponse,
   ResetPasswordResponse,
   HealthResponse,
   ServerKeysResponse,
-  GoogleAuthSession,
-  GoogleSignupResponse,
-  GoogleLoginResponse,
 } from "./types.ts";
 import { generateSigningKeyPair, signWithHex } from "../encrypt/mod.ts";
 
@@ -157,24 +152,6 @@ export class WalletClient {
   }
 
   /**
-   * Sign up a new user
-   * Returns session data - call setSession() to activate it
-   */
-  // Tokenless signup is not supported. Use signup(token,...)
-  async signup(_credentials: UserCredentials): Promise<AuthSession> {
-    throw new Error("Use signup(token, credentials) — app token required");
-  }
-
-  /**
-   * Login existing user
-   * Returns session data - call setSession() to activate it
-   */
-  // Tokenless login is not supported. Use login(token, session, credentials)
-  async login(_credentials: UserCredentials): Promise<AuthSession> {
-    throw new Error("Use login(token, session, credentials) — app token + session required");
-  }
-
-  /**
    * Change password for current user
    * Requires active authentication session
    */
@@ -231,9 +208,9 @@ export class WalletClient {
    *
    * @param appKey - The app's public key
    * @param session - Session keypair (generated via generateSessionKeypair)
-   * @param credentials - User credentials (username/password)
+   * @param credentials - User credentials (password or Google)
    */
-  async signupWithToken(
+  async signup(
     appKey: string,
     session: SessionKeypair,
     credentials: UserCredentials,
@@ -242,13 +219,25 @@ export class WalletClient {
       throw new Error("session keypair is required");
     }
 
-    // Build the payload to sign (everything except the signature itself)
-    const payloadToSign = {
-      sessionPubkey: session.publicKeyHex,
-      type: "password",
-      username: credentials.username,
-      password: credentials.password,
-    };
+    // Build the payload based on credential type
+    let payloadToSign: Record<string, unknown>;
+
+    if (credentials.type === 'password') {
+      payloadToSign = {
+        sessionPubkey: session.publicKeyHex,
+        type: 'password',
+        username: credentials.username,
+        password: credentials.password,
+      };
+    } else if (credentials.type === 'google') {
+      payloadToSign = {
+        sessionPubkey: session.publicKeyHex,
+        type: 'google',
+        googleIdToken: credentials.googleIdToken,
+      };
+    } else {
+      throw new Error(`Unknown credential type: ${(credentials as { type: string }).type}`);
+    }
 
     // Sign the payload with session private key using SDK crypto
     const sessionSignature = await signWithHex(session.privateKeyHex, payloadToSign);
@@ -261,11 +250,24 @@ export class WalletClient {
         sessionSignature,
       }),
     });
-    const data: SignupResponse = await response.json();
+
+    const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Signup failed: ${response.statusText}`);
     }
-    return { username: data.username, token: data.token, expiresIn: data.expiresIn };
+
+    // Build response - include Google fields if present
+    const result: AuthSession = {
+      username: data.username,
+      token: data.token,
+      expiresIn: data.expiresIn,
+    };
+
+    if (data.email) result.email = data.email;
+    if (data.name) result.name = data.name;
+    if (data.picture) result.picture = data.picture;
+
+    return result;
   }
 
   /**
@@ -278,9 +280,9 @@ export class WalletClient {
    *
    * @param appKey - The app's public key
    * @param session - Session keypair (generated via generateSessionKeypair)
-   * @param credentials - User credentials (username/password)
+   * @param credentials - User credentials (password or Google)
    */
-  async loginWithTokenSession(
+  async login(
     appKey: string,
     session: SessionKeypair,
     credentials: UserCredentials,
@@ -289,13 +291,25 @@ export class WalletClient {
       throw new Error("session keypair is required");
     }
 
-    // Build the payload to sign (everything except the signature itself)
-    const payloadToSign = {
-      sessionPubkey: session.publicKeyHex,
-      type: "password",
-      username: credentials.username,
-      password: credentials.password,
-    };
+    // Build the payload based on credential type
+    let payloadToSign: Record<string, unknown>;
+
+    if (credentials.type === 'password') {
+      payloadToSign = {
+        sessionPubkey: session.publicKeyHex,
+        type: 'password',
+        username: credentials.username,
+        password: credentials.password,
+      };
+    } else if (credentials.type === 'google') {
+      payloadToSign = {
+        sessionPubkey: session.publicKeyHex,
+        type: 'google',
+        googleIdToken: credentials.googleIdToken,
+      };
+    } else {
+      throw new Error(`Unknown credential type: ${(credentials as { type: string }).type}`);
+    }
 
     // Sign the payload with session private key using SDK crypto
     const sessionSignature = await signWithHex(session.privateKeyHex, payloadToSign);
@@ -308,11 +322,24 @@ export class WalletClient {
         sessionSignature,
       }),
     });
-    const data: LoginResponse = await response.json();
+
+    const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.error || `Login failed: ${response.statusText}`);
     }
-    return { username: data.username, token: data.token, expiresIn: data.expiresIn };
+
+    // Build response - include Google fields if present
+    const result: AuthSession = {
+      username: data.username,
+      token: data.token,
+      expiresIn: data.expiresIn,
+    };
+
+    if (data.email) result.email = data.email;
+    if (data.name) result.name = data.name;
+    if (data.picture) result.picture = data.picture;
+
+    return result;
   }
 
   /**
@@ -517,92 +544,6 @@ export class WalletClient {
     };
   }
 
-  /**
-   * Sign up with Google OAuth (scoped to app token)
-   * Returns session data with Google profile info - call setSession() to activate it
-   *
-   * @param token - App token from app server
-   * @param googleIdToken - Google ID token from Google Sign-In
-   * @returns GoogleAuthSession with username, JWT token, and Google profile info
-   */
-  async signupWithGoogle(appKey: string, token: string, googleIdToken: string): Promise<GoogleAuthSession> {
-    if (!token) throw new Error("token is required");
-    if (!googleIdToken) throw new Error("googleIdToken is required");
-
-    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/signup", appKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, type: "google", googleIdToken }),
-    });
-
-    const data: GoogleSignupResponse = await response.json();
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || `Google signup failed: ${response.statusText}`);
-    }
-
-    return {
-      username: data.username,
-      token: data.token,
-      expiresIn: data.expiresIn,
-      email: data.email,
-      name: data.name,
-      picture: data.picture,
-    };
-  }
-
-  /**
-   * Login with Google OAuth (scoped to app token and session keypair)
-   * Returns session data with Google profile info - call setSession() to activate it
-   *
-   * The session must be approved by the app beforehand.
-   *
-   * @param appKey - The app's public key
-   * @param token - App token from app server
-   * @param session - Session keypair (generated via generateSessionKeypair)
-   * @param googleIdToken - Google ID token from Google Sign-In
-   * @returns GoogleAuthSession with username, JWT token, and Google profile info
-   */
-  async loginWithGoogle(appKey: string, token: string, session: SessionKeypair, googleIdToken: string): Promise<GoogleAuthSession> {
-    if (!token) throw new Error("token is required");
-    if (!session?.publicKeyHex || !session?.privateKeyHex) {
-      throw new Error("session keypair is required");
-    }
-    if (!googleIdToken) throw new Error("googleIdToken is required");
-
-    // Build the payload to sign
-    const payloadToSign = {
-      token,
-      sessionPubkey: session.publicKeyHex,
-      type: "google",
-      googleIdToken,
-    };
-
-    // Sign the payload with session private key using SDK crypto
-    const sessionSignature = await signWithHex(session.privateKeyHex, payloadToSign);
-
-    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/login", appKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payloadToSign,
-        sessionSignature,
-      }),
-    });
-
-    const data: GoogleLoginResponse = await response.json();
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || `Google login failed: ${response.statusText}`);
-    }
-
-    return {
-      username: data.username,
-      token: data.token,
-      expiresIn: data.expiresIn,
-      email: data.email,
-      name: data.name,
-      picture: data.picture,
-    };
-  }
 }
 
 /**

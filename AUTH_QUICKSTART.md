@@ -197,10 +197,10 @@ async function signup(
   appKey: string,
   sessionKeypair: { publicKeyHex: string; privateKeyHex: string }
 ) {
-  const result = await walletClient.signupWithToken(
+  const result = await walletClient.signup(
     appKey,
     sessionKeypair,
-    { username, password }
+    { type: 'password', username, password }
   );
 
   // Returns: { success, username, token, expiresIn }
@@ -222,10 +222,10 @@ async function login(
   appKey: string,
   sessionKeypair: { publicKeyHex: string; privateKeyHex: string }
 ) {
-  const result = await walletClient.loginWithToken(
+  const result = await walletClient.login(
     appKey,
     sessionKeypair,
-    { username, password }
+    { type: 'password', username, password }
   );
 
   // Returns: { success, username, token, expiresIn }

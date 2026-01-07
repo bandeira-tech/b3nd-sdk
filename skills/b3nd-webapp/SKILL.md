@@ -241,7 +241,7 @@ async function signup(
   credentials: { username: string; password: string }
 ) {
   // Session must be approved first via: mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
-  const result = await wallet.signupWithToken(appKey, sessionKeypair, credentials);
+  const result = await wallet.signup(appKey, sessionKeypair, credentials);
   wallet.setSession(result);
   return result;
 }
@@ -253,7 +253,7 @@ async function login(
   credentials: { username: string; password: string }
 ) {
   // Session must be approved first via: mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
-  const result = await wallet.loginWithTokenSession(appKey, sessionKeypair, credentials);
+  const result = await wallet.login(appKey, sessionKeypair, credentials);
   wallet.setSession(result);
   return result;
 }
@@ -311,13 +311,15 @@ async function authFlow(backendClient: HttpClient) {
   );
 
   // 2. Signup (first time)
-  const session = await wallet.signupWithToken(APP_KEY, sessionKeypair, {
+  const session = await wallet.signup(APP_KEY, sessionKeypair, {
+    type: 'password',
     username: "alice",
     password: "secret123"
   });
 
   // Or login (returning user)
-  const session = await wallet.loginWithTokenSession(APP_KEY, sessionKeypair, {
+  const session = await wallet.login(APP_KEY, sessionKeypair, {
+    type: 'password',
     username: "alice",
     password: "secret123"
   });
