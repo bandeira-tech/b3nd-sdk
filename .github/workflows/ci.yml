@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sdk-tests:
+    name: SDK Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run SDK tests
+        run: cd sdk && deno test -A tests/
+
+  auth-tests:
+    name: Auth Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run auth tests
+        run: cd sdk/auth && deno test --allow-all
+
+  encrypt-tests:
+    name: Encrypt Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run encrypt tests
+        run: cd sdk/encrypt && deno test --allow-all
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Start test server
+        run: |
+          cd integ/e2e
+          deno run --allow-net --allow-env test-server.ts &
+          echo "TEST_SERVER_PID=$!" >> $GITHUB_ENV
+          sleep 3
+
+      - name: Run E2E write-list-read tests
+        run: cd integ/e2e && E2E_BASE_URL=http://localhost:8000 deno task test:e2e:write-list-read
+
+      - name: Run E2E crypto tests
+        run: cd integ/e2e && E2E_BASE_URL=http://localhost:8000 deno task test:e2e:crypto
+
+      - name: Run E2E auth tests
+        run: cd integ/e2e && E2E_BASE_URL=http://localhost:8000 deno task test:e2e:auth
+
+      - name: Stop test server
+        if: always()
+        run: |
+          if [ ! -z "$TEST_SERVER_PID" ]; then
+            kill $TEST_SERVER_PID 2>/dev/null || true
+          fi
+          # Also kill any remaining test-server.ts processes
+          pkill -f "test-server.ts" || true
+
+  lint-and-format:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run lint
+        run: cd sdk && deno lint src/
+
+      - name: Run format check
+        run: cd sdk && deno fmt --check src/
+
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run type check
+        run: cd sdk && deno check src/mod.ts
