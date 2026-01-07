@@ -13,6 +13,7 @@ import type {
   ThemeMode,
   WriterSection,
   WriterUserSession,
+  WriterAppSession,
   ExplorerSection,
 } from "../types";
 import { HttpAdapter } from "../adapters/HttpAdapter";
@@ -164,7 +165,7 @@ const initialState: Omit<AppState, "backendsReady"> = {
   activeApp: "explorer" as AppExperience,
   mainView: "content" as AppMainView,
   writerSection: "backend" as WriterSection,
-  writerAppSession: "",
+  writerAppSession: null,
   writerSession: null,
   writerLastResolvedUri: null,
   writerLastAppUri: null,
@@ -740,7 +741,7 @@ export const useAppStore = create<AppStore>()(
           }));
         },
 
-        setWriterAppSession: (session: string) => {
+        setWriterAppSession: (session: WriterAppSession | null) => {
           set({ writerAppSession: session });
         },
 
@@ -1003,7 +1004,7 @@ export const useAppStore = create<AppStore>()(
           }
           state.writerSection = state.writerSection || "backend";
           state.bottomMaximized = state.bottomMaximized || false;
-          state.writerAppSession = state.writerAppSession || "";
+          state.writerAppSession = state.writerAppSession || null;
           state.writerSession = state.writerSession || null;
           state.writerLastResolvedUri = state.writerLastResolvedUri || null;
           state.writerLastAppUri = state.writerLastAppUri || null;

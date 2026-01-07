@@ -29,6 +29,7 @@ import type {
   ManagedApplicationUserAccount,
   ManagedKeyAccount,
   WriterUserSession,
+  WriterSessionKeypair,
 } from "../../types";
 import { cn, routeForExplorerPath } from "../../utils";
 import { SectionCard } from "../common/SectionCard";
@@ -512,7 +513,10 @@ function ApplicationUserAccountForm(
   },
 ) {
   const [selectedAppId, setSelectedAppId] = useState("");
-  const [appSessionForAccount, setAppSessionForAccount] = useState("");
+  const [appSessionForAccount, setAppSessionForAccount] = useState<{
+    sessionId: string;
+    sessionKeypair: WriterSessionKeypair;
+  } | null>(null);
   const [authKeys, setAuthKeys] = useState<AccountAuthKeys | null>(null);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const [name, setName] = useState(props.defaultIdentity.name);
@@ -541,7 +545,7 @@ function ApplicationUserAccountForm(
   useEffect(() => {
     setAuthKeys(null);
     setGoogleClientId(null);
-    setAppSessionForAccount("");
+    setAppSessionForAccount(null);
     setGoogleCredential(null);
     setUsername("");
     setPassword("");
@@ -666,8 +670,12 @@ function ApplicationUserAccountForm(
       appKey: app.keyBundle.appKey,
       accountPrivateKeyPem: app.keyBundle.accountPrivateKeyPem,
     });
-    setAppSessionForAccount(res.session);
-    return res.session;
+    const sessionData = {
+      sessionId: res.session,
+      sessionKeypair: res.sessionKeypair,
+    };
+    setAppSessionForAccount(sessionData);
+    return sessionData;
   };
 
   const fetchKeysForSession = async (currentSession: WriterUserSession) => {
@@ -693,7 +701,8 @@ function ApplicationUserAccountForm(
     setAuthBusy(true);
     try {
       let session: WriterUserSession | null = null;
-      let appSession = appSessionForAccount || "";
+      // Always start a session first to get the keypair (required for both signup and login)
+      const appSession = appSessionForAccount || await startAppSession();
 
       if (authMethod === "password") {
         if (!username.trim()) {
@@ -706,16 +715,15 @@ function ApplicationUserAccountForm(
           session = await signupWithPassword({
             walletClient: props.requireWalletClient(),
             appKey: app.keyBundle.appKey,
+            sessionKeypair: appSession.sessionKeypair,
             username,
             password,
           });
-          appSession = appSession || await startAppSession();
         } else {
-          appSession = await startAppSession();
           session = await loginWithPassword({
             walletClient: props.requireWalletClient(),
             appKey: app.keyBundle.appKey,
-            session: appSession,
+            sessionKeypair: appSession.sessionKeypair,
             username,
             password,
           });
@@ -732,15 +740,14 @@ function ApplicationUserAccountForm(
           session = await googleSignup({
             walletServerUrl: walletServer.url,
             appKey: app.keyBundle.appKey,
+            sessionKeypair: appSession.sessionKeypair,
             googleIdToken: googleCredential,
           });
-          appSession = appSession || await startAppSession();
         } else {
-          appSession = await startAppSession();
           session = await googleLogin({
             walletServerUrl: walletServer.url,
             appKey: app.keyBundle.appKey,
-            appSession,
+            sessionKeypair: appSession.sessionKeypair,
             googleIdToken: googleCredential,
           });
         }
@@ -769,7 +776,7 @@ function ApplicationUserAccountForm(
         appAccountId: app.id,
         appName: app.name,
         appKey: app.keyBundle.appKey,
-        appSession,
+        appSession: appSession.sessionId,
         userSession: session,
         authKeys: resolvedKeys,
         googleClientId,
@@ -783,7 +790,7 @@ function ApplicationUserAccountForm(
       setPassword("");
       setGoogleCredential(null);
       setAuthKeys(null);
-      setAppSessionForAccount("");
+      setAppSessionForAccount(null);
     } finally {
       setAuthBusy(false);
     }

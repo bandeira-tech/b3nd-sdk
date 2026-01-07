@@ -24,6 +24,7 @@ import type {
   ManagedKeyAccount,
   WriterSection,
   WriterUserSession,
+  WriterAppSession,
 } from "../../types";
 import { SectionCard } from "../common/SectionCard";
 import { AuthSection } from "../auth/AuthSection";
@@ -316,14 +317,17 @@ export function WriterMainContent() {
       appKey,
       accountPrivateKeyPem,
     });
-    setWriterAppSession(res.session);
+    setWriterAppSession({
+      sessionId: res.session,
+      sessionKeypair: res.sessionKeypair,
+    });
     setSessionStartedAt(Date.now());
     addWriterOutput(res);
     logLine("apps", "Session created", "success");
   };
 
   const finishSession = () => {
-    setWriterAppSession("");
+    setWriterAppSession(null);
     setWriterSession(null);
     setAuthKeys(null);
     setSessionStartedAt(null);
@@ -333,9 +337,13 @@ export function WriterMainContent() {
   const signup = async (username: string, password: string) => {
     const appAccount = requireApplicationAccount();
     const appKey = appAccount.keyBundle.appKey;
+    if (!appSession?.sessionKeypair) {
+      throw new Error("Session keypair is required - start a session first");
+    }
     const s = await signupWithPassword({
       walletClient: requireWalletClient(),
       appKey,
+      sessionKeypair: appSession.sessionKeypair,
       username,
       password,
     });
@@ -348,10 +356,13 @@ export function WriterMainContent() {
   const login = async (username: string, password: string) => {
     const appAccount = requireApplicationAccount();
     const appKey = appAccount.keyBundle.appKey;
+    if (!appSession?.sessionKeypair) {
+      throw new Error("Session keypair is required - start a session first");
+    }
     const s = await loginWithPassword({
       walletClient: requireWalletClient(),
       appKey,
-      session: appSession,
+      sessionKeypair: appSession.sessionKeypair,
       username,
       password,
     });
@@ -365,10 +376,14 @@ export function WriterMainContent() {
     const appAccount = requireApplicationAccount();
     const appKey = appAccount.keyBundle.appKey;
     ensureValue(idToken, "Google ID token");
+    if (!appSession?.sessionKeypair) {
+      throw new Error("Session keypair is required - start a session first");
+    }
     const walletServer = requireActiveWalletServer();
     const s = await googleSignup({
       walletServerUrl: walletServer.url,
       appKey,
+      sessionKeypair: appSession.sessionKeypair,
       googleIdToken: idToken,
     });
     setWriterSession(s);
@@ -381,12 +396,14 @@ export function WriterMainContent() {
     const appAccount = requireApplicationAccount();
     const appKey = appAccount.keyBundle.appKey;
     ensureValue(idToken, "Google ID token");
-    ensureValue(appSession, "Session");
+    if (!appSession?.sessionKeypair) {
+      throw new Error("Session keypair is required - start a session first");
+    }
     const walletServer = requireActiveWalletServer();
     const s = await googleLogin({
       walletServerUrl: walletServer.url,
       appKey,
-      appSession,
+      sessionKeypair: appSession.sessionKeypair,
       googleIdToken: idToken,
     });
     setWriterSession(s);
@@ -681,7 +698,7 @@ export function WriterMainContent() {
           )}
           {writerSection === "auth" && (
             <div className="space-y-4">
-              <SessionStateCard sessionId={appSession} startedAt={sessionStartedAt} />
+              <SessionStateCard session={appSession} startedAt={sessionStartedAt} />
               <AuthenticationStateCard session={session} keys={authKeys} />
             </div>
           )}
@@ -1037,9 +1054,9 @@ function SessionCard(
 }
 
 function SessionStateCard(
-  { sessionId, startedAt }: { sessionId: string; startedAt: number | null },
+  { session, startedAt }: { session: WriterAppSession | null; startedAt: number | null },
 ) {
-  const hasSession = Boolean(sessionId);
+  const hasSession = Boolean(session);
   const startedLabel = startedAt
     ? new Date(startedAt).toLocaleString()
     : hasSession
@@ -1055,7 +1072,7 @@ function SessionStateCard(
         rows={[
           {
             label: "Session Id",
-            value: sessionId || "Not created",
+            value: session?.sessionId || "Not created",
           },
           {
             label: "Start Time",

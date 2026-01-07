@@ -148,7 +148,7 @@ function WriterStateView() {
 
   const rows: Array<{ label: string; value: string }> = [
     { label: "App Key", value: keyBundle.appKey },
-    { label: "App Session", value: writerAppSession },
+    { label: "App Session", value: writerAppSession?.sessionId || "" },
     { label: "User", value: writerSession?.username || "" },
     { label: "Authenticated", value: writerSession ? "yes" : "no" },
     { label: "Login Session (JWT)", value: writerSession?.token || "" },

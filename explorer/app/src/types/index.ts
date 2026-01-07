@@ -152,6 +152,23 @@ export interface WriterUserSession {
   expiresIn: number;
 }
 
+/**
+ * Session keypair for wallet authentication.
+ * This must be generated and approved before login/signup.
+ */
+export interface WriterSessionKeypair {
+  publicKeyHex: string;
+  privateKeyHex: string;
+}
+
+/**
+ * App session state including the session ID and keypair for authentication.
+ */
+export interface WriterAppSession {
+  sessionId: string;
+  sessionKeypair: WriterSessionKeypair;
+}
+
 export interface AppState {
   // Backend management
   backends: BackendConfig[];
@@ -186,7 +203,7 @@ export interface AppState {
   activeApp: AppExperience;
   mainView: AppMainView;
   writerSection: WriterSection;
-  writerAppSession: string;
+  writerAppSession: WriterAppSession | null;
   writerSession: WriterUserSession | null;
   writerLastResolvedUri: string | null;
   writerLastAppUri: string | null;
@@ -257,7 +274,7 @@ export interface AppActions {
   setActiveApp: (app: AppExperience) => void;
   setMainView: (view: AppMainView) => void;
   setWriterSection: (section: WriterSection) => void;
-  setWriterAppSession: (session: string) => void;
+  setWriterAppSession: (session: WriterAppSession | null) => void;
   setWriterSession: (session: WriterUserSession | null) => void;
   setWriterLastResolvedUri: (uri: string | null) => void;
   setWriterLastAppUri: (uri: string | null) => void;
