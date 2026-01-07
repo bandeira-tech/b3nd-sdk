@@ -336,12 +336,19 @@ export class WalletServerCore {
       return { valid: false, reason: "session_not_approved" };
     }
 
-    // Session status is stored as 1 (approved) or 0 (revoked)
-    if (res.record?.data === 1) {
+    // Session status can be:
+    // - Plain: 1 (approved) or 0 (revoked)
+    // - Signed message: { auth: [...], payload: 1 } or { auth: [...], payload: 0 }
+    const data = res.record?.data;
+    const status = typeof data === 'object' && data !== null && 'payload' in data
+      ? (data as { payload: unknown }).payload
+      : data;
+
+    if (status === 1) {
       return { valid: true };
     }
 
-    if (res.record?.data === 0) {
+    if (status === 0) {
       return { valid: false, reason: "session_revoked" };
     }
 
