@@ -84,18 +84,18 @@ export interface ListOptions {
  */
 export type ListResult =
   | {
-      success: true;
-      data: ListItem[];
-      pagination: {
-        page: number;
-        limit: number;
-        total?: number;
-      };
-    }
-  | {
-      success: false;
-      error: string;
+    success: true;
+    data: ListItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total?: number;
     };
+  }
+  | {
+    success: false;
+    error: string;
+  };
 
 /**
  * Health status response
@@ -291,6 +291,7 @@ export interface IndexedDBClientConfig {
   /**
    * Optional injectable indexedDB dependency (defaults to global indexedDB)
    */
+  // deno-lint-ignore no-explicit-any
   indexedDB?: any;
 }
 
@@ -375,7 +376,14 @@ export class ClientError extends Error {
  */
 export interface WebSocketRequest {
   id: string;
-  type: "write" | "read" | "readMulti" | "list" | "delete" | "health" | "getSchema";
+  type:
+    | "write"
+    | "read"
+    | "readMulti"
+    | "list"
+    | "delete"
+    | "health"
+    | "getSchema";
   payload: unknown;
 }
 

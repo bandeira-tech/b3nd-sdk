@@ -21,7 +21,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run SDK tests
-        run: cd sdk && deno test -A tests/
+        run: cd sdk && deno test -A --ignore=tests/browser --ignore=tests/mongo-client.test.ts --ignore=tests/postgres-client.test.ts --ignore=tests/websocket-client.test.ts tests/
 
   auth-tests:
     name: Auth Tests

@@ -6,9 +6,8 @@ import {
 
 const schema: Schema = {
   "mutable://open": () => Promise.resolve({ valid: true }),
-
-  "immutable://inbox": async ({ uri, value }) => {
-  },
+  "mutable://inbox": () => Promise.resolve({ valid: true }),
+  "immutable://inbox": () => Promise.resolve({ valid: true }),
 
   "mutable://accounts": async ({ uri, value }) => {
     try {
