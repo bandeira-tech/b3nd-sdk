@@ -130,20 +130,24 @@ await requestSession(appKey, sessionKeypair, {
 
 #### 3. Approve Session (App)
 
-The app monitors its inbox for session requests and approves them:
+The app approves by writing `1` (signed by app's key) to the accounts namespace:
 
 ```typescript
-async function approveSession(appKey: string, sessionPubkey: string, accountPrivateKey: string) {
-  // Write approval to accounts (requires app's signature)
-  const approvalUri = `mutable://accounts/${appKey}/sessions/${sessionPubkey}`;
-  const signedApproval = await signPayload(1, appKey, accountPrivateKey);
-  await backendClient.write(approvalUri, signedApproval);
-}
-
-// App can list pending requests:
-async function getPendingSessionRequests(appKey: string) {
-  const result = await backendClient.list(`immutable://inbox/${appKey}/sessions`);
-  return result.data; // List of session pubkeys awaiting approval
+async function approveSession(
+  appKey: string,           // App's public key (hex)
+  appPrivateKeyHex: string, // App's private key (hex)
+  sessionPubkey: string     // Session public key to approve
+) {
+  // Sign approval with app's key
+  const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
+    1,  // approval value
+    appKey,
+    appPrivateKeyHex
+  );
+  await backendClient.write(
+    `mutable://accounts/${appKey}/sessions/${sessionPubkey}`,
+    signedApproval
+  );
 }
 ```
 
@@ -152,15 +156,13 @@ async function getPendingSessionRequests(appKey: string) {
 ```typescript
 async function createAndApproveSession(
   appKey: string,
-  accountPrivateKey: string,
-  requestPayload: Record<string, unknown> = {}
+  appPrivateKeyHex: string
 ) {
   const sessionKeypair = await generateSessionKeypair();
 
-  // Post signed request to inbox (proves key ownership)
-  const payload = { timestamp: Date.now(), ...requestPayload };
+  // 1. Post signed request to inbox
   const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
-    payload,
+    { timestamp: Date.now() },
     sessionKeypair.publicKeyHex,
     sessionKeypair.privateKeyHex
   );
@@ -169,8 +171,12 @@ async function createAndApproveSession(
     signedRequest
   );
 
-  // Immediately approve (value = 1)
-  const signedApproval = await signPayload(1, appKey, accountPrivateKey);
+  // 2. Approve (value = 1, signed by app)
+  const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
+    1,
+    appKey,
+    appPrivateKeyHex
+  );
   await backendClient.write(
     `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
     signedApproval
@@ -179,6 +185,8 @@ async function createAndApproveSession(
   return sessionKeypair;
 }
 ```
+
+**That's the complete protocol!** Just two writes to the data node using HttpClient.
 
 #### 4. Signup with Password (Requires Approved Session)
 

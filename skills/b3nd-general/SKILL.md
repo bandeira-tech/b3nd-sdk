@@ -123,35 +123,54 @@ const wallet = new WalletClient({
 The protocol supports local approval (same process) and remote approval (async workflows):
 
 ```typescript
+// Simple direct flow - just writes to the data node (HttpClient)
+// No AppsClient needed when app has its own keys
+
+const backendClient = new HttpClient({ url: "http://localhost:9942" });
+
+// App keys (Ed25519) - generate once, store securely
+const APP_KEY = "app-public-key-hex";         // appKey = public key
+const APP_PRIVATE_KEY = "app-private-key-hex";
+
 // 1. Generate session keypair
 const sessionKeypair = await encrypt.generateSigningKeyPair();
 
-// 2. Client posts SIGNED session request to app's inbox
-//    - Uses SDK's createAuthenticatedMessageWithHex for standard { auth, payload } format
-//    - Payload is arbitrary (app developers decide what info to require)
-const payload = { timestamp: Date.now(), deviceId: "...", /* app-defined fields */ };
+// 2. Client posts SIGNED request to inbox (proves session key ownership)
+const requestPayload = { timestamp: Date.now() }; // add any app-specific fields
 const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
-  payload,
+  requestPayload,
   sessionKeypair.publicKeyHex,
   sessionKeypair.privateKeyHex
 );
-const requestUri = `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
-await backendClient.write(requestUri, signedRequest);
+await backendClient.write(
+  `immutable://inbox/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
+  signedRequest
+);
 
-// 3. App APPROVES session (value = 1, signed by app)
-const approvalUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
-await backendClient.write(approvalUri, signedApproval); // value = 1
+// 3. App APPROVES session (value = 1, signed by app's key)
+const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
+  1,
+  APP_KEY,
+  APP_PRIVATE_KEY
+);
+await backendClient.write(
+  `mutable://accounts/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
+  signedApproval
+);
 
-// 4. Signup (requires approved session)
-const session = await wallet.signupWithToken(appKey, sessionKeypair, { username, password });
-
-// 5. Login (requires approved session)
-const session = await wallet.loginWithToken(appKey, sessionKeypair, { username, password });
+// 4. Now signup or login works
+const session = await wallet.signupWithToken(APP_KEY, sessionKeypair, { username, password });
+// or
+const session = await wallet.loginWithToken(APP_KEY, sessionKeypair, { username, password });
 
 wallet.setSession(session);
 ```
 
-**Remote approval workflow:** App monitors `immutable://inbox/{appKey}/sessions`, validates signatures, examines payloads, and approves/denies asynchronously.
+**That's it!** Just two writes to the data node:
+1. `immutable://inbox/{appKey}/sessions/{sessionPubkey}` - signed request
+2. `mutable://accounts/{appKey}/sessions/{sessionPubkey}` - approval (value=1)
+
+For remote/async approval, the app monitors the inbox and approves later.
 
 ### Writing/Reading User Data
 

@@ -258,114 +258,72 @@ async function login(
   return result;
 }
 
-// Session management flow
+// Simple session flow - direct writes to data node (no AppsClient needed)
+// Use this when your app has access to the app's private key
+
+import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+
 async function createAndApproveSession(
   appKey: string,
+  appPrivateKeyHex: string, // App's Ed25519 private key (hex)
   backendClient: HttpClient,
-  appPrivateKey: string, // App's private key for signing approval
-  requestPayload: Record<string, unknown> = {} // App-defined request data
+  extraPayload: Record<string, unknown> = {}
 ): Promise<SessionKeypair> {
   // 1. Generate session keypair
   const sessionKeypair = await generateSessionKeypair();
 
-  // 2. Post SIGNED session request to inbox (proves key ownership)
-  const payload = { timestamp: Date.now(), ...requestPayload };
+  // 2. Post SIGNED session request to inbox (proves session key ownership)
+  const requestPayload = { timestamp: Date.now(), ...extraPayload };
   const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
-    payload,
+    requestPayload,
     sessionKeypair.publicKeyHex,
     sessionKeypair.privateKeyHex
   );
-  const requestUri = `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
-  await backendClient.write(requestUri, signedRequest);
-
-  // 3. App APPROVES session (value = 1, signed by app)
-  const approvalUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
-  const signedApproval = await signPayload(1, appKey, appPrivateKey);
-  await backendClient.write(approvalUri, signedApproval);
-
-  return sessionKeypair;
-}
-
-// React hook example
-function useWalletAuth() {
-  const [session, setSession] = useState(null);
-  const [sessionKeypair, setSessionKeypair] = useState<SessionKeypair | null>(null);
-
-  const requestSession = async (
-    appKey: string,
-    backendClient: HttpClient,
-    appPrivateKey: string,
-    requestPayload: Record<string, unknown> = {}
-  ) => {
-    const keypair = await createAndApproveSession(appKey, backendClient, appPrivateKey, requestPayload);
-    setSessionKeypair(keypair);
-    return keypair;
-  };
-
-  const login = async (
-    appKey: string,
-    credentials: { username: string; password: string }
-  ) => {
-    if (!sessionKeypair) throw new Error("Session not created");
-    const result = await wallet.loginWithTokenSession(appKey, sessionKeypair, credentials);
-    wallet.setSession(result);
-    setSession(result);
-    return result;
-  };
-
-  const proxyWrite = async (uri: string, data: unknown, encrypt = false) => {
-    return wallet.proxyWrite({ uri, data, encrypt });
-  };
-
-  return { session, sessionKeypair, requestSession, login, proxyWrite };
-}
-```
-
-### Session Approval via App Server
-
-For production apps using AppsClient (remote approval workflow):
-
-```typescript
-import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
-import { generateSessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
-import { HttpClient } from "@bandeira-tech/b3nd-web";
-import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
-
-const appsClient = new AppsClient({
-  appServerUrl: "http://localhost:9944",
-  apiBasePath: "/api/v1",
-});
-
-const backendClient = new HttpClient({ url: "http://localhost:9942" });
-
-async function createSession(
-  appKey: string,
-  accountPrivateKeyPem: string,
-  requestPayload: Record<string, unknown> = {}
-) {
-  const sessionKeypair = await generateSessionKeypair();
-
-  // 1. Post SIGNED session request to inbox (proves key ownership)
-  const payload = { timestamp: Date.now(), ...requestPayload };
-  const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
-    payload,
-    sessionKeypair.publicKeyHex,
-    sessionKeypair.privateKeyHex
+  await backendClient.write(
+    `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
+    signedRequest
   );
-  const requestUri = `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
-  await backendClient.write(requestUri, signedRequest);
 
-  // 2. Sign the session approval request with app's identity key
-  const message = await signPayload(
-    { sessionPubkey: sessionKeypair.publicKeyHex },
+  // 3. App APPROVES session - write 1 signed by app's key
+  const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
+    1,
     appKey,
-    accountPrivateKeyPem
+    appPrivateKeyHex
+  );
+  await backendClient.write(
+    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
+    signedApproval
   );
 
-  // 3. App server validates signature and writes approval (value = 1) to accounts
-  await appsClient.createSession(appKey, message);
-
   return sessionKeypair;
+}
+
+// Complete auth flow example
+async function authFlow(backendClient: HttpClient) {
+  const APP_KEY = "your-app-public-key-hex";
+  const APP_PRIVATE_KEY = "your-app-private-key-hex";
+
+  // 1. Create and approve session
+  const sessionKeypair = await createAndApproveSession(
+    APP_KEY,
+    APP_PRIVATE_KEY,
+    backendClient
+  );
+
+  // 2. Signup (first time)
+  const session = await wallet.signupWithToken(APP_KEY, sessionKeypair, {
+    username: "alice",
+    password: "secret123"
+  });
+
+  // Or login (returning user)
+  const session = await wallet.loginWithTokenSession(APP_KEY, sessionKeypair, {
+    username: "alice",
+    password: "secret123"
+  });
+
+  wallet.setSession(session);
+  return session;
 }
 ```
 
