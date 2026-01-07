@@ -620,7 +620,7 @@ export function generateRandomData(size: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(size));
 }
 
-export async function exportPrivateKeyPem(privateKey: CryptoKey, label: string) {
+export async function exportPrivateKeyPem(privateKey: CryptoKey, label: string): Promise<string> {
   const der = new Uint8Array(await crypto.subtle.exportKey("pkcs8", privateKey));
   return toPem(der, label);
 }

@@ -1,4 +1,4 @@
-import type { DeleteResult, ListOptions, ListResult, NodeProtocolReadInterface, NodeProtocolWriteInterface, ReadResult, WriteResult } from "../../src/types.ts";
+import type { DeleteResult, ListOptions, ListResult, NodeProtocolReadInterface, NodeProtocolWriteInterface, ReadMultiResult, ReadResult, WriteResult } from "../../src/types.ts";
 
 export function parallelBroadcast(clients: (NodeProtocolWriteInterface & NodeProtocolReadInterface)[]): NodeProtocolWriteInterface & NodeProtocolReadInterface {
   if (!clients || clients.length === 0) throw new Error("clients array is required and cannot be empty");
@@ -17,6 +17,11 @@ export function parallelBroadcast(clients: (NodeProtocolWriteInterface & NodePro
     async read<T>(uri: string): Promise<ReadResult<T>> {
       // Read from the first client only; composition for reads is handled by firstMatchSequence in the sketch
       return clients[0].read(uri);
+    },
+
+    async readMulti<T>(uris: string[]): Promise<ReadMultiResult<T>> {
+      // Read from the first client only
+      return clients[0].readMulti(uris);
     },
 
     async list(uri: string, options?: ListOptions): Promise<ListResult> {

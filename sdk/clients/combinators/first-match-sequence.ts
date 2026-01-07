@@ -1,4 +1,4 @@
-import type { DeleteResult, ListOptions, ListResult, NodeProtocolReadInterface, NodeProtocolWriteInterface, ReadResult, WriteResult } from "../../src/types.ts";
+import type { DeleteResult, ListOptions, ListResult, NodeProtocolReadInterface, NodeProtocolWriteInterface, ReadMultiResult, ReadResult, WriteResult } from "../../src/types.ts";
 
 export function firstMatchSequence(clients: (NodeProtocolWriteInterface & NodeProtocolReadInterface)[]): NodeProtocolWriteInterface & NodeProtocolReadInterface {
   if (!clients || clients.length === 0) throw new Error("clients array is required and cannot be empty");
@@ -21,6 +21,19 @@ export function firstMatchSequence(clients: (NodeProtocolWriteInterface & NodePr
         if (res.success) return res;
       }
       return { success: false, error: `Not found: ${uri}` };
+    },
+
+    async readMulti<T>(uris: string[]): Promise<ReadMultiResult<T>> {
+      // Try first client that returns any results
+      for (const c of clients) {
+        const res = await c.readMulti<T>(uris);
+        if (res.success) return res;
+      }
+      return {
+        success: false,
+        results: uris.map(uri => ({ uri, success: false as const, error: 'No client returned results' })),
+        summary: { total: uris.length, succeeded: 0, failed: uris.length }
+      };
     },
 
     async list(uri: string, options?: ListOptions): Promise<ListResult> {
