@@ -29,7 +29,7 @@ import { createJwt, verifyJwt } from "./jwt.ts";
 import { getUserPublicKeys } from "./keys.ts";
 import { proxyWrite, proxyRead, proxyReadMulti } from "./proxy.ts";
 import { pemToCryptoKey } from "./obfuscation.ts";
-import { verify as verifySignature, verifyPayload } from "../encrypt/mod.ts";
+import { verifyPayload } from "../encrypt/mod.ts";
 import {
   changePassword,
   createPasswordResetToken,
@@ -353,28 +353,6 @@ export class WalletServerCore {
     }
 
     return { valid: false, reason: "invalid_session_status" };
-  }
-
-  /**
-   * Verify that a login request signature is valid for the given session pubkey.
-   * The signature should be over the stringified login payload (without the signature field).
-   * Uses SDK crypto for consistent verification across the codebase.
-   */
-  private async verifySessionSignature(
-    sessionPubkey: string,
-    signature: string,
-    payload: Record<string, unknown>
-  ): Promise<boolean> {
-    try {
-      // Reconstruct the payload that was signed (without signature and sessionSignature)
-      const { sessionSignature: _, ...signedPayload } = payload;
-
-      // Use SDK's verify function for consistent crypto implementation
-      return await verifySignature(sessionPubkey, signature, signedPayload);
-    } catch (error) {
-      this.logger.error("Session signature verification failed:", error);
-      return false;
-    }
   }
 
   private createApp(): Hono {

@@ -193,13 +193,6 @@ export function WriterMainContent() {
     return createWalletClient(activeWallet.url);
   };
 
-  const requireActiveWalletServer = () => {
-    if (!activeWallet) {
-      throw new Error("Active wallet server is required");
-    }
-    return activeWallet;
-  };
-
   const requireBackendClient = () => {
     if (!activeBackend) {
       throw new Error("Active backend is required");
@@ -380,9 +373,8 @@ export function WriterMainContent() {
     if (!appSession?.sessionKeypair) {
       throw new Error("Session keypair is required - start a session first");
     }
-    const walletServer = requireActiveWalletServer();
     const s = await googleSignup({
-      walletServerUrl: walletServer.url,
+      walletClient: requireWalletClient(),
       appKey,
       sessionKeypair: appSession.sessionKeypair,
       googleIdToken: idToken,
@@ -400,9 +392,8 @@ export function WriterMainContent() {
     if (!appSession?.sessionKeypair) {
       throw new Error("Session keypair is required - start a session first");
     }
-    const walletServer = requireActiveWalletServer();
     const s = await googleLogin({
-      walletServerUrl: walletServer.url,
+      walletClient: requireWalletClient(),
       appKey,
       sessionKeypair: appSession.sessionKeypair,
       googleIdToken: idToken,

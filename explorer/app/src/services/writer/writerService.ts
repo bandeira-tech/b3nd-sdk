@@ -353,51 +353,17 @@ export const loginWithPassword = async (params: {
  * The session must be approved before calling this.
  */
 export const googleSignup = async (params: {
-  walletServerUrl: string;
+  walletClient: WalletClient;
   appKey: string;
   sessionKeypair: SessionKeypair;
   googleIdToken: string;
 }) => {
-  const { walletServerUrl, appKey, sessionKeypair, googleIdToken } = params;
-  ensureValue(walletServerUrl, "Wallet server URL");
+  const { walletClient, appKey, sessionKeypair, googleIdToken } = params;
   ensureValue(appKey, "Auth key");
   if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
     throw new Error("Session keypair is required");
   }
-
-  // Build the payload to sign
-  const payloadToSign = {
-    sessionPubkey: sessionKeypair.publicKeyHex,
-    type: "google",
-    googleIdToken,
-  };
-
-  // Sign the payload with session private key using SDK crypto
-  const sessionSignature = await encrypt.signWithHex(sessionKeypair.privateKeyHex, payloadToSign);
-
-  const response = await fetch(
-    `${walletServerUrl.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/signup/${appKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payloadToSign,
-        sessionSignature,
-      }),
-    },
-  );
-  const data = await response.json();
-  if (!response.ok || !data.success) {
-    throw new Error(data.error || `Google signup failed: ${response.statusText}`);
-  }
-  return data as {
-    username: string;
-    token: string;
-    expiresIn: number;
-    email: string;
-    name: string;
-    picture?: string;
-  };
+  return walletClient.signup(appKey, sessionKeypair, { type: 'google', googleIdToken });
 };
 
 /**
@@ -405,51 +371,17 @@ export const googleSignup = async (params: {
  * The session must be approved before calling this.
  */
 export const googleLogin = async (params: {
-  walletServerUrl: string;
+  walletClient: WalletClient;
   appKey: string;
   sessionKeypair: SessionKeypair;
   googleIdToken: string;
 }) => {
-  const { walletServerUrl, appKey, sessionKeypair, googleIdToken } = params;
-  ensureValue(walletServerUrl, "Wallet server URL");
+  const { walletClient, appKey, sessionKeypair, googleIdToken } = params;
   ensureValue(appKey, "Auth key");
   if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
     throw new Error("Session keypair is required");
   }
-
-  // Build the payload to sign
-  const payloadToSign = {
-    sessionPubkey: sessionKeypair.publicKeyHex,
-    type: "google",
-    googleIdToken,
-  };
-
-  // Sign the payload with session private key using SDK crypto
-  const sessionSignature = await encrypt.signWithHex(sessionKeypair.privateKeyHex, payloadToSign);
-
-  const response = await fetch(
-    `${walletServerUrl.replace(/\/$/, "")}${DEFAULT_API_BASE_PATH}/auth/login/${appKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payloadToSign,
-        sessionSignature,
-      }),
-    },
-  );
-  const data = await response.json();
-  if (!response.ok || !data.success) {
-    throw new Error(data.error || `Google login failed: ${response.statusText}`);
-  }
-  return data as {
-    username: string;
-    token: string;
-    expiresIn: number;
-    email: string;
-    name: string;
-    picture?: string;
-  };
+  return walletClient.login(appKey, sessionKeypair, { type: 'google', googleIdToken });
 };
 
 export const fetchMyKeys = async (params: {

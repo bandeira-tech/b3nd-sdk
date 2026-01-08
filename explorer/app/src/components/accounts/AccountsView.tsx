@@ -749,17 +749,16 @@ function ApplicationUserAccountForm(
         if (!googleCredential) {
           throw new Error("Google credential is required");
         }
-        const walletServer = props.requireActiveWalletServer();
         if (authMode === "signup") {
           session = await googleSignup({
-            walletServerUrl: walletServer.url,
+            walletClient: props.requireWalletClient(),
             appKey: app.keyBundle.appKey,
             sessionKeypair: appSession.sessionKeypair,
             googleIdToken: googleCredential,
           });
         } else {
           session = await googleLogin({
-            walletServerUrl: walletServer.url,
+            walletClient: props.requireWalletClient(),
             appKey: app.keyBundle.appKey,
             sessionKeypair: appSession.sessionKeypair,
             googleIdToken: googleCredential,

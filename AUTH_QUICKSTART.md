@@ -288,29 +288,14 @@ async function googleSignup(
   appKey: string,
   sessionKeypair: { publicKeyHex: string; privateKeyHex: string }
 ) {
-  // Sign the payload with the session's private key
-  const payload = {
-    type: "google",
-    googleIdToken,
-    sessionPubkey: sessionKeypair.publicKeyHex,
-  };
-  const sessionSignature = await encrypt.signWithHex(sessionKeypair.privateKeyHex, payload);
-
-  const response = await fetch(
-    `https://testnet-wallet.fire.cat/api/v1/auth/signup/${appKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payload,
-        sessionSignature,
-      })
-    }
+  const result = await walletClient.signup(
+    appKey,
+    sessionKeypair,
+    { type: 'google', googleIdToken }
   );
 
-  const data = await response.json();
   // Returns: { username, token, expiresIn, email, name, picture }
-  return data;
+  return result;
 }
 
 // Usage:
@@ -327,28 +312,13 @@ async function googleLogin(
   appKey: string,
   sessionKeypair: { publicKeyHex: string; privateKeyHex: string }
 ) {
-  // Sign the payload with the session's private key
-  const payload = {
-    type: "google",
-    googleIdToken,
-    sessionPubkey: sessionKeypair.publicKeyHex,
-  };
-  const sessionSignature = await encrypt.signWithHex(sessionKeypair.privateKeyHex, payload);
-
-  const response = await fetch(
-    `https://testnet-wallet.fire.cat/api/v1/auth/login/${appKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payload,
-        sessionSignature,
-      })
-    }
+  const result = await walletClient.login(
+    appKey,
+    sessionKeypair,
+    { type: 'google', googleIdToken }
   );
 
-  const data = await response.json();
-  return data;
+  return result;
 }
 
 // Usage:
