@@ -41,6 +41,7 @@ import {
   getCredentialHandler,
   getSupportedCredentialTypes,
 } from "./credentials.ts";
+import { rateLimiters } from "./rate-limit.ts";
 
 interface BootstrapState {
   appKey: string;
@@ -471,8 +472,8 @@ export class WalletServerCore {
       }
     });
 
-    // Signup
-    app.post("/api/v1/auth/signup/:appKey", async (c: Context) => {
+    // Signup - with rate limiting to prevent abuse
+    app.post("/api/v1/auth/signup/:appKey", rateLimiters.signup, async (c: Context) => {
       try {
         const appKey = c.req.param("appKey");
         // Accept AuthenticatedMessage format: { auth: [{ pubkey, signature }], payload: credentials }
@@ -580,8 +581,8 @@ export class WalletServerCore {
       }
     });
 
-    // Login
-    app.post("/api/v1/auth/login/:appKey", async (c: Context) => {
+    // Login - with strict rate limiting to prevent brute force attacks
+    app.post("/api/v1/auth/login/:appKey", rateLimiters.login, async (c: Context) => {
       try {
         const appKey = c.req.param("appKey");
         // Accept AuthenticatedMessage format: { auth: [{ pubkey, signature }], payload: credentials }
@@ -738,8 +739,8 @@ export class WalletServerCore {
       }
     });
 
-    // Request password reset
-    app.post("/api/v1/auth/credentials/request-password-reset/:appKey", async (c: Context) => {
+    // Request password reset - with very strict rate limiting
+    app.post("/api/v1/auth/credentials/request-password-reset/:appKey", rateLimiters.passwordReset, async (c: Context) => {
       try {
         const appKey = c.req.param("appKey");
         const { username } = (await c.req.json()) as { username: string };
@@ -783,8 +784,8 @@ export class WalletServerCore {
       }
     });
 
-    // Reset password
-    app.post("/api/v1/auth/credentials/reset-password/:appKey", async (c: Context) => {
+    // Reset password - with rate limiting to prevent token brute force
+    app.post("/api/v1/auth/credentials/reset-password/:appKey", rateLimiters.login, async (c: Context) => {
       try {
         const appKey = c.req.param("appKey");
         const { username, resetToken, newPassword } = (await c.req.json()) as {
