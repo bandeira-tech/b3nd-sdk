@@ -60,8 +60,61 @@ export function isValidUrl(string: string): boolean {
   }
 }
 
+/**
+ * Sanitize a path to prevent path traversal and other attacks
+ *
+ * SECURITY FIX: Enhanced sanitization to prevent:
+ * - Path traversal via .. sequences
+ * - Null byte injection
+ * - Backslash-based attacks
+ * - URL-encoded attacks
+ *
+ * @param path - The path to sanitize
+ * @returns A safe, normalized path
+ */
 export function sanitizePath(path: string): string {
-  return path.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
+  if (!path || typeof path !== 'string') {
+    return '/';
+  }
+
+  let sanitized = path;
+
+  // Remove null bytes
+  sanitized = sanitized.replace(/\0/g, '');
+
+  // Convert backslashes to forward slashes
+  sanitized = sanitized.replace(/\\/g, '/');
+
+  // Decode common URL-encoded path traversal attempts
+  sanitized = sanitized.replace(/%2e/gi, '.');
+  sanitized = sanitized.replace(/%2f/gi, '/');
+  sanitized = sanitized.replace(/%5c/gi, '/');
+
+  // Remove path traversal sequences
+  // This handles ../ and /.., including multiple occurrences
+  const segments = sanitized.split('/');
+  const safeSegments: string[] = [];
+
+  for (const segment of segments) {
+    // Skip empty segments (from multiple slashes)
+    if (!segment) continue;
+    // Skip current directory references
+    if (segment === '.') continue;
+    // Handle parent directory references - pop if possible, otherwise skip
+    if (segment === '..') {
+      if (safeSegments.length > 0) {
+        safeSegments.pop();
+      }
+      continue;
+    }
+    safeSegments.push(segment);
+  }
+
+  // Reconstruct path
+  const result = '/' + safeSegments.join('/');
+
+  // Normalize multiple slashes
+  return result.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
 }
 
 export const RIG_EXPLORER_BASE_PATH = "/explorer";
