@@ -349,7 +349,7 @@ export class TestRunner {
     if (failed === 0) {
       console.log("\n✅ All tests passed successfully!");
     } else {
-      Deno.exit(1);
+      throw new Error(`${failed} test(s) failed`);
     }
   }
 

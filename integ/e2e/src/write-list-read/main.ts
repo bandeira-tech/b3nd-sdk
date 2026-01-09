@@ -55,23 +55,16 @@ async function main() {
   console.log(`  Cleanup:         ${cleanupAfterTests}`);
   console.log("=" + "=".repeat(59) + "\n");
 
-  try {
-    // Run the test suite
-    await runWriteListReadTests({
-      config,
-      fixtures,
-      testEncryption,
-      testAuthentication,
-      cleanupAfterTests,
-    });
+  // Run the test suite
+  await runWriteListReadTests({
+    config,
+    fixtures,
+    testEncryption,
+    testAuthentication,
+    cleanupAfterTests,
+  });
 
-    console.log("\n✨ Test suite completed successfully!");
-    Deno.exit(0);
-  } catch (error) {
-    console.error("\n❌ Test suite failed with error:");
-    console.error(error);
-    Deno.exit(1);
-  }
+  console.log("\n✨ Test suite completed successfully!");
 }
 
 // Run if executed directly
@@ -81,3 +74,5 @@ if (import.meta.main) {
     Deno.exit(1);
   });
 }
+
+export { main };
