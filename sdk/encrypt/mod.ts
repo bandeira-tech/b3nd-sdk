@@ -33,6 +33,147 @@ export interface AuthenticatedMessage<T = unknown> {
   payload: T;
 }
 
+/**
+ * Replay-protected payload wrapper
+ * Includes nonce and timestamp to prevent replay attacks
+ */
+export interface ReplayProtectedPayload<T = unknown> {
+  data: T;
+  nonce: string;     // Random hex string for uniqueness
+  timestamp: number; // Unix timestamp in milliseconds
+}
+
+/**
+ * Default maximum age for replay-protected messages (5 minutes)
+ */
+const DEFAULT_MAX_MESSAGE_AGE_MS = 5 * 60 * 1000;
+
+/**
+ * Simple in-memory nonce store for replay protection
+ * In production, use Redis or similar for distributed deployments
+ */
+const usedNonces = new Map<string, number>();
+
+/**
+ * Clean up old nonces periodically to prevent memory leaks
+ */
+function cleanupOldNonces(): void {
+  const cutoff = Date.now() - DEFAULT_MAX_MESSAGE_AGE_MS * 2;
+  for (const [nonce, timestamp] of usedNonces.entries()) {
+    if (timestamp < cutoff) {
+      usedNonces.delete(nonce);
+    }
+  }
+}
+
+// Run cleanup every minute
+setInterval(cleanupOldNonces, 60 * 1000);
+
+/**
+ * Generate a random nonce for replay protection
+ */
+export function generateReplayNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return encodeHex(bytes);
+}
+
+/**
+ * Wrap a payload with replay protection (nonce + timestamp)
+ */
+export function wrapWithReplayProtection<T>(data: T): ReplayProtectedPayload<T> {
+  return {
+    data,
+    nonce: generateReplayNonce(),
+    timestamp: Date.now(),
+  };
+}
+
+/**
+ * Verify replay protection on a payload
+ *
+ * @param payload - The replay-protected payload to verify
+ * @param maxAgeMs - Maximum allowed age of the message in milliseconds
+ * @returns Object with valid flag and optional error message
+ */
+export function verifyReplayProtection<T>(
+  payload: ReplayProtectedPayload<T>,
+  maxAgeMs: number = DEFAULT_MAX_MESSAGE_AGE_MS
+): { valid: boolean; error?: string } {
+  // Check timestamp is present
+  if (typeof payload.timestamp !== "number") {
+    return { valid: false, error: "Missing timestamp in payload" };
+  }
+
+  // Check nonce is present
+  if (typeof payload.nonce !== "string" || payload.nonce.length < 16) {
+    return { valid: false, error: "Missing or invalid nonce in payload" };
+  }
+
+  const now = Date.now();
+
+  // Check message is not too old
+  if (now - payload.timestamp > maxAgeMs) {
+    return { valid: false, error: "Message has expired" };
+  }
+
+  // Check message is not from the future (with small tolerance for clock skew)
+  if (payload.timestamp > now + 30000) {
+    return { valid: false, error: "Message timestamp is in the future" };
+  }
+
+  // Check nonce hasn't been used before
+  if (usedNonces.has(payload.nonce)) {
+    return { valid: false, error: "Nonce has already been used (replay attack detected)" };
+  }
+
+  // Mark nonce as used
+  usedNonces.set(payload.nonce, payload.timestamp);
+
+  return { valid: true };
+}
+
+/**
+ * Create an authenticated message with replay protection
+ */
+export async function createReplayProtectedMessage<T>(
+  data: T,
+  signers: Array<{ privateKey: CryptoKey; publicKeyHex: string }>,
+): Promise<AuthenticatedMessage<ReplayProtectedPayload<T>>> {
+  const wrappedPayload = wrapWithReplayProtection(data);
+  return createAuthenticatedMessage(wrappedPayload, signers);
+}
+
+/**
+ * Verify an authenticated message with replay protection
+ */
+export async function verifyReplayProtectedMessage<T>(
+  message: AuthenticatedMessage<ReplayProtectedPayload<T>>,
+  maxAgeMs?: number
+): Promise<{
+  verified: boolean;
+  signers: string[];
+  data?: T;
+  error?: string;
+}> {
+  // First verify the signature
+  const { verified, signers } = await verifyPayload({
+    payload: message.payload,
+    auth: message.auth,
+  });
+
+  if (!verified) {
+    return { verified: false, signers: [], error: "Invalid signature" };
+  }
+
+  // Then verify replay protection
+  const replayCheck = verifyReplayProtection(message.payload, maxAgeMs);
+  if (!replayCheck.valid) {
+    return { verified: false, signers, error: replayCheck.error };
+  }
+
+  return { verified: true, signers, data: message.payload.data };
+}
+
 export interface SignedEncryptedMessage {
   auth: Array<{
     pubkey: string;
