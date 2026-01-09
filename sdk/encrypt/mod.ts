@@ -70,6 +70,50 @@ function cleanupOldNonces(): void {
 setInterval(cleanupOldNonces, 60 * 1000);
 
 /**
+ * SECURITY FIX: Canonical JSON serialization for deterministic signatures
+ *
+ * Standard JSON.stringify doesn't guarantee key order, which can cause
+ * signature verification failures when the same object is serialized
+ * in different environments.
+ *
+ * This function produces deterministic output by:
+ * 1. Sorting object keys alphabetically
+ * 2. Recursively processing nested objects/arrays
+ * 3. Handling all JSON value types correctly
+ *
+ * @param value - The value to serialize
+ * @returns Deterministic JSON string
+ */
+export function canonicalJsonStringify(value: unknown): string {
+  if (value === null || value === undefined) {
+    return JSON.stringify(value);
+  }
+
+  if (typeof value !== "object") {
+    // Primitives are already deterministic
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    // Arrays preserve order, but recursively canonicalize elements
+    const items = value.map((item) => canonicalJsonStringify(item));
+    return `[${items.join(",")}]`;
+  }
+
+  // Object: sort keys alphabetically
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+
+  const pairs = keys.map((key) => {
+    const keyStr = JSON.stringify(key);
+    const valStr = canonicalJsonStringify(obj[key]);
+    return `${keyStr}:${valStr}`;
+  });
+
+  return `{${pairs.join(",")}}`;
+}
+
+/**
  * Generate a random nonce for replay protection
  */
 export function generateReplayNonce(): string {
@@ -449,13 +493,15 @@ export async function generateEncryptionKeyPair(): Promise<EncryptionKeyPair> {
 
 /**
  * Sign a payload with an Ed25519 private key
+ * Uses canonical JSON serialization for deterministic signatures
  */
 export async function sign<T>(
   privateKey: CryptoKey,
   payload: T,
 ): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(JSON.stringify(payload));
+  // SECURITY FIX: Use canonical JSON for deterministic serialization
+  const data = encoder.encode(canonicalJsonStringify(payload));
 
   const signature = await crypto.subtle.sign("Ed25519", privateKey, data);
 
@@ -487,6 +533,7 @@ export async function signWithHex<T>(
 
 /**
  * Verify a signature using Ed25519 public key
+ * Uses canonical JSON serialization to match sign()
  */
 export async function verify<T>(
   publicKeyHex: string,
@@ -507,7 +554,8 @@ export async function verify<T>(
     );
 
     const encoder = new TextEncoder();
-    const data = encoder.encode(JSON.stringify(payload));
+    // SECURITY FIX: Use canonical JSON to match sign() function
+    const data = encoder.encode(canonicalJsonStringify(payload));
     const signatureBytes = decodeHex(signatureHex).buffer;
 
     return await crypto.subtle.verify(
