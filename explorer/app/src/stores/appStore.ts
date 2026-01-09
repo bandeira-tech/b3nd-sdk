@@ -931,7 +931,15 @@ export const useAppStore = create<AppStore>()(
           appServers: state.appServers,
           activeAppServerId: state.activeAppServerId,
           googleClientId: state.googleClientId,
-          keyBundle: state.keyBundle,
+          // SECURITY FIX: Only persist public keys, NOT private keys
+          // Private keys should only be stored in memory to prevent XSS theft
+          keyBundle: {
+            appKey: state.keyBundle.appKey,
+            encryptionPublicKeyHex: state.keyBundle.encryptionPublicKeyHex,
+            // Private keys are intentionally NOT persisted for security
+            accountPrivateKeyPem: "",
+            encryptionPrivateKeyPem: "",
+          },
           panels: state.panels,
           bottomMaximized: state.bottomMaximized,
           panelPreferences: state.panelPreferences,
