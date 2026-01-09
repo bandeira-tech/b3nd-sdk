@@ -9,6 +9,7 @@ export interface JwtPayload {
   iat: number; // issued at
   exp: number; // expiration
   type: "access"; // token type
+  fingerprint?: string; // Optional device/session fingerprint for binding
 }
 
 interface JwtHeader {
@@ -36,12 +37,51 @@ function base64urlDecode(encoded: string): string {
 }
 
 /**
+ * Generate a device fingerprint from request context
+ * This creates a simple hash of device-identifying characteristics
+ *
+ * @param context - Object containing device identifiers (IP, User-Agent, etc.)
+ * @returns A fingerprint hash string
+ */
+export async function generateDeviceFingerprint(context: {
+  ip?: string;
+  userAgent?: string;
+  acceptLanguage?: string;
+}): Promise<string> {
+  const encoder = new TextEncoder();
+  // Combine available identifiers
+  const data = [
+    context.ip || "",
+    context.userAgent || "",
+    context.acceptLanguage || "",
+  ].join("|");
+
+  // Hash the combined data
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    encoder.encode(data)
+  );
+
+  // Return first 16 hex characters for a compact fingerprint
+  return Array.from(new Uint8Array(hashBuffer))
+    .slice(0, 8)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
  * Create JWT token using HMAC-SHA256
+ *
+ * @param username - The username to embed in the token
+ * @param secret - The HMAC secret key
+ * @param expirationSeconds - Token lifetime in seconds
+ * @param fingerprint - Optional device fingerprint for session binding
  */
 export async function createJwt(
   username: string,
   secret: string,
-  expirationSeconds: number
+  expirationSeconds: number,
+  fingerprint?: string
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
 
@@ -55,6 +95,7 @@ export async function createJwt(
     iat: now,
     exp: now + expirationSeconds,
     type: "access",
+    ...(fingerprint && { fingerprint }),
   };
 
   // Create signature
@@ -86,10 +127,18 @@ export async function createJwt(
 
 /**
  * Verify and decode JWT token
+ *
+ * @param token - The JWT token to verify
+ * @param secret - The HMAC secret key
+ * @param expectedFingerprint - Optional fingerprint to verify against token's fingerprint
+ *                              If the token has a fingerprint but this is not provided,
+ *                              verification still passes (for backwards compatibility).
+ *                              If both are provided, they must match.
  */
 export async function verifyJwt(
   token: string,
-  secret: string
+  secret: string,
+  expectedFingerprint?: string
 ): Promise<JwtPayload> {
   const parts = token.split(".");
   if (parts.length !== 3) {
@@ -145,6 +194,14 @@ export async function verifyJwt(
   // Check token type
   if (payload.type !== "access") {
     throw new Error("Invalid token type");
+  }
+
+  // SECURITY FIX: Verify device fingerprint if both token and request have one
+  // This prevents stolen tokens from being used on different devices
+  if (expectedFingerprint && payload.fingerprint) {
+    if (payload.fingerprint !== expectedFingerprint) {
+      throw new Error("Token fingerprint mismatch - possible session hijacking");
+    }
   }
 
   return payload;
