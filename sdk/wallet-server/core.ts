@@ -365,15 +365,34 @@ export class WalletServerCore {
     const serverEncryptionPrivateKeyPem = this.serverKeys.encryptionKey.privateKeyPem;
 
     // CORS middleware
+    // SECURITY FIX: Properly validate origins instead of reflecting arbitrary origins
     app.use(
       "/*",
       cors({
-        origin: (origin) =>
-          this.config.allowedOrigins[0] === "*"
-            ? origin
-            : this.config.allowedOrigins.join(","),
-        allowMethods: ["GET", "POST", "OPTIONS"],
+        origin: (origin) => {
+          // If wildcard is configured, return literal "*" (not reflected origin)
+          // This is less secure but explicit - credentials won't work with "*"
+          if (this.config.allowedOrigins[0] === "*") {
+            this.logger.warn(
+              "[SECURITY WARNING] CORS configured with wildcard origin. " +
+              "This should only be used in development."
+            );
+            return "*";
+          }
+
+          // Check if the requesting origin is in our allowed list
+          if (origin && this.config.allowedOrigins.includes(origin)) {
+            return origin;
+          }
+
+          // Origin not allowed - return the first allowed origin
+          // (which will cause the browser to block the request)
+          return this.config.allowedOrigins[0] || null;
+        },
+        allowMethods: ["GET", "POST", "OPTIONS", "DELETE"],
         allowHeaders: ["Content-Type", "Authorization"],
+        // Only allow credentials when specific origins are configured
+        credentials: this.config.allowedOrigins[0] !== "*",
       })
     );
 
