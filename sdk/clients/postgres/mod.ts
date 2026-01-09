@@ -56,6 +56,17 @@ export class PostgresClient implements NodeProtocolInterface {
     if (!config.tablePrefix) {
       throw new Error("tablePrefix is required in PostgresClientConfig");
     }
+    // SECURITY FIX: Validate tablePrefix to prevent SQL injection
+    // Only allow alphanumeric characters and underscores
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(config.tablePrefix)) {
+      throw new Error(
+        "tablePrefix must start with a letter or underscore and contain only alphanumeric characters and underscores"
+      );
+    }
+    // Limit length to prevent overly long identifiers
+    if (config.tablePrefix.length > 63) {
+      throw new Error("tablePrefix must be 63 characters or less");
+    }
     if (!config.schema) {
       throw new Error("schema is required in PostgresClientConfig");
     }
