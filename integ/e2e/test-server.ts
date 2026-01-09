@@ -28,6 +28,9 @@ const baseSchema: Schema = {
   // Notes protocol (for fixtures)
   "notes://nataliarsand": async ({ uri, value }) => ({ valid: true }),
 
+  // Users protocol (for fixture profile)
+  "users://nataliarsand": async ({ uri, value }) => ({ valid: true }),
+
   // Example protocol
   "example://demo": async ({ uri, value }) => ({ valid: true }),
 };
