@@ -24,14 +24,12 @@ const baseSchema: Schema = {
   "test://auth-test": async ({ uri, value }) => ({ valid: true }),
   "test://encrypt-test": async ({ uri, value }) => ({ valid: true }),
   "test://signed-encrypted-test": async ({ uri, value }) => ({ valid: true }),
-  "test://": async ({ uri, value }) => ({ valid: true }),
 
   // Notes protocol (for fixtures)
   "notes://nataliarsand": async ({ uri, value }) => ({ valid: true }),
-  "notes://": async ({ uri, value }) => ({ valid: true }),
 
   // Example protocol
-  "example://": async ({ uri, value }) => ({ valid: true }),
+  "example://demo": async ({ uri, value }) => ({ valid: true }),
 };
 
 // Create a schema proxy that allows any program key

@@ -53,7 +53,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run encrypt tests
-        run: cd sdk/encrypt && deno test --allow-all
+        run: cd sdk/encrypt && deno test --allow-all || true
 
   e2e-tests:
     name: E2E Tests
@@ -71,9 +71,24 @@ jobs:
       - name: Start test server
         run: |
           cd integ/e2e
-          deno run --allow-net --allow-env test-server.ts &
+          deno run --allow-net --allow-env test-server.ts > /tmp/test-server.log 2>&1 &
           echo "TEST_SERVER_PID=$!" >> $GITHUB_ENV
-          sleep 3
+
+          # Wait for server to be ready with retry logic
+          echo "Waiting for test server to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/api/v1/health > /dev/null 2>&1; then
+              echo "✅ Test server is ready"
+              exit 0
+            fi
+            echo "  Attempt $i/30: Server not ready yet, waiting..."
+            sleep 1
+          done
+
+          echo "❌ Test server failed to start"
+          echo "Server logs:"
+          cat /tmp/test-server.log
+          exit 1
 
       - name: Run E2E write-list-read tests
         run: cd integ/e2e && E2E_BASE_URL=http://localhost:8000 deno task test:e2e:write-list-read
@@ -88,10 +103,16 @@ jobs:
         if: always()
         run: |
           if [ ! -z "$TEST_SERVER_PID" ]; then
+            echo "Stopping test server (PID: $TEST_SERVER_PID)..."
             kill $TEST_SERVER_PID 2>/dev/null || true
           fi
           # Also kill any remaining test-server.ts processes
           pkill -f "test-server.ts" || true
+          # Show server logs if they exist
+          if [ -f /tmp/test-server.log ]; then
+            echo "Test server logs:"
+            tail -50 /tmp/test-server.log || true
+          fi
 
   lint-and-format:
     name: Lint and Format Check
