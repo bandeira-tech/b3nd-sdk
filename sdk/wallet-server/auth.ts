@@ -50,7 +50,33 @@ async function hashPassword(password: string, salt: string): Promise<string> {
 }
 
 /**
+ * Constant-time comparison of two strings to prevent timing attacks.
+ * Always compares all characters regardless of where differences occur.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // Still do a full comparison to avoid leaking length info via timing
+    // Use the longer string's length to ensure consistent timing
+    const maxLen = Math.max(a.length, b.length);
+    let result = a.length !== b.length ? 1 : 0;
+    for (let i = 0; i < maxLen; i++) {
+      const charA = i < a.length ? a.charCodeAt(i) : 0;
+      const charB = i < b.length ? b.charCodeAt(i) : 0;
+      result |= charA ^ charB;
+    }
+    return result === 0;
+  }
+
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+/**
  * Verify password against hash
+ * Uses constant-time comparison to prevent timing attacks
  */
 export async function verifyPassword(
   password: string,
@@ -58,7 +84,7 @@ export async function verifyPassword(
   hash: string
 ): Promise<boolean> {
   const computedHash = await hashPassword(password, salt);
-  return computedHash === hash;
+  return timingSafeEqual(computedHash, hash);
 }
 
 /**
