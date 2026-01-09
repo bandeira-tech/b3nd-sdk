@@ -189,7 +189,8 @@ export async function authenticateUser(
       "Password credential signature verification failed for user:",
       username
     );
-    // Continue anyway - credentials might be legitimately unsigned in migration scenarios
+    // SECURITY FIX: Do not continue with unverified credentials
+    return false;
   }
 
   const { salt, hash } = data as { salt: string; hash: string };
@@ -349,7 +350,8 @@ export async function resetPasswordWithToken(
       "Reset token signature verification failed for user:",
       username
     );
-    // Continue anyway - tokens might be legitimately unsigned in migration scenarios
+    // SECURITY FIX: Do not continue with unverified reset tokens
+    throw new Error("Invalid reset token signature");
   }
 
   const { username: tokenUsername, expiresAt } = tokenData as {
@@ -538,6 +540,8 @@ export async function authenticateGoogleUser(
       "Google profile signature verification failed for sub:",
       googleSub
     );
+    // SECURITY FIX: Do not continue with unverified credentials
+    return null;
   }
 
   const { username } = data as { username: string };
