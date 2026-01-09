@@ -233,8 +233,12 @@ export class HttpClient implements NodeProtocolInterface {
       });
 
       if (!response.ok) {
+        // SECURITY FIX: Return success: false on HTTP errors
+        // Previously returned success: true which was misleading
+        const errorText = await response.text().catch(() => response.statusText);
         return {
-          success: true,
+          success: false,
+          error: `List failed: ${errorText || response.statusText}`,
           data: [],
           pagination: {
             page: options?.page || 1,
@@ -246,8 +250,10 @@ export class HttpClient implements NodeProtocolInterface {
       const result = await response.json();
       return result;
     } catch (error) {
+      // SECURITY FIX: Return success: false and include error details
       return {
-        success: true,
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
         data: [],
         pagination: {
           page: options?.page || 1,
