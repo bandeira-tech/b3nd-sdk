@@ -121,7 +121,8 @@ export class ApiClient {
         const url = new URL(
           `${this.config.baseUrl}/api/v1/list/${baseUri}`,
         );
-        if (pattern) url.searchParams.set("pattern", pattern);
+        // Don't pass pattern to server - it doesn't support it
+        // We filter client-side instead
 
         try {
           const response = await fetch(url.toString());
@@ -151,7 +152,19 @@ export class ApiClient {
         await listRecursive(`test/${domain}/`);
       }
 
-      return { success: true, records: allRecords };
+      // Client-side pattern filtering (glob-style)
+      let filteredRecords = allRecords;
+      if (pattern) {
+        // Convert glob pattern to regex: * -> .*, ? -> .
+        const regexPattern = pattern
+          .replace(/[.+^${}()|[\]\\]/g, "\\$&") // Escape regex special chars
+          .replace(/\*/g, ".*")
+          .replace(/\?/g, ".");
+        const regex = new RegExp(regexPattern);
+        filteredRecords = allRecords.filter((r) => regex.test(r.uri));
+      }
+
+      return { success: true, records: filteredRecords };
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
