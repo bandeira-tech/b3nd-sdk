@@ -253,8 +253,38 @@ export class PostgresClient implements NodeProtocolInterface {
       ];
 
       if (options?.pattern) {
-        const regex = new RegExp(options.pattern);
-        items = items.filter((item) => regex.test(item.uri));
+        // SECURITY FIX: Validate pattern to prevent ReDoS attacks
+        // Malicious patterns like (a+)+$ can cause catastrophic backtracking
+        const pattern = options.pattern;
+
+        // Limit pattern length to prevent excessive memory/time usage
+        if (pattern.length > 200) {
+          throw new Error("Pattern too long (max 200 characters)");
+        }
+
+        // Check for dangerous regex patterns that could cause ReDoS
+        // These patterns can cause exponential backtracking
+        const dangerousPatterns = [
+          /\(\.\*\)\+/,       // (.*)+
+          /\(\.\+\)\+/,       // (.+)+
+          /\([^)]+\+\)\+/,    // Nested quantifiers like (a+)+
+          /\([^)]+\*\)\+/,    // Nested quantifiers like (a*)+
+          /\([^)]+\+\)\*/,    // Nested quantifiers like (a+)*
+          /\([^)]+\{\d+,\}\)\+/, // Nested quantifiers like (a{2,})+
+        ];
+
+        for (const dangerous of dangerousPatterns) {
+          if (dangerous.test(pattern)) {
+            throw new Error("Pattern contains potentially dangerous regex construct");
+          }
+        }
+
+        try {
+          const regex = new RegExp(pattern);
+          items = items.filter((item) => regex.test(item.uri));
+        } catch (e) {
+          throw new Error(`Invalid pattern: ${e instanceof Error ? e.message : String(e)}`);
+        }
       }
 
       if (options?.sortBy === "name") {
