@@ -116,9 +116,10 @@ export class ApiClient {
 
       const allRecords: Array<{ uri: string; ts: number; data: unknown }> = [];
 
-      for (const domain of domains) {
+      // Helper to recursively list all items
+      const listRecursive = async (baseUri: string): Promise<void> => {
         const url = new URL(
-          `${this.config.baseUrl}/api/v1/list/test/${domain}/`,
+          `${this.config.baseUrl}/api/v1/list/${baseUri}`,
         );
         if (pattern) url.searchParams.set("pattern", pattern);
 
@@ -126,16 +127,28 @@ export class ApiClient {
           const response = await fetch(url.toString());
           if (response.ok) {
             const data = await response.json();
-            const records = (data.data || []).map((it: any) => ({
-              uri: it.uri,
-              ts: 0,
-              data: null,
-            }));
-            allRecords.push(...records);
+            const items = data.data || [];
+            for (const item of items) {
+              if (item.type === "file") {
+                allRecords.push({
+                  uri: item.uri,
+                  ts: 0,
+                  data: null,
+                });
+              } else if (item.type === "directory") {
+                // Recursively list subdirectories
+                const { protocol, domain, path } = this.parseUri(item.uri);
+                await listRecursive(`${protocol}/${domain}${path}/`);
+              }
+            }
           }
         } catch {
-          // Skip domain if listing fails
+          // Skip if listing fails
         }
+      };
+
+      for (const domain of domains) {
+        await listRecursive(`test/${domain}/`);
       }
 
       return { success: true, records: allRecords };
