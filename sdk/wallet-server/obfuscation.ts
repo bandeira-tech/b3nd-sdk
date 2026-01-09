@@ -35,6 +35,33 @@ export type OperationType =
   | "google-profile";
 
 /**
+ * Environment variable or config for secret salt
+ * This MUST be set in production and kept secret
+ * Without it, attackers can enumerate users by computing HMAC paths
+ */
+let pathObfuscationSalt: string | null = null;
+
+/**
+ * Set the secret salt for path obfuscation
+ * MUST be called during server initialization with a cryptographically random value
+ *
+ * @param salt - A secret random string (at least 32 characters recommended)
+ */
+export function setPathObfuscationSalt(salt: string): void {
+  if (!salt || salt.length < 16) {
+    throw new Error("Path obfuscation salt must be at least 16 characters");
+  }
+  pathObfuscationSalt = salt;
+}
+
+/**
+ * Get the current salt status (for debugging/health checks)
+ */
+export function isPathObfuscationSaltSet(): boolean {
+  return pathObfuscationSalt !== null;
+}
+
+/**
  * Derive obfuscated path deterministically using HMAC-SHA256
  *
  * Inputs:
@@ -50,6 +77,10 @@ export type OperationType =
  * - Non-reversible: Can't guess username from hash
  * - Uniform: All paths look similar length/format
  * - Repeatable: Can reconstruct on write and read
+ *
+ * SECURITY NOTE: The salt MUST be set via setPathObfuscationSalt() in production.
+ * Without a secret salt, attackers can enumerate users by computing HMAC paths
+ * since the server public key is public knowledge.
  */
 export async function deriveObfuscatedPath(
   serverPublicKey: string,
@@ -63,10 +94,23 @@ export async function deriveObfuscatedPath(
   const parts = [username, operationType, serverPublicKey, ...params];
   const input = parts.join("|");
 
-  // HMAC-SHA256 using server public key as secret
+  // SECURITY FIX: Use secret salt combined with public key for HMAC secret
+  // This prevents user enumeration attacks where attacker computes HMAC paths
+  // using the known public key
+  const hmacSecret = pathObfuscationSalt
+    ? `${pathObfuscationSalt}:${serverPublicKey}`
+    : serverPublicKey; // Fallback for backwards compatibility, but logs warning
+
+  if (!pathObfuscationSalt) {
+    console.warn(
+      "[SECURITY WARNING] Path obfuscation salt not set. " +
+      "Call setPathObfuscationSalt() during initialization to prevent user enumeration attacks."
+    );
+  }
+
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(serverPublicKey),
+    encoder.encode(hmacSecret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
