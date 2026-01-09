@@ -751,7 +751,8 @@ export class WalletServerCore {
           return c.json({ success: false, error: "username is required" }, 400);
         }
 
-        const resetToken = await createPasswordResetToken(
+        // Token is created and stored for later verification, but NOT returned to client
+        const _resetToken = await createPasswordResetToken(
           this.credentialClient,
           serverPublicKey,
           username,
@@ -762,10 +763,14 @@ export class WalletServerCore {
           appKey
         );
 
+        // SECURITY FIX: Token is stored server-side and should be sent via email
+        // DO NOT return resetToken in API response - that allows anyone to reset any password
+        // The token should be delivered out-of-band (email, SMS, etc.)
+        this.logger.log(`Password reset token created for user: ${username} (token should be sent via email)`);
+
         return c.json({
           success: true,
-          message: "Password reset token created",
-          resetToken,
+          message: "Password reset instructions sent. Check your email.",
           expiresIn: this.config.passwordResetTokenTtlSeconds,
         });
       } catch (error) {
