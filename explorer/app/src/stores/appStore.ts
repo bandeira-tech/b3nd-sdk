@@ -944,7 +944,31 @@ export const useAppStore = create<AppStore>()(
           bottomMaximized: state.bottomMaximized,
           panelPreferences: state.panelPreferences,
           writerOutputs: state.writerOutputs,
-          accounts: state.accounts,
+          // SECURITY FIX: Sanitize accounts before persistence to remove sensitive data
+          // JWT tokens and private keys should not be persisted in localStorage
+          accounts: state.accounts.map((account) => {
+            if (account.type === "application-user") {
+              return {
+                ...account,
+                // Clear JWT token from userSession
+                userSession: {
+                  ...account.userSession,
+                  token: "", // Token cleared - user must re-authenticate
+                },
+                // Clear session keys
+                appSession: "",
+              };
+            }
+            // For key accounts, clear private keys from keyBundle
+            return {
+              ...account,
+              keyBundle: {
+                ...account.keyBundle,
+                accountPrivateKeyPem: "",
+                encryptionPrivateKeyPem: "",
+              },
+            };
+          }),
           activeAccountId: state.activeAccountId,
           theme: state.theme,
           searchHistory: state.searchHistory,
