@@ -42,6 +42,7 @@ import {
   getSupportedCredentialTypes,
 } from "./credentials.ts";
 import { rateLimiters } from "./rate-limit.ts";
+import { validateUri } from "./uri-validation.ts";
 
 interface BootstrapState {
   appKey: string;
@@ -880,6 +881,13 @@ export class WalletServerCore {
         if (!uri) {
           return c.json({ success: false, error: "uri is required" }, 400);
         }
+
+        // SECURITY FIX: Validate URI format to prevent path traversal and injection
+        const uriValidation = validateUri(uri);
+        if (!uriValidation.valid) {
+          return c.json({ success: false, error: uriValidation.error }, 400);
+        }
+
         if (data === undefined) {
           return c.json({ success: false, error: "data is required" }, 400);
         }
@@ -930,6 +938,12 @@ export class WalletServerCore {
           return c.json({ success: false, error: "uri query parameter is required" }, 400);
         }
 
+        // SECURITY FIX: Validate URI format to prevent path traversal and injection
+        const uriValidation = validateUri(uri);
+        if (!uriValidation.valid) {
+          return c.json({ success: false, error: uriValidation.error }, 400);
+        }
+
         const result = await proxyRead(
           this.proxyClient,
           this.credentialClient,
@@ -974,6 +988,17 @@ export class WalletServerCore {
 
         if (!Array.isArray(body.uris)) {
           return c.json({ success: false, error: "uris must be an array" }, 400);
+        }
+
+        // SECURITY FIX: Validate all URIs in the batch
+        for (const uri of body.uris) {
+          const uriValidation = validateUri(uri);
+          if (!uriValidation.valid) {
+            return c.json({
+              success: false,
+              error: `Invalid URI '${uri}': ${uriValidation.error}`,
+            }, 400);
+          }
         }
 
         const result = await proxyReadMulti(
