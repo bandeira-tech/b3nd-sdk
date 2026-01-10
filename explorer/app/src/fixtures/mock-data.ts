@@ -3,22 +3,22 @@ import type { PersistenceRecord, NavigationNode } from "../types";
 // Mock persistence data following b3nd structure
 export const mockPersistenceData: Record<string, PersistenceRecord> = {
   // Users protocol data
-  "/users/nataliarsand/~>/pubkeys": {
+  "/users/alicedoe/~>/pubkeys": {
     ts: Date.now() - 86400000, // 1 day ago
     data: [
       "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC...",
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...",
     ],
   },
-  "/users/nataliarsand/milestory.me/books": {
+  "/users/alicedoe/milestory.me/books": {
     ts: Date.now() - 3600000, // 1 hour ago
     data: ["book-1", "book-2", "book-3"],
   },
-  "/users/nataliarsand/milestory.me/books/book-1/~>/writers": {
+  "/users/alicedoe/milestory.me/books/book-1/~>/writers": {
     ts: Date.now() - 7200000, // 2 hours ago
-    data: ["nataliarsand", "collaborator-1"],
+    data: ["alicedoe", "collaborator-1"],
   },
-  "/users/nataliarsand/milestory.me/books/book-1/entries/1": {
+  "/users/alicedoe/milestory.me/books/book-1/entries/1": {
     ts: Date.now() - 1800000, // 30 minutes ago
     data: {
       title: "A Journey Begins",
@@ -30,7 +30,7 @@ export const mockPersistenceData: Record<string, PersistenceRecord> = {
       mood: "excited",
     },
   },
-  "/users/nataliarsand/milestory.me/books/book-1/entries/2": {
+  "/users/alicedoe/milestory.me/books/book-1/entries/2": {
     ts: Date.now() - 900000, // 15 minutes ago
     data: {
       title: "Reaching Base Camp",
@@ -42,7 +42,7 @@ export const mockPersistenceData: Record<string, PersistenceRecord> = {
       mood: "accomplished",
     },
   },
-  "/users/nataliarsand/myapp/memories": {
+  "/users/alicedoe/myapp/memories": {
     ts: Date.now() - 300000, // 5 minutes ago
     data: [
       {
@@ -57,7 +57,7 @@ export const mockPersistenceData: Record<string, PersistenceRecord> = {
       },
     ],
   },
-  "/users/nataliarsand/plans/tokyo-2030": {
+  "/users/alicedoe/plans/tokyo-2030": {
     ts: Date.now() - 600000, // 10 minutes ago
     data: "we going baby, it gone be good",
   },
@@ -104,75 +104,75 @@ export function generateMockNavigationTree(): NavigationNode[] {
       type: "directory",
       children: [
         {
-          path: "/users/nataliarsand",
-          name: "nataliarsand",
+          path: "/users/alicedoe",
+          name: "alicedoe",
           type: "directory",
           children: [
             {
-              path: "/users/nataliarsand/~>",
+              path: "/users/alicedoe/~>",
               name: "~>",
               type: "directory",
               children: [
                 {
-                  path: "/users/nataliarsand/~>/pubkeys",
+                  path: "/users/alicedoe/~>/pubkeys",
                   name: "pubkeys",
                   type: "file",
-                  record: mockPersistenceData["/users/nataliarsand/~>/pubkeys"],
+                  record: mockPersistenceData["/users/alicedoe/~>/pubkeys"],
                 },
               ],
             },
             {
-              path: "/users/nataliarsand/milestory.me",
+              path: "/users/alicedoe/milestory.me",
               name: "milestory.me",
               type: "directory",
               children: [
                 {
-                  path: "/users/nataliarsand/milestory.me/books",
+                  path: "/users/alicedoe/milestory.me/books",
                   name: "books",
                   type: "directory",
                   children: [
                     {
-                      path: "/users/nataliarsand/milestory.me/books/book-1",
+                      path: "/users/alicedoe/milestory.me/books/book-1",
                       name: "book-1",
                       type: "directory",
                       children: [
                         {
-                          path: "/users/nataliarsand/milestory.me/books/book-1/~>",
+                          path: "/users/alicedoe/milestory.me/books/book-1/~>",
                           name: "~>",
                           type: "directory",
                           children: [
                             {
-                              path: "/users/nataliarsand/milestory.me/books/book-1/~>/writers",
+                              path: "/users/alicedoe/milestory.me/books/book-1/~>/writers",
                               name: "writers",
                               type: "file",
                               record:
                                 mockPersistenceData[
-                                  "/users/nataliarsand/milestory.me/books/book-1/~>/writers"
+                                  "/users/alicedoe/milestory.me/books/book-1/~>/writers"
                                 ],
                             },
                           ],
                         },
                         {
-                          path: "/users/nataliarsand/milestory.me/books/book-1/entries",
+                          path: "/users/alicedoe/milestory.me/books/book-1/entries",
                           name: "entries",
                           type: "directory",
                           children: [
                             {
-                              path: "/users/nataliarsand/milestory.me/books/book-1/entries/1",
+                              path: "/users/alicedoe/milestory.me/books/book-1/entries/1",
                               name: "1",
                               type: "file",
                               record:
                                 mockPersistenceData[
-                                  "/users/nataliarsand/milestory.me/books/book-1/entries/1"
+                                  "/users/alicedoe/milestory.me/books/book-1/entries/1"
                                 ],
                             },
                             {
-                              path: "/users/nataliarsand/milestory.me/books/book-1/entries/2",
+                              path: "/users/alicedoe/milestory.me/books/book-1/entries/2",
                               name: "2",
                               type: "file",
                               record:
                                 mockPersistenceData[
-                                  "/users/nataliarsand/milestory.me/books/book-1/entries/2"
+                                  "/users/alicedoe/milestory.me/books/book-1/entries/2"
                                 ],
                             },
                           ],
@@ -184,30 +184,30 @@ export function generateMockNavigationTree(): NavigationNode[] {
               ],
             },
             {
-              path: "/users/nataliarsand/myapp",
+              path: "/users/alicedoe/myapp",
               name: "myapp",
               type: "directory",
               children: [
                 {
-                  path: "/users/nataliarsand/myapp/memories",
+                  path: "/users/alicedoe/myapp/memories",
                   name: "memories",
                   type: "file",
                   record:
-                    mockPersistenceData["/users/nataliarsand/myapp/memories"],
+                    mockPersistenceData["/users/alicedoe/myapp/memories"],
                 },
               ],
             },
             {
-              path: "/users/nataliarsand/plans",
+              path: "/users/alicedoe/plans",
               name: "plans",
               type: "directory",
               children: [
                 {
-                  path: "/users/nataliarsand/plans/tokyo-2030",
+                  path: "/users/alicedoe/plans/tokyo-2030",
                   name: "tokyo-2030",
                   type: "file",
                   record:
-                    mockPersistenceData["/users/nataliarsand/plans/tokyo-2030"],
+                    mockPersistenceData["/users/alicedoe/plans/tokyo-2030"],
                 },
               ],
             },
