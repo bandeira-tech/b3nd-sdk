@@ -8,6 +8,7 @@ import {
   confEncrypt,
   write,
   upload,
+  deploy,
   read,
   list,
   showConfig,
@@ -105,6 +106,11 @@ async function main(): Promise<void> {
 
       case "upload": {
         await upload(cleanArgs.slice(1), verbose);
+        break;
+      }
+
+      case "deploy": {
+        await deploy(cleanArgs.slice(1), verbose);
         break;
       }
 

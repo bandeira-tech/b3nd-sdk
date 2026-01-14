@@ -7,6 +7,16 @@ import { encodeHex } from "@std/encoding/hex";
 import { encrypt, decrypt, type EncryptedPayload } from "@b3nd/sdk/encrypt";
 
 /**
+ * Compute SHA256 hash of binary data
+ * @param data - Binary data to hash
+ * @returns Hex-encoded SHA256 hash
+ */
+async function computeSha256(data: Uint8Array): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return encodeHex(new Uint8Array(hashBuffer));
+}
+
+/**
  * Parse URI into protocol, domain, and path
  * Example: test://read-test/foobar -> { protocol: "test", domain: "read-test", path: "/foobar" }
  */
@@ -614,57 +624,53 @@ COMMANDS:
   conf node <url>          Set the node URL
   conf account <path>      Set the account key path
   conf encrypt <path>      Set the encryption key path
-  write <uri> <data>       Write data to a URI
+  write <uri> <data>       Write data to a URI (low-level)
   write -f <filepath>      Write data from a JSON file
-  upload <file> <uri>      Upload a file as binary
-  upload -r <dir> <uri>    Upload directory recursively
+  upload <file>            Upload file as blob (content-addressed)
+  upload -r <dir>          Upload directory as blobs recursively
+  deploy <dir> <target>    Deploy site with blobs + authenticated links
   read <uri>               Read data from a URI
   list <uri>               List items at a URI
   config                   Show current configuration
-  server-keys env         Generate server keys and print .env entries
+  server-keys env          Generate server keys and print .env entries
   help                     Show this help message
 
 OPTIONS:
   -v, --verbose            Show detailed operation logs for debugging
 
-SETUP - Single Account:
+SETUP:
   bnd account create
   bnd conf node http://localhost:3000
-  bnd encrypt create
-  bnd conf encrypt ~/.bnd/encryption/default.key
 
-SETUP - Multiple Accounts:
-  # Create accounts
-  bnd account create ~/.bnd/accounts/alice.key
-  bnd account create ~/.bnd/accounts/bob.key
-
-  # Switch accounts
-  bnd conf account ~/.bnd/accounts/alice.key
-
-  # Create encryption keys
-  bnd encrypt create ~/.bnd/encryption/alice.key
-  bnd conf encrypt ~/.bnd/encryption/alice.key
+PROTOCOLS:
+  blob://open/sha256:<hash>     Content-addressed immutable storage
+  link://accounts/:key/<path>   Authenticated link to another URI
+  link://open/<path>            Public link to another URI
+  mutable://accounts/:key/...   Mutable authenticated storage
+  immutable://accounts/:key/... Immutable authenticated storage
 
 EXAMPLES:
-  # Basic operations
-  bnd write tmp://some/path "this is a nice little payload"
-  bnd read tmp://some/path
+  # Upload a file as content-addressed blob
+  bnd upload ./image.png
+  # Returns: blob://open/sha256:abc123...
 
-  # Upload files (binary)
-  bnd upload ./image.png immutable://open/files/
-  bnd upload -r ./build immutable://accounts/:key/mysite/
+  # Upload directory as blobs
+  bnd upload -r ./dist
 
-  # Account-based writes with automatic signing
+  # Deploy a site (blobs + links + versioning)
+  bnd deploy ./dist mutable://accounts/:key/mysite
+  # Creates:
+  #   - blob://open/sha256:... for each file
+  #   - link://accounts/:key/mysite/v<ts>/<path> for each file
+  #   - mutable://accounts/:key/mysite -> link://.../<version>/
+
+  # Low-level write
   bnd write mutable://accounts/:key/profile '{"name":"Alice"}'
   bnd read mutable://accounts/:key/profile
 
-  # Switch to different account
-  bnd conf account ~/.bnd/accounts/bob.key
-  bnd write mutable://accounts/:key/profile '{"name":"Bob"}'
-
 DEBUGGING:
-  bnd --verbose write test://read-test/foobar "foobar"
-  bnd -v read test://read-test/foobar
+  bnd --verbose deploy ./dist mutable://accounts/:key/mysite
+  bnd -v read blob://open/sha256:abc123...
   bnd config
 
 DOCUMENTATION:
@@ -673,48 +679,38 @@ DOCUMENTATION:
 }
 
 /**
- * Handle `bnd upload` command - upload files/directories to B3nd
+ * Handle `bnd upload` command - upload files as content-addressed blobs
  *
  * Usage:
- *   bnd upload <file> <uri>       Upload a single file
- *   bnd upload -r <dir> <uri>     Upload directory recursively
+ *   bnd upload <file>       Upload a single file to blob://open/sha256:<hash>
+ *   bnd upload -r <dir>     Upload directory recursively as blobs
+ *
+ * Returns the blob URI(s) for the uploaded content.
  */
-export async function upload(args: string[], verbose = false): Promise<void> {
+export async function upload(args: string[], verbose = false): Promise<Map<string, string>> {
   const logger = createLogger(verbose);
 
   // Parse -r flag for recursive upload
   const recursive = args[0] === "-r";
   const pathArg = recursive ? args[1] : args[0];
-  const uriArg = recursive ? args[2] : args[1];
 
-  if (!pathArg || !uriArg) {
+  if (!pathArg) {
     throw new Error(
-      "Usage: bnd upload <file> <uri> OR bnd upload -r <dir> <uri>"
+      "Usage: bnd upload <file> OR bnd upload -r <dir>"
     );
   }
 
+  // Map of relative path -> blob URI
+  const blobMap = new Map<string, string>();
+
   try {
-    const config = await loadConfig();
     const client = await getClient(logger);
-
-    // Handle :key placeholder in URI
-    let targetUri = uriArg;
-    let accountKey: { privateKeyPem: string; publicKeyHex: string } | null = null;
-
-    if (targetUri.includes(":key")) {
-      accountKey = await loadAccountKey();
-      targetUri = replaceKeyPlaceholder(targetUri, accountKey.publicKeyHex);
-      logger?.info(`Replaced :key with public key`);
-    }
-
-    // Normalize target URI (ensure trailing slash for directories)
-    const normalizedTarget = targetUri.endsWith("/") ? targetUri : `${targetUri}/`;
 
     // Get file info
     const stat = await Deno.stat(pathArg);
 
     if (stat.isDirectory && !recursive) {
-      throw new Error("Directory requires -r flag. Usage: bnd upload -r <dir> <uri>");
+      throw new Error("Directory requires -r flag. Usage: bnd upload -r <dir>");
     }
 
     if (!stat.isDirectory && recursive) {
@@ -722,49 +718,36 @@ export async function upload(args: string[], verbose = false): Promise<void> {
     }
 
     let uploadCount = 0;
+    let skippedCount = 0;
     let errorCount = 0;
 
     if (stat.isDirectory) {
       // Recursive directory upload
-      console.log(`Uploading directory: ${pathArg}`);
-      console.log(`Target: ${normalizedTarget}`);
+      console.log(`Uploading directory as blobs: ${pathArg}`);
       console.log("");
 
       for await (const entry of walkDirectory(pathArg)) {
         // Get relative path from base directory
         const relativePath = entry.path.substring(pathArg.length).replace(/^\//, "");
-        const fileUri = `${normalizedTarget}${relativePath}`;
 
         try {
           const fileData = await Deno.readFile(entry.path);
-          logger?.info(`Read ${entry.path} (${fileData.length} bytes)`);
+          const hash = await computeSha256(fileData);
+          const blobUri = `blob://open/sha256:${hash}`;
+          logger?.info(`${relativePath} -> ${blobUri} (${fileData.length} bytes)`);
 
-          // Prepare data for upload
-          let uploadData: unknown = fileData;
-
-          // For accounts domain, wrap in auth structure
-          const { domain } = parseUri(fileUri);
-          if (domain.includes("accounts") && accountKey) {
-            // Binary data needs base64 encoding for signing
-            const signature = await signBinaryPayload(accountKey.privateKeyPem, fileData);
-            logger?.info(`Signed binary payload with account key`);
-
-            uploadData = {
-              auth: [
-                {
-                  pubkey: accountKey.publicKeyHex,
-                  signature: signature,
-                },
-              ],
-              payload: fileData,
-            };
-          }
-
-          const result = await client.write(fileUri, uploadData);
+          // Write to blob storage
+          const result = await client.write(blobUri, fileData);
 
           if (result.success) {
-            console.log(`  ✓ ${relativePath}`);
+            blobMap.set(relativePath, blobUri);
+            console.log(`  ✓ ${relativePath} -> ${blobUri.substring(0, 40)}...`);
             uploadCount++;
+          } else if (result.error?.includes("exists")) {
+            // Blob already exists (deduplication)
+            blobMap.set(relativePath, blobUri);
+            console.log(`  ○ ${relativePath} -> ${blobUri.substring(0, 40)}... [exists]`);
+            skippedCount++;
           } else {
             console.log(`  ✗ ${relativePath}: ${result.error}`);
             errorCount++;
@@ -777,40 +760,27 @@ export async function upload(args: string[], verbose = false): Promise<void> {
     } else {
       // Single file upload
       const fileName = pathArg.split("/").pop() || pathArg;
-      const fileUri = `${normalizedTarget}${fileName}`;
 
-      console.log(`Uploading file: ${pathArg}`);
-      console.log(`Target: ${fileUri}`);
+      console.log(`Uploading file as blob: ${pathArg}`);
       console.log("");
 
       const fileData = await Deno.readFile(pathArg);
-      logger?.info(`Read ${pathArg} (${fileData.length} bytes)`);
+      const hash = await computeSha256(fileData);
+      const blobUri = `blob://open/sha256:${hash}`;
+      logger?.info(`${fileName} -> ${blobUri} (${fileData.length} bytes)`);
 
-      // Prepare data for upload
-      let uploadData: unknown = fileData;
-
-      // For accounts domain, wrap in auth structure
-      const { domain } = parseUri(fileUri);
-      if (domain.includes("accounts") && accountKey) {
-        const signature = await signBinaryPayload(accountKey.privateKeyPem, fileData);
-        logger?.info(`Signed binary payload with account key`);
-
-        uploadData = {
-          auth: [
-            {
-              pubkey: accountKey.publicKeyHex,
-              signature: signature,
-            },
-          ],
-          payload: fileData,
-        };
-      }
-
-      const result = await client.write(fileUri, uploadData);
+      const result = await client.write(blobUri, fileData);
 
       if (result.success) {
+        blobMap.set(fileName, blobUri);
         console.log(`  ✓ ${fileName}`);
+        console.log(`  URI: ${blobUri}`);
         uploadCount++;
+      } else if (result.error?.includes("exists")) {
+        blobMap.set(fileName, blobUri);
+        console.log(`  ○ ${fileName} [already exists]`);
+        console.log(`  URI: ${blobUri}`);
+        skippedCount++;
       } else {
         console.log(`  ✗ ${fileName}: ${result.error}`);
         errorCount++;
@@ -818,11 +788,13 @@ export async function upload(args: string[], verbose = false): Promise<void> {
     }
 
     console.log("");
-    console.log(`Upload complete: ${uploadCount} files uploaded, ${errorCount} errors`);
+    console.log(`Upload complete: ${uploadCount} new, ${skippedCount} deduplicated, ${errorCount} errors`);
 
     if (errorCount > 0) {
       Deno.exit(1);
     }
+
+    return blobMap;
   } finally {
     await closeClient(logger);
   }
@@ -899,5 +871,177 @@ export async function serverKeysEnv(): Promise<void> {
     console.log("✓ Wrote .env.keys (copy values into your .env and delete the file)");
   } catch (_) {
     // ignore write error
+  }
+}
+
+/**
+ * Handle `bnd deploy` command - deploy a directory with blobs + authenticated links
+ *
+ * Usage:
+ *   bnd deploy <dir> <target>
+ *
+ * Example:
+ *   bnd deploy ./dist mutable://accounts/:key/mysite
+ *
+ * This command:
+ * 1. Uploads all files as blobs to blob://open/sha256:<hash>
+ * 2. Creates authenticated links at link://accounts/:key/<site>/v<timestamp>/<path>
+ * 3. Updates the mutable pointer to point to the new version base
+ */
+export async function deploy(args: string[], verbose = false): Promise<void> {
+  const logger = createLogger(verbose);
+
+  const dirPath = args[0];
+  const targetUri = args[1];
+
+  if (!dirPath || !targetUri) {
+    throw new Error(
+      "Usage: bnd deploy <dir> <target>\n" +
+      "Example: bnd deploy ./dist mutable://accounts/:key/mysite"
+    );
+  }
+
+  // Validate target is mutable://accounts/:key/...
+  if (!targetUri.startsWith("mutable://accounts/")) {
+    throw new Error(
+      "Deploy target must be mutable://accounts/:key/<site>\n" +
+      "Example: bnd deploy ./dist mutable://accounts/:key/mysite"
+    );
+  }
+
+  try {
+    const client = await getClient(logger);
+    const accountKey = await loadAccountKey();
+
+    // Replace :key placeholder
+    const resolvedTarget = replaceKeyPlaceholder(targetUri, accountKey.publicKeyHex);
+    logger?.info(`Target: ${resolvedTarget}`);
+
+    // Extract site path from target (everything after accounts/:key/)
+    const targetMatch = resolvedTarget.match(/^mutable:\/\/accounts\/([^/]+)\/(.+)$/);
+    if (!targetMatch) {
+      throw new Error("Invalid target format. Expected: mutable://accounts/:key/<site>");
+    }
+    const [, pubkey, sitePath] = targetMatch;
+
+    // Generate version timestamp
+    const version = `v${Date.now()}`;
+    const versionBase = `link://accounts/${pubkey}/${sitePath}/${version}/`;
+
+    console.log(`Deploying ${dirPath} to ${resolvedTarget}`);
+    console.log(`Version: ${version}`);
+    console.log("");
+
+    // Verify directory exists
+    const stat = await Deno.stat(dirPath);
+    if (!stat.isDirectory) {
+      throw new Error(`${dirPath} is not a directory`);
+    }
+
+    // Phase 1: Upload all files as blobs
+    console.log("Phase 1: Uploading blobs...");
+    const blobMap = new Map<string, string>();
+    let blobNewCount = 0;
+    let blobExistsCount = 0;
+
+    for await (const entry of walkDirectory(dirPath)) {
+      const relativePath = entry.path.substring(dirPath.length).replace(/^\//, "");
+
+      try {
+        const fileData = await Deno.readFile(entry.path);
+        const hash = await computeSha256(fileData);
+        const blobUri = `blob://open/sha256:${hash}`;
+
+        const result = await client.write(blobUri, fileData);
+
+        if (result.success) {
+          blobMap.set(relativePath, blobUri);
+          console.log(`  ✓ ${relativePath} [new]`);
+          blobNewCount++;
+        } else if (result.error?.includes("exists") || result.error?.includes("immutable")) {
+          // Blob already exists - that's fine, it's content-addressed
+          blobMap.set(relativePath, blobUri);
+          console.log(`  ○ ${relativePath} [dedup]`);
+          blobExistsCount++;
+        } else {
+          throw new Error(result.error || "Blob write failed");
+        }
+      } catch (error) {
+        console.log(`  ✗ ${relativePath}: ${error instanceof Error ? error.message : String(error)}`);
+        throw error;
+      }
+    }
+
+    console.log(`  Blobs: ${blobNewCount} new, ${blobExistsCount} deduplicated`);
+    console.log("");
+
+    // Phase 2: Create authenticated links
+    console.log("Phase 2: Creating links...");
+    let linkCount = 0;
+
+    for (const [relativePath, blobUri] of blobMap) {
+      const linkUri = `${versionBase}${relativePath}`;
+
+      // Create signed link payload
+      const signature = await signPayload(accountKey.privateKeyPem, blobUri);
+      const signedLink = {
+        auth: [
+          {
+            pubkey: accountKey.publicKeyHex,
+            signature: signature,
+          },
+        ],
+        payload: blobUri,
+      };
+
+      const result = await client.write(linkUri, signedLink);
+
+      if (result.success) {
+        logger?.info(`  ✓ ${linkUri} -> ${blobUri}`);
+        linkCount++;
+      } else {
+        console.log(`  ✗ ${relativePath}: ${result.error}`);
+        throw new Error(`Failed to create link for ${relativePath}`);
+      }
+    }
+
+    console.log(`  Created ${linkCount} links at ${versionBase}`);
+    console.log("");
+
+    // Phase 3: Update mutable pointer
+    console.log("Phase 3: Updating pointer...");
+
+    // The mutable pointer stores the version base (a link:// URI that paths get appended to)
+    const signature = await signPayload(accountKey.privateKeyPem, versionBase);
+    const signedPointer = {
+      auth: [
+        {
+          pubkey: accountKey.publicKeyHex,
+          signature: signature,
+        },
+      ],
+      payload: versionBase,
+    };
+
+    const pointerResult = await client.write(resolvedTarget, signedPointer);
+
+    if (!pointerResult.success) {
+      throw new Error(`Failed to update pointer: ${pointerResult.error}`);
+    }
+
+    console.log(`  ✓ ${resolvedTarget} -> ${versionBase}`);
+    console.log("");
+
+    // Summary
+    console.log("═".repeat(60));
+    console.log("Deploy complete!");
+    console.log(`  Files: ${blobMap.size}`);
+    console.log(`  Blobs: ${blobNewCount} new, ${blobExistsCount} deduplicated`);
+    console.log(`  Links: ${linkCount}`);
+    console.log(`  Version: ${version}`);
+    console.log(`  Pointer: ${resolvedTarget}`);
+    console.log("═".repeat(60));
+  } finally {
+    await closeClient(logger);
   }
 }

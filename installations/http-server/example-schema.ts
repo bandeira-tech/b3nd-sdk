@@ -113,7 +113,7 @@ const schema: Schema = {
     }
   },
 
-  // Authenticated links (value is just a string URI)
+  // Authenticated links (value is auth-wrapped URI)
   "link://accounts": async ({ uri, value }) => {
     try {
       // 1. Verify signature
@@ -125,8 +125,11 @@ const schema: Schema = {
         return { valid: false, error: "Signature verification failed" };
       }
 
-      // 2. Validate link value (must be a string URI)
-      return validateLinkValue(value);
+      // 2. Extract payload and validate as link URI
+      const payload = typeof value === "object" && value && "payload" in value
+        ? (value as { payload: unknown }).payload
+        : value;
+      return validateLinkValue(payload);
     } catch (error) {
       return {
         valid: false,

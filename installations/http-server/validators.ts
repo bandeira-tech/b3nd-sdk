@@ -4,12 +4,20 @@
 
 /**
  * Compute SHA256 hash of a value
- * @param value - The value to hash (will be JSON.stringify'd)
+ * @param value - The value to hash (binary or JSON-stringified)
  * @returns Hex-encoded SHA256 hash
  */
 export async function computeSha256(value: unknown): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(JSON.stringify(value));
+  let data: Uint8Array;
+
+  if (value instanceof Uint8Array) {
+    // Binary data - hash raw bytes
+    data = value;
+  } else {
+    // Non-binary - hash JSON representation
+    const encoder = new TextEncoder();
+    data = encoder.encode(JSON.stringify(value));
+  }
 
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = new Uint8Array(hashBuffer);
