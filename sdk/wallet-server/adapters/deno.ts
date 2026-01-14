@@ -4,9 +4,8 @@
  * Provides Deno-specific implementations of the DI interfaces.
  */
 
-/// <reference lib="deno.ns" />
-
 import type { FileStorage, Environment } from "../interfaces.ts";
+import type { ServerKeys, WalletServerConfig } from "../types.ts";
 
 /**
  * Deno file storage implementation
@@ -43,7 +42,7 @@ export class DenoEnvironment implements Environment {
 /**
  * Load server keys from Deno environment variables
  */
-export function loadServerKeysFromEnv(env: Environment = new DenoEnvironment()) {
+export function loadServerKeysFromEnv(env: Environment = new DenoEnvironment()): ServerKeys {
   const identityPrivateKeyPem = env.get("SERVER_IDENTITY_PRIVATE_KEY_PEM");
   const identityPublicKeyHex = env.get("SERVER_IDENTITY_PUBLIC_KEY_HEX");
   const encryptionPrivateKeyPem = env.get("SERVER_ENCRYPTION_PRIVATE_KEY_PEM");
@@ -77,7 +76,7 @@ export function loadServerKeysFromEnv(env: Environment = new DenoEnvironment()) 
 /**
  * Load wallet server config from Deno environment variables
  */
-export function loadConfigFromEnv(env: Environment = new DenoEnvironment()) {
+export function loadConfigFromEnv(env: Environment = new DenoEnvironment()): WalletServerConfig {
   const jwtSecret = env.get("JWT_SECRET");
   if (!jwtSecret || jwtSecret.length < 32) {
     throw new Error("JWT_SECRET must be at least 32 characters");
