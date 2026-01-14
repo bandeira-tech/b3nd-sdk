@@ -372,6 +372,20 @@ export class ClientError extends Error {
 }
 
 /**
+ * Link value - just a string URI pointing to another resource
+ */
+export type LinkValue = string;
+
+/**
+ * Blob metadata (optional wrapper for blob data)
+ */
+export interface BlobData<T = unknown> {
+  type?: string;
+  encoding?: string;
+  data: T;
+}
+
+/**
  * WebSocket protocol types for request/response communication
  */
 export interface WebSocketRequest {
