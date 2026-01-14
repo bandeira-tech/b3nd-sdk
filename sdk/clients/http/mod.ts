@@ -85,9 +85,17 @@ export class HttpClient implements NodeProtocolInterface {
 
       const requestPath = `/api/v1/write/${protocol}/${domain}${path}`;
 
+      // Detect binary data and send as raw bytes
+      const isBinary = value instanceof Uint8Array;
+      const body = isBinary ? (value as unknown as BodyInit) : JSON.stringify({ value });
+      const contentType = isBinary ? "application/octet-stream" : "application/json";
+
       const response = await this.request(requestPath, {
         method: "POST",
-        body: JSON.stringify({ value }),
+        body,
+        headers: {
+          "Content-Type": contentType,
+        },
       });
 
       const result = await response.json();
@@ -131,6 +139,25 @@ export class HttpClient implements NodeProtocolInterface {
         return {
           success: false,
           error: `Read failed: ${response.statusText}`,
+        };
+      }
+
+      // Check Content-Type to determine if response is binary
+      const contentType = response.headers.get("Content-Type") || "";
+      const isBinary = contentType === "application/octet-stream" ||
+        contentType.startsWith("image/") ||
+        contentType.startsWith("audio/") ||
+        contentType.startsWith("video/") ||
+        contentType.startsWith("font/") ||
+        contentType === "application/wasm";
+
+      if (isBinary) {
+        // Return binary data as Uint8Array
+        const buffer = await response.arrayBuffer();
+        const data = new Uint8Array(buffer) as unknown as T;
+        return {
+          success: true,
+          record: { data, ts: Date.now() },
         };
       }
 

@@ -9,6 +9,9 @@ import { MemoryClient } from "../clients/memory/mod.ts";
 import { runSharedSuite } from "./shared-suite.ts";
 
 // Run shared suite with MemoryClient factory functions
+// Note: MemoryClient stores data as-is (doesn't distinguish binary from JSON),
+// so binary tests are skipped as the HTTP transport layer is where binary
+// Content-Type detection happens.
 runSharedSuite("MemoryClient", {
   happy: () =>
     new MemoryClient({
@@ -29,4 +32,7 @@ runSharedSuite("MemoryClient", {
         },
       },
     }),
+
+  // MemoryClient doesn't have HTTP-level binary Content-Type handling
+  supportsBinary: false,
 });

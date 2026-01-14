@@ -5,13 +5,68 @@ import type {
   Schema,
 } from "../src/types.ts";
 
+/**
+ * MIME type mapping from file extension
+ */
+const MIME_TYPES: Record<string, string> = {
+  // Text
+  html: "text/html",
+  htm: "text/html",
+  css: "text/css",
+  js: "application/javascript",
+  mjs: "application/javascript",
+  json: "application/json",
+  xml: "application/xml",
+  txt: "text/plain",
+  md: "text/markdown",
+  csv: "text/csv",
+  // Images
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  ico: "image/x-icon",
+  avif: "image/avif",
+  // Fonts
+  woff: "font/woff",
+  woff2: "font/woff2",
+  ttf: "font/ttf",
+  otf: "font/otf",
+  eot: "application/vnd.ms-fontobject",
+  // Audio/Video
+  mp3: "audio/mpeg",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  ogg: "audio/ogg",
+  wav: "audio/wav",
+  // Other
+  wasm: "application/wasm",
+  pdf: "application/pdf",
+  zip: "application/zip",
+  gz: "application/gzip",
+  tar: "application/x-tar",
+};
+
+/**
+ * Get MIME type from URI based on file extension
+ */
+function getMimeTypeFromUri(uri: string): string {
+  const path = uri.split("://").pop() || uri;
+  const ext = path.split(".").pop()?.toLowerCase();
+  return MIME_TYPES[ext || ""] || "application/octet-stream";
+}
+
 // Define a minimal interface that matches the subset of Hono we use.
 // This removes the hard dependency on the 'hono' package from the SDK,
 // while preserving the same usage pattern (httpServer(app)).
 export interface MinimalRequest {
   param: (name: string) => string;
   query: (name: string) => string | undefined | null;
+  header: (name: string) => string | undefined | null;
   url: string;
+  arrayBuffer: () => Promise<ArrayBuffer>;
 }
 
 export interface MinimalContext {
@@ -93,13 +148,27 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   app.post("/api/v1/write/:protocol/:domain/*", async (c: MinimalContext) => {
     if (!backend || !schema) return c.json({ success: false, error: "handler not attached" }, 501);
     const uri = extractUriFromParams(c);
-    const body = await (async () => {
-      try { return await (c as any).req.json?.() ?? {}; } catch { return {}; }
-    })();
+    const contentType = (c as any).req.header?.("content-type") || "application/json";
+
+    // Determine value based on content type
+    let value: unknown;
+    if (contentType === "application/octet-stream" || contentType.startsWith("image/") ||
+        contentType.startsWith("audio/") || contentType.startsWith("video/") ||
+        contentType === "application/wasm" || contentType.startsWith("font/")) {
+      // Binary content - read as raw bytes
+      const buffer = await (c as any).req.arrayBuffer();
+      value = new Uint8Array(buffer);
+    } else {
+      // JSON content (existing behavior)
+      const body = await (async () => {
+        try { return await (c as any).req.json?.() ?? {}; } catch { return {}; }
+      })();
+      value = (body as any).value;
+    }
+
     const programKey = extractProgramKey(uri);
     const validator = programKey ? (schema as any)[programKey] : undefined;
     if (!validator) return c.json({ success: false, error: `No schema defined for program key: ${programKey}` }, 400);
-    const value = (body as any).value;
     const validation = await validator({ uri, value, read: backend.read.read.bind(backend.read) });
     if (!validation.valid) return c.json({ success: false, error: validation.error || "Validation failed" }, 400);
     const res = await backend.write.write(uri, value);
@@ -110,7 +179,25 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
     if (!backend) return c.json({ error: "handler not attached" }, 501);
     const uri = extractUriFromParams(c);
     const res = await backend.read.read(uri);
-    return c.json(res.record ?? { error: res.error }, res.success ? 200 : 404);
+
+    if (!res.success || !res.record) {
+      return c.json({ error: res.error || "Not found" }, 404);
+    }
+
+    // If data is binary (Uint8Array), return raw bytes
+    if (res.record.data instanceof Uint8Array) {
+      const mimeType = getMimeTypeFromUri(uri);
+      return new Response(res.record.data as unknown as BodyInit, {
+        status: 200,
+        headers: {
+          "Content-Type": mimeType,
+          "Content-Length": res.record.data.length.toString(),
+        },
+      });
+    }
+
+    // Otherwise return JSON (existing behavior)
+    return c.json(res.record, 200);
   });
 
   app.get("/api/v1/list/:protocol/:domain/*", async (c: MinimalContext) => {

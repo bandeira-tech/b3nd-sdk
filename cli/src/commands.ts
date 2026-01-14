@@ -616,6 +616,8 @@ COMMANDS:
   conf encrypt <path>      Set the encryption key path
   write <uri> <data>       Write data to a URI
   write -f <filepath>      Write data from a JSON file
+  upload <file> <uri>      Upload a file as binary
+  upload -r <dir> <uri>    Upload directory recursively
   read <uri>               Read data from a URI
   list <uri>               List items at a URI
   config                   Show current configuration
@@ -648,6 +650,10 @@ EXAMPLES:
   bnd write tmp://some/path "this is a nice little payload"
   bnd read tmp://some/path
 
+  # Upload files (binary)
+  bnd upload ./image.png immutable://open/files/
+  bnd upload -r ./build immutable://accounts/:key/mysite/
+
   # Account-based writes with automatic signing
   bnd write mutable://accounts/:key/profile '{"name":"Alice"}'
   bnd read mutable://accounts/:key/profile
@@ -664,6 +670,191 @@ DEBUGGING:
 DOCUMENTATION:
   https://github.com/bandeira-tech/b3nd-sdk
 `);
+}
+
+/**
+ * Handle `bnd upload` command - upload files/directories to B3nd
+ *
+ * Usage:
+ *   bnd upload <file> <uri>       Upload a single file
+ *   bnd upload -r <dir> <uri>     Upload directory recursively
+ */
+export async function upload(args: string[], verbose = false): Promise<void> {
+  const logger = createLogger(verbose);
+
+  // Parse -r flag for recursive upload
+  const recursive = args[0] === "-r";
+  const pathArg = recursive ? args[1] : args[0];
+  const uriArg = recursive ? args[2] : args[1];
+
+  if (!pathArg || !uriArg) {
+    throw new Error(
+      "Usage: bnd upload <file> <uri> OR bnd upload -r <dir> <uri>"
+    );
+  }
+
+  try {
+    const config = await loadConfig();
+    const client = await getClient(logger);
+
+    // Handle :key placeholder in URI
+    let targetUri = uriArg;
+    let accountKey: { privateKeyPem: string; publicKeyHex: string } | null = null;
+
+    if (targetUri.includes(":key")) {
+      accountKey = await loadAccountKey();
+      targetUri = replaceKeyPlaceholder(targetUri, accountKey.publicKeyHex);
+      logger?.info(`Replaced :key with public key`);
+    }
+
+    // Normalize target URI (ensure trailing slash for directories)
+    const normalizedTarget = targetUri.endsWith("/") ? targetUri : `${targetUri}/`;
+
+    // Get file info
+    const stat = await Deno.stat(pathArg);
+
+    if (stat.isDirectory && !recursive) {
+      throw new Error("Directory requires -r flag. Usage: bnd upload -r <dir> <uri>");
+    }
+
+    if (!stat.isDirectory && recursive) {
+      throw new Error("Cannot use -r flag with a file");
+    }
+
+    let uploadCount = 0;
+    let errorCount = 0;
+
+    if (stat.isDirectory) {
+      // Recursive directory upload
+      console.log(`Uploading directory: ${pathArg}`);
+      console.log(`Target: ${normalizedTarget}`);
+      console.log("");
+
+      for await (const entry of walkDirectory(pathArg)) {
+        // Get relative path from base directory
+        const relativePath = entry.path.substring(pathArg.length).replace(/^\//, "");
+        const fileUri = `${normalizedTarget}${relativePath}`;
+
+        try {
+          const fileData = await Deno.readFile(entry.path);
+          logger?.info(`Read ${entry.path} (${fileData.length} bytes)`);
+
+          // Prepare data for upload
+          let uploadData: unknown = fileData;
+
+          // For accounts domain, wrap in auth structure
+          const { domain } = parseUri(fileUri);
+          if (domain.includes("accounts") && accountKey) {
+            // Binary data needs base64 encoding for signing
+            const signature = await signBinaryPayload(accountKey.privateKeyPem, fileData);
+            logger?.info(`Signed binary payload with account key`);
+
+            uploadData = {
+              auth: [
+                {
+                  pubkey: accountKey.publicKeyHex,
+                  signature: signature,
+                },
+              ],
+              payload: fileData,
+            };
+          }
+
+          const result = await client.write(fileUri, uploadData);
+
+          if (result.success) {
+            console.log(`  ✓ ${relativePath}`);
+            uploadCount++;
+          } else {
+            console.log(`  ✗ ${relativePath}: ${result.error}`);
+            errorCount++;
+          }
+        } catch (error) {
+          console.log(`  ✗ ${relativePath}: ${error instanceof Error ? error.message : String(error)}`);
+          errorCount++;
+        }
+      }
+    } else {
+      // Single file upload
+      const fileName = pathArg.split("/").pop() || pathArg;
+      const fileUri = `${normalizedTarget}${fileName}`;
+
+      console.log(`Uploading file: ${pathArg}`);
+      console.log(`Target: ${fileUri}`);
+      console.log("");
+
+      const fileData = await Deno.readFile(pathArg);
+      logger?.info(`Read ${pathArg} (${fileData.length} bytes)`);
+
+      // Prepare data for upload
+      let uploadData: unknown = fileData;
+
+      // For accounts domain, wrap in auth structure
+      const { domain } = parseUri(fileUri);
+      if (domain.includes("accounts") && accountKey) {
+        const signature = await signBinaryPayload(accountKey.privateKeyPem, fileData);
+        logger?.info(`Signed binary payload with account key`);
+
+        uploadData = {
+          auth: [
+            {
+              pubkey: accountKey.publicKeyHex,
+              signature: signature,
+            },
+          ],
+          payload: fileData,
+        };
+      }
+
+      const result = await client.write(fileUri, uploadData);
+
+      if (result.success) {
+        console.log(`  ✓ ${fileName}`);
+        uploadCount++;
+      } else {
+        console.log(`  ✗ ${fileName}: ${result.error}`);
+        errorCount++;
+      }
+    }
+
+    console.log("");
+    console.log(`Upload complete: ${uploadCount} files uploaded, ${errorCount} errors`);
+
+    if (errorCount > 0) {
+      Deno.exit(1);
+    }
+  } finally {
+    await closeClient(logger);
+  }
+}
+
+/**
+ * Walk directory recursively, yielding file entries
+ */
+async function* walkDirectory(dir: string): AsyncGenerator<{ path: string }> {
+  for await (const entry of Deno.readDir(dir)) {
+    const fullPath = `${dir}/${entry.name}`;
+    if (entry.isDirectory) {
+      yield* walkDirectory(fullPath);
+    } else if (entry.isFile) {
+      yield { path: fullPath };
+    }
+  }
+}
+
+/**
+ * Sign binary payload with account private key
+ */
+async function signBinaryPayload(privateKeyPem: string, data: Uint8Array): Promise<string> {
+  try {
+    const privateKey = await pemToCryptoKey(privateKeyPem, "Ed25519");
+    const signatureBytes = await crypto.subtle.sign("Ed25519", privateKey, data);
+    return encodeHex(new Uint8Array(signatureBytes));
+  } catch (error) {
+    throw new Error(
+      `Failed to sign payload: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 /**

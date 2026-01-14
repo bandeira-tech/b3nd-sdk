@@ -131,12 +131,29 @@ export class MockHttpServer {
     const path = "/" + parts.slice(2).join("/");
     const uri = `${protocol}://${domain}${path}`;
 
-    // Get value from request body
-    const body: any = await req.json();
+    // Check Content-Type to determine if binary
+    const contentType = req.headers.get("content-type") || "application/json";
+    const isBinary = contentType === "application/octet-stream" ||
+      contentType.startsWith("image/") ||
+      contentType.startsWith("audio/") ||
+      contentType.startsWith("video/") ||
+      contentType.startsWith("font/") ||
+      contentType === "application/wasm";
+
+    let value: unknown;
+    if (isBinary) {
+      // Read as raw binary
+      const buffer = await req.arrayBuffer();
+      value = new Uint8Array(buffer);
+    } else {
+      // Get value from request body (JSON)
+      const body: any = await req.json();
+      value = body.value;
+    }
 
     const record: PersistenceRecord<unknown> = {
       ts: Date.now(),
-      data: body.value,
+      data: value,
     };
 
     this.storage.set(uri, record);
@@ -161,7 +178,49 @@ export class MockHttpServer {
       return new Response("Not found", { status: 404 });
     }
 
+    // If data is binary (Uint8Array), return raw bytes with MIME type from URI
+    if (record.data instanceof Uint8Array) {
+      const mimeType = this.getMimeTypeFromUri(uri);
+      return new Response(record.data as unknown as BodyInit, {
+        status: 200,
+        headers: {
+          "Content-Type": mimeType,
+          "Content-Length": record.data.length.toString(),
+        },
+      });
+    }
+
     return Response.json(record);
+  }
+
+  /**
+   * Get MIME type from URI based on file extension
+   */
+  private getMimeTypeFromUri(uri: string): string {
+    const MIME_TYPES: Record<string, string> = {
+      html: "text/html",
+      css: "text/css",
+      js: "application/javascript",
+      json: "application/json",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      webp: "image/webp",
+      svg: "image/svg+xml",
+      ico: "image/x-icon",
+      woff: "font/woff",
+      woff2: "font/woff2",
+      ttf: "font/ttf",
+      mp3: "audio/mpeg",
+      mp4: "video/mp4",
+      wasm: "application/wasm",
+      pdf: "application/pdf",
+    };
+
+    const path = uri.split("://").pop() || uri;
+    const ext = path.split(".").pop()?.toLowerCase();
+    return MIME_TYPES[ext || ""] || "application/octet-stream";
   }
 
   private handleList(url: URL): Response {

@@ -7,6 +7,7 @@ import {
   confAccount,
   confEncrypt,
   write,
+  upload,
   read,
   list,
   showConfig,
@@ -99,6 +100,11 @@ async function main(): Promise<void> {
 
       case "write": {
         await write(cleanArgs.slice(1), verbose);
+        break;
+      }
+
+      case "upload": {
+        await upload(cleanArgs.slice(1), verbose);
         break;
       }
 

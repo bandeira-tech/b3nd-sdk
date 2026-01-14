@@ -29,6 +29,9 @@ export interface TestClientFactories {
   validationError?: () =>
     | NodeProtocolInterface
     | Promise<NodeProtocolInterface>;
+
+  /** Whether the client supports binary (Uint8Array) data. Defaults to true. */
+  supportsBinary?: boolean;
 }
 
 /**
@@ -229,6 +232,131 @@ export function runSharedSuite(
     await client.cleanup();
     assertEquals(true, true);
   });
+
+  // Binary data tests (only if client supports binary)
+  // Default to true for backwards compatibility
+  const supportsBinary = factories.supportsBinary !== false;
+
+  if (supportsBinary) {
+    Deno.test({
+      name: `${suiteName} - write and read binary data`,
+      sanitizeOps: false,
+      sanitizeResources: false,
+      fn: async () => {
+        const client = await Promise.resolve(factories.happy());
+
+        // Create binary test data (simulating a small PNG header)
+        const binaryData = new Uint8Array([
+          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+          0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+        ]);
+
+        const writeResult = await client.write(
+          "store://files/test-image.png",
+          binaryData,
+        );
+
+        assertEquals(writeResult.success, true, "Binary write should succeed");
+
+        const readResult = await client.read<Uint8Array>(
+          "store://files/test-image.png",
+        );
+
+        assertEquals(readResult.success, true, "Binary read should succeed");
+        assertEquals(
+          readResult.record?.data instanceof Uint8Array,
+          true,
+          "Read data should be Uint8Array",
+        );
+
+        // Verify binary data integrity
+        const readData = readResult.record?.data as Uint8Array;
+        assertEquals(
+          readData.length,
+          binaryData.length,
+          "Binary data length should match",
+        );
+
+        for (let i = 0; i < binaryData.length; i++) {
+          assertEquals(
+            readData[i],
+            binaryData[i],
+            `Byte at position ${i} should match`,
+          );
+        }
+
+        await client.cleanup();
+      },
+    });
+
+    Deno.test({
+      name: `${suiteName} - write and read large binary data`,
+      sanitizeOps: false,
+      sanitizeResources: false,
+      fn: async () => {
+        const client = await Promise.resolve(factories.happy());
+
+        // Create larger binary data (1KB of random-ish bytes)
+        const size = 1024;
+        const binaryData = new Uint8Array(size);
+        for (let i = 0; i < size; i++) {
+          binaryData[i] = i % 256;
+        }
+
+        const writeResult = await client.write(
+          "store://files/large-file.bin",
+          binaryData,
+        );
+
+        assertEquals(writeResult.success, true, "Large binary write should succeed");
+
+        const readResult = await client.read<Uint8Array>(
+          "store://files/large-file.bin",
+        );
+
+        assertEquals(readResult.success, true, "Large binary read should succeed");
+
+        const readData = readResult.record?.data as Uint8Array;
+        assertEquals(
+          readData.length,
+          binaryData.length,
+          "Large binary data length should match",
+        );
+
+        // Verify data integrity
+        let matches = true;
+        for (let i = 0; i < binaryData.length && matches; i++) {
+          if (readData[i] !== binaryData[i]) {
+            matches = false;
+          }
+        }
+        assertEquals(matches, true, "All bytes should match");
+
+        await client.cleanup();
+      },
+    });
+
+    Deno.test({
+      name: `${suiteName} - delete binary data`,
+      sanitizeOps: false,
+      sanitizeResources: false,
+      fn: async () => {
+        const client = await Promise.resolve(factories.happy());
+
+        const binaryData = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+        await client.write("store://files/temp.bin", binaryData);
+
+        const deleteResult = await client.delete("store://files/temp.bin");
+        assertEquals(deleteResult.success, true, "Binary delete should succeed");
+
+        const readResult = await client.read("store://files/temp.bin");
+        assertEquals(readResult.success, false, "Read after delete should fail");
+
+        await client.cleanup();
+      },
+    });
+  }
 
   // Validation error tests (if validationError factory provided)
   if (factories.validationError) {
