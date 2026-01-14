@@ -26,10 +26,10 @@ const baseSchema: Schema = {
   "test://signed-encrypted-test": async ({ uri, value }) => ({ valid: true }),
 
   // Notes protocol (for fixtures)
-  "notes://nataliarsand": async ({ uri, value }) => ({ valid: true }),
+  "notes://alicedoe": async ({ uri, value }) => ({ valid: true }),
 
   // Users protocol (for fixture profile)
-  "users://nataliarsand": async ({ uri, value }) => ({ valid: true }),
+  "users://alicedoe": async ({ uri, value }) => ({ valid: true }),
 
   // Example protocol
   "example://demo": async ({ uri, value }) => ({ valid: true }),
