@@ -1,25 +1,17 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@bandeira-tech/b3nd-sdk@0.4": "0.4.0",
     "jsr:@std/encoding@1": "1.0.10",
-    "npm:hono@*": "4.9.9",
-    "npm:hono@^4.6.0": "4.9.9"
+    "npm:hono@*": "4.11.3"
   },
   "jsr": {
-    "@bandeira-tech/b3nd-sdk@0.4.0": {
-      "integrity": "02b865eaa814c12bcee0cc8289dfe0014abe9c1edb02e853bfedce899f53f312",
-      "dependencies": [
-        "npm:hono@^4.6.0"
-      ]
-    },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     }
   },
   "npm": {
-    "hono@4.9.9": {
-      "integrity": "sha512-Hxw4wT6zjJGZJdkJzAx9PyBdf7ZpxaTSA0NfxqjLghwMrLBX8p33hJBzoETRakF3UJu6OdNQBZAlNSkGqKFukw=="
+    "hono@4.11.3": {
+      "integrity": "sha512-PmQi306+M/ct/m5s66Hrg+adPnkD5jiO6IjA7WhWw0gSBSo1EcRegwuI1deZ+wd5pzCGynCcn2DprnE4/yEV4w=="
     }
   },
   "remote": {
@@ -121,7 +113,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@bandeira-tech/b3nd-sdk@0.4",
+      "jsr:@bandeira-tech/b3nd-sdk@0.5",
       "npm:hono@*"
     ]
   }

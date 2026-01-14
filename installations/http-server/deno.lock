@@ -1,18 +1,14 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@bandeira-tech/b3nd-sdk@0.4": "0.4.0",
+    "jsr:@bandeira-tech/b3nd-sdk@0.5": "0.5.0",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
-    "npm:hono@*": "4.9.9",
-    "npm:hono@^4.6.0": "4.9.9",
+    "npm:hono@*": "4.11.3",
     "npm:mongodb@*": "7.0.0"
   },
   "jsr": {
-    "@bandeira-tech/b3nd-sdk@0.4.0": {
-      "integrity": "02b865eaa814c12bcee0cc8289dfe0014abe9c1edb02e853bfedce899f53f312",
-      "dependencies": [
-        "npm:hono@^4.6.0"
-      ]
+    "@bandeira-tech/b3nd-sdk@0.5.0": {
+      "integrity": "9afbb1d2d02ad115b261482dd8299113a101ccc65dd84354a6f95035aa7ff2d9"
     },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
@@ -37,8 +33,8 @@
     "bson@7.0.0": {
       "integrity": "sha512-Kwc6Wh4lQ5OmkqqKhYGKIuELXl+EPYSCObVE6bWsp1T/cGkOCBN0I8wF/T44BiuhHyNi1mmKVPXk60d41xZ7kw=="
     },
-    "hono@4.9.9": {
-      "integrity": "sha512-Hxw4wT6zjJGZJdkJzAx9PyBdf7ZpxaTSA0NfxqjLghwMrLBX8p33hJBzoETRakF3UJu6OdNQBZAlNSkGqKFukw=="
+    "hono@4.11.3": {
+      "integrity": "sha512-PmQi306+M/ct/m5s66Hrg+adPnkD5jiO6IjA7WhWw0gSBSo1EcRegwuI1deZ+wd5pzCGynCcn2DprnE4/yEV4w=="
     },
     "memory-pager@1.5.0": {
       "integrity": "sha512-ZS4Bp4r/Zoeq6+NLJpP+0Zzm0pR8whtGPf1XExKLJBAczGMnSi3It14OiNCStjQjM6NU1okjQGSxgEZN8eBYKg=="
@@ -147,12 +143,13 @@
     "https://deno.land/x/postgres@v0.17.0/query/oid.ts": "8c33e1325f34e4ca9f11a48b8066c8cfcace5f64bc1eb17ad7247af4936999e1",
     "https://deno.land/x/postgres@v0.17.0/query/query.ts": "edb473cbcfeff2ee1c631272afb25d079d06b66b5853f42492725b03ffa742b6",
     "https://deno.land/x/postgres@v0.17.0/query/transaction.ts": "8e75c3ce0aca97da7fe126e68f8e6c08d640e5c8d2016e62cee5c254bebe7fe8",
+    "https://deno.land/x/postgres@v0.17.0/query/types.ts": "a6dc8024867fe7ccb0ba4b4fa403ee5d474c7742174128c8e689c3b5e5eaa933",
     "https://deno.land/x/postgres@v0.17.0/utils/deferred.ts": "dd94f2a57355355c47812b061a51b55263f72d24e9cb3fdb474c7519f4d61083",
     "https://deno.land/x/postgres@v0.17.0/utils/utils.ts": "19c3527ddd5c6c4c49ae36397120274c7f41f9d3cbf479cb36065d23329e9f90"
   },
   "workspace": {
     "dependencies": [
-      "jsr:@bandeira-tech/b3nd-sdk@0.4",
+      "jsr:@bandeira-tech/b3nd-sdk@0.5",
       "jsr:@std/encoding@^1.0.10",
       "npm:hono@*"
     ]
