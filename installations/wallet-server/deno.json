@@ -8,9 +8,11 @@
     "@std/path": "https://deno.land/std@0.208.0/path/mod.ts",
     "@std/fs": "https://deno.land/std@0.208.0/fs/mod.ts",
     "@std/encoding/hex": "https://deno.land/std@0.208.0/encoding/hex.ts",
-    "@b3nd/sdk": "jsr:@bandeira-tech/b3nd-sdk@^0.5.0",
-    "@b3nd/sdk/types": "jsr:@bandeira-tech/b3nd-sdk@^0.5.0/types",
-    "@b3nd/sdk/encrypt": "jsr:@bandeira-tech/b3nd-sdk@^0.5.0/encrypt"
+    "@b3nd/sdk": "jsr:@bandeira-tech/b3nd-sdk@^0.5.1",
+    "@b3nd/sdk/types": "jsr:@bandeira-tech/b3nd-sdk@^0.5.1/types",
+    "@b3nd/sdk/encrypt": "jsr:@bandeira-tech/b3nd-sdk@^0.5.1/encrypt",
+    "@b3nd/sdk/wallet-server": "jsr:@bandeira-tech/b3nd-sdk@^0.5.1/wallet-server",
+    "@b3nd/sdk/wallet-server/adapters/deno": "jsr:@bandeira-tech/b3nd-sdk@^0.5.1/wallet-server/adapters/deno"
   },
   "tasks": {
     "dev": "deno run --allow-net --allow-read --allow-write --allow-env --env-file --watch src/mod.ts",

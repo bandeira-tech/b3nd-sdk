@@ -7,12 +7,12 @@
 
 /// <reference lib="deno.ns" />
 
-import { WalletServerCore, getSupportedCredentialTypes } from "../../../sdk/wallet-server/mod.ts";
+import { WalletServerCore, getSupportedCredentialTypes } from "@b3nd/sdk/wallet-server";
 import {
   loadConfigFromEnv,
   DenoFileStorage,
   DenoEnvironment,
-} from "../../../sdk/wallet-server/adapters/deno.ts";
+} from "@b3nd/sdk/wallet-server/adapters/deno";
 
 /**
  * Main entry point
