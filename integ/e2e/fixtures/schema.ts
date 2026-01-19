@@ -4,7 +4,7 @@ import type {
 } from "../../../persistence/mod.ts";
 
 export const fixtureSchema: Record<string, PersistenceValidationFn<unknown>> = {
-  "users://nataliarsand": async (
+  "users://alicedoe": async (
     write: PersistenceWrite<unknown>,
   ): Promise<boolean> => {
     const { value } = write;
@@ -12,7 +12,7 @@ export const fixtureSchema: Record<string, PersistenceValidationFn<unknown>> = {
     const obj = value as Record<string, unknown>;
     return typeof obj.name === "string" && typeof obj.email === "string";
   },
-  "notes://nataliarsand": async (
+  "notes://alicedoe": async (
     write: PersistenceWrite<unknown>,
   ): Promise<boolean> => {
     const { value } = write;
