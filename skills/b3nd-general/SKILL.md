@@ -47,6 +47,9 @@ const client = new HttpClient({ url: "http://localhost:9942" });
 | `immutable://open` | Anyone can write once | Content-addressed, no overwrites |
 | `immutable://accounts` | Pubkey-signed, write once | Permanent user data |
 | `immutable://inbox` | Message inbox | Suggestions, notifications |
+| `blob://open` | Anyone, hash-verified | Content-addressed storage (SHA256) |
+| `link://open` | Anyone can write | Unauthenticated URI references |
+| `link://accounts` | Pubkey-signed writes | Authenticated URI references |
 
 ### Protocol Patterns
 
@@ -69,6 +72,136 @@ await wallet.proxyWrite({
   uri: "immutable://inbox/{recipientPubkey}/messages/{timestamp}",
   data: suggestion,
   encrypt: true
+});
+```
+
+### Blob Protocol (Content-Addressed Storage)
+
+Blobs are content-addressed using SHA256 hashes. The hash in the URI must match the content.
+
+```typescript
+import { computeSha256 } from "./validators.ts"; // or implement your own
+
+// Compute hash and write blob
+const data = { title: "Hello", content: "World" };
+const hash = await computeSha256(data);
+const blobUri = `blob://open/sha256:${hash}`;
+
+await client.write(blobUri, data);
+
+// Read blob - content verified by hash
+const result = await client.read(blobUri);
+```
+
+**Key Properties:**
+- **Immutable**: Content cannot change (hash would change)
+- **Deduplicated**: Same content = same URI
+- **Trustless**: Anyone can verify content matches hash
+- **Format**: `blob://open/sha256:<64-hex-chars>`
+
+### Link Protocol (URI References)
+
+Links are simple string values pointing to other URIs. They provide a mutable reference layer.
+
+```typescript
+// Write authenticated link (requires wallet signature)
+await wallet.proxyWrite({
+  uri: "link://accounts/{userPubkey}/avatar",
+  data: "blob://open/sha256:abc123...",  // Just a string URI!
+  encrypt: false
+});
+
+// Write unauthenticated link
+await client.write("link://open/latest-release", "blob://open/sha256:def456...");
+
+// Read link to get target URI
+const linkResult = await client.read<string>("link://accounts/alice/avatar");
+const targetUri = linkResult.record.data; // "blob://open/sha256:abc123..."
+
+// Then fetch the target
+const blobResult = await client.read(targetUri);
+```
+
+**Key Properties:**
+- **Simple Strings**: Link values are just URI strings, no complex objects
+- **Mutable References**: Update link to point to new content
+- **Authentication Layer**: `link://accounts` proves who created the reference
+- **Deduplication**: Multiple links can point to the same blob
+
+### Encrypted Blobs (Private Data on Public Networks)
+
+To store private data on public networks, encrypt before hashing. The hash is computed on the encrypted payload.
+
+```typescript
+import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+
+// 1. Encrypt data with recipient's public key (asymmetric)
+const privateData = { secret: "my private data" };
+const encrypted = await encrypt.encrypt(privateData, recipientPublicKeyHex);
+
+// 2. Compute hash of ENCRYPTED payload
+const hash = await computeSha256(encrypted);
+const blobUri = `blob://open/sha256:${hash}`;
+
+// 3. Write encrypted blob
+await client.write(blobUri, encrypted);
+
+// 4. Recipient decrypts after reading
+const result = await client.read(blobUri);
+const decrypted = await encrypt.decrypt(result.record.data, recipientPrivateKey);
+```
+
+**Symmetric Encryption (Password-Based):**
+```typescript
+// Derive key from password
+const key = await encrypt.deriveKeyFromSeed(password, salt, 100000);
+
+// Encrypt with symmetric key
+const encrypted = await encrypt.encryptSymmetric(data, key);
+
+// Hash and store
+const hash = await computeSha256(encrypted);
+await client.write(`blob://open/sha256:${hash}`, encrypted);
+
+// Decrypt with same password
+const decrypted = await encrypt.decryptSymmetric(encrypted, key);
+```
+
+**Privacy Levels for Blobs:**
+| Level | Encryption Key | Access |
+|-------|---------------|--------|
+| Public | None | Anyone can read |
+| Protected | Password-derived (PBKDF2) | Anyone with password |
+| Private | Recipient's X25519 public key | Only recipient |
+
+### Blob + Link Pattern (Recommended)
+
+Combine blobs (data layer) with links (reference layer):
+
+```typescript
+// 1. Write content as blob (optionally encrypted)
+const content = { title: "My Post", body: "..." };
+const hash = await computeSha256(content);
+const blobUri = `blob://open/sha256:${hash}`;
+await client.write(blobUri, content);
+
+// 2. Create authenticated link to the blob
+await wallet.proxyWrite({
+  uri: "link://accounts/{userPubkey}/posts/latest",
+  data: blobUri,
+  encrypt: false
+});
+
+// 3. Update link to new version (blob is immutable, link is mutable)
+const newContent = { title: "My Post v2", body: "..." };
+const newHash = await computeSha256(newContent);
+const newBlobUri = `blob://open/sha256:${newHash}`;
+await client.write(newBlobUri, newContent);
+
+await wallet.proxyWrite({
+  uri: "link://accounts/{userPubkey}/posts/latest",
+  data: newBlobUri,  // Points to new blob
+  encrypt: false
 });
 ```
 

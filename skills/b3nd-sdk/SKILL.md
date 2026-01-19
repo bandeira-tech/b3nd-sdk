@@ -173,6 +173,125 @@ deno task check
 deno task publish:jsr
 ```
 
+## Blob and Link Validators
+
+The SDK includes validators for content-addressed storage and URI references.
+
+### Hash Computation (for Blobs)
+
+```typescript
+// From http-server installation validators
+import { computeSha256, validateLinkValue } from "./validators.ts";
+
+// Compute SHA256 hash of any value
+const data = { title: "Hello", content: "World" };
+const hash = await computeSha256(data);
+// Returns: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+
+// Generate blob URI
+const blobUri = `blob://open/sha256:${hash}`;
+```
+
+### Link Validation
+
+```typescript
+// Validate that a value is a valid link (string URI)
+const result = validateLinkValue("blob://open/sha256:abc123...");
+// Returns: { valid: true }
+
+const invalid = validateLinkValue({ target: "blob://..." });
+// Returns: { valid: false, error: "Link value must be a string URI" }
+```
+
+### Schema Validators
+
+```typescript
+import type { Schema } from "@bandeira-tech/b3nd-sdk";
+import { computeSha256, validateLinkValue } from "./validators.ts";
+
+const schema: Schema = {
+  // Content-addressed blob storage
+  "blob://open": async ({ uri, value }) => {
+    const url = new URL(uri);
+    const match = url.pathname.match(/^\/sha256:([a-f0-9]{64})$/i);
+    if (!match) return { valid: false, error: "Invalid blob URI" };
+
+    const expectedHash = match[1];
+    const actualHash = await computeSha256(value);
+
+    if (actualHash !== expectedHash) {
+      return { valid: false, error: "Hash mismatch" };
+    }
+    return { valid: true };
+  },
+
+  // Authenticated links (signature-verified)
+  "link://accounts": async ({ uri, value }) => {
+    // Verify signature first, then validate link value
+    // (See auth module for signature verification)
+    return validateLinkValue(value);
+  },
+
+  // Unauthenticated links
+  "link://open": async ({ uri, value }) => {
+    return validateLinkValue(value);
+  },
+};
+```
+
+## Encryption Module
+
+The SDK includes a comprehensive encryption module for client-side encryption.
+
+```typescript
+import {
+  // Key generation
+  generateSigningKeyPair,      // Ed25519 for signing
+  generateEncryptionKeyPair,   // X25519 for encryption
+
+  // Asymmetric encryption (ECDH + AES-GCM)
+  encrypt,                     // Encrypt to recipient's public key
+  decrypt,                     // Decrypt with private key
+
+  // Symmetric encryption (AES-GCM)
+  encryptSymmetric,           // Encrypt with hex key
+  decryptSymmetric,           // Decrypt with hex key
+
+  // Key derivation
+  deriveKeyFromSeed,          // PBKDF2-SHA256 (100k iterations)
+
+  // Signing
+  sign,
+  verify,
+  signWithHex,
+
+  // Authenticated messages
+  createAuthenticatedMessage,
+  createAuthenticatedMessageWithHex,
+  createSignedEncryptedMessage,
+  verifyAndDecryptMessage,
+} from "@bandeira-tech/b3nd-sdk/encrypt";
+```
+
+### Encrypted Blob Pattern
+
+```typescript
+import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
+import { computeSha256 } from "./validators.ts";
+
+// Private blob (encrypted to recipient)
+const data = { secret: "private content" };
+const encrypted = await encrypt.encrypt(data, recipientPublicKeyHex);
+const hash = await computeSha256(encrypted);
+await client.write(`blob://open/sha256:${hash}`, encrypted);
+
+// Protected blob (password-encrypted)
+const key = await encrypt.deriveKeyFromSeed(password, salt, 100000);
+const encrypted = await encrypt.encryptSymmetric(data, key);
+const hash = await computeSha256(encrypted);
+await client.write(`blob://open/sha256:${hash}`, encrypted);
+```
+
 ## Types
 
 ```typescript
@@ -196,6 +315,8 @@ import type {
   PersistenceRecord,
   HealthStatus,
   ClientError,
+  LinkValue,        // string - URI reference
+  BlobData,         // { type?, encoding?, data }
 } from "@bandeira-tech/b3nd-sdk";
 ```
 
