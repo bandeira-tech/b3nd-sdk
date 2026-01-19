@@ -3,6 +3,7 @@ import type { SessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
 import { HttpClient } from "@bandeira-tech/b3nd-web";
 import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-web/blob";
 import type { KeyBundle } from "../../types";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
 
@@ -485,29 +486,7 @@ export const signEncryptedAppPayload = async (params: {
 // BLOB UPLOAD SERVICES
 // ============================================================================
 
-/**
- * Compute SHA256 hash of data (Uint8Array or any JSON-serializable value)
- */
-export async function computeSha256(data: Uint8Array | unknown): Promise<string> {
-  let bytes: Uint8Array;
-  if (data instanceof Uint8Array) {
-    bytes = data;
-  } else {
-    const encoder = new TextEncoder();
-    bytes = encoder.encode(JSON.stringify(data));
-  }
-  const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-/**
- * Generate blob URI from hash
- */
-export function generateBlobUri(hash: string): string {
-  return `blob://open/sha256:${hash}`;
-}
+// computeSha256 and generateBlobUri are imported from @bandeira-tech/b3nd-web/blob
 
 /**
  * Read file as Uint8Array

@@ -173,15 +173,26 @@ deno task check
 deno task publish:jsr
 ```
 
-## Blob and Link Validators
+## Blob and Link Module
 
-The SDK includes validators for content-addressed storage and URI references.
+The SDK includes a dedicated blob module for content-addressed storage and URI references.
+
+```typescript
+import {
+  computeSha256,        // Hash any value (Uint8Array or JSON)
+  generateBlobUri,      // Generate blob://open/sha256:{hash} URI
+  parseBlobUri,         // Parse blob URI to extract algorithm and hash
+  validateLinkValue,    // Validate link is a valid URI string
+  generateLinkUri,      // Generate link://accounts/{pubkey}/{path} URI
+  isValidSha256Hash,    // Check if string is valid 64-char hex hash
+  verifyBlobContent,    // Verify content matches its blob URI
+} from "@bandeira-tech/b3nd-sdk/blob";
+```
 
 ### Hash Computation (for Blobs)
 
 ```typescript
-// From http-server installation validators
-import { computeSha256, validateLinkValue } from "./validators.ts";
+import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-sdk/blob";
 
 // Compute SHA256 hash of any value
 const data = { title: "Hello", content: "World" };
@@ -189,25 +200,32 @@ const hash = await computeSha256(data);
 // Returns: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
 
 // Generate blob URI
-const blobUri = `blob://open/sha256:${hash}`;
+const blobUri = generateBlobUri(hash);
+// Returns: "blob://open/sha256:2cf24dba..."
 ```
 
 ### Link Validation
 
 ```typescript
+import { validateLinkValue, generateLinkUri } from "@bandeira-tech/b3nd-sdk/blob";
+
 // Validate that a value is a valid link (string URI)
 const result = validateLinkValue("blob://open/sha256:abc123...");
 // Returns: { valid: true }
 
 const invalid = validateLinkValue({ target: "blob://..." });
 // Returns: { valid: false, error: "Link value must be a string URI" }
+
+// Generate authenticated link URI
+const linkUri = generateLinkUri(pubkeyHex, "files/avatar.png");
+// Returns: "link://accounts/{pubkey}/files/avatar.png"
 ```
 
 ### Schema Validators
 
 ```typescript
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { computeSha256, validateLinkValue } from "./validators.ts";
+import { computeSha256, validateLinkValue } from "@bandeira-tech/b3nd-sdk/blob";
 
 const schema: Schema = {
   // Content-addressed blob storage

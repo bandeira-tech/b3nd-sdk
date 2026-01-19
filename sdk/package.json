@@ -39,6 +39,10 @@
       "import": "./dist/apps/mod.js",
       "types": "./dist/apps/mod.d.ts"
     },
+    "./blob": {
+      "import": "./dist/blob/mod.js",
+      "types": "./dist/blob/mod.d.ts"
+    },
     "./wallet-server": {
       "import": "./dist/wallet-server/mod.js",
       "types": "./dist/wallet-server/mod.d.ts"
@@ -52,7 +56,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/mod.web.ts wallet/mod.ts apps/mod.ts encrypt/mod.ts clients/http/mod.ts clients/local-storage/mod.ts clients/websocket/mod.ts clients/memory/mod.ts wallet-server/mod.ts wallet-server/adapters/browser.ts --dts --format esm --out-dir dist --clean --tsconfig tsconfig.web.json",
+    "build": "tsup src/mod.web.ts wallet/mod.ts apps/mod.ts encrypt/mod.ts blob/mod.ts clients/http/mod.ts clients/local-storage/mod.ts clients/websocket/mod.ts clients/memory/mod.ts wallet-server/mod.ts wallet-server/adapters/browser.ts --dts --format esm --out-dir dist --clean --tsconfig tsconfig.web.json",
     "clean": "rm -rf dist",
     "lint": "deno lint src/",
     "format": "deno fmt src/"
