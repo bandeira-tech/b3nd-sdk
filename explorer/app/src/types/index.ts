@@ -85,6 +85,7 @@ export type AppMode = "filesystem" | "search" | "watched";
 export type AppExperience = "explorer" | "writer";
 export type WriterSection =
   | "backend"
+  | "blob"
   | "auth"
   | "actions"
   | "configuration"
