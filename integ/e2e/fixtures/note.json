@@ -1,5 +1,5 @@
 {
-  "uri": "notes://nataliarsand/quick-note",
+  "uri": "notes://alicedoe/quick-note",
   "value": {
     "title": "Quick Note",
     "content": "Testing the b3nd/httpapi write and read endpoints. Everything looks good!",

@@ -114,6 +114,94 @@ const data = await wallet.proxyRead({
 ```
 
 
+## Blob and Link Usage (Browser)
+
+### Blob Module
+
+```typescript
+import {
+  computeSha256,        // Hash any value (Uint8Array or JSON)
+  generateBlobUri,      // Generate blob://open/sha256:{hash} URI
+  validateLinkValue,    // Validate link is a valid URI string
+  generateLinkUri,      // Generate link://accounts/{pubkey}/{path} URI
+  verifyBlobContent,    // Verify content matches its blob URI
+} from "@bandeira-tech/b3nd-web/blob";
+```
+
+### Content-Addressed Blobs
+
+```typescript
+import { HttpClient } from "@bandeira-tech/b3nd-web";
+import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-web/blob";
+
+const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+
+// Write blob (content-addressed)
+const data = { title: "Hello", content: "World" };
+const hash = await computeSha256(data);
+const blobUri = generateBlobUri(hash);
+await client.write(blobUri, data);
+
+// Write link pointing to blob
+await client.write("link://open/my-content", blobUri);
+```
+
+### Authenticated Links with Wallet
+
+```typescript
+import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
+
+// Write authenticated link (requires wallet session)
+await wallet.proxyWrite({
+  uri: `link://accounts/${userPubkey}/avatar`,
+  data: "blob://open/sha256:abc123...",
+  encrypt: false
+});
+```
+
+### Encrypted Blobs (Private Data)
+
+```typescript
+import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-web/blob";
+
+// 1. Generate encryption keypair
+const { publicKey, privateKey } = await encrypt.generateEncryptionKeyPair();
+
+// 2. Encrypt data
+const privateData = { secret: "my private content" };
+const encrypted = await encrypt.encrypt(privateData, publicKey.publicKeyHex);
+
+// 3. Hash encrypted payload and store
+const hash = await computeSha256(encrypted);
+const blobUri = generateBlobUri(hash);
+await client.write(blobUri, encrypted);
+
+// 4. Later: decrypt with private key
+const result = await client.read(blobUri);
+const decrypted = await encrypt.decrypt(result.record.data, privateKey);
+```
+
+### Password-Protected Blobs
+
+```typescript
+import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-web/blob";
+
+// Encrypt with password
+const key = await encrypt.deriveKeyFromSeed(password, "my-salt", 100000);
+const encrypted = await encrypt.encryptSymmetric(data, key);
+
+// Store encrypted blob
+const hash = await computeSha256(encrypted);
+const blobUri = generateBlobUri(hash);
+await client.write(blobUri, encrypted);
+
+// Decrypt with same password
+const key = await encrypt.deriveKeyFromSeed(password, "my-salt", 100000);
+const decrypted = await encrypt.decryptSymmetric(encrypted, key);
+```
+
 ## Types
 
 ```typescript
@@ -129,6 +217,8 @@ import type {
   PersistenceRecord,
   Schema,
   ValidationFn,
+  LinkValue,        // string - URI reference
+  BlobData,         // { type?, encoding?, data }
 } from "@bandeira-tech/b3nd-web";
 ```
 

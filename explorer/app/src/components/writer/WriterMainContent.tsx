@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   IdentityKey,
@@ -16,6 +16,12 @@ import {
   Server,
   ShieldCheck,
   Share2,
+  Upload,
+  Image,
+  File,
+  CheckCircle2,
+  XCircle,
+  Link as LinkIcon,
 } from "lucide-react";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import type {
@@ -47,6 +53,9 @@ import {
   signEncryptedAppPayload,
   signupWithPassword,
   updateSchema as updateSchemaService,
+  uploadBlob,
+  uploadBlobWithLink,
+  type BlobUploadResult,
 } from "../../services/writer/writerService";
 import { routeForExplorerPath, sanitizePath } from "../../utils";
 
@@ -114,6 +123,13 @@ export function WriterMainContent() {
   const [lastShareUri, setLastShareUri] = useState<string | null>(null);
   const [lastShareLink, setLastShareLink] = useState<string | null>(null);
   const [lastExplorerRoute, setLastExplorerRoute] = useState<string | null>(null);
+  // Blob upload state
+  const [blobHistory, setBlobHistory] = useState<BlobUploadResult[]>([]);
+  const [blobEncryptEnabled, setBlobEncryptEnabled] = useState(true);
+  const [blobLinkEnabled, setBlobLinkEnabled] = useState(false);
+  const [blobLinkPath, setBlobLinkPath] = useState("");
+  const [blobUploading, setBlobUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const actionName = getFormValue(
     FORM_APP,
     "actionName",
@@ -668,6 +684,63 @@ export function WriterMainContent() {
     logLine("backend", `Encrypted content saved to ${targetUri}`, "success");
   };
 
+  // Blob upload handler
+  const handleBlobUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    setBlobUploading(true);
+    const backendClient = requireBackendClient();
+    const account = activeAccount;
+
+    try {
+      for (const file of Array.from(files)) {
+        let result: BlobUploadResult & { linkResponse?: { success: boolean; error?: string } };
+
+        // Get encryption key if enabled
+        const encryptionKey = blobEncryptEnabled && account?.type === "application"
+          ? account.keyBundle.encryptionPublicKeyHex
+          : undefined;
+
+        if (blobLinkEnabled && account?.type === "application" && blobLinkPath) {
+          // Upload with authenticated link
+          result = await uploadBlobWithLink({
+            backendClient,
+            file,
+            linkPath: blobLinkPath.replace(/:filename/g, file.name),
+            appKey: account.keyBundle.appKey,
+            accountPrivateKeyPem: account.keyBundle.accountPrivateKeyPem,
+            encryptToPublicKey: encryptionKey,
+          });
+          logLine(
+            "backend",
+            `Blob uploaded: ${file.name} -> ${result.blobUri}${result.linkUri ? ` (link: ${result.linkUri})` : ""}`,
+            result.response.success ? "success" : "error",
+          );
+        } else {
+          // Upload blob only
+          result = await uploadBlob({
+            backendClient,
+            file,
+            encryptToPublicKey: encryptionKey,
+          });
+          logLine(
+            "backend",
+            `Blob uploaded: ${file.name} -> ${result.blobUri}`,
+            result.response.success ? "success" : "error",
+          );
+        }
+
+        setBlobHistory((prev) => [result, ...prev]);
+        addWriterOutput(result);
+      }
+    } finally {
+      setBlobUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   // Google auth is temporarily disabled (no client ID input)
 
   const rightOpen = panels.right;
@@ -697,6 +770,9 @@ export function WriterMainContent() {
           {writerSection === "backend"
             ? <BackendHistory history={backendHistory} />
             : null}
+          {writerSection === "blob" && (
+            <BlobUploadHistory history={blobHistory} />
+          )}
           {writerSection === "shareable" && (
             <SectionCard title="Shareable Content" icon={<Share2 className="h-4 w-4" />}>
               <div className="space-y-2 text-sm text-muted-foreground">
@@ -762,6 +838,97 @@ export function WriterMainContent() {
                   backendWriteEnc={() =>
                     handleAction("Backend write (encrypted)", backendWriteEnc)}
                 />
+              </div>
+            )}
+
+            {writerSection === "blob" && (
+              <div className="space-y-4">
+                <SectionCard title="Upload Files" icon={<Upload className="h-4 w-4" />}>
+                  <div className="space-y-4">
+                    <div className="text-sm text-muted-foreground">
+                      Upload files as content-addressed blobs. Files are encrypted by default
+                      when an application account is selected.
+                    </div>
+
+                    {/* File input */}
+                    <div className="space-y-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf,.txt,.json,.md"
+                        onChange={(e) =>
+                          handleAction("Upload blob", () => handleBlobUpload(e.target.files))}
+                        className="hidden"
+                        id="blob-file-input"
+                      />
+                      <label
+                        htmlFor="blob-file-input"
+                        className={`${PRIMARY_BUTTON} w-full cursor-pointer flex items-center justify-center gap-2 ${blobUploading ? "opacity-50 pointer-events-none" : ""}`}
+                      >
+                        <Upload className="h-4 w-4" />
+                        {blobUploading ? "Uploading..." : "Select Files"}
+                      </label>
+                    </div>
+
+                    {/* Encryption toggle */}
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Encrypt blob</label>
+                      <button
+                        type="button"
+                        onClick={() => setBlobEncryptEnabled(!blobEncryptEnabled)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${blobEncryptEnabled ? "bg-primary" : "bg-muted"}`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${blobEncryptEnabled ? "translate-x-6" : "translate-x-1"}`}
+                        />
+                      </button>
+                    </div>
+                    {blobEncryptEnabled && (
+                      <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                        Files will be encrypted using your application's encryption key before
+                        being hashed and stored. Only you can decrypt them.
+                      </div>
+                    )}
+
+                    {/* Link creation toggle */}
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Create authenticated link</label>
+                      <button
+                        type="button"
+                        onClick={() => setBlobLinkEnabled(!blobLinkEnabled)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${blobLinkEnabled ? "bg-primary" : "bg-muted"}`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${blobLinkEnabled ? "translate-x-6" : "translate-x-1"}`}
+                        />
+                      </button>
+                    </div>
+                    {blobLinkEnabled && (
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">
+                          Link path (use :filename for file name)
+                        </label>
+                        <input
+                          type="text"
+                          value={blobLinkPath}
+                          onChange={(e) => setBlobLinkPath(e.target.value)}
+                          placeholder="files/:filename"
+                          className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          Creates link at: link://accounts/:key/{blobLinkPath || "files/:filename"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </SectionCard>
+
+                {activeAccount?.type !== "application" && (
+                  <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded border border-amber-200 dark:border-amber-800">
+                    Select an application account to enable encryption and authenticated links.
+                  </div>
+                )}
               </div>
             )}
 
@@ -919,6 +1086,7 @@ function WriterBreadcrumb(
     string
   > = {
     backend: "Backend",
+    blob: "Blob Upload",
     auth: "Auth",
     actions: "Actions",
     configuration: "Application",
@@ -1006,6 +1174,83 @@ function BackendHistory(
             <pre className="text-xs bg-background border border-border rounded p-2 overflow-auto">
               {JSON.stringify(entry.result, null, 2)}
             </pre>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+function BlobUploadHistory({ history }: { history: BlobUploadResult[] }) {
+  if (!history.length) {
+    return (
+      <SectionCard title="Uploaded Blobs" icon={<Upload className="h-4 w-4" />}>
+        <div className="text-sm text-muted-foreground">
+          No blobs uploaded yet. Use the controls on the right to upload files.
+        </div>
+      </SectionCard>
+    );
+  }
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  return (
+    <SectionCard title="Uploaded Blobs" icon={<Upload className="h-4 w-4" />}>
+      <div className="space-y-3">
+        {history.map((entry, idx) => (
+          <div
+            key={`${entry.hash}-${idx}`}
+            className="rounded-lg border border-border p-3 bg-muted/40 space-y-2"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {entry.contentType.startsWith("image/") ? (
+                  <Image className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <File className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-sm font-medium truncate max-w-[200px]">
+                  {entry.contentType}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {formatSize(entry.size)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {entry.encrypted && (
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                    Encrypted
+                  </span>
+                )}
+                {entry.response.success ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-500" />
+                )}
+              </div>
+            </div>
+            <div className="text-xs space-y-1">
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Blob:</span>
+                <code className="text-foreground break-all">{entry.blobUri}</code>
+              </div>
+              {entry.linkUri && (
+                <div className="flex items-center gap-1">
+                  <LinkIcon className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground">Link:</span>
+                  <code className="text-foreground break-all">{entry.linkUri}</code>
+                </div>
+              )}
+            </div>
+            {entry.response.error && (
+              <div className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 p-2 rounded">
+                {entry.response.error}
+              </div>
+            )}
           </div>
         ))}
       </div>

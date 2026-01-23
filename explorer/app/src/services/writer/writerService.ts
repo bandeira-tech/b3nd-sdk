@@ -3,6 +3,7 @@ import type { SessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
 import { HttpClient } from "@bandeira-tech/b3nd-web";
 import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-web/blob";
 import type { KeyBundle } from "../../types";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
 
@@ -479,4 +480,164 @@ export const signEncryptedAppPayload = async (params: {
     accountPrivateKeyPem,
     encryptionPublicKeyHex,
   );
+};
+
+// ============================================================================
+// BLOB UPLOAD SERVICES
+// ============================================================================
+
+// computeSha256 and generateBlobUri are imported from @bandeira-tech/b3nd-web/blob
+
+/**
+ * Read file as Uint8Array
+ */
+export async function readFileAsBytes(file: File): Promise<Uint8Array> {
+  const arrayBuffer = await file.arrayBuffer();
+  return new Uint8Array(arrayBuffer);
+}
+
+/**
+ * Read file as base64 data URL
+ */
+export async function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+export interface BlobUploadResult {
+  blobUri: string;
+  hash: string;
+  linkUri?: string;
+  encrypted: boolean;
+  size: number;
+  contentType: string;
+  response: { success: boolean; error?: string };
+}
+
+/**
+ * Upload a file as a blob (optionally encrypted)
+ */
+export const uploadBlob = async (params: {
+  backendClient: HttpClient;
+  file: File;
+  encryptToPublicKey?: string;
+}): Promise<BlobUploadResult> => {
+  const { backendClient, file, encryptToPublicKey } = params;
+
+  // Create blob data structure with metadata
+  let blobData: unknown;
+  const isEncrypted = Boolean(encryptToPublicKey);
+
+  if (encryptToPublicKey) {
+    // Encrypt the file data
+    const dataUrl = await readFileAsDataUrl(file);
+    const payload = {
+      type: file.type,
+      name: file.name,
+      size: file.size,
+      data: dataUrl,
+    };
+    const encrypted = await encrypt.encrypt(payload, encryptToPublicKey);
+    blobData = encrypted;
+  } else {
+    // Store as plain data with base64 encoding
+    const dataUrl = await readFileAsDataUrl(file);
+    blobData = {
+      type: file.type,
+      name: file.name,
+      size: file.size,
+      data: dataUrl,
+    };
+  }
+
+  // Compute hash of final payload
+  const hash = await computeSha256(blobData);
+  const blobUri = generateBlobUri(hash);
+
+  // Write to backend
+  const response = await backendClient.write(blobUri, blobData);
+
+  return {
+    blobUri,
+    hash,
+    encrypted: isEncrypted,
+    size: file.size,
+    contentType: file.type,
+    response: { success: response.success, error: response.error },
+  };
+};
+
+/**
+ * Upload blob and create authenticated link
+ */
+export const uploadBlobWithLink = async (params: {
+  backendClient: HttpClient;
+  file: File;
+  linkPath: string;
+  appKey: string;
+  accountPrivateKeyPem: string;
+  encryptToPublicKey?: string;
+}): Promise<BlobUploadResult & { linkResponse: { success: boolean; error?: string } }> => {
+  const {
+    backendClient,
+    file,
+    linkPath,
+    appKey,
+    accountPrivateKeyPem,
+    encryptToPublicKey,
+  } = params;
+
+  // First upload the blob
+  const blobResult = await uploadBlob({
+    backendClient,
+    file,
+    encryptToPublicKey,
+  });
+
+  if (!blobResult.response.success) {
+    return {
+      ...blobResult,
+      linkResponse: { success: false, error: "Blob upload failed" },
+    };
+  }
+
+  // Create authenticated link pointing to the blob
+  const linkUri = `link://accounts/${appKey}/${linkPath}`;
+  const signedLink = await signPayload(blobResult.blobUri, appKey, accountPrivateKeyPem);
+  const linkResponse = await backendClient.write(linkUri, signedLink);
+
+  return {
+    ...blobResult,
+    linkUri,
+    linkResponse: { success: linkResponse.success, error: linkResponse.error },
+  };
+};
+
+/**
+ * Upload multiple files as blobs
+ */
+export const uploadMultipleBlobs = async (params: {
+  backendClient: HttpClient;
+  files: File[];
+  encryptToPublicKey?: string;
+  onProgress?: (completed: number, total: number, current: BlobUploadResult) => void;
+}): Promise<BlobUploadResult[]> => {
+  const { backendClient, files, encryptToPublicKey, onProgress } = params;
+  const results: BlobUploadResult[] = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const result = await uploadBlob({
+      backendClient,
+      file: files[i],
+      encryptToPublicKey,
+    });
+    results.push(result);
+    onProgress?.(i + 1, files.length, result);
+  }
+
+  return results;
 };

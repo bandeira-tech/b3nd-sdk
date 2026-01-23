@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Server, ShieldCheck, Play, Settings, FileText } from "lucide-react";
+import { Server, ShieldCheck, Play, Settings, FileText, Upload } from "lucide-react";
 import type { ReactNode } from "react";
 import type { WriterSection } from "../../types";
 import { useAppStore } from "../../stores/appStore";
@@ -20,6 +20,12 @@ export function WriterNavigation() {
       label: "Backend",
       description: "Write/read data against the selected backend",
       icon: <Server className="h-4 w-4" />,
+    },
+    {
+      key: "blob",
+      label: "Blob Upload",
+      description: "Upload files as encrypted blobs with links",
+      icon: <Upload className="h-4 w-4" />,
     },
     {
       key: "auth",
