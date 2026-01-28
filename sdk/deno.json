@@ -8,6 +8,8 @@
     "./auth": "./auth/mod.ts",
     "./encrypt": "./encrypt/mod.ts",
     "./blob": "./blob/mod.ts",
+    "./txn": "./txn/mod.ts",
+    "./txn-data": "./txn-data/mod.ts",
     "./clients/memory": "./clients/memory/mod.ts",
     "./clients/http": "./clients/http/mod.ts",
     "./clients/websocket": "./clients/websocket/mod.ts",

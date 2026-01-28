@@ -63,6 +63,8 @@ export type {
   MemoryClientConfig,
   MongoClientConfig,
   NodeProtocolInterface,
+  NodeProtocolReadInterface,
+  NodeProtocolWriteInterface,
   PersistenceRecord,
   PostgresClientConfig,
   ReadMultiResult,
@@ -105,3 +107,27 @@ export * as wsservers from "../servers/websocket.ts";
 // Crypto utilities
 export { pemToCryptoKey } from "../encrypt/mod.ts";
 export { deriveObfuscatedPath } from "../encrypt/utils.ts";
+
+// Transaction layer (Level 1)
+export { createTransactionNode } from "../txn/mod.ts";
+export type {
+  Transaction,
+  TransactionValidator,
+  TransactionNodeConfig,
+  TransactionNode,
+  SubmitResult,
+} from "../txn/mod.ts";
+
+// Transaction data convention (Level 2)
+export {
+  extractProgram,
+  createOutputValidator,
+  combineValidators,
+} from "../txn-data/mod.ts";
+export type {
+  TransactionData,
+  StateTransaction,
+  TransactionValidationContext,
+  ProgramValidator,
+  ProgramSchema,
+} from "../txn-data/mod.ts";
