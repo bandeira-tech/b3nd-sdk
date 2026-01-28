@@ -1,0 +1,12 @@
+{
+  "tasks": {
+    "dev": "deno run --watch -A --env-file=.env mod.ts"
+  },
+  "imports": {
+    "@bandeira-tech/b3nd-sdk": "jsr:@bandeira-tech/b3nd-sdk@^0.5.0",
+    "@bandeira-tech/b3nd-sdk/txn": "jsr:@bandeira-tech/b3nd-sdk@^0.5.0/txn",
+    "@bandeira-tech/b3nd-sdk/txn-data": "jsr:@bandeira-tech/b3nd-sdk@^0.5.0/txn-data",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10",
+    "hono": "npm:hono"
+  }
+}

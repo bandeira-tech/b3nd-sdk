@@ -15,7 +15,11 @@
     "./wallet": "./wallet/mod.ts",
     "./apps": "./apps/mod.ts",
     "./wallet-server": "./wallet-server/mod.ts",
-    "./wallet-server/adapters/deno": "./wallet-server/adapters/deno.ts"
+    "./wallet-server/adapters/deno": "./wallet-server/adapters/deno.ts",
+    "./txn": "./txn/mod.ts",
+    "./txn/types": "./txn/types.ts",
+    "./txn-data": "./txn-data/mod.ts",
+    "./txn-data/types": "./txn-data/types.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.15",
