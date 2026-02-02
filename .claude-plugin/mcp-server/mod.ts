@@ -235,11 +235,9 @@ const TOOLS = [
       properties: {
         tx: {
           type: "array",
-          description: "The transaction tuple [uri, data]",
-          items: [
-            { type: "string", description: "The B3nd URI" },
-            { type: "object", description: "The data to store" },
-          ],
+          description: "The transaction tuple [uri, data] - first element is URI string, second is data object",
+          minItems: 2,
+          maxItems: 2,
         },
         backend: {
           type: "string",
