@@ -10,8 +10,9 @@
     "npm:hono@^4.6.0": "4.9.9",
     "npm:mongodb@*": "7.0.0",
     "npm:pg@*": "8.16.3",
-    "npm:tsup@^8.3.5": "8.5.1_typescript@5.9.3_esbuild@0.27.0",
-    "npm:typescript@^5.6.3": "5.9.3"
+    "npm:tsup@^8.3.5": "8.5.1_typescript@5.9.3_esbuild@0.27.0_yaml@2.8.2",
+    "npm:typescript@^5.6.3": "5.9.3",
+    "npm:yaml@*": "2.8.2"
   },
   "jsr": {
     "@std/assert@1.0.14": {
@@ -669,10 +670,14 @@
         "pathe"
       ]
     },
-    "postcss-load-config@6.0.1": {
+    "postcss-load-config@6.0.1_yaml@2.8.2": {
       "integrity": "sha512-oPtTM4oerL+UXmx+93ytZVN82RrlY/wPUV8IeDxFrzIjXOLF1pN+EmKPLbubvKHT2HC20xXsCAH2Z+CKV6Oz/g==",
       "dependencies": [
-        "lilconfig"
+        "lilconfig",
+        "yaml"
+      ],
+      "optionalPeers": [
+        "yaml"
       ]
     },
     "postgres-array@2.0.0": {
@@ -831,7 +836,7 @@
     "ts-interface-checker@0.1.13": {
       "integrity": "sha512-Y/arvbn+rrz3JCKl9C4kVNfTfSm2/mEp5FSz5EsZSANGPSlQrpRI5M4PKF+mJnE52jOO90PnPSc3Ur3bTQw0gA=="
     },
-    "tsup@8.5.1_typescript@5.9.3_esbuild@0.27.0": {
+    "tsup@8.5.1_typescript@5.9.3_esbuild@0.27.0_yaml@2.8.2": {
       "integrity": "sha512-xtgkqwdhpKWr3tKPmCkvYmS9xnQK3m3XgxZHwSUjvfTjp7YfXe5tT3GgWi0F2N+ZSMsOeWeZFh7ZZFg5iPhing==",
       "dependencies": [
         "bundle-require",
@@ -903,6 +908,10 @@
     },
     "xtend@4.0.2": {
       "integrity": "sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ=="
+    },
+    "yaml@2.8.2": {
+      "integrity": "sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==",
+      "bin": true
     }
   },
   "remote": {
