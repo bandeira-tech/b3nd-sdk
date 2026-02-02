@@ -53,7 +53,12 @@ export class MockHttpServer {
         return this.handleSchema();
       }
 
-      // Write endpoint
+      // Receive endpoint (unified transaction interface)
+      if (url.pathname === "/api/v1/receive") {
+        return await this.handleReceive(req);
+      }
+
+      // Write endpoint (legacy)
       if (url.pathname.startsWith("/api/v1/write/")) {
         return await this.handleWrite(req, url);
       }
@@ -115,6 +120,44 @@ export class MockHttpServer {
         default: ["users://", "cache://"],
       },
     });
+  }
+
+  private async handleReceive(req: Request): Promise<Response> {
+    if (this.config.mode === "validationError") {
+      return Response.json(
+        { accepted: false, error: "Validation failed: Name is required" },
+        { status: 400 }
+      );
+    }
+
+    // Parse transaction from request body
+    const body: any = await req.json();
+    const tx = body.tx;
+
+    if (!tx || !Array.isArray(tx) || tx.length < 2) {
+      return Response.json(
+        { accepted: false, error: "Invalid transaction format: expected { tx: [uri, data] }" },
+        { status: 400 }
+      );
+    }
+
+    const [uri, data] = tx;
+
+    if (!uri || typeof uri !== "string") {
+      return Response.json(
+        { accepted: false, error: "Transaction URI is required" },
+        { status: 400 }
+      );
+    }
+
+    const record: PersistenceRecord<unknown> = {
+      ts: Date.now(),
+      data,
+    };
+
+    this.storage.set(uri, record);
+
+    return Response.json({ accepted: true });
   }
 
   private async handleWrite(req: Request, url: URL): Promise<Response> {

@@ -18,10 +18,10 @@ import type {
   ReadMultiResultItem,
   ReadResult,
   Schema,
-  WriteResult,
 } from "../../src/types.ts";
+import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
 
-export class LocalStorageClient implements NodeProtocolInterface {
+export class LocalStorageClient implements NodeProtocolInterface, Node {
   private config: {
     keyPrefix: string;
     serializer: {
@@ -102,33 +102,42 @@ export class LocalStorageClient implements NodeProtocolInterface {
     return this.config.serializer!.deserialize!(data);
   }
 
-  async write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>> {
+  /**
+   * Receive a transaction - the unified entry point for all state changes
+   * @param tx - Transaction tuple [uri, data]
+   * @returns ReceiveResult indicating acceptance
+   */
+  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+    const [uri, data] = tx;
+
+    // Basic URI validation
+    if (!uri || typeof uri !== "string") {
+      return { accepted: false, error: "Transaction URI is required" };
+    }
+
     try {
       // Validate against schema if present
-      const validation = await this.validateWrite(uri, value);
+      const validation = await this.validateWrite(uri, data);
       if (!validation.valid) {
         return {
-          success: false,
+          accepted: false,
           error: validation.error || "Validation failed",
         };
       }
 
       const key = this.getKey(uri);
-      const record: PersistenceRecord<T> = {
+      const record: PersistenceRecord<D> = {
         ts: Date.now(),
-        data: value,
+        data,
       };
 
       const serialized = this.serialize(record);
       this.storage.setItem(key, serialized);
 
-      return {
-        success: true,
-        record,
-      };
+      return { accepted: true };
     } catch (error) {
       return {
-        success: false,
+        accepted: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }

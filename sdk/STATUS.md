@@ -145,7 +145,7 @@ const clients = new Map<string, NodeProtocolInterface>([
 ]);
 
 // Use clients directly
-const result = await clients.get('prod').write('users://alice/profile', data);
+const result = await clients.get('prod').receive(['users://alice/profile', data]);
 ```
 
 **Next Steps:**

@@ -11,8 +11,8 @@
  *
  * const client = new MemoryClient();
  *
- * // Write data
- * await client.write("mutable://users/alice", { name: "Alice", age: 30 });
+ * // Receive a transaction (the unified interface for all state changes)
+ * await client.receive(["mutable://users/alice", { name: "Alice", age: 30 }]);
  *
  * // Read data
  * const result = await client.read("mutable://users/alice");
@@ -30,7 +30,7 @@
  * const client = new HttpClient({ url: "https://api.example.com" });
  *
  * // Same interface as MemoryClient
- * await client.write("mutable://data/key", { value: 123 });
+ * await client.receive(["mutable://data/key", { value: 123 }]);
  * const result = await client.read("mutable://data/key");
  * ```
  *
@@ -108,10 +108,45 @@ export * as wsservers from "../servers/websocket.ts";
 export { pemToCryptoKey } from "../encrypt/mod.ts";
 export { deriveObfuscatedPath } from "../encrypt/utils.ts";
 
-// Transaction layer (Level 1)
+// Unified Node system
+export { createNode } from "./node/mod.ts";
+export type {
+  Node,
+  NodeConfig,
+  Processor,
+  ReadInterface,
+  ReceiveResult,
+  Transaction,
+  Validator,
+} from "./node/mod.ts";
+export {
+  // Composition utilities
+  all,
+  any,
+  broadcast,
+  firstMatch,
+  pipeline,
+  seq,
+  // Built-in validators
+  accept,
+  format,
+  reject,
+  requireFields,
+  schema as schemaValidator,
+  uriPattern,
+  // Built-in processors
+  emit,
+  forward,
+  log,
+  noop,
+  store,
+  when,
+} from "./node/mod.ts";
+
+// Legacy transaction layer (deprecated - use node system instead)
 export { createTransactionNode } from "../txn/mod.ts";
 export type {
-  Transaction,
+  Transaction as LegacyTransaction,
   TransactionValidator,
   TransactionNodeConfig,
   TransactionNode,

@@ -1,21 +1,20 @@
-import type { DeleteResult, ListOptions, ListResult, NodeProtocolReadInterface, NodeProtocolWriteInterface, ReadMultiResult, ReadResult, WriteResult } from "../../src/types.ts";
+import type { DeleteResult, ListOptions, ListResult, NodeProtocolReadInterface, NodeProtocolWriteInterface, ReadMultiResult, ReadResult, ReceiveResult, Transaction } from "../../src/types.ts";
 
 export function parallelBroadcast(clients: (NodeProtocolWriteInterface & NodeProtocolReadInterface)[]): NodeProtocolWriteInterface & NodeProtocolReadInterface {
   if (!clients || clients.length === 0) throw new Error("clients array is required and cannot be empty");
 
   return {
-    async write<T>(uri: string, value: T): Promise<WriteResult<T>> {
-      const results = await Promise.allSettled(clients.map(c => c.write(uri, value)));
+    async receive<D>(tx: Transaction<D>): Promise<ReceiveResult> {
+      const results = await Promise.allSettled(clients.map(c => c.receive(tx)));
       const rejected = results.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
-      if (rejected) return { success: false, error: rejected.reason instanceof Error ? rejected.reason.message : String(rejected.reason) };
-      const failures = results.filter((r: any) => r.status === 'fulfilled' && r.value?.success === false) as PromiseFulfilledResult<WriteResult<T>>[];
-      if (failures.length) return { success: false, error: failures[0].value.error || 'Broadcast write failed' };
-      const first = results.find((r: any) => r.status === 'fulfilled' && r.value?.success) as PromiseFulfilledResult<WriteResult<T>> | undefined;
-      return first?.value ?? { success: true, record: { ts: Date.now(), data: value } };
+      if (rejected) return { accepted: false, error: rejected.reason instanceof Error ? rejected.reason.message : String(rejected.reason) };
+      const failures = results.filter((r: any) => r.status === 'fulfilled' && r.value?.accepted === false) as PromiseFulfilledResult<ReceiveResult>[];
+      if (failures.length) return { accepted: false, error: failures[0].value.error || 'Broadcast failed' };
+      return { accepted: true };
     },
 
     async read<T>(uri: string): Promise<ReadResult<T>> {
-      // Read from the first client only; composition for reads is handled by firstMatchSequence in the sketch
+      // Read from the first client only; composition for reads is handled by firstMatchSequence
       return clients[0].read(uri);
     },
 

@@ -17,10 +17,10 @@ import type {
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
-  WriteResult,
 } from "../../src/types.ts";
+import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
 
-export class WebSocketClient implements NodeProtocolInterface {
+export class WebSocketClient implements NodeProtocolInterface, Node {
   private config: WebSocketClientConfig;
   private ws: WebSocket | null = null;
   private connected = false;
@@ -231,13 +231,26 @@ export class WebSocketClient implements NodeProtocolInterface {
     });
   }
 
-  async write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>> {
+  /**
+   * Receive a transaction (unified Node interface)
+   * Sends "receive" message type with { tx } payload
+   * @param tx - Transaction tuple [uri, data]
+   * @returns ReceiveResult indicating acceptance
+   */
+  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+    const [uri] = tx;
+
+    // Basic URI validation
+    if (!uri || typeof uri !== "string") {
+      return { accepted: false, error: "Transaction URI is required" };
+    }
+
     try {
-      const result = await this.sendRequest<WriteResult<T>>("write", { uri, value });
+      const result = await this.sendRequest<ReceiveResult>("receive", { tx });
       return result;
     } catch (error) {
       return {
-        success: false,
+        accepted: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }

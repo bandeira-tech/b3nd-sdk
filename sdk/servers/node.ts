@@ -3,6 +3,7 @@ import type {
   NodeProtocolWriteInterface,
   Schema,
 } from "../src/types.ts";
+import type { Node } from "../src/node/types.ts";
 
 export interface ServerFrontend {
   listen: (port: number) => void | Promise<void>;
@@ -14,6 +15,7 @@ export interface ServerFrontend {
         read: NodeProtocolReadInterface;
       };
       schema: Schema;
+      node?: Node;
     },
   ) => void;
 }
@@ -25,6 +27,7 @@ export interface ServerNodeOptions {
     read: NodeProtocolReadInterface;
   };
   schema: Schema;
+  node?: Node;
 }
 
 export function createServerNode(options: ServerNodeOptions): {
@@ -37,8 +40,8 @@ export function createServerNode(options: ServerNodeOptions): {
   }
   if (!options?.schema) throw new Error("schema is required");
 
-  const { frontend, backend, schema } = options;
-  frontend.configure({ backend, schema });
+  const { frontend, backend, schema, node } = options;
+  frontend.configure({ backend, schema, node });
 
   return {
     serverHandler: (req: Request) => frontend.fetch(req),

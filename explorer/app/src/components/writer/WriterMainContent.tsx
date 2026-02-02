@@ -675,7 +675,7 @@ export function WriterMainContent() {
       encryptionKey: secretKey,
     });
     const backendClient = requireBackendClient();
-    const response = await backendClient.write(targetUri, signed);
+    const response = await backendClient.receive([targetUri, signed]);
     const shareLink = `${shareMatter}#l=${shareIdentityKey.publicKeyHex}/${linkLocation}`;
     setLastShareUri(targetUri);
     setLastShareLink(shareLink);

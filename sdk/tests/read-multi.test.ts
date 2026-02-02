@@ -12,9 +12,9 @@ Deno.test("MemoryClient.readMulti - reads multiple URIs successfully", async () 
   const client = new MemoryClient({ schema: createTestSchema() });
 
   // Write test data
-  await client.write("mutable://data/item1", { v: 1 });
-  await client.write("mutable://data/item2", { v: 2 });
-  await client.write("mutable://data/item3", { v: 3 });
+  await client.receive(["mutable://data/item1", { v: 1 }]);
+  await client.receive(["mutable://data/item2", { v: 2 }]);
+  await client.receive(["mutable://data/item3", { v: 3 }]);
 
   const result = await client.readMulti([
     "mutable://data/item1",
@@ -49,8 +49,8 @@ Deno.test("MemoryClient.readMulti - partial success", async () => {
   const client = new MemoryClient({ schema: createTestSchema() });
 
   // Write only some of the data
-  await client.write("mutable://data/exists1", { ok: true });
-  await client.write("mutable://data/exists2", { ok: true });
+  await client.receive(["mutable://data/exists1", { ok: true }]);
+  await client.receive(["mutable://data/exists2", { ok: true }]);
 
   const result = await client.readMulti([
     "mutable://data/exists1",

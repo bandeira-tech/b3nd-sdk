@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/mod.ts",
     "./types": "./src/types.ts",
+    "./node": "./src/node/mod.ts",
     "./auth": "./auth/mod.ts",
     "./encrypt": "./encrypt/mod.ts",
     "./blob": "./blob/mod.ts",

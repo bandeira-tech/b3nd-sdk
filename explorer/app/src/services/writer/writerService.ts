@@ -191,7 +191,8 @@ export const saveAppProfile = async (params: {
 
   const signedProfile = await signPayload(profile, appKey, accountPrivateKeyPem);
   const uri = `mutable://accounts/${appKey}/app-profile`;
-  return { uri, response: await backendClient.write(uri, signedProfile) };
+  const response = await backendClient.receive([uri, signedProfile]);
+  return { uri, response: { success: response.accepted, error: response.error } };
 };
 
 export const fetchAppProfile = async (params: {
@@ -294,7 +295,7 @@ export const createSession = async (params: {
     sessionKeypair.privateKeyHex
   );
   const inboxUri = `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
-  await backendClient.write(inboxUri, signedRequest);
+  await backendClient.receive([inboxUri, signedRequest]);
 
   // 2. Request app server to approve (writes to mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1)
   const message = await signPayload(
@@ -409,7 +410,8 @@ export const backendWritePlain = async (params: {
   const payload = JSON.parse(writePayload);
   const value = await signPayload(payload, appKey, accountPrivateKeyPem);
   const targetUri = writeUri.includes(":key") ? writeUri.replace(/:key/g, appKey) : writeUri;
-  return { targetUri, response: await backendClient.write(targetUri, value) };
+  const response = await backendClient.receive([targetUri, value]);
+  return { targetUri, response: { success: response.accepted, error: response.error } };
 };
 
 export const backendWriteEnc = async (params: {
@@ -437,7 +439,8 @@ export const backendWriteEnc = async (params: {
     encryptionPublicKeyHex,
   );
   const targetUri = writeUri.includes(":key") ? writeUri.replace(/:key/g, appKey) : writeUri;
-  return { targetUri, response: await backendClient.write(targetUri, value) };
+  const response = await backendClient.receive([targetUri, value]);
+  return { targetUri, response: { success: response.accepted, error: response.error } };
 };
 
 export const proxyWrite = async (params: {

@@ -18,8 +18,8 @@ import type {
   ReadMultiResultItem,
   ReadResult,
   Schema,
-  WriteResult,
 } from "../../src/types.ts";
+import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
 
 export interface MongoExecutor {
   insertOne(doc: Record<string, unknown>): Promise<{ acknowledged?: boolean }>;
@@ -35,7 +35,7 @@ export interface MongoExecutor {
   cleanup?: () => Promise<void>;
 }
 
-export class MongoClient implements NodeProtocolInterface {
+export class MongoClient implements NodeProtocolInterface, Node {
   private readonly config: MongoClientConfig;
   private readonly schema: Schema;
   private readonly collectionName: string;
@@ -66,34 +66,46 @@ export class MongoClient implements NodeProtocolInterface {
     this.connected = true;
   }
 
-  async write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>> {
+  /**
+   * Receive a transaction - the unified entry point for all state changes
+   * @param tx - Transaction tuple [uri, data]
+   * @returns ReceiveResult indicating acceptance
+   */
+  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+    const [uri, data] = tx;
+
+    // Basic URI validation
+    if (!uri || typeof uri !== "string") {
+      return { accepted: false, error: "Transaction URI is required" };
+    }
+
     try {
       const programKey = this.extractProgramKey(uri);
       const validator = this.schema[programKey];
 
       if (!validator) {
         return {
-          success: false,
+          accepted: false,
           error: `No schema defined for program key: ${programKey}`,
         };
       }
 
       const validation = await validator({
         uri,
-        value,
+        value: data,
         read: this.read.bind(this),
       });
 
       if (!validation.valid) {
         return {
-          success: false,
+          accepted: false,
           error: validation.error || "Validation failed",
         };
       }
 
-      const record: PersistenceRecord<T> = {
+      const record: PersistenceRecord<D> = {
         ts: Date.now(),
-        data: value,
+        data,
       };
 
       await this.executor.updateOne(
@@ -113,13 +125,10 @@ export class MongoClient implements NodeProtocolInterface {
         { upsert: true },
       );
 
-      return {
-        success: true,
-        record,
-      };
+      return { accepted: true };
     } catch (error) {
       return {
-        success: false,
+        accepted: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }

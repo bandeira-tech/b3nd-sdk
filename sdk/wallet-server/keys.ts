@@ -119,10 +119,10 @@ export async function generateUserKeys(
         serverIdentityPublicKeyHex,
         serverEncryptionPublicKeyHex
       );
-      await client.write(
+      await client.receive([
         `mutable://accounts/${serverPublicKey}/${path}`,
-        signed
-      );
+        signed,
+      ]);
     })(),
     (async () => {
       const path = await deriveObfuscatedPath(
@@ -136,10 +136,10 @@ export async function generateUserKeys(
         serverIdentityPublicKeyHex,
         serverEncryptionPublicKeyHex
       );
-      await client.write(
+      await client.receive([
         `mutable://accounts/${serverPublicKey}/${path}`,
-        signed
-      );
+        signed,
+      ]);
     })(),
   ]);
 

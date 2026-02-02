@@ -43,8 +43,8 @@ export async function saveAppConfig(
     serverEncryptionPublicKeyHex,
   );
   const uri = `mutable://accounts/${serverPublicKey}/${path}`;
-  const result = await client.write(uri, signed);
-  return result;
+  const result = await client.receive([uri, signed]);
+  return { success: result.accepted, error: result.error };
 }
 
 export async function loadAppConfig(
@@ -118,6 +118,6 @@ export async function performActionWrite(
     .replace(/:key/g, appKey)
     .replace(/:signature/g, digestHex.substring(0, 32));
 
-  const result = await proxyClient.write(uri, signedPayload);
-  return { uri, result };
+  const result = await proxyClient.receive([uri, signedPayload]);
+  return { uri, result: { success: result.accepted, error: result.error } };
 }

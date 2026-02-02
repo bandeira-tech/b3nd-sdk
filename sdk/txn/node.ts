@@ -85,8 +85,8 @@ export function createTransactionNode<D = unknown>(
       // Peers receive [uri, data] complete
       const propagationResults = await Promise.allSettled(
         peers.map((peer) =>
-          peer.write(uri, data).catch((err) => ({
-            success: false,
+          peer.receive(tx).catch((err) => ({
+            accepted: false,
             error: err instanceof Error ? err.message : String(err),
           }))
         )
@@ -97,8 +97,8 @@ export function createTransactionNode<D = unknown>(
         (result) =>
           result.status === "fulfilled" &&
           result.value &&
-          "success" in result.value &&
-          result.value.success
+          "accepted" in result.value &&
+          result.value.accepted
       );
 
       if (!anyAccepted && peers.length > 0) {
@@ -108,7 +108,7 @@ export function createTransactionNode<D = unknown>(
             if (result.status === "rejected") {
               return `peer[${i}]: ${result.reason}`;
             }
-            if (result.status === "fulfilled" && result.value && !result.value.success) {
+            if (result.status === "fulfilled" && result.value && !result.value.accepted) {
               return `peer[${i}]: ${result.value.error || "rejected"}`;
             }
             return null;

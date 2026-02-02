@@ -82,8 +82,20 @@ class MockWebSocket {
 
   protected generateResponse(request: any): any {
     const responses = {
+      receive: () => {
+        // Handle receive transaction: { tx: [uri, data] }
+        const [uri, data] = request.payload.tx;
+        this.storage.set(uri, data);
+        return {
+          id: request.id,
+          success: true,
+          data: {
+            accepted: true,
+          },
+        };
+      },
       write: () => {
-        // Store the data
+        // Store the data (legacy)
         this.storage.set(request.payload.uri, request.payload.value);
         return {
           id: request.id,
@@ -327,8 +339,8 @@ Deno.test({
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // First operation should work
-    const writeResult = await client.write("users://test/data", { value: 123 });
-    assertEquals(writeResult.success, true);
+    const result = await client.receive(["users://test/data", { value: 123 }]);
+    assertEquals(result.accepted, true);
 
     await client.cleanup();
     mock.restore();
@@ -355,8 +367,8 @@ Deno.test({
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // Should work normally
-    const result1 = await client.write("users://test/data", { value: 123 });
-    assertEquals(result1.success, true);
+    const result1 = await client.receive(["users://test/data", { value: 123 }]);
+    assertEquals(result1.accepted, true);
 
     await client.cleanup();
     mock.restore();
@@ -382,8 +394,8 @@ Deno.test({
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // Should work with auth
-    const result = await client.write("users://test/data", { value: 123 });
-    assertEquals(result.success, true);
+    const result = await client.receive(["users://test/data", { value: 123 }]);
+    assertEquals(result.accepted, true);
 
     await client.cleanup();
     mock.restore();
@@ -406,8 +418,8 @@ Deno.test({
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // Should work with custom timeout
-    const result = await client.write("users://test/data", { value: 123 });
-    assertEquals(result.success, true);
+    const result = await client.receive(["users://test/data", { value: 123 }]);
+    assertEquals(result.accepted, true);
 
     await client.cleanup();
     mock.restore();

@@ -219,12 +219,44 @@ The `mutable://accounts` and `immutable://accounts` protocols use signature veri
 // Writes must be signed with the matching private key
 ```
 
+## Unified Node Interface
+
+All state changes flow through a single `receive(tx)` interface:
+
+```typescript
+// Transaction: [uri, data]
+type Transaction<D = unknown> = [uri: string, data: D];
+
+interface Node {
+  receive<D>(tx: Transaction<D>): Promise<ReceiveResult>;
+  cleanup(): Promise<void>;
+}
+
+interface ReceiveResult {
+  accepted: boolean;
+  error?: string;
+}
+```
+
+All clients implement both Node and the legacy interface:
+
+```typescript
+// Unified interface (preferred)
+await client.receive(["mutable://users/alice", { name: "Alice" }]);
+
+// Legacy interface (still supported)
+await client.write("mutable://users/alice", { name: "Alice" });
+```
+
 ## NodeProtocolInterface
 
 All clients implement:
 
 ```typescript
 interface NodeProtocolInterface {
+  // Unified (preferred)
+  receive<D>(tx: Transaction<D>): Promise<ReceiveResult>;
+  // Legacy
   write<T>(uri: string, value: T): Promise<WriteResult<T>>;
   read<T>(uri: string): Promise<ReadResult<T>>;
   list(uri: string, options?: ListOptions): Promise<ListResult>;

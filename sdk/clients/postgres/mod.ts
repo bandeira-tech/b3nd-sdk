@@ -18,8 +18,8 @@ import type {
   ReadMultiResultItem,
   ReadResult,
   Schema,
-  WriteResult,
 } from "../../src/types.ts";
+import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
 
 // PostgreSQL client import - using postgres library for Deno
 // Note: In a real implementation, you'd use a PostgreSQL client library
@@ -38,7 +38,7 @@ export interface SqlExecutor {
   cleanup?: () => Promise<void>;
 }
 
-export class PostgresClient implements NodeProtocolInterface {
+export class PostgresClient implements NodeProtocolInterface, Node {
   private readonly config: PostgresClientConfig;
   private readonly schema: Schema;
   private readonly tablePrefix: string;
@@ -76,7 +76,19 @@ export class PostgresClient implements NodeProtocolInterface {
     this.connected = true;
   }
 
-  async write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>> {
+  /**
+   * Receive a transaction - the unified entry point for all state changes
+   * @param tx - Transaction tuple [uri, data]
+   * @returns ReceiveResult indicating acceptance
+   */
+  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+    const [uri, data] = tx;
+
+    // Basic URI validation
+    if (!uri || typeof uri !== "string") {
+      return { accepted: false, error: "Transaction URI is required" };
+    }
+
     try {
       // Extract program key (protocol://toplevel)
       const programKey = this.extractProgramKey(uri);
@@ -86,25 +98,25 @@ export class PostgresClient implements NodeProtocolInterface {
 
       if (!validator) {
         return {
-          success: false,
+          accepted: false,
           error: `No schema defined for program key: ${programKey}`,
         };
       }
 
       // Validate the write
-      const validation = await validator({ uri, value, read: this.read.bind(this) });
+      const validation = await validator({ uri, value: data, read: this.read.bind(this) });
 
       if (!validation.valid) {
         return {
-          success: false,
+          accepted: false,
           error: validation.error || "Validation failed",
         };
       }
 
       // Create record with timestamp
-      const record: PersistenceRecord<T> = {
+      const record: PersistenceRecord<D> = {
         ts: Date.now(),
-        data: value,
+        data,
       };
 
       // Upsert into table directly to avoid dependency on DB function
@@ -115,13 +127,10 @@ export class PostgresClient implements NodeProtocolInterface {
         [uri, JSON.stringify(record.data), record.ts],
       );
 
-      return {
-        success: true,
-        record,
-      };
+      return { accepted: true };
     } catch (error) {
       return {
-        success: false,
+        accepted: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }

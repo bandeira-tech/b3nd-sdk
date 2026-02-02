@@ -3,7 +3,7 @@
  * B3nd MCP Server
  *
  * Model Context Protocol server for B3nd SDK.
- * Provides tools to read, write, list, and manage data in B3nd backends.
+ * Provides tools to read, receive transactions, list, and manage data in B3nd backends.
  * Supports multiple backends with dynamic switching.
  */
 
@@ -228,25 +228,25 @@ const TOOLS = [
     },
   },
   {
-    name: "b3nd_write",
-    description: "Write data to a B3nd URI using the active backend. Creates or updates the record at the specified URI.",
+    name: "b3nd_receive",
+    description: "Receive a transaction to store data at a B3nd URI. This is the unified interface for all state changes. Accepts a transaction tuple [uri, data].",
     inputSchema: {
       type: "object" as const,
       properties: {
-        uri: {
-          type: "string",
-          description: "The B3nd URI to write to (e.g., 'mutable://users/alice/profile')",
-        },
-        data: {
-          type: "object",
-          description: "The JSON data to write",
+        tx: {
+          type: "array",
+          description: "The transaction tuple [uri, data]",
+          items: [
+            { type: "string", description: "The B3nd URI" },
+            { type: "object", description: "The data to store" },
+          ],
         },
         backend: {
           type: "string",
           description: "Optional: specific backend to use (defaults to active backend)",
         },
       },
-      required: ["uri", "data"],
+      required: ["tx"],
     },
   },
   {
@@ -522,24 +522,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
-      case "b3nd_write": {
-        const { uri, data, backend: backendName } = args as {
-          uri: string;
-          data: unknown;
+      case "b3nd_receive": {
+        const { tx, backend: backendName } = args as {
+          tx: [string, unknown];
           backend?: string;
         };
         const { client, config } = getClient(backendName);
-        const result = await client.write(uri, data);
+        const result = await client.receive(tx);
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify(
                 {
-                  success: result.success,
+                  accepted: result.accepted,
                   backend: config.name,
-                  uri,
-                  timestamp: result.record?.ts,
+                  uri: tx[0],
                   error: result.error,
                 },
                 null,
@@ -547,7 +545,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               ),
             },
           ],
-          isError: !result.success,
+          isError: !result.accepted,
         };
       }
 

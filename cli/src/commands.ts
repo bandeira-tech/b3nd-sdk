@@ -437,20 +437,16 @@ export async function write(args: string[], verbose = false): Promise<void> {
       }
     }
 
-    const { protocol, domain, path } = parseUri(uri);
-    const endpoint = `${config.node}/api/v1/write/${protocol}/${domain}${path}`;
+    const endpoint = `${config.node}/api/v1/receive`;
     logger?.http("POST", endpoint);
 
-    const result = await client.write(uri, data);
+    const result = await client.receive([uri, data]);
 
-    if (result.success) {
+    if (result.accepted) {
       console.log(`✓ Write successful`);
       console.log(`  URI: ${uri}`);
       console.log(`  Encrypted: ${config.encrypt ? "yes" : "no"}`);
       console.log(`  Value: ${JSON.stringify(originalData)}`);
-      if (result.record?.ts) {
-        console.log(`  Timestamp: ${new Date(result.record.ts).toISOString()}`);
-      }
     } else {
       throw new Error(result.error || "Write failed with no error message");
     }
@@ -737,13 +733,13 @@ export async function upload(args: string[], verbose = false): Promise<Map<strin
           logger?.info(`${relativePath} -> ${blobUri} (${fileData.length} bytes)`);
 
           // Write to blob storage
-          const result = await client.write(blobUri, fileData);
+          const result = await client.receive([blobUri, fileData]);
 
-          if (result.success) {
+          if (result.accepted) {
             blobMap.set(relativePath, blobUri);
             console.log(`  ✓ ${relativePath} -> ${blobUri.substring(0, 40)}...`);
             uploadCount++;
-          } else if (result.error?.includes("exists")) {
+          } else if (result.error?.includes("exists") || result.error?.includes("immutable")) {
             // Blob already exists (deduplication)
             blobMap.set(relativePath, blobUri);
             console.log(`  ○ ${relativePath} -> ${blobUri.substring(0, 40)}... [exists]`);
@@ -769,14 +765,14 @@ export async function upload(args: string[], verbose = false): Promise<Map<strin
       const blobUri = `blob://open/sha256:${hash}`;
       logger?.info(`${fileName} -> ${blobUri} (${fileData.length} bytes)`);
 
-      const result = await client.write(blobUri, fileData);
+      const result = await client.receive([blobUri, fileData]);
 
-      if (result.success) {
+      if (result.accepted) {
         blobMap.set(fileName, blobUri);
         console.log(`  ✓ ${fileName}`);
         console.log(`  URI: ${blobUri}`);
         uploadCount++;
-      } else if (result.error?.includes("exists")) {
+      } else if (result.error?.includes("exists") || result.error?.includes("immutable")) {
         blobMap.set(fileName, blobUri);
         console.log(`  ○ ${fileName} [already exists]`);
         console.log(`  URI: ${blobUri}`);
@@ -952,9 +948,9 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
         const hash = await computeSha256(fileData);
         const blobUri = `blob://open/sha256:${hash}`;
 
-        const result = await client.write(blobUri, fileData);
+        const result = await client.receive([blobUri, fileData]);
 
-        if (result.success) {
+        if (result.accepted) {
           blobMap.set(relativePath, blobUri);
           console.log(`  ✓ ${relativePath} [new]`);
           blobNewCount++;
@@ -994,9 +990,9 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
         payload: blobUri,
       };
 
-      const result = await client.write(linkUri, signedLink);
+      const result = await client.receive([linkUri, signedLink]);
 
-      if (result.success) {
+      if (result.accepted) {
         logger?.info(`  ✓ ${linkUri} -> ${blobUri}`);
         linkCount++;
       } else {
@@ -1023,9 +1019,9 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
       payload: versionBase,
     };
 
-    const pointerResult = await client.write(resolvedTarget, signedPointer);
+    const pointerResult = await client.receive([resolvedTarget, signedPointer]);
 
-    if (!pointerResult.success) {
+    if (!pointerResult.accepted) {
       throw new Error(`Failed to update pointer: ${pointerResult.error}`);
     }
 

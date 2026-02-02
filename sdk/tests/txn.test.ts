@@ -23,7 +23,7 @@ Deno.test("createTransactionNode - accepts valid transaction", async () => {
   const validator: TransactionValidator = async () => ({ valid: true });
 
   const storage = new MemoryClient({
-    schema: { "txn://test": async () => ({ valid: true }) },
+    schema: { "txn://alice": async () => ({ valid: true }) },
   });
 
   const node = createTransactionNode({
@@ -55,7 +55,7 @@ Deno.test("createTransactionNode - rejects invalid transaction", async () => {
   });
 
   const storage = new MemoryClient({
-    schema: { "txn://test": async () => ({ valid: true }) },
+    schema: { "txn://alice": async () => ({ valid: true }) },
   });
 
   const node = createTransactionNode({
@@ -82,13 +82,13 @@ Deno.test("createTransactionNode - rejects invalid transaction", async () => {
 Deno.test("createTransactionNode - validator can read state", async () => {
   const storage = new MemoryClient({
     schema: {
-      "txn://test": async () => ({ valid: true }),
+      "txn://alice": async () => ({ valid: true }),
       "accounts://balances": async () => ({ valid: true }),
     },
   });
 
   // Pre-populate balance
-  await storage.write("accounts://balances/alice", { balance: 50 });
+  await storage.receive(["accounts://balances/alice", { balance: 50 }]);
 
   const validator: TransactionValidator<{ amount: number }> = async (tx, read) => {
     const [, data] = tx;
@@ -126,10 +126,10 @@ Deno.test("createTransactionNode - validator can read state", async () => {
 
 Deno.test("createTransactionNode - propagates to multiple peers", async () => {
   const peer1 = new MemoryClient({
-    schema: { "txn://test": async () => ({ valid: true }) },
+    schema: { "txn://alice": async () => ({ valid: true }) },
   });
   const peer2 = new MemoryClient({
-    schema: { "txn://test": async () => ({ valid: true }) },
+    schema: { "txn://alice": async () => ({ valid: true }) },
   });
 
   const node = createTransactionNode({
@@ -159,7 +159,7 @@ Deno.test("createTransactionNode - propagates to multiple peers", async () => {
 
 Deno.test("createTransactionNode - rejects transaction without URI", async () => {
   const storage = new MemoryClient({
-    schema: { "txn://test": async () => ({ valid: true }) },
+    schema: { "txn://alice": async () => ({ valid: true }) },
   });
 
   const node = createTransactionNode({
@@ -371,7 +371,7 @@ Deno.test("integration - transaction node with output validator", async () => {
   });
 
   // Pre-populate UTXOs
-  await storage.write("utxo://alice/1", { amount: 100 });
+  await storage.receive(["utxo://alice/1", { amount: 100 }]);
 
   const validator = createOutputValidator<number>({
     schema: {
@@ -446,7 +446,7 @@ Deno.test("integration - transaction node with output validator", async () => {
   ];
 
   // First, store alice/2 with value 50
-  await storage.write("utxo://alice/2", { amount: 50 });
+  await storage.receive(["utxo://alice/2", { amount: 50 }]);
 
   const result2 = await node.receive(invalidTx);
   assertEquals(result2.accepted, false);

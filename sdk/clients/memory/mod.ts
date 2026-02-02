@@ -10,8 +10,8 @@ import type {
   ReadMultiResultItem,
   ReadResult,
   Schema,
-  WriteResult,
 } from "../../src/types.ts";
+import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
 
 type MemoryClientStorageNode<T> = {
   value?: T;
@@ -89,7 +89,7 @@ function target(
   };
 }
 
-export class MemoryClient implements NodeProtocolInterface {
+export class MemoryClient implements NodeProtocolInterface, Node {
   protected storage: MemoryClientStorage;
   protected schema: Schema;
 
@@ -114,29 +114,38 @@ export class MemoryClient implements NodeProtocolInterface {
     this.cleanup();
   }
 
-  public async write<T = unknown>(
-    uri: string,
-    payload: T,
-  ): Promise<WriteResult<T>> {
+  /**
+   * Receive a transaction - the unified entry point for all state changes
+   * @param tx - Transaction tuple [uri, data]
+   * @returns ReceiveResult indicating acceptance
+   */
+  public async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+    const [uri, data] = tx;
+
+    // Basic URI validation
+    if (!uri || typeof uri !== "string") {
+      return { accepted: false, error: "Transaction URI is required" };
+    }
+
     const result = target(uri, this.schema, this.storage);
     if (!result.success) {
-      return result;
+      return { accepted: false, error: result.error };
     }
     const { program, node, parts } = result;
 
     // Validate the write against the schema
     const validator = this.schema[program];
-    const validation = await validator({ uri, value: payload, read: this.read.bind(this) });
+    const validation = await validator({ uri, value: data, read: this.read.bind(this) });
     if (!validation.valid) {
       return {
-        success: false,
+        accepted: false,
         error: validation.error || "Validation failed",
       };
     }
 
     const record = {
       ts: Date.now(),
-      data: payload,
+      data,
     };
 
     let prev = node;
@@ -153,10 +162,7 @@ export class MemoryClient implements NodeProtocolInterface {
 
     prev.value = record;
 
-    return {
-      success: true,
-      record,
-    };
+    return { accepted: true };
   }
   public read<T>(uri: string): Promise<ReadResult<T>> {
     const result = target(uri, this.schema, this.storage);

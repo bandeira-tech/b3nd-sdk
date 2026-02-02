@@ -82,10 +82,10 @@ export async function proxyWrite(
       signedMessage = await createAuthenticatedMessage(request.data, [signer]);
     }
 
-    // Write to proxy client
-    const result = await proxyClient.write(resolvedUri, signedMessage);
+    // Write to proxy client using receive()
+    const result = await proxyClient.receive([resolvedUri, signedMessage]);
 
-    if (!result.success) {
+    if (!result.accepted) {
       return {
         success: false,
         error: result.error || "Write failed",
@@ -95,7 +95,6 @@ export async function proxyWrite(
     return {
       success: true,
       resolvedUri,
-      record: result.record,
     };
   } catch (error) {
     return {
