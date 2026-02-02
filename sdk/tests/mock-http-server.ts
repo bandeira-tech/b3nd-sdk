@@ -12,6 +12,24 @@ import type {
   ListResult,
   PersistenceRecord,
 } from "../src/types.ts";
+import { decodeBase64 } from "../shared/encoding.ts";
+
+/**
+ * Deserialize transaction data from JSON transport.
+ * Unwraps base64-encoded binary marker objects back to Uint8Array.
+ */
+function deserializeTxData(data: unknown): unknown {
+  if (
+    data &&
+    typeof data === "object" &&
+    (data as Record<string, unknown>).__b3nd_binary__ === true &&
+    (data as Record<string, unknown>).encoding === "base64" &&
+    typeof (data as Record<string, unknown>).data === "string"
+  ) {
+    return decodeBase64((data as Record<string, unknown>).data as string);
+  }
+  return data;
+}
 
 export interface MockServerConfig {
   /** Port to run server on */
@@ -141,7 +159,7 @@ export class MockHttpServer {
       );
     }
 
-    const [uri, data] = tx;
+    const [uri, rawData] = tx;
 
     if (!uri || typeof uri !== "string") {
       return Response.json(
@@ -149,6 +167,9 @@ export class MockHttpServer {
         { status: 400 }
       );
     }
+
+    // Deserialize binary data from base64-encoded wrapper
+    const data = deserializeTxData(rawData);
 
     const record: PersistenceRecord<unknown> = {
       ts: Date.now(),

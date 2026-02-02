@@ -145,3 +145,53 @@ jobs:
 
       - name: Run type check
         run: cd sdk && deno check src/mod.ts
+
+  sdk-integration-tests:
+    name: SDK Integration Tests (PostgreSQL + MongoDB)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: b3nd_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d b3nd_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mongo:
+        image: mongo:8
+        ports:
+          - 57017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run PostgreSQL tests
+        env:
+          POSTGRES_URL: postgresql://postgres:postgres@localhost:55432/b3nd_test
+        run: cd sdk && deno task test:integration:postgres
+
+      - name: Run MongoDB tests
+        env:
+          MONGODB_URL: mongodb://localhost:57017/b3nd_test
+          MONGODB_DB: b3nd_test
+          MONGODB_COLLECTION: b3nd_data
+        run: cd sdk && deno task test:integration:mongo

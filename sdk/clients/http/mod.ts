@@ -17,6 +17,18 @@ import type {
   ReadResult,
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
+import { encodeBase64 } from "../../shared/encoding.ts";
+
+/**
+ * Serialize transaction data for JSON transport.
+ * Wraps Uint8Array in a base64-encoded marker object to prevent JSON corruption.
+ */
+function serializeTxData<D>(data: D): unknown {
+  if (data instanceof Uint8Array) {
+    return { __b3nd_binary__: true, encoding: "base64", data: encodeBase64(data) };
+  }
+  return data;
+}
 
 export class HttpClient implements NodeProtocolInterface, Node {
   private baseUrl: string;
@@ -94,9 +106,11 @@ export class HttpClient implements NodeProtocolInterface, Node {
     }
 
     try {
+      const [uri, data] = tx;
+      const serializedTx = [uri, serializeTxData(data)];
       const response = await this.request("/api/v1/receive", {
         method: "POST",
-        body: JSON.stringify({ tx }),
+        body: JSON.stringify({ tx: serializedTx }),
       });
 
       const result = await response.json();
