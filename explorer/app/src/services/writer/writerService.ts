@@ -561,8 +561,8 @@ export const uploadBlob = async (params: {
   const hash = await computeSha256(blobData);
   const blobUri = generateBlobUri(hash);
 
-  // Write to backend
-  const response = await backendClient.write(blobUri, blobData);
+  // Write to backend via receive transaction
+  const response = await backendClient.receive([blobUri, blobData]);
 
   return {
     blobUri,
@@ -570,7 +570,7 @@ export const uploadBlob = async (params: {
     encrypted: isEncrypted,
     size: file.size,
     contentType: file.type,
-    response: { success: response.success, error: response.error },
+    response: { success: response.accepted, error: response.error },
   };
 };
 
@@ -611,12 +611,12 @@ export const uploadBlobWithLink = async (params: {
   // Create authenticated link pointing to the blob
   const linkUri = `link://accounts/${appKey}/${linkPath}`;
   const signedLink = await signPayload(blobResult.blobUri, appKey, accountPrivateKeyPem);
-  const linkResponse = await backendClient.write(linkUri, signedLink);
+  const linkResponse = await backendClient.receive([linkUri, signedLink]);
 
   return {
     ...blobResult,
     linkUri,
-    linkResponse: { success: linkResponse.success, error: linkResponse.error },
+    linkResponse: { success: linkResponse.accepted, error: linkResponse.error },
   };
 };
 

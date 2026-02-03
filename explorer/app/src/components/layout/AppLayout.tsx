@@ -69,6 +69,11 @@ export function AppLayout() {
   useEffect(() => {
     const relativePath = location.pathname;
 
+    if (relativePath.startsWith("/dashboard")) {
+      if (activeApp !== "dashboard") setActiveApp("dashboard");
+      if (mainView !== "content") setMainView("content");
+      return;
+    }
     if (relativePath.startsWith("/writer")) {
       if (activeApp !== "writer") setActiveApp("writer");
       if (mainView !== "content") setMainView("content");

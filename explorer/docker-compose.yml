@@ -1,0 +1,34 @@
+# B3nd Development Infrastructure
+# Run with: docker compose up -d
+#
+# This provides optional backing services. For simple dev, you can skip this
+# and use memory:// backend instead.
+
+services:
+  # PostgreSQL for persistent storage (optional)
+  postgres:
+    image: postgres:16-alpine
+    container_name: b3nd-postgres
+    environment:
+      POSTGRES_USER: b3nd
+      POSTGRES_PASSWORD: b3nd
+      POSTGRES_DB: b3nd
+    ports:
+      - "5432:5432"
+    volumes:
+      - b3nd-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U b3nd"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching/sessions (optional, future)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: b3nd-redis
+  #   ports:
+  #     - "6379:6379"
+
+volumes:
+  b3nd-pgdata:

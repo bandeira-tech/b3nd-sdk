@@ -181,6 +181,15 @@ app.use(
 );
 app.use(customLogger);
 
+// Health check endpoint
+app.get("/api/v1/health", (c) => {
+  return c.json({
+    status: "ok",
+    timestamp: Date.now(),
+    backend: BACKEND_URL,
+  });
+});
+
 const frontend = servers.httpServer(app);
 
 // Create node and start

@@ -30,6 +30,7 @@
       "@bandeira-tech/b3nd-web/wallet": ["../../sdk/wallet/mod.ts"],
       "@bandeira-tech/b3nd-web/apps": ["../../sdk/apps/mod.ts"],
       "@bandeira-tech/b3nd-web/encrypt": ["../../sdk/encrypt/mod.ts"],
+      "@bandeira-tech/b3nd-web/blob": ["../../sdk/blob/mod.ts"],
       "@bandeira-tech/b3nd-web/clients/http": ["../../sdk/clients/http/mod.ts"]
     }
   },

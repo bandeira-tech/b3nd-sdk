@@ -4,12 +4,14 @@ import { ExplorerLeftSlot } from "./slots/ExplorerLeftSlot";
 import { ExplorerLayoutSlot } from "./slots/ExplorerLayoutSlot";
 import { WriterLeftSlot } from "./slots/WriterLeftSlot";
 import { WriterLayoutSlot } from "./slots/WriterLayoutSlot";
+import { DashboardLeftSlot } from "./slots/DashboardLeftSlot";
+import { DashboardLayoutSlot } from "./slots/DashboardLayoutSlot";
 import { SettingsLayoutSlot } from "./slots/SettingsLayoutSlot";
 import { AccountsLayoutSlot } from "./slots/AccountsLayoutSlot";
 import { SimpleLeftSlot } from "./slots/SimpleLeftSlot";
 import type { AppMode } from "../../types";
 
-type LayoutSlotKey = "settings" | "accounts" | "writer" | "explorer";
+type LayoutSlotKey = "settings" | "accounts" | "writer" | "explorer" | "dashboard";
 
 type LayoutSlot = {
   Left: ComponentType;
@@ -38,6 +40,11 @@ const layoutSlots: Record<LayoutSlotKey, LayoutSlot> = {
     Main: ExplorerLayoutSlot,
     rightPanelToggleVisible: ({ mode }) => mode === "filesystem",
   },
+  dashboard: {
+    Left: DashboardLeftSlot,
+    Main: DashboardLayoutSlot,
+    rightPanelToggleVisible: () => false,
+  },
 };
 
 export function useLayoutSlots() {
@@ -48,6 +55,7 @@ export function useLayoutSlots() {
   const slotKey: LayoutSlotKey = (() => {
     if (mainView === "settings") return "settings";
     if (mainView === "accounts") return "accounts";
+    if (activeApp === "dashboard") return "dashboard";
     if (activeApp === "writer") return "writer";
     if (activeApp === "explorer") return "explorer";
     throw new Error("Unsupported layout slot configuration");
