@@ -44,7 +44,7 @@ let cacheExpiry = 0;
  * Fetch Google's public keys for JWT verification
  */
 async function getGooglePublicKeys(
-  fetchImpl: HttpFetch = fetch
+  fetchImpl: HttpFetch = fetch,
 ): Promise<GooglePublicKey[]> {
   const now = Date.now();
   if (cachedKeys.length > 0 && now < cacheExpiry) {
@@ -52,7 +52,7 @@ async function getGooglePublicKeys(
   }
 
   const response = await fetchImpl(
-    "https://www.googleapis.com/oauth2/v3/certs"
+    "https://www.googleapis.com/oauth2/v3/certs",
   );
 
   if (!response.ok) {
@@ -122,7 +122,7 @@ async function importRsaPublicKey(key: GooglePublicKey): Promise<CryptoKey> {
       hash: { name: "SHA-256" },
     },
     false,
-    ["verify"]
+    ["verify"],
   );
 }
 
@@ -132,7 +132,7 @@ async function importRsaPublicKey(key: GooglePublicKey): Promise<CryptoKey> {
 export async function verifyGoogleIdToken(
   idToken: string,
   clientId: string,
-  fetchImpl: HttpFetch = fetch
+  fetchImpl: HttpFetch = fetch,
 ): Promise<GoogleTokenPayload> {
   // Split the JWT into parts
   const parts = idToken.split(".");
@@ -175,7 +175,7 @@ export async function verifyGoogleIdToken(
     "RSASSA-PKCS1-v1_5",
     publicKey,
     signatureData.buffer as ArrayBuffer,
-    signedData
+    signedData,
   );
 
   if (!isValid) {
@@ -218,7 +218,7 @@ export async function verifyGoogleIdToken(
  * Uses the Google sub (unique user ID) to create a consistent username
  */
 export async function generateGoogleUsername(
-  googleSub: string
+  googleSub: string,
 ): Promise<string> {
   // Create a hash of the Google sub to use as username suffix
   const encoder = new TextEncoder();

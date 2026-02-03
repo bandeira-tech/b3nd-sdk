@@ -86,16 +86,19 @@
 
 // Types
 export type {
-  TransactionData,
-  StateTransaction,
-  TransactionValidationContext,
-  ProgramValidator,
   ProgramSchema,
+  ProgramValidator,
+  StateTransaction,
+  TransactionData,
+  TransactionValidationContext,
 } from "./types.ts";
 
 // Validators
 export {
-  extractProgram,
-  createOutputValidator,
   combineValidators,
+  createOutputValidator,
+  extractProgram,
 } from "./validators.ts";
+
+// Detection
+export { isTransactionData } from "./detect.ts";

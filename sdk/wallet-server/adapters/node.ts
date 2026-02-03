@@ -4,7 +4,7 @@
  * Provides Node.js-specific implementations of the DI interfaces.
  */
 
-import type { FileStorage, Environment } from "../interfaces.ts";
+import type { Environment, FileStorage } from "../interfaces.ts";
 
 /**
  * Node.js file storage implementation
@@ -53,23 +53,33 @@ export class NodeEnvironment implements Environment {
 /**
  * Load server keys from Node.js environment variables
  */
-export function loadServerKeysFromEnv(env: Environment = new NodeEnvironment()) {
+export function loadServerKeysFromEnv(
+  env: Environment = new NodeEnvironment(),
+) {
   const identityPrivateKeyPem = env.get("SERVER_IDENTITY_PRIVATE_KEY_PEM");
   const identityPublicKeyHex = env.get("SERVER_IDENTITY_PUBLIC_KEY_HEX");
   const encryptionPrivateKeyPem = env.get("SERVER_ENCRYPTION_PRIVATE_KEY_PEM");
   const encryptionPublicKeyHex = env.get("SERVER_ENCRYPTION_PUBLIC_KEY_HEX");
 
   if (!identityPrivateKeyPem) {
-    throw new Error("SERVER_IDENTITY_PRIVATE_KEY_PEM environment variable is required");
+    throw new Error(
+      "SERVER_IDENTITY_PRIVATE_KEY_PEM environment variable is required",
+    );
   }
   if (!identityPublicKeyHex || identityPublicKeyHex.length !== 64) {
-    throw new Error("SERVER_IDENTITY_PUBLIC_KEY_HEX must be exactly 64 hex characters");
+    throw new Error(
+      "SERVER_IDENTITY_PUBLIC_KEY_HEX must be exactly 64 hex characters",
+    );
   }
   if (!encryptionPrivateKeyPem) {
-    throw new Error("SERVER_ENCRYPTION_PRIVATE_KEY_PEM environment variable is required");
+    throw new Error(
+      "SERVER_ENCRYPTION_PRIVATE_KEY_PEM environment variable is required",
+    );
   }
   if (!encryptionPublicKeyHex || encryptionPublicKeyHex.length !== 64) {
-    throw new Error("SERVER_ENCRYPTION_PUBLIC_KEY_HEX must be exactly 64 hex characters");
+    throw new Error(
+      "SERVER_ENCRYPTION_PUBLIC_KEY_HEX must be exactly 64 hex characters",
+    );
   }
 
   return {
@@ -97,17 +107,21 @@ export function loadConfigFromEnv(env: Environment = new NodeEnvironment()) {
     serverKeys: loadServerKeysFromEnv(env),
     jwtSecret,
     jwtExpirationSeconds: Number(env.get("JWT_EXPIRATION_SECONDS") || "86400"),
-    credentialNodeUrl: env.get("CREDENTIAL_NODE_URL") || "http://localhost:8842",
+    credentialNodeUrl: env.get("CREDENTIAL_NODE_URL") ||
+      "http://localhost:8842",
     proxyNodeUrl: env.get("PROXY_NODE_URL") || "http://localhost:8842",
     allowedOrigins: (env.get("ALLOWED_ORIGINS") || "*").split(","),
-    passwordResetTokenTtlSeconds: Number(env.get("PASSWORD_RESET_TOKEN_TTL_SECONDS") || "3600"),
+    passwordResetTokenTtlSeconds: Number(
+      env.get("PASSWORD_RESET_TOKEN_TTL_SECONDS") || "3600",
+    ),
     googleClientId: env.get("GOOGLE_CLIENT_ID") || undefined,
-    bootstrapStatePath: env.get("BOOTSTRAP_APP_STATE_PATH") || "./wallet-app-bootstrap.json",
+    bootstrapStatePath: env.get("BOOTSTRAP_APP_STATE_PATH") ||
+      "./wallet-app-bootstrap.json",
     appBackend: env.get("APP_BACKEND_URL")
       ? {
-          url: env.get("APP_BACKEND_URL")!,
-          apiBasePath: env.get("APP_BACKEND_API_BASE_PATH") || "/api/v1",
-        }
+        url: env.get("APP_BACKEND_URL")!,
+        apiBasePath: env.get("APP_BACKEND_API_BASE_PATH") || "/api/v1",
+      }
       : undefined,
     deps: {
       storage: new NodeFileStorage(),

@@ -1,12 +1,14 @@
 # @b3nd/sdk/wallet
 
-Client library for interacting with B3nd wallet servers. Provides a simple, type-safe interface for authentication, key management, and proxied writes.
+Client library for interacting with B3nd wallet servers. Provides a simple,
+type-safe interface for authentication, key management, and proxied writes.
 
 ## Features
 
 - 🔐 **Authentication**: Signup, login, password management
 - 🔑 **Key Management**: Retrieve user public keys
-- ✍️ **Proxy Writes**: Write data through the wallet server with automatic signing
+- ✍️ **Proxy Writes**: Write data through the wallet server with automatic
+  signing
 - 🌐 **Universal**: Works in both Deno and browser environments
 - 📦 **Type-Safe**: Full TypeScript support
 
@@ -52,7 +54,7 @@ console.log("Token expires in:", session.expiresIn, "seconds");
 await wallet.proxyWrite({
   uri: "mutable://data/my-app/profile",
   data: { name: "Alice", bio: "B3nd user" },
-  encrypt: true  // Optional: encrypt the payload
+  encrypt: true, // Optional: encrypt the payload
 });
 
 // Get user's public keys
@@ -70,6 +72,7 @@ new WalletClient(config: WalletClientConfig)
 ```
 
 **Config options:**
+
 - `walletServerUrl` (required): URL of the wallet server
 - `apiBasePath` (required): API base path, e.g. "/api/v1"
 - `fetch` (optional): Custom fetch implementation
@@ -78,11 +81,13 @@ new WalletClient(config: WalletClientConfig)
 
 #### `signup(appKey, session, credentials)`
 
-Create a new user account with an approved session keypair. Returns session data - call `setSession()` to activate it.
+Create a new user account with an approved session keypair. Returns session
+data - call `setSession()` to activate it.
 
 #### `login(appKey, session, credentials)`
 
-Login with an approved session keypair. Returns session data - call `setSession()` to activate it.
+Login with an approved session keypair. Returns session data - call
+`setSession()` to activate it.
 
 #### `logout()`
 
@@ -106,7 +111,8 @@ Request a password reset token scoped to an app.
 
 #### `resetPasswordWithToken(appKey, username, resetToken, newPassword)`
 
-Reset password using a reset token scoped to an app. Returns session data - call `setSession()` to activate it.
+Reset password using a reset token scoped to an app. Returns session data - call
+`setSession()` to activate it.
 
 ### Session Management
 
@@ -161,7 +167,8 @@ const token = wallet.getToken();
 
 #### `getPublicKeys(appKey)`
 
-Get public keys for the current authenticated user, scoped to a wallet app. Requires authentication.
+Get public keys for the current authenticated user, scoped to a wallet app.
+Requires authentication.
 
 ```typescript
 const keys = await wallet.getPublicKeys(appKey);
@@ -177,13 +184,14 @@ Alias for `getPublicKeys(appKey)`.
 
 #### `proxyWrite(request)`
 
-Proxy a write request through the wallet server. The server signs the write with its identity key. Requires authentication.
+Proxy a write request through the wallet server. The server signs the write with
+its identity key. Requires authentication.
 
 ```typescript
 await wallet.proxyWrite({
   uri: "mutable://data/my-app/profile",
   data: { name: "Alice" },
-  encrypt: false  // Set to true to encrypt the payload
+  encrypt: false, // Set to true to encrypt the payload
 });
 ```
 
@@ -215,8 +223,16 @@ if (savedSession) {
 }
 
 // Login and save session
-async function login(appKey: string, sessionKeypair: SessionKeypair, username: string, password: string) {
-  const session = await wallet.login(appKey, sessionKeypair, { username, password });
+async function login(
+  appKey: string,
+  sessionKeypair: SessionKeypair,
+  username: string,
+  password: string,
+) {
+  const session = await wallet.login(appKey, sessionKeypair, {
+    username,
+    password,
+  });
 
   // Activate the session
   wallet.setSession(session);
@@ -252,10 +268,10 @@ The wallet client is fully typed. Import types as needed:
 
 ```typescript
 import type {
-  WalletClientConfig,
   AuthSession,
+  ProxyWriteRequest,
   UserPublicKeys,
-  ProxyWriteRequest
+  WalletClientConfig,
 } from "@b3nd/sdk/wallet";
 ```
 

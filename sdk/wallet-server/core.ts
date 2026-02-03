@@ -13,21 +13,17 @@ import { HttpClient } from "../clients/http/mod.ts";
 import type { NodeProtocolInterface } from "../src/types.ts";
 import { createAuthenticatedMessage } from "../encrypt/mod.ts";
 
-import type {
-  FileStorage,
-  Logger,
-  HttpFetch,
-} from "./interfaces.ts";
+import type { FileStorage, HttpFetch, Logger } from "./interfaces.ts";
 import { defaultLogger, MemoryFileStorage } from "./interfaces.ts";
 import type {
-  WalletServerConfig,
   ResolvedWalletServerConfig,
   ServerKeys,
+  WalletServerConfig,
 } from "./types.ts";
 
 import { createJwt, verifyJwt } from "./jwt.ts";
 import { getUserPublicKeys } from "./keys.ts";
-import { proxyWrite, proxyRead, proxyReadMulti } from "./proxy.ts";
+import { proxyRead, proxyReadMulti, proxyWrite } from "./proxy.ts";
 import { pemToCryptoKey } from "./obfuscation.ts";
 import { verifyPayload } from "../encrypt/mod.ts";
 import {
@@ -80,11 +76,9 @@ export class WalletServerCore {
     this.fetchImpl = userConfig.deps?.fetch ?? fetch;
 
     // Initialize clients
-    this.credentialClient =
-      userConfig.deps?.credentialClient ??
+    this.credentialClient = userConfig.deps?.credentialClient ??
       new HttpClient({ url: userConfig.credentialNodeUrl! });
-    this.proxyClient =
-      userConfig.deps?.proxyClient ??
+    this.proxyClient = userConfig.deps?.proxyClient ??
       new HttpClient({ url: userConfig.proxyNodeUrl! });
 
     // Create Hono app
@@ -105,14 +99,16 @@ export class WalletServerCore {
       throw new Error("serverKeys.encryptionKey.publicKeyHex is required");
     }
     if (!config.jwtSecret || config.jwtSecret.length < 32) {
-      throw new Error("jwtSecret is required and must be at least 32 characters");
+      throw new Error(
+        "jwtSecret is required and must be at least 32 characters",
+      );
     }
     if (
       !config.credentialNodeUrl &&
       !config.deps?.credentialClient
     ) {
       throw new Error(
-        "Either credentialNodeUrl or deps.credentialClient is required"
+        "Either credentialNodeUrl or deps.credentialClient is required",
       );
     }
     if (!config.proxyNodeUrl && !config.deps?.proxyClient) {
@@ -121,7 +117,7 @@ export class WalletServerCore {
   }
 
   private applyDefaults(
-    config: WalletServerConfig
+    config: WalletServerConfig,
   ): ResolvedWalletServerConfig {
     return {
       serverKeys: config.serverKeys,
@@ -168,14 +164,14 @@ export class WalletServerCore {
   async bootstrap(): Promise<BootstrapState | null> {
     if (!this.config.appBackend) {
       this.logger.warn(
-        "App backend not configured; skipping wallet app bootstrap"
+        "App backend not configured; skipping wallet app bootstrap",
       );
       return null;
     }
 
     const appKey = this.serverKeys.identityKey.publicKeyHex;
     const apiBasePath = this.normalizeApiBasePath(
-      this.config.appBackend.apiBasePath ?? "/api/v1"
+      this.config.appBackend.apiBasePath ?? "/api/v1",
     );
     const appServerUrl = this.config.appBackend.url.replace(/\/$/, "");
 
@@ -183,12 +179,12 @@ export class WalletServerCore {
     if (this.config.bootstrapStatePath) {
       try {
         const existingState = await this.readBootstrapState(
-          this.config.bootstrapStatePath
+          this.config.bootstrapStatePath,
         );
         if (existingState) {
           if (existingState.appKey !== appKey) {
             throw new Error(
-              `Bootstrap state belongs to ${existingState.appKey}, expected ${appKey}`
+              `Bootstrap state belongs to ${existingState.appKey}, expected ${appKey}`,
             );
           }
           return existingState;
@@ -202,13 +198,13 @@ export class WalletServerCore {
     const bootstrapJwt = await createJwt(
       "__wallet_bootstrap__",
       this.config.jwtSecret,
-      this.config.jwtExpirationSeconds
+      this.config.jwtExpirationSeconds,
     );
 
     const signMessage = async (payload: unknown) => {
       const privateKey = await pemToCryptoKey(
         this.serverKeys.identityKey.privateKeyPem,
-        "Ed25519"
+        "Ed25519",
       );
       return await createAuthenticatedMessage(payload, [
         { privateKey, publicKeyHex: appKey },
@@ -230,15 +226,16 @@ export class WalletServerCore {
           Authorization: `Bearer ${bootstrapJwt}`,
         },
         body: JSON.stringify(originsMessage),
-      }
+      },
     );
 
     const originsBody = await originsRes.json().catch(() => ({}));
     if (!originsRes.ok || !(originsBody as Record<string, unknown>)?.success) {
       throw new Error(
         `Wallet app origins bootstrap failed: ${
-          (originsBody as Record<string, unknown>)?.error || originsRes.statusText
-        }`
+          (originsBody as Record<string, unknown>)?.error ||
+          originsRes.statusText
+        }`,
       );
     }
 
@@ -257,7 +254,7 @@ export class WalletServerCore {
           Authorization: `Bearer ${bootstrapJwt}`,
         },
         body: JSON.stringify(schemaMessage),
-      }
+      },
     );
 
     const schemaBody = await schemaRes.json().catch(() => ({}));
@@ -265,7 +262,7 @@ export class WalletServerCore {
       throw new Error(
         `Wallet app schema bootstrap failed: ${
           (schemaBody as Record<string, unknown>)?.error || schemaRes.statusText
-        }`
+        }`,
       );
     }
 
@@ -291,7 +288,9 @@ export class WalletServerCore {
     return base.replace(/\/$/, "");
   }
 
-  private async readBootstrapState(path: string): Promise<BootstrapState | null> {
+  private async readBootstrapState(
+    path: string,
+  ): Promise<BootstrapState | null> {
     try {
       const text = await this.storage.readTextFile(path);
       const parsed = JSON.parse(text) as Partial<BootstrapState>;
@@ -311,7 +310,7 @@ export class WalletServerCore {
 
   private async writeBootstrapState(
     path: string,
-    state: BootstrapState
+    state: BootstrapState,
   ): Promise<void> {
     await this.storage.writeTextFile(path, JSON.stringify(state, null, 2));
   }
@@ -327,7 +326,7 @@ export class WalletServerCore {
    */
   private async sessionExists(
     appKey: string,
-    sessionPubkey: string
+    sessionPubkey: string,
   ): Promise<{ valid: boolean; reason?: string }> {
     const uri = `mutable://accounts/${appKey}/sessions/${sessionPubkey}`;
     const res = await this.proxyClient.read(uri);
@@ -340,9 +339,10 @@ export class WalletServerCore {
     // - Plain: 1 (approved) or 0 (revoked)
     // - Signed message: { auth: [...], payload: 1 } or { auth: [...], payload: 0 }
     const data = res.record?.data;
-    const status = typeof data === 'object' && data !== null && 'payload' in data
-      ? (data as { payload: unknown }).payload
-      : data;
+    const status =
+      typeof data === "object" && data !== null && "payload" in data
+        ? (data as { payload: unknown }).payload
+        : data;
 
     if (status === 1) {
       return { valid: true };
@@ -358,10 +358,13 @@ export class WalletServerCore {
   private createApp(): Hono {
     const app = new Hono();
     const serverPublicKey = this.serverKeys.identityKey.publicKeyHex;
-    const serverIdentityPrivateKeyPem = this.serverKeys.identityKey.privateKeyPem;
+    const serverIdentityPrivateKeyPem =
+      this.serverKeys.identityKey.privateKeyPem;
     const serverIdentityPublicKeyHex = this.serverKeys.identityKey.publicKeyHex;
-    const serverEncryptionPublicKeyHex = this.serverKeys.encryptionKey.publicKeyHex;
-    const serverEncryptionPrivateKeyPem = this.serverKeys.encryptionKey.privateKeyPem;
+    const serverEncryptionPublicKeyHex =
+      this.serverKeys.encryptionKey.publicKeyHex;
+    const serverEncryptionPrivateKeyPem =
+      this.serverKeys.encryptionKey.privateKeyPem;
 
     // CORS middleware
     app.use(
@@ -373,7 +376,7 @@ export class WalletServerCore {
             : this.config.allowedOrigins.join(","),
         allowMethods: ["GET", "POST", "OPTIONS"],
         allowHeaders: ["Content-Type", "Authorization"],
-      })
+      }),
     );
 
     // Request logging middleware
@@ -382,7 +385,9 @@ export class WalletServerCore {
       await next();
       const duration = Date.now() - start;
       this.logger.log(
-        `[${new Date().toISOString()}] ${c.req.method} ${c.req.path} ${c.res.status} - ${duration}ms`
+        `[${
+          new Date().toISOString()
+        }] ${c.req.method} ${c.req.path} ${c.res.status} - ${duration}ms`,
       );
     });
 
@@ -415,7 +420,10 @@ export class WalletServerCore {
           return c.json({ success: false, error: "appKey is required" }, 400);
         }
         if (!authHeader?.startsWith("Bearer ")) {
-          return c.json({ success: false, error: "Authorization required" }, 401);
+          return c.json(
+            { success: false, error: "Authorization required" },
+            401,
+          );
         }
 
         const token = authHeader.substring(7);
@@ -426,7 +434,7 @@ export class WalletServerCore {
           serverPublicKey,
           payload.username,
           serverEncryptionPrivateKeyPem,
-          this.logger
+          this.logger,
         );
 
         return c.json({
@@ -452,7 +460,10 @@ export class WalletServerCore {
           return c.json({ success: false, error: "appKey is required" }, 400);
         }
         if (!authHeader?.startsWith("Bearer ")) {
-          return c.json({ success: false, error: "Authorization required" }, 401);
+          return c.json(
+            { success: false, error: "Authorization required" },
+            401,
+          );
         }
 
         const token = authHeader.substring(7);
@@ -485,15 +496,23 @@ export class WalletServerCore {
           return c.json({ success: false, error: "appKey is required" }, 400);
         }
         if (!message.auth?.[0]?.pubkey) {
-          return c.json({ success: false, error: "auth[0].pubkey (session public key) is required" }, 400);
+          return c.json({
+            success: false,
+            error: "auth[0].pubkey (session public key) is required",
+          }, 400);
         }
         if (!message.auth?.[0]?.signature) {
-          return c.json({ success: false, error: "auth[0].signature is required" }, 400);
+          return c.json({
+            success: false,
+            error: "auth[0].signature is required",
+          }, 400);
         }
         if (!message.payload?.type) {
           return c.json({
             success: false,
-            error: `payload.type is required. Supported: ${getSupportedCredentialTypes().join(", ")}`,
+            error: `payload.type is required. Supported: ${
+              getSupportedCredentialTypes().join(", ")
+            }`,
           }, 400);
         }
 
@@ -501,9 +520,15 @@ export class WalletServerCore {
         const credentials = message.payload;
 
         // Verify session signature using standard SDK verification
-        const { verified } = await verifyPayload({ payload: credentials, auth: message.auth });
+        const { verified } = await verifyPayload({
+          payload: credentials,
+          auth: message.auth,
+        });
         if (!verified) {
-          return c.json({ success: false, error: "Invalid session signature" }, 401);
+          return c.json(
+            { success: false, error: "Invalid session signature" },
+            401,
+          );
         }
 
         // Verify session is approved by app (status === 1)
@@ -525,11 +550,17 @@ export class WalletServerCore {
         let googleClientId: string | undefined;
         if (credentials.type === "google") {
           const appProfileUri = `mutable://accounts/${appKey}/app-profile`;
-          const appProfileResult = await this.credentialClient.read(appProfileUri);
+          const appProfileResult = await this.credentialClient.read(
+            appProfileUri,
+          );
           if (appProfileResult.success && appProfileResult.record?.data) {
-            const appProfile = appProfileResult.record.data as Record<string, unknown>;
+            const appProfile = appProfileResult.record.data as Record<
+              string,
+              unknown
+            >;
             if (appProfile.payload && typeof appProfile.payload === "object") {
-              googleClientId = (appProfile.payload as Record<string, unknown>).googleClientId as string;
+              googleClientId = (appProfile.payload as Record<string, unknown>)
+                .googleClientId as string;
             } else {
               googleClientId = appProfile.googleClientId as string;
             }
@@ -557,7 +588,7 @@ export class WalletServerCore {
         const jwt = await createJwt(
           result.username,
           this.config.jwtSecret,
-          this.config.jwtExpirationSeconds
+          this.config.jwtExpirationSeconds,
         );
 
         return c.json({
@@ -569,7 +600,10 @@ export class WalletServerCore {
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("already exists") || message.includes("already registered")) {
+        if (
+          message.includes("already exists") ||
+          message.includes("already registered")
+        ) {
           return c.json({ success: false, error: message }, 409);
         }
         if (message.includes("Unknown credential type")) {
@@ -594,15 +628,23 @@ export class WalletServerCore {
           return c.json({ success: false, error: "appKey is required" }, 400);
         }
         if (!message.auth?.[0]?.pubkey) {
-          return c.json({ success: false, error: "auth[0].pubkey (session public key) is required" }, 400);
+          return c.json({
+            success: false,
+            error: "auth[0].pubkey (session public key) is required",
+          }, 400);
         }
         if (!message.auth?.[0]?.signature) {
-          return c.json({ success: false, error: "auth[0].signature is required" }, 400);
+          return c.json({
+            success: false,
+            error: "auth[0].signature is required",
+          }, 400);
         }
         if (!message.payload?.type) {
           return c.json({
             success: false,
-            error: `payload.type is required. Supported: ${getSupportedCredentialTypes().join(", ")}`,
+            error: `payload.type is required. Supported: ${
+              getSupportedCredentialTypes().join(", ")
+            }`,
           }, 400);
         }
 
@@ -610,9 +652,15 @@ export class WalletServerCore {
         const credentials = message.payload;
 
         // Verify session signature using standard SDK verification
-        const { verified } = await verifyPayload({ payload: credentials, auth: message.auth });
+        const { verified } = await verifyPayload({
+          payload: credentials,
+          auth: message.auth,
+        });
         if (!verified) {
-          return c.json({ success: false, error: "Invalid session signature" }, 401);
+          return c.json(
+            { success: false, error: "Invalid session signature" },
+            401,
+          );
         }
 
         // Verify session is approved by app (status === 1)
@@ -634,11 +682,17 @@ export class WalletServerCore {
         let googleClientId: string | undefined;
         if (credentials.type === "google") {
           const appProfileUri = `mutable://accounts/${appKey}/app-profile`;
-          const appProfileResult = await this.credentialClient.read(appProfileUri);
+          const appProfileResult = await this.credentialClient.read(
+            appProfileUri,
+          );
           if (appProfileResult.success && appProfileResult.record?.data) {
-            const appProfile = appProfileResult.record.data as Record<string, unknown>;
+            const appProfile = appProfileResult.record.data as Record<
+              string,
+              unknown
+            >;
             if (appProfile.payload && typeof appProfile.payload === "object") {
-              googleClientId = (appProfile.payload as Record<string, unknown>).googleClientId as string;
+              googleClientId = (appProfile.payload as Record<string, unknown>)
+                .googleClientId as string;
             } else {
               googleClientId = appProfile.googleClientId as string;
             }
@@ -666,7 +720,7 @@ export class WalletServerCore {
         const jwt = await createJwt(
           result.username,
           this.config.jwtSecret,
-          this.config.jwtExpirationSeconds
+          this.config.jwtExpirationSeconds,
         );
 
         return c.json({
@@ -687,160 +741,200 @@ export class WalletServerCore {
     });
 
     // Change password
-    app.post("/api/v1/auth/credentials/change-password/:appKey", async (c: Context) => {
-      try {
-        const appKey = c.req.param("appKey");
-        const authHeader = c.req.header("Authorization");
+    app.post(
+      "/api/v1/auth/credentials/change-password/:appKey",
+      async (c: Context) => {
+        try {
+          const appKey = c.req.param("appKey");
+          const authHeader = c.req.header("Authorization");
 
-        if (!appKey) {
-          return c.json({ success: false, error: "appKey is required" }, 400);
+          if (!appKey) {
+            return c.json({ success: false, error: "appKey is required" }, 400);
+          }
+          if (!authHeader?.startsWith("Bearer ")) {
+            return c.json(
+              { success: false, error: "Authorization required" },
+              401,
+            );
+          }
+
+          const token = authHeader.substring(7);
+          const jwtPayload = await verifyJwt(token, this.config.jwtSecret);
+
+          const { oldPassword, newPassword } = (await c.req.json()) as {
+            oldPassword: string;
+            newPassword: string;
+          };
+
+          if (!oldPassword || !newPassword) {
+            return c.json({
+              success: false,
+              error: "oldPassword and newPassword are required",
+            }, 400);
+          }
+          if (newPassword.length < 8) {
+            return c.json({
+              success: false,
+              error: "newPassword must be at least 8 characters",
+            }, 400);
+          }
+
+          await changePassword(
+            this.credentialClient,
+            serverPublicKey,
+            jwtPayload.username,
+            oldPassword,
+            newPassword,
+            serverIdentityPrivateKeyPem,
+            serverIdentityPublicKeyHex,
+            serverEncryptionPublicKeyHex,
+            serverEncryptionPrivateKeyPem,
+            appKey,
+          );
+
+          return c.json({
+            success: true,
+            message: "Password changed successfully",
+          });
+        } catch (error) {
+          const message = error instanceof Error
+            ? error.message
+            : String(error);
+          if (message.includes("expired") || message.includes("incorrect")) {
+            return c.json({ success: false, error: message }, 401);
+          }
+          this.logger.error("Change password error:", error);
+          return c.json({ success: false, error: message }, 500);
         }
-        if (!authHeader?.startsWith("Bearer ")) {
-          return c.json({ success: false, error: "Authorization required" }, 401);
-        }
-
-        const token = authHeader.substring(7);
-        const jwtPayload = await verifyJwt(token, this.config.jwtSecret);
-
-        const { oldPassword, newPassword } = (await c.req.json()) as {
-          oldPassword: string;
-          newPassword: string;
-        };
-
-        if (!oldPassword || !newPassword) {
-          return c.json({ success: false, error: "oldPassword and newPassword are required" }, 400);
-        }
-        if (newPassword.length < 8) {
-          return c.json({ success: false, error: "newPassword must be at least 8 characters" }, 400);
-        }
-
-        await changePassword(
-          this.credentialClient,
-          serverPublicKey,
-          jwtPayload.username,
-          oldPassword,
-          newPassword,
-          serverIdentityPrivateKeyPem,
-          serverIdentityPublicKeyHex,
-          serverEncryptionPublicKeyHex,
-          serverEncryptionPrivateKeyPem,
-          appKey
-        );
-
-        return c.json({ success: true, message: "Password changed successfully" });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("expired") || message.includes("incorrect")) {
-          return c.json({ success: false, error: message }, 401);
-        }
-        this.logger.error("Change password error:", error);
-        return c.json({ success: false, error: message }, 500);
-      }
-    });
+      },
+    );
 
     // Request password reset
-    app.post("/api/v1/auth/credentials/request-password-reset/:appKey", async (c: Context) => {
-      try {
-        const appKey = c.req.param("appKey");
-        const { username } = (await c.req.json()) as { username: string };
+    app.post(
+      "/api/v1/auth/credentials/request-password-reset/:appKey",
+      async (c: Context) => {
+        try {
+          const appKey = c.req.param("appKey");
+          const { username } = (await c.req.json()) as { username: string };
 
-        if (!appKey) {
-          return c.json({ success: false, error: "appKey is required" }, 400);
-        }
-        if (!username) {
-          return c.json({ success: false, error: "username is required" }, 400);
-        }
+          if (!appKey) {
+            return c.json({ success: false, error: "appKey is required" }, 400);
+          }
+          if (!username) {
+            return c.json(
+              { success: false, error: "username is required" },
+              400,
+            );
+          }
 
-        const resetToken = await createPasswordResetToken(
-          this.credentialClient,
-          serverPublicKey,
-          username,
-          this.config.passwordResetTokenTtlSeconds,
-          serverIdentityPrivateKeyPem,
-          serverIdentityPublicKeyHex,
-          serverEncryptionPublicKeyHex,
-          appKey
-        );
+          const resetToken = await createPasswordResetToken(
+            this.credentialClient,
+            serverPublicKey,
+            username,
+            this.config.passwordResetTokenTtlSeconds,
+            serverIdentityPrivateKeyPem,
+            serverIdentityPublicKeyHex,
+            serverEncryptionPublicKeyHex,
+            appKey,
+          );
 
-        return c.json({
-          success: true,
-          message: "Password reset token created",
-          resetToken,
-          expiresIn: this.config.passwordResetTokenTtlSeconds,
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("not found")) {
-          return c.json({ success: false, error: "User not found" }, 404);
+          return c.json({
+            success: true,
+            message: "Password reset token created",
+            resetToken,
+            expiresIn: this.config.passwordResetTokenTtlSeconds,
+          });
+        } catch (error) {
+          const message = error instanceof Error
+            ? error.message
+            : String(error);
+          if (message.includes("not found")) {
+            return c.json({ success: false, error: "User not found" }, 404);
+          }
+          this.logger.error("Request password reset error:", error);
+          return c.json({ success: false, error: message }, 500);
         }
-        this.logger.error("Request password reset error:", error);
-        return c.json({ success: false, error: message }, 500);
-      }
-    });
+      },
+    );
 
     // Reset password
-    app.post("/api/v1/auth/credentials/reset-password/:appKey", async (c: Context) => {
-      try {
-        const appKey = c.req.param("appKey");
-        const { username, resetToken, newPassword } = (await c.req.json()) as {
-          username: string;
-          resetToken: string;
-          newPassword: string;
-        };
+    app.post(
+      "/api/v1/auth/credentials/reset-password/:appKey",
+      async (c: Context) => {
+        try {
+          const appKey = c.req.param("appKey");
+          const { username, resetToken, newPassword } =
+            (await c.req.json()) as {
+              username: string;
+              resetToken: string;
+              newPassword: string;
+            };
 
-        if (!appKey) {
-          return c.json({ success: false, error: "appKey is required" }, 400);
-        }
-        if (!username || !resetToken || !newPassword) {
-          return c.json({ success: false, error: "username, resetToken and newPassword are required" }, 400);
-        }
-        if (newPassword.length < 8) {
-          return c.json({ success: false, error: "newPassword must be at least 8 characters" }, 400);
-        }
+          if (!appKey) {
+            return c.json({ success: false, error: "appKey is required" }, 400);
+          }
+          if (!username || !resetToken || !newPassword) {
+            return c.json({
+              success: false,
+              error: "username, resetToken and newPassword are required",
+            }, 400);
+          }
+          if (newPassword.length < 8) {
+            return c.json({
+              success: false,
+              error: "newPassword must be at least 8 characters",
+            }, 400);
+          }
 
-        const resetUsername = await resetPasswordWithToken(
-          this.credentialClient,
-          serverPublicKey,
-          resetToken,
-          newPassword,
-          serverIdentityPrivateKeyPem,
-          serverIdentityPublicKeyHex,
-          serverEncryptionPublicKeyHex,
-          serverEncryptionPrivateKeyPem,
-          username,
-          appKey,
-          this.logger
-        );
+          const resetUsername = await resetPasswordWithToken(
+            this.credentialClient,
+            serverPublicKey,
+            resetToken,
+            newPassword,
+            serverIdentityPrivateKeyPem,
+            serverIdentityPublicKeyHex,
+            serverEncryptionPublicKeyHex,
+            serverEncryptionPrivateKeyPem,
+            username,
+            appKey,
+            this.logger,
+          );
 
-        const newToken = await createJwt(
-          resetUsername,
-          this.config.jwtSecret,
-          this.config.jwtExpirationSeconds
-        );
+          const newToken = await createJwt(
+            resetUsername,
+            this.config.jwtSecret,
+            this.config.jwtExpirationSeconds,
+          );
 
-        return c.json({
-          success: true,
-          message: "Password reset successful",
-          username: resetUsername,
-          token: newToken,
-          expiresIn: this.config.jwtExpirationSeconds,
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("invalid") || message.includes("expired")) {
-          return c.json({ success: false, error: message }, 400);
+          return c.json({
+            success: true,
+            message: "Password reset successful",
+            username: resetUsername,
+            token: newToken,
+            expiresIn: this.config.jwtExpirationSeconds,
+          });
+        } catch (error) {
+          const message = error instanceof Error
+            ? error.message
+            : String(error);
+          if (message.includes("invalid") || message.includes("expired")) {
+            return c.json({ success: false, error: message }, 400);
+          }
+          this.logger.error("Reset password error:", error);
+          return c.json({ success: false, error: message }, 500);
         }
-        this.logger.error("Reset password error:", error);
-        return c.json({ success: false, error: message }, 500);
-      }
-    });
+      },
+    );
 
     // Proxy write
     app.post("/api/v1/proxy/write", async (c: Context) => {
       try {
         const authHeader = c.req.header("Authorization");
         if (!authHeader?.startsWith("Bearer ")) {
-          return c.json({ success: false, error: "Authorization required" }, 401);
+          return c.json(
+            { success: false, error: "Authorization required" },
+            401,
+          );
         }
 
         const token = authHeader.substring(7);
@@ -865,7 +959,7 @@ export class WalletServerCore {
           serverPublicKey,
           payload.username,
           serverEncryptionPrivateKeyPem,
-          { uri, data, encrypt: encrypt === true }
+          { uri, data, encrypt: encrypt === true },
         );
 
         if (!result.success) {
@@ -894,7 +988,10 @@ export class WalletServerCore {
       try {
         const authHeader = c.req.header("Authorization");
         if (!authHeader?.startsWith("Bearer ")) {
-          return c.json({ success: false, error: "Authorization required" }, 401);
+          return c.json(
+            { success: false, error: "Authorization required" },
+            401,
+          );
         }
 
         const token = authHeader.substring(7);
@@ -902,7 +999,10 @@ export class WalletServerCore {
 
         const uri = c.req.query("uri");
         if (!uri) {
-          return c.json({ success: false, error: "uri query parameter is required" }, 400);
+          return c.json({
+            success: false,
+            error: "uri query parameter is required",
+          }, 400);
         }
 
         const result = await proxyRead(
@@ -911,7 +1011,7 @@ export class WalletServerCore {
           serverPublicKey,
           payload.username,
           serverEncryptionPrivateKeyPem,
-          uri
+          uri,
         );
 
         if (!result.success) {
@@ -939,7 +1039,10 @@ export class WalletServerCore {
       try {
         const authHeader = c.req.header("Authorization");
         if (!authHeader?.startsWith("Bearer ")) {
-          return c.json({ success: false, error: "Authorization required" }, 401);
+          return c.json(
+            { success: false, error: "Authorization required" },
+            401,
+          );
         }
 
         const token = authHeader.substring(7);
@@ -948,7 +1051,10 @@ export class WalletServerCore {
         const body = (await c.req.json()) as { uris?: string[] };
 
         if (!Array.isArray(body.uris)) {
-          return c.json({ success: false, error: "uris must be an array" }, 400);
+          return c.json(
+            { success: false, error: "uris must be an array" },
+            400,
+          );
         }
 
         const result = await proxyReadMulti(
@@ -957,7 +1063,7 @@ export class WalletServerCore {
           serverPublicKey,
           payload.username,
           serverEncryptionPrivateKeyPem,
-          body.uris
+          body.uris,
         );
 
         return c.json(result);

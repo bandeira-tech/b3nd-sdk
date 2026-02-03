@@ -3,7 +3,11 @@
  * Core types for transaction layer
  */
 
-import type { ReadResult, NodeProtocolReadInterface, NodeProtocolInterface } from "../src/types.ts";
+import type {
+  NodeProtocolInterface,
+  NodeProtocolReadInterface,
+  ReadResult,
+} from "../src/types.ts";
 
 /**
  * Transaction: the minimal primitive
@@ -59,7 +63,7 @@ export interface SubmitResult {
  */
 export type TransactionValidator<D = unknown> = (
   tx: Transaction<D>,
-  read: <T>(uri: string) => Promise<ReadResult<T>>
+  read: <T>(uri: string) => Promise<ReadResult<T>>,
 ) => Promise<{ valid: boolean; error?: string }>;
 
 /**

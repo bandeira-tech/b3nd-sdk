@@ -61,11 +61,11 @@
 
 // Types
 export type {
-  Transaction,
-  TransactionValidator,
-  TransactionNodeConfig,
-  TransactionNode,
   SubmitResult,
+  Transaction,
+  TransactionNode,
+  TransactionNodeConfig,
+  TransactionValidator,
 } from "./types.ts";
 
 // Node implementation

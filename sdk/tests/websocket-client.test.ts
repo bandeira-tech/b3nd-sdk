@@ -26,7 +26,7 @@ class MockWebSocket {
     // Simulate connection opening after a short delay
     const timer = setTimeout(() => {
       this.readyState = MockWebSocket.OPEN;
-      this.dispatchEvent({ type: 'open' });
+      this.dispatchEvent({ type: "open" });
     }, 10);
     this.timers.add(timer);
   }
@@ -45,7 +45,7 @@ class MockWebSocket {
   dispatchEvent(event: any) {
     const handlers = this.listeners.get(event.type);
     if (handlers) {
-      handlers.forEach(handler => handler(event));
+      handlers.forEach((handler) => handler(event));
     }
   }
 
@@ -56,13 +56,13 @@ class MockWebSocket {
         const request = JSON.parse(data);
         const response = this.generateResponse(request);
         this.dispatchEvent({
-          type: 'message',
-          data: JSON.stringify(response)
+          type: "message",
+          data: JSON.stringify(response),
         });
       } catch (error) {
         this.dispatchEvent({
-          type: 'error',
-          error: 'Invalid request format'
+          type: "error",
+          error: "Invalid request format",
         });
       }
     }, 5);
@@ -77,7 +77,7 @@ class MockWebSocket {
     this.timers.clear();
 
     this.readyState = MockWebSocket.CLOSED;
-    this.dispatchEvent({ type: 'close', code, reason });
+    this.dispatchEvent({ type: "close", code, reason });
   }
 
   protected generateResponse(request: any): any {
@@ -98,7 +98,10 @@ class MockWebSocket {
       write: () => {
         // Store the data (legacy)
         const ts = Date.now();
-        this.storage.set(request.payload.uri, { data: request.payload.value, ts });
+        this.storage.set(request.payload.uri, {
+          data: request.payload.value,
+          ts,
+        });
         return {
           id: request.id,
           success: true,
@@ -207,7 +210,9 @@ class MockWebSocket {
 
     const responseGenerator = responses[request.type as keyof typeof responses];
     if (responseGenerator) {
-      return typeof responseGenerator === 'function' ? responseGenerator() : responseGenerator;
+      return typeof responseGenerator === "function"
+        ? responseGenerator()
+        : responseGenerator;
     } else {
       return {
         id: request.id,
@@ -231,7 +236,7 @@ function createMockWebSocketClient() {
   return {
     restore: () => {
       (globalThis as any).WebSocket = OriginalWebSocket;
-    }
+    },
   };
 }
 
@@ -242,7 +247,7 @@ const factories: TestClientFactories = {
   happy: () => {
     const mock = createMockWebSocketClient();
     const client = new WebSocketClient({
-      url: 'ws://localhost:8765',
+      url: "ws://localhost:8765",
       reconnect: { enabled: false },
     });
 
@@ -270,8 +275,12 @@ const factories: TestClientFactories = {
       override send(data: string) {
         // Simulate connection failure when trying to send
         setTimeout(() => {
-          this.dispatchEvent({ type: 'error', error: 'Connection failed' });
-          this.dispatchEvent({ type: 'close', code: 1006, reason: 'Connection failed' });
+          this.dispatchEvent({ type: "error", error: "Connection failed" });
+          this.dispatchEvent({
+            type: "close",
+            code: 1006,
+            reason: "Connection failed",
+          });
         }, 5);
       }
     }
@@ -279,7 +288,7 @@ const factories: TestClientFactories = {
     (globalThis as any).WebSocket = FailingMockWebSocket;
 
     const client = new WebSocketClient({
-      url: 'ws://localhost:8766', // Different port
+      url: "ws://localhost:8766", // Different port
       reconnect: { enabled: false },
     });
 
@@ -299,7 +308,7 @@ const factories: TestClientFactories = {
     // Create a mock that simulates validation failure (rejects data without a name field)
     class ValidationFailingMockWebSocket extends MockWebSocket {
       protected override generateResponse(request: any): any {
-        if (request.type === 'receive') {
+        if (request.type === "receive") {
           const [, data] = request.payload.tx;
           if (!data?.name) {
             return {
@@ -307,7 +316,7 @@ const factories: TestClientFactories = {
               success: true,
               data: {
                 accepted: false,
-                error: 'Name is required',
+                error: "Name is required",
               },
             };
           }
@@ -319,7 +328,7 @@ const factories: TestClientFactories = {
     (globalThis as any).WebSocket = ValidationFailingMockWebSocket;
 
     const client = new WebSocketClient({
-      url: 'ws://localhost:8765',
+      url: "ws://localhost:8765",
       reconnect: { enabled: false },
     });
 
@@ -347,12 +356,12 @@ Deno.test({
   fn: async () => {
     const mock = createMockWebSocketClient();
     const client = new WebSocketClient({
-      url: 'ws://localhost:8765',
+      url: "ws://localhost:8765",
       reconnect: { enabled: false },
     });
 
     // Wait for connection to establish
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     // First operation should work
     const result = await client.receive(["users://test/data", { value: 123 }]);
@@ -370,7 +379,7 @@ Deno.test({
   fn: async () => {
     const mock = createMockWebSocketClient();
     const client = new WebSocketClient({
-      url: 'ws://localhost:8765',
+      url: "ws://localhost:8765",
       reconnect: {
         enabled: true,
         maxAttempts: 3,
@@ -380,7 +389,7 @@ Deno.test({
     });
 
     // Wait for connection
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work normally
     const result1 = await client.receive(["users://test/data", { value: 123 }]);
@@ -398,7 +407,7 @@ Deno.test({
   fn: async () => {
     const mock = createMockWebSocketClient();
     const client = new WebSocketClient({
-      url: 'ws://localhost:8765',
+      url: "ws://localhost:8765",
       auth: {
         type: "bearer",
         token: "test-token-123",
@@ -407,7 +416,7 @@ Deno.test({
     });
 
     // Wait for connection
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work with auth
     const result = await client.receive(["users://test/data", { value: 123 }]);
@@ -425,13 +434,13 @@ Deno.test({
   fn: async () => {
     const mock = createMockWebSocketClient();
     const client = new WebSocketClient({
-      url: 'ws://localhost:8765',
+      url: "ws://localhost:8765",
       timeout: 5000,
       reconnect: { enabled: false },
     });
 
     // Wait for connection
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work with custom timeout
     const result = await client.receive(["users://test/data", { value: 123 }]);

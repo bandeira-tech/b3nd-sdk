@@ -139,7 +139,10 @@ export function runSharedSuite(
       }]);
     }
 
-    const page1 = await client.list("store://pagination", { page: 1, limit: 5 });
+    const page1 = await client.list("store://pagination", {
+      page: 1,
+      limit: 5,
+    });
     assertEquals(page1.success, true);
     if (page1.success) {
       assertEquals(page1.pagination.page, 1);
@@ -147,26 +150,46 @@ export function runSharedSuite(
       assertEquals(page1.data.length, 5, "Page 1 should have exactly 5 items");
 
       for (const item of page1.data) {
-        assertEquals(item.uri.startsWith("store://pagination/user"), true, `URI should be full: ${item.uri}`);
-        assertEquals(item.uri.endsWith("/profile"), true, `URI should end with /profile: ${item.uri}`);
+        assertEquals(
+          item.uri.startsWith("store://pagination/user"),
+          true,
+          `URI should be full: ${item.uri}`,
+        );
+        assertEquals(
+          item.uri.endsWith("/profile"),
+          true,
+          `URI should end with /profile: ${item.uri}`,
+        );
       }
 
-      const page2 = await client.list("store://pagination", { page: 2, limit: 5 });
+      const page2 = await client.list("store://pagination", {
+        page: 2,
+        limit: 5,
+      });
       assertEquals(page2.success, true);
       if (page2.success) {
         assertEquals(page2.pagination.page, 2);
         assertEquals(page2.pagination.limit, 5);
-        assertEquals(page2.data.length, 5, "Page 2 should have exactly 5 items");
+        assertEquals(
+          page2.data.length,
+          5,
+          "Page 2 should have exactly 5 items",
+        );
 
         // Verify pages contain different items (no overlap)
         const page1Uris = new Set(page1.data.map((item) => item.uri));
         const page2Uris = page2.data.map((item) => item.uri);
         for (const uri of page2Uris) {
-          assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);
+          assertEquals(
+            page1Uris.has(uri),
+            false,
+            `URI ${uri} should not appear on both pages`,
+          );
         }
 
         // All 10 items across both pages
-        const allUris = [...page1.data, ...page2.data].map((item) => item.uri).sort();
+        const allUris = [...page1.data, ...page2.data].map((item) => item.uri)
+          .sort();
         assertEquals(allUris.length, 10);
         for (let i = 0; i < 10; i++) {
           assertEquals(
@@ -193,7 +216,11 @@ export function runSharedSuite(
 
     assertEquals(listResult.success, true);
     if (listResult.success) {
-      assertEquals(listResult.data.length, 2, "Should return exactly 2 alice items");
+      assertEquals(
+        listResult.data.length,
+        2,
+        "Should return exactly 2 alice items",
+      );
 
       const uris = listResult.data.map((item) => item.uri).sort();
       assertEquals(uris, [
@@ -283,8 +310,22 @@ export function runSharedSuite(
 
         // Create binary test data (simulating a small PNG header)
         const binaryData = new Uint8Array([
-          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-          0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+          0x89,
+          0x50,
+          0x4E,
+          0x47,
+          0x0D,
+          0x0A,
+          0x1A,
+          0x0A, // PNG signature
+          0x00,
+          0x00,
+          0x00,
+          0x0D,
+          0x49,
+          0x48,
+          0x44,
+          0x52, // IHDR chunk
         ]);
 
         const result = await client.receive([
@@ -292,7 +333,11 @@ export function runSharedSuite(
           binaryData,
         ]);
 
-        assertEquals(result.accepted, true, "Binary transaction should be accepted");
+        assertEquals(
+          result.accepted,
+          true,
+          "Binary transaction should be accepted",
+        );
 
         const readResult = await client.read<Uint8Array>(
           "store://files/test-image.png",
@@ -344,13 +389,21 @@ export function runSharedSuite(
           binaryData,
         ]);
 
-        assertEquals(result.accepted, true, "Large binary transaction should be accepted");
+        assertEquals(
+          result.accepted,
+          true,
+          "Large binary transaction should be accepted",
+        );
 
         const readResult = await client.read<Uint8Array>(
           "store://files/large-file.bin",
         );
 
-        assertEquals(readResult.success, true, "Large binary read should succeed");
+        assertEquals(
+          readResult.success,
+          true,
+          "Large binary read should succeed",
+        );
 
         const readData = readResult.record?.data as Uint8Array;
         assertEquals(
@@ -384,10 +437,18 @@ export function runSharedSuite(
         await client.receive(["store://files/temp.bin", binaryData]);
 
         const deleteResult = await client.delete("store://files/temp.bin");
-        assertEquals(deleteResult.success, true, "Binary delete should succeed");
+        assertEquals(
+          deleteResult.success,
+          true,
+          "Binary delete should succeed",
+        );
 
         const readResult = await client.read("store://files/temp.bin");
-        assertEquals(readResult.success, false, "Read after delete should fail");
+        assertEquals(
+          readResult.success,
+          false,
+          "Read after delete should fail",
+        );
 
         await client.cleanup();
       },

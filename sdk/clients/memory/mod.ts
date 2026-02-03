@@ -12,6 +12,7 @@ import type {
   Schema,
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
+import { isTransactionData } from "../../txn-data/detect.ts";
 
 type MemoryClientStorageNode<T> = {
   value?: T;
@@ -101,11 +102,15 @@ export class MemoryClient implements NodeProtocolInterface, Node {
    */
   constructor(config: MemoryClientConfig) {
     // Validate schema key format
-    const invalidKeys = Object.keys(config.schema).filter(key => !validateSchemaKey(key));
+    const invalidKeys = Object.keys(config.schema).filter((key) =>
+      !validateSchemaKey(key)
+    );
     if (invalidKeys.length > 0) {
       throw new Error(
-        `Invalid schema key format: ${invalidKeys.map(k => `"${k}"`).join(", ")}. ` +
-        `Keys must be in "protocol://hostname" format (e.g., "mutable://accounts", "immutable://data").`
+        `Invalid schema key format: ${
+          invalidKeys.map((k) => `"${k}"`).join(", ")
+        }. ` +
+          `Keys must be in "protocol://hostname" format (e.g., "mutable://accounts", "immutable://data").`,
       );
     }
 
@@ -119,7 +124,9 @@ export class MemoryClient implements NodeProtocolInterface, Node {
    * @param tx - Transaction tuple [uri, data]
    * @returns ReceiveResult indicating acceptance
    */
-  public async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+  public async receive<D = unknown>(
+    tx: Transaction<D>,
+  ): Promise<ReceiveResult> {
     const [uri, data] = tx;
 
     // Basic URI validation
@@ -135,7 +142,11 @@ export class MemoryClient implements NodeProtocolInterface, Node {
 
     // Validate the write against the schema
     const validator = this.schema[program];
-    const validation = await validator({ uri, value: data, read: this.read.bind(this) });
+    const validation = await validator({
+      uri,
+      value: data,
+      read: this.read.bind(this),
+    });
     if (!validation.valid) {
       return {
         accepted: false,
@@ -143,6 +154,7 @@ export class MemoryClient implements NodeProtocolInterface, Node {
       };
     }
 
+    // Store the data at this URI
     const record = {
       ts: Date.now(),
       data,
@@ -161,6 +173,19 @@ export class MemoryClient implements NodeProtocolInterface, Node {
     });
 
     prev.value = record;
+
+    // If TransactionData, also store each output at its own URI
+    if (isTransactionData(data)) {
+      for (const [outputUri, outputValue] of data.outputs) {
+        const outputResult = await this.receive([outputUri, outputValue]);
+        if (!outputResult.accepted) {
+          return {
+            accepted: false,
+            error: outputResult.error || `Failed to store output: ${outputUri}`,
+          };
+        }
+      }
+    }
 
     return { accepted: true };
   }
@@ -196,7 +221,9 @@ export class MemoryClient implements NodeProtocolInterface, Node {
     });
   }
 
-  public async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+  public async readMulti<T = unknown>(
+    uris: string[],
+  ): Promise<ReadMultiResult<T>> {
     // Enforce batch size limit
     if (uris.length > 50) {
       return {
@@ -213,14 +240,18 @@ export class MemoryClient implements NodeProtocolInterface, Node {
           return { uri, success: true, record: result.record };
         }
         return { uri, success: false, error: result.error || "Read failed" };
-      })
+      }),
     );
 
     const succeeded = results.filter((r) => r.success).length;
     return {
       success: succeeded > 0,
       results,
-      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+      summary: {
+        total: uris.length,
+        succeeded,
+        failed: uris.length - succeeded,
+      },
     };
   }
 
@@ -257,10 +288,15 @@ export class MemoryClient implements NodeProtocolInterface, Node {
     }
 
     // Recursively collect all leaf nodes (files) under this path
-    const prefix = path.endsWith("/") ? `${program}${path}` : `${program}${path}/`;
+    const prefix = path.endsWith("/")
+      ? `${program}${path}`
+      : `${program}${path}/`;
     let items: ListItem[] = [];
 
-    function collectLeaves(node: MemoryClientStorageNode<unknown>, currentUri: string) {
+    function collectLeaves(
+      node: MemoryClientStorageNode<unknown>,
+      currentUri: string,
+    ) {
       if (node.value !== undefined) {
         items.push({ uri: currentUri });
       }

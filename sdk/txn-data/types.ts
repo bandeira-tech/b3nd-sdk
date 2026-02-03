@@ -71,7 +71,9 @@ export interface TransactionValidationContext<V = unknown> {
   /**
    * Read function for state lookups
    */
-  read: <T>(uri: string) => Promise<{ success: boolean; record?: { data: T }; error?: string }>;
+  read: <T>(
+    uri: string,
+  ) => Promise<{ success: boolean; record?: { data: T }; error?: string }>;
 }
 
 /**
@@ -93,7 +95,7 @@ export interface TransactionValidationContext<V = unknown> {
  * ```
  */
 export type ProgramValidator<V = unknown> = (
-  ctx: TransactionValidationContext<V>
+  ctx: TransactionValidationContext<V>,
 ) => Promise<{ valid: boolean; error?: string }>;
 
 /**

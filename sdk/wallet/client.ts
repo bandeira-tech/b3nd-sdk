@@ -8,26 +8,29 @@
  */
 
 import type {
-  WalletClientConfig,
-  UserCredentials,
-  SessionKeypair,
   AuthSession,
-  UserPublicKeys,
+  ChangePasswordResponse,
+  HealthResponse,
   PasswordResetToken,
-  ProxyWriteRequest,
-  ProxyWriteResponse,
-  ProxyReadRequest,
-  ProxyReadResponse,
   ProxyReadMultiRequest,
   ProxyReadMultiResponse,
+  ProxyReadRequest,
+  ProxyReadResponse,
+  ProxyWriteRequest,
+  ProxyWriteResponse,
   PublicKeysResponse,
-  ChangePasswordResponse,
   RequestPasswordResetResponse,
   ResetPasswordResponse,
-  HealthResponse,
   ServerKeysResponse,
+  SessionKeypair,
+  UserCredentials,
+  UserPublicKeys,
+  WalletClientConfig,
 } from "./types.ts";
-import { generateSigningKeyPair, createAuthenticatedMessageWithHex } from "../encrypt/mod.ts";
+import {
+  createAuthenticatedMessageWithHex,
+  generateSigningKeyPair,
+} from "../encrypt/mod.ts";
 
 /**
  * B3nd Wallet Client
@@ -72,11 +75,16 @@ export class WalletClient {
       throw new Error("apiBasePath is required (e.g., '/api/v1')");
     }
     // Normalize apiBasePath to start with "/" and have no trailing slash
-    const normalized = (config.apiBasePath.startsWith("/") ? config.apiBasePath : `/${config.apiBasePath}`).replace(/\/$/, "");
+    const normalized =
+      (config.apiBasePath.startsWith("/")
+        ? config.apiBasePath
+        : `/${config.apiBasePath}`).replace(/\/$/, "");
     this.apiBasePath = normalized;
     if (config.fetch) {
       this.fetchImpl = config.fetch;
-    } else if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
+    } else if (
+      typeof window !== "undefined" && typeof window.fetch === "function"
+    ) {
       // Bind to window to avoid Safari "Can only call Window.fetch on instances of Window"
       this.fetchImpl = window.fetch.bind(window);
     } else {
@@ -142,7 +150,9 @@ export class WalletClient {
    * Check wallet server health
    */
   async health(): Promise<HealthResponse> {
-    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/health`);
+    const response = await this.fetchImpl(
+      `${this.walletServerUrl}${this.apiBasePath}/health`,
+    );
 
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`);
@@ -155,7 +165,11 @@ export class WalletClient {
    * Change password for current user
    * Requires active authentication session
    */
-  async changePassword(appKey: string, oldPassword: string, newPassword: string): Promise<void> {
+  async changePassword(
+    appKey: string,
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     if (!this.currentSession) {
       throw new Error("Not authenticated. Please login first.");
     }
@@ -172,13 +186,15 @@ export class WalletClient {
           oldPassword,
           newPassword,
         }),
-      }
+      },
     );
 
     const data: ChangePasswordResponse = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.error || `Change password failed: ${response.statusText}`);
+      throw new Error(
+        data.error || `Change password failed: ${response.statusText}`,
+      );
     }
   }
 
@@ -194,8 +210,14 @@ export class WalletClient {
    * Reset password using a reset token
    * Returns session data - call setSession() to activate it
    */
-  async resetPassword(_username: string, _resetToken: string, _newPassword: string): Promise<AuthSession> {
-    throw new Error("Use resetPasswordWithToken(appKey, username, resetToken, newPassword)");
+  async resetPassword(
+    _username: string,
+    _resetToken: string,
+    _newPassword: string,
+  ): Promise<AuthSession> {
+    throw new Error(
+      "Use resetPasswordWithToken(appKey, username, resetToken, newPassword)",
+    );
   }
 
   /**
@@ -226,11 +248,14 @@ export class WalletClient {
       session.privateKeyHex,
     );
 
-    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/signup", appKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(message),
-    });
+    const response = await this.fetchImpl(
+      this.buildAppKeyUrl("/auth/signup", appKey),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(message),
+      },
+    );
 
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -279,11 +304,14 @@ export class WalletClient {
       session.privateKeyHex,
     );
 
-    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/login", appKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(message),
-    });
+    const response = await this.fetchImpl(
+      this.buildAppKeyUrl("/auth/login", appKey),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(message),
+      },
+    );
 
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -307,16 +335,25 @@ export class WalletClient {
   /**
    * Request password reset scoped to app token
    */
-  async requestPasswordResetWithToken(appKey: string, tokenOrUsername: string, maybeUsername?: string): Promise<PasswordResetToken> {
+  async requestPasswordResetWithToken(
+    appKey: string,
+    tokenOrUsername: string,
+    maybeUsername?: string,
+  ): Promise<PasswordResetToken> {
     const username = maybeUsername || tokenOrUsername;
-    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/credentials/request-password-reset", appKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username }),
-    });
+    const response = await this.fetchImpl(
+      this.buildAppKeyUrl("/auth/credentials/request-password-reset", appKey),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      },
+    );
     const data: RequestPasswordResetResponse = await response.json();
     if (!response.ok || !data.success) {
-      throw new Error(data.error || `Request password reset failed: ${response.statusText}`);
+      throw new Error(
+        data.error || `Request password reset failed: ${response.statusText}`,
+      );
     }
     return { resetToken: data.resetToken, expiresIn: data.expiresIn };
   }
@@ -335,16 +372,25 @@ export class WalletClient {
     if (!resetToken || !newPassword) {
       throw new Error("resetToken and newPassword are required");
     }
-    const response = await this.fetchImpl(this.buildAppKeyUrl("/auth/credentials/reset-password", appKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, resetToken, newPassword }),
-    });
+    const response = await this.fetchImpl(
+      this.buildAppKeyUrl("/auth/credentials/reset-password", appKey),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, resetToken, newPassword }),
+      },
+    );
     const data: ResetPasswordResponse = await response.json();
     if (!response.ok || !data.success) {
-      throw new Error(data.error || `Reset password failed: ${response.statusText}`);
+      throw new Error(
+        data.error || `Reset password failed: ${response.statusText}`,
+      );
     }
-    return { username: data.username, token: data.token, expiresIn: data.expiresIn };
+    return {
+      username: data.username,
+      token: data.token,
+      expiresIn: data.expiresIn,
+    };
   }
 
   /**
@@ -366,13 +412,15 @@ export class WalletClient {
         headers: {
           Authorization: `Bearer ${this.currentSession.token}`,
         },
-      }
+      },
     );
 
     const data: PublicKeysResponse = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.error || `Get public keys failed: ${response.statusText}`);
+      throw new Error(
+        data.error || `Get public keys failed: ${response.statusText}`,
+      );
     }
 
     return {
@@ -393,18 +441,21 @@ export class WalletClient {
       throw new Error("Not authenticated. Please login first.");
     }
 
-    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/proxy/write`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.currentSession.token}`,
+    const response = await this.fetchImpl(
+      `${this.walletServerUrl}${this.apiBasePath}/proxy/write`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.currentSession.token}`,
+        },
+        body: JSON.stringify({
+          uri: request.uri,
+          data: request.data,
+          encrypt: request.encrypt,
+        }),
       },
-      body: JSON.stringify({
-        uri: request.uri,
-        data: request.data,
-        encrypt: request.encrypt,
-      }),
-    });
+    );
 
     const data: ProxyWriteResponse = await response.json();
 
@@ -425,7 +476,9 @@ export class WalletClient {
       throw new Error("Not authenticated. Please login first.");
     }
 
-    const url = new URL(`${this.walletServerUrl}${this.apiBasePath}/proxy/read`);
+    const url = new URL(
+      `${this.walletServerUrl}${this.apiBasePath}/proxy/read`,
+    );
     url.searchParams.set("uri", request.uri);
 
     const response = await this.fetchImpl(url.toString(), {
@@ -450,7 +503,9 @@ export class WalletClient {
    *
    * @returns ProxyReadMultiResponse - check `success` for overall result, `results` for per-URI results
    */
-  async proxyReadMulti(request: ProxyReadMultiRequest): Promise<ProxyReadMultiResponse> {
+  async proxyReadMulti(
+    request: ProxyReadMultiRequest,
+  ): Promise<ProxyReadMultiResponse> {
     if (!this.currentSession) {
       throw new Error("Not authenticated. Please login first.");
     }
@@ -464,7 +519,7 @@ export class WalletClient {
           Authorization: `Bearer ${this.currentSession.token}`,
         },
         body: JSON.stringify({ uris: request.uris }),
-      }
+      },
     );
 
     return await response.json();
@@ -488,7 +543,9 @@ export class WalletClient {
     identityPublicKeyHex: string;
     encryptionPublicKeyHex: string;
   }> {
-    const response = await this.fetchImpl(`${this.walletServerUrl}${this.apiBasePath}/server-keys`);
+    const response = await this.fetchImpl(
+      `${this.walletServerUrl}${this.apiBasePath}/server-keys`,
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to get server keys: ${response.statusText}`);
@@ -505,7 +562,6 @@ export class WalletClient {
       encryptionPublicKeyHex: data.encryptionPublicKeyHex,
     };
   }
-
 }
 
 /**

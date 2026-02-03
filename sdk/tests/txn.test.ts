@@ -5,15 +5,19 @@
  */
 
 import { assertEquals, assertExists } from "@std/assert";
-import { createTransactionNode, type Transaction, type TransactionValidator } from "../txn/mod.ts";
 import {
+  createTransactionNode,
+  type Transaction,
+  type TransactionValidator,
+} from "../txn/mod.ts";
+import {
+  combineValidators,
   createOutputValidator,
   extractProgram,
-  combineValidators,
-  type TransactionData,
   type StateTransaction,
+  type TransactionData,
 } from "../txn-data/mod.ts";
-import { MemoryClient, createTestSchema } from "../clients/memory/mod.ts";
+import { createTestSchema, MemoryClient } from "../clients/memory/mod.ts";
 
 // =============================================================================
 // Level 1: Transaction Node Tests
@@ -90,9 +94,14 @@ Deno.test("createTransactionNode - validator can read state", async () => {
   // Pre-populate balance
   await storage.receive(["accounts://balances/alice", { balance: 50 }]);
 
-  const validator: TransactionValidator<{ amount: number }> = async (tx, read) => {
+  const validator: TransactionValidator<{ amount: number }> = async (
+    tx,
+    read,
+  ) => {
     const [, data] = tx;
-    const balance = await read<{ balance: number }>("accounts://balances/alice");
+    const balance = await read<{ balance: number }>(
+      "accounts://balances/alice",
+    );
 
     if (!balance.success || balance.record!.data.balance < data.amount) {
       return { valid: false, error: "insufficient_balance" };
@@ -182,7 +191,10 @@ Deno.test("createTransactionNode - rejects transaction without URI", async () =>
 
 Deno.test("extractProgram - extracts protocol://hostname", () => {
   assertEquals(extractProgram("immutable://blob/abc123"), "immutable://blob");
-  assertEquals(extractProgram("mutable://accounts/alice/profile"), "mutable://accounts");
+  assertEquals(
+    extractProgram("mutable://accounts/alice/profile"),
+    "mutable://accounts",
+  );
   assertEquals(extractProgram("txn://firecat/block/1000"), "txn://firecat");
   assertEquals(extractProgram("utxo://alice/1"), "utxo://alice");
   assertEquals(extractProgram("fees://pool"), "fees://pool");
@@ -247,7 +259,9 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
     schema: {
       "immutable://blob": async (ctx) => {
         // Check for fee output in the same transaction
-        const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"));
+        const feeOutput = ctx.outputs.find(([uri]) =>
+          uri.startsWith("fees://")
+        );
         if (!feeOutput) {
           return { valid: false, error: "fee_required" };
         }
@@ -256,7 +270,10 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
         const requiredFee = Math.ceil(blobSize / 100); // 1 per 100 bytes
 
         if ((feeOutput[1] as number) < requiredFee) {
-          return { valid: false, error: `insufficient_fee: need ${requiredFee}` };
+          return {
+            valid: false,
+            error: `insufficient_fee: need ${requiredFee}`,
+          };
         }
 
         return { valid: true };
@@ -402,7 +419,10 @@ Deno.test("integration - transaction node with output validator", async () => {
       }
 
       // Sum outputs
-      const outputSum = data.outputs.reduce((sum, [, value]) => sum + (value as number), 0);
+      const outputSum = data.outputs.reduce(
+        (sum, [, value]) => sum + (value as number),
+        0,
+      );
 
       // Inputs must cover outputs (conservation)
       if (outputSum > inputSum) {

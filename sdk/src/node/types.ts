@@ -58,7 +58,7 @@ export interface ReadInterface {
  * const node: Node = createNode({
  *   read: memoryClient,
  *   validate: schema(SCHEMA),
- *   process: store(memoryClient)
+ *   process: parallel(memoryClient)
  * })
  *
  * const result = await node.receive(["mutable://users/alice", { name: "Alice" }])
@@ -98,7 +98,7 @@ export interface Node {
  */
 export type Validator<D = unknown> = (
   tx: Transaction<D>,
-  read: <T>(uri: string) => Promise<ReadResult<T>>
+  read: <T>(uri: string) => Promise<ReadResult<T>>,
 ) => Promise<{ valid: boolean; error?: string }>;
 
 /**
@@ -120,7 +120,7 @@ export type Validator<D = unknown> = (
  * ```
  */
 export type Processor<D = unknown> = (
-  tx: Transaction<D>
+  tx: Transaction<D>,
 ) => Promise<{ success: boolean; error?: string }>;
 
 /**
@@ -131,7 +131,7 @@ export type Processor<D = unknown> = (
  * const config: NodeConfig = {
  *   read: memoryClient,
  *   validate: seq(uriPattern(/^mutable:\/\//), schema(SCHEMA)),
- *   process: broadcast(store(postgres), forward(replica))
+ *   process: parallel(postgres, replica)
  * }
  * ```
  */

@@ -33,7 +33,9 @@ async function main() {
     // Sign up a new user
     console.log(`2️⃣  Signing up new user: ${username}`);
     // App-scoped usage requires token and session from the App Backend
-    throw new Error("Update this example: use signupWithToken/loginWithTokenSession with app key and session");
+    throw new Error(
+      "Update this example: use signupWithToken/loginWithTokenSession with app key and session",
+    );
     console.log(`   ✅ Signed up successfully!`);
     console.log(`   👤 Username: ${session.username}`);
     console.log(`   🎫 Token: ${session.token.substring(0, 20)}...`);
@@ -51,9 +53,13 @@ async function main() {
     // Get user's public keys
     console.log("4️⃣  Retrieving user public keys...");
     const keys = await wallet.getMyPublicKeys(appKey);
-    console.log(`   🔑 Account key: ${keys.accountPublicKeyHex.substring(0, 16)}...`);
     console.log(
-      `   🔐 Encryption key: ${keys.encryptionPublicKeyHex.substring(0, 16)}...\n`
+      `   🔑 Account key: ${keys.accountPublicKeyHex.substring(0, 16)}...`,
+    );
+    console.log(
+      `   🔐 Encryption key: ${
+        keys.encryptionPublicKeyHex.substring(0, 16)
+      }...\n`,
     );
 
     // Proxy write (unencrypted)
@@ -95,7 +101,10 @@ async function main() {
 
     // Login with new password
     console.log("9️⃣  Logging back in with new password...");
-    const loginSession = await wallet.login({ username, password: newPassword });
+    const loginSession = await wallet.login({
+      username,
+      password: newPassword,
+    });
     console.log(`   ✅ Logged in successfully!`);
     console.log(`   👤 Username: ${loginSession.username}`);
 
@@ -114,14 +123,23 @@ async function main() {
     console.log("1️⃣1️⃣  Getting my public keys again (requires auth)...");
     const publicKeys = await wallet.getMyPublicKeys(appKey);
     console.log(`   ✅ Retrieved public keys`);
-    console.log(`   🔑 Account key: ${publicKeys.accountPublicKeyHex.substring(0, 16)}...`);
     console.log(
-      `   🔐 Encryption key: ${publicKeys.encryptionPublicKeyHex.substring(0, 16)}...\n`
+      `   🔑 Account key: ${
+        publicKeys.accountPublicKeyHex.substring(0, 16)
+      }...`,
+    );
+    console.log(
+      `   🔐 Encryption key: ${
+        publicKeys.encryptionPublicKeyHex.substring(0, 16)
+      }...\n`,
     );
 
     console.log("✨ All tests completed successfully!");
   } catch (error) {
-    console.error("\n❌ Error:", error instanceof Error ? error.message : String(error));
+    console.error(
+      "\n❌ Error:",
+      error instanceof Error ? error.message : String(error),
+    );
     Deno.exit(1);
   }
 }

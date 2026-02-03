@@ -36,41 +36,41 @@
  */
 
 // Export main client
-export { WalletClient, generateSessionKeypair } from "./client.ts";
+export { generateSessionKeypair, WalletClient } from "./client.ts";
 
 // Export in-memory client for testing
-export { MemoryWalletClient, generateTestServerKeys } from "./memory-client.ts";
+export { generateTestServerKeys, MemoryWalletClient } from "./memory-client.ts";
 export type { MemoryWalletClientConfig } from "./memory-client.ts";
 
 // Export test utilities
 export { createTestEnvironment } from "./testing.ts";
-export type { TestEnvironmentConfig, TestEnvironment } from "./testing.ts";
+export type { TestEnvironment, TestEnvironmentConfig } from "./testing.ts";
 
 // Export all types
 export type {
-  WalletClientInterface,
-  WalletClientConfig,
-  UserCredentials,
-  SessionKeypair,
+  ApiResponse,
   AuthSession,
-  UserPublicKeys,
+  ChangePasswordResponse,
+  GoogleAuthSession,
+  GoogleLoginResponse,
+  GoogleSignupResponse,
+  HealthResponse,
+  LoginResponse,
   PasswordResetToken,
-  ProxyWriteRequest,
-  ProxyWriteResponse,
-  ProxyReadRequest,
-  ProxyReadResponse,
   ProxyReadMultiRequest,
   ProxyReadMultiResponse,
   ProxyReadMultiResultItem,
-  ApiResponse,
-  SignupResponse,
-  LoginResponse,
+  ProxyReadRequest,
+  ProxyReadResponse,
+  ProxyWriteRequest,
+  ProxyWriteResponse,
   PublicKeysResponse,
-  ChangePasswordResponse,
   RequestPasswordResetResponse,
   ResetPasswordResponse,
-  HealthResponse,
-  GoogleAuthSession,
-  GoogleSignupResponse,
-  GoogleLoginResponse,
+  SessionKeypair,
+  SignupResponse,
+  UserCredentials,
+  UserPublicKeys,
+  WalletClientConfig,
+  WalletClientInterface,
 } from "./types.ts";

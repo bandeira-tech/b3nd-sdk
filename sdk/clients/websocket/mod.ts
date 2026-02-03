@@ -19,7 +19,7 @@ import type {
   WebSocketResponse,
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
-import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
+import { decodeBinaryFromJson, encodeBinaryForJson } from "../../src/binary.ts";
 
 export class WebSocketClient implements NodeProtocolInterface, Node {
   private config: WebSocketClientConfig;
@@ -61,13 +61,19 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
     if (this.ws?.readyState === WebSocket.CONNECTING) {
       // Wait for connection to complete
       return new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("Connection timeout")), this.config.timeout);
+        const timeout = setTimeout(
+          () => reject(new Error("Connection timeout")),
+          this.config.timeout,
+        );
 
         const checkConnection = () => {
           if (this.connected) {
             clearTimeout(timeout);
             resolve();
-          } else if (this.ws?.readyState === WebSocket.CLOSED || this.ws?.readyState === WebSocket.CLOSING) {
+          } else if (
+            this.ws?.readyState === WebSocket.CLOSED ||
+            this.ws?.readyState === WebSocket.CLOSING
+          ) {
             clearTimeout(timeout);
             reject(new Error("Connection failed"));
           } else {
@@ -118,8 +124,9 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
         }, this.config.timeout);
 
         // Clean up timeout on successful connection
-        this.ws.addEventListener("open", () => clearTimeout(timeout), { once: true });
-
+        this.ws.addEventListener("open", () => clearTimeout(timeout), {
+          once: true,
+        });
       } catch (error) {
         reject(error);
       }
@@ -151,7 +158,10 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
     this.connected = false;
     this.cleanupPendingRequests(new Error("WebSocket connection closed"));
 
-    if (this.config.reconnect?.enabled && this.reconnectAttempts < (this.config.reconnect.maxAttempts || 5)) {
+    if (
+      this.config.reconnect?.enabled &&
+      this.reconnectAttempts < (this.config.reconnect.maxAttempts || 5)
+    ) {
       this.scheduleReconnect();
     }
   }
@@ -173,7 +183,8 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
     }
 
     const delay = this.config.reconnect?.backoff === "exponential"
-      ? (this.config.reconnect.interval || 1000) * Math.pow(2, this.reconnectAttempts)
+      ? (this.config.reconnect.interval || 1000) *
+        Math.pow(2, this.reconnectAttempts)
       : this.config.reconnect?.interval || 1000;
 
     this.reconnectTimer = setTimeout(() => {
@@ -198,7 +209,10 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
   /**
    * Send request and wait for response
    */
-  private async sendRequest<T>(type: WebSocketRequest["type"], payload: unknown): Promise<T> {
+  private async sendRequest<T>(
+    type: WebSocketRequest["type"],
+    payload: unknown,
+  ): Promise<T> {
     await this.ensureConnected();
 
     return new Promise<T>((resolve, reject) => {
@@ -249,7 +263,9 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
     try {
       // Encode binary data for JSON transport
       const encodedTx: Transaction = [uri, encodeBinaryForJson(tx[1])];
-      const result = await this.sendRequest<ReceiveResult>("receive", { tx: encodedTx });
+      const result = await this.sendRequest<ReceiveResult>("receive", {
+        tx: encodedTx,
+      });
       return result;
     } catch (error) {
       return {
@@ -286,7 +302,9 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
 
     // Try the readMulti request first (server may support it)
     try {
-      const result = await this.sendRequest<ReadMultiResult<T>>("readMulti", { uris });
+      const result = await this.sendRequest<ReadMultiResult<T>>("readMulti", {
+        uris,
+      });
       return result;
     } catch {
       // Fallback to individual reads
@@ -297,21 +315,28 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
             return { uri, success: true, record: result.record };
           }
           return { uri, success: false, error: result.error || "Read failed" };
-        })
+        }),
       );
 
       const succeeded = results.filter((r) => r.success).length;
       return {
         success: succeeded > 0,
         results,
-        summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+        summary: {
+          total: uris.length,
+          succeeded,
+          failed: uris.length - succeeded,
+        },
       };
     }
   }
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
     try {
-      const result = await this.sendRequest<ListResult>("list", { uri, options });
+      const result = await this.sendRequest<ListResult>("list", {
+        uri,
+        options,
+      });
       return result;
     } catch (error) {
       return {

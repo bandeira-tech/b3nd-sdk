@@ -12,15 +12,16 @@ import type {
   ListOptions,
   ListResult,
   NodeProtocolInterface,
-  PostgresClientConfig,
   PersistenceRecord,
+  PostgresClientConfig,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
   Schema,
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
-import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
+import { decodeBinaryFromJson, encodeBinaryForJson } from "../../src/binary.ts";
+import { isTransactionData } from "../../txn-data/detect.ts";
 import { generatePostgresSchema } from "./schema.ts";
 
 // Local executor types scoped to Postgres client to avoid leaking DB concerns
@@ -100,7 +101,11 @@ export class PostgresClient implements NodeProtocolInterface, Node {
       }
 
       // Validate the write
-      const validation = await validator({ uri, value: data, read: this.read.bind(this) });
+      const validation = await validator({
+        uri,
+        value: data,
+        read: this.read.bind(this),
+      });
 
       if (!validation.valid) {
         return {
@@ -125,6 +130,20 @@ export class PostgresClient implements NodeProtocolInterface, Node {
         [uri, JSON.stringify(record.data), record.ts],
       );
 
+      // If TransactionData, also store each output at its own URI
+      if (isTransactionData(data)) {
+        for (const [outputUri, outputValue] of data.outputs) {
+          const outputResult = await this.receive([outputUri, outputValue]);
+          if (!outputResult.accepted) {
+            return {
+              accepted: false,
+              error: outputResult.error ||
+                `Failed to store output: ${outputUri}`,
+            };
+          }
+        }
+      }
+
       return { accepted: true };
     } catch (error) {
       return {
@@ -145,11 +164,13 @@ export class PostgresClient implements NodeProtocolInterface, Node {
         return { success: false, error: `Not found: ${uri}` };
       }
       const row: any = res.rows[0];
-      const rawData = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+      const rawData = typeof row.data === "string"
+        ? JSON.parse(row.data)
+        : row.data;
       // Decode binary data if encoded
       const decodedData = decodeBinaryFromJson(rawData) as T;
       const record: PersistenceRecord<T> = {
-        ts: typeof row.ts === 'number' ? row.ts : Number(row.ts),
+        ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
         data: decodedData,
       };
       return { success: true, record };
@@ -177,14 +198,18 @@ export class PostgresClient implements NodeProtocolInterface, Node {
           return { uri, success: true, record: result.record };
         }
         return { uri, success: false, error: result.error || "Read failed" };
-      })
+      }),
     );
 
     const succeeded = results.filter((r) => r.success).length;
     return {
       success: succeeded > 0,
       results,
-      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+      summary: {
+        total: uris.length,
+        succeeded,
+        failed: uris.length - succeeded,
+      },
     };
   }
 
@@ -210,12 +235,11 @@ export class PostgresClient implements NodeProtocolInterface, Node {
         const fullUri = row.uri;
         if (!fullUri.startsWith(prefix)) continue;
 
-        const ts =
-          typeof row.timestamp === "number"
-            ? row.timestamp
-            : row.timestamp != null
-              ? Number(row.timestamp)
-              : 0;
+        const ts = typeof row.timestamp === "number"
+          ? row.timestamp
+          : row.timestamp != null
+          ? Number(row.timestamp)
+          : 0;
 
         items.push({ uri: fullUri, ts });
       }
@@ -264,10 +288,13 @@ export class PostgresClient implements NodeProtocolInterface, Node {
   async delete(uri: string): Promise<DeleteResult> {
     try {
       const table = `${this.tablePrefix}_data`;
-      const res = await this.executor.query(`DELETE FROM ${table} WHERE uri = $1`, [uri]);
-      const affected = typeof res.rowCount === 'number' ? res.rowCount : 0;
+      const res = await this.executor.query(
+        `DELETE FROM ${table} WHERE uri = $1`,
+        [uri],
+      );
+      const affected = typeof res.rowCount === "number" ? res.rowCount : 0;
       if (affected === 0) {
-        return { success: false, error: 'Not found' };
+        return { success: false, error: "Not found" };
       }
       return { success: true };
     } catch (error) {
@@ -287,16 +314,24 @@ export class PostgresClient implements NodeProtocolInterface, Node {
         };
       }
       // Simple health check
-      await this.executor.query('SELECT 1');
-      return { status: 'healthy', message: 'PostgreSQL client is operational', details: {
-        tablePrefix: this.tablePrefix,
-        schemaKeys: Object.keys(this.schema),
-        connectionType: typeof this.config.connection === 'string' ? 'connection_string' : 'config_object',
-      }};
+      await this.executor.query("SELECT 1");
+      return {
+        status: "healthy",
+        message: "PostgreSQL client is operational",
+        details: {
+          tablePrefix: this.tablePrefix,
+          schemaKeys: Object.keys(this.schema),
+          connectionType: typeof this.config.connection === "string"
+            ? "connection_string"
+            : "config_object",
+        },
+      };
     } catch (error) {
       return {
         status: "unhealthy",
-        message: `PostgreSQL health check failed: ${error instanceof Error ? error.message : String(error)}`,
+        message: `PostgreSQL health check failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       };
     }
   }
@@ -322,7 +357,11 @@ export class PostgresClient implements NodeProtocolInterface, Node {
       const schemaSQL = generatePostgresSchema(this.tablePrefix);
       await this.executor.query(schemaSQL);
     } catch (error) {
-      throw new Error(`Failed to initialize PostgreSQL schema: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to initialize PostgreSQL schema: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 
@@ -341,9 +380,9 @@ export class PostgresClient implements NodeProtocolInterface, Node {
    * Get connection info for logging/debugging
    */
   getConnectionInfo(): string {
-    if (typeof this.config.connection === 'string') {
+    if (typeof this.config.connection === "string") {
       // Mask password in connection string
-      const masked = this.config.connection.replace(/:([^@]+)@/, ':****@');
+      const masked = this.config.connection.replace(/:([^@]+)@/, ":****@");
       return masked;
     } else {
       return `postgresql://${this.config.connection.user}:****@${this.config.connection.host}:${this.config.connection.port}/${this.config.connection.database}`;

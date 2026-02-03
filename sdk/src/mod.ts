@@ -120,49 +120,49 @@ export type {
   Validator,
 } from "./node/mod.ts";
 export {
+  // Built-in validators
+  accept,
   // Composition utilities
   all,
   any,
-  broadcast,
+  // Built-in processors
+  emit,
   firstMatch,
-  pipeline,
-  seq,
-  // Built-in validators
-  accept,
   format,
+  log,
+  noop,
+  parallel,
+  pipeline,
   reject,
   requireFields,
   schema as schemaValidator,
+  seq,
+  txnSchema,
   uriPattern,
-  // Built-in processors
-  emit,
-  forward,
-  log,
-  noop,
-  store,
   when,
 } from "./node/mod.ts";
 
 // Legacy transaction layer (deprecated - use node system instead)
 export { createTransactionNode } from "../txn/mod.ts";
 export type {
-  Transaction as LegacyTransaction,
-  TransactionValidator,
-  TransactionNodeConfig,
-  TransactionNode,
   SubmitResult,
+  Transaction as LegacyTransaction,
+  TransactionNode,
+  TransactionNodeConfig,
+  TransactionValidator,
 } from "../txn/mod.ts";
 
 // Transaction data convention (Level 2)
 export {
-  extractProgram,
-  createOutputValidator,
   combineValidators,
+  createOutputValidator,
+  extractProgram,
+  isTransactionData,
 } from "../txn-data/mod.ts";
 export type {
-  TransactionData,
-  StateTransaction,
-  TransactionValidationContext,
-  ProgramValidator,
   ProgramSchema,
+  ProgramValidator,
+  StateTransaction,
+  TransactionData,
+  TransactionValidationContext,
 } from "../txn-data/mod.ts";

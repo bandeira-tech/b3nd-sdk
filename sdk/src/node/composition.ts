@@ -5,7 +5,7 @@
  * Build complex validation and processing pipelines from simple primitives.
  */
 
-import type { ReadResult } from "../types.ts";
+import type { ReadResult, ReceiveResult, Transaction } from "../types.ts";
 import type { Processor, ReadInterface, Validator } from "./types.ts";
 
 /**
@@ -82,7 +82,7 @@ export function any<D = unknown>(...validators: Validator<D>[]): Validator<D> {
 export function all<D = unknown>(...validators: Validator<D>[]): Validator<D> {
   return async (tx, read) => {
     const results = await Promise.all(
-      validators.map((v) => v(tx, read))
+      validators.map((v) => v(tx, read)),
     );
 
     const failures = results.filter((r) => !r.valid);
@@ -102,36 +102,75 @@ export function all<D = unknown>(...validators: Validator<D>[]): Validator<D> {
 }
 
 /**
- * Broadcast processor composition
- * Run processors in parallel, at least one must succeed
+ * A receiver is anything with a `receive` method (clients, nodes, etc.)
+ */
+type Receiver = {
+  receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult>;
+};
+
+/**
+ * Accepts a Processor function or a receiver (client/node).
+ * Receivers are automatically adapted — their `receive` method is called
+ * and `accepted` is mapped to `success`.
+ */
+type ProcessorOrReceiver<D = unknown> = Processor<D> | Receiver;
+
+function isReceiver(item: unknown): item is Receiver {
+  return typeof item === "object" && item !== null && "receive" in item &&
+    typeof (item as Receiver).receive === "function";
+}
+
+function toProcessor<D>(item: ProcessorOrReceiver<D>): Processor<D> {
+  if (isReceiver(item)) {
+    return async (tx) => {
+      const result = await item.receive(tx);
+      return { success: result.accepted, error: result.error };
+    };
+  }
+  return item as Processor<D>;
+}
+
+/**
+ * Parallel processor composition
+ * Run processors/receivers in parallel, at least one must succeed
+ *
+ * Accepts Processor functions or receivers (anything with a `receive` method).
+ * Receivers are automatically adapted.
  *
  * @example
  * ```typescript
- * const process = broadcast(
- *   store(postgres),
- *   store(replica),
+ * // Pass clients directly — no wrapping needed
+ * const process = parallel(postgresClient, replicaClient)
+ *
+ * // Mix with custom processors
+ * const process = parallel(
+ *   postgresClient,
  *   emit(webhookCallback)
  * )
  * ```
  */
-export function broadcast<D = unknown>(...processors: Processor<D>[]): Processor<D> {
+export function parallel<D = unknown>(
+  ...items: ProcessorOrReceiver<D>[]
+): Processor<D> {
+  const processors = items.map(toProcessor);
+
   return async (tx) => {
     const results = await Promise.allSettled(
-      processors.map((p) => p(tx))
+      processors.map((p) => p(tx)),
     );
 
     const successes = results.filter(
-      (r) => r.status === "fulfilled" && r.value.success
+      (r) => r.status === "fulfilled" && r.value.success,
     );
 
     if (successes.length === 0) {
       const errors = results
         .map((r, i) => {
           if (r.status === "rejected") {
-            return `processor[${i}]: ${r.reason}`;
+            return `[${i}]: ${r.reason}`;
           }
           if (r.status === "fulfilled" && !r.value.success) {
-            return `processor[${i}]: ${r.value.error || "failed"}`;
+            return `[${i}]: ${r.value.error || "failed"}`;
           }
           return null;
         })
@@ -140,7 +179,7 @@ export function broadcast<D = unknown>(...processors: Processor<D>[]): Processor
 
       return {
         success: false,
-        error: errors || "All processors failed",
+        error: errors || "All failed",
       };
     }
 
@@ -155,13 +194,14 @@ export function broadcast<D = unknown>(...processors: Processor<D>[]): Processor
  * @example
  * ```typescript
  * const process = pipeline(
- *   validate(signatureCheck),
- *   transform(normalizeData),
- *   store(postgres)
+ *   log("received"),
+ *   emit(webhookCallback)
  * )
  * ```
  */
-export function pipeline<D = unknown>(...processors: Processor<D>[]): Processor<D> {
+export function pipeline<D = unknown>(
+  ...processors: Processor<D>[]
+): Processor<D> {
   return async (tx) => {
     for (const processor of processors) {
       const result = await processor(tx);

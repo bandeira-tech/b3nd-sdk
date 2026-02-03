@@ -144,7 +144,7 @@ export class MockHttpServer {
     if (this.config.mode === "validationError") {
       return Response.json(
         { accepted: false, error: "Validation failed: Name is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -154,8 +154,11 @@ export class MockHttpServer {
 
     if (!tx || !Array.isArray(tx) || tx.length < 2) {
       return Response.json(
-        { accepted: false, error: "Invalid transaction format: expected { tx: [uri, data] }" },
-        { status: 400 }
+        {
+          accepted: false,
+          error: "Invalid transaction format: expected { tx: [uri, data] }",
+        },
+        { status: 400 },
       );
     }
 
@@ -164,7 +167,7 @@ export class MockHttpServer {
     if (!uri || typeof uri !== "string") {
       return Response.json(
         { accepted: false, error: "Transaction URI is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

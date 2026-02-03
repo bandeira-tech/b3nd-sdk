@@ -5,7 +5,7 @@
  */
 
 import type { NodeProtocolInterface } from "../src/types.ts";
-import type { FileStorage, Logger, HttpFetch } from "./interfaces.ts";
+import type { FileStorage, HttpFetch, Logger } from "./interfaces.ts";
 
 /**
  * Server key pair configuration

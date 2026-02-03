@@ -1,11 +1,11 @@
 import {
   authValidation,
+  createCombinedAccess,
   createPubkeyBasedAccess,
   createRelativePathAccess,
-  createCombinedAccess,
 } from "../mod.ts";
 import { assertEquals } from "@std/assert";
-import { encodeHex, decodeHex } from "@std/encoding/hex";
+import { decodeHex, encodeHex } from "@std/encoding/hex";
 
 type TestUser = {
   // Ed25519 compat privateKey:
@@ -589,7 +589,8 @@ Deno.test("comprehensive feature demonstration", async () => {
   const testPayload = { action: "code_review", content: "Approved" };
 
   // Test cascading access from different levels
-  const deepPath = `test://company/${ceoPubkey}/organization/tech/projects/app/src/main.ts`;
+  const deepPath =
+    `test://company/${ceoPubkey}/organization/tech/projects/app/src/main.ts`;
 
   // CEO can write anywhere in their namespace (pubkey-based access)
   const ceoAuth = await createSignatures([ceo], testPayload);
@@ -652,7 +653,8 @@ Deno.test("comprehensive feature demonstration", async () => {
   );
 
   // But intern can write in shared area
-  const sharedPath = `test://company/${ceoPubkey}/organization/tech/projects/app/shared/notes.md`;
+  const sharedPath =
+    `test://company/${ceoPubkey}/organization/tech/projects/app/shared/notes.md`;
   const internSharedResult = await validation({
     uri: sharedPath,
     value: { auth: internAuth, payload: testPayload },

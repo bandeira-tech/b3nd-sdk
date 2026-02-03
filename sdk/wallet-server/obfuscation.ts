@@ -15,12 +15,12 @@
 
 import { encodeHex } from "../shared/encoding.ts";
 import {
-  encrypt as encryptData,
-  decrypt as decryptData,
   createSignedEncryptedMessage,
-  verifyPayload,
+  decrypt as decryptData,
+  encrypt as encryptData,
   type EncryptedPayload,
   type SignedEncryptedMessage,
+  verifyPayload,
 } from "../encrypt/mod.ts";
 
 /**
@@ -69,13 +69,13 @@ export async function deriveObfuscatedPath(
     encoder.encode(serverPublicKey),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
 
   const signature = await crypto.subtle.sign(
     "HMAC",
     key,
-    encoder.encode(input)
+    encoder.encode(input),
   );
 
   // Return first 32 hex characters (128 bits) for reasonable path length
@@ -87,7 +87,7 @@ export async function deriveObfuscatedPath(
  */
 export async function pemToCryptoKey(
   pem: string,
-  algorithm: "Ed25519" | "X25519" = "Ed25519"
+  algorithm: "Ed25519" | "X25519" = "Ed25519",
 ): Promise<CryptoKey> {
   const base64 = pem
     .split("\n")
@@ -102,7 +102,7 @@ export async function pemToCryptoKey(
 
   const buffer = bytes.buffer.slice(
     bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
+    bytes.byteOffset + bytes.byteLength,
   ) as ArrayBuffer;
 
   if (algorithm === "Ed25519") {
@@ -111,7 +111,7 @@ export async function pemToCryptoKey(
       buffer,
       { name: "Ed25519", namedCurve: "Ed25519" },
       false,
-      ["sign"]
+      ["sign"],
     );
   } else {
     return await crypto.subtle.importKey(
@@ -119,7 +119,7 @@ export async function pemToCryptoKey(
       buffer,
       { name: "X25519", namedCurve: "X25519" },
       false,
-      ["deriveBits"]
+      ["deriveBits"],
     );
   }
 }
@@ -132,17 +132,20 @@ export async function createSignedEncryptedPayload(
   data: unknown,
   serverIdentityPrivateKeyPem: string,
   serverIdentityPublicKeyHex: string,
-  serverEncryptionPublicKeyHex: string
+  serverEncryptionPublicKeyHex: string,
 ): Promise<SignedEncryptedMessage> {
   const identityPrivateKey = await pemToCryptoKey(
     serverIdentityPrivateKeyPem,
-    "Ed25519"
+    "Ed25519",
   );
 
   return await createSignedEncryptedMessage(
     data,
-    [{ privateKey: identityPrivateKey, publicKeyHex: serverIdentityPublicKeyHex }],
-    serverEncryptionPublicKeyHex
+    [{
+      privateKey: identityPrivateKey,
+      publicKeyHex: serverIdentityPublicKeyHex,
+    }],
+    serverEncryptionPublicKeyHex,
   );
 }
 
@@ -151,11 +154,11 @@ export async function createSignedEncryptedPayload(
  */
 export async function decryptSignedEncryptedPayload(
   signedMessage: SignedEncryptedMessage,
-  serverEncryptionPrivateKeyPem: string
+  serverEncryptionPrivateKeyPem: string,
 ): Promise<{ data: unknown; verified: boolean; signers: string[] }> {
   const encryptionPrivateKey = await pemToCryptoKey(
     serverEncryptionPrivateKeyPem,
-    "X25519"
+    "X25519",
   );
 
   // Verify the signature on the encrypted payload
@@ -176,7 +179,7 @@ export async function decryptSignedEncryptedPayload(
  */
 export async function encryptForBackend(
   data: unknown,
-  serverEncryptionPublicKeyHex: string
+  serverEncryptionPublicKeyHex: string,
 ): Promise<EncryptedPayload> {
   return await encryptData(data, serverEncryptionPublicKeyHex);
 }
@@ -187,11 +190,11 @@ export async function encryptForBackend(
  */
 export async function decryptFromBackend(
   encryptedPayload: EncryptedPayload,
-  serverEncryptionPrivateKeyPem: string
+  serverEncryptionPrivateKeyPem: string,
 ): Promise<unknown> {
   const privateKey = await pemToCryptoKey(
     serverEncryptionPrivateKeyPem,
-    "X25519"
+    "X25519",
   );
   return await decryptData(encryptedPayload, privateKey);
 }
@@ -214,12 +217,12 @@ export async function encryptedWrite(
     serverPublicKey,
     username,
     operationType,
-    ...params
+    ...params,
   );
 
   const encryptedPayload = await encryptForBackend(
     data,
-    serverEncryptionPublicKeyHex
+    serverEncryptionPublicKeyHex,
   );
 
   return { path, encryptedPayload };

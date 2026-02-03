@@ -24,7 +24,9 @@
  * @param value - The value to hash (Uint8Array for binary, otherwise JSON-stringified)
  * @returns Hex-encoded SHA256 hash (64 characters)
  */
-export async function computeSha256(value: Uint8Array | unknown): Promise<string> {
+export async function computeSha256(
+  value: Uint8Array | unknown,
+): Promise<string> {
   let data: Uint8Array;
 
   if (value instanceof Uint8Array) {
@@ -36,7 +38,10 @@ export async function computeSha256(value: Uint8Array | unknown): Promise<string
     data = encoder.encode(JSON.stringify(value));
   }
 
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data as BufferSource);
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    data as BufferSource,
+  );
   const hashArray = new Uint8Array(hashBuffer);
 
   return Array.from(hashArray)
@@ -58,7 +63,9 @@ export function generateBlobUri(hash: string): string {
  * @param uri - Blob URI in format "blob://open/sha256:{hash}"
  * @returns Object with algorithm and hash, or null if invalid
  */
-export function parseBlobUri(uri: string): { algorithm: string; hash: string } | null {
+export function parseBlobUri(
+  uri: string,
+): { algorithm: string; hash: string } | null {
   try {
     const url = new URL(uri);
     if (url.protocol !== "blob:") return null;
@@ -123,7 +130,9 @@ export function isValidSha256Hash(hash: string): boolean {
 export async function verifyBlobContent(
   uri: string,
   value: Uint8Array | unknown,
-): Promise<{ valid: boolean; expectedHash?: string; actualHash: string; error?: string }> {
+): Promise<
+  { valid: boolean; expectedHash?: string; actualHash: string; error?: string }
+> {
   const parsed = parseBlobUri(uri);
   if (!parsed) {
     const actualHash = await computeSha256(value);
@@ -132,7 +141,11 @@ export async function verifyBlobContent(
 
   if (parsed.algorithm !== "sha256") {
     const actualHash = await computeSha256(value);
-    return { valid: false, actualHash, error: `Unsupported algorithm: ${parsed.algorithm}` };
+    return {
+      valid: false,
+      actualHash,
+      error: `Unsupported algorithm: ${parsed.algorithm}`,
+    };
   }
 
   const actualHash = await computeSha256(value);

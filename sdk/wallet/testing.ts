@@ -23,9 +23,9 @@
  */
 
 import type { Schema } from "../src/types.ts";
-import type { AuthSession, UserPublicKeys, SessionKeypair } from "./types.ts";
-import { MemoryClient, createTestSchema } from "../clients/memory/mod.ts";
-import { MemoryWalletClient, generateTestServerKeys } from "./memory-client.ts";
+import type { AuthSession, SessionKeypair, UserPublicKeys } from "./types.ts";
+import { createTestSchema, MemoryClient } from "../clients/memory/mod.ts";
+import { generateTestServerKeys, MemoryWalletClient } from "./memory-client.ts";
 import type { MemoryWalletClientConfig } from "./memory-client.ts";
 import type { ServerKeys } from "../wallet-server/types.ts";
 import { generateSigningKeyPair } from "../encrypt/mod.ts";
@@ -86,8 +86,14 @@ export interface TestEnvironment {
   signupTestUser(
     appKey: string,
     username: string,
-    password: string
-  ): Promise<{ session: AuthSession; keys: UserPublicKeys; sessionKeypair: SessionKeypair }>;
+    password: string,
+  ): Promise<
+    {
+      session: AuthSession;
+      keys: UserPublicKeys;
+      sessionKeypair: SessionKeypair;
+    }
+  >;
 
   /**
    * Login a test user and set the session.
@@ -101,8 +107,14 @@ export interface TestEnvironment {
   loginTestUser(
     appKey: string,
     username: string,
-    password: string
-  ): Promise<{ session: AuthSession; keys: UserPublicKeys; sessionKeypair: SessionKeypair }>;
+    password: string,
+  ): Promise<
+    {
+      session: AuthSession;
+      keys: UserPublicKeys;
+      sessionKeypair: SessionKeypair;
+    }
+  >;
 
   /**
    * Clean up the test environment.
@@ -151,7 +163,7 @@ export interface TestEnvironment {
  * ```
  */
 export async function createTestEnvironment(
-  config: TestEnvironmentConfig = {}
+  config: TestEnvironmentConfig = {},
 ): Promise<TestEnvironment> {
   const schema = config.schema || createTestSchema();
   const serverKeys = config.serverKeys || (await generateTestServerKeys());
@@ -175,8 +187,14 @@ export async function createTestEnvironment(
     async signupTestUser(
       appKey: string,
       username: string,
-      password: string
-    ): Promise<{ session: AuthSession; keys: UserPublicKeys; sessionKeypair: SessionKeypair }> {
+      password: string,
+    ): Promise<
+      {
+        session: AuthSession;
+        keys: UserPublicKeys;
+        sessionKeypair: SessionKeypair;
+      }
+    > {
       // Generate a session keypair
       const keypair = await generateSigningKeyPair();
       const sessionKeypair: SessionKeypair = {
@@ -185,11 +203,16 @@ export async function createTestEnvironment(
       };
 
       // Approve the session by writing to the backend (simulates app approval)
-      const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+      const sessionUri =
+        `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
       await backend.receive([sessionUri, 1]);
 
       // Now signup with the approved session
-      const session = await wallet.signup(appKey, sessionKeypair, { type: 'password', username, password });
+      const session = await wallet.signup(appKey, sessionKeypair, {
+        type: "password",
+        username,
+        password,
+      });
       wallet.setSession(session);
       const keys = await wallet.getPublicKeys(appKey);
       return { session, keys, sessionKeypair };
@@ -198,8 +221,14 @@ export async function createTestEnvironment(
     async loginTestUser(
       appKey: string,
       username: string,
-      password: string
-    ): Promise<{ session: AuthSession; keys: UserPublicKeys; sessionKeypair: SessionKeypair }> {
+      password: string,
+    ): Promise<
+      {
+        session: AuthSession;
+        keys: UserPublicKeys;
+        sessionKeypair: SessionKeypair;
+      }
+    > {
       // Generate a session keypair
       const keypair = await generateSigningKeyPair();
       const sessionKeypair: SessionKeypair = {
@@ -208,11 +237,16 @@ export async function createTestEnvironment(
       };
 
       // Approve the session by writing to the backend (simulates app approval)
-      const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+      const sessionUri =
+        `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
       await backend.receive([sessionUri, 1]);
 
       // Now login with the approved session
-      const session = await wallet.login(appKey, sessionKeypair, { type: 'password', username, password });
+      const session = await wallet.login(appKey, sessionKeypair, {
+        type: "password",
+        username,
+        password,
+      });
       wallet.setSession(session);
       const keys = await wallet.getPublicKeys(appKey);
       return { session, keys, sessionKeypair };

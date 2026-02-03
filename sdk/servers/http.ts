@@ -94,9 +94,18 @@ export interface MinimalContext {
 }
 
 export interface MinimalRouter {
-  get: (path: string, handler: (c: MinimalContext) => Promise<Response> | Response) => void;
-  post: (path: string, handler: (c: MinimalContext) => Promise<Response> | Response) => void;
-  delete: (path: string, handler: (c: MinimalContext) => Promise<Response> | Response) => void;
+  get: (
+    path: string,
+    handler: (c: MinimalContext) => Promise<Response> | Response,
+  ) => void;
+  post: (
+    path: string,
+    handler: (c: MinimalContext) => Promise<Response> | Response,
+  ) => void;
+  delete: (
+    path: string,
+    handler: (c: MinimalContext) => Promise<Response> | Response,
+  ) => void;
   fetch: (req: Request) => Promise<Response> | Response;
 }
 
@@ -154,7 +163,10 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   // Wire routes using the provided router interface
   app.get("/api/v1/health", async (c: MinimalContext) => {
     if (!backend) {
-      return c.json({ status: "unhealthy", message: "handler not attached" }, 503);
+      return c.json(
+        { status: "unhealthy", message: "handler not attached" },
+        503,
+      );
     }
     const res = await backend.read.health();
     return c.json(res, res.status === "healthy" ? 200 : 503);
@@ -170,17 +182,27 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   app.post("/api/v1/receive", async (c: MinimalContext) => {
     // Parse request body to get transaction
     const body = await (async () => {
-      try { return await (c as any).req.json?.() ?? {}; } catch { return {}; }
+      try {
+        return await (c as any).req.json?.() ?? {};
+      } catch {
+        return {};
+      }
     })();
 
     const tx = (body as { tx?: Transaction }).tx;
     if (!tx || !Array.isArray(tx) || tx.length < 2) {
-      return c.json({ accepted: false, error: "Invalid transaction format: expected { tx: [uri, data] }" }, 400);
+      return c.json({
+        accepted: false,
+        error: "Invalid transaction format: expected { tx: [uri, data] }",
+      }, 400);
     }
 
     const [uri, rawData] = tx;
     if (!uri || typeof uri !== "string") {
-      return c.json({ accepted: false, error: "Transaction URI is required" }, 400);
+      return c.json(
+        { accepted: false, error: "Transaction URI is required" },
+        400,
+      );
     }
 
     // Deserialize binary data from base64-encoded wrapper
@@ -200,12 +222,22 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
     const programKey = extractProgramKey(uri);
     const validator = programKey ? (schema as any)[programKey] : undefined;
     if (!validator) {
-      return c.json({ accepted: false, error: `No schema defined for program key: ${programKey}` }, 400);
+      return c.json({
+        accepted: false,
+        error: `No schema defined for program key: ${programKey}`,
+      }, 400);
     }
 
-    const validation = await validator({ uri, value: data, read: backend.read.read.bind(backend.read) });
+    const validation = await validator({
+      uri,
+      value: data,
+      read: backend.read.read.bind(backend.read),
+    });
     if (!validation.valid) {
-      return c.json({ accepted: false, error: validation.error || "Validation failed" }, 400);
+      return c.json({
+        accepted: false,
+        error: validation.error || "Validation failed",
+      }, 400);
     }
 
     const res = await backend.write.receive([uri, data] as Transaction);
@@ -238,11 +270,16 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   });
 
   app.get("/api/v1/list/:protocol/:domain/*", async (c: MinimalContext) => {
-    if (!backend) return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
+    if (!backend) {
+      return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
+    }
     const baseUri = extractUriFromParams(c).replace(/\/$/, "");
     const res = await backend.read.list(baseUri, {
-      page: (c.req.query("page") ? Number(c.req.query("page")) : undefined) as any,
-      limit: (c.req.query("limit") ? Number(c.req.query("limit")) : undefined) as any,
+      page:
+        (c.req.query("page") ? Number(c.req.query("page")) : undefined) as any,
+      limit: (c.req.query("limit")
+        ? Number(c.req.query("limit"))
+        : undefined) as any,
       pattern: (c.req.query("pattern") || undefined) as any,
       sortBy: (c.req.query("sortBy") as any) || undefined,
       sortOrder: (c.req.query("sortOrder") as any) || undefined,
@@ -250,12 +287,20 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
     return c.json(res, 200);
   });
 
-  app.delete("/api/v1/delete/:protocol/:domain/*", async (c: MinimalContext) => {
-    if (!backend) return c.json({ success: false, error: "handler not attached" }, 501);
-    const uri = extractUriFromParams(c);
-    const res = await backend.write.delete(uri);
-    return c.json(res, res.success ? 200 : 404);
-  });
+  app.delete(
+    "/api/v1/delete/:protocol/:domain/*",
+    async (c: MinimalContext) => {
+      if (!backend) {
+        return c.json({
+          success: false,
+          error: "handler not attached",
+        }, 501);
+      }
+      const uri = extractUriFromParams(c);
+      const res = await backend.write.delete(uri);
+      return c.json(res, res.success ? 200 : 404);
+    },
+  );
 
   return {
     listen(port: number) {

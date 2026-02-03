@@ -4,11 +4,11 @@ export function websocketServer(): ServerFrontend {
   return {
     listen(_port: number) {
       // Placeholder – integrating WebSocket routing is out of current scope
-      throw new Error('websocketServer.listen not implemented');
+      throw new Error("websocketServer.listen not implemented");
     },
     fetch(_req: Request) {
       // Placeholder – integrating WebSocket routing is out of current scope
-      throw new Error('websocketServer.fetch not implemented');
+      throw new Error("websocketServer.fetch not implemented");
     },
     configure(_opts) {
       // Placeholder – integrating WebSocket routing is out of current scope
@@ -16,4 +16,3 @@ export function websocketServer(): ServerFrontend {
     },
   };
 }
-

@@ -25,7 +25,11 @@ import { encodeBase64 } from "../../shared/encoding.ts";
  */
 function serializeTxData<D>(data: D): unknown {
   if (data instanceof Uint8Array) {
-    return { __b3nd_binary__: true, encoding: "base64", data: encodeBase64(data) };
+    return {
+      __b3nd_binary__: true,
+      encoding: "base64",
+      data: encodeBase64(data),
+    };
   }
   return data;
 }
@@ -213,7 +217,11 @@ export class HttpClient implements NodeProtocolInterface, Node {
         }
         return {
           success: false,
-          results: uris.map((uri) => ({ uri, success: false, error: response.statusText })),
+          results: uris.map((uri) => ({
+            uri,
+            success: false,
+            error: response.statusText,
+          })),
           summary: { total: uris.length, succeeded: 0, failed: uris.length },
         };
       }
@@ -225,7 +233,9 @@ export class HttpClient implements NodeProtocolInterface, Node {
     }
   }
 
-  private async readMultiFallback<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+  private async readMultiFallback<T = unknown>(
+    uris: string[],
+  ): Promise<ReadMultiResult<T>> {
     const results: ReadMultiResultItem<T>[] = await Promise.all(
       uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
         const result = await this.read<T>(uri);
@@ -233,14 +243,18 @@ export class HttpClient implements NodeProtocolInterface, Node {
           return { uri, success: true, record: result.record };
         }
         return { uri, success: false, error: result.error || "Read failed" };
-      })
+      }),
     );
 
     const succeeded = results.filter((r) => r.success).length;
     return {
       success: succeeded > 0,
       results,
-      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+      summary: {
+        total: uris.length,
+        succeeded,
+        failed: uris.length - succeeded,
+      },
     };
   }
 
@@ -311,7 +325,9 @@ export class HttpClient implements NodeProtocolInterface, Node {
       });
 
       // Always consume the response body
-      const result = response.ok ? await response.json() : { error: await response.text() };
+      const result = response.ok
+        ? await response.json()
+        : { error: await response.text() };
 
       if (!response.ok) {
         return {
