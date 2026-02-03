@@ -150,31 +150,31 @@ export function runSharedSuite(
         assertEquals(item.uri.startsWith("store://pagination/user"), true, `URI should be full: ${item.uri}`);
         assertEquals(item.uri.endsWith("/profile"), true, `URI should end with /profile: ${item.uri}`);
       }
-    }
 
-    const page2 = await client.list("store://pagination", { page: 2, limit: 5 });
-    assertEquals(page2.success, true);
-    if (page2.success) {
-      assertEquals(page2.pagination.page, 2);
-      assertEquals(page2.pagination.limit, 5);
-      assertEquals(page2.data.length, 5, "Page 2 should have exactly 5 items");
+      const page2 = await client.list("store://pagination", { page: 2, limit: 5 });
+      assertEquals(page2.success, true);
+      if (page2.success) {
+        assertEquals(page2.pagination.page, 2);
+        assertEquals(page2.pagination.limit, 5);
+        assertEquals(page2.data.length, 5, "Page 2 should have exactly 5 items");
 
-      // Verify pages contain different items (no overlap)
-      const page1Uris = new Set(page1.data.map((item) => item.uri));
-      const page2Uris = page2.data.map((item) => item.uri);
-      for (const uri of page2Uris) {
-        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);
-      }
+        // Verify pages contain different items (no overlap)
+        const page1Uris = new Set(page1.data.map((item) => item.uri));
+        const page2Uris = page2.data.map((item) => item.uri);
+        for (const uri of page2Uris) {
+          assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);
+        }
 
-      // All 10 items across both pages
-      const allUris = [...page1.data, ...page2.data].map((item) => item.uri).sort();
-      assertEquals(allUris.length, 10);
-      for (let i = 0; i < 10; i++) {
-        assertEquals(
-          allUris.includes(`store://pagination/user${i}/profile`),
-          true,
-          `Should contain user${i}`,
-        );
+        // All 10 items across both pages
+        const allUris = [...page1.data, ...page2.data].map((item) => item.uri).sort();
+        assertEquals(allUris.length, 10);
+        for (let i = 0; i < 10; i++) {
+          assertEquals(
+            allUris.includes(`store://pagination/user${i}/profile`),
+            true,
+            `Should contain user${i}`,
+          );
+        }
       }
     }
 

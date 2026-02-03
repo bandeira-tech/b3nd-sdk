@@ -112,6 +112,7 @@ export function when<D = unknown>(
  * ```
  */
 export function log<D = unknown>(prefix = "tx"): Processor<D> {
+  // deno-lint-ignore require-await
   return async (tx) => {
     const [uri] = tx;
     console.log(`[${prefix}] ${uri}`);
@@ -132,5 +133,6 @@ export function log<D = unknown>(prefix = "tx"): Processor<D> {
  * ```
  */
 export function noop<D = unknown>(): Processor<D> {
+  // deno-lint-ignore require-await
   return async () => ({ success: true });
 }

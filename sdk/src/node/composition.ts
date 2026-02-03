@@ -6,7 +6,7 @@
  */
 
 import type { ReadResult } from "../types.ts";
-import type { Processor, ReadInterface, Transaction, Validator } from "./types.ts";
+import type { Processor, ReadInterface, Validator } from "./types.ts";
 
 /**
  * Sequential validator composition

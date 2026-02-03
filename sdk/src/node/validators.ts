@@ -21,6 +21,7 @@ import type { Transaction, Validator } from "./types.ts";
 export function format<D = unknown>(
   checkFn: (tx: Transaction<D>) => boolean | string
 ): Validator<D> {
+  // deno-lint-ignore require-await
   return async (tx) => {
     const result = checkFn(tx);
     if (result === true) {
@@ -50,6 +51,7 @@ export function format<D = unknown>(
  * ```
  */
 export function schema<D = unknown>(programSchema: Schema): Validator<D> {
+  // deno-lint-ignore require-await
   return async (tx, read) => {
     const [uri, data] = tx;
 
@@ -80,6 +82,7 @@ export function schema<D = unknown>(programSchema: Schema): Validator<D> {
  * ```
  */
 export function uriPattern(pattern: RegExp): Validator {
+  // deno-lint-ignore require-await
   return async (tx) => {
     const [uri] = tx;
     if (pattern.test(uri)) {
@@ -102,6 +105,7 @@ export function uriPattern(pattern: RegExp): Validator {
  * ```
  */
 export function requireFields(fields: string[]): Validator {
+  // deno-lint-ignore require-await
   return async (tx) => {
     const [, data] = tx;
 
@@ -137,6 +141,7 @@ export function requireFields(fields: string[]): Validator {
  * ```
  */
 export function accept(): Validator {
+  // deno-lint-ignore require-await
   return async () => ({ valid: true });
 }
 
@@ -150,5 +155,6 @@ export function accept(): Validator {
  * ```
  */
 export function reject(message = "Rejected"): Validator {
+  // deno-lint-ignore require-await
   return async () => ({ valid: false, error: message });
 }
