@@ -1,15 +1,11 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@bandeira-tech/b3nd-sdk@0.5": "0.5.0",
     "jsr:@std/encoding@^1.0.10": "1.0.10",
     "npm:hono@*": "4.11.3",
     "npm:mongodb@*": "7.0.0"
   },
   "jsr": {
-    "@bandeira-tech/b3nd-sdk@0.5.0": {
-      "integrity": "9afbb1d2d02ad115b261482dd8299113a101ccc65dd84354a6f95035aa7ff2d9"
-    },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     }
@@ -149,7 +145,6 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@bandeira-tech/b3nd-sdk@0.5",
       "jsr:@std/encoding@^1.0.10",
       "npm:hono@*"
     ]

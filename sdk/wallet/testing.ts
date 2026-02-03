@@ -186,7 +186,7 @@ export async function createTestEnvironment(
 
       // Approve the session by writing to the backend (simulates app approval)
       const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
-      await backend.write(sessionUri, 1);
+      await backend.receive([sessionUri, 1]);
 
       // Now signup with the approved session
       const session = await wallet.signup(appKey, sessionKeypair, { type: 'password', username, password });
@@ -209,7 +209,7 @@ export async function createTestEnvironment(
 
       // Approve the session by writing to the backend (simulates app approval)
       const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
-      await backend.write(sessionUri, 1);
+      await backend.receive([sessionUri, 1]);
 
       // Now login with the approved session
       const session = await wallet.login(appKey, sessionKeypair, { type: 'password', username, password });

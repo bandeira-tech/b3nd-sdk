@@ -8,8 +8,14 @@ import {
   parallelBroadcast,
   PostgresClient,
   servers,
+  // New unified node imports
+  createNode,
+  broadcast,
+  schemaValidator,
+  store,
+  firstMatch,
 } from "@bandeira-tech/b3nd-sdk";
-import type { NodeProtocolInterface, Schema } from "@bandeira-tech/b3nd-sdk";
+import type { NodeProtocolInterface, Schema, Node } from "@bandeira-tech/b3nd-sdk";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
 import { Hono } from "hono";
@@ -143,6 +149,14 @@ const backend = {
   read: readBackend,
 };
 
+// Create unified node for /api/v1/receive endpoint
+// This uses the new composition pattern
+const unifiedNode: Node = createNode({
+  read: firstMatch(...clients),
+  validate: schemaValidator(schema),
+  process: broadcast(...clients.map(c => store(c))),
+});
+
 // Custom logger middleware with timestamp and response timing
 const customLogger = async (c: any, next: any) => {
   const startTime = Date.now();
@@ -167,11 +181,20 @@ app.use(
 );
 app.use(customLogger);
 
+// Health check endpoint
+app.get("/api/v1/health", (c) => {
+  return c.json({
+    status: "ok",
+    timestamp: Date.now(),
+    backend: BACKEND_URL,
+  });
+});
+
 const frontend = servers.httpServer(app);
 
 // Create node and start
-const node = createServerNode({ frontend, backend, schema });
-node.listen(PORT);
+const serverNode = createServerNode({ frontend, backend, schema, node: unifiedNode });
+serverNode.listen(PORT);
 console.log(
   `B3nd Multi-Backend Node:${PORT} (BACKEND_URL=${BACKEND_URL})`,
 );

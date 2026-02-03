@@ -1,8 +1,8 @@
 // React import not needed with react-jsx runtime
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
-import { Monitor, Moon, Settings, Sun, PenSquare, Compass, Users } from "lucide-react";
-import { RIG_ACCOUNTS_PATH, RIG_EXPLORER_BASE_PATH, RIG_SETTINGS_PATH, RIG_WRITER_BASE_PATH, cn } from "../../utils";
+import { Monitor, Moon, Settings, Sun, PenSquare, Compass, Users, Activity } from "lucide-react";
+import { RIG_ACCOUNTS_PATH, RIG_DASHBOARD_PATH, RIG_EXPLORER_BASE_PATH, RIG_SETTINGS_PATH, RIG_WRITER_BASE_PATH, cn } from "../../utils";
 import type { ReactNode } from "react";
 
 export function BrandHeader() {
@@ -64,6 +64,14 @@ export function BrandHeader() {
           icon={<PenSquare className="h-4 w-4" />}
           onClick={() => {
             navigate(RIG_WRITER_BASE_PATH);
+          }}
+        />
+        <AppSwitchButton
+          active={activeApp === "dashboard"}
+          label="Dashboard"
+          icon={<Activity className="h-4 w-4" />}
+          onClick={() => {
+            navigate(RIG_DASHBOARD_PATH);
           }}
         />
       </div>

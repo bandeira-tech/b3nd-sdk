@@ -5,9 +5,12 @@
   "exports": {
     ".": "./src/mod.ts",
     "./types": "./src/types.ts",
+    "./node": "./src/node/mod.ts",
     "./auth": "./auth/mod.ts",
     "./encrypt": "./encrypt/mod.ts",
     "./blob": "./blob/mod.ts",
+    "./txn": "./txn/mod.ts",
+    "./txn-data": "./txn-data/mod.ts",
     "./clients/memory": "./clients/memory/mod.ts",
     "./clients/http": "./clients/http/mod.ts",
     "./clients/websocket": "./clients/websocket/mod.ts",
@@ -23,6 +26,10 @@
   },
   "tasks": {
     "test": "deno test -A --ignore=tests/browser --ignore=tests/mongo-client.test.ts --ignore=tests/postgres-client.test.ts --ignore=tests/websocket-client.test.ts tests/",
+    "test:unit": "deno test -A --ignore=tests/browser --ignore=tests/mongo-client.test.ts --ignore=tests/postgres-client.test.ts --ignore=tests/websocket-client.test.ts tests/",
+    "test:integration": "deno test -A tests/postgres-client.test.ts tests/mongo-client.test.ts",
+    "test:integration:postgres": "deno test -A tests/postgres-client.test.ts",
+    "test:integration:mongo": "deno test -A tests/mongo-client.test.ts",
     "test:all": "deno test -A tests/",
     "lint": "deno lint src/",
     "fmt": "deno fmt src/",

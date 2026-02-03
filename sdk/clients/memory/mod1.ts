@@ -155,7 +155,6 @@ export class MemoryClient implements NodeProtocolInterface {
 
         items.push({
           uri: fullUri,
-          type: "file",
         });
       }
 

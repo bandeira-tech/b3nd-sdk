@@ -49,12 +49,11 @@ export class ApiClient {
     error?: string;
   }> {
     try {
-      const { protocol, domain, path } = this.parseUri(uri);
-      const url = `${this.config.baseUrl}/api/v1/write/${protocol}/${domain}${path}`;
+      const url = `${this.config.baseUrl}/api/v1/receive`;
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ value }),
+        body: JSON.stringify({ tx: [uri, value] }),
       });
 
       if (!response.ok) {
@@ -66,7 +65,16 @@ export class ApiClient {
       }
 
       const result = await response.json();
-      return { success: true, record: result.record };
+      if (!result.accepted) {
+        return { success: false, error: result.error || "Not accepted" };
+      }
+
+      // Read back the record after successful receive
+      const readResult = await this.read(uri);
+      return {
+        success: true,
+        record: readResult.record,
+      };
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -116,40 +124,24 @@ export class ApiClient {
 
       const allRecords: Array<{ uri: string; ts: number; data: unknown }> = [];
 
-      // Helper to recursively list all items
-      const listRecursive = async (baseUri: string): Promise<void> => {
-        const url = new URL(
-          `${this.config.baseUrl}/api/v1/list/${baseUri}`,
-        );
-        // Don't pass pattern to server - it doesn't support it
-        // We filter client-side instead
-
+      for (const domain of domains) {
+        const url = `${this.config.baseUrl}/api/v1/list/test/${domain}`;
         try {
-          const response = await fetch(url.toString());
+          const response = await fetch(url);
           if (response.ok) {
             const data = await response.json();
             const items = data.data || [];
             for (const item of items) {
-              if (item.type === "file") {
-                allRecords.push({
-                  uri: item.uri,
-                  ts: 0,
-                  data: null,
-                });
-              } else if (item.type === "directory") {
-                // Recursively list subdirectories
-                const { protocol, domain, path } = this.parseUri(item.uri);
-                await listRecursive(`${protocol}/${domain}${path}/`);
-              }
+              allRecords.push({
+                uri: item.uri,
+                ts: 0,
+                data: null,
+              });
             }
           }
         } catch {
           // Skip if listing fails
         }
-      };
-
-      for (const domain of domains) {
-        await listRecursive(`test/${domain}/`);
       }
 
       // Client-side pattern filtering (glob-style)

@@ -81,7 +81,7 @@ export interface MemoryWalletClientConfig {
    * const wallet = await MemoryWalletClient.create({ backend });
    *
    * // Both use the same storage
-   * await backend.write("mutable://accounts/...", data);
+   * await backend.receive(["mutable://accounts/...", data]);
    * await wallet.proxyWrite({ uri: "mutable://...", data });
    * ```
    */

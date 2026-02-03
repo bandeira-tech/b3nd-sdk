@@ -122,10 +122,10 @@ export async function createUser(
     serverIdentityPublicKeyHex,
     serverEncryptionPublicKeyHex
   );
-  await client.write(
+  await client.receive([
     `mutable://accounts/${serverPublicKey}/${profilePath}`,
-    profileSigned
-  );
+    profileSigned,
+  ]);
 
   // Store password credential with signed+encryption
   const passwordPath = await deriveObfuscatedPath(
@@ -141,10 +141,10 @@ export async function createUser(
     serverIdentityPublicKeyHex,
     serverEncryptionPublicKeyHex
   );
-  await client.write(
+  await client.receive([
     `mutable://accounts/${serverPublicKey}/${passwordPath}`,
-    passwordSigned
-  );
+    passwordSigned,
+  ]);
 
   return { salt, hash };
 }
@@ -244,10 +244,10 @@ export async function changePassword(
   );
 
   // Update password
-  await client.write(
+  await client.receive([
     `mutable://accounts/${serverPublicKey}/${passwordPath}`,
-    passwordSigned
-  );
+    passwordSigned,
+  ]);
 }
 
 /**
@@ -296,10 +296,10 @@ export async function createPasswordResetToken(
     serverEncryptionPublicKeyHex
   );
 
-  await client.write(
+  await client.receive([
     `mutable://accounts/${serverPublicKey}/${tokenPath}`,
-    tokenSigned
-  );
+    tokenSigned,
+  ]);
 
   return token;
 }
@@ -387,10 +387,10 @@ export async function resetPasswordWithToken(
   );
 
   // Update password
-  await client.write(
+  await client.receive([
     `mutable://accounts/${serverPublicKey}/${passwordPath}`,
-    passwordSigned
-  );
+    passwordSigned,
+  ]);
 
   // Delete the used token
   await client.delete(`mutable://accounts/${serverPublicKey}/${tokenPath}`);
@@ -467,10 +467,10 @@ export async function createGoogleUser(
     serverIdentityPublicKeyHex,
     serverEncryptionPublicKeyHex
   );
-  await client.write(
+  await client.receive([
     `mutable://accounts/${serverPublicKey}/${profilePath}`,
-    profileSigned
-  );
+    profileSigned,
+  ]);
 
   // Store Google sub -> username mapping for login lookup
   const googleProfilePath = await deriveObfuscatedPath(
@@ -491,10 +491,10 @@ export async function createGoogleUser(
     serverIdentityPublicKeyHex,
     serverEncryptionPublicKeyHex
   );
-  await client.write(
+  await client.receive([
     `mutable://accounts/${serverPublicKey}/${googleProfilePath}`,
-    googleProfileSigned
-  );
+    googleProfileSigned,
+  ]);
 
   return { username, googleSub: googlePayload.sub };
 }

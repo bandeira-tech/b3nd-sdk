@@ -65,7 +65,6 @@ export interface DeleteResult {
  */
 export interface ListItem {
   uri: string;
-  type: "file" | "directory";
 }
 
 /**
@@ -122,14 +121,27 @@ export type ValidationFn = (write: {
 export type Schema = Record<string, ValidationFn>;
 
 /**
+ * Result of a receive operation
+ */
+export interface ReceiveResult {
+  accepted: boolean;
+  error?: string;
+}
+
+/**
+ * Transaction type (re-exported from node/types.ts)
+ */
+export type Transaction<D = unknown> = [uri: string, data: D];
+
+/**
  * NodeProtocolInterface - The universal interface implemented by all clients
  *
  * All B3nd clients (Memory, HTTP, WebSocket, Postgres, IndexedDB, etc.)
  * implement this interface, enabling recursive composition and uniform usage.
  */
 export interface NodeProtocolWriteInterface {
-  /** Write data to a URI */
-  write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>>;
+  /** Receive a transaction - the unified entry point for all state changes */
+  receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult>;
   /** Delete data at a URI */
   delete(uri: string): Promise<DeleteResult>;
   /** Health status */
@@ -391,7 +403,7 @@ export interface BlobData<T = unknown> {
 export interface WebSocketRequest {
   id: string;
   type:
-    | "write"
+    | "receive"
     | "read"
     | "readMulti"
     | "list"

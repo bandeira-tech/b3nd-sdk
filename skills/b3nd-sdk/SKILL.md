@@ -41,12 +41,36 @@ import {
   PostgresClient,
   MongoClient,
 
+  // Unified Node system
+  createNode,
+  // Composition utilities
+  seq,
+  any,
+  all,
+  broadcast,
+  pipeline,
+  firstMatch,
+  // Built-in validators
+  schemaValidator,
+  format,
+  uriPattern,
+  requireFields,
+  accept,
+  reject,
+  // Built-in processors
+  store,
+  forward,
+  emit,
+  when,
+  log,
+  noop,
+
   // Server primitives
   createServerNode,
   servers,
   wsservers,
 
-  // Combinators
+  // Legacy combinators
   parallelBroadcast,
   firstMatchSequence,
 
@@ -65,7 +89,10 @@ import {
 
 ```typescript
 // Types only
-import type { Schema, NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk/types";
+import type { Schema, NodeProtocolInterface, Node, Transaction, ReceiveResult } from "@bandeira-tech/b3nd-sdk/types";
+
+// Node system
+import { createNode, seq, broadcast, store, schemaValidator } from "@bandeira-tech/b3nd-sdk/node";
 
 // Auth utilities
 import { ... } from "@bandeira-tech/b3nd-sdk/auth";
@@ -81,6 +108,43 @@ import { PostgresClient } from "@bandeira-tech/b3nd-sdk/clients/postgres";
 
 // Wallet client
 import { WalletClient } from "@bandeira-tech/b3nd-sdk/wallet";
+```
+
+## Unified Node System
+
+All state changes flow through a single `receive(tx)` interface. The unified node pattern:
+
+```typescript
+import { createNode, schemaValidator, store, broadcast, firstMatch } from "@bandeira-tech/b3nd-sdk";
+
+const schema = {
+  "mutable://users": async ({ value }) => ({ valid: !!value?.name }),
+};
+
+// Create unified node
+const node = createNode({
+  read: firstMatch(postgresClient, memoryClient),
+  validate: schemaValidator(schema),
+  process: broadcast(store(postgresClient), store(memoryClient)),
+});
+
+// Receive transactions
+const result = await node.receive(["mutable://users/alice", { name: "Alice" }]);
+// result: { accepted: true } or { accepted: false, error: "..." }
+```
+
+### Composition Utilities
+
+```typescript
+// Validators
+seq(v1, v2)      // Sequential, stops on first failure
+any(v1, v2)      // First to pass wins
+all(v1, v2)      // All must pass (parallel)
+
+// Processors
+broadcast(p1, p2)  // Parallel, at least one must succeed
+pipeline(p1, p2)   // Sequential, all must succeed
+when(cond, proc)   // Conditional processing
 ```
 
 ## Server Usage
@@ -314,16 +378,27 @@ await client.write(`blob://open/sha256:${hash}`, encrypted);
 
 ```typescript
 import type {
+  // Core types
   Schema,
   ValidationFn,
   NodeProtocolInterface,
   NodeProtocolWriteInterface,
   NodeProtocolReadInterface,
+  // Node types
+  Node,
+  NodeConfig,
+  Transaction,
+  ReceiveResult,
+  ReadInterface,
+  Validator,
+  Processor,
+  // Client configs
   MemoryClientConfig,
   HttpClientConfig,
   WebSocketClientConfig,
   PostgresClientConfig,
   MongoClientConfig,
+  // Results
   ReadResult,
   WriteResult,
   ListResult,
@@ -349,15 +424,48 @@ import type {
 | Server primitives | Full | Limited |
 | Auth module | Yes | No |
 
+## List Interface
+
+`list()` returns flat results — all stored URIs matching the prefix. No directory/file type distinction:
+
+```typescript
+interface ListItem {
+  uri: string;  // Full stored URI
+}
+
+const result = await client.list("mutable://users/");
+// result.data = [{ uri: "mutable://users/alice/profile" }, { uri: "mutable://users/bob/profile" }]
+```
+
+## MCP Tools (Claude Plugin)
+
+When the B3nd plugin is installed, agents can use MCP tools directly: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`, `b3nd_health`, `b3nd_schema`, `b3nd_backends_list`, `b3nd_backends_switch`, `b3nd_backends_add`.
+
+## bnd CLI Tool
+
+The B3nd CLI (`cli/bnd`) provides command-line access: `./cli/bnd read <uri>`, `./cli/bnd list <uri>`, `./cli/bnd config`.
+
+## Developer Dashboard
+
+```bash
+cd explorer/dashboard && deno task dashboard:build  # Build test artifacts
+cd explorer/app && npm run dev                      # http://localhost:5555/dashboard
+```
+
+Browse test results by theme, view source code with line numbers, search across 125 tests.
+
 ## Source Files
 
 - `sdk/src/mod.ts` - Main Deno exports
 - `sdk/src/types.ts` - Type definitions
+- `sdk/src/node/types.ts` - Node/Transaction/Validator types
 - `sdk/clients/postgres/mod.ts` - PostgreSQL client
 - `sdk/clients/mongo/mod.ts` - MongoDB client
 - `sdk/servers/node.ts` - Server node creation
 - `sdk/servers/http.ts` - HTTP server utilities
 - `sdk/servers/websocket.ts` - WebSocket server utilities
+- `sdk/tests/shared-suite.ts` - Shared client conformance suite
+- `sdk/tests/node-suite.ts` - Node interface test suite
 
 ## Environment Variables (HTTP Server Installation)
 

@@ -18,8 +18,9 @@ import type {
   ReadMultiResultItem,
   ReadResult,
   Schema,
-  WriteResult,
 } from "../../src/types.ts";
+import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
+import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
 
 export interface MongoExecutor {
   insertOne(doc: Record<string, unknown>): Promise<{ acknowledged?: boolean }>;
@@ -35,7 +36,7 @@ export interface MongoExecutor {
   cleanup?: () => Promise<void>;
 }
 
-export class MongoClient implements NodeProtocolInterface {
+export class MongoClient implements NodeProtocolInterface, Node {
   private readonly config: MongoClientConfig;
   private readonly schema: Schema;
   private readonly collectionName: string;
@@ -66,34 +67,48 @@ export class MongoClient implements NodeProtocolInterface {
     this.connected = true;
   }
 
-  async write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>> {
+  /**
+   * Receive a transaction - the unified entry point for all state changes
+   * @param tx - Transaction tuple [uri, data]
+   * @returns ReceiveResult indicating acceptance
+   */
+  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+    const [uri, data] = tx;
+
+    // Basic URI validation
+    if (!uri || typeof uri !== "string") {
+      return { accepted: false, error: "Transaction URI is required" };
+    }
+
     try {
       const programKey = this.extractProgramKey(uri);
       const validator = this.schema[programKey];
 
       if (!validator) {
         return {
-          success: false,
+          accepted: false,
           error: `No schema defined for program key: ${programKey}`,
         };
       }
 
       const validation = await validator({
         uri,
-        value,
+        value: data,
         read: this.read.bind(this),
       });
 
       if (!validation.valid) {
         return {
-          success: false,
+          accepted: false,
           error: validation.error || "Validation failed",
         };
       }
 
-      const record: PersistenceRecord<T> = {
+      // Encode binary data for JSON storage
+      const encodedData = encodeBinaryForJson(data);
+      const record: PersistenceRecord<typeof encodedData> = {
         ts: Date.now(),
-        data: value,
+        data: encodedData,
       };
 
       await this.executor.updateOne(
@@ -113,13 +128,10 @@ export class MongoClient implements NodeProtocolInterface {
         { upsert: true },
       );
 
-      return {
-        success: true,
-        record,
-      };
+      return { accepted: true };
     } catch (error) {
       return {
-        success: false,
+        accepted: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }
@@ -137,10 +149,12 @@ export class MongoClient implements NodeProtocolInterface {
 
       const tsValue = doc.timestamp;
       const dataValue = doc.data;
+      // Decode binary data if encoded
+      const decodedData = decodeBinaryFromJson(dataValue) as T;
 
       const record: PersistenceRecord<T> = {
         ts: typeof tsValue === "number" ? tsValue : Number(tsValue),
-        data: dataValue as T,
+        data: decodedData,
       };
 
       return {
@@ -189,20 +203,13 @@ export class MongoClient implements NodeProtocolInterface {
 
       const docs = await this.executor.findMany({ uri: prefixRegex });
 
-      type ItemWithTs = { uri: string; type: "file" | "directory"; ts: number };
+      type ItemWithTs = { uri: string; ts: number };
 
-      const directories = new Map<string, ItemWithTs>();
-      const files: ItemWithTs[] = [];
+      let items: ItemWithTs[] = [];
 
       for (const doc of docs) {
         const fullUri = typeof doc.uri === "string" ? doc.uri : undefined;
         if (!fullUri || !fullUri.startsWith(prefixBase)) continue;
-
-        const relative = fullUri.slice(prefixBase.length);
-        if (!relative) continue;
-
-        const [firstSegment, ...rest] = relative.split("/");
-        if (!firstSegment) continue;
 
         const tsValue = doc.timestamp;
         const ts =
@@ -212,21 +219,8 @@ export class MongoClient implements NodeProtocolInterface {
               ? Number(tsValue)
               : 0;
 
-        if (rest.length === 0) {
-          files.push({ uri: fullUri, type: "file", ts });
-        } else {
-          const dirUri = `${prefixBase}${firstSegment}`;
-          if (!directories.has(dirUri)) {
-            directories.set(dirUri, {
-              uri: dirUri,
-              type: "directory",
-              ts: 0,
-            });
-          }
-        }
+        items.push({ uri: fullUri, ts });
       }
-
-      let items: ItemWithTs[] = [...directories.values(), ...files];
 
       if (options?.pattern) {
         const regex = new RegExp(options.pattern);
@@ -250,7 +244,6 @@ export class MongoClient implements NodeProtocolInterface {
 
       const data: ListItem[] = paginated.map((item) => ({
         uri: item.uri,
-        type: item.type,
       }));
 
       return {

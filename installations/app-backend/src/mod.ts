@@ -245,8 +245,8 @@ async function main() {
       const uri = `mutable://accounts/${appKey}/sessions/${sessionPubkey}`;
 
       // Write just the value 1 to indicate approval (0 would mean revoked)
-      const res = await dataClient.write(uri, 1);
-      if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
+      const res = await dataClient.receive([uri, 1]);
+      if (!res.accepted) return c.json({ success: false, error: res.error || "write failed" }, 400);
       return c.json({ success: true, sessionPubkey, uri });
     } catch (error) {
       return c.json({ success: false, error: (error as Error).message || "failed" }, 400);

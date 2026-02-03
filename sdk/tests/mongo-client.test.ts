@@ -184,16 +184,20 @@ const mongoSetupPromise: Promise<MongoSetupResult> = (async () => {
 function createSchema(
   validator?: (value: unknown) => Promise<{ valid: boolean; error?: string }>,
 ): Schema {
+  const defaultValidator = async ({ value, read }: { value: unknown; read: unknown }) => {
+    if (validator) {
+      return validator(value);
+    }
+    const _ = read as <T = unknown>(
+      uri: string,
+    ) => Promise<{ success: boolean; record?: PersistenceRecord<T> }>;
+    return { valid: true };
+  };
+
   return {
-    "store://users": async ({ value, read }) => {
-      if (validator) {
-        return validator(value);
-      }
-      const _ = read as <T = unknown>(
-        uri: string,
-      ) => Promise<{ success: boolean; record?: PersistenceRecord<T> }>;
-      return { valid: true };
-    },
+    "store://users": defaultValidator,
+    "store://files": defaultValidator, // For binary tests
+    "store://pagination": defaultValidator, // For pagination tests
   };
 }
 

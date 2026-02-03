@@ -36,7 +36,7 @@ export async function computeSha256(value: Uint8Array | unknown): Promise<string
     data = encoder.encode(JSON.stringify(value));
   }
 
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data as BufferSource);
   const hashArray = new Uint8Array(hashBuffer);
 
   return Array.from(hashArray)

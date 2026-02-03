@@ -4,6 +4,25 @@ import type {
   NodeProtocolWriteInterface,
   Schema,
 } from "../src/types.ts";
+import type { Node, Transaction } from "../src/node/types.ts";
+import { decodeBase64 } from "../shared/encoding.ts";
+
+/**
+ * Deserialize transaction data from JSON transport.
+ * Unwraps base64-encoded binary marker objects back to Uint8Array.
+ */
+function deserializeTxData(data: unknown): unknown {
+  if (
+    data &&
+    typeof data === "object" &&
+    (data as Record<string, unknown>).__b3nd_binary__ === true &&
+    (data as Record<string, unknown>).encoding === "base64" &&
+    typeof (data as Record<string, unknown>).data === "string"
+  ) {
+    return decodeBase64((data as Record<string, unknown>).data as string);
+  }
+  return data;
+}
 
 /**
  * MIME type mapping from file extension
@@ -106,6 +125,8 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
     | { write: NodeProtocolWriteInterface; read: NodeProtocolReadInterface }
     | undefined;
   let schema: Schema | undefined;
+  // Node interface for unified receive() endpoint
+  let node: Node | undefined;
 
   const extractProgramKey = (uri: string): string | undefined => {
     const programMatch = uri.match(/^([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/]+)/);
@@ -145,34 +166,50 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
     return c.json({ schema: keys });
   });
 
-  app.post("/api/v1/write/:protocol/:domain/*", async (c: MinimalContext) => {
-    if (!backend || !schema) return c.json({ success: false, error: "handler not attached" }, 501);
-    const uri = extractUriFromParams(c);
-    const contentType = (c as any).req.header?.("content-type") || "application/json";
+  // Unified receive endpoint (new Node interface)
+  app.post("/api/v1/receive", async (c: MinimalContext) => {
+    // Parse request body to get transaction
+    const body = await (async () => {
+      try { return await (c as any).req.json?.() ?? {}; } catch { return {}; }
+    })();
 
-    // Determine value based on content type
-    let value: unknown;
-    if (contentType === "application/octet-stream" || contentType.startsWith("image/") ||
-        contentType.startsWith("audio/") || contentType.startsWith("video/") ||
-        contentType === "application/wasm" || contentType.startsWith("font/")) {
-      // Binary content - read as raw bytes
-      const buffer = await (c as any).req.arrayBuffer();
-      value = new Uint8Array(buffer);
-    } else {
-      // JSON content (existing behavior)
-      const body = await (async () => {
-        try { return await (c as any).req.json?.() ?? {}; } catch { return {}; }
-      })();
-      value = (body as any).value;
+    const tx = (body as { tx?: Transaction }).tx;
+    if (!tx || !Array.isArray(tx) || tx.length < 2) {
+      return c.json({ accepted: false, error: "Invalid transaction format: expected { tx: [uri, data] }" }, 400);
+    }
+
+    const [uri, rawData] = tx;
+    if (!uri || typeof uri !== "string") {
+      return c.json({ accepted: false, error: "Transaction URI is required" }, 400);
+    }
+
+    // Deserialize binary data from base64-encoded wrapper
+    const data = deserializeTxData(rawData);
+
+    // If node is configured, use it directly
+    if (node) {
+      const result = await node.receive([uri, data] as Transaction);
+      return c.json(result, result.accepted ? 200 : 400);
+    }
+
+    // Fallback to legacy backend + schema validation
+    if (!backend || !schema) {
+      return c.json({ accepted: false, error: "handler not attached" }, 501);
     }
 
     const programKey = extractProgramKey(uri);
     const validator = programKey ? (schema as any)[programKey] : undefined;
-    if (!validator) return c.json({ success: false, error: `No schema defined for program key: ${programKey}` }, 400);
-    const validation = await validator({ uri, value, read: backend.read.read.bind(backend.read) });
-    if (!validation.valid) return c.json({ success: false, error: validation.error || "Validation failed" }, 400);
-    const res = await backend.write.write(uri, value);
-    return c.json(res, res.success ? 200 : 400);
+    if (!validator) {
+      return c.json({ accepted: false, error: `No schema defined for program key: ${programKey}` }, 400);
+    }
+
+    const validation = await validator({ uri, value: data, read: backend.read.read.bind(backend.read) });
+    if (!validation.valid) {
+      return c.json({ accepted: false, error: validation.error || "Validation failed" }, 400);
+    }
+
+    const res = await backend.write.receive([uri, data] as Transaction);
+    return c.json(res, res.accepted ? 200 : 400);
   });
 
   app.get("/api/v1/read/:protocol/:domain/*", async (c: MinimalContext) => {
@@ -232,10 +269,12 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
           read: NodeProtocolReadInterface;
         };
         schema: Schema;
+        node?: Node;
       },
     ) => {
       backend = opts.backend;
       schema = opts.schema;
+      node = opts.node;
     },
   } as ServerFrontend;
 }

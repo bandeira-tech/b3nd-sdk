@@ -12,6 +12,24 @@ import type {
   ListResult,
   PersistenceRecord,
 } from "../src/types.ts";
+import { decodeBase64 } from "../shared/encoding.ts";
+
+/**
+ * Deserialize transaction data from JSON transport.
+ * Unwraps base64-encoded binary marker objects back to Uint8Array.
+ */
+function deserializeTxData(data: unknown): unknown {
+  if (
+    data &&
+    typeof data === "object" &&
+    (data as Record<string, unknown>).__b3nd_binary__ === true &&
+    (data as Record<string, unknown>).encoding === "base64" &&
+    typeof (data as Record<string, unknown>).data === "string"
+  ) {
+    return decodeBase64((data as Record<string, unknown>).data as string);
+  }
+  return data;
+}
 
 export interface MockServerConfig {
   /** Port to run server on */
@@ -53,7 +71,12 @@ export class MockHttpServer {
         return this.handleSchema();
       }
 
-      // Write endpoint
+      // Receive endpoint (unified transaction interface)
+      if (url.pathname === "/api/v1/receive") {
+        return await this.handleReceive(req);
+      }
+
+      // Write endpoint (legacy)
       if (url.pathname.startsWith("/api/v1/write/")) {
         return await this.handleWrite(req, url);
       }
@@ -115,6 +138,47 @@ export class MockHttpServer {
         default: ["users://", "cache://"],
       },
     });
+  }
+
+  private async handleReceive(req: Request): Promise<Response> {
+    if (this.config.mode === "validationError") {
+      return Response.json(
+        { accepted: false, error: "Validation failed: Name is required" },
+        { status: 400 }
+      );
+    }
+
+    // Parse transaction from request body
+    const body: any = await req.json();
+    const tx = body.tx;
+
+    if (!tx || !Array.isArray(tx) || tx.length < 2) {
+      return Response.json(
+        { accepted: false, error: "Invalid transaction format: expected { tx: [uri, data] }" },
+        { status: 400 }
+      );
+    }
+
+    const [uri, rawData] = tx;
+
+    if (!uri || typeof uri !== "string") {
+      return Response.json(
+        { accepted: false, error: "Transaction URI is required" },
+        { status: 400 }
+      );
+    }
+
+    // Deserialize binary data from base64-encoded wrapper
+    const data = deserializeTxData(rawData);
+
+    const record: PersistenceRecord<unknown> = {
+      ts: Date.now(),
+      data,
+    };
+
+    this.storage.set(uri, record);
+
+    return Response.json({ accepted: true });
   }
 
   private async handleWrite(req: Request, url: URL): Promise<Response> {
@@ -237,7 +301,6 @@ export class MockHttpServer {
       .filter((key) => key.startsWith(prefix))
       .map((uri) => ({
         uri,
-        type: "file" as const,
       }));
 
     // Apply pattern filter if provided

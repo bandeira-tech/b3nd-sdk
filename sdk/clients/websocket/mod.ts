@@ -17,10 +17,11 @@ import type {
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
-  WriteResult,
 } from "../../src/types.ts";
+import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
+import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
 
-export class WebSocketClient implements NodeProtocolInterface {
+export class WebSocketClient implements NodeProtocolInterface, Node {
   private config: WebSocketClientConfig;
   private ws: WebSocket | null = null;
   private connected = false;
@@ -231,13 +232,28 @@ export class WebSocketClient implements NodeProtocolInterface {
     });
   }
 
-  async write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>> {
+  /**
+   * Receive a transaction (unified Node interface)
+   * Sends "receive" message type with { tx } payload
+   * @param tx - Transaction tuple [uri, data]
+   * @returns ReceiveResult indicating acceptance
+   */
+  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+    const [uri] = tx;
+
+    // Basic URI validation
+    if (!uri || typeof uri !== "string") {
+      return { accepted: false, error: "Transaction URI is required" };
+    }
+
     try {
-      const result = await this.sendRequest<WriteResult<T>>("write", { uri, value });
+      // Encode binary data for JSON transport
+      const encodedTx: Transaction = [uri, encodeBinaryForJson(tx[1])];
+      const result = await this.sendRequest<ReceiveResult>("receive", { tx: encodedTx });
       return result;
     } catch (error) {
       return {
-        success: false,
+        accepted: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }
@@ -246,6 +262,10 @@ export class WebSocketClient implements NodeProtocolInterface {
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
     try {
       const result = await this.sendRequest<ReadResult<T>>("read", { uri });
+      // Decode binary data from JSON transport
+      if (result.success && result.record) {
+        result.record.data = decodeBinaryFromJson(result.record.data) as T;
+      }
       return result;
     } catch (error) {
       return {

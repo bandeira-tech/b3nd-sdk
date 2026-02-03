@@ -163,15 +163,16 @@ console.log(`Server running on port ${PORT}`);
 import { assertEquals } from "@std/assert";
 import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
 
-Deno.test("write and read data", async () => {
+Deno.test("receive transaction and read", async () => {
   const client = new MemoryClient({
     schema: {
       "test://data": async () => ({ valid: true }),
     },
   });
 
-  const writeResult = await client.write("test://data/item1", { name: "Test" });
-  assertEquals(writeResult.success, true);
+  // Use receive() for all state changes
+  const result = await client.receive(["test://data/item1", { name: "Test" }]);
+  assertEquals(result.accepted, true);
 
   const readResult = await client.read("test://data/item1");
   assertEquals(readResult.success, true);
@@ -180,7 +181,7 @@ Deno.test("write and read data", async () => {
   await client.cleanup();
 });
 
-Deno.test("validation error", async () => {
+Deno.test("validation error on receive", async () => {
   const client = new MemoryClient({
     schema: {
       "test://strict": async ({ value }) => {
@@ -191,9 +192,25 @@ Deno.test("validation error", async () => {
     },
   });
 
-  const result = await client.write("test://strict/item", { other: "value" });
-  assertEquals(result.success, false);
+  const result = await client.receive(["test://strict/item", { other: "value" }]);
+  assertEquals(result.accepted, false);
   assertEquals(result.error, "Missing required field");
+});
+```
+
+Use shared test suites for client conformance testing:
+
+```typescript
+import { runSharedSuite } from "../tests/shared-suite.ts";
+import { runNodeSuite } from "../tests/node-suite.ts";
+
+runSharedSuite("MyClient", {
+  happy: () => createMyClient(happySchema),
+  validationError: () => createMyClient(strictSchema),
+});
+
+runNodeSuite("MyClient", {
+  happy: () => createMyClient(happySchema),
 });
 ```
 
@@ -278,10 +295,54 @@ make test
 make test t=tests/specific.test.ts
 ```
 
+## bnd CLI Tool
+
+The B3nd CLI (`cli/bnd`) provides command-line access to B3nd nodes:
+
+```bash
+# Read data from a URI
+./cli/bnd read mutable://users/alice/profile
+
+# List items at a path
+./cli/bnd list mutable://users/
+
+# Show configuration
+./cli/bnd config
+
+# Configure backend node
+./cli/bnd conf node http://localhost:9942
+```
+
+## Developer Dashboard
+
+The explorer dashboard (`explorer/dashboard/`) provides a UI for browsing test results:
+
+```bash
+cd explorer/dashboard
+deno task dashboard:build   # Build static test artifacts (JSON)
+deno task dev               # Start dashboard backend (port 5556)
+
+cd explorer/app
+npm run dev                 # Start React frontend (port 5555)
+# Browse: http://localhost:5555/dashboard
+```
+
+Features: test results by theme, source code with line numbers, search across 125 tests.
+
+## MCP Tools (Claude Plugin)
+
+When the B3nd Claude plugin is installed, agents can interact with B3nd backends directly using MCP tools: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`, `b3nd_health`, `b3nd_schema`, `b3nd_backends_list`, `b3nd_backends_switch`, `b3nd_backends_add`.
+
+Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
+
 ## Key Files Reference
 
 - `sdk/tests/memory-client.test.ts` - Test patterns
-- `sdk/tests/shared-suite.ts` - Shared test suite
+- `sdk/tests/shared-suite.ts` - Shared test suite (client conformance)
+- `sdk/tests/node-suite.ts` - Node interface test suite
 - `installations/http-server/mod.ts` - Full HTTP server example
 - `installations/wallet-server/src/mod.ts` - Wallet server example
 - `sdk/Makefile` - Common development commands
+- `cli/bnd` - CLI tool entry point
+- `explorer/dashboard/` - Dashboard backend
+- `explorer/app/` - React frontend (explorer, writer, dashboard)

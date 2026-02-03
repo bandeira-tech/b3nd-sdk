@@ -15,10 +15,22 @@ import type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
-  WriteResult,
 } from "../../src/types.ts";
+import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
+import { encodeBase64 } from "../../shared/encoding.ts";
 
-export class HttpClient implements NodeProtocolInterface {
+/**
+ * Serialize transaction data for JSON transport.
+ * Wraps Uint8Array in a base64-encoded marker object to prevent JSON corruption.
+ */
+function serializeTxData<D>(data: D): unknown {
+  if (data instanceof Uint8Array) {
+    return { __b3nd_binary__: true, encoding: "base64", data: encodeBase64(data) };
+  }
+  return data;
+}
+
+export class HttpClient implements NodeProtocolInterface, Node {
   private baseUrl: string;
   private headers: Record<string, string>;
   private timeout: number;
@@ -79,40 +91,44 @@ export class HttpClient implements NodeProtocolInterface {
     };
   }
 
-  async write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>> {
+  /**
+   * Receive a transaction (unified Node interface)
+   * POSTs to /api/v1/receive endpoint
+   * @param tx - Transaction tuple [uri, data]
+   * @returns ReceiveResult indicating acceptance
+   */
+  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+    const [uri] = tx;
+
+    // Basic URI validation
+    if (!uri || typeof uri !== "string") {
+      return { accepted: false, error: "Transaction URI is required" };
+    }
+
     try {
-      const { protocol, domain, path } = this.parseUri(uri);
-
-      const requestPath = `/api/v1/write/${protocol}/${domain}${path}`;
-
-      // Detect binary data and send as raw bytes
-      const isBinary = value instanceof Uint8Array;
-      const body = isBinary ? (value as unknown as BodyInit) : JSON.stringify({ value });
-      const contentType = isBinary ? "application/octet-stream" : "application/json";
-
-      const response = await this.request(requestPath, {
+      const [uri, data] = tx;
+      const serializedTx = [uri, serializeTxData(data)];
+      const response = await this.request("/api/v1/receive", {
         method: "POST",
-        body,
-        headers: {
-          "Content-Type": contentType,
-        },
+        body: JSON.stringify({ tx: serializedTx }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
         return {
-          success: false,
-          error: `Write failed: ${result.error || response.statusText}`,
+          accepted: false,
+          error: result.error || response.statusText,
         };
       }
+
       return {
-        success: true,
-        record: result.record,
+        accepted: result.accepted ?? true,
+        error: result.error,
       };
     } catch (error) {
       return {
-        success: false,
+        accepted: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }

@@ -78,6 +78,7 @@ function App() {
       <Router>
         <div className="min-h-screen bg-background text-foreground">
           <Routes>
+            <Route path="/dashboard/*" element={<AppLayout />} />
             <Route path="/explorer/*" element={<AppLayout />} />
             <Route path="/writer/*" element={<AppLayout />} />
             <Route path="/accounts" element={<AppLayout />} />

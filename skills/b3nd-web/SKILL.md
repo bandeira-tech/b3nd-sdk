@@ -60,13 +60,19 @@ import { HttpClient } from "@bandeira-tech/b3nd-web";
 
 const client = new HttpClient({ url: "https://api.example.com" });
 
-// Write data
+// Receive transaction (unified interface - preferred)
+const result = await client.receive(["users://alice/profile", { name: "Alice" }]);
+if (result.accepted) {
+  console.log("Transaction accepted");
+}
+
+// Write data (legacy interface)
 await client.write("users://alice/profile", { name: "Alice" });
 
 // Read data
-const result = await client.read("users://alice/profile");
-if (result.success) {
-  console.log(result.record.data);
+const readResult = await client.read("users://alice/profile");
+if (readResult.success) {
+  console.log(readResult.record.data);
 }
 
 // List items
@@ -239,6 +245,20 @@ import type {
 cd sdk
 npm run build  # Uses tsup
 ```
+
+## List Interface
+
+`list()` returns flat results — all stored URIs matching the prefix. No directory/file type distinction:
+
+```typescript
+interface ListItem {
+  uri: string;  // Full stored URI
+}
+```
+
+## MCP Tools (Claude Plugin)
+
+When the B3nd plugin is installed, agents can use MCP tools directly to interact with backends: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`, `b3nd_health`, `b3nd_schema`.
 
 ## Source Files
 

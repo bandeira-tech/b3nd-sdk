@@ -12,9 +12,9 @@ Deno.test("MemoryClient.readMulti - reads multiple URIs successfully", async () 
   const client = new MemoryClient({ schema: createTestSchema() });
 
   // Write test data
-  await client.write("mutable://data/item1", { v: 1 });
-  await client.write("mutable://data/item2", { v: 2 });
-  await client.write("mutable://data/item3", { v: 3 });
+  await client.receive(["mutable://data/item1", { v: 1 }]);
+  await client.receive(["mutable://data/item2", { v: 2 }]);
+  await client.receive(["mutable://data/item3", { v: 3 }]);
 
   const result = await client.readMulti([
     "mutable://data/item1",
@@ -49,8 +49,8 @@ Deno.test("MemoryClient.readMulti - partial success", async () => {
   const client = new MemoryClient({ schema: createTestSchema() });
 
   // Write only some of the data
-  await client.write("mutable://data/exists1", { ok: true });
-  await client.write("mutable://data/exists2", { ok: true });
+  await client.receive(["mutable://data/exists1", { ok: true }]);
+  await client.receive(["mutable://data/exists2", { ok: true }]);
 
   const result = await client.readMulti([
     "mutable://data/exists1",
@@ -64,8 +64,14 @@ Deno.test("MemoryClient.readMulti - partial success", async () => {
   assertEquals(result.summary.failed, 1);
 
   assertEquals(result.results[0].success, true);
+  if (result.results[0].success) {
+    assertEquals(result.results[0].record.data, { ok: true }, "First item data should match");
+  }
   assertEquals(result.results[1].success, false);
   assertEquals(result.results[2].success, true);
+  if (result.results[2].success) {
+    assertEquals(result.results[2].record.data, { ok: true }, "Third item data should match");
+  }
 
   await client.cleanup();
 });
@@ -175,6 +181,9 @@ Deno.test("wallet.proxyReadMulti - partial success with missing items", async ()
   assertEquals(result.summary.failed, 1);
 
   assertEquals(result.results[0].success, true);
+  if (result.results[0].success && result.results[0].decrypted) {
+    assertEquals(result.results[0].decrypted, { found: true }, "Successful read data should match");
+  }
   assertEquals(result.results[1].success, false);
 
   await cleanup();

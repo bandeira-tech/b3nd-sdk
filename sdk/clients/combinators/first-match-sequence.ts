@@ -1,18 +1,18 @@
-import type { DeleteResult, ListOptions, ListResult, NodeProtocolReadInterface, NodeProtocolWriteInterface, ReadMultiResult, ReadResult, WriteResult } from "../../src/types.ts";
+import type { DeleteResult, ListOptions, ListResult, NodeProtocolReadInterface, NodeProtocolWriteInterface, ReadMultiResult, ReadResult, ReceiveResult, Transaction } from "../../src/types.ts";
 
 export function firstMatchSequence(clients: (NodeProtocolWriteInterface & NodeProtocolReadInterface)[]): NodeProtocolWriteInterface & NodeProtocolReadInterface {
   if (!clients || clients.length === 0) throw new Error("clients array is required and cannot be empty");
 
   return {
-    async write<T>(uri: string, value: T): Promise<WriteResult<T>> {
-      // Try each client until one accepts the write
+    async receive<D>(tx: Transaction<D>): Promise<ReceiveResult> {
+      // Try each client until one accepts the transaction
       let lastError: string | undefined;
       for (const c of clients) {
-        const res = await c.write<T>(uri, value);
-        if (res.success) return res;
+        const res = await c.receive<D>(tx);
+        if (res.accepted) return res;
         lastError = res.error;
       }
-      return { success: false, error: lastError || 'No client accepted write' };
+      return { accepted: false, error: lastError || 'No client accepted transaction' };
     },
 
     async read<T>(uri: string): Promise<ReadResult<T>> {

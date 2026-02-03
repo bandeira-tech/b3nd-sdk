@@ -18,13 +18,9 @@ import type {
   ReadMultiResultItem,
   ReadResult,
   Schema,
-  WriteResult,
 } from "../../src/types.ts";
-
-// PostgreSQL client import - using postgres library for Deno
-// Note: In a real implementation, you'd use a PostgreSQL client library
-// For now, we'll create a mock implementation that shows the structure
-
+import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
+import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
 import { generatePostgresSchema } from "./schema.ts";
 
 // Local executor types scoped to Postgres client to avoid leaking DB concerns
@@ -38,7 +34,7 @@ export interface SqlExecutor {
   cleanup?: () => Promise<void>;
 }
 
-export class PostgresClient implements NodeProtocolInterface {
+export class PostgresClient implements NodeProtocolInterface, Node {
   private readonly config: PostgresClientConfig;
   private readonly schema: Schema;
   private readonly tablePrefix: string;
@@ -76,7 +72,19 @@ export class PostgresClient implements NodeProtocolInterface {
     this.connected = true;
   }
 
-  async write<T = unknown>(uri: string, value: T): Promise<WriteResult<T>> {
+  /**
+   * Receive a transaction - the unified entry point for all state changes
+   * @param tx - Transaction tuple [uri, data]
+   * @returns ReceiveResult indicating acceptance
+   */
+  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+    const [uri, data] = tx;
+
+    // Basic URI validation
+    if (!uri || typeof uri !== "string") {
+      return { accepted: false, error: "Transaction URI is required" };
+    }
+
     try {
       // Extract program key (protocol://toplevel)
       const programKey = this.extractProgramKey(uri);
@@ -86,25 +94,27 @@ export class PostgresClient implements NodeProtocolInterface {
 
       if (!validator) {
         return {
-          success: false,
+          accepted: false,
           error: `No schema defined for program key: ${programKey}`,
         };
       }
 
       // Validate the write
-      const validation = await validator({ uri, value, read: this.read.bind(this) });
+      const validation = await validator({ uri, value: data, read: this.read.bind(this) });
 
       if (!validation.valid) {
         return {
-          success: false,
+          accepted: false,
           error: validation.error || "Validation failed",
         };
       }
 
       // Create record with timestamp
-      const record: PersistenceRecord<T> = {
+      // Encode binary data for JSON storage
+      const encodedData = encodeBinaryForJson(data);
+      const record: PersistenceRecord<typeof encodedData> = {
         ts: Date.now(),
-        data: value,
+        data: encodedData,
       };
 
       // Upsert into table directly to avoid dependency on DB function
@@ -115,13 +125,10 @@ export class PostgresClient implements NodeProtocolInterface {
         [uri, JSON.stringify(record.data), record.ts],
       );
 
-      return {
-        success: true,
-        record,
-      };
+      return { accepted: true };
     } catch (error) {
       return {
-        success: false,
+        accepted: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }
@@ -138,9 +145,12 @@ export class PostgresClient implements NodeProtocolInterface {
         return { success: false, error: `Not found: ${uri}` };
       }
       const row: any = res.rows[0];
+      const rawData = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+      // Decode binary data if encoded
+      const decodedData = decodeBinaryFromJson(rawData) as T;
       const record: PersistenceRecord<T> = {
         ts: typeof row.ts === 'number' ? row.ts : Number(row.ts),
-        data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
+        data: decodedData,
       };
       return { success: true, record };
     } catch (error) {
@@ -182,12 +192,6 @@ export class PostgresClient implements NodeProtocolInterface {
     try {
       const table = `${this.tablePrefix}_data`;
 
-      // In Postgres, URIs are stored as full strings (e.g., "users://alice/profile").
-      // To emulate MemoryClient's directory semantics, we:
-      //   - Treat the input URI as the "directory" prefix.
-      //   - Find all rows whose URI starts with that prefix + "/".
-      //   - Derive immediate children as either "file" or "directory" items.
-
       const prefix = uri.endsWith("/") ? uri : `${uri}/`;
 
       const rowsRes = await this.executor.query(
@@ -195,10 +199,9 @@ export class PostgresClient implements NodeProtocolInterface {
         [prefix],
       );
 
-      type ItemWithTs = { uri: string; type: "file" | "directory"; ts: number };
+      type ItemWithTs = { uri: string; ts: number };
 
-      const directories = new Map<string, ItemWithTs>();
-      const files: ItemWithTs[] = [];
+      let items: ItemWithTs[] = [];
 
       for (const raw of rowsRes.rows || []) {
         const row = raw as { uri?: unknown; timestamp?: unknown };
@@ -207,12 +210,6 @@ export class PostgresClient implements NodeProtocolInterface {
         const fullUri = row.uri;
         if (!fullUri.startsWith(prefix)) continue;
 
-        const relative = fullUri.slice(prefix.length);
-        if (!relative) continue;
-
-        const [firstSegment, ...rest] = relative.split("/");
-        if (!firstSegment) continue;
-
         const ts =
           typeof row.timestamp === "number"
             ? row.timestamp
@@ -220,26 +217,8 @@ export class PostgresClient implements NodeProtocolInterface {
               ? Number(row.timestamp)
               : 0;
 
-        if (rest.length === 0) {
-          // Leaf file directly under the prefix
-          files.push({ uri: fullUri, type: "file", ts });
-        } else {
-          // Directory directly under the prefix (may have many rows under it)
-          const dirUri = `${prefix}${firstSegment}`;
-          if (!directories.has(dirUri)) {
-            directories.set(dirUri, {
-              uri: dirUri,
-              type: "directory",
-              ts: 0,
-            });
-          }
-        }
+        items.push({ uri: fullUri, ts });
       }
-
-      let items: ItemWithTs[] = [
-        ...directories.values(),
-        ...files,
-      ];
 
       if (options?.pattern) {
         const regex = new RegExp(options.pattern);
@@ -263,7 +242,6 @@ export class PostgresClient implements NodeProtocolInterface {
 
       const data: ListItem[] = paginated.map((item) => ({
         uri: item.uri,
-        type: item.type,
       }));
 
       return {

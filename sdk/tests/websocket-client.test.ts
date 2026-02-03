@@ -82,32 +82,46 @@ class MockWebSocket {
 
   protected generateResponse(request: any): any {
     const responses = {
+      receive: () => {
+        // Handle receive transaction: { tx: [uri, data] }
+        const [uri, data] = request.payload.tx;
+        const ts = Date.now();
+        this.storage.set(uri, { data, ts });
+        return {
+          id: request.id,
+          success: true,
+          data: {
+            accepted: true,
+          },
+        };
+      },
       write: () => {
-        // Store the data
-        this.storage.set(request.payload.uri, request.payload.value);
+        // Store the data (legacy)
+        const ts = Date.now();
+        this.storage.set(request.payload.uri, { data: request.payload.value, ts });
         return {
           id: request.id,
           success: true,
           data: {
             success: true,
             record: {
-              ts: Date.now(),
+              ts,
               data: request.payload.value,
             },
           },
         };
       },
       read: () => {
-        const data = this.storage.get(request.payload.uri);
-        if (data) {
+        const stored = this.storage.get(request.payload.uri);
+        if (stored) {
           return {
             id: request.id,
             success: true,
             data: {
               success: true,
               record: {
-                ts: Date.now(),
-                data: data,
+                ts: stored.ts,
+                data: stored.data,
               },
             },
           };
@@ -122,32 +136,43 @@ class MockWebSocket {
           };
         }
       },
-      list: {
-        id: request.id,
-        success: true,
-        data: {
-          data: (() => {
-            const allItems = [
-              { uri: "users://alice/profile", type: "file" as const },
-              { uri: "users://bob/profile", type: "file" as const },
-              { uri: "users://charlie/profile", type: "file" as const },
-            ];
-            const pattern = request.payload.options?.pattern;
-            if (pattern) {
-              return allItems.filter(item => item.uri.includes(pattern));
-            }
-            return allItems;
-          })(),
-          pagination: {
-            page: request.payload.options?.page || 1,
-            limit: request.payload.options?.limit || 50,
-            total: 3,
+      list: () => {
+        const uri = request.payload.uri;
+        const prefix = uri.endsWith("/") ? uri : `${uri}/`;
+        let items: { uri: string }[] = [];
+
+        for (const storedUri of this.storage.keys()) {
+          if (!storedUri.startsWith(prefix)) continue;
+          items.push({ uri: storedUri });
+        }
+        const options = request.payload.options;
+
+        if (options?.pattern) {
+          const regex = new RegExp(options.pattern);
+          items = items.filter((item: { uri: string }) => regex.test(item.uri));
+        }
+
+        const page = options?.page ?? 1;
+        const limit = options?.limit ?? 50;
+        const offset = (page - 1) * limit;
+        const paginated = items.slice(offset, offset + limit);
+
+        return {
+          id: request.id,
+          success: true,
+          data: {
+            success: true,
+            data: paginated,
+            pagination: {
+              page,
+              limit,
+              total: items.length,
+            },
           },
-        },
+        };
       },
       delete: () => {
-        const existed = this.storage.has(request.payload.uri);
-        if (existed) {
+        if (this.storage.has(request.payload.uri)) {
           this.storage.delete(request.payload.uri);
           return {
             id: request.id,
@@ -271,18 +296,21 @@ const factories: TestClientFactories = {
   validationError: () => {
     const mock = createMockWebSocketClient();
 
-    // Create a mock that simulates validation failure
+    // Create a mock that simulates validation failure (rejects data without a name field)
     class ValidationFailingMockWebSocket extends MockWebSocket {
       protected override generateResponse(request: any): any {
-        if (request.type === 'write' && request.payload.uri.includes('invalid')) {
-          return {
-            id: request.id,
-            success: true,
-            data: {
-              success: false,
-              error: 'Validation failed: invalid data',
-            },
-          };
+        if (request.type === 'receive') {
+          const [, data] = request.payload.tx;
+          if (!data?.name) {
+            return {
+              id: request.id,
+              success: true,
+              data: {
+                accepted: false,
+                error: 'Name is required',
+              },
+            };
+          }
         }
         return super.generateResponse(request);
       }
@@ -327,8 +355,8 @@ Deno.test({
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // First operation should work
-    const writeResult = await client.write("users://test/data", { value: 123 });
-    assertEquals(writeResult.success, true);
+    const result = await client.receive(["users://test/data", { value: 123 }]);
+    assertEquals(result.accepted, true);
 
     await client.cleanup();
     mock.restore();
@@ -355,8 +383,8 @@ Deno.test({
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // Should work normally
-    const result1 = await client.write("users://test/data", { value: 123 });
-    assertEquals(result1.success, true);
+    const result1 = await client.receive(["users://test/data", { value: 123 }]);
+    assertEquals(result1.accepted, true);
 
     await client.cleanup();
     mock.restore();
@@ -382,8 +410,8 @@ Deno.test({
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // Should work with auth
-    const result = await client.write("users://test/data", { value: 123 });
-    assertEquals(result.success, true);
+    const result = await client.receive(["users://test/data", { value: 123 }]);
+    assertEquals(result.accepted, true);
 
     await client.cleanup();
     mock.restore();
@@ -406,8 +434,8 @@ Deno.test({
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // Should work with custom timeout
-    const result = await client.write("users://test/data", { value: 123 });
-    assertEquals(result.success, true);
+    const result = await client.receive(["users://test/data", { value: 123 }]);
+    assertEquals(result.accepted, true);
 
     await client.cleanup();
     mock.restore();

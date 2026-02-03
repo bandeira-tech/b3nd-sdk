@@ -22,6 +22,7 @@
     "clients/local-storage/**/*.ts",
     "clients/websocket/**/*.ts",
     "shared/**/*.ts",
-    "src/types.ts"
+    "src/types.ts",
+    "blob/**/*.ts"
   ]
 }
