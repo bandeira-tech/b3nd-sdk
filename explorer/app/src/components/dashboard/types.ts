@@ -36,6 +36,8 @@ export interface TestResult {
   status: TestStatus;
   duration?: number;
   lastRun: number;
+  source?: string;
+  sourceFile?: string;
   error?: {
     message: string;
     stack?: string;

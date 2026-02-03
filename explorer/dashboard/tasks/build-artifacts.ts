@@ -9,11 +9,13 @@
  *   deno task dashboard:build
  */
 
+import { load as loadEnv } from "@std/dotenv";
 import {
   classifyTestTheme,
   classifyBackendType,
 } from "../utils/test-parser.ts";
 
+const DASHBOARD_ROOT = new URL("..", import.meta.url).pathname;
 const SDK_PATH = new URL("../../../sdk", import.meta.url).pathname;
 const OUTPUT_DIR = new URL("../../app/public/dashboard/", import.meta.url).pathname;
 
@@ -30,7 +32,214 @@ interface TestResult {
   status: string;
   duration?: number;
   lastRun: number;
+  source?: string;
+  sourceFile?: string;
 }
+
+// =============================================================================
+// Source Code Extraction
+// =============================================================================
+
+interface ExtractedTest {
+  name: string;
+  isTemplate: boolean;
+  source: string;
+  sourceFile: string;
+}
+
+/**
+ * Extract all Deno.test() blocks from a source file.
+ * Uses paren counting to find the end of each test block.
+ */
+function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
+  const lines = content.split("\n");
+  const tests: ExtractedTest[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trimStart();
+
+    // Must start with or contain Deno.test(
+    const testIdx = trimmed.indexOf("Deno.test(");
+    if (testIdx === -1) continue;
+    // Must be the main statement (not inside a comment or string)
+    if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue;
+
+    // Find the matching closing ) by counting parens from the opening (
+    let depth = 0;
+    let started = false;
+    let endLine = i;
+    let inString: string | null = null;
+
+    outer:
+    for (let j = i; j < lines.length; j++) {
+      const line = lines[j];
+      for (let k = (j === i ? lines[i].indexOf("Deno.test(") : 0); k < line.length; k++) {
+        const ch = line[k];
+
+        // Handle string tracking (skip contents)
+        if (inString) {
+          if (ch === inString && line[k - 1] !== "\\") {
+            inString = null;
+          }
+          continue;
+        }
+        if (ch === '"' || ch === "'" || ch === "`") {
+          inString = ch;
+          continue;
+        }
+        // Skip line comments
+        if (ch === "/" && line[k + 1] === "/") break;
+
+        if (ch === "(") {
+          depth++;
+          started = true;
+        } else if (ch === ")") {
+          depth--;
+          if (started && depth === 0) {
+            endLine = j;
+            break outer;
+          }
+        }
+      }
+    }
+
+    const source = lines.slice(i, endLine + 1).join("\n");
+
+    // Extract test name
+    let name = "";
+    let isTemplate = false;
+
+    // Pattern 1: Deno.test("name", ...) or Deno.test('name', ...)
+    const literalMatch = source.match(/Deno\.test\(\s*["']([^"']+)["']/);
+    // Pattern 2: Deno.test(`...`, ...) — template literal
+    const templateMatch = source.match(/Deno\.test\(\s*`([^`]+)`/);
+    // For object form, only search the header (first 300 chars) to avoid
+    // matching `name: "Alice"` in the test body
+    const header = source.slice(0, 300);
+    // Pattern 3: Deno.test({ name: `...`, ... }) — template in object (check first!)
+    const objTemplate = header.match(/name:\s*`([^`]+)`/);
+    // Pattern 4: Deno.test({ name: "name", ... }) — literal in object
+    const objLiteral = header.match(/name:\s*["']([^"']+)["']/);
+
+    if (literalMatch) {
+      name = literalMatch[1];
+    } else if (templateMatch) {
+      name = templateMatch[1];
+      isTemplate = true;
+    } else if (objTemplate) {
+      name = objTemplate[1];
+      isTemplate = true;
+    } else if (objLiteral) {
+      name = objLiteral[1];
+    }
+
+    if (name) {
+      tests.push({ name, isTemplate, source, sourceFile: filePath });
+    }
+
+    // Skip past this block
+    i = endLine;
+  }
+
+  return tests;
+}
+
+/**
+ * Discover all source files that contain test definitions
+ */
+async function discoverSourceFiles(): Promise<string[]> {
+  const files: string[] = [];
+
+  // Test files
+  const testDir = `${SDK_PATH}/tests`;
+  try {
+    for await (const entry of Deno.readDir(testDir)) {
+      if (entry.isFile && entry.name.endsWith(".ts")) {
+        files.push(`${testDir}/${entry.name}`);
+      }
+    }
+  } catch { /* directory may not exist */ }
+
+  // Auth test files
+  const authDir = `${SDK_PATH}/auth/tests`;
+  try {
+    for await (const entry of Deno.readDir(authDir)) {
+      if (entry.isFile && entry.name.endsWith(".ts")) {
+        files.push(`${authDir}/${entry.name}`);
+      }
+    }
+  } catch { /* directory may not exist */ }
+
+  return files;
+}
+
+/**
+ * Build an index of test name → source code
+ */
+async function buildSourceIndex(): Promise<Map<string, { source: string; sourceFile: string }>> {
+  const sourceFiles = await discoverSourceFiles();
+  const allBlocks: ExtractedTest[] = [];
+
+  for (const filePath of sourceFiles) {
+    try {
+      const content = await Deno.readTextFile(filePath);
+      const blocks = extractTestBlocks(content, filePath);
+      allBlocks.push(...blocks);
+    } catch {
+      // Skip unreadable files
+    }
+  }
+
+  const index = new Map<string, { source: string; sourceFile: string }>();
+
+  // First pass: index literal (non-template) names
+  for (const block of allBlocks) {
+    if (!block.isTemplate) {
+      index.set(block.name, { source: block.source, sourceFile: block.sourceFile });
+    }
+  }
+
+  // Second pass: for template names, create regex patterns
+  const templateBlocks = allBlocks.filter((b) => b.isTemplate);
+
+  return {
+    get(testName: string) {
+      // Exact match first
+      const exact = index.get(testName);
+      if (exact) return exact;
+
+      // Try template matching
+      for (const block of templateBlocks) {
+        // Replace ${...} with (.+) to create a regex
+        const pattern = block.name
+          .replace(/\$\{[^}]+\}/g, "(.+)")
+          .replace(/[.*+?^${}()|[\]\\]/g, (m) =>
+            m === "(" || m === ")" || m === "." && block.name.includes("(.+)")
+              ? m
+              : "\\" + m
+          );
+
+        // Simpler approach: replace ${...} with a wildcard
+        const escaped = block.name
+          .replace(/\$\{[^}]+\}/g, "___WILDCARD___")
+          .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+          .replace(/___WILDCARD___/g, ".+");
+
+        const regex = new RegExp(`^${escaped}$`);
+        if (regex.test(testName)) {
+          return { source: block.source, sourceFile: block.sourceFile };
+        }
+      }
+
+      return undefined;
+    },
+    set: index.set.bind(index),
+  } as Map<string, { source: string; sourceFile: string }>;
+}
+
+// =============================================================================
+// Test Discovery & Filtering
+// =============================================================================
 
 async function discoverTestFiles(): Promise<string[]> {
   const files: string[] = [];
@@ -75,17 +284,32 @@ function filterTestFiles(files: string[]): { run: string[]; skip: string[] } {
   return { run, skip };
 }
 
+// =============================================================================
+// Main
+// =============================================================================
+
 async function main() {
   console.log("Building dashboard artifacts...");
+
+  // Load .env from dashboard root
+  try {
+    await loadEnv({ envPath: `${DASHBOARD_ROOT}/.env`, export: true });
+    console.log("Loaded .env configuration");
+  } catch {
+    console.log("No .env file found, using environment variables");
+  }
 
   const allFiles = await discoverTestFiles();
   const { run, skip } = filterTestFiles(allFiles);
   console.log(`Running ${run.length} test files, skipping ${skip.length}`);
   if (skip.length > 0) console.log(`Skipped: ${skip.join(", ")}`);
 
+  // Build source index in parallel with running tests
+  const sourceIndexPromise = buildSourceIndex();
+
   const startedAt = Date.now();
 
-  // Run deno test and capture output (5 minute timeout)
+  // Run deno test and capture output
   const cmd = new Deno.Command("deno", {
     args: ["test", "-A", "--no-check", ...run],
     cwd: SDK_PATH,
@@ -99,6 +323,9 @@ async function main() {
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
   const rawOutput = stdout + (stderr ? "\n" + stderr : "");
+
+  // Wait for source index
+  const sourceIndex = await sourceIndexPromise;
 
   // Parse results
   const results: TestResult[] = [];
@@ -128,8 +355,11 @@ async function main() {
         if (durUnit === "s") duration *= 1000;
       }
 
+      const testName = name.trim();
+      const sourceInfo = sourceIndex.get(testName);
+
       results.push({
-        name: name.trim(),
+        name: testName,
         file: currentFile,
         filePath: currentFilePath,
         theme: classifyTestTheme(currentFilePath),
@@ -137,6 +367,8 @@ async function main() {
         status: result === "ok" ? "passed" : result === "FAILED" ? "failed" : "skipped",
         duration,
         lastRun: completedAt,
+        source: sourceInfo?.source,
+        sourceFile: sourceInfo?.sourceFile,
       });
     }
   }
@@ -202,8 +434,11 @@ async function main() {
   );
   await Deno.writeTextFile(`${OUTPUT_DIR}/test-logs.txt`, rawOutput);
 
+  // Count how many tests have source
+  const withSource = results.filter((r) => r.source).length;
+
   console.log(`\nArtifacts written to: ${OUTPUT_DIR}`);
-  console.log(`  test-results.json (${results.length} tests)`);
+  console.log(`  test-results.json (${results.length} tests, ${withSource} with source)`);
   console.log(`  test-logs.txt (${rawOutput.split("\n").length} lines)`);
   console.log(`  Summary: ${passed} passed, ${failed} failed, ${skipped} skipped`);
   console.log(`  Exit code: ${output.code}`);

@@ -9,6 +9,7 @@ import {
   ChevronsUpDown,
   Clock,
   Filter,
+  FileCode,
 } from "lucide-react";
 import { useDashboardStore, useFilteredResults } from "../stores/dashboardStore";
 import { cn } from "../../../utils";
@@ -20,11 +21,127 @@ const statusIcon: Record<string, { icon: typeof Check; color: string }> = {
   skipped: { icon: SkipForward, color: "text-yellow-500" },
 };
 
+// Simple TypeScript syntax highlighting
+const TS_KEYWORDS = new Set([
+  "import", "export", "from", "const", "let", "var", "function", "async", "await",
+  "return", "if", "else", "for", "while", "class", "extends", "implements",
+  "interface", "type", "enum", "new", "this", "super", "throw", "try", "catch",
+  "finally", "typeof", "instanceof", "in", "of", "true", "false", "null", "undefined",
+  "void", "never", "any", "string", "number", "boolean", "Promise", "default",
+]);
+
+function highlightLine(line: string): JSX.Element[] {
+  const parts: JSX.Element[] = [];
+  let i = 0;
+  const len = line.length;
+
+  while (i < len) {
+    // String literals
+    if (line[i] === '"' || line[i] === "'" || line[i] === "`") {
+      const quote = line[i];
+      let end = i + 1;
+      while (end < len && line[end] !== quote) {
+        if (line[end] === "\\") end++;
+        end++;
+      }
+      end = Math.min(end + 1, len);
+      parts.push(
+        <span key={i} className="text-green-600 dark:text-green-400">
+          {line.slice(i, end)}
+        </span>
+      );
+      i = end;
+      continue;
+    }
+
+    // Line comments
+    if (line[i] === "/" && line[i + 1] === "/") {
+      parts.push(
+        <span key={i} className="text-muted-foreground/60 italic">
+          {line.slice(i)}
+        </span>
+      );
+      break;
+    }
+
+    // Numbers
+    if (/\d/.test(line[i]) && (i === 0 || !/\w/.test(line[i - 1]))) {
+      let end = i;
+      while (end < len && /[\d.xXa-fA-F]/.test(line[end])) end++;
+      parts.push(
+        <span key={i} className="text-amber-600 dark:text-amber-400">
+          {line.slice(i, end)}
+        </span>
+      );
+      i = end;
+      continue;
+    }
+
+    // Words (keywords, identifiers)
+    if (/[a-zA-Z_$]/.test(line[i])) {
+      let end = i;
+      while (end < len && /[\w$]/.test(line[end])) end++;
+      const word = line.slice(i, end);
+      if (TS_KEYWORDS.has(word)) {
+        parts.push(
+          <span key={i} className="text-purple-600 dark:text-purple-400 font-medium">
+            {word}
+          </span>
+        );
+      } else if (word[0] === word[0].toUpperCase() && /[a-z]/.test(word)) {
+        parts.push(
+          <span key={i} className="text-blue-600 dark:text-blue-400">
+            {word}
+          </span>
+        );
+      } else {
+        parts.push(<span key={i}>{word}</span>);
+      }
+      i = end;
+      continue;
+    }
+
+    parts.push(<span key={i}>{line[i]}</span>);
+    i++;
+  }
+
+  return parts;
+}
+
+function SourceCodeBlock({ source, sourceFile }: { source: string; sourceFile?: string }) {
+  const lines = source.split("\n");
+  const fileName = sourceFile?.split("/").pop() || "";
+
+  return (
+    <div className="mt-2 rounded border border-border/50 overflow-hidden">
+      {sourceFile && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border-b border-border/30">
+          <FileCode className="w-3 h-3 text-muted-foreground" />
+          <span className="font-mono text-[11px] text-muted-foreground">{fileName}</span>
+        </div>
+      )}
+      <div className="overflow-x-auto bg-muted/20">
+        <div className="font-mono text-[11px] leading-relaxed">
+          {lines.map((line, i) => (
+            <div key={i} className="flex hover:bg-accent/20 transition-colors">
+              <span className="w-8 flex-shrink-0 text-right pr-2 py-px text-muted-foreground/40 select-none border-r border-border/20">
+                {i + 1}
+              </span>
+              <pre className="flex-1 pl-3 pr-3 py-px whitespace-pre overflow-x-auto">
+                {highlightLine(line)}
+              </pre>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TestDetailExpansion({ result }: { result: TestResult }) {
   return (
     <div className="border-t border-border/30 bg-muted/30 px-4 py-3 text-xs">
       <div className="flex flex-wrap items-center gap-3 mb-2">
-        <span className="font-mono text-muted-foreground">{result.filePath}</span>
         <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
           {result.theme}
         </span>
@@ -37,6 +154,9 @@ function TestDetailExpansion({ result }: { result: TestResult }) {
             {result.duration}ms
           </span>
         )}
+        <span className="font-mono text-muted-foreground/70 ml-auto truncate max-w-[50%]">
+          {result.filePath}
+        </span>
       </div>
 
       {result.error && (
@@ -52,9 +172,11 @@ function TestDetailExpansion({ result }: { result: TestResult }) {
         </div>
       )}
 
-      {!result.error && (
-        <div className="text-muted-foreground italic">
-          Test passed — no additional details.
+      {result.source ? (
+        <SourceCodeBlock source={result.source} sourceFile={result.sourceFile} />
+      ) : (
+        <div className="mt-2 text-muted-foreground italic">
+          Source code not available for this test.
         </div>
       )}
     </div>
