@@ -12,6 +12,7 @@ import type {
   Schema,
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
+import { isTransactionData } from "../../txn-data/detect.ts";
 
 type MemoryClientStorageNode<T> = {
   value?: T;
@@ -143,6 +144,7 @@ export class MemoryClient implements NodeProtocolInterface, Node {
       };
     }
 
+    // Store the data at this URI
     const record = {
       ts: Date.now(),
       data,
@@ -161,6 +163,19 @@ export class MemoryClient implements NodeProtocolInterface, Node {
     });
 
     prev.value = record;
+
+    // If TransactionData, also store each output at its own URI
+    if (isTransactionData(data)) {
+      for (const [outputUri, outputValue] of data.outputs) {
+        const outputResult = await this.receive([outputUri, outputValue]);
+        if (!outputResult.accepted) {
+          return {
+            accepted: false,
+            error: outputResult.error || `Failed to store output: ${outputUri}`,
+          };
+        }
+      }
+    }
 
     return { accepted: true };
   }

@@ -99,3 +99,6 @@ export {
   createOutputValidator,
   combineValidators,
 } from "./validators.ts";
+
+// Detection
+export { isTransactionData } from "./detect.ts";

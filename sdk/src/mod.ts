@@ -123,7 +123,7 @@ export {
   // Composition utilities
   all,
   any,
-  broadcast,
+  parallel,
   firstMatch,
   pipeline,
   seq,
@@ -133,13 +133,12 @@ export {
   reject,
   requireFields,
   schema as schemaValidator,
+  txnSchema,
   uriPattern,
   // Built-in processors
   emit,
-  forward,
   log,
   noop,
-  store,
   when,
 } from "./node/mod.ts";
 
@@ -158,6 +157,7 @@ export {
   extractProgram,
   createOutputValidator,
   combineValidators,
+  isTransactionData,
 } from "../txn-data/mod.ts";
 export type {
   TransactionData,

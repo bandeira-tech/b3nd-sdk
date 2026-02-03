@@ -15,49 +15,30 @@
  * Three operations:
  * 1. RECEIVE TXN  →  validate, process
  * 2. READ URI     →  retrieve stored data
- * 3. (internal)   →  storage nodes persist what they choose
+ * 3. (internal)   →  clients persist what they choose
  * ```
  *
  * @example Basic node
  * ```typescript
- * import { createNode, schema, store } from "@bandeira-tech/b3nd-sdk/node"
+ * import { createNode, schema, parallel } from "@bandeira-tech/b3nd-sdk/node"
  *
  * const node = createNode({
  *   read: memoryClient,
  *   validate: schema(SCHEMA),
- *   process: store(memoryClient)
+ *   process: parallel(memoryClient)
  * })
  *
  * await node.receive(["mutable://users/alice", { name: "Alice" }])
  * ```
  *
- * @example Composed validators
+ * @example Multiple backends
  * ```typescript
- * import { createNode, seq, uriPattern, requireFields, schema } from "@bandeira-tech/b3nd-sdk/node"
- *
- * const node = createNode({
- *   read: client,
- *   validate: seq(
- *     uriPattern(/^mutable:\/\//),
- *     requireFields(["data"]),
- *     schema(SCHEMA)
- *   ),
- *   process: store(client)
- * })
- * ```
- *
- * @example Broadcast to multiple backends
- * ```typescript
- * import { createNode, broadcast, store, forward } from "@bandeira-tech/b3nd-sdk/node"
+ * import { createNode, parallel, firstMatch } from "@bandeira-tech/b3nd-sdk/node"
  *
  * const node = createNode({
  *   read: firstMatch(postgres, replica),
  *   validate: schema(SCHEMA),
- *   process: broadcast(
- *     store(postgres),
- *     store(replica),
- *     forward(remoteNode)
- *   )
+ *   process: parallel(postgres, replica)
  * })
  * ```
  */
@@ -81,7 +62,7 @@ export type {
 } from "./types.ts";
 
 // Re-export composition utilities
-export { all, any, broadcast, firstMatch, pipeline, seq } from "./composition.ts";
+export { all, any, parallel, firstMatch, pipeline, seq } from "./composition.ts";
 
 // Re-export built-in validators
 export {
@@ -90,11 +71,12 @@ export {
   reject,
   requireFields,
   schema,
+  txnSchema,
   uriPattern,
 } from "./validators.ts";
 
 // Re-export built-in processors
-export { emit, forward, log, noop, store, when } from "./processors.ts";
+export { emit, log, noop, when } from "./processors.ts";
 
 /**
  * Create a unified node
@@ -107,7 +89,7 @@ export { emit, forward, log, noop, store, when } from "./processors.ts";
  * const node = createNode({
  *   read: memoryClient,
  *   validate: schema(SCHEMA),
- *   process: store(memoryClient)
+ *   process: parallel(memoryClient)
  * })
  *
  * const result = await node.receive(["mutable://users/alice", { name: "Alice" }])

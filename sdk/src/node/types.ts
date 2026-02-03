@@ -58,7 +58,7 @@ export interface ReadInterface {
  * const node: Node = createNode({
  *   read: memoryClient,
  *   validate: schema(SCHEMA),
- *   process: store(memoryClient)
+ *   process: parallel(memoryClient)
  * })
  *
  * const result = await node.receive(["mutable://users/alice", { name: "Alice" }])
@@ -131,7 +131,7 @@ export type Processor<D = unknown> = (
  * const config: NodeConfig = {
  *   read: memoryClient,
  *   validate: seq(uriPattern(/^mutable:\/\//), schema(SCHEMA)),
- *   process: broadcast(store(postgres), forward(replica))
+ *   process: parallel(postgres, replica)
  * }
  * ```
  */

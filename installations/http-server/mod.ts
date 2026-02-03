@@ -10,9 +10,8 @@ import {
   servers,
   // New unified node imports
   createNode,
-  broadcast,
-  schemaValidator,
-  store,
+  parallel,
+  txnSchema,
   firstMatch,
 } from "@bandeira-tech/b3nd-sdk";
 import type { NodeProtocolInterface, Schema, Node } from "@bandeira-tech/b3nd-sdk";
@@ -153,8 +152,8 @@ const backend = {
 // This uses the new composition pattern
 const unifiedNode: Node = createNode({
   read: firstMatch(...clients),
-  validate: schemaValidator(schema),
-  process: broadcast(...clients.map(c => store(c))),
+  validate: txnSchema(schema),
+  process: parallel(...clients),
 });
 
 // Custom logger middleware with timestamp and response timing

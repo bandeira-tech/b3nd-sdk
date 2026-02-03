@@ -3,49 +3,7 @@
  * Built-in processors for common processing patterns
  */
 
-import type { Node, Processor, Transaction } from "./types.ts";
-
-/**
- * Store processor
- * Persists the transaction to a storage backend
- *
- * The backend must implement a receive method (or be a Node).
- *
- * @example
- * ```typescript
- * const process = store(postgresClient)
- * ```
- */
-export function store<D = unknown>(
-  backend: Node | { receive: Node["receive"] }
-): Processor<D> {
-  return async (tx) => {
-    const result = await backend.receive(tx);
-    return {
-      success: result.accepted,
-      error: result.error,
-    };
-  };
-}
-
-/**
- * Forward processor
- * Forwards the transaction to another node
- *
- * @example
- * ```typescript
- * const process = forward(replicaNode)
- * ```
- */
-export function forward<D = unknown>(node: Node): Processor<D> {
-  return async (tx) => {
-    const result = await node.receive(tx);
-    return {
-      success: result.accepted,
-      error: result.error,
-    };
-  };
-}
+import type { Processor, Transaction } from "./types.ts";
 
 /**
  * Emit processor
@@ -82,7 +40,7 @@ export function emit<D = unknown>(
  * ```typescript
  * const process = when(
  *   (tx) => tx[0].startsWith("mutable://important/"),
- *   store(postgresClient)
+ *   parallel(postgresClient)
  * )
  * ```
  */
@@ -107,7 +65,7 @@ export function when<D = unknown>(
  * ```typescript
  * const process = pipeline(
  *   log("Received transaction"),
- *   store(postgresClient)
+ *   parallel(postgresClient)
  * )
  * ```
  */

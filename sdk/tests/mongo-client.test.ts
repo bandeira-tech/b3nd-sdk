@@ -104,44 +104,10 @@ const mongoSetupPromise: Promise<MongoSetupResult> = (async () => {
   }
 
   const containerName = Deno.env.get("MONGODB_TEST_CONTAINER") ??
-    "b3nd-mongo-test";
+    "b3nd-mongo";
   const image = Deno.env.get("MONGODB_TEST_IMAGE") ?? "mongo:8";
   const dbName = Deno.env.get("MONGODB_DB") ?? "b3nd_test";
   const port = Number(Deno.env.get("MONGODB_PORT") ?? "57017");
-
-  // Best-effort cleanup of any stray container from previous runs
-  try {
-    const rm = new Deno.Command("docker", {
-      args: ["rm", "-f", containerName],
-      stdout: "null",
-      stderr: "null",
-    });
-    await rm.output();
-  } catch {
-    // ignore
-  }
-
-  const run = new Deno.Command("docker", {
-    args: [
-      "run",
-      "--rm",
-      "-d",
-      "--name",
-      containerName,
-      "-e",
-      `MONGO_INITDB_DATABASE=${dbName}`,
-      "-p",
-      `${port}:27017`,
-      image,
-    ],
-    stdout: "piped",
-    stderr: "inherit",
-  });
-
-  const runResult = await run.output();
-  if (runResult.code !== 0) {
-    throw new Error("Failed to start MongoDB Docker container for tests");
-  }
 
   const isReady = async (): Promise<boolean> => {
     const cmd = new Deno.Command("docker", {
@@ -160,15 +126,56 @@ const mongoSetupPromise: Promise<MongoSetupResult> = (async () => {
     return result.code === 0;
   };
 
-  for (let i = 0; i < 30; i++) {
-    if (await isReady()) {
-      break;
+  // Reuse existing container if it's already running and healthy
+  if (await isReady()) {
+    console.log(`[mongo-test] Reusing running container "${containerName}"`);
+  } else {
+    // Clean up any stopped/unhealthy container with same name
+    try {
+      const rm = new Deno.Command("docker", {
+        args: ["rm", "-f", containerName],
+        stdout: "null",
+        stderr: "null",
+      });
+      await rm.output();
+    } catch {
+      // ignore
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
 
-  if (!(await isReady())) {
-    throw new Error("MongoDB Docker container did not become ready in time");
+    const run = new Deno.Command("docker", {
+      args: [
+        "run",
+        "--rm",
+        "-d",
+        "--name",
+        containerName,
+        "-e",
+        `MONGO_INITDB_DATABASE=${dbName}`,
+        "-p",
+        `${port}:27017`,
+        image,
+      ],
+      stdout: "piped",
+      stderr: "inherit",
+    });
+
+    const runResult = await run.output();
+    if (runResult.code !== 0) {
+      throw new Error("Failed to start MongoDB Docker container for tests");
+    }
+
+    for (let i = 0; i < 30; i++) {
+      if (await isReady()) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    if (!(await isReady())) {
+      throw new Error(
+        "MongoDB Docker container did not become ready in time",
+      );
+    }
   }
 
   const url = `mongodb://localhost:${port}/${dbName}`;
