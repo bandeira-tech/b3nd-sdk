@@ -192,12 +192,6 @@ export class PostgresClient implements NodeProtocolInterface, Node {
     try {
       const table = `${this.tablePrefix}_data`;
 
-      // In Postgres, URIs are stored as full strings (e.g., "users://alice/profile").
-      // To emulate MemoryClient's directory semantics, we:
-      //   - Treat the input URI as the "directory" prefix.
-      //   - Find all rows whose URI starts with that prefix + "/".
-      //   - Derive immediate children as either "file" or "directory" items.
-
       const prefix = uri.endsWith("/") ? uri : `${uri}/`;
 
       const rowsRes = await this.executor.query(
@@ -205,10 +199,9 @@ export class PostgresClient implements NodeProtocolInterface, Node {
         [prefix],
       );
 
-      type ItemWithTs = { uri: string; type: "file" | "directory"; ts: number };
+      type ItemWithTs = { uri: string; ts: number };
 
-      const directories = new Map<string, ItemWithTs>();
-      const files: ItemWithTs[] = [];
+      let items: ItemWithTs[] = [];
 
       for (const raw of rowsRes.rows || []) {
         const row = raw as { uri?: unknown; timestamp?: unknown };
@@ -217,12 +210,6 @@ export class PostgresClient implements NodeProtocolInterface, Node {
         const fullUri = row.uri;
         if (!fullUri.startsWith(prefix)) continue;
 
-        const relative = fullUri.slice(prefix.length);
-        if (!relative) continue;
-
-        const [firstSegment, ...rest] = relative.split("/");
-        if (!firstSegment) continue;
-
         const ts =
           typeof row.timestamp === "number"
             ? row.timestamp
@@ -230,26 +217,8 @@ export class PostgresClient implements NodeProtocolInterface, Node {
               ? Number(row.timestamp)
               : 0;
 
-        if (rest.length === 0) {
-          // Leaf file directly under the prefix
-          files.push({ uri: fullUri, type: "file", ts });
-        } else {
-          // Directory directly under the prefix (may have many rows under it)
-          const dirUri = `${prefix}${firstSegment}`;
-          if (!directories.has(dirUri)) {
-            directories.set(dirUri, {
-              uri: dirUri,
-              type: "directory",
-              ts: 0,
-            });
-          }
-        }
+        items.push({ uri: fullUri, ts });
       }
-
-      let items: ItemWithTs[] = [
-        ...directories.values(),
-        ...files,
-      ];
 
       if (options?.pattern) {
         const regex = new RegExp(options.pattern);
@@ -273,7 +242,6 @@ export class PostgresClient implements NodeProtocolInterface, Node {
 
       const data: ListItem[] = paginated.map((item) => ({
         uri: item.uri,
-        type: item.type,
       }));
 
       return {

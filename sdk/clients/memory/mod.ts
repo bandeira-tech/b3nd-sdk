@@ -256,14 +256,24 @@ export class MemoryClient implements NodeProtocolInterface, Node {
       });
     }
 
-    let items: ListItem[] = Array.from(current.children.entries()).map((
-      [key, child],
-    ) => ({
-      uri: path.endsWith("/")
-        ? `${program}${path}${key}`
-        : `${program}${path}/${key}`,
-      type: child.value ? "file" : "directory",
-    }));
+    // Recursively collect all leaf nodes (files) under this path
+    const prefix = path.endsWith("/") ? `${program}${path}` : `${program}${path}/`;
+    let items: ListItem[] = [];
+
+    function collectLeaves(node: MemoryClientStorageNode<unknown>, currentUri: string) {
+      if (node.value !== undefined) {
+        items.push({ uri: currentUri });
+      }
+      if (node.children) {
+        for (const [key, child] of node.children) {
+          collectLeaves(child, `${currentUri}/${key}`);
+        }
+      }
+    }
+
+    for (const [key, child] of current.children) {
+      collectLeaves(child, `${prefix}${key}`);
+    }
 
     if (options?.pattern) {
       const regex = new RegExp(options.pattern);

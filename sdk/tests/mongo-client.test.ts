@@ -197,6 +197,7 @@ function createSchema(
   return {
     "store://users": defaultValidator,
     "store://files": defaultValidator, // For binary tests
+    "store://pagination": defaultValidator, // For pagination tests
   };
 }
 

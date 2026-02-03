@@ -301,7 +301,6 @@ export class MockHttpServer {
       .filter((key) => key.startsWith(prefix))
       .map((uri) => ({
         uri,
-        type: "file" as const,
       }));
 
     // Apply pattern filter if provided

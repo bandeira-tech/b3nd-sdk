@@ -65,7 +65,6 @@ export interface DeleteResult {
  */
 export interface ListItem {
   uri: string;
-  type: "file" | "directory";
 }
 
 /**

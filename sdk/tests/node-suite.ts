@@ -134,27 +134,24 @@ export function runNodeSuite(
   Deno.test(`${suiteName} [Node] - list after receive`, async () => {
     const node = await Promise.resolve(factory.happy());
 
-    // Receive some transactions
-    await node.receive(["store://users/alice/profile", { name: "Alice" }]);
-    await node.receive(["store://users/bob/profile", { name: "Bob" }]);
-    await node.receive(["store://users/charlie/profile", { name: "Charlie" }]);
+    const prefix = `store://users/node-list-${Date.now()}`;
+    await node.receive([`${prefix}/alice/profile`, { name: "Alice" }]);
+    await node.receive([`${prefix}/bob/profile`, { name: "Bob" }]);
+    await node.receive([`${prefix}/charlie/profile`, { name: "Charlie" }]);
 
-    // List items
-    const listResult = await node.list("store://users");
+    const listResult = await node.list(prefix);
 
     assertEquals(listResult.success, true);
     if (listResult.success) {
-      assertEquals(
-        listResult.data.length >= 3,
-        true,
-        `Expected at least 3 items but got ${listResult.data.length}`,
-      );
+      assertEquals(listResult.data.length, 3, "Should return exactly 3 items");
 
-      // Verify actual URIs reference the expected users
-      const uris = listResult.data.map((item: { uri: string }) => item.uri);
-      assertEquals(uris.some((u: string) => u.includes("alice")), true, "Should include alice");
-      assertEquals(uris.some((u: string) => u.includes("bob")), true, "Should include bob");
-      assertEquals(uris.some((u: string) => u.includes("charlie")), true, "Should include charlie");
+      // Verify exact full URIs
+      const uris = listResult.data.map((item) => item.uri).sort();
+      assertEquals(uris, [
+        `${prefix}/alice/profile`,
+        `${prefix}/bob/profile`,
+        `${prefix}/charlie/profile`,
+      ]);
     }
 
     await node.cleanup();

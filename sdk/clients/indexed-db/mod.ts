@@ -378,7 +378,6 @@ export class IndexedDBClient implements NodeProtocolInterface, Node {
               if (!pattern || record.uri.includes(pattern)) {
                 items.push({
                   uri: record.uri,
-                  type: "file", // Will be determined after collecting all items
                 });
               }
             }
@@ -423,20 +422,7 @@ export class IndexedDBClient implements NodeProtocolInterface, Node {
   ): Promise<ListResult> {
     const { page, limit, sortBy, sortOrder } = options;
 
-    // Determine which items are directories by checking if any other items have them as a parent
-    const itemsWithTypes = items.map((item) => {
-      // An item is a directory if any other item has it as a prefix with a /
-      const isDirectory = items.some(
-        (other) => other.uri !== item.uri && other.uri.startsWith(item.uri + "/"),
-      );
-      return {
-        ...item,
-        type: isDirectory ? "directory" as const : "file" as const,
-      };
-    });
-
-    // Sort items with types
-    let finalItems = itemsWithTypes;
+    let finalItems = [...items];
     if (sortBy === "timestamp") {
       // Get timestamps for all items
       const itemsWithTimestamps = await Promise.all(
@@ -454,7 +440,7 @@ export class IndexedDBClient implements NodeProtocolInterface, Node {
         return sortOrder === "asc" ? comparison : -comparison;
       });
 
-      finalItems = itemsWithTimestamps.map(({ uri, type }) => ({ uri, type }));
+      finalItems = itemsWithTimestamps.map(({ uri }) => ({ uri }));
     } else {
       // Sort by name
       finalItems.sort((a, b) => {

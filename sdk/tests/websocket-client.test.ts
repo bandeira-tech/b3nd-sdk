@@ -139,28 +139,12 @@ class MockWebSocket {
       list: () => {
         const uri = request.payload.uri;
         const prefix = uri.endsWith("/") ? uri : `${uri}/`;
-        const directories = new Map<string, { uri: string; type: "directory" }>();
-        const files: { uri: string; type: "file" }[] = [];
+        let items: { uri: string }[] = [];
 
         for (const storedUri of this.storage.keys()) {
           if (!storedUri.startsWith(prefix)) continue;
-          const relative = storedUri.slice(prefix.length);
-          if (!relative) continue;
-
-          const [firstSegment, ...rest] = relative.split("/");
-          if (!firstSegment) continue;
-
-          if (rest.length === 0) {
-            files.push({ uri: storedUri, type: "file" });
-          } else {
-            const dirUri = `${prefix}${firstSegment}`;
-            if (!directories.has(dirUri)) {
-              directories.set(dirUri, { uri: dirUri, type: "directory" });
-            }
-          }
+          items.push({ uri: storedUri });
         }
-
-        let items: { uri: string; type: "file" | "directory" }[] = [...directories.values(), ...files];
         const options = request.payload.options;
 
         if (options?.pattern) {

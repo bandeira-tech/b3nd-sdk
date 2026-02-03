@@ -203,20 +203,13 @@ export class MongoClient implements NodeProtocolInterface, Node {
 
       const docs = await this.executor.findMany({ uri: prefixRegex });
 
-      type ItemWithTs = { uri: string; type: "file" | "directory"; ts: number };
+      type ItemWithTs = { uri: string; ts: number };
 
-      const directories = new Map<string, ItemWithTs>();
-      const files: ItemWithTs[] = [];
+      let items: ItemWithTs[] = [];
 
       for (const doc of docs) {
         const fullUri = typeof doc.uri === "string" ? doc.uri : undefined;
         if (!fullUri || !fullUri.startsWith(prefixBase)) continue;
-
-        const relative = fullUri.slice(prefixBase.length);
-        if (!relative) continue;
-
-        const [firstSegment, ...rest] = relative.split("/");
-        if (!firstSegment) continue;
 
         const tsValue = doc.timestamp;
         const ts =
@@ -226,21 +219,8 @@ export class MongoClient implements NodeProtocolInterface, Node {
               ? Number(tsValue)
               : 0;
 
-        if (rest.length === 0) {
-          files.push({ uri: fullUri, type: "file", ts });
-        } else {
-          const dirUri = `${prefixBase}${firstSegment}`;
-          if (!directories.has(dirUri)) {
-            directories.set(dirUri, {
-              uri: dirUri,
-              type: "directory",
-              ts: 0,
-            });
-          }
-        }
+        items.push({ uri: fullUri, ts });
       }
-
-      let items: ItemWithTs[] = [...directories.values(), ...files];
 
       if (options?.pattern) {
         const regex = new RegExp(options.pattern);
@@ -264,7 +244,6 @@ export class MongoClient implements NodeProtocolInterface, Node {
 
       const data: ListItem[] = paginated.map((item) => ({
         uri: item.uri,
-        type: item.type,
       }));
 
       return {

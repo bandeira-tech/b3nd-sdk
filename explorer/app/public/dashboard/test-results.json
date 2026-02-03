@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "generatedAt": 1770125159652,
+  "generatedAt": 1770126456005,
   "runMetadata": {
     "trigger": "build",
-    "startedAt": 1770125158165,
-    "completedAt": 1770125159652,
+    "startedAt": 1770126454639,
+    "completedAt": 1770126456005,
     "environment": {
       "deno": "2.6.4",
       "platform": "darwin",
@@ -17,7 +17,7 @@
     "passed": 125,
     "failed": 0,
     "skipped": 0,
-    "duration": 860
+    "duration": 751
   },
   "results": [
     {
@@ -27,8 +27,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 6,
-      "lastRun": 1770125159652,
+      "duration": 4,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"pubkey-based access control\", async () => {\n  const user = await createTestUser();\n  const pubkey = await renderPubkey(user.publicKey);\n\n  const payload = { message: \"test data\" };\n  const auth = await createSignatures([user], payload);\n\n  const getWriteAccess = createPubkeyBasedAccess();\n  const validation = authValidation(getWriteAccess);\n\n  // Test with correct pubkey as first path component\n  const result = await validation({\n    uri: `test://users/${pubkey}/documents/doc1`,\n    value: { auth, payload },\n  });\n\n  assertEquals(result, true);\n\n  // Test with wrong pubkey in path (should fail)\n  const wrongResult = await validation({\n    uri: \"test://users/wrongpubkey/documents/doc1\",\n    value: { auth, payload },\n  });\n\n  assertEquals(wrongResult, false);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 63
@@ -40,8 +40,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 8,
-      "lastRun": 1770125159652,
+      "duration": 7,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"signature verification\", async () => {\n  const user = await createTestUser();\n  const payload = { message: \"test payload\", timestamp: Date.now() };\n\n  // Create signature\n  const signature = await renderSignature(user.privateKey, payload);\n  const pubkey = await renderPubkey(user.publicKey);\n\n  // Verify signature manually\n  const encoder = new TextEncoder();\n  const data = encoder.encode(JSON.stringify(payload));\n  const signatureBytes = decodeHex(signature);\n\n  const isValid = await crypto.subtle.verify(\n    \"Ed25519\",\n    user.publicKey,\n    signatureBytes,\n    data,\n  );\n\n  assertEquals(isValid, true);\n  assertEquals(typeof pubkey, \"string\");\n  assertEquals(pubkey.length, 64);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 90
@@ -54,7 +54,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"multiple users signing\", async () => {\n  const users = [\n    await createTestUser(),\n    await createTestUser(),\n    await createTestUser(),\n  ];\n\n  const payload = \"multi-user test\";\n  const signatures = await createSignatures(users, payload);\n\n  assertEquals(signatures.length, 3);\n\n  // Verify each signature is unique\n  const pubkeys = signatures.map((s) => s.pubkey);\n  const uniquePubkeys = new Set(pubkeys);\n  assertEquals(uniquePubkeys.size, 3);\n\n  // Verify all signatures are valid format\n  for (const sig of signatures) {\n    assertEquals(typeof sig.pubkey, \"string\");\n    assertEquals(typeof sig.signature, \"string\");\n    assertEquals(sig.pubkey.length, 64);\n    assertEquals(sig.signature.length, 128);\n  }\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 115
@@ -67,7 +67,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"relative path access control\", async () => {\n  const storage: Record<string, any> = {};\n  const read = (url: string) => Promise.resolve(storage[url]);\n\n  const alice = await createTestUser();\n  const bob = await createTestUser();\n  const charlie = await createTestUser();\n\n  const alicePubkey = await renderPubkey(alice.publicKey);\n  const bobPubkey = await renderPubkey(bob.publicKey);\n  const charliePubkey = await renderPubkey(charlie.publicKey);\n\n  // Setup access control files\n  storage[\"test://project/shared/.access/\"] = {\n    writeAccess: [alicePubkey, bobPubkey],\n  };\n\n  storage[\"test://project/shared/documents/~>\"] = {\n    writeAccess: [charliePubkey],\n  };\n\n  const getWriteAccess = createRelativePathAccess(read);\n  const validation = authValidation(getWriteAccess);\n\n  // Test Alice has access via .access/ file\n  const payload1 = { action: \"edit\", content: \"Alice's edit\" };\n  const auth1 = await createSignatures([alice], payload1);\n\n  const result1 = await validation({\n    uri: \"test://project/shared/file.txt\",\n    value: { auth: auth1, payload: payload1 },\n  });\n  assertEquals(result1, true);\n\n  // Test Charlie has access via ./~> file\n  const payload2 = { action: \"edit\", content: \"Charlie's edit\" };\n  const auth2 = await createSignatures([charlie], payload2);\n\n  const result2 = await validation({\n    uri: \"test://project/shared/documents/doc.txt\",\n    value: { auth: auth2, payload: payload2 },\n  });\n  assertEquals(result2, true);\n\n  // Test unauthorized user\n  const unauthorizedUser = await createTestUser();\n  const payload3 = { action: \"edit\", content: \"Unauthorized edit\" };\n  const auth3 = await createSignatures([unauthorizedUser], payload3);\n\n  const result3 = await validation({\n    uri: \"test://project/shared/file.txt\",\n    value: { auth: auth3, payload: payload3 },\n  });\n  assertEquals(result3, false);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 141
@@ -80,7 +80,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"cascading access control\", async () => {\n  const storage: Record<string, any> = {};\n  const read = (url: string) => Promise.resolve(storage[url]);\n\n  const admin = await createTestUser();\n  const user = await createTestUser();\n\n  const adminPubkey = await renderPubkey(admin.publicKey);\n  const userPubkey = await renderPubkey(user.publicKey);\n\n  // Setup cascading access: admin has access at root level\n  storage[\"test://project/.access/\"] = {\n    writeAccess: [adminPubkey],\n  };\n\n  // User has access at deeper level\n  storage[\"test://project/user-area/.access/\"] = {\n    writeAccess: [userPubkey],\n  };\n\n  const getWriteAccess = createRelativePathAccess(read);\n  const validation = authValidation(getWriteAccess);\n\n  // Test admin can write anywhere (cascading from root)\n  const payload1 = { action: \"admin_action\" };\n  const auth1 = await createSignatures([admin], payload1);\n\n  const result1 = await validation({\n    uri: \"test://project/user-area/deep/nested/file.txt\",\n    value: { auth: auth1, payload: payload1 },\n  });\n  assertEquals(result1, true);\n\n  // Test user can write in their area\n  const payload2 = { action: \"user_action\" };\n  const auth2 = await createSignatures([user], payload2);\n\n  const result2 = await validation({\n    uri: \"test://project/user-area/file.txt\",\n    value: { auth: auth2, payload: payload2 },\n  });\n  assertEquals(result2, true);\n\n  // Test user cannot write outside their area\n  const result3 = await validation({\n    uri: \"test://project/admin-only/file.txt\",\n    value: { auth: auth2, payload: payload2 },\n  });\n  assertEquals(result3, false);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 197
@@ -93,7 +93,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"combined access control\", async () => {\n  const storage: Record<string, any> = {};\n  const read = (url: string) => Promise.resolve(storage[url]);\n\n  const owner = await createTestUser();\n  const collaborator = await createTestUser();\n\n  const ownerPubkey = await renderPubkey(owner.publicKey);\n  const collaboratorPubkey = await renderPubkey(collaborator.publicKey);\n\n  // Setup access control files\n  storage[`test://users/${ownerPubkey}/shared/.access/`] = {\n    writeAccess: [collaboratorPubkey],\n  };\n\n  const getWriteAccess = createCombinedAccess(read);\n  const validation = authValidation(getWriteAccess);\n\n  // Test owner has access via pubkey-based control\n  const payload1 = { action: \"owner_edit\" };\n  const auth1 = await createSignatures([owner], payload1);\n\n  const result1 = await validation({\n    uri: `test://users/${ownerPubkey}/private/file.txt`,\n    value: { auth: auth1, payload: payload1 },\n  });\n  assertEquals(result1, true);\n\n  // Test collaborator has access via relative path control\n  const payload2 = { action: \"collab_edit\" };\n  const auth2 = await createSignatures([collaborator], payload2);\n\n  const result2 = await validation({\n    uri: `test://users/${ownerPubkey}/shared/document.txt`,\n    value: { auth: auth2, payload: payload2 },\n  });\n  assertEquals(result2, true);\n\n  // Test collaborator cannot access private area\n  const result3 = await validation({\n    uri: `test://users/${ownerPubkey}/private/file.txt`,\n    value: { auth: auth2, payload: payload2 },\n  });\n  assertEquals(result3, false);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 248
@@ -106,7 +106,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"multiple path cascading\", async () => {\n  const storage: Record<string, any> = {};\n  const read = (url: string) => Promise.resolve(storage[url]);\n\n  const admin = await createTestUser();\n  const projectLead = await createTestUser();\n  const developer = await createTestUser();\n\n  const adminPubkey = await renderPubkey(admin.publicKey);\n  const projectLeadPubkey = await renderPubkey(projectLead.publicKey);\n  const developerPubkey = await renderPubkey(developer.publicKey);\n\n  // Setup cascading permissions\n  storage[\"test://company/.access/\"] = {\n    writeAccess: [adminPubkey],\n  };\n\n  storage[\"test://company/projects/.access/\"] = {\n    writeAccess: [projectLeadPubkey],\n  };\n\n  storage[\"test://company/projects/web-app/.access/\"] = {\n    writeAccess: [developerPubkey],\n  };\n\n  const getWriteAccess = createRelativePathAccess(read);\n  const validation = authValidation(getWriteAccess);\n\n  // Test deep path gets all cascading permissions\n  const payload = { action: \"deep_edit\" };\n\n  // Admin should have access (from root)\n  const adminAuth = await createSignatures([admin], payload);\n  const adminResult = await validation({\n    uri: \"test://company/projects/web-app/src/components/Button.tsx\",\n    value: { auth: adminAuth, payload },\n  });\n  assertEquals(adminResult, true);\n\n  // Project lead should have access (from projects level)\n  const leadAuth = await createSignatures([projectLead], payload);\n  const leadResult = await validation({\n    uri: \"test://company/projects/web-app/src/components/Button.tsx\",\n    value: { auth: leadAuth, payload },\n  });\n  assertEquals(leadResult, true);\n\n  // Developer should have access (from web-app level)\n  const devAuth = await createSignatures([developer], payload);\n  const devResult = await validation({\n    uri: \"test://company/projects/web-app/src/components/Button.tsx\",\n    value: { auth: devAuth, payload },\n  });\n  assertEquals(devResult, true);\n\n  // Unauthorized user should not have access\n  const unauthorized = await createTestUser();\n  const unauthorizedAuth = await createSignatures([unauthorized], payload);\n  const unauthorizedResult = await validation({\n    uri: \"test://company/projects/web-app/src/components/Button.tsx\",\n    value: { auth: unauthorizedAuth, payload },\n  });\n  assertEquals(unauthorizedResult, false);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 294
@@ -119,7 +119,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"comprehensive cascading demonstration\", async () => {\n  const storage: Record<string, any> = {};\n  const read = (url: string) => Promise.resolve(storage[url]);\n\n  // Create test users\n  const rootAdmin = await createTestUser();\n  const projectManager = await createTestUser();\n  const developer = await createTestUser();\n  const guest = await createTestUser();\n\n  const rootAdminPubkey = await renderPubkey(rootAdmin.publicKey);\n  const projectManagerPubkey = await renderPubkey(projectManager.publicKey);\n  const developerPubkey = await renderPubkey(developer.publicKey);\n  const guestPubkey = await renderPubkey(guest.publicKey);\n\n  // Setup cascading access control as described:\n  // /foo/bar/baz/bea should check:\n  // - /foo/bar/baz/bea\n  // - /foo/bar/baz\n  // - /foo/bar\n  // - /foo\n\n  // Root level access\n  storage[\"test://company/foo/.access/\"] = {\n    writeAccess: [rootAdminPubkey],\n  };\n\n  // Second level access\n  storage[\"test://company/foo/bar/.access/\"] = {\n    writeAccess: [projectManagerPubkey],\n  };\n\n  // Third level access\n  storage[\"test://company/foo/bar/baz/.access/\"] = {\n    writeAccess: [developerPubkey],\n  };\n\n  const getWriteAccess = createRelativePathAccess(read);\n  const validation = authValidation(getWriteAccess);\n\n  const testPayload = { action: \"write\", content: \"test content\" };\n  const deepPath = \"test://company/foo/bar/baz/bea\";\n\n  // Test 1: Root admin can write anywhere (access from /foo)\n  const rootAuth = await createSignatures([rootAdmin], testPayload);\n  const rootResult = await validation({\n    uri: deepPath,\n    value: { auth: rootAuth, payload: testPayload },\n  });\n  assertEquals(rootResult, true);\n\n  // Test 2: Project manager can write in their scope (access from /foo/bar)\n  const managerAuth = await createSignatures([projectManager], testPayload);\n  const managerResult = await validation({\n    uri: deepPath,\n    value: { auth: managerAuth, payload: testPayload },\n  });\n  assertEquals(managerResult, true);\n\n  // Test 3: Developer can write in their scope (access from /foo/bar/baz)\n  const devAuth = await createSignatures([developer], testPayload);\n  const devResult = await validation({\n    uri: deepPath,\n    value: { auth: devAuth, payload: testPayload },\n  });\n  assertEquals(devResult, true);\n\n  // Test 4: Guest cannot write (no access at any level)\n  const guestAuth = await createSignatures([guest], testPayload);\n  const guestResult = await validation({\n    uri: deepPath,\n    value: { auth: guestAuth, payload: testPayload },\n  });\n  assertEquals(guestResult, false);\n\n  // Test 5: Multiple signatures from different levels should work\n  const multiAuth = await createSignatures([rootAdmin, developer], testPayload);\n  const multiResult = await validation({\n    uri: deepPath,\n    value: { auth: multiAuth, payload: testPayload },\n  });\n  assertEquals(multiResult, true);\n\n  // Test 6: Verify cascading works at different depths\n  const midPath = \"test://company/foo/bar/other\";\n  const midResult = await validation({\n    uri: midPath,\n    value: { auth: rootAuth, payload: testPayload },\n  });\n  assertEquals(midResult, true);\n\n  // Test 7: Developer cannot write above their level\n  const abovePath = \"test://company/foo/restricted\";\n  const restrictedResult = await validation({\n    uri: abovePath,\n    value: { auth: devAuth, payload: testPayload },\n  });\n  assertEquals(restrictedResult, false);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 359
@@ -132,7 +132,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"pubkey namespace protection\", async () => {\n  const storage: Record<string, any> = {};\n  const read = (url: string) => Promise.resolve(storage[url]);\n\n  const alice = await createTestUser();\n  const bob = await createTestUser();\n  const malicious = await createTestUser();\n\n  const alicePubkey = await renderPubkey(alice.publicKey);\n  const bobPubkey = await renderPubkey(bob.publicKey);\n  const maliciousPubkey = await renderPubkey(malicious.publicKey);\n\n  // Alice gives Bob permission to write in her shared folder\n  storage[`test://users/${alicePubkey}/shared/.access/`] = {\n    writeAccess: [bobPubkey],\n  };\n\n  const getWriteAccess = createCombinedAccess(read);\n  const validation = authValidation(getWriteAccess);\n\n  const testPayload = { message: \"test write\" };\n\n  // Test 1: Alice can write in her own namespace (implicit access)\n  const aliceAuth = await createSignatures([alice], testPayload);\n  const aliceResult = await validation({\n    uri: `test://users/${alicePubkey}/private/document.txt`,\n    value: { auth: aliceAuth, payload: testPayload },\n  });\n  assertEquals(aliceResult, true);\n\n  // Test 2: Bob can write in Alice's shared folder (explicit permission)\n  const bobAuth = await createSignatures([bob], testPayload);\n  const bobSharedResult = await validation({\n    uri: `test://users/${alicePubkey}/shared/collaboration.txt`,\n    value: { auth: bobAuth, payload: testPayload },\n  });\n  assertEquals(bobSharedResult, true);\n\n  // Test 3: Bob cannot write in Alice's private area (no permission)\n  const bobPrivateResult = await validation({\n    uri: `test://users/${alicePubkey}/private/document.txt`,\n    value: { auth: bobAuth, payload: testPayload },\n  });\n  assertEquals(bobPrivateResult, false);\n\n  // Test 4: Malicious user cannot write anywhere in Alice's namespace\n  const maliciousAuth = await createSignatures([malicious], testPayload);\n  const maliciousResult = await validation({\n    uri: `test://users/${alicePubkey}/anything/file.txt`,\n    value: { auth: maliciousAuth, payload: testPayload },\n  });\n  assertEquals(maliciousResult, false);\n\n  // Test 5: Users cannot write in each other's root namespace without permission\n  const crossNamespaceResult = await validation({\n    uri: `test://users/${bobPubkey}/files/document.txt`,\n    value: { auth: aliceAuth, payload: testPayload },\n  });\n  assertEquals(crossNamespaceResult, false);\n\n  // Test 6: Bob can write in his own namespace\n  const bobOwnResult = await validation({\n    uri: `test://users/${bobPubkey}/files/document.txt`,\n    value: { auth: bobAuth, payload: testPayload },\n  });\n  assertEquals(bobOwnResult, true);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 459
@@ -145,7 +145,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 1,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"comprehensive feature demonstration\", async () => {\n  /**\n   * This test demonstrates the complete signature workflow with cascading access control:\n   *\n   * 1. Pubkey-based namespace protection:\n   *    - First path component must be a pubkey that owns that namespace\n   *\n   * 2. Relative path access control:\n   *    - Check for ./~> and ./.access/ files containing { writeAccess: [pubkeys...] }\n   *\n   * 3. Cascading access:\n   *    - For path /foo/bar/baz/bea, check access at:\n   *      - /foo/bar/baz/bea, /foo/bar/baz, /foo/bar, /foo\n   *    - Higher level access grants downstream access\n   *\n   * 4. Combined access model:\n   *    - Pubkey-based + relative path access work together\n   *    - Creates unique, flattened list of authorized pubkeys\n   */\n\n  const storage: Record<string, any> = {};\n  const read = (url: string) => Promise.resolve(storage[url]);\n\n  // Create a complex organizational structure\n  const ceo = await createTestUser();\n  const cto = await createTestUser();\n  const teamLead = await createTestUser();\n  const developer = await createTestUser();\n  const intern = await createTestUser();\n\n  const ceoPubkey = await renderPubkey(ceo.publicKey);\n  const ctoPubkey = await renderPubkey(cto.publicKey);\n  const teamLeadPubkey = await renderPubkey(teamLead.publicKey);\n  const developerPubkey = await renderPubkey(developer.publicKey);\n  const internPubkey = await renderPubkey(intern.publicKey);\n\n  // Setup organizational access hierarchy\n  // CEO has company-wide access\n  storage[`test://company/${ceoPubkey}/organization/.access/`] = {\n    writeAccess: [ctoPubkey], // CTO can access CEO's org area\n  };\n\n  // CTO has technology division access\n  storage[`test://company/${ceoPubkey}/organization/tech/.access/`] = {\n    writeAccess: [teamLeadPubkey],\n  };\n\n  // Team lead has project access\n  storage[`test://company/${ceoPubkey}/organization/tech/projects/.access/`] = {\n    writeAccess: [developerPubkey],\n  };\n\n  // Developer shares some work with intern\n  storage[\n    `test://company/${ceoPubkey}/organization/tech/projects/app/shared/~>`\n  ] = {\n    writeAccess: [internPubkey],\n  };\n\n  const getWriteAccess = createCombinedAccess(read);\n  const validation = authValidation(getWriteAccess);\n\n  const testPayload = { action: \"code_review\", content: \"Approved\" };\n\n  // Test cascading access from different levels\n  const deepPath = `test://company/${ceoPubkey}/organization/tech/projects/app/src/main.ts`;\n\n  // CEO can write anywhere in their namespace (pubkey-based access)\n  const ceoAuth = await createSignatures([ceo], testPayload);\n  const ceoResult = await validation({\n    uri: deepPath,\n    value: { auth: ceoAuth, payload: testPayload },\n  });\n  assertEquals(\n    ceoResult,\n    true,\n    \"CEO should have access to entire company namespace\",\n  );\n\n  // CTO can write in tech division (cascading from /organization/)\n  const ctoAuth = await createSignatures([cto], testPayload);\n  const ctoResult = await validation({\n    uri: deepPath,\n    value: { auth: ctoAuth, payload: testPayload },\n  });\n  assertEquals(\n    ctoResult,\n    true,\n    \"CTO should have cascading access from organization level\",\n  );\n\n  // Team lead can write in projects (cascading from /tech/)\n  const teamLeadAuth = await createSignatures([teamLead], testPayload);\n  const teamLeadResult = await validation({\n    uri: deepPath,\n    value: { auth: teamLeadAuth, payload: testPayload },\n  });\n  assertEquals(\n    teamLeadResult,\n    true,\n    \"Team lead should have cascading access from tech level\",\n  );\n\n  // Developer can write in app project (cascading from /projects/)\n  const developerAuth = await createSignatures([developer], testPayload);\n  const developerResult = await validation({\n    uri: deepPath,\n    value: { auth: developerAuth, payload: testPayload },\n  });\n  assertEquals(\n    developerResult,\n    true,\n    \"Developer should have cascading access from projects level\",\n  );\n\n  // Intern can only write in shared area\n  const internAuth = await createSignatures([intern], testPayload);\n  const internMainResult = await validation({\n    uri: deepPath,\n    value: { auth: internAuth, payload: testPayload },\n  });\n  assertEquals(\n    internMainResult,\n    false,\n    \"Intern should not have access to main source files\",\n  );\n\n  // But intern can write in shared area\n  const sharedPath = `test://company/${ceoPubkey}/organization/tech/projects/app/shared/notes.md`;\n  const internSharedResult = await validation({\n    uri: sharedPath,\n    value: { auth: internAuth, payload: testPayload },\n  });\n  assertEquals(\n    internSharedResult,\n    true,\n    \"Intern should have access to shared area\",\n  );\n\n  // Test namespace protection - CTO cannot write in other CEO namespaces\n  const otherCeo = await createTestUser();\n  const otherCeoPubkey = await renderPubkey(otherCeo.publicKey);\n\n  const crossNamespaceResult = await validation({\n    uri: `test://company/${otherCeoPubkey}/private/secrets.txt`,\n    value: { auth: ctoAuth, payload: testPayload },\n  });\n  assertEquals(\n    crossNamespaceResult,\n    false,\n    \"CTO should not access other CEO namespaces\",\n  );\n\n  // Test multiple signatures (collaborative work)\n  const multiAuth = await createSignatures([teamLead, developer], testPayload);\n  const multiResult = await validation({\n    uri: deepPath,\n    value: { auth: multiAuth, payload: testPayload },\n  });\n  assertEquals(multiResult, true, \"Multiple authorized signatures should work\");\n\n  // Test that signature tampering fails\n  const tamperPayload = { action: \"malicious_change\", content: \"Hacked!\" };\n  const tamperResult = await validation({\n    uri: deepPath,\n    value: { auth: developerAuth, payload: tamperPayload }, // signed for different payload\n  });\n  assertEquals(tamperResult, false, \"Tampered payload should fail validation\");\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
       "sourceStartLine": 527
@@ -157,8 +157,8 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 42,
-      "lastRun": 1770125159652,
+      "duration": 23,
+      "lastRun": 1770126456005,
       "source": "  Deno.test({\n    name: `${suiteName} - receive transaction and read`,\n    sanitizeOps: false, // Mock servers run in background\n    sanitizeResources: false,\n    fn: async () => {\n      const client = await Promise.resolve(factories.happy());\n\n      const result = await client.receive([\"store://users/alice/profile\", {\n        name: \"Alice\",\n        email: \"alice@example.com\",\n      }]);\n\n      assertEquals(result.accepted, true);\n\n      const readResult = await client.read(\"store://users/alice/profile\");\n\n      assertEquals(readResult.success, true);\n      assertEquals(readResult.record?.data, {\n        name: \"Alice\",\n        email: \"alice@example.com\",\n      });\n\n      await client.cleanup();\n    },\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 45
@@ -170,8 +170,8 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 10,
-      "lastRun": 1770125159652,
+      "duration": 6,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - receive transaction creates timestamp`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const before = Date.now();\n    const result = await client.receive([\"store://users/bob/profile\", {\n      name: \"Bob\",\n    }]);\n    const after = Date.now();\n\n    assertEquals(result.accepted, true);\n\n    // Verify timestamp via read\n    const readResult = await client.read(\"store://users/bob/profile\");\n    assertEquals(readResult.success, true);\n    assertEquals(typeof readResult.record?.ts, \"number\");\n    assertEquals(readResult.record!.ts >= before, true);\n    assertEquals(readResult.record!.ts <= after, true);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 71
@@ -183,8 +183,8 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 6,
-      "lastRun": 1770125159652,
+      "duration": 4,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - read non-existent returns error`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const readResult = await client.read(\"store://users/nobody/profile\");\n\n    assertEquals(readResult.success, false);\n    assertEquals(typeof readResult.error, \"string\");\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 92
@@ -196,9 +196,9 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 7,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list returns items`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Receive some transactions\n    await client.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await client.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n    await client.receive([\"store://users/charlie/profile\", { name: \"Charlie\" }]);\n\n    const listResult = await client.list(\"store://users\");\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(\n        listResult.data.length >= 3,\n        true,\n        `Expected at least 3 items but got ${listResult.data.length}`,\n      );\n      assertEquals(Array.isArray(listResult.data), true);\n      assertEquals(typeof listResult.pagination.page, \"number\");\n      assertEquals(typeof listResult.pagination.limit, \"number\");\n\n      // Verify actual URIs reference the expected users\n      const uris = listResult.data.map((item: { uri: string }) => item.uri);\n      assertEquals(uris.some((u: string) => u.includes(\"alice\")), true, \"Should include alice\");\n      assertEquals(uris.some((u: string) => u.includes(\"bob\")), true, \"Should include bob\");\n      assertEquals(uris.some((u: string) => u.includes(\"charlie\")), true, \"Should include charlie\");\n\n      // Verify each item has correct structure\n      for (const item of listResult.data) {\n        assertEquals(typeof item.uri, \"string\", \"Each item should have a URI\");\n        assertEquals(\n          [\"file\", \"directory\"].includes(item.type),\n          true,\n          `Item type should be 'file' or 'directory', got '${item.type}'`,\n        );\n      }\n    }\n\n    await client.cleanup();\n  });",
+      "duration": 6,
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list returns items`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Use unique prefix to avoid stale data from persistent backends\n    const prefix = `store://users/list-test-${Date.now()}`;\n    await client.receive([`${prefix}/alice/profile`, { name: \"Alice\" }]);\n    await client.receive([`${prefix}/bob/profile`, { name: \"Bob\" }]);\n    await client.receive([`${prefix}/charlie/profile`, { name: \"Charlie\" }]);\n\n    const listResult = await client.list(prefix);\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(listResult.data.length, 3, \"Should return exactly 3 items\");\n      assertEquals(typeof listResult.pagination.page, \"number\");\n      assertEquals(typeof listResult.pagination.limit, \"number\");\n\n      // Verify exact URIs — full stored URIs\n      const uris = listResult.data.map((item) => item.uri).sort();\n      assertEquals(uris, [\n        `${prefix}/alice/profile`,\n        `${prefix}/bob/profile`,\n        `${prefix}/charlie/profile`,\n      ]);\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 103
     },
@@ -209,11 +209,11 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 12,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list with pagination`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Receive multiple transactions\n    for (let i = 0; i < 10; i++) {\n      await client.receive([`store://users/user${i}/profile`, {\n        name: `User ${i}`,\n      }]);\n    }\n\n    const page1 = await client.list(\"store://users\", { page: 1, limit: 5 });\n    assertEquals(page1.success, true);\n    if (page1.success) {\n      assertEquals(page1.pagination.page, 1);\n      assertEquals(page1.pagination.limit, 5);\n      assertEquals(page1.data.length, 5, \"Page 1 should have exactly 5 items\");\n    }\n\n    const page2 = await client.list(\"store://users\", { page: 2, limit: 5 });\n    assertEquals(page2.success, true);\n    if (page2.success) {\n      assertEquals(page2.pagination.page, 2);\n      assertEquals(page2.pagination.limit, 5);\n      assertEquals(page2.data.length >= 5, true, \"Page 2 should have at least 5 items\");\n\n      // Verify pages contain different items (no overlap)\n      const page1Uris = new Set(page1.data.map((item: { uri: string }) => item.uri));\n      const page2Uris = page2.data.map((item: { uri: string }) => item.uri);\n      for (const uri of page2Uris) {\n        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);\n      }\n    }\n\n    await client.cleanup();\n  });",
+      "duration": 9,
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list with pagination`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Use unique prefix to avoid cross-test pollution\n    for (let i = 0; i < 10; i++) {\n      await client.receive([`store://pagination/user${i}/profile`, {\n        name: `User ${i}`,\n      }]);\n    }\n\n    const page1 = await client.list(\"store://pagination\", { page: 1, limit: 5 });\n    assertEquals(page1.success, true);\n    if (page1.success) {\n      assertEquals(page1.pagination.page, 1);\n      assertEquals(page1.pagination.limit, 5);\n      assertEquals(page1.data.length, 5, \"Page 1 should have exactly 5 items\");\n\n      for (const item of page1.data) {\n        assertEquals(item.uri.startsWith(\"store://pagination/user\"), true, `URI should be full: ${item.uri}`);\n        assertEquals(item.uri.endsWith(\"/profile\"), true, `URI should end with /profile: ${item.uri}`);\n      }\n    }\n\n    const page2 = await client.list(\"store://pagination\", { page: 2, limit: 5 });\n    assertEquals(page2.success, true);\n    if (page2.success) {\n      assertEquals(page2.pagination.page, 2);\n      assertEquals(page2.pagination.limit, 5);\n      assertEquals(page2.data.length, 5, \"Page 2 should have exactly 5 items\");\n\n      // Verify pages contain different items (no overlap)\n      const page1Uris = new Set(page1.data.map((item) => item.uri));\n      const page2Uris = page2.data.map((item) => item.uri);\n      for (const uri of page2Uris) {\n        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);\n      }\n\n      // All 10 items across both pages\n      const allUris = [...page1.data, ...page2.data].map((item) => item.uri).sort();\n      assertEquals(allUris.length, 10);\n      for (let i = 0; i < 10; i++) {\n        assertEquals(\n          allUris.includes(`store://pagination/user${i}/profile`),\n          true,\n          `Should contain user${i}`,\n        );\n      }\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 144
+      "sourceStartLine": 132
     },
     {
       "name": "MongoClient - list with pattern filter",
@@ -222,11 +222,11 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 8,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list with pattern filter`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await client.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n    await client.receive([\"store://users/alice/settings\", { theme: \"dark\" }]);\n\n    const listResult = await client.list(\"store://users\", { pattern: \"alice\" });\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      // Pattern \"alice\" filters at the current list level\n      assertEquals(\n        listResult.data.every((item: { uri: string }) =>\n          item.uri.includes(\"alice\")\n        ),\n        true,\n        \"All items should contain 'alice'\",\n      );\n      assertEquals(listResult.data.length >= 1, true, \"Should return at least 1 alice item\");\n\n      // Verify alice entry is present and bob is excluded\n      const uris = listResult.data.map((item: { uri: string }) => item.uri);\n      assertEquals(uris.some((u: string) => u.includes(\"alice\")), true, \"Should include alice\");\n      assertEquals(\n        uris.every((u: string) => !u.includes(\"bob\")),\n        true,\n        \"Should not include bob\",\n      );\n    }\n\n    await client.cleanup();\n  });",
+      "duration": 6,
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list with pattern filter`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const prefix = `store://users/filter-test-${Date.now()}`;\n    await client.receive([`${prefix}/alice/profile`, { name: \"Alice\" }]);\n    await client.receive([`${prefix}/bob/profile`, { name: \"Bob\" }]);\n    await client.receive([`${prefix}/alice/settings`, { theme: \"dark\" }]);\n\n    const listResult = await client.list(prefix, { pattern: \"alice\" });\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(listResult.data.length, 2, \"Should return exactly 2 alice items\");\n\n      const uris = listResult.data.map((item) => item.uri).sort();\n      assertEquals(uris, [\n        `${prefix}/alice/profile`,\n        `${prefix}/alice/settings`,\n      ]);\n\n      for (const item of listResult.data) {\n        assertEquals(item.uri.includes(\"alice\"), true);\n        assertEquals(item.uri.includes(\"bob\"), false, \"Should not include bob\");\n      }\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 180
+      "sourceStartLine": 184
     },
     {
       "name": "MongoClient - delete removes item",
@@ -235,11 +235,11 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 5,
-      "lastRun": 1770125159652,
+      "duration": 4,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - delete removes item`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.receive([\"store://users/temp/data\", { value: 123 }]);\n\n    const deleteResult = await client.delete(\"store://users/temp/data\");\n    assertEquals(deleteResult.success, true);\n\n    const readResult = await client.read(\"store://users/temp/data\");\n    assertEquals(readResult.success, false);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 214
+      "sourceStartLine": 213
     },
     {
       "name": "MongoClient - delete non-existent returns error",
@@ -248,11 +248,11 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 5,
-      "lastRun": 1770125159652,
+      "duration": 3,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - delete non-existent returns error`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const deleteResult = await client.delete(\"store://users/nonexistent/data\");\n    assertEquals(deleteResult.success, false);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 228
+      "sourceStartLine": 227
     },
     {
       "name": "MongoClient - health returns status",
@@ -261,11 +261,11 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 5,
-      "lastRun": 1770125159652,
+      "duration": 4,
+      "lastRun": 1770126456005,
       "source": "  Deno.test({\n    name: `${suiteName} - health returns status`,\n    sanitizeResources: false,\n    sanitizeOps: false,\n    fn: async () => {\n      const client = await Promise.resolve(factories.happy());\n\n      const health = await client.health();\n\n      assertEquals(typeof health.status, \"string\");\n      assertEquals(\n        [\"healthy\", \"degraded\", \"unhealthy\"].includes(health.status),\n        true,\n      );\n\n      await client.cleanup();\n    },\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 237
+      "sourceStartLine": 236
     },
     {
       "name": "MongoClient - getSchema returns array",
@@ -275,10 +275,10 @@
       "backend": "mongo",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - getSchema returns array`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const schema = await client.getSchema();\n\n    assertEquals(Array.isArray(schema), true);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 256
+      "sourceStartLine": 255
     },
     {
       "name": "MongoClient - cleanup does not throw",
@@ -288,10 +288,10 @@
       "backend": "mongo",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - cleanup does not throw`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.cleanup();\n    assertEquals(true, true);\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 266
+      "sourceStartLine": 265
     },
     {
       "name": "MongoClient - receive and read binary data",
@@ -301,10 +301,10 @@
       "backend": "mongo",
       "status": "passed",
       "duration": 5,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "    Deno.test({\n      name: `${suiteName} - receive and read binary data`,\n      sanitizeOps: false,\n      sanitizeResources: false,\n      fn: async () => {\n        const client = await Promise.resolve(factories.happy());\n\n        // Create binary test data (simulating a small PNG header)\n        const binaryData = new Uint8Array([\n          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature\n          0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk\n        ]);\n\n        const result = await client.receive([\n          \"store://files/test-image.png\",\n          binaryData,\n        ]);\n\n        assertEquals(result.accepted, true, \"Binary transaction should be accepted\");\n\n        const readResult = await client.read<Uint8Array>(\n          \"store://files/test-image.png\",\n        );\n\n        assertEquals(readResult.success, true, \"Binary read should succeed\");\n        assertEquals(\n          readResult.record?.data instanceof Uint8Array,\n          true,\n          \"Read data should be Uint8Array\",\n        );\n\n        // Verify binary data integrity\n        const readData = readResult.record?.data as Uint8Array;\n        assertEquals(\n          readData.length,\n          binaryData.length,\n          \"Binary data length should match\",\n        );\n\n        for (let i = 0; i < binaryData.length; i++) {\n          assertEquals(\n            readData[i],\n            binaryData[i],\n            `Byte at position ${i} should match`,\n          );\n        }\n\n        await client.cleanup();\n      },\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 278
+      "sourceStartLine": 277
     },
     {
       "name": "MongoClient - receive and read large binary data",
@@ -313,11 +313,11 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 15,
-      "lastRun": 1770125159652,
+      "duration": 4,
+      "lastRun": 1770126456005,
       "source": "    Deno.test({\n      name: `${suiteName} - receive and read large binary data`,\n      sanitizeOps: false,\n      sanitizeResources: false,\n      fn: async () => {\n        const client = await Promise.resolve(factories.happy());\n\n        // Create larger binary data (1KB of random-ish bytes)\n        const size = 1024;\n        const binaryData = new Uint8Array(size);\n        for (let i = 0; i < size; i++) {\n          binaryData[i] = i % 256;\n        }\n\n        const result = await client.receive([\n          \"store://files/large-file.bin\",\n          binaryData,\n        ]);\n\n        assertEquals(result.accepted, true, \"Large binary transaction should be accepted\");\n\n        const readResult = await client.read<Uint8Array>(\n          \"store://files/large-file.bin\",\n        );\n\n        assertEquals(readResult.success, true, \"Large binary read should succeed\");\n\n        const readData = readResult.record?.data as Uint8Array;\n        assertEquals(\n          readData.length,\n          binaryData.length,\n          \"Large binary data length should match\",\n        );\n\n        // Verify data integrity\n        let matches = true;\n        for (let i = 0; i < binaryData.length && matches; i++) {\n          if (readData[i] !== binaryData[i]) {\n            matches = false;\n          }\n        }\n        assertEquals(matches, true, \"All bytes should match\");\n\n        await client.cleanup();\n      },\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 329
+      "sourceStartLine": 328
     },
     {
       "name": "MongoClient - delete binary data",
@@ -326,11 +326,11 @@
       "theme": "database",
       "backend": "mongo",
       "status": "passed",
-      "duration": 6,
-      "lastRun": 1770125159652,
+      "duration": 15,
+      "lastRun": 1770126456005,
       "source": "    Deno.test({\n      name: `${suiteName} - delete binary data`,\n      sanitizeOps: false,\n      sanitizeResources: false,\n      fn: async () => {\n        const client = await Promise.resolve(factories.happy());\n\n        const binaryData = new Uint8Array([0x01, 0x02, 0x03, 0x04]);\n\n        await client.receive([\"store://files/temp.bin\", binaryData]);\n\n        const deleteResult = await client.delete(\"store://files/temp.bin\");\n        assertEquals(deleteResult.success, true, \"Binary delete should succeed\");\n\n        const readResult = await client.read(\"store://files/temp.bin\");\n        assertEquals(readResult.success, false, \"Read after delete should fail\");\n\n        await client.cleanup();\n      },\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 376
+      "sourceStartLine": 375
     },
     {
       "name": "MongoClient - validation error on transaction",
@@ -340,10 +340,10 @@
       "backend": "mongo",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "    Deno.test(`${suiteName} - validation error on transaction`, async () => {\n      const client = await Promise.resolve(factories.validationError!());\n\n      const result = await client.receive([\"store://users/invalid/data\", {\n        invalid: true,\n      }]);\n\n      assertEquals(result.accepted, false);\n      assertEquals(typeof result.error, \"string\");\n\n      await client.cleanup();\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 400
+      "sourceStartLine": 399
     },
     {
       "name": "MemoryClient.readMulti - reads multiple URIs successfully",
@@ -353,7 +353,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryClient.readMulti - reads multiple URIs successfully\", async () => {\n  const client = new MemoryClient({ schema: createTestSchema() });\n\n  // Write test data\n  await client.receive([\"mutable://data/item1\", { v: 1 }]);\n  await client.receive([\"mutable://data/item2\", { v: 2 }]);\n  await client.receive([\"mutable://data/item3\", { v: 3 }]);\n\n  const result = await client.readMulti([\n    \"mutable://data/item1\",\n    \"mutable://data/item2\",\n    \"mutable://data/item3\",\n  ]);\n\n  assertEquals(result.success, true);\n  assertEquals(result.summary.total, 3);\n  assertEquals(result.summary.succeeded, 3);\n  assertEquals(result.summary.failed, 0);\n  assertEquals(result.results.length, 3);\n\n  // Check individual results\n  assertEquals(result.results[0].success, true);\n  if (result.results[0].success) {\n    assertEquals(result.results[0].record.data, { v: 1 });\n  }\n  assertEquals(result.results[1].success, true);\n  if (result.results[1].success) {\n    assertEquals(result.results[1].record.data, { v: 2 });\n  }\n  assertEquals(result.results[2].success, true);\n  if (result.results[2].success) {\n    assertEquals(result.results[2].record.data, { v: 3 });\n  }\n\n  await client.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
       "sourceStartLine": 11
@@ -366,7 +366,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryClient.readMulti - partial success\", async () => {\n  const client = new MemoryClient({ schema: createTestSchema() });\n\n  // Write only some of the data\n  await client.receive([\"mutable://data/exists1\", { ok: true }]);\n  await client.receive([\"mutable://data/exists2\", { ok: true }]);\n\n  const result = await client.readMulti([\n    \"mutable://data/exists1\",\n    \"mutable://data/missing\",\n    \"mutable://data/exists2\",\n  ]);\n\n  assertEquals(result.success, true); // At least one succeeded\n  assertEquals(result.summary.total, 3);\n  assertEquals(result.summary.succeeded, 2);\n  assertEquals(result.summary.failed, 1);\n\n  assertEquals(result.results[0].success, true);\n  if (result.results[0].success) {\n    assertEquals(result.results[0].record.data, { ok: true }, \"First item data should match\");\n  }\n  assertEquals(result.results[1].success, false);\n  assertEquals(result.results[2].success, true);\n  if (result.results[2].success) {\n    assertEquals(result.results[2].record.data, { ok: true }, \"Third item data should match\");\n  }\n\n  await client.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
       "sourceStartLine": 48
@@ -379,7 +379,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryClient.readMulti - all fail\", async () => {\n  const client = new MemoryClient({ schema: createTestSchema() });\n\n  const result = await client.readMulti([\n    \"mutable://data/missing1\",\n    \"mutable://data/missing2\",\n  ]);\n\n  assertEquals(result.success, false);\n  assertEquals(result.summary.total, 2);\n  assertEquals(result.summary.succeeded, 0);\n  assertEquals(result.summary.failed, 2);\n\n  await client.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
       "sourceStartLine": 79
@@ -392,7 +392,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryClient.readMulti - exceeds batch limit\", async () => {\n  const client = new MemoryClient({ schema: createTestSchema() });\n\n  const uris = Array.from({ length: 51 }, (_, i) => `mutable://data/item${i}`);\n  const result = await client.readMulti(uris);\n\n  assertEquals(result.success, false);\n  assertEquals(result.summary.total, 51);\n  assertEquals(result.summary.failed, 51);\n  assertEquals(result.results.length, 0);\n\n  await client.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
       "sourceStartLine": 95
@@ -405,7 +405,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryClient.readMulti - empty array\", async () => {\n  const client = new MemoryClient({ schema: createTestSchema() });\n\n  const result = await client.readMulti([]);\n\n  assertEquals(result.success, false);\n  assertEquals(result.summary.total, 0);\n  assertEquals(result.summary.succeeded, 0);\n  assertEquals(result.summary.failed, 0);\n  assertEquals(result.results.length, 0);\n\n  await client.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
       "sourceStartLine": 109
@@ -417,8 +417,8 @@
       "theme": "sdk-core",
       "backend": "other",
       "status": "passed",
-      "duration": 41,
-      "lastRun": 1770125159652,
+      "duration": 38,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"wallet.proxyReadMulti - reads multiple URIs with decryption\", async () => {\n  const { wallet, signupTestUser, cleanup } = await createTestEnvironment();\n\n  await signupTestUser(\"test-app\", \"alice\", \"password123\");\n\n  // Write encrypted data\n  const write1 = await wallet.proxyWrite({\n    uri: \"mutable://data/:key/item1\",\n    data: { v: 1, encrypted: true },\n    encrypt: true,\n  });\n  const write2 = await wallet.proxyWrite({\n    uri: \"mutable://data/:key/item2\",\n    data: { v: 2, encrypted: true },\n    encrypt: true,\n  });\n\n  assertEquals(write1.success, true);\n  assertEquals(write2.success, true);\n\n  // Read multiple\n  const result = await wallet.proxyReadMulti({\n    uris: [\"mutable://data/:key/item1\", \"mutable://data/:key/item2\"],\n  });\n\n  assertEquals(result.success, true);\n  assertEquals(result.summary.total, 2);\n  assertEquals(result.summary.succeeded, 2);\n\n  // Check decryption\n  assertExists(result.results[0].decrypted);\n  assertEquals(result.results[0].decrypted, { v: 1, encrypted: true });\n  assertExists(result.results[1].decrypted);\n  assertEquals(result.results[1].decrypted, { v: 2, encrypted: true });\n\n  await cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
       "sourceStartLine": 123
@@ -430,8 +430,8 @@
       "theme": "sdk-core",
       "backend": "other",
       "status": "passed",
-      "duration": 28,
-      "lastRun": 1770125159652,
+      "duration": 26,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"wallet.proxyReadMulti - partial success with missing items\", async () => {\n  const { wallet, signupTestUser, cleanup } = await createTestEnvironment();\n\n  await signupTestUser(\"test-app\", \"bob\", \"password123\");\n\n  // Write only one item\n  await wallet.proxyWrite({\n    uri: \"mutable://data/:key/exists\",\n    data: { found: true },\n  });\n\n  const result = await wallet.proxyReadMulti({\n    uris: [\n      \"mutable://data/:key/exists\",\n      \"mutable://data/:key/missing\",\n    ],\n  });\n\n  assertEquals(result.success, true); // At least one succeeded\n  assertEquals(result.summary.succeeded, 1);\n  assertEquals(result.summary.failed, 1);\n\n  assertEquals(result.results[0].success, true);\n  if (result.results[0].success && result.results[0].decrypted) {\n    assertEquals(result.results[0].decrypted, { found: true }, \"Successful read data should match\");\n  }\n  assertEquals(result.results[1].success, false);\n\n  await cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
       "sourceStartLine": 161
@@ -443,8 +443,8 @@
       "theme": "sdk-core",
       "backend": "other",
       "status": "passed",
-      "duration": 28,
-      "lastRun": 1770125159652,
+      "duration": 23,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"wallet.proxyReadMulti - batch limit exceeded\", async () => {\n  const { wallet, signupTestUser, cleanup } = await createTestEnvironment();\n\n  await signupTestUser(\"test-app\", \"charlie\", \"password123\");\n\n  const uris = Array.from({ length: 51 }, (_, i) => `mutable://data/:key/item${i}`);\n  const result = await wallet.proxyReadMulti({ uris });\n\n  assertEquals(result.success, false);\n  assertExists(result.error);\n  assertEquals(result.error, \"Maximum 50 URIs per request\");\n\n  await cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
       "sourceStartLine": 192
@@ -457,7 +457,7 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test({\n    name: `${suiteName} - receive transaction and read`,\n    sanitizeOps: false, // Mock servers run in background\n    sanitizeResources: false,\n    fn: async () => {\n      const client = await Promise.resolve(factories.happy());\n\n      const result = await client.receive([\"store://users/alice/profile\", {\n        name: \"Alice\",\n        email: \"alice@example.com\",\n      }]);\n\n      assertEquals(result.accepted, true);\n\n      const readResult = await client.read(\"store://users/alice/profile\");\n\n      assertEquals(readResult.success, true);\n      assertEquals(readResult.record?.data, {\n        name: \"Alice\",\n        email: \"alice@example.com\",\n      });\n\n      await client.cleanup();\n    },\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 45
@@ -469,8 +469,8 @@
       "theme": "sdk-core",
       "backend": "memory",
       "status": "passed",
-      "duration": 0,
-      "lastRun": 1770125159652,
+      "duration": 8,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - receive transaction creates timestamp`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const before = Date.now();\n    const result = await client.receive([\"store://users/bob/profile\", {\n      name: \"Bob\",\n    }]);\n    const after = Date.now();\n\n    assertEquals(result.accepted, true);\n\n    // Verify timestamp via read\n    const readResult = await client.read(\"store://users/bob/profile\");\n    assertEquals(readResult.success, true);\n    assertEquals(typeof readResult.record?.ts, \"number\");\n    assertEquals(readResult.record!.ts >= before, true);\n    assertEquals(readResult.record!.ts <= after, true);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 71
@@ -483,7 +483,7 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - read non-existent returns error`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const readResult = await client.read(\"store://users/nobody/profile\");\n\n    assertEquals(readResult.success, false);\n    assertEquals(typeof readResult.error, \"string\");\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 92
@@ -495,9 +495,9 @@
       "theme": "sdk-core",
       "backend": "memory",
       "status": "passed",
-      "duration": 7,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list returns items`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Receive some transactions\n    await client.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await client.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n    await client.receive([\"store://users/charlie/profile\", { name: \"Charlie\" }]);\n\n    const listResult = await client.list(\"store://users\");\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(\n        listResult.data.length >= 3,\n        true,\n        `Expected at least 3 items but got ${listResult.data.length}`,\n      );\n      assertEquals(Array.isArray(listResult.data), true);\n      assertEquals(typeof listResult.pagination.page, \"number\");\n      assertEquals(typeof listResult.pagination.limit, \"number\");\n\n      // Verify actual URIs reference the expected users\n      const uris = listResult.data.map((item: { uri: string }) => item.uri);\n      assertEquals(uris.some((u: string) => u.includes(\"alice\")), true, \"Should include alice\");\n      assertEquals(uris.some((u: string) => u.includes(\"bob\")), true, \"Should include bob\");\n      assertEquals(uris.some((u: string) => u.includes(\"charlie\")), true, \"Should include charlie\");\n\n      // Verify each item has correct structure\n      for (const item of listResult.data) {\n        assertEquals(typeof item.uri, \"string\", \"Each item should have a URI\");\n        assertEquals(\n          [\"file\", \"directory\"].includes(item.type),\n          true,\n          `Item type should be 'file' or 'directory', got '${item.type}'`,\n        );\n      }\n    }\n\n    await client.cleanup();\n  });",
+      "duration": 0,
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list returns items`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Use unique prefix to avoid stale data from persistent backends\n    const prefix = `store://users/list-test-${Date.now()}`;\n    await client.receive([`${prefix}/alice/profile`, { name: \"Alice\" }]);\n    await client.receive([`${prefix}/bob/profile`, { name: \"Bob\" }]);\n    await client.receive([`${prefix}/charlie/profile`, { name: \"Charlie\" }]);\n\n    const listResult = await client.list(prefix);\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(listResult.data.length, 3, \"Should return exactly 3 items\");\n      assertEquals(typeof listResult.pagination.page, \"number\");\n      assertEquals(typeof listResult.pagination.limit, \"number\");\n\n      // Verify exact URIs — full stored URIs\n      const uris = listResult.data.map((item) => item.uri).sort();\n      assertEquals(uris, [\n        `${prefix}/alice/profile`,\n        `${prefix}/bob/profile`,\n        `${prefix}/charlie/profile`,\n      ]);\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 103
     },
@@ -509,10 +509,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list with pagination`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Receive multiple transactions\n    for (let i = 0; i < 10; i++) {\n      await client.receive([`store://users/user${i}/profile`, {\n        name: `User ${i}`,\n      }]);\n    }\n\n    const page1 = await client.list(\"store://users\", { page: 1, limit: 5 });\n    assertEquals(page1.success, true);\n    if (page1.success) {\n      assertEquals(page1.pagination.page, 1);\n      assertEquals(page1.pagination.limit, 5);\n      assertEquals(page1.data.length, 5, \"Page 1 should have exactly 5 items\");\n    }\n\n    const page2 = await client.list(\"store://users\", { page: 2, limit: 5 });\n    assertEquals(page2.success, true);\n    if (page2.success) {\n      assertEquals(page2.pagination.page, 2);\n      assertEquals(page2.pagination.limit, 5);\n      assertEquals(page2.data.length >= 5, true, \"Page 2 should have at least 5 items\");\n\n      // Verify pages contain different items (no overlap)\n      const page1Uris = new Set(page1.data.map((item: { uri: string }) => item.uri));\n      const page2Uris = page2.data.map((item: { uri: string }) => item.uri);\n      for (const uri of page2Uris) {\n        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);\n      }\n    }\n\n    await client.cleanup();\n  });",
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list with pagination`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Use unique prefix to avoid cross-test pollution\n    for (let i = 0; i < 10; i++) {\n      await client.receive([`store://pagination/user${i}/profile`, {\n        name: `User ${i}`,\n      }]);\n    }\n\n    const page1 = await client.list(\"store://pagination\", { page: 1, limit: 5 });\n    assertEquals(page1.success, true);\n    if (page1.success) {\n      assertEquals(page1.pagination.page, 1);\n      assertEquals(page1.pagination.limit, 5);\n      assertEquals(page1.data.length, 5, \"Page 1 should have exactly 5 items\");\n\n      for (const item of page1.data) {\n        assertEquals(item.uri.startsWith(\"store://pagination/user\"), true, `URI should be full: ${item.uri}`);\n        assertEquals(item.uri.endsWith(\"/profile\"), true, `URI should end with /profile: ${item.uri}`);\n      }\n    }\n\n    const page2 = await client.list(\"store://pagination\", { page: 2, limit: 5 });\n    assertEquals(page2.success, true);\n    if (page2.success) {\n      assertEquals(page2.pagination.page, 2);\n      assertEquals(page2.pagination.limit, 5);\n      assertEquals(page2.data.length, 5, \"Page 2 should have exactly 5 items\");\n\n      // Verify pages contain different items (no overlap)\n      const page1Uris = new Set(page1.data.map((item) => item.uri));\n      const page2Uris = page2.data.map((item) => item.uri);\n      for (const uri of page2Uris) {\n        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);\n      }\n\n      // All 10 items across both pages\n      const allUris = [...page1.data, ...page2.data].map((item) => item.uri).sort();\n      assertEquals(allUris.length, 10);\n      for (let i = 0; i < 10; i++) {\n        assertEquals(\n          allUris.includes(`store://pagination/user${i}/profile`),\n          true,\n          `Should contain user${i}`,\n        );\n      }\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 144
+      "sourceStartLine": 132
     },
     {
       "name": "MemoryClient - list with pattern filter",
@@ -522,10 +522,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list with pattern filter`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await client.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n    await client.receive([\"store://users/alice/settings\", { theme: \"dark\" }]);\n\n    const listResult = await client.list(\"store://users\", { pattern: \"alice\" });\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      // Pattern \"alice\" filters at the current list level\n      assertEquals(\n        listResult.data.every((item: { uri: string }) =>\n          item.uri.includes(\"alice\")\n        ),\n        true,\n        \"All items should contain 'alice'\",\n      );\n      assertEquals(listResult.data.length >= 1, true, \"Should return at least 1 alice item\");\n\n      // Verify alice entry is present and bob is excluded\n      const uris = listResult.data.map((item: { uri: string }) => item.uri);\n      assertEquals(uris.some((u: string) => u.includes(\"alice\")), true, \"Should include alice\");\n      assertEquals(\n        uris.every((u: string) => !u.includes(\"bob\")),\n        true,\n        \"Should not include bob\",\n      );\n    }\n\n    await client.cleanup();\n  });",
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list with pattern filter`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const prefix = `store://users/filter-test-${Date.now()}`;\n    await client.receive([`${prefix}/alice/profile`, { name: \"Alice\" }]);\n    await client.receive([`${prefix}/bob/profile`, { name: \"Bob\" }]);\n    await client.receive([`${prefix}/alice/settings`, { theme: \"dark\" }]);\n\n    const listResult = await client.list(prefix, { pattern: \"alice\" });\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(listResult.data.length, 2, \"Should return exactly 2 alice items\");\n\n      const uris = listResult.data.map((item) => item.uri).sort();\n      assertEquals(uris, [\n        `${prefix}/alice/profile`,\n        `${prefix}/alice/settings`,\n      ]);\n\n      for (const item of listResult.data) {\n        assertEquals(item.uri.includes(\"alice\"), true);\n        assertEquals(item.uri.includes(\"bob\"), false, \"Should not include bob\");\n      }\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 180
+      "sourceStartLine": 184
     },
     {
       "name": "MemoryClient - delete removes item",
@@ -535,10 +535,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - delete removes item`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.receive([\"store://users/temp/data\", { value: 123 }]);\n\n    const deleteResult = await client.delete(\"store://users/temp/data\");\n    assertEquals(deleteResult.success, true);\n\n    const readResult = await client.read(\"store://users/temp/data\");\n    assertEquals(readResult.success, false);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 214
+      "sourceStartLine": 213
     },
     {
       "name": "MemoryClient - delete non-existent returns error",
@@ -548,10 +548,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - delete non-existent returns error`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const deleteResult = await client.delete(\"store://users/nonexistent/data\");\n    assertEquals(deleteResult.success, false);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 228
+      "sourceStartLine": 227
     },
     {
       "name": "MemoryClient - health returns status",
@@ -561,10 +561,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test({\n    name: `${suiteName} - health returns status`,\n    sanitizeResources: false,\n    sanitizeOps: false,\n    fn: async () => {\n      const client = await Promise.resolve(factories.happy());\n\n      const health = await client.health();\n\n      assertEquals(typeof health.status, \"string\");\n      assertEquals(\n        [\"healthy\", \"degraded\", \"unhealthy\"].includes(health.status),\n        true,\n      );\n\n      await client.cleanup();\n    },\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 237
+      "sourceStartLine": 236
     },
     {
       "name": "MemoryClient - getSchema returns array",
@@ -574,10 +574,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - getSchema returns array`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const schema = await client.getSchema();\n\n    assertEquals(Array.isArray(schema), true);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 256
+      "sourceStartLine": 255
     },
     {
       "name": "MemoryClient - cleanup does not throw",
@@ -587,10 +587,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - cleanup does not throw`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.cleanup();\n    assertEquals(true, true);\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 266
+      "sourceStartLine": 265
     },
     {
       "name": "MemoryClient - validation error on transaction",
@@ -600,10 +600,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "    Deno.test(`${suiteName} - validation error on transaction`, async () => {\n      const client = await Promise.resolve(factories.validationError!());\n\n      const result = await client.receive([\"store://users/invalid/data\", {\n        invalid: true,\n      }]);\n\n      assertEquals(result.accepted, false);\n      assertEquals(typeof result.error, \"string\");\n\n      await client.cleanup();\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 400
+      "sourceStartLine": 399
     },
     {
       "name": "MemoryClient [Node] - receive and read",
@@ -613,7 +613,7 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test({\n    name: `${suiteName} [Node] - receive and read`,\n    sanitizeOps: false,\n    sanitizeResources: false,\n    fn: async () => {\n      const node = await Promise.resolve(factory.happy());\n\n      const result = await node.receive([\n        \"store://users/alice/profile\",\n        { name: \"Alice\", email: \"alice@example.com\" },\n      ]);\n\n      assertEquals(result.accepted, true);\n      assertEquals(result.error, undefined);\n\n      const readResult = await node.read(\"store://users/alice/profile\");\n\n      assertEquals(readResult.success, true);\n      assertEquals(readResult.record?.data, {\n        name: \"Alice\",\n        email: \"alice@example.com\",\n      });\n\n      await node.cleanup();\n    },\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/node-suite.ts",
       "sourceStartLine": 32
@@ -626,7 +626,7 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} [Node] - receive multiple transactions`, async () => {\n    const node = await Promise.resolve(factory.happy());\n\n    // Receive multiple transactions\n    const result1 = await node.receive([\n      \"store://users/alice/profile\",\n      { name: \"Alice\" },\n    ]);\n    const result2 = await node.receive([\n      \"store://users/bob/profile\",\n      { name: \"Bob\" },\n    ]);\n\n    assertEquals(result1.accepted, true);\n    assertEquals(result2.accepted, true);\n\n    // Verify both were stored\n    const read1 = await node.read(\"store://users/alice/profile\");\n    const read2 = await node.read(\"store://users/bob/profile\");\n\n    assertEquals(read1.success, true);\n    assertEquals(read2.success, true);\n    assertEquals(read1.record?.data, { name: \"Alice\" });\n    assertEquals(read2.record?.data, { name: \"Bob\" });\n\n    await node.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/node-suite.ts",
       "sourceStartLine": 59
@@ -639,7 +639,7 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} [Node] - receive overwrites existing data`, async () => {\n    const node = await Promise.resolve(factory.happy());\n\n    // Write initial data\n    await node.receive([\n      \"store://users/alice/profile\",\n      { name: \"Alice\", version: 1 },\n    ]);\n\n    // Overwrite with new data\n    const result = await node.receive([\n      \"store://users/alice/profile\",\n      { name: \"Alice Updated\", version: 2 },\n    ]);\n\n    assertEquals(result.accepted, true);\n\n    // Verify data was updated\n    const readResult = await node.read(\"store://users/alice/profile\");\n    assertEquals(readResult.success, true);\n    assertEquals(readResult.record?.data, { name: \"Alice Updated\", version: 2 });\n\n    await node.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/node-suite.ts",
       "sourceStartLine": 87
@@ -652,7 +652,7 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} [Node] - receive with empty URI returns error`, async () => {\n    const node = await Promise.resolve(factory.happy());\n\n    const result = await node.receive([\"\", { data: \"test\" }]);\n\n    assertEquals(result.accepted, false);\n    assertEquals(typeof result.error, \"string\");\n\n    await node.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/node-suite.ts",
       "sourceStartLine": 112
@@ -665,7 +665,7 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} [Node] - receive with null data`, async () => {\n    const node = await Promise.resolve(factory.happy());\n\n    const result = await node.receive([\"store://users/test/null\", null]);\n\n    // Should still accept null data (storage-dependent)\n    assertEquals(typeof result.accepted, \"boolean\");\n\n    await node.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/node-suite.ts",
       "sourceStartLine": 123
@@ -678,8 +678,8 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} [Node] - list after receive`, async () => {\n    const node = await Promise.resolve(factory.happy());\n\n    // Receive some transactions\n    await node.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await node.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n    await node.receive([\"store://users/charlie/profile\", { name: \"Charlie\" }]);\n\n    // List items\n    const listResult = await node.list(\"store://users\");\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(\n        listResult.data.length >= 3,\n        true,\n        `Expected at least 3 items but got ${listResult.data.length}`,\n      );\n\n      // Verify actual URIs reference the expected users\n      const uris = listResult.data.map((item: { uri: string }) => item.uri);\n      assertEquals(uris.some((u: string) => u.includes(\"alice\")), true, \"Should include alice\");\n      assertEquals(uris.some((u: string) => u.includes(\"bob\")), true, \"Should include bob\");\n      assertEquals(uris.some((u: string) => u.includes(\"charlie\")), true, \"Should include charlie\");\n    }\n\n    await node.cleanup();\n  });",
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} [Node] - list after receive`, async () => {\n    const node = await Promise.resolve(factory.happy());\n\n    const prefix = `store://users/node-list-${Date.now()}`;\n    await node.receive([`${prefix}/alice/profile`, { name: \"Alice\" }]);\n    await node.receive([`${prefix}/bob/profile`, { name: \"Bob\" }]);\n    await node.receive([`${prefix}/charlie/profile`, { name: \"Charlie\" }]);\n\n    const listResult = await node.list(prefix);\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(listResult.data.length, 3, \"Should return exactly 3 items\");\n\n      // Verify exact full URIs\n      const uris = listResult.data.map((item) => item.uri).sort();\n      assertEquals(uris, [\n        `${prefix}/alice/profile`,\n        `${prefix}/bob/profile`,\n        `${prefix}/charlie/profile`,\n      ]);\n    }\n\n    await node.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/node-suite.ts",
       "sourceStartLine": 134
     },
@@ -691,10 +691,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} [Node] - readMulti after receive`, async () => {\n    const node = await Promise.resolve(factory.happy());\n\n    // Receive transactions\n    await node.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await node.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n\n    // Read multiple\n    const result = await node.readMulti([\n      \"store://users/alice/profile\",\n      \"store://users/bob/profile\",\n      \"store://users/nonexistent/profile\",\n    ]);\n\n    assertEquals(result.success, true);\n    assertEquals(result.summary.total, 3);\n    assertEquals(result.summary.succeeded, 2);\n    assertEquals(result.summary.failed, 1);\n\n    // Verify actual data values\n    assertEquals(result.results[0].success, true);\n    if (result.results[0].success) {\n      assertEquals(result.results[0].record.data, { name: \"Alice\" });\n    }\n    assertEquals(result.results[1].success, true);\n    if (result.results[1].success) {\n      assertEquals(result.results[1].record.data, { name: \"Bob\" });\n    }\n    assertEquals(result.results[2].success, false, \"Nonexistent URI should fail\");\n\n    await node.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/node-suite.ts",
-      "sourceStartLine": 163
+      "sourceStartLine": 160
     },
     {
       "name": "MemoryClient [Node] - receive validation error",
@@ -704,10 +704,10 @@
       "backend": "memory",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "    Deno.test(`${suiteName} [Node] - receive validation error`, async () => {\n      const node = await Promise.resolve(factory.validationError!());\n\n      const result = await node.receive([\n        \"store://users/invalid/data\",\n        { invalid: true },\n      ]);\n\n      assertEquals(result.accepted, false);\n      assertEquals(typeof result.error, \"string\");\n\n      await node.cleanup();\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/node-suite.ts",
-      "sourceStartLine": 198
+      "sourceStartLine": 195
     },
     {
       "name": "PostgresClient - receive transaction and read",
@@ -716,8 +716,8 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 30,
-      "lastRun": 1770125159652,
+      "duration": 22,
+      "lastRun": 1770126456005,
       "source": "  Deno.test({\n    name: `${suiteName} - receive transaction and read`,\n    sanitizeOps: false, // Mock servers run in background\n    sanitizeResources: false,\n    fn: async () => {\n      const client = await Promise.resolve(factories.happy());\n\n      const result = await client.receive([\"store://users/alice/profile\", {\n        name: \"Alice\",\n        email: \"alice@example.com\",\n      }]);\n\n      assertEquals(result.accepted, true);\n\n      const readResult = await client.read(\"store://users/alice/profile\");\n\n      assertEquals(readResult.success, true);\n      assertEquals(readResult.record?.data, {\n        name: \"Alice\",\n        email: \"alice@example.com\",\n      });\n\n      await client.cleanup();\n    },\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 45
@@ -729,8 +729,8 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 12,
-      "lastRun": 1770125159652,
+      "duration": 11,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - receive transaction creates timestamp`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const before = Date.now();\n    const result = await client.receive([\"store://users/bob/profile\", {\n      name: \"Bob\",\n    }]);\n    const after = Date.now();\n\n    assertEquals(result.accepted, true);\n\n    // Verify timestamp via read\n    const readResult = await client.read(\"store://users/bob/profile\");\n    assertEquals(readResult.success, true);\n    assertEquals(typeof readResult.record?.ts, \"number\");\n    assertEquals(readResult.record!.ts >= before, true);\n    assertEquals(readResult.record!.ts <= after, true);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 71
@@ -742,8 +742,8 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 13,
-      "lastRun": 1770125159652,
+      "duration": 10,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - read non-existent returns error`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const readResult = await client.read(\"store://users/nobody/profile\");\n\n    assertEquals(readResult.success, false);\n    assertEquals(typeof readResult.error, \"string\");\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 92
@@ -756,8 +756,8 @@
       "backend": "postgres",
       "status": "passed",
       "duration": 12,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list returns items`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Receive some transactions\n    await client.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await client.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n    await client.receive([\"store://users/charlie/profile\", { name: \"Charlie\" }]);\n\n    const listResult = await client.list(\"store://users\");\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(\n        listResult.data.length >= 3,\n        true,\n        `Expected at least 3 items but got ${listResult.data.length}`,\n      );\n      assertEquals(Array.isArray(listResult.data), true);\n      assertEquals(typeof listResult.pagination.page, \"number\");\n      assertEquals(typeof listResult.pagination.limit, \"number\");\n\n      // Verify actual URIs reference the expected users\n      const uris = listResult.data.map((item: { uri: string }) => item.uri);\n      assertEquals(uris.some((u: string) => u.includes(\"alice\")), true, \"Should include alice\");\n      assertEquals(uris.some((u: string) => u.includes(\"bob\")), true, \"Should include bob\");\n      assertEquals(uris.some((u: string) => u.includes(\"charlie\")), true, \"Should include charlie\");\n\n      // Verify each item has correct structure\n      for (const item of listResult.data) {\n        assertEquals(typeof item.uri, \"string\", \"Each item should have a URI\");\n        assertEquals(\n          [\"file\", \"directory\"].includes(item.type),\n          true,\n          `Item type should be 'file' or 'directory', got '${item.type}'`,\n        );\n      }\n    }\n\n    await client.cleanup();\n  });",
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list returns items`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Use unique prefix to avoid stale data from persistent backends\n    const prefix = `store://users/list-test-${Date.now()}`;\n    await client.receive([`${prefix}/alice/profile`, { name: \"Alice\" }]);\n    await client.receive([`${prefix}/bob/profile`, { name: \"Bob\" }]);\n    await client.receive([`${prefix}/charlie/profile`, { name: \"Charlie\" }]);\n\n    const listResult = await client.list(prefix);\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(listResult.data.length, 3, \"Should return exactly 3 items\");\n      assertEquals(typeof listResult.pagination.page, \"number\");\n      assertEquals(typeof listResult.pagination.limit, \"number\");\n\n      // Verify exact URIs — full stored URIs\n      const uris = listResult.data.map((item) => item.uri).sort();\n      assertEquals(uris, [\n        `${prefix}/alice/profile`,\n        `${prefix}/bob/profile`,\n        `${prefix}/charlie/profile`,\n      ]);\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 103
     },
@@ -768,11 +768,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 14,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list with pagination`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Receive multiple transactions\n    for (let i = 0; i < 10; i++) {\n      await client.receive([`store://users/user${i}/profile`, {\n        name: `User ${i}`,\n      }]);\n    }\n\n    const page1 = await client.list(\"store://users\", { page: 1, limit: 5 });\n    assertEquals(page1.success, true);\n    if (page1.success) {\n      assertEquals(page1.pagination.page, 1);\n      assertEquals(page1.pagination.limit, 5);\n      assertEquals(page1.data.length, 5, \"Page 1 should have exactly 5 items\");\n    }\n\n    const page2 = await client.list(\"store://users\", { page: 2, limit: 5 });\n    assertEquals(page2.success, true);\n    if (page2.success) {\n      assertEquals(page2.pagination.page, 2);\n      assertEquals(page2.pagination.limit, 5);\n      assertEquals(page2.data.length >= 5, true, \"Page 2 should have at least 5 items\");\n\n      // Verify pages contain different items (no overlap)\n      const page1Uris = new Set(page1.data.map((item: { uri: string }) => item.uri));\n      const page2Uris = page2.data.map((item: { uri: string }) => item.uri);\n      for (const uri of page2Uris) {\n        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);\n      }\n    }\n\n    await client.cleanup();\n  });",
+      "duration": 15,
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list with pagination`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Use unique prefix to avoid cross-test pollution\n    for (let i = 0; i < 10; i++) {\n      await client.receive([`store://pagination/user${i}/profile`, {\n        name: `User ${i}`,\n      }]);\n    }\n\n    const page1 = await client.list(\"store://pagination\", { page: 1, limit: 5 });\n    assertEquals(page1.success, true);\n    if (page1.success) {\n      assertEquals(page1.pagination.page, 1);\n      assertEquals(page1.pagination.limit, 5);\n      assertEquals(page1.data.length, 5, \"Page 1 should have exactly 5 items\");\n\n      for (const item of page1.data) {\n        assertEquals(item.uri.startsWith(\"store://pagination/user\"), true, `URI should be full: ${item.uri}`);\n        assertEquals(item.uri.endsWith(\"/profile\"), true, `URI should end with /profile: ${item.uri}`);\n      }\n    }\n\n    const page2 = await client.list(\"store://pagination\", { page: 2, limit: 5 });\n    assertEquals(page2.success, true);\n    if (page2.success) {\n      assertEquals(page2.pagination.page, 2);\n      assertEquals(page2.pagination.limit, 5);\n      assertEquals(page2.data.length, 5, \"Page 2 should have exactly 5 items\");\n\n      // Verify pages contain different items (no overlap)\n      const page1Uris = new Set(page1.data.map((item) => item.uri));\n      const page2Uris = page2.data.map((item) => item.uri);\n      for (const uri of page2Uris) {\n        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);\n      }\n\n      // All 10 items across both pages\n      const allUris = [...page1.data, ...page2.data].map((item) => item.uri).sort();\n      assertEquals(allUris.length, 10);\n      for (let i = 0; i < 10; i++) {\n        assertEquals(\n          allUris.includes(`store://pagination/user${i}/profile`),\n          true,\n          `Should contain user${i}`,\n        );\n      }\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 144
+      "sourceStartLine": 132
     },
     {
       "name": "PostgresClient - list with pattern filter",
@@ -781,11 +781,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 12,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list with pattern filter`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await client.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n    await client.receive([\"store://users/alice/settings\", { theme: \"dark\" }]);\n\n    const listResult = await client.list(\"store://users\", { pattern: \"alice\" });\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      // Pattern \"alice\" filters at the current list level\n      assertEquals(\n        listResult.data.every((item: { uri: string }) =>\n          item.uri.includes(\"alice\")\n        ),\n        true,\n        \"All items should contain 'alice'\",\n      );\n      assertEquals(listResult.data.length >= 1, true, \"Should return at least 1 alice item\");\n\n      // Verify alice entry is present and bob is excluded\n      const uris = listResult.data.map((item: { uri: string }) => item.uri);\n      assertEquals(uris.some((u: string) => u.includes(\"alice\")), true, \"Should include alice\");\n      assertEquals(\n        uris.every((u: string) => !u.includes(\"bob\")),\n        true,\n        \"Should not include bob\",\n      );\n    }\n\n    await client.cleanup();\n  });",
+      "duration": 10,
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list with pattern filter`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const prefix = `store://users/filter-test-${Date.now()}`;\n    await client.receive([`${prefix}/alice/profile`, { name: \"Alice\" }]);\n    await client.receive([`${prefix}/bob/profile`, { name: \"Bob\" }]);\n    await client.receive([`${prefix}/alice/settings`, { theme: \"dark\" }]);\n\n    const listResult = await client.list(prefix, { pattern: \"alice\" });\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(listResult.data.length, 2, \"Should return exactly 2 alice items\");\n\n      const uris = listResult.data.map((item) => item.uri).sort();\n      assertEquals(uris, [\n        `${prefix}/alice/profile`,\n        `${prefix}/alice/settings`,\n      ]);\n\n      for (const item of listResult.data) {\n        assertEquals(item.uri.includes(\"alice\"), true);\n        assertEquals(item.uri.includes(\"bob\"), false, \"Should not include bob\");\n      }\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 180
+      "sourceStartLine": 184
     },
     {
       "name": "PostgresClient - delete removes item",
@@ -794,11 +794,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 11,
-      "lastRun": 1770125159652,
+      "duration": 12,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - delete removes item`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.receive([\"store://users/temp/data\", { value: 123 }]);\n\n    const deleteResult = await client.delete(\"store://users/temp/data\");\n    assertEquals(deleteResult.success, true);\n\n    const readResult = await client.read(\"store://users/temp/data\");\n    assertEquals(readResult.success, false);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 214
+      "sourceStartLine": 213
     },
     {
       "name": "PostgresClient - delete non-existent returns error",
@@ -808,10 +808,10 @@
       "backend": "postgres",
       "status": "passed",
       "duration": 8,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - delete non-existent returns error`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const deleteResult = await client.delete(\"store://users/nonexistent/data\");\n    assertEquals(deleteResult.success, false);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 228
+      "sourceStartLine": 227
     },
     {
       "name": "PostgresClient - health returns status",
@@ -820,11 +820,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 10,
-      "lastRun": 1770125159652,
+      "duration": 8,
+      "lastRun": 1770126456005,
       "source": "  Deno.test({\n    name: `${suiteName} - health returns status`,\n    sanitizeResources: false,\n    sanitizeOps: false,\n    fn: async () => {\n      const client = await Promise.resolve(factories.happy());\n\n      const health = await client.health();\n\n      assertEquals(typeof health.status, \"string\");\n      assertEquals(\n        [\"healthy\", \"degraded\", \"unhealthy\"].includes(health.status),\n        true,\n      );\n\n      await client.cleanup();\n    },\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 237
+      "sourceStartLine": 236
     },
     {
       "name": "PostgresClient - getSchema returns array",
@@ -833,11 +833,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 9,
-      "lastRun": 1770125159652,
+      "duration": 7,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - getSchema returns array`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const schema = await client.getSchema();\n\n    assertEquals(Array.isArray(schema), true);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 256
+      "sourceStartLine": 255
     },
     {
       "name": "PostgresClient - cleanup does not throw",
@@ -846,11 +846,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 10,
-      "lastRun": 1770125159652,
+      "duration": 8,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - cleanup does not throw`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.cleanup();\n    assertEquals(true, true);\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 266
+      "sourceStartLine": 265
     },
     {
       "name": "PostgresClient - receive and read binary data",
@@ -859,11 +859,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 9,
-      "lastRun": 1770125159652,
+      "duration": 12,
+      "lastRun": 1770126456005,
       "source": "    Deno.test({\n      name: `${suiteName} - receive and read binary data`,\n      sanitizeOps: false,\n      sanitizeResources: false,\n      fn: async () => {\n        const client = await Promise.resolve(factories.happy());\n\n        // Create binary test data (simulating a small PNG header)\n        const binaryData = new Uint8Array([\n          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature\n          0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk\n        ]);\n\n        const result = await client.receive([\n          \"store://files/test-image.png\",\n          binaryData,\n        ]);\n\n        assertEquals(result.accepted, true, \"Binary transaction should be accepted\");\n\n        const readResult = await client.read<Uint8Array>(\n          \"store://files/test-image.png\",\n        );\n\n        assertEquals(readResult.success, true, \"Binary read should succeed\");\n        assertEquals(\n          readResult.record?.data instanceof Uint8Array,\n          true,\n          \"Read data should be Uint8Array\",\n        );\n\n        // Verify binary data integrity\n        const readData = readResult.record?.data as Uint8Array;\n        assertEquals(\n          readData.length,\n          binaryData.length,\n          \"Binary data length should match\",\n        );\n\n        for (let i = 0; i < binaryData.length; i++) {\n          assertEquals(\n            readData[i],\n            binaryData[i],\n            `Byte at position ${i} should match`,\n          );\n        }\n\n        await client.cleanup();\n      },\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 278
+      "sourceStartLine": 277
     },
     {
       "name": "PostgresClient - receive and read large binary data",
@@ -872,11 +872,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 9,
-      "lastRun": 1770125159652,
+      "duration": 10,
+      "lastRun": 1770126456005,
       "source": "    Deno.test({\n      name: `${suiteName} - receive and read large binary data`,\n      sanitizeOps: false,\n      sanitizeResources: false,\n      fn: async () => {\n        const client = await Promise.resolve(factories.happy());\n\n        // Create larger binary data (1KB of random-ish bytes)\n        const size = 1024;\n        const binaryData = new Uint8Array(size);\n        for (let i = 0; i < size; i++) {\n          binaryData[i] = i % 256;\n        }\n\n        const result = await client.receive([\n          \"store://files/large-file.bin\",\n          binaryData,\n        ]);\n\n        assertEquals(result.accepted, true, \"Large binary transaction should be accepted\");\n\n        const readResult = await client.read<Uint8Array>(\n          \"store://files/large-file.bin\",\n        );\n\n        assertEquals(readResult.success, true, \"Large binary read should succeed\");\n\n        const readData = readResult.record?.data as Uint8Array;\n        assertEquals(\n          readData.length,\n          binaryData.length,\n          \"Large binary data length should match\",\n        );\n\n        // Verify data integrity\n        let matches = true;\n        for (let i = 0; i < binaryData.length && matches; i++) {\n          if (readData[i] !== binaryData[i]) {\n            matches = false;\n          }\n        }\n        assertEquals(matches, true, \"All bytes should match\");\n\n        await client.cleanup();\n      },\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 329
+      "sourceStartLine": 328
     },
     {
       "name": "PostgresClient - delete binary data",
@@ -885,11 +885,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 10,
-      "lastRun": 1770125159652,
+      "duration": 9,
+      "lastRun": 1770126456005,
       "source": "    Deno.test({\n      name: `${suiteName} - delete binary data`,\n      sanitizeOps: false,\n      sanitizeResources: false,\n      fn: async () => {\n        const client = await Promise.resolve(factories.happy());\n\n        const binaryData = new Uint8Array([0x01, 0x02, 0x03, 0x04]);\n\n        await client.receive([\"store://files/temp.bin\", binaryData]);\n\n        const deleteResult = await client.delete(\"store://files/temp.bin\");\n        assertEquals(deleteResult.success, true, \"Binary delete should succeed\");\n\n        const readResult = await client.read(\"store://files/temp.bin\");\n        assertEquals(readResult.success, false, \"Read after delete should fail\");\n\n        await client.cleanup();\n      },\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 376
+      "sourceStartLine": 375
     },
     {
       "name": "PostgresClient - validation error on transaction",
@@ -898,11 +898,11 @@
       "theme": "database",
       "backend": "postgres",
       "status": "passed",
-      "duration": 8,
-      "lastRun": 1770125159652,
+      "duration": 7,
+      "lastRun": 1770126456005,
       "source": "    Deno.test(`${suiteName} - validation error on transaction`, async () => {\n      const client = await Promise.resolve(factories.validationError!());\n\n      const result = await client.receive([\"store://users/invalid/data\", {\n        invalid: true,\n      }]);\n\n      assertEquals(result.accepted, false);\n      assertEquals(typeof result.error, \"string\");\n\n      await client.cleanup();\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 400
+      "sourceStartLine": 399
     },
     {
       "name": "HttpClient - receive transaction and read",
@@ -911,8 +911,8 @@
       "theme": "network",
       "backend": "http",
       "status": "passed",
-      "duration": 18,
-      "lastRun": 1770125159652,
+      "duration": 14,
+      "lastRun": 1770126456005,
       "source": "  Deno.test({\n    name: `${suiteName} - receive transaction and read`,\n    sanitizeOps: false, // Mock servers run in background\n    sanitizeResources: false,\n    fn: async () => {\n      const client = await Promise.resolve(factories.happy());\n\n      const result = await client.receive([\"store://users/alice/profile\", {\n        name: \"Alice\",\n        email: \"alice@example.com\",\n      }]);\n\n      assertEquals(result.accepted, true);\n\n      const readResult = await client.read(\"store://users/alice/profile\");\n\n      assertEquals(readResult.success, true);\n      assertEquals(readResult.record?.data, {\n        name: \"Alice\",\n        email: \"alice@example.com\",\n      });\n\n      await client.cleanup();\n    },\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 45
@@ -924,8 +924,8 @@
       "theme": "network",
       "backend": "http",
       "status": "passed",
-      "duration": 0,
-      "lastRun": 1770125159652,
+      "duration": 1,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - receive transaction creates timestamp`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const before = Date.now();\n    const result = await client.receive([\"store://users/bob/profile\", {\n      name: \"Bob\",\n    }]);\n    const after = Date.now();\n\n    assertEquals(result.accepted, true);\n\n    // Verify timestamp via read\n    const readResult = await client.read(\"store://users/bob/profile\");\n    assertEquals(readResult.success, true);\n    assertEquals(typeof readResult.record?.ts, \"number\");\n    assertEquals(readResult.record!.ts >= before, true);\n    assertEquals(readResult.record!.ts <= after, true);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 71
@@ -938,7 +938,7 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - read non-existent returns error`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const readResult = await client.read(\"store://users/nobody/profile\");\n\n    assertEquals(readResult.success, false);\n    assertEquals(typeof readResult.error, \"string\");\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 92
@@ -951,8 +951,8 @@
       "backend": "http",
       "status": "passed",
       "duration": 1,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list returns items`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Receive some transactions\n    await client.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await client.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n    await client.receive([\"store://users/charlie/profile\", { name: \"Charlie\" }]);\n\n    const listResult = await client.list(\"store://users\");\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(\n        listResult.data.length >= 3,\n        true,\n        `Expected at least 3 items but got ${listResult.data.length}`,\n      );\n      assertEquals(Array.isArray(listResult.data), true);\n      assertEquals(typeof listResult.pagination.page, \"number\");\n      assertEquals(typeof listResult.pagination.limit, \"number\");\n\n      // Verify actual URIs reference the expected users\n      const uris = listResult.data.map((item: { uri: string }) => item.uri);\n      assertEquals(uris.some((u: string) => u.includes(\"alice\")), true, \"Should include alice\");\n      assertEquals(uris.some((u: string) => u.includes(\"bob\")), true, \"Should include bob\");\n      assertEquals(uris.some((u: string) => u.includes(\"charlie\")), true, \"Should include charlie\");\n\n      // Verify each item has correct structure\n      for (const item of listResult.data) {\n        assertEquals(typeof item.uri, \"string\", \"Each item should have a URI\");\n        assertEquals(\n          [\"file\", \"directory\"].includes(item.type),\n          true,\n          `Item type should be 'file' or 'directory', got '${item.type}'`,\n        );\n      }\n    }\n\n    await client.cleanup();\n  });",
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list returns items`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Use unique prefix to avoid stale data from persistent backends\n    const prefix = `store://users/list-test-${Date.now()}`;\n    await client.receive([`${prefix}/alice/profile`, { name: \"Alice\" }]);\n    await client.receive([`${prefix}/bob/profile`, { name: \"Bob\" }]);\n    await client.receive([`${prefix}/charlie/profile`, { name: \"Charlie\" }]);\n\n    const listResult = await client.list(prefix);\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(listResult.data.length, 3, \"Should return exactly 3 items\");\n      assertEquals(typeof listResult.pagination.page, \"number\");\n      assertEquals(typeof listResult.pagination.limit, \"number\");\n\n      // Verify exact URIs — full stored URIs\n      const uris = listResult.data.map((item) => item.uri).sort();\n      assertEquals(uris, [\n        `${prefix}/alice/profile`,\n        `${prefix}/bob/profile`,\n        `${prefix}/charlie/profile`,\n      ]);\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
       "sourceStartLine": 103
     },
@@ -964,10 +964,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 2,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list with pagination`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Receive multiple transactions\n    for (let i = 0; i < 10; i++) {\n      await client.receive([`store://users/user${i}/profile`, {\n        name: `User ${i}`,\n      }]);\n    }\n\n    const page1 = await client.list(\"store://users\", { page: 1, limit: 5 });\n    assertEquals(page1.success, true);\n    if (page1.success) {\n      assertEquals(page1.pagination.page, 1);\n      assertEquals(page1.pagination.limit, 5);\n      assertEquals(page1.data.length, 5, \"Page 1 should have exactly 5 items\");\n    }\n\n    const page2 = await client.list(\"store://users\", { page: 2, limit: 5 });\n    assertEquals(page2.success, true);\n    if (page2.success) {\n      assertEquals(page2.pagination.page, 2);\n      assertEquals(page2.pagination.limit, 5);\n      assertEquals(page2.data.length >= 5, true, \"Page 2 should have at least 5 items\");\n\n      // Verify pages contain different items (no overlap)\n      const page1Uris = new Set(page1.data.map((item: { uri: string }) => item.uri));\n      const page2Uris = page2.data.map((item: { uri: string }) => item.uri);\n      for (const uri of page2Uris) {\n        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);\n      }\n    }\n\n    await client.cleanup();\n  });",
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list with pagination`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    // Use unique prefix to avoid cross-test pollution\n    for (let i = 0; i < 10; i++) {\n      await client.receive([`store://pagination/user${i}/profile`, {\n        name: `User ${i}`,\n      }]);\n    }\n\n    const page1 = await client.list(\"store://pagination\", { page: 1, limit: 5 });\n    assertEquals(page1.success, true);\n    if (page1.success) {\n      assertEquals(page1.pagination.page, 1);\n      assertEquals(page1.pagination.limit, 5);\n      assertEquals(page1.data.length, 5, \"Page 1 should have exactly 5 items\");\n\n      for (const item of page1.data) {\n        assertEquals(item.uri.startsWith(\"store://pagination/user\"), true, `URI should be full: ${item.uri}`);\n        assertEquals(item.uri.endsWith(\"/profile\"), true, `URI should end with /profile: ${item.uri}`);\n      }\n    }\n\n    const page2 = await client.list(\"store://pagination\", { page: 2, limit: 5 });\n    assertEquals(page2.success, true);\n    if (page2.success) {\n      assertEquals(page2.pagination.page, 2);\n      assertEquals(page2.pagination.limit, 5);\n      assertEquals(page2.data.length, 5, \"Page 2 should have exactly 5 items\");\n\n      // Verify pages contain different items (no overlap)\n      const page1Uris = new Set(page1.data.map((item) => item.uri));\n      const page2Uris = page2.data.map((item) => item.uri);\n      for (const uri of page2Uris) {\n        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);\n      }\n\n      // All 10 items across both pages\n      const allUris = [...page1.data, ...page2.data].map((item) => item.uri).sort();\n      assertEquals(allUris.length, 10);\n      for (let i = 0; i < 10; i++) {\n        assertEquals(\n          allUris.includes(`store://pagination/user${i}/profile`),\n          true,\n          `Should contain user${i}`,\n        );\n      }\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 144
+      "sourceStartLine": 132
     },
     {
       "name": "HttpClient - list with pattern filter",
@@ -977,10 +977,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
-      "source": "  Deno.test(`${suiteName} - list with pattern filter`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.receive([\"store://users/alice/profile\", { name: \"Alice\" }]);\n    await client.receive([\"store://users/bob/profile\", { name: \"Bob\" }]);\n    await client.receive([\"store://users/alice/settings\", { theme: \"dark\" }]);\n\n    const listResult = await client.list(\"store://users\", { pattern: \"alice\" });\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      // Pattern \"alice\" filters at the current list level\n      assertEquals(\n        listResult.data.every((item: { uri: string }) =>\n          item.uri.includes(\"alice\")\n        ),\n        true,\n        \"All items should contain 'alice'\",\n      );\n      assertEquals(listResult.data.length >= 1, true, \"Should return at least 1 alice item\");\n\n      // Verify alice entry is present and bob is excluded\n      const uris = listResult.data.map((item: { uri: string }) => item.uri);\n      assertEquals(uris.some((u: string) => u.includes(\"alice\")), true, \"Should include alice\");\n      assertEquals(\n        uris.every((u: string) => !u.includes(\"bob\")),\n        true,\n        \"Should not include bob\",\n      );\n    }\n\n    await client.cleanup();\n  });",
+      "lastRun": 1770126456005,
+      "source": "  Deno.test(`${suiteName} - list with pattern filter`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const prefix = `store://users/filter-test-${Date.now()}`;\n    await client.receive([`${prefix}/alice/profile`, { name: \"Alice\" }]);\n    await client.receive([`${prefix}/bob/profile`, { name: \"Bob\" }]);\n    await client.receive([`${prefix}/alice/settings`, { theme: \"dark\" }]);\n\n    const listResult = await client.list(prefix, { pattern: \"alice\" });\n\n    assertEquals(listResult.success, true);\n    if (listResult.success) {\n      assertEquals(listResult.data.length, 2, \"Should return exactly 2 alice items\");\n\n      const uris = listResult.data.map((item) => item.uri).sort();\n      assertEquals(uris, [\n        `${prefix}/alice/profile`,\n        `${prefix}/alice/settings`,\n      ]);\n\n      for (const item of listResult.data) {\n        assertEquals(item.uri.includes(\"alice\"), true);\n        assertEquals(item.uri.includes(\"bob\"), false, \"Should not include bob\");\n      }\n    }\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 180
+      "sourceStartLine": 184
     },
     {
       "name": "HttpClient - delete removes item",
@@ -990,10 +990,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - delete removes item`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.receive([\"store://users/temp/data\", { value: 123 }]);\n\n    const deleteResult = await client.delete(\"store://users/temp/data\");\n    assertEquals(deleteResult.success, true);\n\n    const readResult = await client.read(\"store://users/temp/data\");\n    assertEquals(readResult.success, false);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 214
+      "sourceStartLine": 213
     },
     {
       "name": "HttpClient - delete non-existent returns error",
@@ -1003,10 +1003,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - delete non-existent returns error`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const deleteResult = await client.delete(\"store://users/nonexistent/data\");\n    assertEquals(deleteResult.success, false);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 228
+      "sourceStartLine": 227
     },
     {
       "name": "HttpClient - health returns status",
@@ -1016,10 +1016,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test({\n    name: `${suiteName} - health returns status`,\n    sanitizeResources: false,\n    sanitizeOps: false,\n    fn: async () => {\n      const client = await Promise.resolve(factories.happy());\n\n      const health = await client.health();\n\n      assertEquals(typeof health.status, \"string\");\n      assertEquals(\n        [\"healthy\", \"degraded\", \"unhealthy\"].includes(health.status),\n        true,\n      );\n\n      await client.cleanup();\n    },\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 237
+      "sourceStartLine": 236
     },
     {
       "name": "HttpClient - getSchema returns array",
@@ -1029,10 +1029,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - getSchema returns array`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    const schema = await client.getSchema();\n\n    assertEquals(Array.isArray(schema), true);\n\n    await client.cleanup();\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 256
+      "sourceStartLine": 255
     },
     {
       "name": "HttpClient - cleanup does not throw",
@@ -1042,10 +1042,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "  Deno.test(`${suiteName} - cleanup does not throw`, async () => {\n    const client = await Promise.resolve(factories.happy());\n\n    await client.cleanup();\n    assertEquals(true, true);\n  });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 266
+      "sourceStartLine": 265
     },
     {
       "name": "HttpClient - receive and read binary data",
@@ -1055,10 +1055,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "    Deno.test({\n      name: `${suiteName} - receive and read binary data`,\n      sanitizeOps: false,\n      sanitizeResources: false,\n      fn: async () => {\n        const client = await Promise.resolve(factories.happy());\n\n        // Create binary test data (simulating a small PNG header)\n        const binaryData = new Uint8Array([\n          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature\n          0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk\n        ]);\n\n        const result = await client.receive([\n          \"store://files/test-image.png\",\n          binaryData,\n        ]);\n\n        assertEquals(result.accepted, true, \"Binary transaction should be accepted\");\n\n        const readResult = await client.read<Uint8Array>(\n          \"store://files/test-image.png\",\n        );\n\n        assertEquals(readResult.success, true, \"Binary read should succeed\");\n        assertEquals(\n          readResult.record?.data instanceof Uint8Array,\n          true,\n          \"Read data should be Uint8Array\",\n        );\n\n        // Verify binary data integrity\n        const readData = readResult.record?.data as Uint8Array;\n        assertEquals(\n          readData.length,\n          binaryData.length,\n          \"Binary data length should match\",\n        );\n\n        for (let i = 0; i < binaryData.length; i++) {\n          assertEquals(\n            readData[i],\n            binaryData[i],\n            `Byte at position ${i} should match`,\n          );\n        }\n\n        await client.cleanup();\n      },\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 278
+      "sourceStartLine": 277
     },
     {
       "name": "HttpClient - receive and read large binary data",
@@ -1068,10 +1068,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "    Deno.test({\n      name: `${suiteName} - receive and read large binary data`,\n      sanitizeOps: false,\n      sanitizeResources: false,\n      fn: async () => {\n        const client = await Promise.resolve(factories.happy());\n\n        // Create larger binary data (1KB of random-ish bytes)\n        const size = 1024;\n        const binaryData = new Uint8Array(size);\n        for (let i = 0; i < size; i++) {\n          binaryData[i] = i % 256;\n        }\n\n        const result = await client.receive([\n          \"store://files/large-file.bin\",\n          binaryData,\n        ]);\n\n        assertEquals(result.accepted, true, \"Large binary transaction should be accepted\");\n\n        const readResult = await client.read<Uint8Array>(\n          \"store://files/large-file.bin\",\n        );\n\n        assertEquals(readResult.success, true, \"Large binary read should succeed\");\n\n        const readData = readResult.record?.data as Uint8Array;\n        assertEquals(\n          readData.length,\n          binaryData.length,\n          \"Large binary data length should match\",\n        );\n\n        // Verify data integrity\n        let matches = true;\n        for (let i = 0; i < binaryData.length && matches; i++) {\n          if (readData[i] !== binaryData[i]) {\n            matches = false;\n          }\n        }\n        assertEquals(matches, true, \"All bytes should match\");\n\n        await client.cleanup();\n      },\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 329
+      "sourceStartLine": 328
     },
     {
       "name": "HttpClient - delete binary data",
@@ -1081,10 +1081,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "    Deno.test({\n      name: `${suiteName} - delete binary data`,\n      sanitizeOps: false,\n      sanitizeResources: false,\n      fn: async () => {\n        const client = await Promise.resolve(factories.happy());\n\n        const binaryData = new Uint8Array([0x01, 0x02, 0x03, 0x04]);\n\n        await client.receive([\"store://files/temp.bin\", binaryData]);\n\n        const deleteResult = await client.delete(\"store://files/temp.bin\");\n        assertEquals(deleteResult.success, true, \"Binary delete should succeed\");\n\n        const readResult = await client.read(\"store://files/temp.bin\");\n        assertEquals(readResult.success, false, \"Read after delete should fail\");\n\n        await client.cleanup();\n      },\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 376
+      "sourceStartLine": 375
     },
     {
       "name": "HttpClient - validation error on transaction",
@@ -1094,10 +1094,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "    Deno.test(`${suiteName} - validation error on transaction`, async () => {\n      const client = await Promise.resolve(factories.validationError!());\n\n      const result = await client.receive([\"store://users/invalid/data\", {\n        invalid: true,\n      }]);\n\n      assertEquals(result.accepted, false);\n      assertEquals(typeof result.error, \"string\");\n\n      await client.cleanup();\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 400
+      "sourceStartLine": 399
     },
     {
       "name": "HttpClient - connection error handling",
@@ -1107,10 +1107,10 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "    Deno.test(`${suiteName} - connection error handling`, async () => {\n      const client = await Promise.resolve(factories.connectionError!());\n\n      const result = await client.receive([\"store://users/test/data\", {\n        value: 123,\n      }]);\n\n      assertEquals(result.accepted, false);\n      assertEquals(typeof result.error, \"string\");\n\n      const readResult = await client.read(\"store://users/test/data\");\n      assertEquals(readResult.success, false);\n\n      await client.cleanup();\n    });",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/shared-suite.ts",
-      "sourceStartLine": 416
+      "sourceStartLine": 415
     },
     {
       "name": "HttpClient - cleanup servers",
@@ -1120,7 +1120,7 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"HttpClient - cleanup servers\",\n  sanitizeResources: false,  // Servers were created before tests started\n  sanitizeOps: false,\n  fn: async () => {\n    const servers = await serversPromise;\n    await servers.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
       "sourceStartLine": 41
@@ -1133,7 +1133,7 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"HttpClient - custom headers configuration\", () => {\n  const client = new HttpClient({\n    url: \"https://api.example.com\",\n    headers: { \"X-Custom\": \"value\", \"Authorization\": \"Bearer token\" },\n  });\n\n  // Validate construction doesn't throw\n  client.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
       "sourceStartLine": 52
@@ -1146,7 +1146,7 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"HttpClient - instance ID configuration\", () => {\n  const client = new HttpClient({\n    url: \"https://api.example.com\",\n  });\n\n  // Validate construction doesn't throw\n  client.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
       "sourceStartLine": 62
@@ -1159,7 +1159,7 @@
       "backend": "http",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"HttpClient - timeout configuration\", () => {\n  const client = new HttpClient({\n    url: \"https://api.example.com\",\n    timeout: 5000,\n  });\n\n  // Validate construction doesn't throw\n  client.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
       "sourceStartLine": 71
@@ -1172,7 +1172,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary Operations - setup\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    await setup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 63
@@ -1184,8 +1184,8 @@
       "theme": "binary",
       "backend": "other",
       "status": "passed",
-      "duration": 10,
-      "lastRun": 1770125159652,
+      "duration": 11,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - write and read PNG image\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    // PNG file header signature\n    const pngData = new Uint8Array([\n      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,\n      0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,\n      0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10,\n      0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x91, 0x68,\n    ]);\n\n    const result = await client.receive([\"files://images/test.png\", pngData]);\n    assertEquals(result.accepted, true, \"PNG write should succeed\");\n\n    const readResult = await client.read<Uint8Array>(\"files://images/test.png\");\n    assertEquals(readResult.success, true, \"PNG read should succeed\");\n    assertEquals(\n      readResult.record?.data instanceof Uint8Array,\n      true,\n      \"Should return Uint8Array\",\n    );\n\n    const readData = readResult.record?.data as Uint8Array;\n    assertEquals(compareBinary(pngData, readData), true, \"PNG data should match\");\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 72
@@ -1198,7 +1198,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 1,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - write and read JPEG image\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    // JPEG file header signature (SOI + APP0)\n    const jpegData = new Uint8Array([\n      0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46,\n      0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,\n    ]);\n\n    const result = await client.receive([\"files://images/photo.jpg\", jpegData]);\n    assertEquals(result.accepted, true, \"JPEG write should succeed\");\n\n    const readResult = await client.read<Uint8Array>(\"files://images/photo.jpg\");\n    assertEquals(readResult.success, true, \"JPEG read should succeed\");\n\n    const readData = readResult.record?.data as Uint8Array;\n    assertEquals(compareBinary(jpegData, readData), true, \"JPEG data should match\");\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 105
@@ -1210,8 +1210,8 @@
       "theme": "binary",
       "backend": "other",
       "status": "passed",
-      "duration": 0,
-      "lastRun": 1770125159652,
+      "duration": 1,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - write and read WebAssembly module\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    // WASM magic number and version\n    const wasmData = new Uint8Array([\n      0x00, 0x61, 0x73, 0x6D, // Magic: \\0asm\n      0x01, 0x00, 0x00, 0x00, // Version: 1\n      0x01, 0x07, 0x01, 0x60, // Type section\n    ]);\n\n    const result = await client.receive([\"files://modules/app.wasm\", wasmData]);\n    assertEquals(result.accepted, true, \"WASM write should succeed\");\n\n    const readResult = await client.read<Uint8Array>(\"files://modules/app.wasm\");\n    assertEquals(readResult.success, true, \"WASM read should succeed\");\n\n    const readData = readResult.record?.data as Uint8Array;\n    assertEquals(compareBinary(wasmData, readData), true, \"WASM data should match\");\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 131
@@ -1224,7 +1224,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - write and read font file\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    // WOFF2 header\n    const fontData = new Uint8Array([\n      0x77, 0x4F, 0x46, 0x32, // wOF2 signature\n      0x00, 0x01, 0x00, 0x00, // Flavor\n      0x00, 0x00, 0x10, 0x00, // Length\n    ]);\n\n    const result = await client.receive([\"files://fonts/app.woff2\", fontData]);\n    assertEquals(result.accepted, true, \"Font write should succeed\");\n\n    const readResult = await client.read<Uint8Array>(\"files://fonts/app.woff2\");\n    assertEquals(readResult.success, true, \"Font read should succeed\");\n\n    const readData = readResult.record?.data as Uint8Array;\n    assertEquals(compareBinary(fontData, readData), true, \"Font data should match\");\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 158
@@ -1237,7 +1237,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 4,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - write and read large file (10KB)\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    const largeData = createRandomBinary(10 * 1024); // 10KB\n\n    const result = await client.receive([\"files://large/bigfile.bin\", largeData]);\n    assertEquals(result.accepted, true, \"Large file write should succeed\");\n\n    const readResult = await client.read<Uint8Array>(\"files://large/bigfile.bin\");\n    assertEquals(readResult.success, true, \"Large file read should succeed\");\n\n    const readData = readResult.record?.data as Uint8Array;\n    assertEquals(readData.length, largeData.length, \"Large file size should match\");\n    assertEquals(compareBinary(largeData, readData), true, \"Large file data should match\");\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 185
@@ -1250,7 +1250,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 5,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - write and read very large file (100KB)\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    const veryLargeData = createRandomBinary(100 * 1024); // 100KB\n\n    const result = await client.receive([\"files://large/verybig.bin\", veryLargeData]);\n    assertEquals(result.accepted, true, \"Very large file write should succeed\");\n\n    const readResult = await client.read<Uint8Array>(\"files://large/verybig.bin\");\n    assertEquals(readResult.success, true, \"Very large file read should succeed\");\n\n    const readData = readResult.record?.data as Uint8Array;\n    assertEquals(readData.length, veryLargeData.length, \"Very large file size should match\");\n    assertEquals(compareBinary(veryLargeData, readData), true, \"Very large file data should match\");\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 208
@@ -1262,8 +1262,8 @@
       "theme": "binary",
       "backend": "other",
       "status": "passed",
-      "duration": 1,
-      "lastRun": 1770125159652,
+      "duration": 0,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - write empty binary data\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    const emptyData = new Uint8Array(0);\n\n    const result = await client.receive([\"files://empty/zero.bin\", emptyData]);\n    assertEquals(result.accepted, true, \"Empty binary write should succeed\");\n\n    const readResult = await client.read<Uint8Array>(\"files://empty/zero.bin\");\n    assertEquals(readResult.success, true, \"Empty binary read should succeed\");\n\n    const readData = readResult.record?.data as Uint8Array;\n    assertEquals(readData.length, 0, \"Empty binary should have zero length\");\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 231
@@ -1276,7 +1276,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 1,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - overwrite existing binary file\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    const originalData = new Uint8Array([0x01, 0x02, 0x03]);\n    const newData = new Uint8Array([0x04, 0x05, 0x06, 0x07, 0x08]);\n\n    // Write original\n    await client.receive([\"files://overwrite/test.bin\", originalData]);\n\n    // Overwrite with new data\n    const result = await client.receive([\"files://overwrite/test.bin\", newData]);\n    assertEquals(result.accepted, true, \"Overwrite should succeed\");\n\n    // Read back\n    const readResult = await client.read<Uint8Array>(\"files://overwrite/test.bin\");\n    assertEquals(readResult.success, true, \"Read after overwrite should succeed\");\n\n    const readData = readResult.record?.data as Uint8Array;\n    assertEquals(compareBinary(newData, readData), true, \"Should return new data\");\n    assertEquals(readData.length, newData.length, \"Should have new data length\");\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 253
@@ -1288,8 +1288,8 @@
       "theme": "binary",
       "backend": "other",
       "status": "passed",
-      "duration": 1,
-      "lastRun": 1770125159652,
+      "duration": 0,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - delete binary file\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    const data = new Uint8Array([0xDE, 0xAD, 0xBE, 0xEF]);\n\n    await client.receive([\"files://delete/temp.bin\", data]);\n\n    const deleteResult = await client.delete(\"files://delete/temp.bin\");\n    assertEquals(deleteResult.success, true, \"Delete should succeed\");\n\n    const readResult = await client.read(\"files://delete/temp.bin\");\n    assertEquals(readResult.success, false, \"Read after delete should fail\");\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 282
@@ -1302,7 +1302,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 1,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - multiple files in same directory\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    const file1 = new Uint8Array([0x01, 0x01, 0x01]);\n    const file2 = new Uint8Array([0x02, 0x02, 0x02]);\n    const file3 = new Uint8Array([0x03, 0x03, 0x03]);\n\n    await client.receive([\"files://multi/a.bin\", file1]);\n    await client.receive([\"files://multi/b.bin\", file2]);\n    await client.receive([\"files://multi/c.bin\", file3]);\n\n    const read1 = await client.read<Uint8Array>(\"files://multi/a.bin\");\n    const read2 = await client.read<Uint8Array>(\"files://multi/b.bin\");\n    const read3 = await client.read<Uint8Array>(\"files://multi/c.bin\");\n\n    assertEquals(read1.success, true);\n    assertEquals(read2.success, true);\n    assertEquals(read3.success, true);\n\n    assertEquals(compareBinary(file1, read1.record?.data as Uint8Array), true);\n    assertEquals(compareBinary(file2, read2.record?.data as Uint8Array), true);\n    assertEquals(compareBinary(file3, read3.record?.data as Uint8Array), true);\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 303
@@ -1314,8 +1314,8 @@
       "theme": "binary",
       "backend": "other",
       "status": "passed",
-      "duration": 1,
-      "lastRun": 1770125159652,
+      "duration": 0,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary - mixed JSON and binary operations\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    const client = createClient();\n\n    // Write JSON data\n    const jsonData = { name: \"test\", value: 42 };\n    const jsonResult = await client.receive([\"store://mixed/data.json\", jsonData]);\n    assertEquals(jsonResult.accepted, true, \"JSON write should succeed\");\n\n    // Write binary data\n    const binaryData = new Uint8Array([0xCA, 0xFE, 0xBA, 0xBE]);\n    const binaryResult = await client.receive([\"store://mixed/data.bin\", binaryData]);\n    assertEquals(binaryResult.accepted, true, \"Binary write should succeed\");\n\n    // Read JSON back\n    const jsonRead = await client.read<typeof jsonData>(\"store://mixed/data.json\");\n    assertEquals(jsonRead.success, true, \"JSON read should succeed\");\n    assertEquals(jsonRead.record?.data, jsonData, \"JSON data should match\");\n\n    // Read binary back\n    const binaryRead = await client.read<Uint8Array>(\"store://mixed/data.bin\");\n    assertEquals(binaryRead.success, true, \"Binary read should succeed\");\n    assertEquals(\n      compareBinary(binaryData, binaryRead.record?.data as Uint8Array),\n      true,\n      \"Binary data should match\",\n    );\n\n    await client.cleanup();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 334
@@ -1328,7 +1328,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test({\n  name: \"Binary Operations - teardown\",\n  sanitizeOps: false,\n  sanitizeResources: false,\n  fn: async () => {\n    await teardown();\n  },\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
       "sourceStartLine": 369
@@ -1341,7 +1341,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 1,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"generateSessionKeypair - creates valid Ed25519 keypair\", async () => {\n  const session = await generateSessionKeypair();\n\n  // Check structure\n  assertEquals(typeof session.publicKeyHex, \"string\");\n  assertEquals(typeof session.privateKeyHex, \"string\");\n\n  // Ed25519 public keys are 32 bytes = 64 hex chars\n  assertEquals(session.publicKeyHex.length, 64);\n\n  // Verify the keypair works for signing\n  const testPayload = { message: \"test\" };\n  const signature = await signWithHex(session.privateKeyHex, testPayload);\n  const verified = await verify(session.publicKeyHex, signature, testPayload);\n\n  assertEquals(verified, true);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 25
@@ -1354,7 +1354,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"generateSessionKeypair - creates unique keypairs\", async () => {\n  const session1 = await generateSessionKeypair();\n  const session2 = await generateSessionKeypair();\n\n  // Each call should generate a different keypair\n  assertEquals(session1.publicKeyHex !== session2.publicKeyHex, true);\n  assertEquals(session1.privateKeyHex !== session2.privateKeyHex, true);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 43
@@ -1366,8 +1366,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 29,
-      "lastRun": 1770125159652,
+      "duration": 28,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryWalletClient - signup works with approved session\", async () => {\n  const appKey = await createTestAppKey();\n  const backend = new MemoryClient({\n    schema: {\n      \"mutable://accounts\": async () => ({ valid: true }),\n      \"immutable://accounts\": async () => ({ valid: true }),\n    },\n  });\n\n  const wallet = await MemoryWalletClient.create({ backend });\n\n  // Generate and approve session before signup\n  const sessionKeypair = await generateSessionKeypair();\n  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;\n  await backend.receive([sessionUri, 1]);\n\n  const session = await wallet.signup(appKey, sessionKeypair, {\n    type: 'password',\n    username: \"testuser\",\n    password: \"testpass123\",\n  });\n\n  assertEquals(typeof session.token, \"string\");\n  assertEquals(session.username, \"testuser\");\n  assertEquals(typeof session.expiresIn, \"number\");\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 52
@@ -1380,7 +1380,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 1,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryWalletClient - signup fails without session approval\", async () => {\n  const appKey = await createTestAppKey();\n  const backend = new MemoryClient({\n    schema: {\n      \"mutable://accounts\": async () => ({ valid: true }),\n      \"immutable://accounts\": async () => ({ valid: true }),\n    },\n  });\n\n  const wallet = await MemoryWalletClient.create({ backend });\n\n  // Generate session but don't approve it\n  const sessionKeypair = await generateSessionKeypair();\n\n  // Signup should fail - session not approved\n  await assertRejects(\n    async () => {\n      await wallet.signup(appKey, sessionKeypair, {\n        type: 'password',\n        username: \"testuser\",\n        password: \"testpass123\",\n      });\n    },\n    Error,\n    \"not approved\",\n  );\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 79
@@ -1393,7 +1393,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 24,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryWalletClient - login fails without session approval\", async () => {\n  const appKey = await createTestAppKey();\n  const backend = new MemoryClient({\n    schema: {\n      \"mutable://accounts\": async () => ({ valid: true }),\n      \"immutable://accounts\": async () => ({ valid: true }),\n    },\n  });\n\n  const wallet = await MemoryWalletClient.create({ backend });\n\n  // First signup with approved session\n  const signupSession = await generateSessionKeypair();\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1]);\n  await wallet.signup(appKey, signupSession, {\n    type: 'password',\n    username: \"testuser\",\n    password: \"testpass123\",\n  });\n  wallet.logout();\n\n  // Generate session but don't approve it\n  const sessionKeypair = await generateSessionKeypair();\n\n  // Login should fail - session not approved\n  await assertRejects(\n    async () => {\n      await wallet.login(appKey, sessionKeypair, {\n        type: 'password',\n        username: \"testuser\",\n        password: \"testpass123\",\n      });\n    },\n    Error,\n    \"not approved\",\n  );\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 107
@@ -1405,8 +1405,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 63,
-      "lastRun": 1770125159652,
+      "duration": 44,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryWalletClient - login succeeds with approved session\", async () => {\n  const appKey = await createTestAppKey();\n  const backend = new MemoryClient({\n    schema: {\n      \"mutable://accounts\": async () => ({ valid: true }),\n      \"immutable://accounts\": async () => ({ valid: true }),\n    },\n  });\n\n  const wallet = await MemoryWalletClient.create({ backend });\n\n  // First signup with approved session\n  const signupSession = await generateSessionKeypair();\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1]);\n  await wallet.signup(appKey, signupSession, {\n    type: 'password',\n    username: \"testuser\",\n    password: \"testpass123\",\n  });\n  wallet.logout();\n\n  // Generate session and approve it\n  const sessionKeypair = await generateSessionKeypair();\n  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;\n  await backend.receive([sessionUri, 1]); // Approve session\n\n  // Login should succeed\n  const session = await wallet.login(appKey, sessionKeypair, {\n    type: 'password',\n    username: \"testuser\",\n    password: \"testpass123\",\n  });\n\n  assertEquals(typeof session.token, \"string\");\n  assertEquals(session.username, \"testuser\");\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 145
@@ -1418,8 +1418,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 24,
-      "lastRun": 1770125159652,
+      "duration": 23,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryWalletClient - login fails with revoked session\", async () => {\n  const appKey = await createTestAppKey();\n  const backend = new MemoryClient({\n    schema: {\n      \"mutable://accounts\": async () => ({ valid: true }),\n      \"immutable://accounts\": async () => ({ valid: true }),\n    },\n  });\n\n  const wallet = await MemoryWalletClient.create({ backend });\n\n  // First signup with approved session\n  const signupSession = await generateSessionKeypair();\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1]);\n  await wallet.signup(appKey, signupSession, {\n    type: 'password',\n    username: \"testuser\",\n    password: \"testpass123\",\n  });\n  wallet.logout();\n\n  // Generate session and set it as revoked (0)\n  const sessionKeypair = await generateSessionKeypair();\n  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;\n  await backend.receive([sessionUri, 0]); // Revoked session\n\n  // Login should fail - session revoked\n  await assertRejects(\n    async () => {\n      await wallet.login(appKey, sessionKeypair, {\n        type: 'password',\n        username: \"testuser\",\n        password: \"testpass123\",\n      });\n    },\n    Error,\n    \"revoked\",\n  );\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 182
@@ -1431,8 +1431,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 57,
-      "lastRun": 1770125159652,
+      "duration": 44,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryWalletClient - login fails with wrong password\", async () => {\n  const appKey = await createTestAppKey();\n  const backend = new MemoryClient({\n    schema: {\n      \"mutable://accounts\": async () => ({ valid: true }),\n      \"immutable://accounts\": async () => ({ valid: true }),\n    },\n  });\n\n  const wallet = await MemoryWalletClient.create({ backend });\n\n  // First signup with approved session\n  const signupSession = await generateSessionKeypair();\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1]);\n  await wallet.signup(appKey, signupSession, {\n    type: 'password',\n    username: \"testuser\",\n    password: \"testpass123\",\n  });\n  wallet.logout();\n\n  // Generate and approve session\n  const sessionKeypair = await generateSessionKeypair();\n  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;\n  await backend.receive([sessionUri, 1]);\n\n  // Login should fail - wrong password\n  await assertRejects(\n    async () => {\n      await wallet.login(appKey, sessionKeypair, {\n        type: 'password',\n        username: \"testuser\",\n        password: \"wrongpassword\",\n      });\n    },\n    Error,\n  );\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 222
@@ -1444,8 +1444,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 23,
-      "lastRun": 1770125159652,
+      "duration": 22,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryWalletClient - session signature is validated\", async () => {\n  const appKey = await createTestAppKey();\n  const backend = new MemoryClient({\n    schema: {\n      \"mutable://accounts\": async () => ({ valid: true }),\n      \"immutable://accounts\": async () => ({ valid: true }),\n    },\n  });\n\n  const wallet = await MemoryWalletClient.create({ backend });\n\n  // First signup with approved session\n  const signupSession = await generateSessionKeypair();\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1]);\n  await wallet.signup(appKey, signupSession, {\n    type: 'password',\n    username: \"testuser\",\n    password: \"testpass123\",\n  });\n  wallet.logout();\n\n  // Generate two different sessions\n  const sessionKeypair1 = await generateSessionKeypair();\n  const sessionKeypair2 = await generateSessionKeypair();\n\n  // Only approve session1\n  const sessionUri1 = `mutable://accounts/${appKey}/sessions/${sessionKeypair1.publicKeyHex}`;\n  await backend.receive([sessionUri1, 1]);\n\n  // Try to login with session1's pubkey but session2's private key (wrong signature)\n  const fakeKeypair = {\n    publicKeyHex: sessionKeypair1.publicKeyHex,\n    privateKeyHex: sessionKeypair2.privateKeyHex, // Wrong private key!\n  };\n\n  await assertRejects(\n    async () => {\n      await wallet.login(appKey, fakeKeypair, {\n        type: 'password',\n        username: \"testuser\",\n        password: \"testpass123\",\n      });\n    },\n    Error,\n    \"signature\",\n  );\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 261
@@ -1457,8 +1457,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 26,
-      "lastRun": 1770125159652,
+      "duration": 25,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"MemoryWalletClient - proxyWrite/proxyRead work after login\", async () => {\n  const appKey = await createTestAppKey();\n  const backend = new MemoryClient({\n    schema: {\n      \"mutable://accounts\": async () => ({ valid: true }),\n      \"immutable://accounts\": async () => ({ valid: true }),\n      \"mutable://data\": async () => ({ valid: true }),\n    },\n  });\n\n  const wallet = await MemoryWalletClient.create({ backend });\n\n  // Signup with approved session\n  const signupKeypair = await generateSessionKeypair();\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${signupKeypair.publicKeyHex}`, 1]);\n  const signupSession = await wallet.signup(appKey, signupKeypair, {\n    type: 'password',\n    username: \"testuser\",\n    password: \"testpass123\",\n  });\n  wallet.setSession(signupSession);\n\n  // Get keys\n  const keys = await wallet.getPublicKeys(appKey);\n  assertEquals(typeof keys.accountPublicKeyHex, \"string\");\n  assertEquals(typeof keys.encryptionPublicKeyHex, \"string\");\n\n  // Write via proxy\n  const writeUri = `mutable://data/${keys.accountPublicKeyHex}/profile`;\n  const writeResult = await wallet.proxyWrite({\n    uri: writeUri,\n    data: { name: \"Test User\" },\n    encrypt: false,\n  });\n  assertEquals(writeResult.success, true);\n\n  // Read via proxy\n  const readResult = await wallet.proxyRead({ uri: writeUri });\n  assertEquals(readResult.success, true);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 309
@@ -1470,8 +1470,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 49,
-      "lastRun": 1770125159652,
+      "duration": 47,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"createTestEnvironment - loginTestUser generates and approves session\", async () => {\n  const { createTestEnvironment } = await import(\"../wallet/testing.ts\");\n\n  const env = await createTestEnvironment();\n  const appKey = await createTestAppKey();\n\n  // Signup first\n  await env.signupTestUser(appKey, \"alice\", \"alicepass123\");\n  env.wallet.logout();\n\n  // loginTestUser should work (generates + approves session internally)\n  const { session, keys, sessionKeypair } = await env.loginTestUser(\n    appKey,\n    \"alice\",\n    \"alicepass123\"\n  );\n\n  assertEquals(typeof session.token, \"string\");\n  assertEquals(session.username, \"alice\");\n  assertEquals(typeof keys.accountPublicKeyHex, \"string\");\n  assertEquals(typeof sessionKeypair.publicKeyHex, \"string\");\n\n  await env.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 350
@@ -1483,8 +1483,8 @@
       "theme": "auth",
       "backend": "other",
       "status": "passed",
-      "duration": 89,
-      "lastRun": 1770125159652,
+      "duration": 87,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"session flow - full authentication cycle\", async () => {\n  const appKey = await createTestAppKey();\n  const backend = new MemoryClient({\n    schema: {\n      \"mutable://accounts\": async () => ({ valid: true }),\n      \"immutable://accounts\": async () => ({ valid: true }),\n    },\n  });\n\n  const wallet = await MemoryWalletClient.create({ backend });\n\n  // 1. Signup (requires approved session)\n  const signupSession = await generateSessionKeypair();\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${signupSession.publicKeyHex}`, 1]);\n  const signupResult = await wallet.signup(appKey, signupSession, {\n    type: 'password',\n    username: \"fulltest\",\n    password: \"fullpass123\",\n  });\n  assertEquals(signupResult.username, \"fulltest\");\n  wallet.logout();\n\n  // 2. Generate session keypair\n  const session1 = await generateSessionKeypair();\n\n  // 3. Approve session (simulates app server approval)\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${session1.publicKeyHex}`, 1]);\n\n  // 4. Login with approved session\n  const loginResult = await wallet.login(appKey, session1, {\n    type: 'password',\n    username: \"fulltest\",\n    password: \"fullpass123\",\n  });\n  assertEquals(loginResult.username, \"fulltest\");\n\n  // 5. Session can be reused multiple times\n  wallet.logout();\n  const loginResult2 = await wallet.login(appKey, session1, {\n    type: 'password',\n    username: \"fulltest\",\n    password: \"fullpass123\",\n  });\n  assertEquals(loginResult2.username, \"fulltest\");\n\n  // 6. Revoke session\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${session1.publicKeyHex}`, 0]);\n\n  // 7. Login fails with revoked session\n  wallet.logout();\n  await assertRejects(\n    async () => {\n      await wallet.login(appKey, session1, {\n        type: 'password',\n        username: \"fulltest\",\n        password: \"fullpass123\",\n      });\n    },\n    Error,\n    \"revoked\",\n  );\n\n  // 8. New session works\n  const session2 = await generateSessionKeypair();\n  await backend.receive([`mutable://accounts/${appKey}/sessions/${session2.publicKeyHex}`, 1]);\n\n  const loginResult3 = await wallet.login(appKey, session2, {\n    type: 'password',\n    username: \"fulltest\",\n    password: \"fullpass123\",\n  });\n  assertEquals(loginResult3.username, \"fulltest\");\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
       "sourceStartLine": 375
@@ -1497,7 +1497,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"createTransactionNode - accepts valid transaction\", async () => {\n  const validator: TransactionValidator = async () => ({ valid: true });\n\n  const storage = new MemoryClient({\n    schema: { \"txn://alice\": async () => ({ valid: true }) },\n  });\n\n  const node = createTransactionNode({\n    validate: validator,\n    read: storage,\n    peers: [storage],\n  });\n\n  const result = await node.receive([\n    \"txn://alice/transfer/42\",\n    { amount: 100 },\n  ]);\n\n  assertEquals(result.accepted, true);\n  assertEquals(result.error, undefined);\n\n  // Verify transaction was stored\n  const stored = await storage.read(\"txn://alice/transfer/42\");\n  assertEquals(stored.success, true);\n  assertEquals(stored.record?.data, { amount: 100 });\n\n  await node.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 22
@@ -1510,7 +1510,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"createTransactionNode - rejects invalid transaction\", async () => {\n  const validator: TransactionValidator = async () => ({\n    valid: false,\n    error: \"insufficient_balance\",\n  });\n\n  const storage = new MemoryClient({\n    schema: { \"txn://alice\": async () => ({ valid: true }) },\n  });\n\n  const node = createTransactionNode({\n    validate: validator,\n    read: storage,\n    peers: [storage],\n  });\n\n  const result = await node.receive([\n    \"txn://alice/transfer/42\",\n    { amount: 100 },\n  ]);\n\n  assertEquals(result.accepted, false);\n  assertEquals(result.error, \"insufficient_balance\");\n\n  // Verify transaction was NOT stored\n  const stored = await storage.read(\"txn://alice/transfer/42\");\n  assertEquals(stored.success, false);\n\n  await node.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 51
@@ -1523,7 +1523,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 6,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"createTransactionNode - validator can read state\", async () => {\n  const storage = new MemoryClient({\n    schema: {\n      \"txn://alice\": async () => ({ valid: true }),\n      \"accounts://balances\": async () => ({ valid: true }),\n    },\n  });\n\n  // Pre-populate balance\n  await storage.receive([\"accounts://balances/alice\", { balance: 50 }]);\n\n  const validator: TransactionValidator<{ amount: number }> = async (tx, read) => {\n    const [, data] = tx;\n    const balance = await read<{ balance: number }>(\"accounts://balances/alice\");\n\n    if (!balance.success || balance.record!.data.balance < data.amount) {\n      return { valid: false, error: \"insufficient_balance\" };\n    }\n    return { valid: true };\n  };\n\n  const node = createTransactionNode({\n    validate: validator,\n    read: storage,\n    peers: [storage],\n  });\n\n  // Try to transfer more than balance\n  const result1 = await node.receive([\n    \"txn://alice/transfer/1\",\n    { amount: 100 },\n  ]);\n  assertEquals(result1.accepted, false);\n  assertEquals(result1.error, \"insufficient_balance\");\n\n  // Transfer within balance\n  const result2 = await node.receive([\n    \"txn://alice/transfer/2\",\n    { amount: 25 },\n  ]);\n  assertEquals(result2.accepted, true);\n\n  await node.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 82
@@ -1536,7 +1536,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"createTransactionNode - propagates to multiple peers\", async () => {\n  const peer1 = new MemoryClient({\n    schema: { \"txn://alice\": async () => ({ valid: true }) },\n  });\n  const peer2 = new MemoryClient({\n    schema: { \"txn://alice\": async () => ({ valid: true }) },\n  });\n\n  const node = createTransactionNode({\n    validate: async () => ({ valid: true }),\n    read: peer1,\n    peers: [peer1, peer2],\n  });\n\n  const result = await node.receive([\n    \"txn://alice/transfer/42\",\n    { amount: 100 },\n  ]);\n\n  assertEquals(result.accepted, true);\n\n  // Verify both peers received the transaction\n  const stored1 = await peer1.read(\"txn://alice/transfer/42\");\n  const stored2 = await peer2.read(\"txn://alice/transfer/42\");\n\n  assertEquals(stored1.success, true);\n  assertEquals(stored2.success, true);\n  assertEquals(stored1.record?.data, { amount: 100 });\n  assertEquals(stored2.record?.data, { amount: 100 });\n\n  await node.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 127
@@ -1549,7 +1549,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"createTransactionNode - rejects transaction without URI\", async () => {\n  const storage = new MemoryClient({\n    schema: { \"txn://alice\": async () => ({ valid: true }) },\n  });\n\n  const node = createTransactionNode({\n    validate: async () => ({ valid: true }),\n    read: storage,\n    peers: [storage],\n  });\n\n  const result = await node.receive([\"\", { amount: 100 }]);\n\n  assertEquals(result.accepted, false);\n  assertEquals(result.error, \"Transaction URI is required\");\n\n  await node.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 160
@@ -1562,7 +1562,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"extractProgram - extracts protocol://hostname\", () => {\n  assertEquals(extractProgram(\"immutable://blob/abc123\"), \"immutable://blob\");\n  assertEquals(extractProgram(\"mutable://accounts/alice/profile\"), \"mutable://accounts\");\n  assertEquals(extractProgram(\"txn://firecat/block/1000\"), \"txn://firecat\");\n  assertEquals(extractProgram(\"utxo://alice/1\"), \"utxo://alice\");\n  assertEquals(extractProgram(\"fees://pool\"), \"fees://pool\");\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 183
@@ -1575,7 +1575,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"extractProgram - returns null for invalid URIs\", () => {\n  assertEquals(extractProgram(\"not-a-uri\"), null);\n  assertEquals(extractProgram(\"\"), null);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 191
@@ -1588,7 +1588,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"createOutputValidator - validates outputs against schema\", async () => {\n  const validator = createOutputValidator({\n    schema: {\n      \"utxo://bob\": async () => ({ valid: true }),\n      \"utxo://alice\": async () => ({ valid: true }),\n      \"fees://pool\": async (ctx) => {\n        if (typeof ctx.value !== \"number\" || ctx.value < 1) {\n          return { valid: false, error: \"fee must be at least 1\" };\n        }\n        return { valid: true };\n      },\n    },\n  });\n\n  // Valid transaction\n  const validTx: StateTransaction<number> = [\n    \"txn://alice/transfer/42\",\n    {\n      inputs: [\"utxo://alice/1\"],\n      outputs: [\n        [\"utxo://bob/99\", 50],\n        [\"utxo://alice/2\", 30],\n        [\"fees://pool\", 1],\n      ],\n    },\n  ];\n\n  const read = async () => ({ success: false, error: \"not found\" });\n  const result1 = await validator(validTx, read);\n  assertEquals(result1.valid, true);\n\n  // Invalid transaction (fee too low)\n  const invalidTx: StateTransaction<number> = [\n    \"txn://alice/transfer/43\",\n    {\n      inputs: [\"utxo://alice/1\"],\n      outputs: [\n        [\"utxo://bob/99\", 50],\n        [\"fees://pool\", 0], // Invalid: fee is 0\n      ],\n    },\n  ];\n\n  const result2 = await validator(invalidTx, read);\n  assertEquals(result2.valid, false);\n  assertEquals(result2.error, \"fees://pool: fee must be at least 1\");\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 196
@@ -1601,7 +1601,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"createOutputValidator - provides cross-output access\", async () => {\n  // Fee validator that requires fee based on blob size\n  const validator = createOutputValidator<unknown>({\n    schema: {\n      \"immutable://blob\": async (ctx) => {\n        // Check for fee output in the same transaction\n        const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith(\"fees://\"));\n        if (!feeOutput) {\n          return { valid: false, error: \"fee_required\" };\n        }\n\n        const blobSize = JSON.stringify(ctx.value).length;\n        const requiredFee = Math.ceil(blobSize / 100); // 1 per 100 bytes\n\n        if ((feeOutput[1] as number) < requiredFee) {\n          return { valid: false, error: `insufficient_fee: need ${requiredFee}` };\n        }\n\n        return { valid: true };\n      },\n      \"fees://pool\": async () => ({ valid: true }),\n    },\n  });\n\n  const read = async () => ({ success: false, error: \"not found\" });\n\n  // Valid: blob with sufficient fee\n  const validTx: StateTransaction<unknown> = [\n    \"txn://alice/store/1\",\n    {\n      inputs: [],\n      outputs: [\n        [\"immutable://blob/abc123\", { data: \"hello world\" }], // ~30 bytes\n        [\"fees://pool\", 1],\n      ],\n    },\n  ];\n  const result1 = await validator(validTx, read);\n  assertEquals(result1.valid, true);\n\n  // Invalid: blob without fee\n  const noFeeTx: StateTransaction<unknown> = [\n    \"txn://alice/store/2\",\n    {\n      inputs: [],\n      outputs: [[\"immutable://blob/def456\", { data: \"hello\" }]],\n    },\n  ];\n  const result2 = await validator(noFeeTx, read);\n  assertEquals(result2.valid, false);\n  assertEquals(result2.error, \"immutable://blob: fee_required\");\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 244
@@ -1614,7 +1614,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"createOutputValidator - with preValidate\", async () => {\n  const validator = createOutputValidator({\n    schema: {\n      \"utxo://test\": async () => ({ valid: true }),\n    },\n    preValidate: async (tx) => {\n      const [, data] = tx;\n      if (!(\"sig\" in data)) {\n        return { valid: false, error: \"signature_required\" };\n      }\n      return { valid: true };\n    },\n  });\n\n  const read = async () => ({ success: false, error: \"not found\" });\n\n  // Missing signature\n  const noSigTx: StateTransaction & { sig?: string } = [\n    \"txn://alice/1\",\n    {\n      inputs: [],\n      outputs: [[\"utxo://test/1\", 100]],\n    },\n  ];\n  const result1 = await validator(noSigTx as any, read);\n  assertEquals(result1.valid, false);\n  assertEquals(result1.error, \"signature_required\");\n\n  // With signature\n  const withSigTx = [\n    \"txn://alice/2\",\n    {\n      sig: \"abc123\",\n      inputs: [],\n      outputs: [[\"utxo://test/2\", 100]],\n    },\n  ] as const;\n  const result2 = await validator(withSigTx as any, read);\n  assertEquals(result2.valid, true);\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 297
@@ -1627,7 +1627,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"combineValidators - all must pass\", async () => {\n  const v1: TransactionValidator = async () => ({ valid: true });\n  const v2: TransactionValidator = async () => ({ valid: true });\n  const v3: TransactionValidator = async () => ({\n    valid: false,\n    error: \"v3_failed\",\n  });\n\n  const read = async () => ({ success: false, error: \"not found\" });\n\n  // All pass\n  const combined1 = combineValidators(v1, v2);\n  const result1 = await combined1([\"txn://test/1\", {}], read);\n  assertEquals(result1.valid, true);\n\n  // One fails\n  const combined2 = combineValidators(v1, v3, v2);\n  const result2 = await combined2([\"txn://test/2\", {}], read);\n  assertEquals(result2.valid, false);\n  assertEquals(result2.error, \"v3_failed\");\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 338
@@ -1640,7 +1640,7 @@
       "backend": "other",
       "status": "passed",
       "duration": 0,
-      "lastRun": 1770125159652,
+      "lastRun": 1770126456005,
       "source": "Deno.test(\"integration - transaction node with output validator\", async () => {\n  const storage = new MemoryClient({\n    schema: {\n      \"txn://transfers\": async () => ({ valid: true }),\n      \"utxo://alice\": async () => ({ valid: true }),\n      \"utxo://bob\": async () => ({ valid: true }),\n    },\n  });\n\n  // Pre-populate UTXOs\n  await storage.receive([\"utxo://alice/1\", { amount: 100 }]);\n\n  const validator = createOutputValidator<number>({\n    schema: {\n      \"utxo://alice\": async (ctx) => {\n        // Check that we're not creating money out of thin air\n        if (ctx.value < 0) {\n          return { valid: false, error: \"negative_amount\" };\n        }\n        return { valid: true };\n      },\n      \"utxo://bob\": async (ctx) => {\n        if (ctx.value < 0) {\n          return { valid: false, error: \"negative_amount\" };\n        }\n        return { valid: true };\n      },\n    },\n    preValidate: async (tx, read) => {\n      const [, data] = tx;\n\n      // Sum inputs\n      let inputSum = 0;\n      for (const inputUri of data.inputs) {\n        const input = await read<{ amount: number }>(inputUri);\n        if (input.success && input.record) {\n          inputSum += input.record.data.amount;\n        }\n      }\n\n      // Sum outputs\n      const outputSum = data.outputs.reduce((sum, [, value]) => sum + (value as number), 0);\n\n      // Inputs must cover outputs (conservation)\n      if (outputSum > inputSum) {\n        return { valid: false, error: \"outputs_exceed_inputs\" };\n      }\n\n      return { valid: true };\n    },\n  });\n\n  const node = createTransactionNode({\n    validate: validator,\n    read: storage,\n    peers: [storage],\n  });\n\n  // Valid transfer: 100 in, 50 + 50 out\n  const validTx: StateTransaction<number> = [\n    \"txn://transfers/1\",\n    {\n      inputs: [\"utxo://alice/1\"],\n      outputs: [\n        [\"utxo://bob/1\", 50],\n        [\"utxo://alice/2\", 50],\n      ],\n    },\n  ];\n\n  const result1 = await node.receive(validTx);\n  assertEquals(result1.accepted, true);\n\n  // Invalid transfer: trying to create money\n  const invalidTx: StateTransaction<number> = [\n    \"txn://transfers/2\",\n    {\n      inputs: [\"utxo://alice/2\"], // Only 50 available\n      outputs: [\n        [\"utxo://bob/2\", 100], // Trying to send 100\n      ],\n    },\n  ];\n\n  // First, store alice/2 with value 50\n  await storage.receive([\"utxo://alice/2\", { amount: 50 }]);\n\n  const result2 = await node.receive(invalidTx);\n  assertEquals(result2.accepted, false);\n  assertEquals(result2.error, \"outputs_exceed_inputs\");\n\n  await node.cleanup();\n});",
       "sourceFile": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
       "sourceStartLine": 364

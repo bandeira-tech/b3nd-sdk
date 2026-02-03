@@ -19,6 +19,7 @@ runSharedSuite("MemoryClient", {
       schema: {
         "store://users": async () => ({ valid: true }),
         "store://files": async () => ({ valid: true }),
+        "store://pagination": async () => ({ valid: true }),
       },
     }),
 

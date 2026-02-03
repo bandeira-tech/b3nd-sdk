@@ -255,12 +255,8 @@ export class IndexedDBClient {
             if (record.uri.startsWith(uri)) {
               // Apply pattern filter if specified
               if (!pattern || record.uri.includes(pattern)) {
-                // Determine if this is a directory or file
-                const isDirectory = this.hasChildren(record.uri);
-
                 items.push({
                   uri: record.uri,
-                  type: isDirectory ? "directory" : "file",
                 });
               }
             }

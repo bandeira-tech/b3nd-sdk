@@ -213,13 +213,8 @@ export class LocalStorageClient implements NodeProtocolInterface, Node {
             continue;
           }
 
-          // Determine if this is a directory or file
-          // If there are other keys that start with this key + "/", it's a directory
-          const isDirectory = this.hasChildren(uri);
-
           items.push({
             uri,
-            type: isDirectory ? "directory" : "file",
           });
         }
       }

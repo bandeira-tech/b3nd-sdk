@@ -113,13 +113,8 @@ export class MemoryClient {
             continue;
           }
 
-          // Determine if this is a file or directory
-          const relativePath = key.slice(prefix.length);
-          const hasNestedPath = relativePath.includes("/");
-          // TODO, and thus should list only the next level nodes
           items.push({
             uri,
-            type: hasNestedPath ? "directory" : "file",
           });
         }
       }
