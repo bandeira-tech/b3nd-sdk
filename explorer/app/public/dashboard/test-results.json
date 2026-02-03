@@ -1,0 +1,1032 @@
+{
+  "version": "1.0",
+  "generatedAt": 1770122462380,
+  "runMetadata": {
+    "trigger": "build",
+    "startedAt": 1770122461523,
+    "completedAt": 1770122462380,
+    "environment": {
+      "deno": "2.6.4",
+      "platform": "darwin",
+      "hasPostgres": false,
+      "hasMongo": false
+    }
+  },
+  "summary": {
+    "total": 95,
+    "passed": 95,
+    "failed": 0,
+    "skipped": 0,
+    "duration": 494
+  },
+  "results": [
+    {
+      "name": "pubkey-based access control",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 5,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "signature verification",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 7,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "multiple users signing",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "relative path access control",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "cascading access control",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "combined access control",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "multiple path cascading",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "comprehensive cascading demonstration",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "pubkey namespace protection",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "comprehensive feature demonstration",
+      "file": "auth.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 1,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient.readMulti - reads multiple URIs successfully",
+      "file": "read-multi.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient.readMulti - partial success",
+      "file": "read-multi.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient.readMulti - all fail",
+      "file": "read-multi.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient.readMulti - exceeds batch limit",
+      "file": "read-multi.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient.readMulti - empty array",
+      "file": "read-multi.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "wallet.proxyReadMulti - reads multiple URIs with decryption",
+      "file": "read-multi.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 40,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "wallet.proxyReadMulti - partial success with missing items",
+      "file": "read-multi.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 25,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "wallet.proxyReadMulti - batch limit exceeded",
+      "file": "read-multi.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 23,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - receive transaction and read",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - receive transaction creates timestamp",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - read non-existent returns error",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - list returns items",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 6,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - list with pagination",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - list with pattern filter",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - delete removes item",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - delete non-existent returns error",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - health returns status",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - getSchema returns array",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - cleanup does not throw",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient - validation error on transaction",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient [Node] - receive and read",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient [Node] - receive multiple transactions",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient [Node] - receive overwrites existing data",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient [Node] - receive with empty URI returns error",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient [Node] - receive with null data",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient [Node] - list after receive",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient [Node] - readMulti after receive",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryClient [Node] - receive validation error",
+      "file": "memory-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - receive transaction and read",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 17,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - receive transaction creates timestamp",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - read non-existent returns error",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - list returns items",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 1,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - list with pagination",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 2,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - list with pattern filter",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - delete removes item",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - delete non-existent returns error",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - health returns status",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - getSchema returns array",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - cleanup does not throw",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - receive and read binary data",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - receive and read large binary data",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - delete binary data",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - validation error on transaction",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - connection error handling",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - cleanup servers",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - custom headers configuration",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - instance ID configuration",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "HttpClient - timeout configuration",
+      "file": "http-client.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary Operations - setup",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - write and read PNG image",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 11,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - write and read JPEG image",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 1,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - write and read WebAssembly module",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - write and read font file",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - write and read large file (10KB)",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 4,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - write and read very large file (100KB)",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 3,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - write empty binary data",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - overwrite existing binary file",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - delete binary file",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - multiple files in same directory",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 1,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary - mixed JSON and binary operations",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 1,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "Binary Operations - teardown",
+      "file": "binary-operations.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "generateSessionKeypair - creates valid Ed25519 keypair",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 1,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "generateSessionKeypair - creates unique keypairs",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryWalletClient - signup works with approved session",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 28,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryWalletClient - signup fails without session approval",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 1,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryWalletClient - login fails without session approval",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 23,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryWalletClient - login succeeds with approved session",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 45,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryWalletClient - login fails with revoked session",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 23,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryWalletClient - login fails with wrong password",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 43,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryWalletClient - session signature is validated",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 22,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "MemoryWalletClient - proxyWrite/proxyRead work after login",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 24,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "createTestEnvironment - loginTestUser generates and approves session",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 44,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "session flow - full authentication cycle",
+      "file": "wallet.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "duration": 86,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "createTransactionNode - accepts valid transaction",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "createTransactionNode - rejects invalid transaction",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "createTransactionNode - validator can read state",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 6,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "createTransactionNode - propagates to multiple peers",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "createTransactionNode - rejects transaction without URI",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "extractProgram - extracts protocol://hostname",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "extractProgram - returns null for invalid URIs",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "createOutputValidator - validates outputs against schema",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "createOutputValidator - provides cross-output access",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "createOutputValidator - with preValidate",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "combineValidators - all must pass",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    },
+    {
+      "name": "integration - transaction node with output validator",
+      "file": "txn.test.ts",
+      "filePath": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "duration": 0,
+      "lastRun": 1770122462380
+    }
+  ],
+  "files": [
+    {
+      "path": "/Users/m0/ws/b3nd/sdk/auth/tests/auth.test.ts",
+      "name": "auth.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "testCount": 10
+    },
+    {
+      "path": "/Users/m0/ws/b3nd/sdk/tests/read-multi.test.ts",
+      "name": "read-multi.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "testCount": 8
+    },
+    {
+      "path": "/Users/m0/ws/b3nd/sdk/tests/memory-client.test.ts",
+      "name": "memory-client.test.ts",
+      "theme": "sdk-core",
+      "backend": "memory",
+      "status": "passed",
+      "testCount": 20
+    },
+    {
+      "path": "/Users/m0/ws/b3nd/sdk/tests/http-client.test.ts",
+      "name": "http-client.test.ts",
+      "theme": "network",
+      "backend": "http",
+      "status": "passed",
+      "testCount": 20
+    },
+    {
+      "path": "/Users/m0/ws/b3nd/sdk/tests/binary-operations.test.ts",
+      "name": "binary-operations.test.ts",
+      "theme": "binary",
+      "backend": "other",
+      "status": "passed",
+      "testCount": 13
+    },
+    {
+      "path": "/Users/m0/ws/b3nd/sdk/tests/wallet.test.ts",
+      "name": "wallet.test.ts",
+      "theme": "auth",
+      "backend": "other",
+      "status": "passed",
+      "testCount": 12
+    },
+    {
+      "path": "/Users/m0/ws/b3nd/sdk/tests/txn.test.ts",
+      "name": "txn.test.ts",
+      "theme": "sdk-core",
+      "backend": "other",
+      "status": "passed",
+      "testCount": 12
+    }
+  ]
+}

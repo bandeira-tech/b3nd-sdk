@@ -4,7 +4,9 @@
     "start": "deno run -A mod.ts",
     "test": "deno test -A tests/",
     "test:unit": "deno test -A tests/test-runner.test.ts",
-    "test:e2e": "deno test -A tests/e2e.test.ts"
+    "test:e2e": "deno test -A tests/e2e.test.ts",
+    "dashboard:build": "deno run -A tasks/build-artifacts.ts",
+    "dashboard:watch": "deno run -A tasks/watch-artifacts.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.15",

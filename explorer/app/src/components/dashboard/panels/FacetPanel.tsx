@@ -33,10 +33,10 @@ export function FacetPanel() {
     clearFacets,
     addCustomKeyword,
     removeCustomKeyword,
-    setFacetGroups,
   } = useDashboardStore();
 
   const [newKeyword, setNewKeyword] = useState("");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const handleAddKeyword = useCallback(
     (e: React.FormEvent) => {
@@ -51,13 +51,14 @@ export function FacetPanel() {
 
   const toggleGroupExpansion = useCallback(
     (groupId: string) => {
-      setFacetGroups(
-        facetGroups.map((g) =>
-          g.id === groupId ? { ...g, expanded: !g.expanded } : g
-        )
-      );
+      setCollapsedGroups((prev) => {
+        const next = new Set(prev);
+        if (next.has(groupId)) next.delete(groupId);
+        else next.add(groupId);
+        return next;
+      });
     },
-    [facetGroups, setFacetGroups]
+    []
   );
 
   const activeCount = activeFacets.size;
@@ -136,7 +137,7 @@ export function FacetPanel() {
         {facetGroups.map((group) => (
           <FacetGroupSection
             key={group.id}
-            group={group}
+            group={{ ...group, expanded: !collapsedGroups.has(group.id) }}
             activeFacets={activeFacets}
             onToggleFacet={toggleFacet}
             onToggleExpand={() => toggleGroupExpansion(group.id)}

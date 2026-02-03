@@ -1,5 +1,8 @@
 /**
- * Dashboard types for the B3nd Developer Dashboard
+ * Dashboard types — static-first architecture
+ *
+ * The dashboard loads pre-built JSON artifacts from /dashboard/test-results.json
+ * No WebSocket or live server dependency in production.
  */
 
 export type TestTheme =
@@ -39,37 +42,6 @@ export interface TestResult {
   };
 }
 
-export type RunTrigger = "startup" | "file-change" | "manual";
-
-export interface RunMetadata {
-  trigger: RunTrigger;
-  startedAt: number;
-  completedAt?: number;
-  changedFiles?: string[];
-}
-
-export interface TestFile {
-  path: string;
-  name: string;
-  backend: BackendType;
-}
-
-export interface ThemeGroup {
-  id: TestTheme;
-  label: string;
-  description: string;
-  testCount: number;
-  files: TestFile[];
-}
-
-export interface BackendGroup {
-  id: BackendType;
-  label: string;
-  theme: TestTheme;
-  testCount: number;
-  files: TestFile[];
-}
-
 export interface TestRunSummary {
   passed: number;
   failed: number;
@@ -78,53 +50,39 @@ export interface TestRunSummary {
   duration: number;
 }
 
-export interface ServiceHealth {
-  id: string;
+export interface TestFile {
+  path: string;
   name: string;
-  url: string;
-  status: "healthy" | "unhealthy" | "unknown";
-  latency?: number;
-  lastChecked: number;
-  error?: string;
+  theme: string;
+  backend: string;
+  status: string;
+  testCount: number;
 }
 
-export interface FileChangeEvent {
-  kind: "create" | "modify" | "remove" | "access" | "any" | "other";
-  files: string[];
-  timestamp: number;
+// Static artifact format (loaded from /dashboard/test-results.json)
+export interface StaticTestData {
+  version: string;
+  generatedAt: number;
+  runMetadata: {
+    trigger: string;
+    startedAt: number;
+    completedAt: number;
+    environment: {
+      deno: string;
+      platform: string;
+      hasPostgres: boolean;
+      hasMongo: boolean;
+    };
+  };
+  summary: TestRunSummary;
+  results: TestResult[];
+  files: TestFile[];
 }
 
-// WebSocket message types
-export type WsMessageType =
-  | "connected"
-  | "test:start"
-  | "test:result"
-  | "test:plan"
-  | "test:complete"
-  | "test:cancelled"
-  | "test:error"
-  | "health:update"
-  | "file:change"
-  | "state:update"
-  | "run:start"
-  | "run:complete"
-  | "run:error"
-  | "pong";
+// Content modes
+export type ContentMode = "results" | "logs";
 
-export interface WsMessage {
-  type: WsMessageType;
-  timestamp?: number;
-  [key: string]: unknown;
-}
-
-export interface TestFilter {
-  themes?: TestTheme[];
-  backends?: BackendType[];
-  file?: string;
-  pattern?: string;
-}
-
-// Facet system types
+// Facet system
 export type FacetType = "theme" | "backend" | "status" | "keyword";
 
 export interface Facet {
@@ -143,129 +101,47 @@ export interface FacetGroup {
   expanded: boolean;
 }
 
-// Data source types
-export type DataSourceType = "live" | "static";
-
-export interface DataSource {
-  type: DataSourceType;
-  label: string;
-  description: string;
-}
-
-export interface StaticTestData {
-  timestamp: number;
-  runId: string;
-  summary: TestRunSummary;
-  results: TestResult[];
-  themes: ThemeGroup[];
-}
-
-// Left panel view modes
-export type LeftPanelView = "tests" | "logs" | "code";
-
-// Source file content
-export interface SourceFile {
-  file: string;
-  relativePath: string;
-  content: string;
-  lineCount: number;
-}
-
-// Dashboard UI state
+// Store interfaces
 export interface DashboardState {
-  // Connection
-  wsConnected: boolean;
-  wsError: string | null;
-
-  // Data source
-  dataSource: DataSourceType;
+  // Data loading
+  loading: boolean;
+  error: string | null;
   staticData: StaticTestData | null;
 
-  // Test discovery
-  themes: ThemeGroup[];
-  backends: BackendGroup[];
-  totalTests: number;
+  // Content mode
+  contentMode: ContentMode;
+
+  // Test results
+  testResults: Map<string, TestResult>;
+  runSummary: TestRunSummary | null;
 
   // Facets
   facetGroups: FacetGroup[];
-  activeFacets: Set<string>; // Set of facet IDs
+  activeFacets: Set<string>;
   customKeywords: string[];
 
-  // Test run
-  isRunning: boolean;
-  currentRunId: string | null;
-  testResults: Map<string, TestResult>;
-  runSummary: TestRunSummary | null;
-  runMetadata: { current: RunMetadata | null; last: RunMetadata | null };
+  // Inline expansion
+  expandedTests: Set<string>;
 
-  // Health
-  services: ServiceHealth[];
-
-  // File changes
-  recentChanges: FileChangeEvent[];
-  autoRunEnabled: boolean;
-
-  // UI
-  showRawOutput: boolean;
-  rawOutput: string[];
-
-  // Navigation
-  activeView: LeftPanelView;
-  selectedSourceFile: string | null;
-  sourceContent: SourceFile | null;
-  sourceLoading: boolean;
-  logLines: string[];
-  logLoading: boolean;
-  highlightedTestName: string | null;
+  // Raw logs
+  rawLogs: string;
 }
 
 export interface DashboardActions {
-  // Connection
-  setWsConnected: (connected: boolean) => void;
-  setWsError: (error: string | null) => void;
+  // Data loading
+  loadStaticData: () => Promise<void>;
 
-  // Data source
-  setDataSource: (source: DataSourceType) => void;
-  loadStaticData: (data: StaticTestData) => void;
-
-  // Test discovery
-  setThemes: (themes: ThemeGroup[], backends: BackendGroup[], totalTests: number) => void;
+  // Content mode
+  setContentMode: (mode: ContentMode) => void;
 
   // Facets
-  setFacetGroups: (groups: FacetGroup[]) => void;
   toggleFacet: (facetId: string) => void;
   clearFacets: () => void;
   addCustomKeyword: (keyword: string) => void;
   removeCustomKeyword: (keyword: string) => void;
 
-  // Test run
-  startRun: (runId: string, filter: TestFilter | null) => void;
-  addTestResult: (result: TestResult) => void;
-  completeRun: (summary: TestRunSummary) => void;
-  cancelRun: () => void;
-  clearResults: () => void;
-  setRunMetadata: (metadata: { current: RunMetadata | null; last: RunMetadata | null }) => void;
-  loadInitialState: (state: { results: TestResult[]; runMetadata: { current: RunMetadata | null; last: RunMetadata | null } }) => void;
-
-  // Health
-  setServices: (services: ServiceHealth[]) => void;
-
-  // File changes
-  addFileChange: (event: FileChangeEvent) => void;
-  setAutoRunEnabled: (enabled: boolean) => void;
-
-  // UI
-  setShowRawOutput: (show: boolean) => void;
-  addRawOutput: (line: string) => void;
-  clearRawOutput: () => void;
-
-  // Navigation
-  setActiveView: (view: LeftPanelView) => void;
-  setSelectedSourceFile: (file: string | null) => void;
-  setSourceContent: (content: SourceFile | null) => void;
-  setSourceLoading: (loading: boolean) => void;
-  setLogLines: (lines: string[]) => void;
-  setLogLoading: (loading: boolean) => void;
-  setHighlightedTestName: (name: string | null) => void;
-  navigateToSource: (filePath: string, testName?: string) => void;
+  // Inline expansion
+  toggleTestExpansion: (testKey: string) => void;
+  expandAllFailed: () => void;
+  collapseAll: () => void;
 }
