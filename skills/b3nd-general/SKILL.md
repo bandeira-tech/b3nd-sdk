@@ -523,6 +523,18 @@ await wallet.proxyWrite({ uri, data: signed(encrypted, resourceKeys) });
 | `WalletClient` | `@bandeira-tech/b3nd-web/wallet` | Authenticated writes |
 | `LocalStorageClient` | `@bandeira-tech/b3nd-web` | Browser offline cache |
 | `MemoryClient` | `@bandeira-tech/b3nd-sdk` | Testing |
+| `PostgresClient` | `@bandeira-tech/b3nd-sdk` | PostgreSQL storage |
+| `MongoClient` | `@bandeira-tech/b3nd-sdk` | MongoDB storage |
+
+### List Interface
+
+`list()` returns flat results — all stored URIs matching the prefix. No directory/file type:
+
+```typescript
+interface ListItem {
+  uri: string;  // Full stored URI
+}
+```
 
 ## Packages
 
@@ -533,6 +545,55 @@ import { HttpClient, WalletClient } from "@bandeira-tech/b3nd-web";
 // Deno/Server (JSR)
 import { HttpClient, MemoryClient } from "@bandeira-tech/b3nd-sdk";
 ```
+
+## MCP Tools (Claude Plugin)
+
+When the B3nd Claude plugin is installed, these MCP tools are available for agents to interact with backends directly:
+
+| Tool | Description |
+|------|-------------|
+| `b3nd_receive` | Submit transaction `[uri, data]` |
+| `b3nd_read` | Read data from URI |
+| `b3nd_list` | List items at URI prefix |
+| `b3nd_delete` | Delete data |
+| `b3nd_health` | Backend health check |
+| `b3nd_schema` | Get available protocols |
+| `b3nd_backends_list` | List configured backends |
+| `b3nd_backends_switch` | Switch active backend |
+| `b3nd_backends_add` | Add new backend |
+
+Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
+
+## bnd CLI Tool
+
+Command-line access to B3nd nodes at `cli/bnd`:
+
+```bash
+./cli/bnd read mutable://users/alice/profile
+./cli/bnd list mutable://users/
+./cli/bnd config
+./cli/bnd conf node http://localhost:9942
+```
+
+## Developer Dashboard
+
+Test results browser and source code explorer:
+
+```bash
+cd explorer/dashboard && deno task dashboard:build
+cd explorer/app && npm run dev  # http://localhost:5555/dashboard
+```
+
+Features: 125 tests across 8 test files, browsable by theme (SDK Core, Network, Database, Auth, Binary, E2E), source code with line numbers.
+
+## Explorer Web App
+
+The React app at `explorer/app/` provides:
+- **Explorer** (`/explorer/*`) — Browse B3nd data by URI
+- **Writer** (`/writer/*`) — Write data to B3nd nodes
+- **Dashboard** (`/dashboard/*`) — Test results and code exploration
+- **Accounts** (`/accounts`) — Account management
+- **Settings** (`/settings`) — Backend configuration
 
 ## Custom Schemas (Enterprise)
 

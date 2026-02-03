@@ -424,15 +424,48 @@ import type {
 | Server primitives | Full | Limited |
 | Auth module | Yes | No |
 
+## List Interface
+
+`list()` returns flat results — all stored URIs matching the prefix. No directory/file type distinction:
+
+```typescript
+interface ListItem {
+  uri: string;  // Full stored URI
+}
+
+const result = await client.list("mutable://users/");
+// result.data = [{ uri: "mutable://users/alice/profile" }, { uri: "mutable://users/bob/profile" }]
+```
+
+## MCP Tools (Claude Plugin)
+
+When the B3nd plugin is installed, agents can use MCP tools directly: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`, `b3nd_health`, `b3nd_schema`, `b3nd_backends_list`, `b3nd_backends_switch`, `b3nd_backends_add`.
+
+## bnd CLI Tool
+
+The B3nd CLI (`cli/bnd`) provides command-line access: `./cli/bnd read <uri>`, `./cli/bnd list <uri>`, `./cli/bnd config`.
+
+## Developer Dashboard
+
+```bash
+cd explorer/dashboard && deno task dashboard:build  # Build test artifacts
+cd explorer/app && npm run dev                      # http://localhost:5555/dashboard
+```
+
+Browse test results by theme, view source code with line numbers, search across 125 tests.
+
 ## Source Files
 
 - `sdk/src/mod.ts` - Main Deno exports
 - `sdk/src/types.ts` - Type definitions
+- `sdk/src/node/types.ts` - Node/Transaction/Validator types
 - `sdk/clients/postgres/mod.ts` - PostgreSQL client
 - `sdk/clients/mongo/mod.ts` - MongoDB client
 - `sdk/servers/node.ts` - Server node creation
 - `sdk/servers/http.ts` - HTTP server utilities
 - `sdk/servers/websocket.ts` - WebSocket server utilities
+- `sdk/tests/shared-suite.ts` - Shared client conformance suite
+- `sdk/tests/node-suite.ts` - Node interface test suite
 
 ## Environment Variables (HTTP Server Installation)
 

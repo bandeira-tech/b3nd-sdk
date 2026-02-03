@@ -249,7 +249,7 @@ const TOOLS = [
   },
   {
     name: "b3nd_list",
-    description: "List items at a B3nd URI path using the active backend. Returns directories and files under the path.",
+    description: "List items at a B3nd URI prefix using the active backend. Returns all stored URIs matching the prefix (flat list, full URIs).",
     inputSchema: {
       type: "object" as const,
       properties: {

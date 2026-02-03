@@ -246,6 +246,20 @@ cd sdk
 npm run build  # Uses tsup
 ```
 
+## List Interface
+
+`list()` returns flat results — all stored URIs matching the prefix. No directory/file type distinction:
+
+```typescript
+interface ListItem {
+  uri: string;  // Full stored URI
+}
+```
+
+## MCP Tools (Claude Plugin)
+
+When the B3nd plugin is installed, agents can use MCP tools directly to interact with backends: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`, `b3nd_health`, `b3nd_schema`.
+
 ## Source Files
 
 - `sdk/src/mod.web.ts` - Main web exports

@@ -192,14 +192,14 @@ export function useList(uri: string, options?: { page?: number; limit?: number }
   });
 }
 
-// Write mutation
-export function useWrite() {
+// Receive transaction mutation (preferred)
+export function useReceive() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ uri, data }: { uri: string; data: unknown }) => {
-      const result = await client.write(uri, data);
-      if (!result.success) throw new Error(result.error);
+      const result = await client.receive([uri, data]);
+      if (!result.accepted) throw new Error(result.error);
       return result;
     },
     onSuccess: (_, { uri }) => {
@@ -359,13 +359,15 @@ function NavigationTree({ path }: { path: string }) {
     <ul>
       {data?.data.map((item) => (
         <li key={item.uri} onClick={() => navigate(item.uri)}>
-          {item.type === "directory" ? "📁" : "📄"} {item.uri}
+          {item.uri}
         </li>
       ))}
     </ul>
   );
 }
 ```
+
+**Note:** `list()` returns flat results with full URIs — no `type` field. All items are full stored URIs matching the prefix.
 
 ## Resource Visibility in React
 
