@@ -44,7 +44,7 @@ export interface TestRunSummary {
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 
 // Regex patterns to parse Deno test output
-const FILE_HEADER_PATTERN = /^running \d+ tests? from \.\/tests\/(.+\.test\.ts)/;
+const FILE_HEADER_PATTERN = /^running \d+ tests? from (?:\.\/)?(.+\.test\.ts)/;
 const TEST_RESULT_PATTERN = /^(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
 const SUMMARY_PATTERN = /^ok \| (\d+) passed(?: \| (\d+) failed)?(?: \| (\d+) ignored)? \(([^)]+)\)/;
 const FAIL_SUMMARY_PATTERN = /^FAILED \| (\d+) passed \| (\d+) failed(?: \| (\d+) ignored)? \(([^)]+)\)/;
@@ -326,7 +326,7 @@ export class TestRunner {
         test: {
           name: name.trim(),
           file: currentFile,
-          filePath: `${this.sdkPath}/tests/${currentFile}`,
+          filePath: this.resolveFilePath(currentFile),
           theme,
           backend: backendType,
           status,
@@ -360,6 +360,20 @@ export class TestRunner {
       summary.duration = this.parseDuration(duration);
       return;
     }
+  }
+
+  /**
+   * Resolve a relative file path from Deno output to an absolute path
+   */
+  private resolveFilePath(relativePath: string): string {
+    if (relativePath.startsWith("/")) return relativePath;
+    const cleaned = relativePath.replace(/^\.\//, "");
+    // If the path starts with something other than "tests/", it could be
+    // auth/tests, integ/e2e, or another scope. Try integ path first.
+    if (cleaned.includes("e2e") || cleaned.includes("integ")) {
+      return `${this.integPath}/${cleaned}`;
+    }
+    return `${this.sdkPath}/${cleaned}`;
   }
 
   /**

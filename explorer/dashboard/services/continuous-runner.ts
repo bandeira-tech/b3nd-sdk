@@ -29,6 +29,7 @@ export class ContinuousTestRunner {
   private testState: TestState;
   private wsHub: WsHub;
   private sdkPath: string;
+  private integE2ePath: string;
   private currentProcess: Deno.ChildProcess | null = null;
   private testFiles: string[] = [];
 
@@ -36,9 +37,10 @@ export class ContinuousTestRunner {
     this.testState = testState;
     this.wsHub = wsHub;
 
-    // Determine SDK path relative to dashboard
+    // Determine paths relative to dashboard
     const dashboardDir = new URL(".", import.meta.url).pathname;
     this.sdkPath = new URL("../../../sdk", `file://${dashboardDir}`).pathname;
+    this.integE2ePath = new URL("../../../integ/e2e", `file://${dashboardDir}`).pathname;
   }
 
   /**
@@ -68,6 +70,7 @@ export class ContinuousTestRunner {
     };
 
     await walkDir(this.sdkPath);
+    await walkDir(this.integE2ePath);
     return testFiles;
   }
 
@@ -88,6 +91,13 @@ export class ContinuousTestRunner {
   }
 
   /**
+   * Check if a file is an E2E test (lives under integ/)
+   */
+  private isE2eTest(file: string): boolean {
+    return file.startsWith(this.integE2ePath);
+  }
+
+  /**
    * Run all tests
    */
   async runAllTests(trigger: "startup" | "file-change" | "manual" = "manual", changedFiles?: string[]): Promise<void> {
@@ -96,12 +106,19 @@ export class ContinuousTestRunner {
 
     console.log(`[ContinuousRunner] Database config: postgres=${hasPostgres}, mongo=${hasMongo}`);
 
-    // Run each test file individually for better control
-    const testsToRun: string[] = [];
+    // Separate SDK tests from E2E tests (different cwd needed)
+    const sdkTestsToRun: string[] = [];
+    const e2eTestsToRun: string[] = [];
     const testsToSkip: string[] = [];
 
     for (const file of this.testFiles) {
       const name = file.split("/").pop() || "";
+
+      // E2E tests go into their own group
+      if (this.isE2eTest(file)) {
+        e2eTestsToRun.push(file);
+        continue;
+      }
 
       // Skip browser tests (need browser environment)
       if (file.includes("/browser/")) {
@@ -127,20 +144,29 @@ export class ContinuousTestRunner {
         continue;
       }
 
-      testsToRun.push(file);
+      sdkTestsToRun.push(file);
     }
 
-    console.log(`[ContinuousRunner] Running ${testsToRun.length} test files, skipping ${testsToSkip.length}`);
+    console.log(`[ContinuousRunner] Running ${sdkTestsToRun.length} SDK + ${e2eTestsToRun.length} E2E test files, skipping ${testsToSkip.length}`);
     if (testsToSkip.length > 0) {
       console.log(`[ContinuousRunner] Skipped: ${testsToSkip.join(", ")}`);
     }
 
-    if (testsToRun.length > 0) {
-      this.testState.startRun(trigger, changedFiles);
-      const args = ["test", "-A", ...testsToRun];
-      await this.runTestCommand(args);
-      this.testState.completeRun();
+    this.testState.startRun(trigger, changedFiles);
+
+    // Run SDK tests (cwd: sdk/)
+    if (sdkTestsToRun.length > 0) {
+      const args = ["test", "-A", ...sdkTestsToRun];
+      await this.runTestCommand(args, this.sdkPath);
     }
+
+    // Run E2E tests (cwd: integ/e2e/ — separate deno.json scope)
+    if (e2eTestsToRun.length > 0) {
+      const args = ["test", "-A", ...e2eTestsToRun];
+      await this.runTestCommand(args, this.integE2ePath);
+    }
+
+    this.testState.completeRun();
   }
 
   /**
@@ -155,15 +181,24 @@ export class ContinuousTestRunner {
       this.testState.markFileRunning(file);
     }
 
-    const args = ["test", "-A", ...files];
-    await this.runTestCommand(args);
+    // Group files by scope
+    const sdkFiles = files.filter((f) => !this.isE2eTest(f));
+    const e2eFiles = files.filter((f) => this.isE2eTest(f));
+
+    if (sdkFiles.length > 0) {
+      await this.runTestCommand(["test", "-A", ...sdkFiles], this.sdkPath);
+    }
+    if (e2eFiles.length > 0) {
+      await this.runTestCommand(["test", "-A", ...e2eFiles], this.integE2ePath);
+    }
+
     this.testState.completeRun();
   }
 
   /**
    * Run a deno test command and parse output
    */
-  private async runTestCommand(args: string[]): Promise<void> {
+  private async runTestCommand(args: string[], cwd: string = this.sdkPath): Promise<void> {
     // Stop any existing run before starting a new one
     if (this.currentProcess) {
       console.log("[ContinuousRunner] Stopping previous test run...");
@@ -180,7 +215,7 @@ export class ContinuousTestRunner {
     try {
       const command = new Deno.Command("deno", {
         args,
-        cwd: this.sdkPath,
+        cwd,
         stdout: "piped",
         stderr: "piped",
       });
@@ -273,6 +308,30 @@ export class ContinuousTestRunner {
   }
 
   /**
+   * Resolve a test file path from Deno's output against known base directories
+   */
+  private resolveTestPath(relativePath: string): string {
+    if (relativePath.startsWith("/")) {
+      return relativePath;
+    }
+
+    const cleaned = relativePath.replace(/^\.\//, "");
+
+    // Check if this file exists under integE2ePath
+    const e2eCandidate = `${this.integE2ePath}/${cleaned}`;
+    const sdkCandidate = `${this.sdkPath}/${cleaned}`;
+
+    // Prefer the path that matches a known test file
+    for (const file of this.testFiles) {
+      if (file === e2eCandidate) return e2eCandidate;
+      if (file === sdkCandidate) return sdkCandidate;
+    }
+
+    // Default to sdk path for backwards compatibility
+    return sdkCandidate;
+  }
+
+  /**
    * Parse a line of test output
    */
   private parseLine(
@@ -287,9 +346,7 @@ export class ContinuousTestRunner {
     const fileMatch = clean.match(FILE_HEADER_PATTERN);
     if (fileMatch) {
       const relativePath = fileMatch[1];
-      const fullPath = relativePath.startsWith("/")
-        ? relativePath
-        : `${this.sdkPath}/${relativePath.replace(/^\.\//, "")}`;
+      const fullPath = this.resolveTestPath(relativePath);
 
       setCurrentFile(relativePath.split("/").pop() || relativePath, fullPath);
       this.testState.markFileRunning(fullPath);
