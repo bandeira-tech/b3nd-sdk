@@ -338,14 +338,18 @@ export class IndexedDBClient implements NodeProtocolInterface, Node {
           return { uri, success: true, record: result.record };
         }
         return { uri, success: false, error: result.error || "Read failed" };
-      })
+      }),
     );
 
     const succeeded = results.filter((r) => r.success).length;
     return {
       success: succeeded > 0,
       results,
-      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+      summary: {
+        total: uris.length,
+        succeeded,
+        failed: uris.length - succeeded,
+      },
     };
   }
 

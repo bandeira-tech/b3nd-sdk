@@ -4,8 +4,8 @@
 
 import type { TransactionValidator } from "../txn/types.ts";
 import type {
-  TransactionData,
   ProgramSchema,
+  TransactionData,
   TransactionValidationContext,
 } from "./types.ts";
 

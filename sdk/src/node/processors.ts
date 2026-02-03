@@ -17,7 +17,7 @@ import type { Processor, Transaction } from "./types.ts";
  * ```
  */
 export function emit<D = unknown>(
-  callback: (tx: Transaction<D>) => Promise<void> | void
+  callback: (tx: Transaction<D>) => Promise<void> | void,
 ): Processor<D> {
   return async (tx) => {
     try {
@@ -46,7 +46,7 @@ export function emit<D = unknown>(
  */
 export function when<D = unknown>(
   condition: (tx: Transaction<D>) => boolean | Promise<boolean>,
-  processor: Processor<D>
+  processor: Processor<D>,
 ): Processor<D> {
   return async (tx) => {
     const shouldProcess = await condition(tx);

@@ -98,7 +98,7 @@ export interface Node {
  */
 export type Validator<D = unknown> = (
   tx: Transaction<D>,
-  read: <T>(uri: string) => Promise<ReadResult<T>>
+  read: <T>(uri: string) => Promise<ReadResult<T>>,
 ) => Promise<{ valid: boolean; error?: string }>;
 
 /**
@@ -120,7 +120,7 @@ export type Validator<D = unknown> = (
  * ```
  */
 export type Processor<D = unknown> = (
-  tx: Transaction<D>
+  tx: Transaction<D>,
 ) => Promise<{ success: boolean; error?: string }>;
 
 /**

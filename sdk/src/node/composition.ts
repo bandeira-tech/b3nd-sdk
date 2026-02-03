@@ -82,7 +82,7 @@ export function any<D = unknown>(...validators: Validator<D>[]): Validator<D> {
 export function all<D = unknown>(...validators: Validator<D>[]): Validator<D> {
   return async (tx, read) => {
     const results = await Promise.all(
-      validators.map((v) => v(tx, read))
+      validators.map((v) => v(tx, read)),
     );
 
     const failures = results.filter((r) => !r.valid);
@@ -104,7 +104,9 @@ export function all<D = unknown>(...validators: Validator<D>[]): Validator<D> {
 /**
  * A receiver is anything with a `receive` method (clients, nodes, etc.)
  */
-type Receiver = { receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> };
+type Receiver = {
+  receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult>;
+};
 
 /**
  * Accepts a Processor function or a receiver (client/node).
@@ -114,7 +116,8 @@ type Receiver = { receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResul
 type ProcessorOrReceiver<D = unknown> = Processor<D> | Receiver;
 
 function isReceiver(item: unknown): item is Receiver {
-  return typeof item === "object" && item !== null && "receive" in item && typeof (item as Receiver).receive === "function";
+  return typeof item === "object" && item !== null && "receive" in item &&
+    typeof (item as Receiver).receive === "function";
 }
 
 function toProcessor<D>(item: ProcessorOrReceiver<D>): Processor<D> {
@@ -146,16 +149,18 @@ function toProcessor<D>(item: ProcessorOrReceiver<D>): Processor<D> {
  * )
  * ```
  */
-export function parallel<D = unknown>(...items: ProcessorOrReceiver<D>[]): Processor<D> {
+export function parallel<D = unknown>(
+  ...items: ProcessorOrReceiver<D>[]
+): Processor<D> {
   const processors = items.map(toProcessor);
 
   return async (tx) => {
     const results = await Promise.allSettled(
-      processors.map((p) => p(tx))
+      processors.map((p) => p(tx)),
     );
 
     const successes = results.filter(
-      (r) => r.status === "fulfilled" && r.value.success
+      (r) => r.status === "fulfilled" && r.value.success,
     );
 
     if (successes.length === 0) {
@@ -194,7 +199,9 @@ export function parallel<D = unknown>(...items: ProcessorOrReceiver<D>[]): Proce
  * )
  * ```
  */
-export function pipeline<D = unknown>(...processors: Processor<D>[]): Processor<D> {
+export function pipeline<D = unknown>(
+  ...processors: Processor<D>[]
+): Processor<D> {
   return async (tx) => {
     for (const processor of processors) {
       const result = await processor(tx);

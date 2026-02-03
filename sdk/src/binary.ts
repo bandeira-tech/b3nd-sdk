@@ -1,6 +1,6 @@
 /**
  * Binary data encoding utilities for JSON-based storage backends
- * 
+ *
  * Since JSON.stringify(Uint8Array) produces {0: x, 1: y, ...} instead of
  * proper binary representation, we need to encode binary data to base64
  * with a type marker for round-trip serialization.

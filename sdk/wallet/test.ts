@@ -38,25 +38,49 @@ async function test() {
 
     // 3. App Backend setup: register app, create session, then signup scoped to app
     console.log(`\nSetting up App Backend...`);
-    const apps = new AppsClient({ appServerUrl: APP_SERVER_URL, apiBasePath: APP_API_BASE });
+    const apps = new AppsClient({
+      appServerUrl: APP_SERVER_URL,
+      apiBasePath: APP_API_BASE,
+    });
     await apps.health();
     const appKeys = await generateEd25519();
     const appKey = appKeys.publicKeyHex;
     const accountPrivateKeyPem = appKeys.privateKeyPem;
     const actions = [
-      { action: "registerForReceiveUpdates", validation: { stringValue: { format: "email" } }, write: { plain: "mutable://accounts/:key/subscribers/updates/:signature" } },
+      {
+        action: "registerForReceiveUpdates",
+        validation: { stringValue: { format: "email" } },
+        write: {
+          plain: "mutable://accounts/:key/subscribers/updates/:signature",
+        },
+      },
     ];
-    const originsMsg = await createAppSignedMessage(appKey, accountPrivateKeyPem, { allowedOrigins: ["*"], encryptionPublicKeyHex: null });
+    const originsMsg = await createAppSignedMessage(
+      appKey,
+      accountPrivateKeyPem,
+      { allowedOrigins: ["*"], encryptionPublicKeyHex: null },
+    );
     await apps.updateOrigins(appKey, originsMsg);
-    const schemaMsg = await createAppSignedMessage(appKey, accountPrivateKeyPem, { actions, encryptionPublicKeyHex: null });
+    const schemaMsg = await createAppSignedMessage(
+      appKey,
+      accountPrivateKeyPem,
+      { actions, encryptionPublicKeyHex: null },
+    );
     await apps.updateSchema(appKey, schemaMsg);
     const sessionKey = crypto.randomUUID().replace(/-/g, "");
-    const sessionMsg = await createAppSignedMessage(appKey, accountPrivateKeyPem, { session: sessionKey });
+    const sessionMsg = await createAppSignedMessage(
+      appKey,
+      accountPrivateKeyPem,
+      { session: sessionKey },
+    );
     await apps.createSession(appKey, sessionMsg);
     console.log(`✓ App ready`);
 
     console.log(`\nSigning up ${username} (app-scoped)...`);
-    const signupSession = await wallet.signupWithToken(appKey, { username, password });
+    const signupSession = await wallet.signupWithToken(appKey, {
+      username,
+      password,
+    });
     console.log(`✓ Signup successful (${signupSession.username})`);
     console.log(`  Token expires in: ${signupSession.expiresIn}s`);
 
@@ -69,10 +93,14 @@ async function test() {
       const keys = await wallet.getMyPublicKeys(appKey);
       console.log(`✓ Public keys retrieved`);
       console.log(`  Account: ${keys.accountPublicKeyHex.substring(0, 16)}...`);
-      console.log(`  Encryption: ${keys.encryptionPublicKeyHex.substring(0, 16)}...`);
+      console.log(
+        `  Encryption: ${keys.encryptionPublicKeyHex.substring(0, 16)}...`,
+      );
     } catch (error) {
       console.error(`✗ Failed to get public keys`);
-      console.error(`  Error: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(
+        `  Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw error;
     }
 
@@ -116,15 +144,22 @@ async function test() {
       data: privateData,
       encrypt: true,
     });
-    console.log(`✓ Write encrypted data (ts: ${encryptedWriteResult.record?.ts})`);
+    console.log(
+      `✓ Write encrypted data (ts: ${encryptedWriteResult.record?.ts})`,
+    );
 
     // 8. Read encrypted data back from backend
-    const encryptedReadResult = await backend.read(encryptedWriteResult.resolvedUri || encryptedUri);
+    const encryptedReadResult = await backend.read(
+      encryptedWriteResult.resolvedUri || encryptedUri,
+    );
     if (encryptedReadResult.success && encryptedReadResult.record) {
       const encData = encryptedReadResult.record.data as any;
       const hasAuth = !!encData.auth;
-      const hasEncryptedPayload = !!encData.payload?.data && !!encData.payload?.nonce;
-      console.log(`✓ Read encrypted data back (auth: ${hasAuth}, encrypted: ${hasEncryptedPayload})`);
+      const hasEncryptedPayload = !!encData.payload?.data &&
+        !!encData.payload?.nonce;
+      console.log(
+        `✓ Read encrypted data back (auth: ${hasAuth}, encrypted: ${hasEncryptedPayload})`,
+      );
     } else {
       console.log(`✗ Read encrypted failed: ${encryptedReadResult.error}`);
     }
@@ -134,7 +169,11 @@ async function test() {
     console.log(`✓ Logout (authenticated: ${wallet.isAuthenticated()})`);
 
     // 10. Test Login
-    const loginSession = await wallet.loginWithTokenSession(appKey, sessionKey, { username, password });
+    const loginSession = await wallet.loginWithTokenSession(
+      appKey,
+      sessionKey,
+      { username, password },
+    );
     wallet.setSession(loginSession);
     console.log(`✓ Login (authenticated: ${wallet.isAuthenticated()})`);
 
@@ -153,16 +192,21 @@ async function test() {
     console.log(`✓ Write after re-login`);
 
     // 12. Read after re-login to verify
-    const finalReadResult = await backend.read(finalWriteResult.resolvedUri || finalUri);
+    const finalReadResult = await backend.read(
+      finalWriteResult.resolvedUri || finalUri,
+    );
     if (finalReadResult.success && finalReadResult.record) {
-    console.log(`✓ Read after re-login verified`);
+      console.log(`✓ Read after re-login verified`);
     } else {
       console.log(`✗ Read after re-login failed`);
     }
 
     // 13. Test Login with Wrong Password (Error Case)
     try {
-      await wallet.loginWithTokenSession(appKey, sessionKey, { username, password: "wrong-password-123" });
+      await wallet.loginWithTokenSession(appKey, sessionKey, {
+        username,
+        password: "wrong-password-123",
+      });
       console.log(`✗ ERROR: Login should have failed but succeeded!`);
       throw new Error("Login with wrong password should fail");
     } catch (error) {
@@ -184,7 +228,9 @@ async function test() {
       console.log(`✗ ERROR: Write should have failed but succeeded!`);
       throw new Error("Write without authentication should fail");
     } catch (error) {
-      if (error instanceof Error && error.message.includes("Not authenticated")) {
+      if (
+        error instanceof Error && error.message.includes("Not authenticated")
+      ) {
         console.log(`✓ Unauthenticated write rejected`);
       } else {
         throw error;
@@ -192,18 +238,33 @@ async function test() {
     }
 
     // Re-login for cleanup
-    const cleanupSession = await wallet.loginWithTokenSession(appKey, sessionKey, { username, password });
+    const cleanupSession = await wallet.loginWithTokenSession(
+      appKey,
+      sessionKey,
+      { username, password },
+    );
     wallet.setSession(cleanupSession);
 
     // Optional: invoke action via app backend
     const email = `${username}@example.com`;
-    const signedInvoke = await createAppSignedMessage(appKey, accountPrivateKeyPem, email);
-    const invokeRes = await apps.invokeAction(appKey, "registerForReceiveUpdates", signedInvoke, "http://localhost");
+    const signedInvoke = await createAppSignedMessage(
+      appKey,
+      accountPrivateKeyPem,
+      email,
+    );
+    const invokeRes = await apps.invokeAction(
+      appKey,
+      "registerForReceiveUpdates",
+      signedInvoke,
+      "http://localhost",
+    );
     console.log(`✓ Action invoked, wrote to ${invokeRes.uri}`);
 
     // Success
     console.log("\nALL TESTS PASSED");
-    console.log("Summary: signup, keys, write+read (unencrypted/encrypted) to accounts://:key, logout, login, error cases");
+    console.log(
+      "Summary: signup, keys, write+read (unencrypted/encrypted) to accounts://:key, logout, login, error cases",
+    );
   } catch (error) {
     console.error("\nTEST FAILED");
     console.error(error);
@@ -232,18 +293,40 @@ async function pemToPrivateKey(pem: string): Promise<CryptoKey> {
   );
 }
 
-async function createAppSignedMessage<T>(appKey: string, privateKeyPem: string, payload: T) {
+async function createAppSignedMessage<T>(
+  appKey: string,
+  privateKeyPem: string,
+  payload: T,
+) {
   const privateKey = await pemToPrivateKey(privateKeyPem);
-  return await createAuthenticatedMessage(payload, [{ privateKey, publicKeyHex: appKey }]);
+  return await createAuthenticatedMessage(payload, [{
+    privateKey,
+    publicKeyHex: appKey,
+  }]);
 }
 
-async function generateEd25519(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
-  const keyPair = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]) as CryptoKeyPair;
-  const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-  const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+async function generateEd25519(): Promise<
+  { privateKeyPem: string; publicKeyHex: string }
+> {
+  const keyPair = await crypto.subtle.generateKey("Ed25519", true, [
+    "sign",
+    "verify",
+  ]) as CryptoKeyPair;
+  const privateKeyBuffer = await crypto.subtle.exportKey(
+    "pkcs8",
+    keyPair.privateKey,
+  );
+  const publicKeyBuffer = await crypto.subtle.exportKey(
+    "raw",
+    keyPair.publicKey,
+  );
   const privateKeyBase64 = bytesToBase64(new Uint8Array(privateKeyBuffer));
-  const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64.match(/.{1,64}/g)?.join("\n")}\n-----END PRIVATE KEY-----`;
-  const publicKeyHex = [...new Uint8Array(publicKeyBuffer)].map(b=>b.toString(16).padStart(2,"0")).join("");
+  const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${
+    privateKeyBase64.match(/.{1,64}/g)?.join("\n")
+  }\n-----END PRIVATE KEY-----`;
+  const publicKeyHex = [...new Uint8Array(publicKeyBuffer)].map((b) =>
+    b.toString(16).padStart(2, "0")
+  ).join("");
   return { privateKeyPem, publicKeyHex };
 }
 

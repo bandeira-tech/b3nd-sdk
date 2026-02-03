@@ -21,7 +21,11 @@ class RealMongoExecutor implements MongoExecutor {
   private readonly dbName: string;
   private readonly collectionName: string;
 
-  constructor(connectionString: string, dbName: string, collectionName: string) {
+  constructor(
+    connectionString: string,
+    dbName: string,
+    collectionName: string,
+  ) {
     this.client = new NativeMongoClient(connectionString);
     this.dbName = dbName;
     this.collectionName = collectionName;
@@ -191,7 +195,9 @@ const mongoSetupPromise: Promise<MongoSetupResult> = (async () => {
 function createSchema(
   validator?: (value: unknown) => Promise<{ valid: boolean; error?: string }>,
 ): Schema {
-  const defaultValidator = async ({ value, read }: { value: unknown; read: unknown }) => {
+  const defaultValidator = async (
+    { value, read }: { value: unknown; read: unknown },
+  ) => {
     if (validator) {
       return validator(value);
     }

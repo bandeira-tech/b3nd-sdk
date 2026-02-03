@@ -20,7 +20,7 @@ import { isTransactionData } from "../../txn-data/detect.ts";
  * ```
  */
 export function format<D = unknown>(
-  checkFn: (tx: Transaction<D>) => boolean | string
+  checkFn: (tx: Transaction<D>) => boolean | string,
 ): Validator<D> {
   // deno-lint-ignore require-await
   return async (tx) => {
@@ -115,7 +115,7 @@ export function requireFields(fields: string[]): Validator {
     }
 
     const missing = fields.filter(
-      (field) => !(field in (data as Record<string, unknown>))
+      (field) => !(field in (data as Record<string, unknown>)),
     );
 
     if (missing.length > 0) {
@@ -206,7 +206,11 @@ export function txnSchema<D = unknown>(programSchema: Schema): Validator<D> {
         return { valid: false, error: `Unknown program: ${program}` };
       }
 
-      const result = await validator({ uri: outputUri, value: outputValue, read });
+      const result = await validator({
+        uri: outputUri,
+        value: outputValue,
+        read,
+      });
       if (!result.valid) {
         return {
           valid: false,

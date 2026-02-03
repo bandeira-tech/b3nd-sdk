@@ -30,28 +30,28 @@
 
 import type {
   AuthSession,
-  UserCredentials,
-  SessionKeypair,
-  UserPublicKeys,
+  HealthResponse,
   PasswordResetToken,
-  ProxyWriteRequest,
-  ProxyWriteResponse,
-  ProxyReadRequest,
-  ProxyReadResponse,
   ProxyReadMultiRequest,
   ProxyReadMultiResponse,
-  HealthResponse,
+  ProxyReadRequest,
+  ProxyReadResponse,
+  ProxyWriteRequest,
+  ProxyWriteResponse,
+  SessionKeypair,
+  UserCredentials,
+  UserPublicKeys,
 } from "./types.ts";
 
 import type { NodeProtocolInterface } from "../src/types.ts";
 import { WalletServerCore } from "../wallet-server/core.ts";
-import type { WalletServerConfig, ServerKeys } from "../wallet-server/types.ts";
+import type { ServerKeys, WalletServerConfig } from "../wallet-server/types.ts";
 import { MemoryClient } from "../clients/memory/mod.ts";
 import {
-  generateSigningKeyPair,
-  generateEncryptionKeyPair,
-  exportPrivateKeyPem,
   createAuthenticatedMessageWithHex,
+  exportPrivateKeyPem,
+  generateEncryptionKeyPair,
+  generateSigningKeyPair,
 } from "../encrypt/mod.ts";
 
 export interface MemoryWalletClientConfig {
@@ -97,17 +97,19 @@ export async function generateTestServerKeys(): Promise<ServerKeys> {
 
   const identityPrivateKeyPem = await exportPrivateKeyPem(
     identityKeyPair.privateKey,
-    "PRIVATE KEY"
+    "PRIVATE KEY",
   );
 
   // Export encryption private key
   const encryptionPrivateKeyBytes = new Uint8Array(
-    await crypto.subtle.exportKey("pkcs8", encryptionKeyPair.privateKey)
+    await crypto.subtle.exportKey("pkcs8", encryptionKeyPair.privateKey),
   );
   const encryptionBase64 = btoa(
-    String.fromCharCode(...encryptionPrivateKeyBytes)
+    String.fromCharCode(...encryptionPrivateKeyBytes),
   );
-  const encryptionPrivateKeyPem = `-----BEGIN PRIVATE KEY-----\n${encryptionBase64.match(/.{1,64}/g)?.join("\n")}\n-----END PRIVATE KEY-----`;
+  const encryptionPrivateKeyPem = `-----BEGIN PRIVATE KEY-----\n${
+    encryptionBase64.match(/.{1,64}/g)?.join("\n")
+  }\n-----END PRIVATE KEY-----`;
 
   return {
     identityKey: {
@@ -154,13 +156,16 @@ export class MemoryWalletClient {
    * Create a new MemoryWalletClient
    * Use this factory method instead of constructor (async key generation)
    */
-  static async create(config: MemoryWalletClientConfig = {}): Promise<MemoryWalletClient> {
+  static async create(
+    config: MemoryWalletClientConfig = {},
+  ): Promise<MemoryWalletClient> {
     const serverKeys = config.serverKeys || (await generateTestServerKeys());
     const backend = config.backend || createWalletMemoryClient();
 
     const serverConfig: WalletServerConfig = {
       serverKeys,
-      jwtSecret: config.jwtSecret || "test-jwt-secret-for-memory-wallet-client!!",
+      jwtSecret: config.jwtSecret ||
+        "test-jwt-secret-for-memory-wallet-client!!",
       jwtExpirationSeconds: config.jwtExpirationSeconds || 3600,
       deps: {
         credentialClient: backend,
@@ -184,7 +189,7 @@ export class MemoryWalletClient {
     method: string,
     path: string,
     body?: unknown,
-    headers?: Record<string, string>
+    headers?: Record<string, string>,
   ): Promise<Response> {
     const url = `http://memory-wallet${this.apiBasePath}${path}`;
     const requestHeaders: Record<string, string> = {
@@ -210,7 +215,7 @@ export class MemoryWalletClient {
   private async authRequest(
     method: string,
     path: string,
-    body?: unknown
+    body?: unknown,
   ): Promise<Response> {
     if (!this.currentSession) {
       throw new Error("Not authenticated. Please login first.");
@@ -310,7 +315,11 @@ export class MemoryWalletClient {
       session.privateKeyHex,
     );
 
-    const response = await this.request("POST", `/auth/signup/${appKey}`, message);
+    const response = await this.request(
+      "POST",
+      `/auth/signup/${appKey}`,
+      message,
+    );
 
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -359,7 +368,11 @@ export class MemoryWalletClient {
       session.privateKeyHex,
     );
 
-    const response = await this.request("POST", `/auth/login/${appKey}`, message);
+    const response = await this.request(
+      "POST",
+      `/auth/login/${appKey}`,
+      message,
+    );
 
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -384,16 +397,22 @@ export class MemoryWalletClient {
   // Password Management
   // ============================================================
 
-  async changePassword(appKey: string, oldPassword: string, newPassword: string): Promise<void> {
+  async changePassword(
+    appKey: string,
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<void> {
     const response = await this.authRequest(
       "POST",
       `/auth/credentials/change-password/${appKey}`,
-      { oldPassword, newPassword }
+      { oldPassword, newPassword },
     );
 
     const data = await response.json();
     if (!response.ok || !data.success) {
-      throw new Error(data.error || `Change password failed: ${response.statusText}`);
+      throw new Error(
+        data.error || `Change password failed: ${response.statusText}`,
+      );
     }
   }
 
@@ -404,26 +423,30 @@ export class MemoryWalletClient {
   async resetPassword(
     _username: string,
     _resetToken: string,
-    _newPassword: string
+    _newPassword: string,
   ): Promise<AuthSession> {
-    throw new Error("Use resetPasswordWithToken(appKey, username, resetToken, newPassword)");
+    throw new Error(
+      "Use resetPasswordWithToken(appKey, username, resetToken, newPassword)",
+    );
   }
 
   async requestPasswordResetWithToken(
     appKey: string,
     tokenOrUsername: string,
-    maybeUsername?: string
+    maybeUsername?: string,
   ): Promise<PasswordResetToken> {
     const username = maybeUsername || tokenOrUsername;
     const response = await this.request(
       "POST",
       `/auth/credentials/request-password-reset/${appKey}`,
-      { username }
+      { username },
     );
 
     const data = await response.json();
     if (!response.ok || !data.success) {
-      throw new Error(data.error || `Request password reset failed: ${response.statusText}`);
+      throw new Error(
+        data.error || `Request password reset failed: ${response.statusText}`,
+      );
     }
 
     return {
@@ -437,7 +460,7 @@ export class MemoryWalletClient {
     _tokenOrUsername: string,
     usernameOrReset: string,
     resetToken?: string,
-    newPassword?: string
+    newPassword?: string,
   ): Promise<AuthSession> {
     const username = usernameOrReset;
     if (!resetToken || !newPassword) {
@@ -447,12 +470,14 @@ export class MemoryWalletClient {
     const response = await this.request(
       "POST",
       `/auth/credentials/reset-password/${appKey}`,
-      { username, resetToken, newPassword }
+      { username, resetToken, newPassword },
     );
 
     const data = await response.json();
     if (!response.ok || !data.success) {
-      throw new Error(data.error || `Reset password failed: ${response.statusText}`);
+      throw new Error(
+        data.error || `Reset password failed: ${response.statusText}`,
+      );
     }
 
     return {
@@ -471,11 +496,16 @@ export class MemoryWalletClient {
       throw new Error("appKey is required");
     }
 
-    const response = await this.authRequest("GET", `/auth/public-keys/${appKey}`);
+    const response = await this.authRequest(
+      "GET",
+      `/auth/public-keys/${appKey}`,
+    );
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.error || `Get public keys failed: ${response.statusText}`);
+      throw new Error(
+        data.error || `Get public keys failed: ${response.statusText}`,
+      );
     }
 
     return {
@@ -517,7 +547,9 @@ export class MemoryWalletClient {
     return data;
   }
 
-  async proxyReadMulti(request: ProxyReadMultiRequest): Promise<ProxyReadMultiResponse> {
+  async proxyReadMulti(
+    request: ProxyReadMultiRequest,
+  ): Promise<ProxyReadMultiResponse> {
     const response = await this.authRequest("POST", "/proxy/read-multi", {
       uris: request.uris,
     });
@@ -539,7 +571,10 @@ export class MemoryWalletClient {
   /**
    * Get server's public keys directly (convenience method)
    */
-  getServerPublicKeys(): { identityPublicKeyHex: string; encryptionPublicKeyHex: string } {
+  getServerPublicKeys(): {
+    identityPublicKeyHex: string;
+    encryptionPublicKeyHex: string;
+  } {
     return this.server.getServerKeys();
   }
 }

@@ -91,7 +91,9 @@ export class MemoryClient implements NodeProtocolInterface {
         };
       }
 
-      const record = programStore.get(pathname) as PersistenceRecord<T> | undefined;
+      const record = programStore.get(pathname) as
+        | PersistenceRecord<T>
+        | undefined;
 
       if (!record) {
         return {
@@ -166,8 +168,12 @@ export class MemoryClient implements NodeProtocolInterface {
         });
       } else if (options?.sortBy === "timestamp") {
         items.sort((a, b) => {
-          const aRecord = this.store.get(a.uri.split("://")[0] + "://" + a.uri.split("/")[2])?.get(a.uri.substring(a.uri.indexOf("/", a.uri.indexOf("://") + 3)));
-          const bRecord = this.store.get(b.uri.split("://")[0] + "://" + b.uri.split("/")[2])?.get(b.uri.substring(b.uri.indexOf("/", b.uri.indexOf("://") + 3)));
+          const aRecord = this.store.get(
+            a.uri.split("://")[0] + "://" + a.uri.split("/")[2],
+          )?.get(a.uri.substring(a.uri.indexOf("/", a.uri.indexOf("://") + 3)));
+          const bRecord = this.store.get(
+            b.uri.split("://")[0] + "://" + b.uri.split("/")[2],
+          )?.get(b.uri.substring(b.uri.indexOf("/", b.uri.indexOf("://") + 3)));
           const aTs = aRecord?.ts || 0;
           const bTs = bRecord?.ts || 0;
           const comparison = aTs - bTs;

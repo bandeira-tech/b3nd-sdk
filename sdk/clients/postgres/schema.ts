@@ -19,7 +19,7 @@ export function generatePostgresSchema(tablePrefix: string): string {
   // Validate table prefix to prevent SQL injection
   if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(tablePrefix)) {
     throw new Error(
-      "tablePrefix must start with a letter and contain only letters, numbers, and underscores"
+      "tablePrefix must start with a letter and contain only letters, numbers, and underscores",
     );
   }
 
@@ -113,13 +113,15 @@ export function generateCompleteSchemaSQL(options: SchemaInitOptions): string {
     // Validate database user name
     if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(databaseUser)) {
       throw new Error(
-        "databaseUser must start with a letter and contain only letters, numbers, and underscores"
+        "databaseUser must start with a letter and contain only letters, numbers, and underscores",
       );
     }
 
     sql += `\n\n-- Grant permissions to ${databaseUser}\n`;
-    sql += `GRANT ALL PRIVILEGES ON TABLE ${tablePrefix}_data TO ${databaseUser};\n`;
-    sql += `GRANT EXECUTE ON FUNCTION ${tablePrefix}_upsert(VARCHAR, JSONB, BIGINT) TO ${databaseUser};\n`;
+    sql +=
+      `GRANT ALL PRIVILEGES ON TABLE ${tablePrefix}_data TO ${databaseUser};\n`;
+    sql +=
+      `GRANT EXECUTE ON FUNCTION ${tablePrefix}_upsert(VARCHAR, JSONB, BIGINT) TO ${databaseUser};\n`;
   }
 
   return sql;

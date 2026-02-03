@@ -5,10 +5,10 @@
  * in simulation/demo mode using in-memory or localStorage storage.
  */
 
-import type { FileStorage, Environment } from "../interfaces.ts";
-import { MemoryFileStorage, ConfigEnvironment } from "../interfaces.ts";
+import type { Environment, FileStorage } from "../interfaces.ts";
+import { ConfigEnvironment, MemoryFileStorage } from "../interfaces.ts";
 import { LocalStorageClient } from "../../clients/local-storage/mod.ts";
-import type { WalletServerConfig, ServerKeys } from "../types.ts";
+import type { ServerKeys, WalletServerConfig } from "../types.ts";
 import { WalletServerCore } from "../core.ts";
 
 /**
@@ -91,7 +91,7 @@ export interface BrowserWalletServerOptions {
  * ```
  */
 export function createBrowserWalletServer(
-  options: BrowserWalletServerOptions
+  options: BrowserWalletServerOptions,
 ): WalletServerCore {
   const prefix = options.localStoragePrefix ?? "b3nd-wallet-";
 
@@ -133,33 +133,33 @@ export async function generateBrowserServerKeys(): Promise<ServerKeys> {
   const identityKeyPair = (await crypto.subtle.generateKey(
     "Ed25519",
     true,
-    ["sign", "verify"]
+    ["sign", "verify"],
   )) as CryptoKeyPair;
 
   // Generate X25519 encryption key pair
   const encryptionKeyPair = (await crypto.subtle.generateKey(
     { name: "X25519", namedCurve: "X25519" },
     true,
-    ["deriveBits"]
+    ["deriveBits"],
   )) as CryptoKeyPair;
 
   // Export keys
   const identityPrivateKeyBuffer = await crypto.subtle.exportKey(
     "pkcs8",
-    identityKeyPair.privateKey
+    identityKeyPair.privateKey,
   );
   const identityPublicKeyBuffer = await crypto.subtle.exportKey(
     "raw",
-    identityKeyPair.publicKey
+    identityKeyPair.publicKey,
   );
 
   const encryptionPrivateKeyBuffer = await crypto.subtle.exportKey(
     "pkcs8",
-    encryptionKeyPair.privateKey
+    encryptionKeyPair.privateKey,
   );
   const encryptionPublicKeyBuffer = await crypto.subtle.exportKey(
     "raw",
-    encryptionKeyPair.publicKey
+    encryptionKeyPair.publicKey,
   );
 
   // Convert to PEM and hex
@@ -173,7 +173,9 @@ export async function generateBrowserServerKeys(): Promise<ServerKeys> {
 
   const toPem = (buffer: ArrayBuffer): string => {
     const base64 = bytesToBase64(new Uint8Array(buffer));
-    return `-----BEGIN PRIVATE KEY-----\n${base64.match(/.{1,64}/g)?.join("\n")}\n-----END PRIVATE KEY-----`;
+    return `-----BEGIN PRIVATE KEY-----\n${
+      base64.match(/.{1,64}/g)?.join("\n")
+    }\n-----END PRIVATE KEY-----`;
   };
 
   return {

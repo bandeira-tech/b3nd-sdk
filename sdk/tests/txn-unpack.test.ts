@@ -13,9 +13,9 @@ import type { Schema } from "../src/types.ts";
 import { MemoryClient } from "../clients/memory/mod.ts";
 import {
   createNode,
+  firstMatch,
   parallel,
   txnSchema,
-  firstMatch,
 } from "../src/node/mod.ts";
 
 // =============================================================================
@@ -211,7 +211,10 @@ Deno.test("txnSchema - rejects non-TransactionData with unknown program", async 
   const validator = txnSchema(testSchema);
   const read = async () => ({ success: false as const, error: "not found" });
 
-  const result = await validator(["unknown://program/x", { name: "Alice" }], read);
+  const result = await validator(
+    ["unknown://program/x", { name: "Alice" }],
+    read,
+  );
   assertEquals(result.valid, false);
   assertEquals(result.error, "Unknown program: unknown://program");
 });
@@ -275,7 +278,9 @@ Deno.test("integration - plain transactions still work alongside TransactionData
   });
 
   // Plain transaction
-  const plainResult = await node.receive(["mutable://open/plain", { name: "Alice" }]);
+  const plainResult = await node.receive(["mutable://open/plain", {
+    name: "Alice",
+  }]);
   assertEquals(plainResult.accepted, true);
 
   const readPlain = await client.read("mutable://open/plain");
@@ -336,7 +341,10 @@ Deno.test("integration - TransactionData with mixed programs (mutable + immutabl
 Deno.test("integration - txnSchema rejects invalid outputs before client sees them", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
-    "mutable://restricted": async () => ({ valid: false, error: "access denied" }),
+    "mutable://restricted": async () => ({
+      valid: false,
+      error: "access denied",
+    }),
     "txn://open": async () => ({ valid: true }),
   };
 

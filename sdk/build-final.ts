@@ -30,15 +30,15 @@ async function copySourceFiles() {
 
   // Copy all TypeScript files from src to dist
   for await (const entry of Deno.readDir(SRC_DIR)) {
-    if (entry.isFile && entry.name.endsWith('.ts')) {
+    if (entry.isFile && entry.name.endsWith(".ts")) {
       // Use mod.browser.ts as mod.ts for the browser distribution
-      if (entry.name === 'mod.browser.ts') {
+      if (entry.name === "mod.browser.ts") {
         const srcPath = join(SRC_DIR, entry.name);
-        const destPath = join(DIST_DIR, 'mod.ts');
+        const destPath = join(DIST_DIR, "mod.ts");
         const content = await Deno.readTextFile(srcPath);
         await Deno.writeTextFile(destPath, content);
         console.log(`  ✅ Copied ${entry.name} as mod.ts`);
-      } else if (entry.name !== 'mod.ts') {
+      } else if (entry.name !== "mod.ts") {
         // Copy other files, but skip the full mod.ts
         const srcPath = join(SRC_DIR, entry.name);
         const destPath = join(DIST_DIR, entry.name);
@@ -121,7 +121,7 @@ async function copyPackageFiles() {
 
   const filesToCopy = [
     "README.md",
-    "LICENSE"
+    "LICENSE",
   ];
 
   for (const file of filesToCopy) {
@@ -158,43 +158,43 @@ async function createPackageJson() {
       ".": {
         "import": "./mod.ts",
         "require": "./mod.ts",
-        "types": "./mod.ts"
+        "types": "./mod.ts",
       },
       "./auth": {
         "import": "./auth/mod.ts",
         "require": "./auth/mod.ts",
-        "types": "./auth/mod.ts"
+        "types": "./auth/mod.ts",
       },
       "./encrypt": {
         "import": "./encrypt/mod.ts",
         "require": "./encrypt/mod.ts",
-        "types": "./encrypt/mod.ts"
+        "types": "./encrypt/mod.ts",
       },
       "./clients/memory": {
         "import": "./clients/memory/mod.ts",
         "require": "./clients/memory/mod.ts",
-        "types": "./clients/memory/mod.ts"
+        "types": "./clients/memory/mod.ts",
       },
       "./clients/http": {
         "import": "./clients/http/mod.ts",
         "require": "./clients/http/mod.ts",
-        "types": "./clients/http/mod.ts"
+        "types": "./clients/http/mod.ts",
       },
       "./clients/local-storage": {
         "import": "./clients/local-storage/mod.ts",
         "require": "./clients/local-storage/mod.ts",
-        "types": "./clients/local-storage/mod.ts"
+        "types": "./clients/local-storage/mod.ts",
       },
       "./wallet": {
         "import": "./wallet/mod.ts",
         "require": "./wallet/mod.ts",
-        "types": "./wallet/mod.ts"
+        "types": "./wallet/mod.ts",
       },
       "./wallet-server": {
         "import": "./wallet-server/mod.ts",
         "require": "./wallet-server/mod.ts",
-        "types": "./wallet-server/mod.ts"
-      }
+        "types": "./wallet-server/mod.ts",
+      },
     },
 
     // ES modules
@@ -210,7 +210,7 @@ async function createPackageJson() {
       "shared/**/*.ts",
       "README.md",
       "LICENSE",
-      "USAGE.md"
+      "USAGE.md",
     ],
 
     keywords: packageJson.keywords,
@@ -220,23 +220,23 @@ async function createPackageJson() {
     bugs: packageJson.bugs,
     homepage: packageJson.homepage,
     engines: {
-      node: ">=16.0.0"
+      node: ">=16.0.0",
     },
     publishConfig: {
-      access: "public"
+      access: "public",
     },
 
     // Modern approach - let consumers handle TypeScript compilation
     // This assumes consumers have TypeScript setup
     devDependencies: {
       "typescript": "^5.0.0",
-      "@types/node": "^20.0.0"
-    }
+      "@types/node": "^20.0.0",
+    },
   };
 
   await Deno.writeTextFile(
     join(DIST_DIR, "package.json"),
-    JSON.stringify(distPackageJson, null, 2)
+    JSON.stringify(distPackageJson, null, 2),
   );
 
   console.log("  ✅ Created package.json");
@@ -356,7 +356,9 @@ async function build(options: { clean?: boolean } = {}) {
     console.log(`📦 Package ready in ${DIST_DIR}/`);
     console.log("");
     console.log("This package contains TypeScript source code.");
-    console.log("Consumers should use 'tsx' or 'ts-node' to run it, or add a TypeScript loader.");
+    console.log(
+      "Consumers should use 'tsx' or 'ts-node' to run it, or add a TypeScript loader.",
+    );
     console.log("");
     console.log("Next steps:");
     console.log("  cd dist");
@@ -372,7 +374,7 @@ async function build(options: { clean?: boolean } = {}) {
 if (import.meta.main) {
   const args = Deno.args;
   const options = {
-    clean: args.includes('--clean') || !args.includes('--no-clean')
+    clean: args.includes("--clean") || !args.includes("--no-clean"),
   };
 
   await build(options);

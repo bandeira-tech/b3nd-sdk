@@ -43,12 +43,7 @@
  * ```
  */
 
-import type {
-  Node,
-  NodeConfig,
-  ReceiveResult,
-  Transaction,
-} from "./types.ts";
+import type { Node, NodeConfig, ReceiveResult, Transaction } from "./types.ts";
 
 // Re-export types
 export type {
@@ -62,7 +57,14 @@ export type {
 } from "./types.ts";
 
 // Re-export composition utilities
-export { all, any, parallel, firstMatch, pipeline, seq } from "./composition.ts";
+export {
+  all,
+  any,
+  firstMatch,
+  parallel,
+  pipeline,
+  seq,
+} from "./composition.ts";
 
 // Re-export built-in validators
 export {
@@ -116,10 +118,11 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
       // 2. Run validation pipeline if provided
       if (validate) {
         try {
-          const validationResult = await (validate as unknown as typeof validate)(
-            tx as unknown as Transaction<D>,
-            read.read.bind(read)
-          );
+          const validationResult =
+            await (validate as unknown as typeof validate)(
+              tx as unknown as Transaction<D>,
+              read.read.bind(read),
+            );
 
           if (!validationResult.valid) {
             return {
@@ -130,7 +133,9 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
         } catch (error) {
           return {
             accepted: false,
-            error: `Validation error: ${error instanceof Error ? error.message : String(error)}`,
+            error: `Validation error: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           };
         }
       }
@@ -139,7 +144,7 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
       if (process) {
         try {
           const processResult = await (process as unknown as typeof process)(
-            tx as unknown as Transaction<D>
+            tx as unknown as Transaction<D>,
           );
 
           if (!processResult.success) {
@@ -151,7 +156,9 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
         } catch (error) {
           return {
             accepted: false,
-            error: `Processing error: ${error instanceof Error ? error.message : String(error)}`,
+            error: `Processing error: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           };
         }
       }

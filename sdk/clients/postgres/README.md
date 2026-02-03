@@ -1,13 +1,16 @@
-Postgres Client
-===============
+# Postgres Client
 
-This client persists b3nd records in PostgreSQL and ships with a co-located schema generator.
+This client persists b3nd records in PostgreSQL and ships with a co-located
+schema generator.
 
 Initialization
-- Generate schema SQL with a custom table prefix using `generatePostgresSchema(tablePrefix)` from `sdk/clients/postgres/schema.ts`.
+
+- Generate schema SQL with a custom table prefix using
+  `generatePostgresSchema(tablePrefix)` from `sdk/clients/postgres/schema.ts`.
 - Execute the returned SQL against your database before first use.
 
 Example (Deno)
+
 ```
 import { PostgresClient } from "@b3nd/sdk";
 import { generatePostgresSchema } from "@b3nd/sdk/clients/postgres/schema.ts";
@@ -31,7 +34,7 @@ await client.initializeSchema(); // optional helper that executes the generated 
 ```
 
 Notes
+
 - No environment variables are read by this client. Pass all values explicitly.
 - No defaults are applied; all required fields must be provided by callers.
 - Errors are not suppressed; callers must handle and decide how to respond.
-

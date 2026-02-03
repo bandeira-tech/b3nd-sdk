@@ -40,7 +40,7 @@ runSharedSuite("HttpClient", {
 // Cleanup servers after all shared suite tests
 Deno.test({
   name: "HttpClient - cleanup servers",
-  sanitizeResources: false,  // Servers were created before tests started
+  sanitizeResources: false, // Servers were created before tests started
   sanitizeOps: false,
   fn: async () => {
     const servers = await serversPromise;

@@ -20,7 +20,7 @@ import type {
   Schema,
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
-import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
+import { decodeBinaryFromJson, encodeBinaryForJson } from "../../src/binary.ts";
 import { isTransactionData } from "../../txn-data/detect.ts";
 
 export interface MongoExecutor {
@@ -29,10 +29,16 @@ export interface MongoExecutor {
     filter: Record<string, unknown>,
     update: Record<string, unknown>,
     options?: Record<string, unknown>,
-  ): Promise<{ matchedCount?: number; modifiedCount?: number; upsertedId?: unknown }>;
-  findOne(filter: Record<string, unknown>): Promise<Record<string, unknown> | null>;
+  ): Promise<
+    { matchedCount?: number; modifiedCount?: number; upsertedId?: unknown }
+  >;
+  findOne(
+    filter: Record<string, unknown>,
+  ): Promise<Record<string, unknown> | null>;
   findMany(filter: Record<string, unknown>): Promise<Record<string, unknown>[]>;
-  deleteOne(filter: Record<string, unknown>): Promise<{ deletedCount?: number }>;
+  deleteOne(
+    filter: Record<string, unknown>,
+  ): Promise<{ deletedCount?: number }>;
   ping(): Promise<boolean>;
   cleanup?: () => Promise<void>;
 }
@@ -136,7 +142,8 @@ export class MongoClient implements NodeProtocolInterface, Node {
           if (!outputResult.accepted) {
             return {
               accepted: false,
-              error: outputResult.error || `Failed to store output: ${outputUri}`,
+              error: outputResult.error ||
+                `Failed to store output: ${outputUri}`,
             };
           }
         }
@@ -199,14 +206,18 @@ export class MongoClient implements NodeProtocolInterface, Node {
           return { uri, success: true, record: result.record };
         }
         return { uri, success: false, error: result.error || "Read failed" };
-      })
+      }),
     );
 
     const succeeded = results.filter((r) => r.success).length;
     return {
       success: succeeded > 0,
       results,
-      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+      summary: {
+        total: uris.length,
+        succeeded,
+        failed: uris.length - succeeded,
+      },
     };
   }
 
@@ -226,12 +237,11 @@ export class MongoClient implements NodeProtocolInterface, Node {
         if (!fullUri || !fullUri.startsWith(prefixBase)) continue;
 
         const tsValue = doc.timestamp;
-        const ts =
-          typeof tsValue === "number"
-            ? tsValue
-            : tsValue != null
-              ? Number(tsValue)
-              : 0;
+        const ts = typeof tsValue === "number"
+          ? tsValue
+          : tsValue != null
+          ? Number(tsValue)
+          : 0;
 
         items.push({ uri: fullUri, ts });
       }

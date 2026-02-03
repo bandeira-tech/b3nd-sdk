@@ -7,21 +7,21 @@
 
 import type { NodeProtocolInterface } from "../src/types.ts";
 import {
+  type AuthenticatedMessage,
   createAuthenticatedMessage,
   createSignedEncryptedMessage,
   decrypt,
-  type AuthenticatedMessage,
-  type SignedEncryptedMessage,
   type EncryptedPayload,
+  type SignedEncryptedMessage,
 } from "../encrypt/mod.ts";
 import { loadUserAccountKey, loadUserEncryptionKey } from "./keys.ts";
 import { pemToCryptoKey } from "./obfuscation.ts";
 import type {
-  ProxyWriteRequest,
-  ProxyWriteResponse,
-  ProxyReadResponse,
   ProxyReadMultiResponse,
   ProxyReadMultiResultItem,
+  ProxyReadResponse,
+  ProxyWriteRequest,
+  ProxyWriteResponse,
 } from "./types.ts";
 
 /**
@@ -34,7 +34,7 @@ export async function proxyWrite(
   serverPublicKey: string,
   username: string,
   serverEncryptionPrivateKeyPem: string,
-  request: ProxyWriteRequest
+  request: ProxyWriteRequest,
 ): Promise<ProxyWriteResponse> {
   try {
     // Load user's keys (server-managed)
@@ -43,13 +43,13 @@ export async function proxyWrite(
         credentialClient,
         serverPublicKey,
         username,
-        serverEncryptionPrivateKeyPem
+        serverEncryptionPrivateKeyPem,
       ),
       loadUserEncryptionKey(
         credentialClient,
         serverPublicKey,
         username,
-        serverEncryptionPrivateKeyPem
+        serverEncryptionPrivateKeyPem,
       ),
     ]);
 
@@ -59,7 +59,7 @@ export async function proxyWrite(
     // Convert user's account private key PEM to CryptoKey for signing
     const userPrivateKey = await pemToCryptoKey(
       accountKey.privateKeyPem,
-      "Ed25519"
+      "Ed25519",
     );
 
     const signer = {
@@ -75,7 +75,7 @@ export async function proxyWrite(
       signedMessage = await createSignedEncryptedMessage(
         request.data,
         [signer],
-        encryptionKey.publicKeyHex
+        encryptionKey.publicKeyHex,
       );
     } else {
       // Sign only (no encryption)
@@ -118,7 +118,7 @@ export async function proxyRead(
   serverPublicKey: string,
   username: string,
   serverEncryptionPrivateKeyPem: string,
-  uri: string
+  uri: string,
 ): Promise<ProxyReadResponse> {
   try {
     // Resolve :key placeholder with the user's account public key
@@ -126,7 +126,7 @@ export async function proxyRead(
       credentialClient,
       serverPublicKey,
       username,
-      serverEncryptionPrivateKeyPem
+      serverEncryptionPrivateKeyPem,
     );
     const resolvedUri = uri.replace(/:key/g, accountKey.publicKeyHex);
 
@@ -164,12 +164,12 @@ export async function proxyRead(
               credentialClient,
               serverPublicKey,
               username,
-              serverEncryptionPrivateKeyPem
+              serverEncryptionPrivateKeyPem,
             );
 
             const privateKey = await pemToCryptoKey(
               userEncryptionKey.privateKeyPem,
-              "X25519"
+              "X25519",
             );
             const encryptedPayload: EncryptedPayload = {
               data: payload.data as string,
@@ -178,7 +178,7 @@ export async function proxyRead(
             };
             const decrypted = await decrypt(
               encryptedPayload,
-              privateKey
+              privateKey,
             );
             return {
               ...response,
@@ -215,7 +215,7 @@ export async function proxyReadMulti(
   serverPublicKey: string,
   username: string,
   serverEncryptionPrivateKeyPem: string,
-  uris: string[]
+  uris: string[],
 ): Promise<ProxyReadMultiResponse> {
   // Enforce batch size limit
   if (uris.length > 50) {
@@ -234,13 +234,13 @@ export async function proxyReadMulti(
         credentialClient,
         serverPublicKey,
         username,
-        serverEncryptionPrivateKeyPem
+        serverEncryptionPrivateKeyPem,
       ),
       loadUserEncryptionKey(
         credentialClient,
         serverPublicKey,
         username,
-        serverEncryptionPrivateKeyPem
+        serverEncryptionPrivateKeyPem,
       ),
     ]);
 
@@ -255,64 +255,72 @@ export async function proxyReadMulti(
     // Prepare user's private key for decryption (once)
     const privateKey = await pemToCryptoKey(
       userEncryptionKey.privateKeyPem,
-      "X25519"
+      "X25519",
     );
 
     // Process each result with decryption
     const results: ProxyReadMultiResultItem[] = await Promise.all(
-      multiResult.results.map(async (item, i): Promise<ProxyReadMultiResultItem> => {
-        const originalUri = uris[i];
+      multiResult.results.map(
+        async (item, i): Promise<ProxyReadMultiResultItem> => {
+          const originalUri = uris[i];
 
-        if (!item.success) {
-          return {
-            uri: originalUri,
-            success: false,
-            error: "error" in item ? item.error : "Read failed",
-          };
-        }
-
-        const result: ProxyReadMultiResultItem = {
-          uri: originalUri,
-          success: true,
-          record: "record" in item ? item.record : undefined,
-        };
-
-        // Try to decrypt if data looks encrypted
-        if (result.record?.data) {
-          try {
-            const data = result.record.data as Record<string, unknown>;
-
-            // Check if this is a signed+encrypted payload structure
-            if (
-              typeof data === "object" &&
-              data.payload &&
-              typeof data.payload === "object"
-            ) {
-              const payload = data.payload as Record<string, unknown>;
-              if (payload.data && payload.nonce && payload.ephemeralPublicKey) {
-                const encryptedPayload: EncryptedPayload = {
-                  data: payload.data as string,
-                  nonce: payload.nonce as string,
-                  ephemeralPublicKey: payload.ephemeralPublicKey as string,
-                };
-                const decrypted = await decrypt(encryptedPayload, privateKey);
-                return { ...result, decrypted };
-              }
-            }
-          } catch {
-            // Silently fail decryption - return original data
+          if (!item.success) {
+            return {
+              uri: originalUri,
+              success: false,
+              error: "error" in item ? item.error : "Read failed",
+            };
           }
-        }
 
-        return result;
-      })
+          const result: ProxyReadMultiResultItem = {
+            uri: originalUri,
+            success: true,
+            record: "record" in item ? item.record : undefined,
+          };
+
+          // Try to decrypt if data looks encrypted
+          if (result.record?.data) {
+            try {
+              const data = result.record.data as Record<string, unknown>;
+
+              // Check if this is a signed+encrypted payload structure
+              if (
+                typeof data === "object" &&
+                data.payload &&
+                typeof data.payload === "object"
+              ) {
+                const payload = data.payload as Record<string, unknown>;
+                if (
+                  payload.data && payload.nonce && payload.ephemeralPublicKey
+                ) {
+                  const encryptedPayload: EncryptedPayload = {
+                    data: payload.data as string,
+                    nonce: payload.nonce as string,
+                    ephemeralPublicKey: payload.ephemeralPublicKey as string,
+                  };
+                  const decrypted = await decrypt(encryptedPayload, privateKey);
+                  return { ...result, decrypted };
+                }
+              }
+            } catch {
+              // Silently fail decryption - return original data
+            }
+          }
+
+          return result;
+        },
+      ),
     );
 
     const succeeded = results.filter((r) => r.success).length;
     return {
       success: succeeded > 0,
       results,
-      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+      summary: {
+        total: uris.length,
+        succeeded,
+        failed: uris.length - succeeded,
+      },
     };
   } catch (error) {
     return {

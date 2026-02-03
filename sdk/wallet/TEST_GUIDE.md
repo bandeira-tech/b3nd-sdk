@@ -47,6 +47,7 @@ deno run --allow-net test.ts
 The test script performs a complete workflow including error cases:
 
 ### Happy Path Tests:
+
 1. ✅ **Initialize** - Creates wallet client
 2. ✅ **Health Check** - Verifies server is running
 3. ✅ **Signup** - Creates new user account
@@ -59,6 +60,7 @@ The test script performs a complete workflow including error cases:
 10. ✅ **Write Again** - Verifies auth works after re-login
 
 ### Error Case Tests:
+
 11. ❌ **Wrong Password** - Verifies login fails with incorrect password
 12. 🔒 **Unauthenticated Write** - Verifies write fails without active session
 
@@ -148,11 +150,13 @@ Error: SERVER_IDENTITY_PRIVATE_KEY_PEM is required
 Error: User already exists
 ```
 
-**Solution**: Test creates unique usernames with timestamps, but if you run it multiple times in the same millisecond, this can happen. Just run again.
+**Solution**: Test creates unique usernames with timestamps, but if you run it
+multiple times in the same millisecond, this can happen. Just run again.
 
 ## Test Data
 
 The test creates:
+
 - A unique user: `testuser_{timestamp}`
 - Unencrypted profile data at: `mutable://test/{username}/profile`
 - Encrypted private data at: `mutable://test/{username}/private`

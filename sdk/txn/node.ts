@@ -11,7 +11,12 @@
  * what to store.
  */
 
-import type { Transaction, TransactionNode, TransactionNodeConfig, SubmitResult } from "./types.ts";
+import type {
+  SubmitResult,
+  Transaction,
+  TransactionNode,
+  TransactionNodeConfig,
+} from "./types.ts";
 
 /**
  * Create a transaction node
@@ -44,7 +49,7 @@ import type { Transaction, TransactionNode, TransactionNodeConfig, SubmitResult 
  * ```
  */
 export function createTransactionNode<D = unknown>(
-  config: TransactionNodeConfig<D>
+  config: TransactionNodeConfig<D>,
 ): TransactionNode<D> {
   if (!config) throw new Error("config is required");
   if (!config.validate) throw new Error("validate function is required");
@@ -76,7 +81,9 @@ export function createTransactionNode<D = unknown>(
       } catch (error) {
         return {
           accepted: false,
-          error: `Validation error: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Validation error: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         };
       }
 
@@ -89,7 +96,7 @@ export function createTransactionNode<D = unknown>(
             accepted: false,
             error: err instanceof Error ? err.message : String(err),
           }))
-        )
+        ),
       );
 
       // Check if at least one peer accepted
@@ -98,7 +105,7 @@ export function createTransactionNode<D = unknown>(
           result.status === "fulfilled" &&
           result.value &&
           "accepted" in result.value &&
-          result.value.accepted
+          result.value.accepted,
       );
 
       if (!anyAccepted && peers.length > 0) {
@@ -108,7 +115,10 @@ export function createTransactionNode<D = unknown>(
             if (result.status === "rejected") {
               return `peer[${i}]: ${result.reason}`;
             }
-            if (result.status === "fulfilled" && result.value && !result.value.accepted) {
+            if (
+              result.status === "fulfilled" && result.value &&
+              !result.value.accepted
+            ) {
               return `peer[${i}]: ${result.value.error || "rejected"}`;
             }
             return null;
@@ -127,7 +137,7 @@ export function createTransactionNode<D = unknown>(
     async cleanup(): Promise<void> {
       // Cleanup all peers
       await Promise.all(
-        peers.map((peer) => peer.cleanup().catch(() => {}))
+        peers.map((peer) => peer.cleanup().catch(() => {})),
       );
 
       // Cleanup read interface

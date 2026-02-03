@@ -19,7 +19,9 @@ export interface NodeTestFactory {
   happy: () => (Node & ReadInterface) | Promise<Node & ReadInterface>;
 
   /** Factory for node that rejects validation */
-  validationError?: () => (Node & ReadInterface) | Promise<Node & ReadInterface>;
+  validationError?: () =>
+    | (Node & ReadInterface)
+    | Promise<Node & ReadInterface>;
 }
 
 /**
@@ -104,7 +106,10 @@ export function runNodeSuite(
     // Verify data was updated
     const readResult = await node.read("store://users/alice/profile");
     assertEquals(readResult.success, true);
-    assertEquals(readResult.record?.data, { name: "Alice Updated", version: 2 });
+    assertEquals(readResult.record?.data, {
+      name: "Alice Updated",
+      version: 2,
+    });
 
     await node.cleanup();
   });
@@ -185,7 +190,11 @@ export function runNodeSuite(
     if (result.results[1].success) {
       assertEquals(result.results[1].record.data, { name: "Bob" });
     }
-    assertEquals(result.results[2].success, false, "Nonexistent URI should fail");
+    assertEquals(
+      result.results[2].success,
+      false,
+      "Nonexistent URI should fail",
+    );
 
     await node.cleanup();
   });

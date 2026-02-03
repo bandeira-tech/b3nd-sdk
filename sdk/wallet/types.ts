@@ -35,7 +35,9 @@ export interface WalletClientInterface {
 
   // Health & server info
   health(): Promise<HealthResponse>;
-  getServerKeys(): Promise<{ identityPublicKeyHex: string; encryptionPublicKeyHex: string }>;
+  getServerKeys(): Promise<
+    { identityPublicKeyHex: string; encryptionPublicKeyHex: string }
+  >;
 
   // Authentication
   /**
@@ -45,7 +47,7 @@ export interface WalletClientInterface {
   signup(
     appKey: string,
     session: SessionKeypair,
-    credentials: UserCredentials
+    credentials: UserCredentials,
   ): Promise<AuthSession>;
   /**
    * Login with session keypair.
@@ -54,13 +56,27 @@ export interface WalletClientInterface {
   login(
     appKey: string,
     session: SessionKeypair,
-    credentials: UserCredentials
+    credentials: UserCredentials,
   ): Promise<AuthSession>;
 
   // Password management
-  changePassword(appKey: string, oldPassword: string, newPassword: string): Promise<void>;
-  requestPasswordResetWithToken(appKey: string, tokenOrUsername: string, maybeUsername?: string): Promise<PasswordResetToken>;
-  resetPasswordWithToken(appKey: string, tokenOrUsername: string, usernameOrReset: string, resetToken?: string, newPassword?: string): Promise<AuthSession>;
+  changePassword(
+    appKey: string,
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<void>;
+  requestPasswordResetWithToken(
+    appKey: string,
+    tokenOrUsername: string,
+    maybeUsername?: string,
+  ): Promise<PasswordResetToken>;
+  resetPasswordWithToken(
+    appKey: string,
+    tokenOrUsername: string,
+    usernameOrReset: string,
+    resetToken?: string,
+    newPassword?: string,
+  ): Promise<AuthSession>;
 
   // Public keys
   getPublicKeys(appKey: string): Promise<UserPublicKeys>;
@@ -69,8 +85,9 @@ export interface WalletClientInterface {
   // Proxy operations
   proxyWrite(request: ProxyWriteRequest): Promise<ProxyWriteResponse>;
   proxyRead(request: ProxyReadRequest): Promise<ProxyReadResponse>;
-  proxyReadMulti(request: ProxyReadMultiRequest): Promise<ProxyReadMultiResponse>;
-
+  proxyReadMulti(
+    request: ProxyReadMultiRequest,
+  ): Promise<ProxyReadMultiResponse>;
 }
 
 /**
@@ -97,7 +114,7 @@ export interface WalletClientConfig {
  * Password-based credentials
  */
 export interface PasswordCredentials {
-  type: 'password';
+  type: "password";
   username: string;
   password: string;
 }
@@ -106,7 +123,7 @@ export interface PasswordCredentials {
  * Google OAuth credentials
  */
 export interface GoogleCredentials {
-  type: 'google';
+  type: "google";
   googleIdToken: string;
 }
 

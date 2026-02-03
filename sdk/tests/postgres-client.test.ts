@@ -153,7 +153,9 @@ const postgresSetupPromise: Promise<PostgresSetupResult> = (async () => {
 function createSchema(
   validator?: (value: unknown) => Promise<{ valid: boolean; error?: string }>,
 ): Schema {
-  const defaultValidator = async ({ value, read }: { value: unknown; read: unknown }) => {
+  const defaultValidator = async (
+    { value, read }: { value: unknown; read: unknown },
+  ) => {
     if (validator) {
       return validator(value);
     }

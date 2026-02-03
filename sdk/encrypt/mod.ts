@@ -61,7 +61,10 @@ export class IdentityKey {
     publicKeyHex: string;
   }> {
     const pair = await generateSigningKeyPair();
-    const privateKeyPem = await exportPrivateKeyPem(pair.privateKey, "PRIVATE KEY");
+    const privateKeyPem = await exportPrivateKeyPem(
+      pair.privateKey,
+      "PRIVATE KEY",
+    );
     return {
       key: new IdentityKey(pair.privateKey, pair.publicKeyHex),
       privateKeyPem,
@@ -69,7 +72,10 @@ export class IdentityKey {
     };
   }
 
-  static async fromPem(pem: string, publicKeyHex: string): Promise<IdentityKey> {
+  static async fromPem(
+    pem: string,
+    publicKeyHex: string,
+  ): Promise<IdentityKey> {
     const privateKey = await pemToCryptoKey(pem, "Ed25519");
     return new IdentityKey(privateKey, publicKeyHex);
   }
@@ -170,7 +176,9 @@ export class PrivateEncryptionKey {
     readonly publicKeyHex: string,
   ) {}
 
-  static async fromHex(params: { privateKeyHex: string; publicKeyHex: string }): Promise<PrivateEncryptionKey> {
+  static async fromHex(
+    params: { privateKeyHex: string; publicKeyHex: string },
+  ): Promise<PrivateEncryptionKey> {
     const { privateKeyHex, publicKeyHex } = params;
     const privateKeyBytes = decodeHex(privateKeyHex).buffer;
     const privateKey = await crypto.subtle.importKey(
@@ -193,9 +201,16 @@ export class PrivateEncryptionKey {
       await crypto.subtle.exportKey("pkcs8", pair.privateKey),
     );
     const privateKeyHex = encodeHex(privateKeyBytes);
-    const publicKey = new PublicEncryptionKey(pair.publicKeyHex, pair.publicKey);
+    const publicKey = new PublicEncryptionKey(
+      pair.publicKeyHex,
+      pair.publicKey,
+    );
     return {
-      privateKey: new PrivateEncryptionKey(pair.privateKey, privateKeyHex, pair.publicKeyHex),
+      privateKey: new PrivateEncryptionKey(
+        pair.privateKey,
+        privateKeyHex,
+        pair.publicKeyHex,
+      ),
       publicKey,
     };
   }
@@ -270,7 +285,10 @@ export async function generateSigningKeyPair(): Promise<KeyPair> {
     ["sign", "verify"],
   );
 
-  const publicKeyBytes = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const publicKeyBytes = await crypto.subtle.exportKey(
+    "raw",
+    keyPair.publicKey,
+  );
   const privateKeyBytes = await crypto.subtle.exportKey(
     "pkcs8",
     keyPair.privateKey,
@@ -297,7 +315,10 @@ export async function generateEncryptionKeyPair(): Promise<EncryptionKeyPair> {
     ["deriveBits"],
   );
 
-  const publicKeyBytes = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const publicKeyBytes = await crypto.subtle.exportKey(
+    "raw",
+    keyPair.publicKey,
+  );
 
   return {
     publicKey: keyPair.publicKey,
@@ -620,8 +641,13 @@ export function generateRandomData(size: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(size));
 }
 
-export async function exportPrivateKeyPem(privateKey: CryptoKey, label: string): Promise<string> {
-  const der = new Uint8Array(await crypto.subtle.exportKey("pkcs8", privateKey));
+export async function exportPrivateKeyPem(
+  privateKey: CryptoKey,
+  label: string,
+): Promise<string> {
+  const der = new Uint8Array(
+    await crypto.subtle.exportKey("pkcs8", privateKey),
+  );
   return toPem(der, label);
 }
 
@@ -693,7 +719,9 @@ export async function createSignedEncryptedMessage(
   }
 
   if (!signers || !recipientPublicKeyHex) {
-    throw new Error("Invalid arguments for legacy createSignedEncryptedMessage");
+    throw new Error(
+      "Invalid arguments for legacy createSignedEncryptedMessage",
+    );
   }
 
   const encrypted = await encrypt(paramsOrData, recipientPublicKeyHex);

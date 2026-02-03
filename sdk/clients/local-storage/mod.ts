@@ -44,7 +44,8 @@ export class LocalStorageClient implements NodeProtocolInterface, Node {
     this.schema = config.schema || {};
 
     // Use injected storage or default to global localStorage
-    this.storage = config.storage || (typeof localStorage !== "undefined" ? localStorage : null!);
+    this.storage = config.storage ||
+      (typeof localStorage !== "undefined" ? localStorage : null!);
 
     // Check if storage is available
     if (!this.storage) {
@@ -62,7 +63,10 @@ export class LocalStorageClient implements NodeProtocolInterface, Node {
   /**
    * Validate write operation against schema
    */
-  private async validateWrite(uri: string, value: unknown): Promise<{ valid: boolean; error?: string }> {
+  private async validateWrite(
+    uri: string,
+    value: unknown,
+  ): Promise<{ valid: boolean; error?: string }> {
     // Find matching schema validation function
     const programKey = this.findMatchingProgram(uri);
     if (programKey && this.schema[programKey]) {
@@ -184,20 +188,30 @@ export class LocalStorageClient implements NodeProtocolInterface, Node {
           return { uri, success: true, record: result.record };
         }
         return { uri, success: false, error: result.error || "Read failed" };
-      })
+      }),
     );
 
     const succeeded = results.filter((r) => r.success).length;
     return {
       success: succeeded > 0,
       results,
-      summary: { total: uris.length, succeeded, failed: uris.length - succeeded },
+      summary: {
+        total: uris.length,
+        succeeded,
+        failed: uris.length - succeeded,
+      },
     };
   }
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
     try {
-      const { page = 1, limit = 50, pattern, sortBy = "name", sortOrder = "asc" } = options || {};
+      const {
+        page = 1,
+        limit = 50,
+        pattern,
+        sortBy = "name",
+        sortOrder = "asc",
+      } = options || {};
 
       const items: ListItem[] = [];
       const prefix = this.getKey(uri);

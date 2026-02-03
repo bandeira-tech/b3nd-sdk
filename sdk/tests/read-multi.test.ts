@@ -5,7 +5,7 @@
  */
 
 import { assertEquals, assertExists } from "@std/assert";
-import { MemoryClient, createTestSchema } from "../clients/memory/mod.ts";
+import { createTestSchema, MemoryClient } from "../clients/memory/mod.ts";
 import { createTestEnvironment } from "../wallet/testing.ts";
 
 Deno.test("MemoryClient.readMulti - reads multiple URIs successfully", async () => {
@@ -65,12 +65,20 @@ Deno.test("MemoryClient.readMulti - partial success", async () => {
 
   assertEquals(result.results[0].success, true);
   if (result.results[0].success) {
-    assertEquals(result.results[0].record.data, { ok: true }, "First item data should match");
+    assertEquals(
+      result.results[0].record.data,
+      { ok: true },
+      "First item data should match",
+    );
   }
   assertEquals(result.results[1].success, false);
   assertEquals(result.results[2].success, true);
   if (result.results[2].success) {
-    assertEquals(result.results[2].record.data, { ok: true }, "Third item data should match");
+    assertEquals(
+      result.results[2].record.data,
+      { ok: true },
+      "Third item data should match",
+    );
   }
 
   await client.cleanup();
@@ -182,7 +190,11 @@ Deno.test("wallet.proxyReadMulti - partial success with missing items", async ()
 
   assertEquals(result.results[0].success, true);
   if (result.results[0].success && result.results[0].decrypted) {
-    assertEquals(result.results[0].decrypted, { found: true }, "Successful read data should match");
+    assertEquals(
+      result.results[0].decrypted,
+      { found: true },
+      "Successful read data should match",
+    );
   }
   assertEquals(result.results[1].success, false);
 
@@ -194,7 +206,10 @@ Deno.test("wallet.proxyReadMulti - batch limit exceeded", async () => {
 
   await signupTestUser("test-app", "charlie", "password123");
 
-  const uris = Array.from({ length: 51 }, (_, i) => `mutable://data/:key/item${i}`);
+  const uris = Array.from(
+    { length: 51 },
+    (_, i) => `mutable://data/:key/item${i}`,
+  );
   const result = await wallet.proxyReadMulti({ uris });
 
   assertEquals(result.success, false);

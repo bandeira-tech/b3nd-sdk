@@ -15,7 +15,9 @@ export function decodeHex(hex: string): Uint8Array<ArrayBuffer> {
 }
 
 export function encodeBase64(bytes: Uint8Array): string {
-  const buf = (typeof globalThis !== "undefined" && (globalThis as any).Buffer) || undefined;
+  const buf =
+    (typeof globalThis !== "undefined" && (globalThis as any).Buffer) ||
+    undefined;
   if (buf) {
     return buf.from(bytes).toString("base64");
   }
@@ -25,7 +27,9 @@ export function encodeBase64(bytes: Uint8Array): string {
 }
 
 export function decodeBase64(b64: string): Uint8Array {
-  const buf = (typeof globalThis !== "undefined" && (globalThis as any).Buffer) || undefined;
+  const buf =
+    (typeof globalThis !== "undefined" && (globalThis as any).Buffer) ||
+    undefined;
   if (buf) {
     return new Uint8Array(buf.from(b64, "base64"));
   }

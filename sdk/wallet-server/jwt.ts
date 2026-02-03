@@ -41,7 +41,7 @@ function base64urlDecode(encoded: string): string {
 export async function createJwt(
   username: string,
   secret: string,
-  expirationSeconds: number
+  expirationSeconds: number,
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
 
@@ -69,16 +69,16 @@ export async function createJwt(
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
 
   const signature = await crypto.subtle.sign(
     "HMAC",
     key,
-    encoder.encode(message)
+    encoder.encode(message),
   );
   const signatureEncoded = base64urlEncode(
-    String.fromCharCode(...new Uint8Array(signature))
+    String.fromCharCode(...new Uint8Array(signature)),
   );
 
   return `${message}.${signatureEncoded}`;
@@ -89,7 +89,7 @@ export async function createJwt(
  */
 export async function verifyJwt(
   token: string,
-  secret: string
+  secret: string,
 ): Promise<JwtPayload> {
   const parts = token.split(".");
   if (parts.length !== 3) {
@@ -107,25 +107,28 @@ export async function verifyJwt(
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["verify"]
+    ["verify"],
   );
 
   // Convert base64url signature back to bytes
   const signaturePadded = signatureEncoded
     .replace(/-/g, "+")
     .replace(/_/g, "/")
-    .padEnd(signatureEncoded.length + ((4 - (signatureEncoded.length % 4)) % 4), "=");
+    .padEnd(
+      signatureEncoded.length + ((4 - (signatureEncoded.length % 4)) % 4),
+      "=",
+    );
   const signatureBytes = new Uint8Array(
     atob(signaturePadded)
       .split("")
-      .map((c) => c.charCodeAt(0))
+      .map((c) => c.charCodeAt(0)),
   );
 
   const isValid = await crypto.subtle.verify(
     "HMAC",
     key,
     signatureBytes,
-    encoder.encode(message)
+    encoder.encode(message),
   );
 
   if (!isValid) {

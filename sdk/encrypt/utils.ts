@@ -19,6 +19,10 @@ export async function deriveObfuscatedPath(
     ["sign"],
   );
 
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(input));
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(input),
+  );
   return encodeHex(new Uint8Array(signature)).substring(0, 32);
 }

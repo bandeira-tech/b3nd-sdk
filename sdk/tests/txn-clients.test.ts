@@ -12,9 +12,9 @@ import type { Schema } from "../src/types.ts";
 import { MemoryClient } from "../clients/memory/mod.ts";
 import {
   createNode,
+  firstMatch,
   parallel,
   txnSchema,
-  firstMatch,
 } from "../src/node/mod.ts";
 
 function createTestSetup() {
@@ -187,7 +187,9 @@ Deno.test("MemoryClient - transaction envelope is stored alongside outputs", asy
   assertEquals(result.accepted, true);
 
   // The envelope itself is stored
-  const envelope = await client.read<TransactionData>("txn://open/envelope-test");
+  const envelope = await client.read<TransactionData>(
+    "txn://open/envelope-test",
+  );
   assertEquals(envelope.success, true);
   assertEquals(envelope.record?.data.inputs, ["mutable://open/ref/1"]);
   assertEquals(envelope.record?.data.outputs.length, 1);

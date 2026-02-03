@@ -1,6 +1,7 @@
 # B3ND SDK Browser User Manual
 
-A comprehensive guide to using the B3ND SDK in browser applications for local and remote data management.
+A comprehensive guide to using the B3ND SDK in browser applications for local
+and remote data management.
 
 ## Table of Contents
 
@@ -31,11 +32,13 @@ protocol://domain/path
 ```
 
 Examples:
+
 - `users://alice/profile`
 - `cache://session/data`
 - `posts://article-123/content`
 
-All clients implement the same interface, making it easy to switch between local and remote storage.
+All clients implement the same interface, making it easy to switch between local
+and remote storage.
 
 ---
 
@@ -46,15 +49,15 @@ All clients implement the same interface, making it easy to switch between local
 **Best for:** User preferences, session data, auth tokens, small datasets
 
 ```typescript
-import { LocalStorageClient } from '@bandeira-tech/b3nd-sdk';
+import { LocalStorageClient } from "@bandeira-tech/b3nd-sdk";
 
 // Create client
 const storage = new LocalStorageClient({
-  keyPrefix: "myapp:",  // Avoid key collisions
+  keyPrefix: "myapp:", // Avoid key collisions
   schema: {
     "users://": async ({ value }) => {
       // Optional validation
-      if (typeof value === 'object' && value !== null && 'email' in value) {
+      if (typeof value === "object" && value !== null && "email" in value) {
         return { valid: true };
       }
       return { valid: false, error: "Users must have email" };
@@ -106,7 +109,7 @@ const encryptedStorage = new LocalStorageClient({
   serializer: {
     serialize: (data) => {
       const json = JSON.stringify(data);
-      return btoa(json);  // Base64 encode (use real encryption in production)
+      return btoa(json); // Base64 encode (use real encryption in production)
     },
     deserialize: (data) => {
       const json = atob(data);
@@ -123,7 +126,7 @@ const encryptedStorage = new LocalStorageClient({
 **Best for:** Large datasets, offline-first apps, caching large objects, images
 
 ```typescript
-import { IndexedDBClient } from '@bandeira-tech/b3nd-sdk';
+import { IndexedDBClient } from "@bandeira-tech/b3nd-sdk";
 
 // Create client
 const db = new IndexedDBClient({
@@ -132,7 +135,7 @@ const db = new IndexedDBClient({
   version: 1,
   schema: {
     "articles://": async ({ value }) => {
-      if (typeof value === 'object' && value !== null && 'title' in value) {
+      if (typeof value === "object" && value !== null && "title" in value) {
         return { valid: true };
       }
       return { valid: false, error: "Articles need a title" };
@@ -146,7 +149,7 @@ const article = {
   content: "... very long content ...",
   images: ["data:image/png;base64,..."],
   metadata: {
-    tags: ['tutorial', 'javascript'],
+    tags: ["tutorial", "javascript"],
     author: "Jane",
     publishedAt: Date.now(),
   },
@@ -162,11 +165,13 @@ const page1 = await db.list("articles://", {
   sortOrder: "desc",
 });
 
-console.log(`Showing ${page1.data.length} of ${page1.pagination.total} articles`);
+console.log(
+  `Showing ${page1.data.length} of ${page1.pagination.total} articles`,
+);
 
 // Pattern matching
 const searchResults = await db.list("articles://", {
-  pattern: "tutorial",  // Match URIs containing "tutorial"
+  pattern: "tutorial", // Match URIs containing "tutorial"
   limit: 10,
 });
 
@@ -179,32 +184,33 @@ await db.cleanup();
 
 **Choosing Between localStorage and IndexedDB:**
 
-| Feature | localStorage | IndexedDB |
-|---------|-------------|-----------|
-| Size limit | ~5-10MB | ~50MB+ (can be higher) |
-| API style | Synchronous | Asynchronous |
-| Performance | Fast for small data | Fast for large data |
-| Indexing | No | Yes |
-| Use case | Preferences, tokens | Large datasets, offline apps |
+| Feature     | localStorage        | IndexedDB                    |
+| ----------- | ------------------- | ---------------------------- |
+| Size limit  | ~5-10MB             | ~50MB+ (can be higher)       |
+| API style   | Synchronous         | Asynchronous                 |
+| Performance | Fast for small data | Fast for large data          |
+| Indexing    | No                  | Yes                          |
+| Use case    | Preferences, tokens | Large datasets, offline apps |
 
 ---
 
 ## 2. HTTP API Integration
 
-**Best for:** Production backends, multi-user systems, server-side validation, shared data
+**Best for:** Production backends, multi-user systems, server-side validation,
+shared data
 
 ```typescript
-import { HttpClient } from '@bandeira-tech/b3nd-sdk';
+import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 
 // Create client
 const api = new HttpClient({
   url: "https://api.example.com",
-  instanceId: "production",  // Optional: for multi-tenant APIs
+  instanceId: "production", // Optional: for multi-tenant APIs
   headers: {
     "Authorization": "Bearer your-jwt-token",
     "X-Custom-Header": "value",
   },
-  timeout: 5000,  // 5 second timeout
+  timeout: 5000, // 5 second timeout
 });
 
 // Send a transaction to the server
@@ -236,11 +242,11 @@ await api.delete("users://alice/profile");
 
 // Server health check
 const health = await api.health();
-console.log("Server status:", health.status);  // "healthy" | "degraded" | "unhealthy"
+console.log("Server status:", health.status); // "healthy" | "degraded" | "unhealthy"
 
 // Get server schemas
 const schemas = await api.getSchema();
-console.log("Supported programs:", schemas);  // ["users://", "posts://", ...]
+console.log("Supported programs:", schemas); // ["users://", "posts://", ...]
 ```
 
 **API Endpoints Used:**
@@ -258,7 +264,7 @@ GET    /api/v1/schema
 
 ```typescript
 async function getAuthenticatedClient() {
-  const token = await getAuthToken();  // Your auth logic
+  const token = await getAuthToken(); // Your auth logic
 
   return new HttpClient({
     url: "https://api.example.com",
@@ -277,10 +283,11 @@ await client.receive(["data://test", { value: 123 }]);
 
 ## 3. WebSocket API Integration
 
-**Best for:** Real-time updates, live collaboration, chat apps, notifications, low-latency operations
+**Best for:** Real-time updates, live collaboration, chat apps, notifications,
+low-latency operations
 
 ```typescript
-import { WebSocketClient } from '@bandeira-tech/b3nd-sdk';
+import { WebSocketClient } from "@bandeira-tech/b3nd-sdk";
 
 // Create client with reconnection
 const ws = new WebSocketClient({
@@ -293,7 +300,7 @@ const ws = new WebSocketClient({
     enabled: true,
     maxAttempts: 10,
     interval: 1000,
-    backoff: "exponential",  // 1s, 2s, 4s, 8s, 16s...
+    backoff: "exponential", // 1s, 2s, 4s, 8s, 16s...
   },
   timeout: 10000,
 });
@@ -388,14 +395,19 @@ try {
 
 ## 4. Hybrid Local + HTTP Setup
 
-Combine local storage with HTTP API for the best of both worlds: instant local access with server persistence.
+Combine local storage with HTTP API for the best of both worlds: instant local
+access with server persistence.
 
 ### Pattern A: Parallel Broadcast (Write Everywhere)
 
 **Use case:** Keep data in sync across local cache and server
 
 ```typescript
-import { parallelBroadcast, LocalStorageClient, HttpClient } from '@bandeira-tech/b3nd-sdk';
+import {
+  HttpClient,
+  LocalStorageClient,
+  parallelBroadcast,
+} from "@bandeira-tech/b3nd-sdk";
 
 // Local cache
 const local = new LocalStorageClient({
@@ -457,7 +469,11 @@ await hybrid.receive(["articles://post-1", {
 **Use case:** Try local first, fallback to server if not found (offline-first)
 
 ```typescript
-import { firstMatchSequence, LocalStorageClient, HttpClient } from '@bandeira-tech/b3nd-sdk';
+import {
+  firstMatchSequence,
+  HttpClient,
+  LocalStorageClient,
+} from "@bandeira-tech/b3nd-sdk";
 
 const local = new LocalStorageClient({ keyPrefix: "cache:" });
 const remote = new HttpClient({ url: "https://api.example.com" });
@@ -469,7 +485,7 @@ const hybrid = firstMatchSequence([local, remote]);
 const result = await hybrid.read("articles://post-1");
 
 if (result.success) {
-  if (result.record?.data.source === 'cache') {
+  if (result.record?.data.source === "cache") {
     console.log("Loaded from cache (instant)");
   } else {
     console.log("Loaded from server");
@@ -500,7 +516,7 @@ const offlineFirst = firstMatchSequence([cache, api]);
 const data = await offlineFirst.read("data://important");
 
 // Sync when online
-window.addEventListener('online', async () => {
+window.addEventListener("online", async () => {
   console.log("Back online, syncing...");
 
   // Get all cached items
@@ -526,12 +542,12 @@ window.addEventListener('online', async () => {
 
 ```typescript
 import {
-  MemoryClient,
-  IndexedDBClient,
-  HttpClient,
-  parallelBroadcast,
   firstMatchSequence,
-} from '@bandeira-tech/b3nd-sdk';
+  HttpClient,
+  IndexedDBClient,
+  MemoryClient,
+  parallelBroadcast,
+} from "@bandeira-tech/b3nd-sdk";
 
 // Layer 1: Fast in-memory cache
 const memory = new MemoryClient({
@@ -589,7 +605,11 @@ const profile = await loadData("users://alice/profile");
 ### Smart Caching with TTL
 
 ```typescript
-import { MemoryClient, HttpClient, firstMatchSequence } from '@bandeira-tech/b3nd-sdk';
+import {
+  firstMatchSequence,
+  HttpClient,
+  MemoryClient,
+} from "@bandeira-tech/b3nd-sdk";
 
 const cache = new MemoryClient({ schema: {} });
 const api = new HttpClient({ url: "https://api.example.com" });
@@ -636,7 +656,7 @@ const userData = await getCachedData("users://alice/profile", 5 * 60 * 1000);
 ### Optimistic UI Updates
 
 ```typescript
-import { LocalStorageClient, HttpClient } from '@bandeira-tech/b3nd-sdk';
+import { HttpClient, LocalStorageClient } from "@bandeira-tech/b3nd-sdk";
 
 const local = new LocalStorageClient({ keyPrefix: "app:" });
 const api = new HttpClient({ url: "https://api.example.com" });
@@ -678,7 +698,7 @@ await optimisticWrite("posts://new-post", {
 ### Real-Time Sync with WebSocket
 
 ```typescript
-import { IndexedDBClient, WebSocketClient } from '@bandeira-tech/b3nd-sdk';
+import { IndexedDBClient, WebSocketClient } from "@bandeira-tech/b3nd-sdk";
 
 const db = new IndexedDBClient({ databaseName: "realtime-app" });
 const ws = new WebSocketClient({
@@ -697,7 +717,10 @@ async function writeWithBroadcast(uri: string, data: any) {
 }
 
 // Subscribe to updates
-async function subscribeToUpdates(program: string, callback: (uri: string, data: any) => void) {
+async function subscribeToUpdates(
+  program: string,
+  callback: (uri: string, data: any) => void,
+) {
   // Tell server we want updates
   await ws.receive([`subscriptions://${program}`, { subscribed: true }]);
 
@@ -739,14 +762,18 @@ subscribeToUpdates("messages://room-1/", (uri, data) => {
 ### Example 1: Todo App (localStorage + HTTP)
 
 ```typescript
-import { LocalStorageClient, HttpClient, parallelBroadcast } from '@bandeira-tech/b3nd-sdk';
+import {
+  HttpClient,
+  LocalStorageClient,
+  parallelBroadcast,
+} from "@bandeira-tech/b3nd-sdk";
 
 // Setup
 const local = new LocalStorageClient({
   keyPrefix: "todos:",
   schema: {
     "todos://": async ({ value }) => {
-      if (typeof value === 'object' && value !== null && 'text' in value) {
+      if (typeof value === "object" && value !== null && "text" in value) {
         return { valid: true };
       }
       return { valid: false, error: "Todos must have text" };
@@ -823,13 +850,19 @@ async function deleteTodo(id: number) {
 ### Example 2: Offline-First Blog Reader
 
 ```typescript
-import { IndexedDBClient, HttpClient, firstMatchSequence } from '@bandeira-tech/b3nd-sdk';
+import {
+  firstMatchSequence,
+  HttpClient,
+  IndexedDBClient,
+} from "@bandeira-tech/b3nd-sdk";
 
 const cache = new IndexedDBClient({
   databaseName: "blog-cache",
   schema: {
     "articles://": async ({ value }) => {
-      return { valid: typeof value === 'object' && value !== null && 'title' in value };
+      return {
+        valid: typeof value === "object" && value !== null && "title" in value,
+      };
     },
   },
 });
@@ -891,7 +924,7 @@ async function syncArticles() {
 
 // Auto-sync every 5 minutes
 setInterval(syncArticles, 5 * 60 * 1000);
-window.addEventListener('online', syncArticles);
+window.addEventListener("online", syncArticles);
 ```
 
 ---
@@ -899,7 +932,7 @@ window.addEventListener('online', syncArticles);
 ### Example 3: Real-Time Collaboration (WebSocket + localStorage)
 
 ```typescript
-import { LocalStorageClient, WebSocketClient } from '@bandeira-tech/b3nd-sdk';
+import { LocalStorageClient, WebSocketClient } from "@bandeira-tech/b3nd-sdk";
 
 const local = new LocalStorageClient({ keyPrefix: "collab:" });
 const ws = new WebSocketClient({
@@ -997,7 +1030,8 @@ unsubscribe();
 
 ## Error Handling
 
-Transactions return `accepted: boolean`. Read operations return `success: boolean`:
+Transactions return `accepted: boolean`. Read operations return
+`success: boolean`:
 
 ```typescript
 // For receive (transactions)
@@ -1035,7 +1069,7 @@ if (readResult.success) {
 1. **Always check `success` flag** before using results
 2. **Use appropriate storage** for your data size:
    - < 5MB: localStorage
-   - > 5MB: IndexedDB
+   - 5MB: IndexedDB
 3. **Implement timeouts** for HTTP/WebSocket operations
 4. **Use key prefixes** to avoid collisions in localStorage
 5. **Implement cleanup** when components unmount
@@ -1048,6 +1082,7 @@ if (readResult.success) {
 ## Troubleshooting
 
 **localStorage quota exceeded:**
+
 ```typescript
 const health = await storage.health();
 if (health.status === "degraded") {
@@ -1057,14 +1092,16 @@ if (health.status === "degraded") {
 ```
 
 **HTTP timeout:**
+
 ```typescript
 const api = new HttpClient({
   url: "https://api.example.com",
-  timeout: 10000,  // Increase timeout
+  timeout: 10000, // Increase timeout
 });
 ```
 
 **WebSocket won't connect:**
+
 ```typescript
 const health = await ws.health();
 if (health.status === "unhealthy") {
@@ -1140,4 +1177,5 @@ interface NodeProtocolInterface {
 
 ---
 
-This manual covers the four main use cases for browser applications. Feel free to point out any mistakes or request clarifications!
+This manual covers the four main use cases for browser applications. Feel free
+to point out any mistakes or request clarifications!

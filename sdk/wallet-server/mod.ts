@@ -48,98 +48,98 @@ export { WalletServerCore } from "./core.ts";
 
 // Types
 export type {
-  WalletServerConfig,
-  WalletServerDeps,
-  ResolvedWalletServerConfig,
-  ServerKeys,
-  ServerKeyPair,
   AppBackendConfig,
-  UserKeys,
+  AuthSessionResponse,
+  HealthResponse,
+  ProxyReadResponse,
   ProxyWriteRequest,
   ProxyWriteResponse,
-  ProxyReadResponse,
-  AuthSessionResponse,
   PublicKeysResponse,
-  HealthResponse,
+  ResolvedWalletServerConfig,
+  ServerKeyPair,
+  ServerKeys,
   ServerKeysResponse,
+  UserKeys,
+  WalletServerConfig,
+  WalletServerDeps,
 } from "./types.ts";
 
 // Interfaces for dependency injection
 export type {
-  FileStorage,
   Environment,
-  Logger,
+  FileStorage,
   HttpFetch,
+  Logger,
 } from "./interfaces.ts";
 
 export {
+  ConfigEnvironment,
   defaultLogger,
   MemoryFileStorage,
-  ConfigEnvironment,
 } from "./interfaces.ts";
 
 // JWT utilities
-export { createJwt, verifyJwt, extractUsernameFromJwt } from "./jwt.ts";
+export { createJwt, extractUsernameFromJwt, verifyJwt } from "./jwt.ts";
 export type { JwtPayload } from "./jwt.ts";
 
 // Proxy utilities
-export { proxyWrite, proxyRead } from "./proxy.ts";
+export { proxyRead, proxyWrite } from "./proxy.ts";
 
 // Key management
 export {
   generateUserKeys,
-  loadUserKeys,
+  getUserPublicKeys,
   loadUserAccountKey,
   loadUserEncryptionKey,
-  getUserPublicKeys,
+  loadUserKeys,
 } from "./keys.ts";
 
 // Authentication
 export {
-  createUser,
+  authenticateGoogleUser,
   authenticateUser,
   changePassword,
+  createGoogleUser,
   createPasswordResetToken,
+  createUser,
+  googleUserExists,
   resetPasswordWithToken,
   userExists,
-  createGoogleUser,
-  authenticateGoogleUser,
-  googleUserExists,
 } from "./auth.ts";
 
 // Credentials system
 export {
   getCredentialHandler,
-  registerCredentialHandler,
   getSupportedCredentialTypes,
+  registerCredentialHandler,
 } from "./credentials.ts";
 
 export type {
-  CredentialHandler,
-  CredentialContext,
-  CredentialResult,
-  CredentialPayload,
   BaseCredentialPayload,
-  PasswordCredentialPayload,
+  CredentialContext,
+  CredentialHandler,
+  CredentialPayload,
+  CredentialResult,
   GoogleCredentialPayload,
+  PasswordCredentialPayload,
 } from "./credentials.ts";
 
 // Google OAuth
 export {
-  verifyGoogleIdToken,
-  generateGoogleUsername,
   clearGooglePublicKeyCache,
+  generateGoogleUsername,
+  verifyGoogleIdToken,
 } from "./google-oauth.ts";
 
 export type { GoogleTokenPayload } from "./google-oauth.ts";
 
 // Obfuscation utilities
 export {
-  deriveObfuscatedPath,
   createSignedEncryptedPayload,
-  decryptSignedEncryptedPayload,
-  encryptForBackend,
   decryptFromBackend,
+  decryptSignedEncryptedPayload,
+  deriveObfuscatedPath,
+  encryptForBackend,
   pemToCryptoKey,
 } from "./obfuscation.ts";
 
