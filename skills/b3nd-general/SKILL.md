@@ -42,20 +42,29 @@ const client = new HttpClient({ url: "http://localhost:9942" });
 
 | Protocol | Access | Use Case |
 |----------|--------|----------|
-| `mutable://open` | Anyone can write | Public data, no auth needed |
-| `mutable://accounts` | Pubkey-signed writes | User data, requires wallet auth |
-| `immutable://open` | Anyone can write once | Content-addressed, no overwrites |
-| `immutable://accounts` | Pubkey-signed, write once | Permanent user data |
+| `mutable://open` | Anyone | Public data, no auth needed |
+| `mutable://accounts` | Pubkey-signed | User data, requires wallet auth |
+| `immutable://open` | Anyone, once | Content-addressed, no overwrites |
+| `immutable://accounts` | Pubkey-signed, once | Permanent user data |
 | `immutable://inbox` | Message inbox | Suggestions, notifications |
 | `blob://open` | Anyone, hash-verified | Content-addressed storage (SHA256) |
-| `link://open` | Anyone can write | Unauthenticated URI references |
+| `link://open` | Anyone | Unauthenticated URI references |
 | `link://accounts` | Pubkey-signed writes | Authenticated URI references |
 
 ### Protocol Patterns
 
 ```typescript
-// Public data (no auth)
-await client.write("mutable://open/my-app/config", { theme: "dark" });
+// Transaction delivering data to multiple protocols
+await client.receive(["txn://open/setup-batch", {
+  inputs: [],
+  outputs: [
+    ["mutable://open/my-app/config", { theme: "dark" }],
+    ["immutable://open/content/abc123", { title: "Post" }],
+  ],
+}]);
+
+// Each output is stored at its own URI
+const config = await client.read("mutable://open/my-app/config");
 
 // User account data (requires wallet signature)
 await wallet.proxyWrite({
@@ -63,9 +72,6 @@ await wallet.proxyWrite({
   data: { name: "Alice" },
   encrypt: false
 });
-
-// Immutable content (can't overwrite)
-await client.write("immutable://open/content/abc123", { title: "Post" });
 
 // Private inbox message
 await wallet.proxyWrite({
@@ -82,12 +88,15 @@ Blobs are content-addressed using SHA256 hashes. The hash in the URI must match 
 ```typescript
 import { computeSha256 } from "./validators.ts"; // or implement your own
 
-// Compute hash and write blob
+// Compute hash and store blob via transaction
 const data = { title: "Hello", content: "World" };
 const hash = await computeSha256(data);
 const blobUri = `blob://open/sha256:${hash}`;
 
-await client.write(blobUri, data);
+await client.receive(["txn://open/store-blob", {
+  inputs: [],
+  outputs: [[blobUri, data]],
+}]);
 
 // Read blob - content verified by hash
 const result = await client.read(blobUri);
@@ -104,15 +113,18 @@ const result = await client.read(blobUri);
 Links are simple string values pointing to other URIs. They provide a mutable reference layer.
 
 ```typescript
-// Write authenticated link (requires wallet signature)
+// Authenticated link (requires wallet signature)
 await wallet.proxyWrite({
   uri: "link://accounts/{userPubkey}/avatar",
   data: "blob://open/sha256:abc123...",  // Just a string URI!
   encrypt: false
 });
 
-// Write unauthenticated link
-await client.write("link://open/latest-release", "blob://open/sha256:def456...");
+// Unauthenticated link via transaction
+await client.receive(["txn://open/update-link", {
+  inputs: [],
+  outputs: [["link://open/latest-release", "blob://open/sha256:def456..."]],
+}]);
 
 // Read link to get target URI
 const linkResult = await client.read<string>("link://accounts/alice/avatar");
@@ -143,8 +155,11 @@ const encrypted = await encrypt.encrypt(privateData, recipientPublicKeyHex);
 const hash = await computeSha256(encrypted);
 const blobUri = `blob://open/sha256:${hash}`;
 
-// 3. Write encrypted blob
-await client.write(blobUri, encrypted);
+// 3. Store encrypted blob via transaction
+await client.receive(["txn://open/store-encrypted", {
+  inputs: [],
+  outputs: [[blobUri, encrypted]],
+}]);
 
 // 4. Recipient decrypts after reading
 const result = await client.read(blobUri);
@@ -161,7 +176,10 @@ const encrypted = await encrypt.encryptSymmetric(data, key);
 
 // Hash and store
 const hash = await computeSha256(encrypted);
-await client.write(`blob://open/sha256:${hash}`, encrypted);
+await client.receive(["txn://open/store-symmetric", {
+  inputs: [],
+  outputs: [[`blob://open/sha256:${hash}`, encrypted]],
+}]);
 
 // Decrypt with same password
 const decrypted = await encrypt.decryptSymmetric(encrypted, key);
@@ -179,30 +197,31 @@ const decrypted = await encrypt.decryptSymmetric(encrypted, key);
 Combine blobs (data layer) with links (reference layer):
 
 ```typescript
-// 1. Write content as blob (optionally encrypted)
+// 1. Store content as blob + create link in one transaction
 const content = { title: "My Post", body: "..." };
 const hash = await computeSha256(content);
 const blobUri = `blob://open/sha256:${hash}`;
-await client.write(blobUri, content);
 
-// 2. Create authenticated link to the blob
-await wallet.proxyWrite({
-  uri: "link://accounts/{userPubkey}/posts/latest",
-  data: blobUri,
-  encrypt: false
-});
+await client.receive(["txn://open/publish-post", {
+  inputs: [],
+  outputs: [
+    [blobUri, content],                                          // blob data
+    ["link://open/posts/latest", blobUri],                       // link to blob
+  ],
+}]);
 
-// 3. Update link to new version (blob is immutable, link is mutable)
+// 2. Update link to new version (blob is immutable, link is mutable)
 const newContent = { title: "My Post v2", body: "..." };
 const newHash = await computeSha256(newContent);
 const newBlobUri = `blob://open/sha256:${newHash}`;
-await client.write(newBlobUri, newContent);
 
-await wallet.proxyWrite({
-  uri: "link://accounts/{userPubkey}/posts/latest",
-  data: newBlobUri,  // Points to new blob
-  encrypt: false
-});
+await client.receive(["txn://open/update-post", {
+  inputs: [blobUri],          // references previous version
+  outputs: [
+    [newBlobUri, newContent],
+    ["link://open/posts/latest", newBlobUri],  // points to new blob
+  ],
+}]);
 ```
 
 ### Accounts Protocol (Pubkey-Based Access)
@@ -215,22 +234,16 @@ The `mutable://accounts` and `immutable://accounts` protocols use signature veri
 "mutable://accounts/052fee.../data"
 "immutable://accounts/052fee.../posts/1"
 
-// The pubkey in the URI determines who can write
-// Writes must be signed with the matching private key
+// The pubkey in the URI determines who can submit transactions
+// Transactions must be signed with the matching private key
 ```
 
-## Unified Node Interface
+## Transactions
 
-All state changes flow through a single `receive(tx)` interface:
+All state changes flow through a single `receive(tx)` interface. A transaction is a tuple `[uri, data]`:
 
 ```typescript
-// Transaction: [uri, data]
 type Transaction<D = unknown> = [uri: string, data: D];
-
-interface Node {
-  receive<D>(tx: Transaction<D>): Promise<ReceiveResult>;
-  cleanup(): Promise<void>;
-}
 
 interface ReceiveResult {
   accepted: boolean;
@@ -238,15 +251,45 @@ interface ReceiveResult {
 }
 ```
 
-All clients implement both Node and the legacy interface:
+### Single-Output Transactions
+
+A transaction with one output stores data at a single URI:
 
 ```typescript
-// Unified interface (preferred)
-await client.receive(["mutable://users/alice", { name: "Alice" }]);
+const result = await client.receive(["txn://open/update-config", {
+  inputs: [],
+  outputs: [["mutable://open/my-app/config", { theme: "dark" }]],
+}]);
+// result: { accepted: true } or { accepted: false, error: "..." }
 
-// Legacy interface (still supported)
-await client.write("mutable://users/alice", { name: "Alice" });
+// Read it back
+const config = await client.read("mutable://open/my-app/config");
 ```
+
+### Transaction Envelopes (TransactionData)
+
+Transaction envelopes wrap multiple operations into a single atomic-intent transaction:
+
+```typescript
+import type { TransactionData } from "@bandeira-tech/b3nd-sdk";
+
+const txData: TransactionData = {
+  inputs: ["mutable://open/ref/1"],  // References (for future UTXO support)
+  outputs: [                          // Each [uri, data] pair gets stored individually
+    ["mutable://open/users/alice", { name: "Alice" }],
+    ["mutable://open/users/bob", { name: "Bob" }],
+  ],
+};
+
+await client.receive(["txn://open/my-batch", txData]);
+// Each output stored at its own URI, readable via client.read("mutable://open/users/alice")
+// The envelope itself is also stored at its txn:// URI as an audit trail
+```
+
+**Key properties:**
+- `txnSchema(schema)` validates the envelope URI AND each output against its protocol's schema
+- Each client's `receive()` detects TransactionData and stores outputs individually
+- Plain (non-TransactionData) transactions work unchanged
 
 ## NodeProtocolInterface
 
@@ -254,10 +297,7 @@ All clients implement:
 
 ```typescript
 interface NodeProtocolInterface {
-  // Unified (preferred)
   receive<D>(tx: Transaction<D>): Promise<ReceiveResult>;
-  // Legacy
-  write<T>(uri: string, value: T): Promise<WriteResult<T>>;
   read<T>(uri: string): Promise<ReadResult<T>>;
   list(uri: string, options?: ListOptions): Promise<ListResult>;
   delete(uri: string): Promise<DeleteResult>;
@@ -288,7 +328,7 @@ const wallet = new WalletClient({
 The protocol supports local approval (same process) and remote approval (async workflows):
 
 ```typescript
-// Session flow - direct writes to data node
+// Session flow - direct transactions to data node
 // App needs its Ed25519 keypair (public key = appKey)
 
 const backendClient = new HttpClient({ url: "http://localhost:9942" });
@@ -307,10 +347,13 @@ const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
   sessionKeypair.publicKeyHex,
   sessionKeypair.privateKeyHex
 );
-await backendClient.write(
-  `immutable://inbox/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
-  signedRequest
-);
+await backendClient.receive(["txn://open/session-request", {
+  inputs: [],
+  outputs: [[
+    `immutable://inbox/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
+    signedRequest
+  ]],
+}]);
 
 // 3. App APPROVES session (value = 1, signed by app's key)
 const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
@@ -318,10 +361,13 @@ const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
   APP_KEY,
   APP_PRIVATE_KEY
 );
-await backendClient.write(
-  `mutable://accounts/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
-  signedApproval
-);
+await backendClient.receive(["txn://open/session-approve", {
+  inputs: [],
+  outputs: [[
+    `mutable://accounts/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
+    signedApproval
+  ]],
+}]);
 
 // 4. Now signup or login works
 const session = await wallet.signup(APP_KEY, sessionKeypair, { type: 'password', username, password });
@@ -331,16 +377,16 @@ const session = await wallet.login(APP_KEY, sessionKeypair, { type: 'password', 
 wallet.setSession(session);
 ```
 
-**That's it!** Just two writes to the data node:
+**That's it!** Just two transactions to the data node:
 1. `immutable://inbox/{appKey}/sessions/{sessionPubkey}` - signed request
 2. `mutable://accounts/{appKey}/sessions/{sessionPubkey}` - approval (value=1)
 
 For remote/async approval, the app monitors the inbox and approves later.
 
-### Writing/Reading User Data
+### User Data
 
 ```typescript
-// Write to accounts (signed automatically)
+// Send to accounts (signed automatically)
 await wallet.proxyWrite({
   uri: "mutable://accounts/{userPubkey}/profile",
   data: { name: "Alice" },
@@ -362,7 +408,7 @@ const data = await wallet.proxyRead({
 ```typescript
 interface ResourceKeyBundle {
   publicKeyHex: string;   // Resource ID/address
-  privateKeyHex: string;  // For signing writes (owner stores this)
+  privateKeyHex: string;  // For signing transactions (owner stores this)
 }
 
 // Generate new resource identity
@@ -429,9 +475,12 @@ const entry = {
   publishedAt: Date.now(),
 };
 
-// Sign with app's key
+// Sign with app's key and submit as transaction
 const signed = await sign(entry, appIdentity.privateKeyHex);
-await client.write(indexUri, signed);
+await client.receive(["txn://open/publish-resource", {
+  inputs: [],
+  outputs: [[indexUri, signed]],
+}]);
 ```
 
 ## Public Discovery Index
@@ -504,7 +553,7 @@ const encryptKey = visibility === "private"
 // 3. Encrypt data
 const encrypted = await encrypt(data, await deriveKey(uri, encryptKey));
 
-// 4. Sign with resource key and write
+// 4. Sign with resource key and send
 await wallet.proxyWrite({ uri, data: signed(encrypted, resourceKeys) });
 ```
 
@@ -520,7 +569,7 @@ await wallet.proxyWrite({ uri, data: signed(encrypted, resourceKeys) });
 | Client | Package | Use |
 |--------|---------|-----|
 | `HttpClient` | Both | Connect to Firecat or any HTTP node |
-| `WalletClient` | `@bandeira-tech/b3nd-web/wallet` | Authenticated writes |
+| `WalletClient` | `@bandeira-tech/b3nd-web/wallet` | Authenticated transactions |
 | `LocalStorageClient` | `@bandeira-tech/b3nd-web` | Browser offline cache |
 | `MemoryClient` | `@bandeira-tech/b3nd-sdk` | Testing |
 | `PostgresClient` | `@bandeira-tech/b3nd-sdk` | PostgreSQL storage |

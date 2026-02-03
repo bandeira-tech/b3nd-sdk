@@ -60,14 +60,14 @@ import { HttpClient } from "@bandeira-tech/b3nd-web";
 
 const client = new HttpClient({ url: "https://api.example.com" });
 
-// Receive transaction (unified interface - preferred)
-const result = await client.receive(["users://alice/profile", { name: "Alice" }]);
+// Submit transaction
+const result = await client.receive(["txn://open/update-profile", {
+  inputs: [],
+  outputs: [["users://alice/profile", { name: "Alice" }]],
+}]);
 if (result.accepted) {
   console.log("Transaction accepted");
 }
-
-// Write data (legacy interface)
-await client.write("users://alice/profile", { name: "Alice" });
 
 // Read data
 const readResult = await client.read("users://alice/profile");
@@ -89,7 +89,10 @@ const local = new LocalStorageClient({
   schema: { /* optional validation */ }
 });
 
-await local.write("settings://theme", { dark: true });
+await local.receive(["txn://local/update-settings", {
+  inputs: [],
+  outputs: [["settings://theme", { dark: true }]],
+}]);
 ```
 
 ### WalletClient
@@ -106,7 +109,7 @@ const wallet = new WalletClient({
 const session = await wallet.login(appKey, { username, password });
 wallet.setSession(session);
 
-// Proxy write with encryption
+// Proxy transaction with encryption
 await wallet.proxyWrite({
   uri: "mutable://data/profile",
   data: { name: "Alice" },
@@ -142,14 +145,18 @@ import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-web/blob";
 
 const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
 
-// Write blob (content-addressed)
+// Store blob + link in one transaction
 const data = { title: "Hello", content: "World" };
 const hash = await computeSha256(data);
 const blobUri = generateBlobUri(hash);
-await client.write(blobUri, data);
 
-// Write link pointing to blob
-await client.write("link://open/my-content", blobUri);
+await client.receive(["txn://open/store-content", {
+  inputs: [],
+  outputs: [
+    [blobUri, data],
+    ["link://open/my-content", blobUri],
+  ],
+}]);
 ```
 
 ### Authenticated Links with Wallet
@@ -157,7 +164,7 @@ await client.write("link://open/my-content", blobUri);
 ```typescript
 import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
 
-// Write authenticated link (requires wallet session)
+// Authenticated link (requires wallet session)
 await wallet.proxyWrite({
   uri: `link://accounts/${userPubkey}/avatar`,
   data: "blob://open/sha256:abc123...",
@@ -181,7 +188,10 @@ const encrypted = await encrypt.encrypt(privateData, publicKey.publicKeyHex);
 // 3. Hash encrypted payload and store
 const hash = await computeSha256(encrypted);
 const blobUri = generateBlobUri(hash);
-await client.write(blobUri, encrypted);
+await client.receive(["txn://open/store-encrypted", {
+  inputs: [],
+  outputs: [[blobUri, encrypted]],
+}]);
 
 // 4. Later: decrypt with private key
 const result = await client.read(blobUri);
@@ -201,7 +211,10 @@ const encrypted = await encrypt.encryptSymmetric(data, key);
 // Store encrypted blob
 const hash = await computeSha256(encrypted);
 const blobUri = generateBlobUri(hash);
-await client.write(blobUri, encrypted);
+await client.receive(["txn://open/store-protected", {
+  inputs: [],
+  outputs: [[blobUri, encrypted]],
+}]);
 
 // Decrypt with same password
 const key = await encrypt.deriveKeyFromSeed(password, "my-salt", 100000);
@@ -217,7 +230,7 @@ import type {
   WebSocketClientConfig,
   NodeProtocolInterface,
   ReadResult,
-  WriteResult,
+  ReceiveResult,
   ListResult,
   DeleteResult,
   PersistenceRecord,

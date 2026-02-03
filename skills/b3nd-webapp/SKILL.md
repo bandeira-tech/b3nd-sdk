@@ -192,18 +192,24 @@ export function useList(uri: string, options?: { page?: number; limit?: number }
   });
 }
 
-// Receive transaction mutation (preferred)
+// Transaction mutation
 export function useReceive() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ uri, data }: { uri: string; data: unknown }) => {
-      const result = await client.receive([uri, data]);
+    mutationFn: async ({ txnUri, outputs }: { txnUri: string; outputs: [string, unknown][] }) => {
+      const result = await client.receive([txnUri, {
+        inputs: [],
+        outputs,
+      }]);
       if (!result.accepted) throw new Error(result.error);
       return result;
     },
-    onSuccess: (_, { uri }) => {
-      queryClient.invalidateQueries({ queryKey: ["record", uri] });
+    onSuccess: (_, { outputs }) => {
+      // Invalidate cache for each output URI
+      for (const [uri] of outputs) {
+        queryClient.invalidateQueries({ queryKey: ["record", uri] });
+      }
     },
   });
 }
@@ -279,21 +285,27 @@ async function createAndApproveSession(
     sessionKeypair.publicKeyHex,
     sessionKeypair.privateKeyHex
   );
-  await backendClient.write(
-    `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
-    signedRequest
-  );
+  await backendClient.receive(["txn://open/session-request", {
+    inputs: [],
+    outputs: [[
+      `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
+      signedRequest
+    ]],
+  }]);
 
-  // 3. App APPROVES session - write 1 signed by app's key
+  // 3. App APPROVES session - send approval signed by app's key
   const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
     1,
     appKey,
     appPrivateKeyHex
   );
-  await backendClient.write(
-    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
-    signedApproval
-  );
+  await backendClient.receive(["txn://open/session-approve", {
+    inputs: [],
+    outputs: [[
+      `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
+      signedApproval
+    ]],
+  }]);
 
   return sessionKeypair;
 }
@@ -443,7 +455,10 @@ export class ResourceAPI {
     const encrypted = await this.encrypt(data, uri, encryptPassword);
     const signed = await this.sign(encrypted, keys.privateKeyHex);
 
-    await httpClient.write(uri, signed);
+    await httpClient.receive(["txn://open/create-resource", {
+      inputs: [],
+      outputs: [[uri, signed]],
+    }]);
 
     // Cache password for session
     this.passwordCache.set(keys.publicKeyHex, encryptPassword);
@@ -684,8 +699,8 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
     localStorage.setItem(this.storageKey, JSON.stringify(serialized));
   }
 
-  async write<T>(uri: string, value: T) {
-    const result = await this.client.write(uri, value);
+  async receive<D>(tx: Transaction<D>) {
+    const result = await this.client.receive(tx);
     this.persistStorage();
     return result;
   }
