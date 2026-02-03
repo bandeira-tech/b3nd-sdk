@@ -21,6 +21,7 @@ import type {
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
 import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
+import { isTransactionData } from "../../txn-data/detect.ts";
 import { generatePostgresSchema } from "./schema.ts";
 
 // Local executor types scoped to Postgres client to avoid leaking DB concerns
@@ -124,6 +125,19 @@ export class PostgresClient implements NodeProtocolInterface, Node {
          ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, timestamp = EXCLUDED.timestamp, updated_at = CURRENT_TIMESTAMP`,
         [uri, JSON.stringify(record.data), record.ts],
       );
+
+      // If TransactionData, also store each output at its own URI
+      if (isTransactionData(data)) {
+        for (const [outputUri, outputValue] of data.outputs) {
+          const outputResult = await this.receive([outputUri, outputValue]);
+          if (!outputResult.accepted) {
+            return {
+              accepted: false,
+              error: outputResult.error || `Failed to store output: ${outputUri}`,
+            };
+          }
+        }
+      }
 
       return { accepted: true };
     } catch (error) {

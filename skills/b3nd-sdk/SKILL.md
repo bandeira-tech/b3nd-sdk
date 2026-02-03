@@ -47,23 +47,25 @@ import {
   seq,
   any,
   all,
-  broadcast,
+  parallel,
   pipeline,
   firstMatch,
   // Built-in validators
   schemaValidator,
+  txnSchema,
   format,
   uriPattern,
   requireFields,
   accept,
   reject,
   // Built-in processors
-  store,
-  forward,
   emit,
   when,
   log,
   noop,
+
+  // Transaction data
+  isTransactionData,
 
   // Server primitives
   createServerNode,
@@ -92,7 +94,11 @@ import {
 import type { Schema, NodeProtocolInterface, Node, Transaction, ReceiveResult } from "@bandeira-tech/b3nd-sdk/types";
 
 // Node system
-import { createNode, seq, broadcast, store, schemaValidator } from "@bandeira-tech/b3nd-sdk/node";
+import { createNode, seq, parallel, txnSchema, schemaValidator } from "@bandeira-tech/b3nd-sdk/node";
+
+// Transaction data utilities
+import { isTransactionData } from "@bandeira-tech/b3nd-sdk/txn-data";
+import type { TransactionData } from "@bandeira-tech/b3nd-sdk/txn-data";
 
 // Auth utilities
 import { ... } from "@bandeira-tech/b3nd-sdk/auth";
@@ -115,23 +121,57 @@ import { WalletClient } from "@bandeira-tech/b3nd-sdk/wallet";
 All state changes flow through a single `receive(tx)` interface. The unified node pattern:
 
 ```typescript
-import { createNode, schemaValidator, store, broadcast, firstMatch } from "@bandeira-tech/b3nd-sdk";
+import { createNode, txnSchema, parallel, firstMatch } from "@bandeira-tech/b3nd-sdk";
 
 const schema = {
   "mutable://users": async ({ value }) => ({ valid: !!value?.name }),
+  "txn://open": async () => ({ valid: true }),
 };
 
-// Create unified node
+// Create unified node — clients are passed directly to parallel()
 const node = createNode({
   read: firstMatch(postgresClient, memoryClient),
-  validate: schemaValidator(schema),
-  process: broadcast(store(postgresClient), store(memoryClient)),
+  validate: txnSchema(schema),
+  process: parallel(postgresClient, memoryClient),
 });
 
-// Receive transactions
+// Plain transactions
 const result = await node.receive(["mutable://users/alice", { name: "Alice" }]);
 // result: { accepted: true } or { accepted: false, error: "..." }
+
+// Transaction envelopes — outputs are unpacked and stored individually by each client
+const txResult = await node.receive(["txn://open/batch-1", {
+  inputs: [],
+  outputs: [
+    ["mutable://users/alice", { name: "Alice" }],
+    ["mutable://users/bob", { name: "Bob" }],
+  ],
+}]);
+// Each output stored at its own URI, readable via client.read("mutable://users/alice")
 ```
+
+### TransactionData Convention
+
+Transaction envelopes wrap multiple writes into a single atomic-intent operation:
+
+```typescript
+import type { TransactionData } from "@bandeira-tech/b3nd-sdk";
+
+const txData: TransactionData = {
+  inputs: ["mutable://open/ref/1"],  // References (for future UTXO support)
+  outputs: [                          // Each [uri, data] pair gets stored individually
+    ["mutable://open/users/alice", { name: "Alice" }],
+    ["mutable://open/users/bob", { name: "Bob" }],
+  ],
+};
+
+await node.receive(["txn://open/my-batch", txData]);
+```
+
+- `txnSchema(schema)` validates the envelope URI AND each output against its program's schema
+- Each client's `receive()` detects TransactionData and stores outputs individually
+- The envelope itself is also stored at its `txn://` URI as an audit trail
+- Plain (non-TransactionData) transactions work unchanged
 
 ### Composition Utilities
 
@@ -141,8 +181,8 @@ seq(v1, v2)      // Sequential, stops on first failure
 any(v1, v2)      // First to pass wins
 all(v1, v2)      // All must pass (parallel)
 
-// Processors
-broadcast(p1, p2)  // Parallel, at least one must succeed
+// Processors — accept Processor functions or receivers (clients) directly
+parallel(c1, c2)   // Parallel, at least one must succeed
 pipeline(p1, p2)   // Sequential, all must succeed
 when(cond, proc)   // Conditional processing
 ```

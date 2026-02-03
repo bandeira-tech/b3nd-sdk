@@ -21,6 +21,7 @@ import type {
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
 import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
+import { isTransactionData } from "../../txn-data/detect.ts";
 
 export interface MongoExecutor {
   insertOne(doc: Record<string, unknown>): Promise<{ acknowledged?: boolean }>;
@@ -127,6 +128,19 @@ export class MongoClient implements NodeProtocolInterface, Node {
         } as unknown as Record<string, unknown>,
         { upsert: true },
       );
+
+      // If TransactionData, also store each output at its own URI
+      if (isTransactionData(data)) {
+        for (const [outputUri, outputValue] of data.outputs) {
+          const outputResult = await this.receive([outputUri, outputValue]);
+          if (!outputResult.accepted) {
+            return {
+              accepted: false,
+              error: outputResult.error || `Failed to store output: ${outputUri}`,
+            };
+          }
+        }
+      }
 
       return { accepted: true };
     } catch (error) {
