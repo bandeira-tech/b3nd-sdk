@@ -85,7 +85,8 @@ class MockWebSocket {
       receive: () => {
         // Handle receive transaction: { tx: [uri, data] }
         const [uri, data] = request.payload.tx;
-        this.storage.set(uri, data);
+        const ts = Date.now();
+        this.storage.set(uri, { data, ts });
         return {
           id: request.id,
           success: true,
@@ -96,30 +97,31 @@ class MockWebSocket {
       },
       write: () => {
         // Store the data (legacy)
-        this.storage.set(request.payload.uri, request.payload.value);
+        const ts = Date.now();
+        this.storage.set(request.payload.uri, { data: request.payload.value, ts });
         return {
           id: request.id,
           success: true,
           data: {
             success: true,
             record: {
-              ts: Date.now(),
+              ts,
               data: request.payload.value,
             },
           },
         };
       },
       read: () => {
-        const data = this.storage.get(request.payload.uri);
-        if (data) {
+        const stored = this.storage.get(request.payload.uri);
+        if (stored) {
           return {
             id: request.id,
             success: true,
             data: {
               success: true,
               record: {
-                ts: Date.now(),
-                data: data,
+                ts: stored.ts,
+                data: stored.data,
               },
             },
           };
@@ -134,32 +136,59 @@ class MockWebSocket {
           };
         }
       },
-      list: {
-        id: request.id,
-        success: true,
-        data: {
-          data: (() => {
-            const allItems = [
-              { uri: "users://alice/profile", type: "file" as const },
-              { uri: "users://bob/profile", type: "file" as const },
-              { uri: "users://charlie/profile", type: "file" as const },
-            ];
-            const pattern = request.payload.options?.pattern;
-            if (pattern) {
-              return allItems.filter(item => item.uri.includes(pattern));
+      list: () => {
+        const uri = request.payload.uri;
+        const prefix = uri.endsWith("/") ? uri : `${uri}/`;
+        const directories = new Map<string, { uri: string; type: "directory" }>();
+        const files: { uri: string; type: "file" }[] = [];
+
+        for (const storedUri of this.storage.keys()) {
+          if (!storedUri.startsWith(prefix)) continue;
+          const relative = storedUri.slice(prefix.length);
+          if (!relative) continue;
+
+          const [firstSegment, ...rest] = relative.split("/");
+          if (!firstSegment) continue;
+
+          if (rest.length === 0) {
+            files.push({ uri: storedUri, type: "file" });
+          } else {
+            const dirUri = `${prefix}${firstSegment}`;
+            if (!directories.has(dirUri)) {
+              directories.set(dirUri, { uri: dirUri, type: "directory" });
             }
-            return allItems;
-          })(),
-          pagination: {
-            page: request.payload.options?.page || 1,
-            limit: request.payload.options?.limit || 50,
-            total: 3,
+          }
+        }
+
+        let items: { uri: string; type: "file" | "directory" }[] = [...directories.values(), ...files];
+        const options = request.payload.options;
+
+        if (options?.pattern) {
+          const regex = new RegExp(options.pattern);
+          items = items.filter((item: { uri: string }) => regex.test(item.uri));
+        }
+
+        const page = options?.page ?? 1;
+        const limit = options?.limit ?? 50;
+        const offset = (page - 1) * limit;
+        const paginated = items.slice(offset, offset + limit);
+
+        return {
+          id: request.id,
+          success: true,
+          data: {
+            success: true,
+            data: paginated,
+            pagination: {
+              page,
+              limit,
+              total: items.length,
+            },
           },
-        },
+        };
       },
       delete: () => {
-        const existed = this.storage.has(request.payload.uri);
-        if (existed) {
+        if (this.storage.has(request.payload.uri)) {
           this.storage.delete(request.payload.uri);
           return {
             id: request.id,
@@ -283,18 +312,21 @@ const factories: TestClientFactories = {
   validationError: () => {
     const mock = createMockWebSocketClient();
 
-    // Create a mock that simulates validation failure
+    // Create a mock that simulates validation failure (rejects data without a name field)
     class ValidationFailingMockWebSocket extends MockWebSocket {
       protected override generateResponse(request: any): any {
-        if (request.type === 'write' && request.payload.uri.includes('invalid')) {
-          return {
-            id: request.id,
-            success: true,
-            data: {
-              success: false,
-              error: 'Validation failed: invalid data',
-            },
-          };
+        if (request.type === 'receive') {
+          const [, data] = request.payload.tx;
+          if (!data?.name) {
+            return {
+              id: request.id,
+              success: true,
+              data: {
+                accepted: false,
+                error: 'Name is required',
+              },
+            };
+          }
         }
         return super.generateResponse(request);
       }

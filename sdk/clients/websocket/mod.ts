@@ -19,6 +19,7 @@ import type {
   WebSocketResponse,
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
+import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
 
 export class WebSocketClient implements NodeProtocolInterface, Node {
   private config: WebSocketClientConfig;
@@ -246,7 +247,9 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
     }
 
     try {
-      const result = await this.sendRequest<ReceiveResult>("receive", { tx });
+      // Encode binary data for JSON transport
+      const encodedTx: Transaction = [uri, encodeBinaryForJson(tx[1])];
+      const result = await this.sendRequest<ReceiveResult>("receive", { tx: encodedTx });
       return result;
     } catch (error) {
       return {
@@ -259,6 +262,10 @@ export class WebSocketClient implements NodeProtocolInterface, Node {
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
     try {
       const result = await this.sendRequest<ReadResult<T>>("read", { uri });
+      // Decode binary data from JSON transport
+      if (result.success && result.record) {
+        result.record.data = decodeBinaryFromJson(result.record.data) as T;
+      }
       return result;
     } catch (error) {
       return {

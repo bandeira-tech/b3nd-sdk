@@ -20,6 +20,7 @@ import type {
   Schema,
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
+import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
 
 export interface MongoExecutor {
   insertOne(doc: Record<string, unknown>): Promise<{ acknowledged?: boolean }>;
@@ -103,9 +104,11 @@ export class MongoClient implements NodeProtocolInterface, Node {
         };
       }
 
-      const record: PersistenceRecord<D> = {
+      // Encode binary data for JSON storage
+      const encodedData = encodeBinaryForJson(data);
+      const record: PersistenceRecord<typeof encodedData> = {
         ts: Date.now(),
-        data,
+        data: encodedData,
       };
 
       await this.executor.updateOne(
@@ -146,10 +149,12 @@ export class MongoClient implements NodeProtocolInterface, Node {
 
       const tsValue = doc.timestamp;
       const dataValue = doc.data;
+      // Decode binary data if encoded
+      const decodedData = decodeBinaryFromJson(dataValue) as T;
 
       const record: PersistenceRecord<T> = {
         ts: typeof tsValue === "number" ? tsValue : Number(tsValue),
-        data: dataValue as T,
+        data: decodedData,
       };
 
       return {

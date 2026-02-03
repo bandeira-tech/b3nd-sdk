@@ -20,11 +20,7 @@ import type {
   Schema,
 } from "../../src/types.ts";
 import type { Node, ReceiveResult, Transaction } from "../../src/node/types.ts";
-
-// PostgreSQL client import - using postgres library for Deno
-// Note: In a real implementation, you'd use a PostgreSQL client library
-// For now, we'll create a mock implementation that shows the structure
-
+import { encodeBinaryForJson, decodeBinaryFromJson } from "../../src/binary.ts";
 import { generatePostgresSchema } from "./schema.ts";
 
 // Local executor types scoped to Postgres client to avoid leaking DB concerns
@@ -114,9 +110,11 @@ export class PostgresClient implements NodeProtocolInterface, Node {
       }
 
       // Create record with timestamp
-      const record: PersistenceRecord<D> = {
+      // Encode binary data for JSON storage
+      const encodedData = encodeBinaryForJson(data);
+      const record: PersistenceRecord<typeof encodedData> = {
         ts: Date.now(),
-        data,
+        data: encodedData,
       };
 
       // Upsert into table directly to avoid dependency on DB function
@@ -147,9 +145,12 @@ export class PostgresClient implements NodeProtocolInterface, Node {
         return { success: false, error: `Not found: ${uri}` };
       }
       const row: any = res.rows[0];
+      const rawData = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+      // Decode binary data if encoded
+      const decodedData = decodeBinaryFromJson(rawData) as T;
       const record: PersistenceRecord<T> = {
         ts: typeof row.ts === 'number' ? row.ts : Number(row.ts),
-        data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
+        data: decodedData,
       };
       return { success: true, record };
     } catch (error) {

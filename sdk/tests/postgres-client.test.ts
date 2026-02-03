@@ -145,17 +145,20 @@ const postgresSetupPromise: Promise<PostgresSetupResult> = (async () => {
 function createSchema(
   validator?: (value: unknown) => Promise<{ valid: boolean; error?: string }>,
 ): Schema {
+  const defaultValidator = async ({ value, read }: { value: unknown; read: unknown }) => {
+    if (validator) {
+      return validator(value);
+    }
+    // Default happy-path validator
+    const _ = read as <T = unknown>(
+      uri: string,
+    ) => Promise<{ success: boolean; record?: PersistenceRecord<T> }>;
+    return { valid: true };
+  };
+
   return {
-    "store://users": async ({ value, read }) => {
-      if (validator) {
-        return validator(value);
-      }
-      // Default happy-path validator
-      const _ = read as <T = unknown>(
-        uri: string,
-      ) => Promise<{ success: boolean; record?: PersistenceRecord<T> }>;
-      return { valid: true };
-    },
+    "store://users": defaultValidator,
+    "store://files": defaultValidator, // For binary tests
   };
 }
 
