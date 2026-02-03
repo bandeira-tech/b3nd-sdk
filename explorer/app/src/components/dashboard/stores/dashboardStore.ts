@@ -3,9 +3,17 @@ import type {
   DashboardState,
   DashboardActions,
   TestResult,
+  TestRunSummary,
   FacetGroup,
   ContentMode,
   StaticTestData,
+  DataSource,
+  ServiceHealth,
+  FileChangeEvent,
+  ThemeGroup,
+  BackendGroup,
+  TestFilter,
+  RunMetadata,
 } from "../types";
 
 // Default facet groups
@@ -50,6 +58,9 @@ const DEFAULT_BACKEND_FACETS: FacetGroup = {
   ],
 };
 
+const MAX_RAW_OUTPUT_LINES = 500;
+const MAX_RECENT_CHANGES = 20;
+
 const initialState: DashboardState = {
   loading: false,
   error: null,
@@ -62,12 +73,37 @@ const initialState: DashboardState = {
   customKeywords: [],
   expandedTests: new Set(),
   rawLogs: "",
+
+  // WebSocket / live mode
+  wsConnected: false,
+  wsError: null,
+  isRunning: false,
+  dataSource: "live",
+  autoRunEnabled: true,
+
+  // Live data
+  services: [],
+  recentChanges: [],
+  rawOutput: [],
+  showRawOutput: false,
+  currentRunId: null,
+  runMetadata: { current: null, last: null },
+  themes: [],
+  backends: [],
 };
 
 export interface DashboardStore extends DashboardState, DashboardActions {}
 
+/** Default facet definitions keyed by group id, used to rebuild on each update */
+const DEFAULT_FACETS_BY_GROUP: Record<string, FacetGroup> = {
+  status: DEFAULT_STATUS_FACETS,
+  themes: DEFAULT_THEME_FACETS,
+  backends: DEFAULT_BACKEND_FACETS,
+};
+
 /**
- * Populate facet counts from test results
+ * Populate facet counts from test results.
+ * Always rebuilds from defaults so facets can't be permanently lost.
  */
 function updateFacetCounts(
   groups: FacetGroup[],
@@ -93,9 +129,18 @@ function updateFacetCounts(
             ? backendCounts
             : {};
 
+    // Start from default facets for known groups to restore any that were lost
+    const defaults = DEFAULT_FACETS_BY_GROUP[group.id];
+    const baseFacets = defaults ? defaults.facets : group.facets;
+
+    // Merge: keep any custom facets (keywords) that aren't in defaults
+    const defaultIds = new Set(baseFacets.map((f) => f.id));
+    const customFacets = group.facets.filter((f) => !defaultIds.has(f.id));
+    const allFacets = [...baseFacets, ...customFacets];
+
     return {
       ...group,
-      facets: group.facets
+      facets: allFacets
         .map((f) => ({ ...f, count: countsMap[f.value] || 0 }))
         .filter((f) => f.count > 0 || group.type === "status"),
     };
@@ -103,11 +148,11 @@ function updateFacetCounts(
 }
 
 /**
- * Load static data into the store's format
+ * Load data into the store's format
  */
-function loadData(data: StaticTestData) {
+function loadData(results: TestResult[]) {
   const resultsMap = new Map<string, TestResult>();
-  for (const result of data.results) {
+  for (const result of results) {
     const key = `${result.file}::${result.name}`;
     resultsMap.set(key, result);
   }
@@ -126,25 +171,12 @@ function loadData(data: StaticTestData) {
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
   ...initialState,
 
-  loadStaticData: async () => {
-    set({ loading: true, error: null });
+  // --- Data loading ---
 
-    try {
-      // Load test results
-      const resultsRes = await fetch("/dashboard/test-results.json");
-      if (!resultsRes.ok) throw new Error(`Failed to load test results: ${resultsRes.status}`);
-      const data: StaticTestData = await resultsRes.json();
-
-      // Load raw logs
-      let rawLogs = "";
-      try {
-        const logsRes = await fetch("/dashboard/test-logs.txt");
-        if (logsRes.ok) rawLogs = await logsRes.text();
-      } catch {
-        // Logs are optional
-      }
-
-      const { resultsMap, expanded } = loadData(data);
+  loadStaticData: async (data?: StaticTestData) => {
+    if (data) {
+      // Direct data loading (from file picker or export)
+      const { resultsMap, expanded } = loadData(data.results);
       const results = Array.from(resultsMap.values());
       const updatedGroups = updateFacetCounts(get().facetGroups, results);
 
@@ -153,6 +185,38 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         staticData: data,
         testResults: resultsMap,
         runSummary: data.summary,
+        facetGroups: updatedGroups,
+        expandedTests: expanded,
+        dataSource: "static",
+      });
+      return;
+    }
+
+    // Fetch from static JSON files
+    set({ loading: true, error: null });
+
+    try {
+      const resultsRes = await fetch("/dashboard/test-results.json");
+      if (!resultsRes.ok) throw new Error(`Failed to load test results: ${resultsRes.status}`);
+      const staticData: StaticTestData = await resultsRes.json();
+
+      let rawLogs = "";
+      try {
+        const logsRes = await fetch("/dashboard/test-logs.txt");
+        if (logsRes.ok) rawLogs = await logsRes.text();
+      } catch {
+        // Logs are optional
+      }
+
+      const { resultsMap, expanded } = loadData(staticData.results);
+      const results = Array.from(resultsMap.values());
+      const updatedGroups = updateFacetCounts(get().facetGroups, results);
+
+      set({
+        loading: false,
+        staticData,
+        testResults: resultsMap,
+        runSummary: staticData.summary,
         facetGroups: updatedGroups,
         expandedTests: expanded,
         rawLogs,
@@ -169,7 +233,176 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ contentMode: mode });
   },
 
-  // Facets
+  // --- WebSocket state ---
+
+  setWsConnected: (connected: boolean) => {
+    set({ wsConnected: connected });
+  },
+
+  setWsError: (error: string | null) => {
+    set({ wsError: error });
+  },
+
+  // --- Data source ---
+
+  setDataSource: (source: DataSource) => {
+    set({ dataSource: source });
+  },
+
+  // --- Themes / backends ---
+
+  setThemes: (_themes: ThemeGroup[], _backends: BackendGroup[], _total: number) => {
+    set({ themes: _themes, backends: _backends });
+  },
+
+  // --- Run control ---
+
+  startRun: (runId: string, _filter: TestFilter | null) => {
+    set({
+      isRunning: true,
+      currentRunId: runId,
+      runMetadata: {
+        current: {
+          trigger: "manual",
+          startedAt: Date.now(),
+        },
+        last: get().runMetadata.last,
+      },
+    });
+  },
+
+  addTestResult: (test: TestResult) => {
+    set((state) => {
+      const key = `${test.file}::${test.name}`;
+      const newResults = new Map(state.testResults);
+      const prev = newResults.get(key);
+      // Preserve source fields from static data when live results arrive without them
+      const merged = { ...test, lastRun: Date.now() };
+      if (prev?.source && !merged.source) {
+        merged.source = prev.source;
+        merged.sourceFile = prev.sourceFile;
+        merged.sourceStartLine = prev.sourceStartLine;
+      }
+      newResults.set(key, merged);
+
+      const results = Array.from(newResults.values());
+      const updatedGroups = updateFacetCounts(state.facetGroups, results);
+
+      // Auto-expand failed tests
+      const newExpanded = new Set(state.expandedTests);
+      if (test.status === "failed") {
+        newExpanded.add(key);
+      }
+
+      return {
+        testResults: newResults,
+        facetGroups: updatedGroups,
+        expandedTests: newExpanded,
+      };
+    });
+  },
+
+  completeRun: (summary: TestRunSummary) => {
+    set((state) => ({
+      isRunning: false,
+      runSummary: summary,
+      runMetadata: {
+        current: null,
+        last: {
+          trigger: state.runMetadata.current?.trigger || "unknown",
+          startedAt: state.runMetadata.current?.startedAt || Date.now(),
+          completedAt: Date.now(),
+          changedFiles: state.runMetadata.current?.changedFiles,
+        },
+      },
+    }));
+  },
+
+  cancelRun: () => {
+    set((state) => ({
+      isRunning: false,
+      currentRunId: null,
+      runMetadata: {
+        current: null,
+        last: state.runMetadata.last,
+      },
+    }));
+  },
+
+  // --- Services ---
+
+  setServices: (services: ServiceHealth[]) => {
+    set({ services });
+  },
+
+  // --- File changes ---
+
+  addFileChange: (event: FileChangeEvent) => {
+    set((state) => ({
+      recentChanges: [event, ...state.recentChanges].slice(0, MAX_RECENT_CHANGES),
+    }));
+  },
+
+  // --- Raw output ---
+
+  addRawOutput: (line: string) => {
+    set((state) => ({
+      rawOutput: [...state.rawOutput, line].slice(-MAX_RAW_OUTPUT_LINES),
+    }));
+  },
+
+  setShowRawOutput: (show: boolean) => {
+    set({ showRawOutput: show });
+  },
+
+  // --- Initial state from server ---
+
+  loadInitialState: (data: { results: TestResult[]; runMetadata: { current: RunMetadata | null; last: RunMetadata | null } }) => {
+    const existing = get().testResults;
+    const { resultsMap, expanded } = loadData(data.results);
+
+    // Preserve source fields from existing results (loaded from static file)
+    for (const [key, result] of resultsMap) {
+      const prev = existing.get(key);
+      if (prev?.source && !result.source) {
+        result.source = prev.source;
+        result.sourceFile = prev.sourceFile;
+        result.sourceStartLine = prev.sourceStartLine;
+      }
+    }
+
+    const results = Array.from(resultsMap.values());
+    const updatedGroups = updateFacetCounts(get().facetGroups, results);
+
+    const passed = results.filter((r) => r.status === "passed").length;
+    const failed = results.filter((r) => r.status === "failed").length;
+    const skipped = results.filter((r) => r.status === "skipped").length;
+
+    set({
+      testResults: resultsMap,
+      facetGroups: updatedGroups,
+      expandedTests: expanded,
+      runMetadata: data.runMetadata,
+      isRunning: data.runMetadata.current !== null,
+      runSummary: {
+        passed,
+        failed,
+        skipped,
+        total: results.length,
+        duration: 0,
+      },
+    });
+  },
+
+  setRunMetadata: (metadata: { current: RunMetadata | null; last: RunMetadata | null }) => {
+    set({
+      runMetadata: metadata,
+      isRunning: metadata.current !== null,
+    });
+  },
+
+  // --- Facets ---
+
   toggleFacet: (facetId: string) => {
     set((state) => {
       const newActive = new Set(state.activeFacets);
@@ -259,7 +492,8 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     });
   },
 
-  // Inline expansion
+  // --- Inline expansion ---
+
   toggleTestExpansion: (testKey: string) => {
     set((state) => {
       const newExpanded = new Set(state.expandedTests);

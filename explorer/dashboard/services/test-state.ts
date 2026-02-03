@@ -89,7 +89,7 @@ export class TestState {
   }
 
   /**
-   * Complete the current run
+   * Complete the current run and write static artifacts
    */
   completeRun(): void {
     if (this.currentRun) {
@@ -98,6 +98,11 @@ export class TestState {
       this.currentRun = null;
     }
     this.broadcastState();
+
+    // Write static artifacts (fire-and-forget)
+    this.writeStaticArtifacts().catch((e) => {
+      console.error("[TestState] Failed to write static artifacts:", e);
+    });
   }
 
   /**
@@ -361,5 +366,214 @@ export class TestState {
       state: this.getFullState(),
       timestamp: Date.now(),
     });
+  }
+
+  /**
+   * Extract a source snippet around a test name from a file.
+   * Returns ~25 lines starting from the test definition.
+   */
+  private async extractSourceSnippet(
+    filePath: string,
+    testName: string
+  ): Promise<{ source: string; sourceFile: string; sourceStartLine: number } | null> {
+    try {
+      const content = await Deno.readTextFile(filePath);
+      const lines = content.split("\n");
+
+      // Find the line containing the test name
+      let startLine = -1;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(testName)) {
+          startLine = i;
+          break;
+        }
+      }
+
+      if (startLine === -1) return null;
+
+      // Extract ~25 lines from the match
+      const to = Math.min(lines.length, startLine + 25);
+      const snippet = lines.slice(startLine, to).join("\n");
+
+      // Build a relative path for display
+      const parts = filePath.split("/");
+      const sdkIdx = parts.indexOf("sdk");
+      const integIdx = parts.indexOf("integ");
+      const fromIdx = sdkIdx >= 0 ? sdkIdx : integIdx >= 0 ? integIdx : Math.max(0, parts.length - 3);
+      const relativePath = parts.slice(fromIdx).join("/");
+
+      return {
+        source: snippet,
+        sourceFile: relativePath,
+        sourceStartLine: startLine + 1, // 1-based
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Write test-results.json and test-logs.txt to the explorer app's public directory.
+   * This is the canonical data source for the frontend.
+   */
+  private async writeStaticArtifacts(): Promise<void> {
+    const servicesDir = new URL(".", import.meta.url).pathname;
+    const publicDir = new URL("../../app/public/dashboard", `file://${servicesDir}`).pathname;
+
+    // Ensure directory exists
+    try {
+      await Deno.mkdir(publicDir, { recursive: true });
+    } catch {
+      // Already exists
+    }
+
+    const results = this.getAllResults();
+    const summary = this.getSummary();
+
+    // Extract source snippets for all results (batch by file to avoid re-reading)
+    const fileCache = new Map<string, string>();
+    const enrichedResults: Array<TestResultState & { source?: string; sourceFile?: string; sourceStartLine?: number }> = [];
+
+    for (const result of results) {
+      // Read file once, cache for reuse
+      if (!fileCache.has(result.filePath)) {
+        try {
+          const content = await Deno.readTextFile(result.filePath);
+          fileCache.set(result.filePath, content);
+        } catch {
+          fileCache.set(result.filePath, "");
+        }
+      }
+
+      const content = fileCache.get(result.filePath) || "";
+      let source: string | undefined;
+      let sourceFile: string | undefined;
+      let sourceStartLine: number | undefined;
+
+      if (content) {
+        const lines = content.split("\n");
+        let matchLine = -1;
+
+        // Try exact name match first
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes(result.name)) {
+            matchLine = i;
+            break;
+          }
+        }
+
+        // For shared suite tests like "MemoryClient - receive transaction and read",
+        // the literal name doesn't appear in source. Try the suffix after " - ".
+        if (matchLine === -1 && result.name.includes(" - ")) {
+          const suffix = result.name.split(" - ").slice(1).join(" - ");
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes(suffix)) {
+              matchLine = i;
+              break;
+            }
+          }
+          // If found in a different file (shared suite), read that file instead
+          if (matchLine === -1) {
+            // Search for the suffix in known shared suite files
+            const suiteFiles = [
+              result.filePath.replace(/[^/]+$/, "shared-suite.ts"),
+              result.filePath.replace(/[^/]+$/, "node-suite.ts"),
+            ];
+            for (const suiteFile of suiteFiles) {
+              try {
+                const suiteContent = fileCache.get(suiteFile) ?? await Deno.readTextFile(suiteFile);
+                fileCache.set(suiteFile, suiteContent);
+                const suiteLines = suiteContent.split("\n");
+                for (let i = 0; i < suiteLines.length; i++) {
+                  if (suiteLines[i].includes(suffix)) {
+                    matchLine = i;
+                    // Switch content to the suite file for extraction
+                    const to = Math.min(suiteLines.length, matchLine + 25);
+                    source = suiteLines.slice(matchLine, to).join("\n");
+                    sourceStartLine = matchLine + 1;
+                    const sParts = suiteFile.split("/");
+                    const sIdx = sParts.indexOf("sdk");
+                    const sFrom = sIdx >= 0 ? sIdx : Math.max(0, sParts.length - 3);
+                    sourceFile = sParts.slice(sFrom).join("/");
+                    break;
+                  }
+                }
+                if (matchLine >= 0) break;
+              } catch {
+                // Suite file doesn't exist
+              }
+            }
+          }
+        }
+
+        // Extract from original file if matched there
+        if (matchLine >= 0 && !source) {
+          const to = Math.min(lines.length, matchLine + 25);
+          source = lines.slice(matchLine, to).join("\n");
+          sourceStartLine = matchLine + 1;
+        }
+
+        // Build relative sourceFile path if not already set
+        if (source && !sourceFile) {
+          const parts = result.filePath.split("/");
+          const sdkIdx = parts.indexOf("sdk");
+          const integIdx = parts.indexOf("integ");
+          const fromIdx = sdkIdx >= 0 ? sdkIdx : integIdx >= 0 ? integIdx : Math.max(0, parts.length - 3);
+          sourceFile = parts.slice(fromIdx).join("/");
+        }
+      }
+
+      enrichedResults.push({
+        ...result,
+        source,
+        sourceFile,
+        sourceStartLine,
+      });
+    }
+
+    // Build the static data artifact
+    const artifact = {
+      version: "1.0",
+      generatedAt: Date.now(),
+      runMetadata: this.lastCompletedRun
+        ? {
+            trigger: this.lastCompletedRun.trigger,
+            startedAt: this.lastCompletedRun.startedAt,
+            completedAt: this.lastCompletedRun.completedAt || Date.now(),
+            environment: {
+              deno: Deno.version.deno,
+              platform: Deno.build.os,
+              hasPostgres: Boolean(Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL")),
+              hasMongo: Boolean(Deno.env.get("MONGODB_URL")),
+            },
+          }
+        : undefined,
+      summary: {
+        passed: summary.passed,
+        failed: summary.failed,
+        skipped: summary.skipped,
+        total: summary.total,
+        duration: summary.duration,
+      },
+      results: enrichedResults,
+      files: Array.from(this.files.values()).map((f) => ({
+        path: f.path,
+        name: f.name,
+        theme: f.theme,
+        backend: f.backend,
+        status: f.status,
+        testCount: f.tests.size,
+      })),
+    };
+
+    // Write test-results.json
+    const jsonPath = `${publicDir}/test-results.json`;
+    await Deno.writeTextFile(jsonPath, JSON.stringify(artifact, null, 2));
+    console.log(`[TestState] Wrote ${enrichedResults.length} results to ${jsonPath}`);
+
+    // Write test-logs.txt
+    const logsPath = `${publicDir}/test-logs.txt`;
+    await Deno.writeTextFile(logsPath, this.runLog.join("\n"));
+    console.log(`[TestState] Wrote ${this.runLog.length} log lines to ${logsPath}`);
   }
 }

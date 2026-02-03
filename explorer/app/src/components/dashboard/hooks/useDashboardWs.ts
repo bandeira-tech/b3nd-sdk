@@ -1,12 +1,27 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useDashboardStore } from "../stores/dashboardStore";
-import type { WsMessage, TestResult, ServiceHealth, FileChangeEvent, TestFilter, TestTheme, ThemeGroup, BackendGroup, RunMetadata } from "../types";
+import type { WsMessage, TestResult, ServiceHealth, FileChangeEvent, TestFilter, TestTheme, RunMetadata } from "../types";
 
-const DASHBOARD_API_URL = "http://localhost:5556";
 const DASHBOARD_WS_URL = "ws://localhost:5556/ws";
+const DASHBOARD_API_URL = "http://localhost:5556";
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
+/**
+ * WebSocket hook for live dashboard updates.
+ *
+ * The static file (public/dashboard/test-results.json) is the primary data source
+ * (loaded by DashboardLayoutSlot via loadStaticData). This hook provides:
+ * - Live run status (start/complete/cancel)
+ * - Streaming individual test results during a run
+ * - Run metadata updates
+ * - File change notifications
+ * - Service health updates
+ *
+ * After a run completes, the backend writes a new static file. This hook
+ * triggers a reload of that file so the frontend picks up fresh results
+ * (including source snippets).
+ */
 export function useDashboardWs() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
@@ -15,7 +30,6 @@ export function useDashboardWs() {
   const {
     setWsConnected,
     setWsError,
-    setThemes,
     startRun,
     addTestResult,
     completeRun,
@@ -24,59 +38,25 @@ export function useDashboardWs() {
     addFileChange,
     addRawOutput,
     autoRunEnabled,
-    dataSource,
-    loadInitialState,
     setRunMetadata,
+    loadStaticData,
   } = useDashboardStore();
 
-  // Fetch full state from API and load it
-  const fetchAndLoadState = useCallback(async () => {
+  // Fetch just run metadata from the backend (not results — those come from static file)
+  const fetchRunMetadata = useCallback(async () => {
     try {
       const response = await fetch(`${DASHBOARD_API_URL}/state`);
-      if (!response.ok) throw new Error("Failed to fetch state");
+      if (!response.ok) return;
 
       const data = await response.json() as {
-        summary: { total: number };
-        results: TestResult[];
-        files: Array<{ theme: string; backend: string; name: string; testCount: number }>;
         runMetadata: { current: RunMetadata | null; last: RunMetadata | null };
       };
 
-      // Build theme and backend groups from files
-      const themeMap = new Map<string, { id: string; label: string; testCount: number }>();
-      const backendMap = new Map<string, { id: string; label: string; testCount: number }>();
-
-      for (const file of data.files) {
-        const existing = themeMap.get(file.theme);
-        if (existing) {
-          existing.testCount += file.testCount;
-        } else {
-          themeMap.set(file.theme, { id: file.theme, label: file.theme, testCount: file.testCount });
-        }
-
-        const existingBackend = backendMap.get(file.backend);
-        if (existingBackend) {
-          existingBackend.testCount += file.testCount;
-        } else {
-          backendMap.set(file.backend, { id: file.backend, label: file.backend, testCount: file.testCount });
-        }
-      }
-
-      setThemes(
-        Array.from(themeMap.values()) as ThemeGroup[],
-        Array.from(backendMap.values()) as BackendGroup[],
-        data.summary.total
-      );
-
-      // Load results and run metadata
-      loadInitialState({
-        results: data.results,
-        runMetadata: data.runMetadata,
-      });
+      setRunMetadata(data.runMetadata);
     } catch (e) {
-      console.error("[DashboardWs] Failed to fetch state:", e);
+      console.error("[DashboardWs] Failed to fetch run metadata:", e);
     }
-  }, [setThemes, loadInitialState]);
+  }, [setRunMetadata]);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -95,10 +75,8 @@ export function useDashboardWs() {
         setWsError(null);
         reconnectAttempts.current = 0;
 
-        // Fetch and load full state on connection (only in live mode)
-        if (dataSource === "live") {
-          fetchAndLoadState();
-        }
+        // Only fetch run metadata — results come from static file
+        fetchRunMetadata();
       };
 
       ws.onmessage = (event) => {
@@ -135,7 +113,7 @@ export function useDashboardWs() {
       console.error("[DashboardWs] Failed to connect:", e);
       setWsError("Failed to connect to dashboard server");
     }
-  }, [setWsConnected, setWsError, fetchAndLoadState, dataSource]);
+  }, [setWsConnected, setWsError, fetchRunMetadata]);
 
   const handleMessage = useCallback(
     (message: WsMessage) => {
@@ -163,11 +141,11 @@ export function useDashboardWs() {
           addTestResult(test);
 
           const statusIcon = {
-            running: "⏳",
-            passed: "✅",
-            failed: "❌",
-            skipped: "⏭️",
-            pending: "⏸️",
+            running: "\u23f3",
+            passed: "\u2705",
+            failed: "\u274c",
+            skipped: "\u23ed\ufe0f",
+            pending: "\u23f8\ufe0f",
           }[test.status];
 
           addRawOutput(
@@ -200,6 +178,9 @@ export function useDashboardWs() {
           addRawOutput(
             `\n[Test Run Complete] Passed: ${summary.passed}, Failed: ${summary.failed}, Skipped: ${summary.skipped}`
           );
+
+          // Reload static file — backend just wrote it with fresh results + source
+          setTimeout(() => loadStaticData(), 500);
           break;
         }
 
@@ -227,7 +208,6 @@ export function useDashboardWs() {
           // Auto-run tests if enabled
           if (autoRunEnabled) {
             console.log("[DashboardWs] Auto-running tests due to file change");
-            // Trigger test run via HTTP endpoint
             fetch(`${DASHBOARD_API_URL}/state/rerun`, {
               method: "POST",
             }).catch((e) => console.error("[DashboardWs] Auto-run failed:", e));
@@ -236,13 +216,10 @@ export function useDashboardWs() {
         }
 
         case "pong":
-          // Heartbeat response, nothing to do
           break;
 
         case "state:update": {
-          // Full state update from server
           const state = message.state as {
-            results: TestResult[];
             runMetadata: { current: RunMetadata | null; last: RunMetadata | null };
           };
           if (state.runMetadata) {
@@ -252,13 +229,13 @@ export function useDashboardWs() {
         }
 
         case "run:start":
-          // Run started on server
           addRawOutput(`[Run Started] Trigger: ${(message as { trigger?: string }).trigger || "unknown"}`);
           break;
 
         case "run:complete":
-          // Run completed on server
           addRawOutput(`[Run Complete] Exit code: ${message.exitCode}, Duration: ${message.duration}ms`);
+          // Reload static file after backend writes it
+          setTimeout(() => loadStaticData(), 500);
           break;
 
         default:
@@ -275,6 +252,7 @@ export function useDashboardWs() {
       addRawOutput,
       autoRunEnabled,
       setRunMetadata,
+      loadStaticData,
     ]
   );
 
@@ -315,6 +293,5 @@ export function useDashboardWs() {
     connect,
     disconnect,
     sendMessage,
-    refreshState: fetchAndLoadState,
   };
 }

@@ -1,8 +1,9 @@
 /**
- * Dashboard types — static-first architecture
+ * Dashboard types — hybrid live/static architecture
  *
- * The dashboard loads pre-built JSON artifacts from /dashboard/test-results.json
- * No WebSocket or live server dependency in production.
+ * Supports both:
+ * - Live mode: WebSocket connection to dashboard server for real-time results
+ * - Static mode: loads pre-built JSON artifacts from /dashboard/test-results.json
  */
 
 export type TestTheme =
@@ -26,6 +27,8 @@ export type BackendType =
   | "other";
 
 export type TestStatus = "running" | "passed" | "failed" | "skipped" | "pending";
+
+export type DataSource = "live" | "static";
 
 export interface TestResult {
   name: string;
@@ -62,11 +65,59 @@ export interface TestFile {
   testCount: number;
 }
 
+export interface ThemeGroup {
+  id: string;
+  label: string;
+  testCount: number;
+}
+
+export interface BackendGroup {
+  id: string;
+  label: string;
+  testCount: number;
+}
+
+export interface RunMetadata {
+  trigger: string;
+  startedAt: number;
+  completedAt?: number;
+  changedFiles?: string[];
+}
+
+export interface ServiceHealth {
+  id: string;
+  name: string;
+  url: string;
+  status: "healthy" | "unhealthy" | "unknown";
+  latency?: number;
+  error?: string;
+}
+
+export interface FileChangeEvent {
+  kind: "modify" | "create" | "remove";
+  files: string[];
+  timestamp: number;
+}
+
+export interface TestFilter {
+  themes?: TestTheme[];
+  backends?: BackendType[];
+  file?: string;
+  pattern?: string;
+}
+
+export interface WsMessage {
+  type: string;
+  [key: string]: unknown;
+}
+
 // Static artifact format (loaded from /dashboard/test-results.json)
 export interface StaticTestData {
-  version: string;
-  generatedAt: number;
-  runMetadata: {
+  version?: string;
+  generatedAt?: number;
+  timestamp?: number;
+  runId?: string;
+  runMetadata?: {
     trigger: string;
     startedAt: number;
     completedAt: number;
@@ -79,7 +130,8 @@ export interface StaticTestData {
   };
   summary: TestRunSummary;
   results: TestResult[];
-  files: TestFile[];
+  files?: TestFile[];
+  themes?: ThemeGroup[];
 }
 
 // Content modes
@@ -126,13 +178,30 @@ export interface DashboardState {
   // Inline expansion
   expandedTests: Set<string>;
 
-  // Raw logs
+  // Raw logs (static mode)
   rawLogs: string;
+
+  // WebSocket / live mode
+  wsConnected: boolean;
+  wsError: string | null;
+  isRunning: boolean;
+  dataSource: DataSource;
+  autoRunEnabled: boolean;
+
+  // Live data
+  services: ServiceHealth[];
+  recentChanges: FileChangeEvent[];
+  rawOutput: string[];
+  showRawOutput: boolean;
+  currentRunId: string | null;
+  runMetadata: { current: RunMetadata | null; last: RunMetadata | null };
+  themes: ThemeGroup[];
+  backends: BackendGroup[];
 }
 
 export interface DashboardActions {
   // Data loading
-  loadStaticData: () => Promise<void>;
+  loadStaticData: (data?: StaticTestData) => void | Promise<void>;
 
   // Content mode
   setContentMode: (mode: ContentMode) => void;
@@ -147,4 +216,34 @@ export interface DashboardActions {
   toggleTestExpansion: (testKey: string) => void;
   expandAllFailed: () => void;
   collapseAll: () => void;
+
+  // WebSocket state
+  setWsConnected: (connected: boolean) => void;
+  setWsError: (error: string | null) => void;
+
+  // Data source
+  setDataSource: (source: DataSource) => void;
+
+  // Themes / backends
+  setThemes: (themes: ThemeGroup[], backends: BackendGroup[], total: number) => void;
+
+  // Run control
+  startRun: (runId: string, filter: TestFilter | null) => void;
+  addTestResult: (test: TestResult) => void;
+  completeRun: (summary: TestRunSummary) => void;
+  cancelRun: () => void;
+
+  // Services
+  setServices: (services: ServiceHealth[]) => void;
+
+  // File changes
+  addFileChange: (event: FileChangeEvent) => void;
+
+  // Raw output
+  addRawOutput: (line: string) => void;
+  setShowRawOutput: (show: boolean) => void;
+
+  // Initial state from server
+  loadInitialState: (data: { results: TestResult[]; runMetadata: { current: RunMetadata | null; last: RunMetadata | null } }) => void;
+  setRunMetadata: (metadata: { current: RunMetadata | null; last: RunMetadata | null }) => void;
 }

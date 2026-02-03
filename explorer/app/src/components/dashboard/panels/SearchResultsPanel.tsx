@@ -180,8 +180,8 @@ function TestDetailExpansion({ result }: { result: TestResult }) {
       {result.source ? (
         <SourceCodeBlock source={result.source} sourceFile={result.sourceFile} startLine={result.sourceStartLine} />
       ) : (
-        <div className="mt-2 text-muted-foreground italic">
-          Source code not available for this test.
+        <div className="mt-2 text-muted-foreground italic text-[11px]">
+          Source available after next test run completes.
         </div>
       )}
     </div>
