@@ -120,6 +120,22 @@ export function runSharedSuite(
       assertEquals(Array.isArray(listResult.data), true);
       assertEquals(typeof listResult.pagination.page, "number");
       assertEquals(typeof listResult.pagination.limit, "number");
+
+      // Verify actual URIs reference the expected users
+      const uris = listResult.data.map((item: { uri: string }) => item.uri);
+      assertEquals(uris.some((u: string) => u.includes("alice")), true, "Should include alice");
+      assertEquals(uris.some((u: string) => u.includes("bob")), true, "Should include bob");
+      assertEquals(uris.some((u: string) => u.includes("charlie")), true, "Should include charlie");
+
+      // Verify each item has correct structure
+      for (const item of listResult.data) {
+        assertEquals(typeof item.uri, "string", "Each item should have a URI");
+        assertEquals(
+          ["file", "directory"].includes(item.type),
+          true,
+          `Item type should be 'file' or 'directory', got '${item.type}'`,
+        );
+      }
     }
 
     await client.cleanup();
@@ -140,6 +156,7 @@ export function runSharedSuite(
     if (page1.success) {
       assertEquals(page1.pagination.page, 1);
       assertEquals(page1.pagination.limit, 5);
+      assertEquals(page1.data.length, 5, "Page 1 should have exactly 5 items");
     }
 
     const page2 = await client.list("store://users", { page: 2, limit: 5 });
@@ -147,6 +164,14 @@ export function runSharedSuite(
     if (page2.success) {
       assertEquals(page2.pagination.page, 2);
       assertEquals(page2.pagination.limit, 5);
+      assertEquals(page2.data.length >= 5, true, "Page 2 should have at least 5 items");
+
+      // Verify pages contain different items (no overlap)
+      const page1Uris = new Set(page1.data.map((item: { uri: string }) => item.uri));
+      const page2Uris = page2.data.map((item: { uri: string }) => item.uri);
+      for (const uri of page2Uris) {
+        assertEquals(page1Uris.has(uri), false, `URI ${uri} should not appear on both pages`);
+      }
     }
 
     await client.cleanup();
@@ -163,11 +188,23 @@ export function runSharedSuite(
 
     assertEquals(listResult.success, true);
     if (listResult.success) {
+      // Pattern "alice" filters at the current list level
       assertEquals(
         listResult.data.every((item: { uri: string }) =>
           item.uri.includes("alice")
         ),
         true,
+        "All items should contain 'alice'",
+      );
+      assertEquals(listResult.data.length >= 1, true, "Should return at least 1 alice item");
+
+      // Verify alice entry is present and bob is excluded
+      const uris = listResult.data.map((item: { uri: string }) => item.uri);
+      assertEquals(uris.some((u: string) => u.includes("alice")), true, "Should include alice");
+      assertEquals(
+        uris.every((u: string) => !u.includes("bob")),
+        true,
+        "Should not include bob",
       );
     }
 

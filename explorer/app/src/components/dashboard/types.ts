@@ -38,6 +38,7 @@ export interface TestResult {
   lastRun: number;
   source?: string;
   sourceFile?: string;
+  sourceStartLine?: number;
   error?: {
     message: string;
     stack?: string;

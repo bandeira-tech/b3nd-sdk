@@ -108,24 +108,29 @@ function highlightLine(line: string): JSX.Element[] {
   return parts;
 }
 
-function SourceCodeBlock({ source, sourceFile }: { source: string; sourceFile?: string }) {
+function SourceCodeBlock({ source, sourceFile, startLine = 1 }: { source: string; sourceFile?: string; startLine?: number }) {
   const lines = source.split("\n");
   const fileName = sourceFile?.split("/").pop() || "";
+  const maxLineNum = startLine + lines.length - 1;
+  const gutterWidth = Math.max(3, String(maxLineNum).length + 1);
 
   return (
     <div className="mt-2 rounded border border-border/50 overflow-hidden">
       {sourceFile && (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border-b border-border/30">
           <FileCode className="w-3 h-3 text-muted-foreground" />
-          <span className="font-mono text-[11px] text-muted-foreground">{fileName}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">{fileName}:{startLine}</span>
         </div>
       )}
       <div className="overflow-x-auto bg-muted/20">
         <div className="font-mono text-[11px] leading-relaxed">
           {lines.map((line, i) => (
             <div key={i} className="flex hover:bg-accent/20 transition-colors">
-              <span className="w-8 flex-shrink-0 text-right pr-2 py-px text-muted-foreground/40 select-none border-r border-border/20">
-                {i + 1}
+              <span
+                className="flex-shrink-0 text-right pr-2 py-px text-muted-foreground/40 select-none border-r border-border/20"
+                style={{ width: `${gutterWidth}ch` }}
+              >
+                {startLine + i}
               </span>
               <pre className="flex-1 pl-3 pr-3 py-px whitespace-pre overflow-x-auto">
                 {highlightLine(line)}
@@ -173,7 +178,7 @@ function TestDetailExpansion({ result }: { result: TestResult }) {
       )}
 
       {result.source ? (
-        <SourceCodeBlock source={result.source} sourceFile={result.sourceFile} />
+        <SourceCodeBlock source={result.source} sourceFile={result.sourceFile} startLine={result.sourceStartLine} />
       ) : (
         <div className="mt-2 text-muted-foreground italic">
           Source code not available for this test.

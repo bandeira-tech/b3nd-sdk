@@ -34,6 +34,7 @@ interface TestResult {
   lastRun: number;
   source?: string;
   sourceFile?: string;
+  sourceStartLine?: number;
 }
 
 // =============================================================================
@@ -45,6 +46,7 @@ interface ExtractedTest {
   isTemplate: boolean;
   source: string;
   sourceFile: string;
+  startLine: number;
 }
 
 /**
@@ -134,7 +136,7 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
     }
 
     if (name) {
-      tests.push({ name, isTemplate, source, sourceFile: filePath });
+      tests.push({ name, isTemplate, source, sourceFile: filePath, startLine: i + 1 });
     }
 
     // Skip past this block
@@ -176,7 +178,7 @@ async function discoverSourceFiles(): Promise<string[]> {
 /**
  * Build an index of test name → source code
  */
-async function buildSourceIndex(): Promise<Map<string, { source: string; sourceFile: string }>> {
+async function buildSourceIndex(): Promise<Map<string, { source: string; sourceFile: string; startLine: number }>> {
   const sourceFiles = await discoverSourceFiles();
   const allBlocks: ExtractedTest[] = [];
 
@@ -190,12 +192,12 @@ async function buildSourceIndex(): Promise<Map<string, { source: string; sourceF
     }
   }
 
-  const index = new Map<string, { source: string; sourceFile: string }>();
+  const index = new Map<string, { source: string; sourceFile: string; startLine: number }>();
 
   // First pass: index literal (non-template) names
   for (const block of allBlocks) {
     if (!block.isTemplate) {
-      index.set(block.name, { source: block.source, sourceFile: block.sourceFile });
+      index.set(block.name, { source: block.source, sourceFile: block.sourceFile, startLine: block.startLine });
     }
   }
 
@@ -227,7 +229,7 @@ async function buildSourceIndex(): Promise<Map<string, { source: string; sourceF
 
         const regex = new RegExp(`^${escaped}$`);
         if (regex.test(testName)) {
-          return { source: block.source, sourceFile: block.sourceFile };
+          return { source: block.source, sourceFile: block.sourceFile, startLine: block.startLine };
         }
       }
 
@@ -369,6 +371,7 @@ async function main() {
         lastRun: completedAt,
         source: sourceInfo?.source,
         sourceFile: sourceInfo?.sourceFile,
+        sourceStartLine: sourceInfo?.startLine,
       });
     }
   }

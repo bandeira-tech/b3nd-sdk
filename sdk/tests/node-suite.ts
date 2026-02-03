@@ -149,6 +149,12 @@ export function runNodeSuite(
         true,
         `Expected at least 3 items but got ${listResult.data.length}`,
       );
+
+      // Verify actual URIs reference the expected users
+      const uris = listResult.data.map((item: { uri: string }) => item.uri);
+      assertEquals(uris.some((u: string) => u.includes("alice")), true, "Should include alice");
+      assertEquals(uris.some((u: string) => u.includes("bob")), true, "Should include bob");
+      assertEquals(uris.some((u: string) => u.includes("charlie")), true, "Should include charlie");
     }
 
     await node.cleanup();
@@ -172,6 +178,17 @@ export function runNodeSuite(
     assertEquals(result.summary.total, 3);
     assertEquals(result.summary.succeeded, 2);
     assertEquals(result.summary.failed, 1);
+
+    // Verify actual data values
+    assertEquals(result.results[0].success, true);
+    if (result.results[0].success) {
+      assertEquals(result.results[0].record.data, { name: "Alice" });
+    }
+    assertEquals(result.results[1].success, true);
+    if (result.results[1].success) {
+      assertEquals(result.results[1].record.data, { name: "Bob" });
+    }
+    assertEquals(result.results[2].success, false, "Nonexistent URI should fail");
 
     await node.cleanup();
   });
