@@ -152,7 +152,7 @@ const txResult = await node.receive(["txn://open/batch-1", {
 
 ### TransactionData Convention
 
-Transaction envelopes wrap multiple writes into a single atomic-intent operation:
+Transaction envelopes wrap multiple operations into a single atomic-intent transaction:
 
 ```typescript
 import type { TransactionData } from "@bandeira-tech/b3nd-sdk";
@@ -224,10 +224,10 @@ const clients = [
   new PostgresClient({ connection, schema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 
-const writeBackend = parallelBroadcast(clients);  // Write to all
-const readBackend = firstMatchSequence(clients);  // Read from first success
+const receiveBackend = parallelBroadcast(clients);  // Receive on all
+const readBackend = firstMatchSequence(clients);     // Read from first success
 
-const backend = { write: writeBackend, read: readBackend };
+const backend = { receive: receiveBackend, read: readBackend };
 ```
 
 ### PostgreSQL Client
@@ -405,13 +405,19 @@ import { computeSha256 } from "./validators.ts";
 const data = { secret: "private content" };
 const encrypted = await encrypt.encrypt(data, recipientPublicKeyHex);
 const hash = await computeSha256(encrypted);
-await client.write(`blob://open/sha256:${hash}`, encrypted);
+await client.receive(["txn://open/store-private-blob", {
+  inputs: [],
+  outputs: [[`blob://open/sha256:${hash}`, encrypted]],
+}]);
 
 // Protected blob (password-encrypted)
 const key = await encrypt.deriveKeyFromSeed(password, salt, 100000);
 const encrypted = await encrypt.encryptSymmetric(data, key);
 const hash = await computeSha256(encrypted);
-await client.write(`blob://open/sha256:${hash}`, encrypted);
+await client.receive(["txn://open/store-protected-blob", {
+  inputs: [],
+  outputs: [[`blob://open/sha256:${hash}`, encrypted]],
+}]);
 ```
 
 ## Types
@@ -422,7 +428,7 @@ import type {
   Schema,
   ValidationFn,
   NodeProtocolInterface,
-  NodeProtocolWriteInterface,
+  NodeProtocolWriteInterface,  // receive + delete + health + getSchema + cleanup
   NodeProtocolReadInterface,
   // Node types
   Node,

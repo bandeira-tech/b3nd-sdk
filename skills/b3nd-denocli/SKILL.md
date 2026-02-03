@@ -56,11 +56,15 @@ async function main() {
   const command = args[0];
 
   switch (command) {
-    case "write": {
+    case "send": {
       const uri = args[1];
       const data = JSON.parse(args[2]);
-      const result = await client.write(uri, data);
-      console.log(result.success ? "Written" : `Error: ${result.error}`);
+      const txnUri = args[3] || `txn://open/${Date.now()}`;
+      const result = await client.receive([txnUri, {
+        inputs: [],
+        outputs: [[uri, data]],
+      }]);
+      console.log(result.accepted ? "Accepted" : `Error: ${result.error}`);
       break;
     }
     case "read": {
@@ -74,7 +78,7 @@ async function main() {
       break;
     }
     default:
-      console.log("Usage: cli.ts <write|read> <uri> [data]");
+      console.log("Usage: cli.ts <send|read> <uri> [data] [txnUri]");
   }
 }
 
@@ -142,9 +146,9 @@ const backend = new MemoryClient({ schema });
 
 // Or multi-backend composition
 // const clients = [new MemoryClient({ schema }), postgresClient];
-// const writeBackend = parallelBroadcast(clients);
+// const receiveBackend = parallelBroadcast(clients);
 // const readBackend = firstMatchSequence(clients);
-// const backend = { write: writeBackend, read: readBackend };
+// const backend = { receive: receiveBackend, read: readBackend };
 
 const app = new Hono();
 app.use("/*", cors({ origin: CORS_ORIGIN }));
@@ -167,11 +171,15 @@ Deno.test("receive transaction and read", async () => {
   const client = new MemoryClient({
     schema: {
       "test://data": async () => ({ valid: true }),
+      "txn://": async () => ({ valid: true }),
     },
   });
 
-  // Use receive() for all state changes
-  const result = await client.receive(["test://data/item1", { name: "Test" }]);
+  // All state changes go through receive() with transaction envelopes
+  const result = await client.receive(["txn://test/create-item", {
+    inputs: [],
+    outputs: [["test://data/item1", { name: "Test" }]],
+  }]);
   assertEquals(result.accepted, true);
 
   const readResult = await client.read("test://data/item1");
@@ -189,10 +197,14 @@ Deno.test("validation error on receive", async () => {
         if (!v.required) return { valid: false, error: "Missing required field" };
         return { valid: true };
       },
+      "txn://": async () => ({ valid: true }),
     },
   });
 
-  const result = await client.receive(["test://strict/item", { other: "value" }]);
+  const result = await client.receive(["txn://test/bad-item", {
+    inputs: [],
+    outputs: [["test://strict/item", { other: "value" }]],
+  }]);
   assertEquals(result.accepted, false);
   assertEquals(result.error, "Missing required field");
 });
@@ -283,7 +295,7 @@ dev:
 
 ```bash
 # Run script
-deno run -A cli.ts write "data://items/1" '{"name":"test"}'
+deno run -A cli.ts send "data://items/1" '{"name":"test"}'
 
 # Run server
 deno task start
