@@ -64,8 +64,8 @@ Deno.test("Full pipeline: strip ANSI then match", () => {
 // Integration test: actually run deno test and verify we can parse output
 Deno.test("Integration: parse actual deno test output", async () => {
   const command = new Deno.Command("deno", {
-    args: ["test", "-A", "--filter=MemoryClient - receive transaction and read", "tests/memory-client.test.ts"],
-    cwd: new URL("../../../sdk", import.meta.url).pathname,
+    args: ["test", "-A", "--filter=MemoryClient - receive transaction and read", "clients/memory/memory-client.test.ts"],
+    cwd: new URL("../../../libs/b3nd-sdk", import.meta.url).pathname,
     stdout: "piped",
     stderr: "piped",
   });

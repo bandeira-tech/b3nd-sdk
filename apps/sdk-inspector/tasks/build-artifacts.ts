@@ -16,8 +16,8 @@ import {
 } from "../utils/test-parser.ts";
 
 const DASHBOARD_ROOT = new URL("..", import.meta.url).pathname;
-const SDK_PATH = new URL("../../../sdk", import.meta.url).pathname;
-const OUTPUT_DIR = new URL("../../app/public/dashboard/", import.meta.url).pathname;
+const SDK_PATH = new URL("../../../libs/b3nd-sdk", import.meta.url).pathname;
+const OUTPUT_DIR = new URL("../../b3nd-web-rig/public/dashboard/", import.meta.url).pathname;
 
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 const FILE_HEADER = /^running \d+ tests? from (.+\.test\.ts)/;

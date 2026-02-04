@@ -68,10 +68,10 @@ export class TestRunner {
 
   constructor(wsHub: WsHub) {
     this.wsHub = wsHub;
-    // Determine paths relative to dashboard location (dashboard -> explorer -> b3nd root)
+    // Determine paths relative to dashboard location (apps/sdk-inspector/services -> b3nd root)
     const dashboardDir = new URL(".", import.meta.url).pathname;
-    this.sdkPath = new URL("../../../sdk", `file://${dashboardDir}`).pathname;
-    this.integPath = new URL("../../../integ", `file://${dashboardDir}`).pathname;
+    this.sdkPath = new URL("../../../libs/b3nd-sdk", `file://${dashboardDir}`).pathname;
+    this.integPath = new URL("../../../tests", `file://${dashboardDir}`).pathname;
   }
 
   /**
@@ -140,12 +140,13 @@ export class TestRunner {
       testPaths.push(...matchingFiles);
     } else {
       // Default to SDK tests, excluding browser tests and integration-heavy tests
-      testPaths.push(`${this.sdkPath}/tests/`);
+      testPaths.push(this.sdkPath);
       args.push(
-        "--ignore=tests/browser",
-        "--ignore=tests/mongo-client.test.ts",
-        "--ignore=tests/postgres-client.test.ts",
-        "--ignore=tests/websocket-client.test.ts"
+        "--ignore=clients/indexed-db",
+        "--ignore=clients/local-storage",
+        "--ignore=clients/mongo",
+        "--ignore=clients/postgres",
+        "--ignore=clients/websocket"
       );
     }
 

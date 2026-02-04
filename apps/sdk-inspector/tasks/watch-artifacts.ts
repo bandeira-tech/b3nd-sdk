@@ -14,16 +14,16 @@ import { WsHub } from "../services/ws-hub.ts";
 import { ContinuousTestRunner } from "../services/continuous-runner.ts";
 import { debounce } from "@std/async";
 
-const OUTPUT_DIR = new URL("../../app/public/dashboard/", import.meta.url)
+const OUTPUT_DIR = new URL("../../b3nd-web-rig/public/dashboard/", import.meta.url)
   .pathname;
 
-const SDK_PATH = new URL("../../../sdk", import.meta.url).pathname;
+const SDK_PATH = new URL("../../../libs/b3nd-sdk", import.meta.url).pathname;
 
 const WATCH_PATHS = [
   `${SDK_PATH}/src`,
-  `${SDK_PATH}/tests`,
   `${SDK_PATH}/clients`,
-  `${SDK_PATH}/auth`,
+  `${SDK_PATH}/txn`,
+  `${SDK_PATH}/txn-data`,
 ];
 
 async function writeArtifacts(

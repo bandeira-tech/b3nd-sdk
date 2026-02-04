@@ -37,10 +37,10 @@ export class ContinuousTestRunner {
     this.testState = testState;
     this.wsHub = wsHub;
 
-    // Determine paths relative to dashboard
+    // Determine paths relative to dashboard (apps/sdk-inspector/services -> b3nd root)
     const dashboardDir = new URL(".", import.meta.url).pathname;
-    this.sdkPath = new URL("../../../sdk", `file://${dashboardDir}`).pathname;
-    this.integE2ePath = new URL("../../../integ/e2e", `file://${dashboardDir}`).pathname;
+    this.sdkPath = new URL("../../../libs/b3nd-sdk", `file://${dashboardDir}`).pathname;
+    this.integE2ePath = new URL("../../../tests", `file://${dashboardDir}`).pathname;
   }
 
   /**
@@ -425,7 +425,7 @@ export class ContinuousTestRunner {
     const sourceDir = sourceParts.slice(0, -1).join("/");
     const testDir = testParts.slice(0, -1).join("/");
 
-    return sourceDir.includes("sdk") && testDir.includes("sdk");
+    return sourceDir.includes("b3nd-sdk") && testDir.includes("b3nd-sdk");
   }
 
   /**

@@ -24,12 +24,13 @@ export class FileWatcher {
   constructor(wsHub: WsHub) {
     this.wsHub = wsHub;
 
-    // Determine paths relative to dashboard location (dashboard -> explorer -> b3nd root)
+    // Determine paths relative to dashboard location (apps/sdk-inspector/services -> b3nd root)
     const dashboardDir = new URL(".", import.meta.url).pathname;
     this.watchPaths = [
-      new URL("../../../sdk/src", `file://${dashboardDir}`).pathname,
-      new URL("../../../sdk/tests", `file://${dashboardDir}`).pathname,
-      new URL("../../../sdk/clients", `file://${dashboardDir}`).pathname,
+      new URL("../../../libs/b3nd-sdk/src", `file://${dashboardDir}`).pathname,
+      new URL("../../../libs/b3nd-sdk/clients", `file://${dashboardDir}`).pathname,
+      new URL("../../../libs/b3nd-sdk/txn", `file://${dashboardDir}`).pathname,
+      new URL("../../../libs/b3nd-sdk/txn-data", `file://${dashboardDir}`).pathname,
     ];
 
     // Debounce broadcasts to avoid flooding on rapid changes (e.g., save-all)
@@ -135,8 +136,8 @@ export class FileWatcher {
   private broadcast(changes: FileChangeEvent): void {
     // Extract relative paths for cleaner output
     const relativePaths = changes.paths.map((p) => {
-      const sdkIdx = p.indexOf("/sdk/");
-      return sdkIdx >= 0 ? p.slice(sdkIdx) : p;
+      const libsIdx = p.indexOf("/libs/");
+      return libsIdx >= 0 ? p.slice(libsIdx) : p;
     });
 
     console.log(

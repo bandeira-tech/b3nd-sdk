@@ -12,12 +12,12 @@ export default defineConfig({
   resolve: {
     preserveSymlinks: true,
     alias: [
-      { find: '@bandeira-tech/b3nd-web/wallet', replacement: path.resolve(__dirname, '../../sdk/wallet/mod.ts') },
-      { find: '@bandeira-tech/b3nd-web/apps', replacement: path.resolve(__dirname, '../../sdk/apps/mod.ts') },
-      { find: '@bandeira-tech/b3nd-web/encrypt', replacement: path.resolve(__dirname, '../../sdk/encrypt/mod.ts') },
-      { find: '@bandeira-tech/b3nd-web/blob', replacement: path.resolve(__dirname, '../../sdk/blob/mod.ts') },
-      { find: '@bandeira-tech/b3nd-web/clients/http', replacement: path.resolve(__dirname, '../../sdk/clients/http/mod.ts') },
-      { find: '@bandeira-tech/b3nd-web', replacement: path.resolve(__dirname, '../../sdk/src/mod.web.ts') },
+      { find: '@bandeira-tech/b3nd-web/wallet', replacement: path.resolve(__dirname, '../../libs/b3nd-wallet/mod.ts') },
+      { find: '@bandeira-tech/b3nd-web/apps', replacement: path.resolve(__dirname, '../../libs/b3nd-apps/mod.ts') },
+      { find: '@bandeira-tech/b3nd-web/encrypt', replacement: path.resolve(__dirname, '../../libs/b3nd-encrypt/mod.ts') },
+      { find: '@bandeira-tech/b3nd-web/blob', replacement: path.resolve(__dirname, '../../libs/b3nd-sdk/blob/mod.ts') },
+      { find: '@bandeira-tech/b3nd-web/clients/http', replacement: path.resolve(__dirname, '../../libs/b3nd-sdk/clients/http/mod.ts') },
+      { find: '@bandeira-tech/b3nd-web', replacement: path.resolve(__dirname, '../../libs/b3nd-sdk/src/mod.web.ts') },
     ],
   },
   optimizeDeps: {
@@ -38,7 +38,7 @@ export default defineConfig({
       allow: [
         __dirname,
         path.resolve(__dirname, '..'),
-        path.resolve(__dirname, '../../sdk'),
+        path.resolve(__dirname, '../../libs'),
         path.resolve(__dirname, '../../'),
       ],
     },

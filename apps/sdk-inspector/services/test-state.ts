@@ -418,7 +418,7 @@ export class TestState {
    */
   private async writeStaticArtifacts(): Promise<void> {
     const servicesDir = new URL(".", import.meta.url).pathname;
-    const publicDir = new URL("../../app/public/dashboard", `file://${servicesDir}`).pathname;
+    const publicDir = new URL("../b3nd-web-rig/public/dashboard", `file://${servicesDir}`).pathname;
 
     // Ensure directory exists
     try {

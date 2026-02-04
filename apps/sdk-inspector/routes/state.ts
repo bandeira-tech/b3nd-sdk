@@ -61,7 +61,7 @@ export function stateRouter(testState: TestState, runner: ContinuousTestRunner):
 
     // Security: only allow reading files under the SDK directory
     const dashboardDir = new URL(".", import.meta.url).pathname;
-    const sdkPath = new URL("../../../sdk", `file://${dashboardDir}`).pathname;
+    const sdkPath = new URL("../../../libs/b3nd-sdk", `file://${dashboardDir}`).pathname;
 
     // Resolve the file path - accept both absolute and relative
     let resolvedPath = filePath;
