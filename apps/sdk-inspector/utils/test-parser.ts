@@ -154,7 +154,7 @@ export const TEST_THEMES: ThemeInfo[] = [
     id: "e2e",
     label: "E2E",
     description: "End-to-end integration tests",
-    patterns: [/e2e/, /integ/],
+    patterns: [/e2e/, /integ/, /\/tests\//],
   },
   {
     id: "browser",

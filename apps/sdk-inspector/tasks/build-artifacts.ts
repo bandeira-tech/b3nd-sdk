@@ -17,6 +17,7 @@ import {
 
 const DASHBOARD_ROOT = new URL("..", import.meta.url).pathname;
 const SDK_PATH = new URL("../../../libs/b3nd-sdk", import.meta.url).pathname;
+const E2E_PATH = new URL("../../../tests", import.meta.url).pathname;
 const OUTPUT_DIR = new URL("../../b3nd-web-rig/public/dashboard/", import.meta.url).pathname;
 
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
@@ -147,31 +148,29 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
 }
 
 /**
- * Discover all source files that contain test definitions
+ * Discover all source files that contain test definitions.
+ * Tests are colocated with source — walk SDK and E2E directories for .test.ts files.
  */
 async function discoverSourceFiles(): Promise<string[]> {
   const files: string[] = [];
+  const skipDirs = new Set(["node_modules", ".git", "dist", "build"]);
 
-  // Test files
-  const testDir = `${SDK_PATH}/tests`;
-  try {
-    for await (const entry of Deno.readDir(testDir)) {
-      if (entry.isFile && entry.name.endsWith(".ts")) {
-        files.push(`${testDir}/${entry.name}`);
+  async function walk(dir: string) {
+    try {
+      for await (const entry of Deno.readDir(dir)) {
+        if (entry.isDirectory && skipDirs.has(entry.name)) continue;
+        const full = `${dir}/${entry.name}`;
+        if (entry.isFile && entry.name.endsWith(".test.ts")) {
+          files.push(full);
+        } else if (entry.isDirectory) {
+          await walk(full);
+        }
       }
-    }
-  } catch { /* directory may not exist */ }
+    } catch { /* directory may not exist */ }
+  }
 
-  // Auth test files
-  const authDir = `${SDK_PATH}/auth/tests`;
-  try {
-    for await (const entry of Deno.readDir(authDir)) {
-      if (entry.isFile && entry.name.endsWith(".ts")) {
-        files.push(`${authDir}/${entry.name}`);
-      }
-    }
-  } catch { /* directory may not exist */ }
-
+  await walk(SDK_PATH);
+  await walk(E2E_PATH);
   return files;
 }
 
@@ -243,27 +242,29 @@ async function buildSourceIndex(): Promise<Map<string, { source: string; sourceF
 // Test Discovery & Filtering
 // =============================================================================
 
-async function discoverTestFiles(): Promise<string[]> {
+async function discoverTestFiles(dir: string): Promise<string[]> {
   const files: string[] = [];
   const skipDirs = new Set(["node_modules", ".git", "dist", "build"]);
 
-  async function walk(dir: string) {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isDirectory && skipDirs.has(entry.name)) continue;
-      const full = `${dir}/${entry.name}`;
-      if (entry.isFile && entry.name.endsWith(".test.ts")) {
-        files.push(full);
-      } else if (entry.isDirectory) {
-        await walk(full);
+  async function walk(d: string) {
+    try {
+      for await (const entry of Deno.readDir(d)) {
+        if (entry.isDirectory && skipDirs.has(entry.name)) continue;
+        const full = `${d}/${entry.name}`;
+        if (entry.isFile && entry.name.endsWith(".test.ts")) {
+          files.push(full);
+        } else if (entry.isDirectory) {
+          await walk(full);
+        }
       }
-    }
+    } catch { /* directory may not exist */ }
   }
 
-  await walk(SDK_PATH);
+  await walk(dir);
   return files;
 }
 
-function filterTestFiles(files: string[]): { run: string[]; skip: string[] } {
+function filterSdkTestFiles(files: string[]): { run: string[]; skip: string[] } {
   const hasPostgres = Boolean(Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL"));
   const hasMongo = Boolean(Deno.env.get("MONGODB_URL"));
 
@@ -290,46 +291,26 @@ function filterTestFiles(files: string[]): { run: string[]; skip: string[] } {
 // Main
 // =============================================================================
 
-async function main() {
-  console.log("Building dashboard artifacts...");
-
-  // Load .env from dashboard root
-  try {
-    await loadEnv({ envPath: `${DASHBOARD_ROOT}/.env`, export: true });
-    console.log("Loaded .env configuration");
-  } catch {
-    console.log("No .env file found, using environment variables");
-  }
-
-  const allFiles = await discoverTestFiles();
-  const { run, skip } = filterTestFiles(allFiles);
-  console.log(`Running ${run.length} test files, skipping ${skip.length}`);
-  if (skip.length > 0) console.log(`Skipped: ${skip.join(", ")}`);
-
-  // Build source index in parallel with running tests
-  const sourceIndexPromise = buildSourceIndex();
-
-  const startedAt = Date.now();
-
-  // Run deno test and capture output
+/**
+ * Run `deno test` in a directory, parse output, and return results.
+ */
+async function runAndParse(
+  files: string[],
+  cwd: string,
+  sourceIndex: Map<string, { source: string; sourceFile: string; startLine: number }>,
+  completedAt: number,
+): Promise<{ results: TestResult[]; stdout: string; stderr: string; exitCode: number }> {
   const cmd = new Deno.Command("deno", {
-    args: ["test", "-A", "--no-check", ...run],
-    cwd: SDK_PATH,
+    args: ["test", "-A", "--no-check", ...files],
+    cwd,
     stdout: "piped",
     stderr: "piped",
   });
 
   const output = await cmd.output();
-  const completedAt = Date.now();
-
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
-  const rawOutput = stdout + (stderr ? "\n" + stderr : "");
 
-  // Wait for source index
-  const sourceIndex = await sourceIndexPromise;
-
-  // Parse results
   const results: TestResult[] = [];
   let currentFile = "";
   let currentFilePath = "";
@@ -344,7 +325,7 @@ async function main() {
       currentFile = rel.split("/").pop() || rel;
       currentFilePath = rel.startsWith("/")
         ? rel
-        : `${SDK_PATH}/${rel.replace(/^\.\//, "")}`;
+        : `${cwd}/${rel.replace(/^\.\//, "")}`;
       continue;
     }
 
@@ -376,9 +357,67 @@ async function main() {
     }
   }
 
+  return { results, stdout, stderr, exitCode: output.code };
+}
+
+async function main() {
+  console.log("Building dashboard artifacts...");
+
+  // Load .env from dashboard root
+  try {
+    await loadEnv({ envPath: `${DASHBOARD_ROOT}/.env`, export: true });
+    console.log("Loaded .env configuration");
+  } catch {
+    console.log("No .env file found, using environment variables");
+  }
+
+  // Discover SDK and E2E test files separately
+  const sdkFiles = await discoverTestFiles(SDK_PATH);
+  const e2eFiles = await discoverTestFiles(E2E_PATH);
+  const { run: sdkRun, skip } = filterSdkTestFiles(sdkFiles);
+
+  console.log(`SDK: ${sdkRun.length} test files to run, ${skip.length} skipped`);
+  if (skip.length > 0) console.log(`  Skipped: ${skip.join(", ")}`);
+  console.log(`E2E: ${e2eFiles.length} test files to run`);
+
+  // Build source index in parallel with running tests
+  const sourceIndexPromise = buildSourceIndex();
+
+  const startedAt = Date.now();
+
+  // Run SDK tests
+  const sourceIndex = await sourceIndexPromise;
+  const completedAt = Date.now();
+
+  let maxExitCode = 0;
+  const allResults: TestResult[] = [];
+  let rawOutput = "";
+
+  // Run SDK tests (cwd: libs/b3nd-sdk)
+  if (sdkRun.length > 0) {
+    console.log(`\nRunning ${sdkRun.length} SDK test files...`);
+    const sdk = await runAndParse(sdkRun, SDK_PATH, sourceIndex, Date.now());
+    allResults.push(...sdk.results);
+    rawOutput += sdk.stdout + (sdk.stderr ? "\n" + sdk.stderr : "");
+    if (sdk.exitCode > maxExitCode) maxExitCode = sdk.exitCode;
+    console.log(`  SDK: ${sdk.results.length} tests (exit code: ${sdk.exitCode})`);
+  }
+
+  // Run E2E tests (cwd: tests/ — separate deno.json scope)
+  if (e2eFiles.length > 0) {
+    console.log(`\nRunning ${e2eFiles.length} E2E test files...`);
+    const e2e = await runAndParse(e2eFiles, E2E_PATH, sourceIndex, Date.now());
+    allResults.push(...e2e.results);
+    rawOutput += (rawOutput ? "\n" : "") + e2e.stdout + (e2e.stderr ? "\n" + e2e.stderr : "");
+    if (e2e.exitCode > maxExitCode) maxExitCode = e2e.exitCode;
+    console.log(`  E2E: ${e2e.results.length} tests (exit code: ${e2e.exitCode})`);
+  }
+
+  const finalCompletedAt = Date.now();
+
   // Build summary
   let passed = 0, failed = 0, skipped = 0, totalDuration = 0;
-  for (const r of results) {
+  for (const r of allResults) {
     if (r.status === "passed") passed++;
     else if (r.status === "failed") failed++;
     else if (r.status === "skipped") skipped++;
@@ -387,7 +426,7 @@ async function main() {
 
   // Build file info
   const fileMap = new Map<string, { path: string; name: string; theme: string; backend: string; status: string; testCount: number }>();
-  for (const r of results) {
+  for (const r of allResults) {
     const existing = fileMap.get(r.filePath);
     if (!existing) {
       fileMap.set(r.filePath, {
@@ -406,11 +445,11 @@ async function main() {
 
   const artifact = {
     version: "1.0",
-    generatedAt: completedAt,
+    generatedAt: finalCompletedAt,
     runMetadata: {
       trigger: "build",
       startedAt,
-      completedAt,
+      completedAt: finalCompletedAt,
       environment: {
         deno: Deno.version.deno,
         platform: Deno.build.os,
@@ -419,13 +458,13 @@ async function main() {
       },
     },
     summary: {
-      total: results.length,
+      total: allResults.length,
       passed,
       failed,
       skipped,
       duration: totalDuration,
     },
-    results,
+    results: allResults,
     files: Array.from(fileMap.values()),
   };
 
@@ -438,15 +477,15 @@ async function main() {
   await Deno.writeTextFile(`${OUTPUT_DIR}/test-logs.txt`, rawOutput);
 
   // Count how many tests have source
-  const withSource = results.filter((r) => r.source).length;
+  const withSource = allResults.filter((r) => r.source).length;
 
   console.log(`\nArtifacts written to: ${OUTPUT_DIR}`);
-  console.log(`  test-results.json (${results.length} tests, ${withSource} with source)`);
+  console.log(`  test-results.json (${allResults.length} tests, ${withSource} with source)`);
   console.log(`  test-logs.txt (${rawOutput.split("\n").length} lines)`);
   console.log(`  Summary: ${passed} passed, ${failed} failed, ${skipped} skipped`);
-  console.log(`  Exit code: ${output.code}`);
+  console.log(`  Exit code: ${maxExitCode}`);
 
-  Deno.exit(output.code);
+  Deno.exit(maxExitCode);
 }
 
 main();
