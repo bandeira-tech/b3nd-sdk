@@ -1,5 +1,6 @@
 dist
 node_modules
+_vendor/
 .env
 .playwright-mcp/
 explorer/app/public/dashboard/test-logs.txt

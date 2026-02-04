@@ -9,7 +9,7 @@
     "lint": "deno lint src/"
   },
   "imports": {
-    "@b3nd/sdk": "../../libs/b3nd-sdk/src/mod.ts",
+    "@b3nd/sdk": "../../src/mod.ts",
     "@b3nd/sdk/http": "../../libs/b3nd-client-http/mod.ts",
     "@b3nd/sdk/types": "../../libs/b3nd-core/types.ts",
     "@b3nd/sdk/encrypt": "../../libs/b3nd-encrypt/mod.ts",

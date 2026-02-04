@@ -543,8 +543,7 @@ Browse test results by theme, view source code with line numbers, search across
 
 ## Source Files
 
-- `libs/b3nd-sdk/src/mod.ts` - Main Deno exports (facade, re-exports from
-  sibling libs)
+- `src/mod.ts` - Main Deno exports (facade, re-exports from sibling libs)
 - `libs/b3nd-core/types.ts` - Type definitions
 - `libs/b3nd-compose/types.ts` - Node/Message/Validator types
 - `libs/b3nd-client-postgres/mod.ts` - PostgreSQL client

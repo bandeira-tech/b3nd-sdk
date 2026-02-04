@@ -809,6 +809,18 @@
     "https://deno.land/x/postgres@v0.17.0/utils/utils.ts": "19c3527ddd5c6c4c49ae36397120274c7f41f9d3cbf479cb36065d23329e9f90"
   },
   "workspace": {
+    "dependencies": [
+      "jsr:@std/assert@^1.0.15",
+      "jsr:@std/encoding@^1.0.10"
+    ],
+    "packageJson": {
+      "dependencies": [
+        "npm:@types/node@^22.10.1",
+        "npm:hono@^4.6.0",
+        "npm:tsup@^8.3.5",
+        "npm:typescript@^5.6.3"
+      ]
+    },
     "members": {
       "apps/apps-node": {
         "dependencies": [
@@ -893,20 +905,6 @@
         "dependencies": [
           "jsr:@std/assert@^1.0.15"
         ]
-      },
-      "libs/b3nd-sdk": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15",
-          "jsr:@std/encoding@^1.0.10"
-        ],
-        "packageJson": {
-          "dependencies": [
-            "npm:@types/node@^22.10.1",
-            "npm:hono@^4.6.0",
-            "npm:tsup@^8.3.5",
-            "npm:typescript@^5.6.3"
-          ]
-        }
       },
       "libs/b3nd-testing": {
         "dependencies": [

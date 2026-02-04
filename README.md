@@ -1,69 +1,53 @@
 # B3nd SDK
 
-Universal persistence protocol for building applications with URI-based data
-addressing.
-
-## Build with Claude Code
-
-Install the B3nd plugin to get AI-assisted development with full SDK knowledge:
-
-```bash
-claude plugin marketplace add https://github.com/bandeira-tech/b3nd
-claude plugin install b3nd
-```
-
-Then just ask Claude naturally:
-
-- "Create a B3nd HTTP client for my React app"
-- "Set up a multi-backend server with Postgres"
-- "Add wallet authentication to my app"
-
-### What's Included
-
-| Skill            | What Claude Learns                         |
-| ---------------- | ------------------------------------------ |
-| **b3nd-general** | Core architecture, URI schemes, interfaces |
-| **b3nd-sdk**     | Deno/JSR package for servers               |
-| **b3nd-web**     | NPM package for browsers                   |
-| **b3nd-webapp**  | React/Vite patterns                        |
-| **b3nd-denocli** | Deno CLI and server patterns               |
-
-Plus MCP tools for direct data operations: `b3nd_read`, `b3nd_write`,
-`b3nd_list`, `b3nd_backends_switch`
-
----
+Universal persistence SDK with URI-based data addressing, encryption, and multi-backend support.
 
 ## Packages
 
-| Package                                                                          | Registry | Use Case       |
-| -------------------------------------------------------------------------------- | -------- | -------------- |
-| [@bandeira-tech/b3nd-sdk](https://jsr.io/@bandeira-tech/b3nd-sdk)                | JSR      | Deno, servers  |
-| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | NPM      | Browser, React |
+| Package | Registry | Use Case |
+|---------|----------|----------|
+| [@bandeira-tech/b3nd-sdk](https://jsr.io/@bandeira-tech/b3nd-sdk) | JSR | Deno, servers |
+| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | npm | Browser, React |
 
 ```typescript
 // Deno/Server
-import { HttpClient, MemoryClient } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient, MemoryClient, PostgresClient } from "@bandeira-tech/b3nd-sdk";
 
 // Browser/React
-import { HttpClient, WalletClient } from "@bandeira-tech/b3nd-web";
+import { HttpClient, WalletClient, LocalStorageClient } from "@bandeira-tech/b3nd-web";
 ```
 
-## Quick Example
+## Quick Start
 
 ```typescript
 const client = new HttpClient({ url: "http://localhost:8842" });
 
-// Write
-await client.write("mutable://users/alice/profile", { name: "Alice" });
+// Write data (receive a message)
+await client.receive(["mutable://users/alice/profile", { name: "Alice", age: 30 }]);
 
-// Read
+// Read data
 const result = await client.read("mutable://users/alice/profile");
+console.log(result.record?.data); // { name: "Alice", age: 30 }
 
-// List
+// List items
 const items = await client.list("mutable://users/");
+console.log(items.data); // [{ uri: "mutable://users/alice/profile" }]
+
+// Delete
+await client.delete("mutable://users/alice/profile");
 ```
 
----
+## Available Clients
+
+| Client | Environment | Backend |
+|--------|-------------|---------|
+| `MemoryClient` | Any | In-memory storage |
+| `HttpClient` | Any | Remote HTTP server |
+| `WebSocketClient` | Any | Remote WebSocket server |
+| `PostgresClient` | Deno/Node | PostgreSQL database |
+| `MongoClient` | Deno/Node | MongoDB database |
+| `LocalStorageClient` | Browser | localStorage |
+| `IndexedDBClient` | Browser | IndexedDB |
 
 ## Server Deployment
 
@@ -78,7 +62,47 @@ docker-compose up -d
 
 ```bash
 cd apps/b3nd-node
-deno task start
+deno task dev
 ```
 
-See [apps/](./apps/) for more deployment options.
+## Development
+
+```bash
+# Run tests
+make test-unit
+
+# Type check
+deno check src/mod.ts
+
+# Build npm package
+npm run build
+
+# Publish
+make version v=X.Y.Z
+make publish
+```
+
+## Project Structure
+
+```
+src/           # SDK entry points (mod.ts, mod.web.ts)
+libs/          # Core libraries (clients, compose, encrypt, etc.)
+apps/          # Server applications (b3nd-node, wallet-node, etc.)
+tests/         # E2E tests
+```
+
+## Claude Code Plugin
+
+Install the B3nd plugin for AI-assisted development:
+
+```bash
+claude mcp add b3nd -- npx -y @anthropic-ai/mcp-b3nd
+```
+
+Included skills: `b3nd-general`, `b3nd-sdk`, `b3nd-web`, `b3nd-webapp`, `b3nd-denocli`
+
+MCP tools: `b3nd_read`, `b3nd_receive`, `b3nd_list`, `b3nd_delete`, `b3nd_health`
+
+## License
+
+MIT

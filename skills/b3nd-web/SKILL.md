@@ -255,7 +255,6 @@ import type {
 ## Build
 
 ```bash
-cd libs/b3nd-sdk
 npm run build  # Uses tsup
 ```
 
@@ -278,8 +277,7 @@ with backends: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`,
 
 ## Source Files
 
-- `libs/b3nd-sdk/src/mod.web.ts` - Main web exports (facade, re-exports from
-  sibling libs)
+- `src/mod.web.ts` - Main web exports (facade, re-exports from sibling libs)
 - `libs/b3nd-client-http/mod.ts` - HTTP client
 - `libs/b3nd-client-localstorage/mod.ts` - LocalStorage client
 - `libs/b3nd-wallet/mod.ts` - Wallet client

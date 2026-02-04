@@ -1,6 +1,35 @@
 ## Root Makefile
 
-.PHONY: test-e2e-http
+.PHONY: test test-memory test-http test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg help
+
+# Default target
+.DEFAULT_GOAL := help
+
+# Run all tests (excludes browser-only tests)
+test:
+ifdef t
+	@echo "Running tests for: $(t)"
+	@deno test --allow-all $(t)
+else
+	@echo "Running all tests..."
+	@deno test --allow-all libs/
+endif
+
+# Run only MemoryClient tests
+test-memory:
+	@echo "Running MemoryClient tests..."
+	@deno test --allow-all libs/b3nd-client-memory/memory-client.test.ts
+
+# Run only HttpClient tests
+test-http:
+	@echo "Running HttpClient tests..."
+	@deno test --allow-all libs/b3nd-client-http/http-client.test.ts
+
+# Run unit tests only (no external dependencies)
+test-unit:
+	@echo "Running unit tests..."
+	@deno test --allow-all libs/b3nd-client-memory/memory-client.test.ts libs/b3nd-wallet/wallet.test.ts libs/b3nd-combinators/combinators.test.ts
+
 test-e2e-http:
 	@if [ -z "$(URL)" ]; then \
 		echo "Starting test HTTP server..."; \
@@ -43,17 +72,47 @@ test-e2e-http:
 		echo "Unknown target '$@'"; exit 2; \
 	fi
 
-.PHONY: build-sdk
 build-sdk:
 	@echo "Building web package and validating JSR exports..."
-	@cd libs/b3nd-sdk && npm run build && deno task check
+	@npm run build && deno task check
 
-.PHONY: publish-sdk
 publish-sdk:
 	@echo "Publishing SDK to npm..."
-	@cd libs/b3nd-sdk && npm run publish:package
+	@npm run publish:package
 
-.PHONY: pkg
+# Publish to both JSR and npm
+publish: test-unit
+	@echo "Publishing to JSR and npm..."
+	@$(MAKE) publish-jsr
+	@$(MAKE) publish-npm
+	@echo "Done! Don't forget to push the tag: git push origin v$$(jq -r .version deno.json)"
+
+# Publish to JSR only
+publish-jsr: test-unit
+	@echo "Publishing to JSR..."
+	@deno task publish:jsr
+
+# Publish to npm only
+publish-npm: test-unit
+	@echo "Building for npm..."
+	@npm run build
+	@echo "Publishing to npm..."
+	@npm publish --access public
+
+# Bump version, update both deno.json and package.json, create git tag
+# Usage: make version v=0.3.0
+version:
+ifndef v
+	$(error Usage: make version v=X.Y.Z)
+endif
+	@echo "Bumping version to $(v)..."
+	@jq '.version = "$(v)"' deno.json > deno.json.tmp && mv deno.json.tmp deno.json
+	@npm version $(v) --no-git-tag-version
+	@git add deno.json package.json package-lock.json
+	@git commit -m "chore(sdk): bump version to $(v)"
+	@git tag -a "v$(v)" -m "Release v$(v)"
+	@echo "Version $(v) tagged. Run 'make publish' to publish, then 'git push origin v$(v)'"
+
 pkg:
 	@if [ -z "$(target)" ]; then \
 		echo "Error: 'target' variable is required"; \
@@ -69,3 +128,28 @@ pkg:
 	@echo "Pushing image to ghcr.io/bandeira-tech/b3nd/$(target):latest..."
 	@docker push ghcr.io/bandeira-tech/b3nd/$(target):latest
 	@echo "Done!"
+
+# Show help
+help:
+	@echo "Available commands:"
+	@echo ""
+	@echo "  make test              - Run all tests (requires Docker for some)"
+	@echo "  make test t=<path>     - Run specific test file"
+	@echo "  make test-unit         - Run unit tests only (no external deps)"
+	@echo "  make test-memory       - Run MemoryClient tests only"
+	@echo "  make test-http         - Run HttpClient tests only"
+	@echo "  make test-e2e-http     - Run E2E HTTP tests"
+	@echo ""
+	@echo "  make build-sdk         - Build web package and validate JSR exports"
+	@echo "  make publish-sdk       - Publish SDK to npm"
+	@echo "  make version v=X.Y.Z   - Bump version and create git tag"
+	@echo "  make publish           - Publish to JSR and npm (runs unit tests)"
+	@echo "  make publish-jsr       - Publish to JSR only"
+	@echo "  make publish-npm       - Publish to npm only"
+	@echo ""
+	@echo "  make pkg target=<name> - Build and push Docker image"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make test-unit"
+	@echo "  make version v=0.3.0"
+	@echo "  make publish"

@@ -76,14 +76,14 @@ export type {
   WebSocketRequest,
   WebSocketResponse,
   WriteResult,
-} from "../../b3nd-core/types.ts";
+} from "../libs/b3nd-core/types.ts";
 
 // Client implementations
-export { MemoryClient } from "../../b3nd-client-memory/mod.ts";
-export { HttpClient } from "../../b3nd-client-http/mod.ts";
-export { WebSocketClient } from "../../b3nd-client-ws/mod.ts";
-export { PostgresClient } from "../../b3nd-client-postgres/mod.ts";
-export { MongoClient } from "../../b3nd-client-mongo/mod.ts";
+export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
+export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
+export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
+export { PostgresClient } from "../libs/b3nd-client-postgres/mod.ts";
+export { MongoClient } from "../libs/b3nd-client-mongo/mod.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 
@@ -93,32 +93,32 @@ export {
   generateCompleteSchemaSQL,
   generatePostgresSchema,
   type SchemaInitOptions,
-} from "../../b3nd-client-postgres/schema.ts";
+} from "../libs/b3nd-client-postgres/schema.ts";
 
 // Combinators
 export {
   firstMatchSequence,
   parallelBroadcast,
-} from "../../b3nd-combinators/mod.ts";
+} from "../libs/b3nd-combinators/mod.ts";
 
 // Server primitives
-export { createServerNode } from "../../b3nd-servers/node.ts";
-export * as servers from "../../b3nd-servers/http.ts";
-export * as wsservers from "../../b3nd-servers/websocket.ts";
+export { createServerNode } from "../libs/b3nd-servers/node.ts";
+export * as servers from "../libs/b3nd-servers/http.ts";
+export * as wsservers from "../libs/b3nd-servers/websocket.ts";
 
 // Crypto utilities
-export { pemToCryptoKey } from "../../b3nd-encrypt/mod.ts";
-export { deriveObfuscatedPath } from "../../b3nd-encrypt/utils.ts";
+export { pemToCryptoKey } from "../libs/b3nd-encrypt/mod.ts";
+export { deriveObfuscatedPath } from "../libs/b3nd-encrypt/utils.ts";
 
 // FunctionalClient (new primary pattern)
-export { FunctionalClient } from "../../b3nd-core/functional-client.ts";
-export type { FunctionalClientConfig } from "../../b3nd-core/functional-client.ts";
+export { FunctionalClient } from "../libs/b3nd-core/functional-client.ts";
+export type { FunctionalClientConfig } from "../libs/b3nd-core/functional-client.ts";
 
 // Validated client convenience
-export { createValidatedClient } from "../../b3nd-compose/validated-client.ts";
+export { createValidatedClient } from "../libs/b3nd-compose/validated-client.ts";
 
 // Unified Node system (deprecated — use createValidatedClient instead)
-export { createNode } from "../../b3nd-compose/mod.ts";
+export { createNode } from "../libs/b3nd-compose/mod.ts";
 export type {
   Message,
   Node,
@@ -129,7 +129,7 @@ export type {
   /** @deprecated Use `Message` instead */
   Transaction,
   Validator,
-} from "../../b3nd-compose/mod.ts";
+} from "../libs/b3nd-compose/mod.ts";
 export {
   // Built-in validators
   accept,
@@ -154,25 +154,25 @@ export {
   txnSchema,
   uriPattern,
   when,
-} from "../../b3nd-compose/mod.ts";
+} from "../libs/b3nd-compose/mod.ts";
 
 // Message layer (new names)
-export { createMessageNode } from "../../b3nd-msg/node-mod.ts";
+export { createMessageNode } from "../libs/b3nd-msg/node-mod.ts";
 export type {
   MessageNode,
   MessageNodeConfig,
   MessageValidator,
   SubmitResult,
-} from "../../b3nd-msg/node-mod.ts";
+} from "../libs/b3nd-msg/node-mod.ts";
 
 // Legacy message layer (deprecated aliases)
-export { createTransactionNode } from "../../b3nd-msg/node-mod.ts";
+export { createTransactionNode } from "../libs/b3nd-msg/node-mod.ts";
 export type {
   Transaction as LegacyTransaction,
   TransactionNode,
   TransactionNodeConfig,
   TransactionValidator,
-} from "../../b3nd-msg/node-mod.ts";
+} from "../libs/b3nd-msg/node-mod.ts";
 
 // Message data convention (Level 2) — new names
 export {
@@ -180,19 +180,19 @@ export {
   createOutputValidator,
   extractProgram,
   isMessageData,
-} from "../../b3nd-msg/data/mod.ts";
+} from "../libs/b3nd-msg/data/mod.ts";
 export type {
   MessageData,
   MessageValidationContext,
   ProgramSchema,
   ProgramValidator,
   StateMessage,
-} from "../../b3nd-msg/data/mod.ts";
+} from "../libs/b3nd-msg/data/mod.ts";
 
 // Deprecated aliases
-export { isTransactionData } from "../../b3nd-msg/data/mod.ts";
+export { isTransactionData } from "../libs/b3nd-msg/data/mod.ts";
 export type {
   StateTransaction,
   TransactionData,
   TransactionValidationContext,
-} from "../../b3nd-msg/data/mod.ts";
+} from "../libs/b3nd-msg/data/mod.ts";

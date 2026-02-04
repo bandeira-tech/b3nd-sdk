@@ -14,6 +14,13 @@ deno.lock
 .vscode/
 .idea/
 
+# Root directories
+apps/
+libs/
+tests/
+skills/
+scripts/
+
 # Logs
 *.log
 npm-debug.log*

@@ -6,7 +6,7 @@
     "hono": "npm:hono",
     "hono/cors": "npm:hono/cors",
     "@std/encoding/hex": "https://deno.land/std@0.208.0/encoding/hex.ts",
-    "@b3nd/sdk": "../../libs/b3nd-sdk/src/mod.ts",
+    "@b3nd/sdk": "../../src/mod.ts",
     "@b3nd/sdk/types": "../../libs/b3nd-core/types.ts",
     "@b3nd/sdk/encrypt": "../../libs/b3nd-encrypt/mod.ts"
   },

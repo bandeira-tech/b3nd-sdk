@@ -361,7 +361,7 @@ Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 - `libs/b3nd-testing/node-suite.ts` - Node interface test suite
 - `apps/b3nd-node/mod.ts` - Full HTTP server example
 - `apps/wallet-node/src/mod.ts` - Wallet server example
-- `libs/b3nd-sdk/Makefile` - Common development commands
+- `Makefile` - Common development commands
 - `apps/b3nd-cli/bnd` - CLI tool entry point
 - `apps/sdk-inspector/` - Dashboard backend
 - `apps/b3nd-web-rig/` - React frontend (explorer, writer, dashboard)

@@ -3,7 +3,7 @@
     "dev": "deno run --watch -A --env-file=.env mod.ts"
   },
   "imports": {
-    "@bandeira-tech/b3nd-sdk": "../../libs/b3nd-sdk/src/mod.ts",
+    "@bandeira-tech/b3nd-sdk": "../../src/mod.ts",
     "@bandeira-tech/b3nd-sdk/auth": "../../libs/b3nd-auth/mod.ts",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
     "hono": "npm:hono"

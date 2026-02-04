@@ -21,7 +21,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run SDK tests
-        run: cd libs/b3nd-sdk && deno task test
+        run: deno task test
 
   auth-tests:
     name: Auth Tests
@@ -125,10 +125,10 @@ jobs:
           deno-version: v2.x
 
       - name: Run lint
-        run: cd libs/b3nd-sdk && deno lint src/
+        run: deno lint src/
 
       - name: Run format check
-        run: cd libs/b3nd-sdk && deno fmt --check src/
+        run: deno fmt --check src/
 
   type-check:
     name: Type Check
@@ -144,7 +144,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run type check
-        run: cd libs/b3nd-sdk && deno check src/mod.ts
+        run: deno check src/mod.ts
 
   sdk-integration-tests:
     name: SDK Integration Tests (PostgreSQL + MongoDB)
@@ -187,11 +187,11 @@ jobs:
       - name: Run PostgreSQL tests
         env:
           POSTGRES_URL: postgresql://postgres:postgres@localhost:55432/b3nd_test
-        run: cd libs/b3nd-sdk && deno task test:integration:postgres
+        run: deno task test:integration:postgres
 
       - name: Run MongoDB tests
         env:
           MONGODB_URL: mongodb://localhost:57017/b3nd_test
           MONGODB_DB: b3nd_test
           MONGODB_COLLECTION: b3nd_data
-        run: cd libs/b3nd-sdk && deno task test:integration:mongo
+        run: deno task test:integration:mongo
