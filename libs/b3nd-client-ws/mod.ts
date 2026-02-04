@@ -10,12 +10,12 @@ import type {
   HealthStatus,
   ListOptions,
   ListResult,
+  Message,
   NodeProtocolInterface,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
-  Transaction,
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
@@ -251,24 +251,24 @@ export class WebSocketClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a transaction (unified Node interface)
+   * Receive a message (unified interface)
    * Sends "receive" message type with { tx } payload
-   * @param tx - Transaction tuple [uri, data]
+   * @param msg - Message tuple [uri, data]
    * @returns ReceiveResult indicating acceptance
    */
-  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
-    const [uri] = tx;
+  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
+    const [uri] = msg;
 
     // Basic URI validation
     if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Transaction URI is required" };
+      return { accepted: false, error: "Message URI is required" };
     }
 
     try {
       // Encode binary data for JSON transport
-      const encodedTx: Transaction = [uri, encodeBinaryForJson(tx[1])];
+      const encodedMsg: Message = [uri, encodeBinaryForJson(msg[1])];
       const result = await this.sendRequest<ReceiveResult>("receive", {
-        tx: encodedTx,
+        tx: encodedMsg,
       });
       return result;
     } catch (error) {

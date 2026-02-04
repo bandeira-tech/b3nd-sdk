@@ -4,6 +4,7 @@ import type {
   ListItem,
   ListOptions,
   ListResult,
+  Message,
   NodeProtocolInterface,
   PersistenceRecord,
   ReadMultiResult,
@@ -11,9 +12,8 @@ import type {
   ReadResult,
   ReceiveResult,
   Schema,
-  Transaction,
 } from "../b3nd-core/types.ts";
-import { isTransactionData } from "../b3nd-txn/data/detect.ts";
+import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 type MemoryClientStorageNode<T> = {
   value?: T;
@@ -121,18 +121,18 @@ export class MemoryClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a transaction - the unified entry point for all state changes
-   * @param tx - Transaction tuple [uri, data]
+   * Receive a message - the unified entry point for all state changes
+   * @param msg - Message tuple [uri, data]
    * @returns ReceiveResult indicating acceptance
    */
   public async receive<D = unknown>(
-    tx: Transaction<D>,
+    msg: Message<D>,
   ): Promise<ReceiveResult> {
-    const [uri, data] = tx;
+    const [uri, data] = msg;
 
     // Basic URI validation
     if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Transaction URI is required" };
+      return { accepted: false, error: "Message URI is required" };
     }
 
     const result = target(uri, this.schema, this.storage);
@@ -175,8 +175,8 @@ export class MemoryClient implements NodeProtocolInterface {
 
     prev.value = record;
 
-    // If TransactionData, also store each output at its own URI
-    if (isTransactionData(data)) {
+    // If MessageData, also store each output at its own URI
+    if (isMessageData(data)) {
       for (const [outputUri, outputValue] of data.outputs) {
         const outputResult = await this.receive([outputUri, outputValue]);
         if (!outputResult.accepted) {

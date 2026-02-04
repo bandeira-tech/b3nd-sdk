@@ -6,10 +6,10 @@ import {
   HttpClient,
   MemoryClient,
   MongoClient,
+  msgSchema,
   parallelBroadcast,
   PostgresClient,
   servers,
-  txnSchema,
 } from "@bandeira-tech/b3nd-sdk";
 import type { NodeProtocolInterface, Schema } from "@bandeira-tech/b3nd-sdk";
 import { createPostgresExecutor } from "./pg-executor.ts";
@@ -136,11 +136,11 @@ if (clients.length === 0) {
 // Compose multiple backends into a single validated client:
 // - writes are broadcast to all backends
 // - reads/lists/deletes consult backends in order until one succeeds
-// - validation via txnSchema
+// - validation via msgSchema
 const client = createValidatedClient({
   write: parallelBroadcast(clients),
   read: firstMatchSequence(clients),
-  validate: txnSchema(schema),
+  validate: msgSchema(schema),
 });
 
 // Custom logger middleware with timestamp and response timing

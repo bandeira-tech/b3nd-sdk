@@ -11,7 +11,7 @@
  *
  * const client = new MemoryClient();
  *
- * // Receive a transaction (the unified interface for all state changes)
+ * // Receive a message (the unified interface for all state changes)
  * await client.receive(["mutable://users/alice", { name: "Alice", age: 30 }]);
  *
  * // Read data
@@ -120,11 +120,13 @@ export { createValidatedClient } from "../../b3nd-compose/validated-client.ts";
 // Unified Node system (deprecated — use createValidatedClient instead)
 export { createNode } from "../../b3nd-compose/mod.ts";
 export type {
+  Message,
   Node,
   NodeConfig,
   Processor,
   ReadInterface,
   ReceiveResult,
+  /** @deprecated Use `Message` instead */
   Transaction,
   Validator,
 } from "../../b3nd-compose/mod.ts";
@@ -139,6 +141,8 @@ export {
   firstMatch,
   format,
   log,
+  // Message schema validator (new name)
+  msgSchema,
   noop,
   parallel,
   pipeline,
@@ -146,32 +150,49 @@ export {
   requireFields,
   schema as schemaValidator,
   seq,
+  /** @deprecated Use `msgSchema` instead */
   txnSchema,
   uriPattern,
   when,
 } from "../../b3nd-compose/mod.ts";
 
-// Legacy transaction layer (deprecated - use node system instead)
-export { createTransactionNode } from "../../b3nd-txn/node-mod.ts";
+// Message layer (new names)
+export { createMessageNode } from "../../b3nd-msg/node-mod.ts";
 export type {
+  MessageNode,
+  MessageNodeConfig,
+  MessageValidator,
   SubmitResult,
+} from "../../b3nd-msg/node-mod.ts";
+
+// Legacy message layer (deprecated aliases)
+export { createTransactionNode } from "../../b3nd-msg/node-mod.ts";
+export type {
   Transaction as LegacyTransaction,
   TransactionNode,
   TransactionNodeConfig,
   TransactionValidator,
-} from "../../b3nd-txn/node-mod.ts";
+} from "../../b3nd-msg/node-mod.ts";
 
-// Transaction data convention (Level 2)
+// Message data convention (Level 2) — new names
 export {
   combineValidators,
   createOutputValidator,
   extractProgram,
-  isTransactionData,
-} from "../../b3nd-txn/data/mod.ts";
+  isMessageData,
+} from "../../b3nd-msg/data/mod.ts";
 export type {
+  MessageData,
+  MessageValidationContext,
   ProgramSchema,
   ProgramValidator,
+  StateMessage,
+} from "../../b3nd-msg/data/mod.ts";
+
+// Deprecated aliases
+export { isTransactionData } from "../../b3nd-msg/data/mod.ts";
+export type {
   StateTransaction,
   TransactionData,
   TransactionValidationContext,
-} from "../../b3nd-txn/data/mod.ts";
+} from "../../b3nd-msg/data/mod.ts";

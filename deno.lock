@@ -889,6 +889,11 @@
           "jsr:@std/encoding@1"
         ]
       },
+      "libs/b3nd-msg": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
       "libs/b3nd-sdk": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15",
@@ -904,11 +909,6 @@
         }
       },
       "libs/b3nd-testing": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/b3nd-txn": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15"
         ]

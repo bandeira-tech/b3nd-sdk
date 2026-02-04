@@ -1,15 +1,15 @@
 /**
  * @module
- * B3nd Transaction Data Convention (Level 2)
+ * B3nd Message Data Convention (Level 2)
  *
- * A standard way to structure transaction data for state transitions.
+ * A standard way to structure message data for state transitions.
  * This is a **convention**, not a requirement. Protocols that want explicit
  * state transitions use it. Others don't.
  *
  * ## The Convention
  *
  * ```typescript
- * type TransactionData = {
+ * type MessageData = {
  *   inputs: string[]                         // URIs consumed/referenced
  *   outputs: [uri: string, value: unknown][] // URIs produced with values
  * }
@@ -19,23 +19,23 @@
  *
  * This pattern enables:
  * - **UTXO-style transfers**: inputs consumed, outputs created
- * - **Blob storage with payment**: blob output + fee output in same txn
- * - **Atomic swaps**: multiple inputs/outputs in single transaction
+ * - **Blob storage with payment**: blob output + fee output in same msg
+ * - **Atomic swaps**: multiple inputs/outputs in single message
  * - **Cross-output validation**: fee validators can check sibling outputs
  *
  * ## Program Validators
  *
- * Just like the data node has schema validators for programs, the transaction
+ * Just like the data node has schema validators for programs, the message
  * layer can run program validators against outputs:
  *
  * @example Fee requirement for blob storage
  * ```typescript
- * import { createOutputValidator } from "b3nd/txn-data"
+ * import { createOutputValidator } from "b3nd/msg-data"
  *
  * const validator = createOutputValidator({
  *   schema: {
  *     "immutable://blob": async (ctx) => {
- *       // Find fee output in the same transaction
+ *       // Find fee output in the same message
  *       const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"))
  *       const requiredFee = Math.ceil(ctx.value.length / 1024) // 1 token per KB
  *
@@ -49,10 +49,10 @@
  * })
  * ```
  *
- * @example User transaction with UTXO model
+ * @example User message with UTXO model
  * ```typescript
- * const userTxn: StateTransaction = [
- *   "txn://alice/transfer/42",
+ * const userMsg: StateMessage = [
+ *   "msg://alice/transfer/42",
  *   {
  *     sig: "user-sig-123",
  *     inputs: ["utxo://alice/1"],
@@ -65,16 +65,16 @@
  * ]
  * ```
  *
- * @example Block transaction referencing user transactions
+ * @example Block message referencing user messages
  * ```typescript
- * const blockTxn: StateTransaction = [
- *   "txn://firecat/block/1000",
+ * const blockMsg: StateMessage = [
+ *   "msg://firecat/block/1000",
  *   {
  *     sig: "validator-sig",
  *     inputs: [
- *       "txn://firecat/block/999",  // Previous block
- *       "txn://alice/transfer/42",   // User txns in this block
- *       "txn://bob/transfer/15"
+ *       "msg://firecat/block/999",  // Previous block
+ *       "msg://alice/transfer/42",   // User msgs in this block
+ *       "msg://bob/transfer/15"
  *     ],
  *     outputs: [
  *       ["block://firecat/1000", { merkleRoot: "...", timestamp: 1234567890 }]
@@ -84,10 +84,17 @@
  * ```
  */
 
-// Types
+// Types (new names)
 export type {
+  MessageData,
+  MessageValidationContext,
   ProgramSchema,
   ProgramValidator,
+  StateMessage,
+} from "./types.ts";
+
+// Deprecated type aliases
+export type {
   StateTransaction,
   TransactionData,
   TransactionValidationContext,
@@ -100,5 +107,5 @@ export {
   extractProgram,
 } from "./validators.ts";
 
-// Detection
-export { isTransactionData } from "./detect.ts";
+// Detection (new name + deprecated alias)
+export { isMessageData, isTransactionData } from "./detect.ts";

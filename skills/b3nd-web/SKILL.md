@@ -61,13 +61,13 @@ import { HttpClient } from "@bandeira-tech/b3nd-web";
 
 const client = new HttpClient({ url: "https://api.example.com" });
 
-// Submit transaction
-const result = await client.receive(["txn://open/update-profile", {
+// Submit message
+const result = await client.receive(["msg://open/update-profile", {
   inputs: [],
   outputs: [["users://alice/profile", { name: "Alice" }]],
 }]);
 if (result.accepted) {
-  console.log("Transaction accepted");
+  console.log("Message accepted");
 }
 
 // Read data
@@ -90,7 +90,7 @@ const local = new LocalStorageClient({
   schema: {/* optional validation */},
 });
 
-await local.receive(["txn://local/update-settings", {
+await local.receive(["msg://local/update-settings", {
   inputs: [],
   outputs: [["settings://theme", { dark: true }]],
 }]);
@@ -110,7 +110,7 @@ const wallet = new WalletClient({
 const session = await wallet.login(appKey, { username, password });
 wallet.setSession(session);
 
-// Proxy transaction with encryption
+// Proxy write with encryption
 await wallet.proxyWrite({
   uri: "mutable://data/profile",
   data: { name: "Alice" },
@@ -150,7 +150,7 @@ const data = { title: "Hello", content: "World" };
 const hash = await computeSha256(data);
 const blobUri = generateBlobUri(hash);
 
-await client.receive(["txn://open/store-content", {
+await client.receive(["msg://open/store-content", {
   inputs: [],
   outputs: [
     [blobUri, data],
@@ -188,7 +188,7 @@ const encrypted = await encrypt.encrypt(privateData, publicKey.publicKeyHex);
 // 3. Hash encrypted payload and store
 const hash = await computeSha256(encrypted);
 const blobUri = generateBlobUri(hash);
-await client.receive(["txn://open/store-encrypted", {
+await client.receive(["msg://open/store-encrypted", {
   inputs: [],
   outputs: [[blobUri, encrypted]],
 }]);
@@ -211,7 +211,7 @@ const encrypted = await encrypt.encryptSymmetric(data, key);
 // Store encrypted blob
 const hash = await computeSha256(encrypted);
 const blobUri = generateBlobUri(hash);
-await client.receive(["txn://open/store-protected", {
+await client.receive(["msg://open/store-protected", {
   inputs: [],
   outputs: [[blobUri, encrypted]],
 }]);

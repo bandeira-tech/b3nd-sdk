@@ -2,11 +2,11 @@
  * Validator utilities for the inputs/outputs convention
  */
 
-import type { TransactionValidator } from "../node-types.ts";
+import type { MessageValidator } from "../node-types.ts";
 import type {
+  MessageData,
+  MessageValidationContext,
   ProgramSchema,
-  TransactionData,
-  TransactionValidationContext,
 } from "./types.ts";
 
 /**
@@ -28,7 +28,7 @@ export function extractProgram(uri: string): string | null {
 }
 
 /**
- * Create a transaction validator that validates outputs against a program schema
+ * Create a message validator that validates outputs against a program schema
  *
  * This validator:
  * 1. Runs your custom pre-validator (signature checks, etc.)
@@ -40,7 +40,7 @@ export function extractProgram(uri: string): string | null {
  *
  * @example
  * ```typescript
- * import { createOutputValidator } from "b3nd/txn-data"
+ * import { createOutputValidator } from "b3nd/msg-data"
  *
  * const validator = createOutputValidator({
  *   schema: {
@@ -54,14 +54,14 @@ export function extractProgram(uri: string): string | null {
  *       return { valid: true }
  *     }
  *   },
- *   preValidate: async (tx, read) => {
- *     const [uri, data] = tx
+ *   preValidate: async (msg, read) => {
+ *     const [uri, data] = msg
  *     // Check signature, etc.
  *     return { valid: true }
  *   }
  * })
  *
- * const node = createTransactionNode({
+ * const node = createMessageNode({
  *   validate: validator,
  *   read: myReadInterface,
  *   peers: myPeers
@@ -70,22 +70,22 @@ export function extractProgram(uri: string): string | null {
  */
 export function createOutputValidator<V = unknown>(options: {
   schema: ProgramSchema<V>;
-  preValidate?: TransactionValidator<TransactionData<V>>;
-}): TransactionValidator<TransactionData<V>> {
+  preValidate?: MessageValidator<MessageData<V>>;
+}): MessageValidator<MessageData<V>> {
   const { schema, preValidate } = options;
 
-  return async (tx, read) => {
-    const [uri, data] = tx;
+  return async (msg, read) => {
+    const [uri, data] = msg;
 
     // 1. Pre-validation (signature, format, etc.)
     if (preValidate) {
-      const preResult = await preValidate(tx, read);
+      const preResult = await preValidate(msg, read);
       if (!preResult.valid) return preResult;
     }
 
     // 2. Validate data structure
     if (!data || typeof data !== "object") {
-      return { valid: false, error: "Invalid transaction data" };
+      return { valid: false, error: "Invalid message data" };
     }
 
     if (!Array.isArray(data.inputs)) {
@@ -105,7 +105,7 @@ export function createOutputValidator<V = unknown>(options: {
 
       const programValidator = schema[program];
       if (programValidator) {
-        const ctx: TransactionValidationContext<V> = {
+        const ctx: MessageValidationContext<V> = {
           uri: outputUri,
           value: outputValue,
           inputs: data.inputs,
@@ -140,11 +140,11 @@ export function createOutputValidator<V = unknown>(options: {
  * ```
  */
 export function combineValidators<D>(
-  ...validators: TransactionValidator<D>[]
-): TransactionValidator<D> {
-  return async (tx, read) => {
+  ...validators: MessageValidator<D>[]
+): MessageValidator<D> {
+  return async (msg, read) => {
     for (const validator of validators) {
-      const result = await validator(tx, read);
+      const result = await validator(msg, read);
       if (!result.valid) return result;
     }
     return { valid: true };

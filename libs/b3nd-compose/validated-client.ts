@@ -16,7 +16,7 @@ import type { Validator } from "./types.ts";
  * Create a FunctionalClient that validates before writing.
  *
  * Wiring:
- * - receive → validate(tx, read.read) → write.receive(tx)
+ * - receive → validate(msg, read.read) → write.receive(msg)
  * - read/readMulti/list → delegated to config.read
  * - delete/health/getSchema/cleanup → delegated to config.write
  *
@@ -25,7 +25,7 @@ import type { Validator } from "./types.ts";
  * const client = createValidatedClient({
  *   write: parallelBroadcast(clients),
  *   read: firstMatchSequence(clients),
- *   validate: txnSchema(schema),
+ *   validate: msgSchema(schema),
  * });
  * ```
  */
@@ -37,19 +37,19 @@ export function createValidatedClient(config: {
   const { write, read, validate } = config;
 
   const fnConfig: FunctionalClientConfig = {
-    async receive(tx) {
-      const [uri] = tx;
+    async receive(msg) {
+      const [uri] = msg;
 
       // Basic URI validation
       if (!uri || typeof uri !== "string") {
-        return { accepted: false, error: "Transaction URI is required" };
+        return { accepted: false, error: "Message URI is required" };
       }
 
       // Run validation
       try {
         const readFn = <T = unknown>(uri: string): Promise<ReadResult<T>> =>
           read.read<T>(uri);
-        const validationResult = await validate(tx, readFn);
+        const validationResult = await validate(msg, readFn);
         if (!validationResult.valid) {
           return {
             accepted: false,
@@ -67,7 +67,7 @@ export function createValidatedClient(config: {
 
       // Forward to write backend
       try {
-        return await write.receive(tx);
+        return await write.receive(msg);
       } catch (error) {
         return {
           accepted: false,

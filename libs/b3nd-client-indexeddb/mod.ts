@@ -14,6 +14,7 @@ import type {
   ListItem,
   ListOptions,
   ListResult,
+  Message,
   NodeProtocolInterface,
   PersistenceRecord,
   ReadMultiResult,
@@ -21,7 +22,6 @@ import type {
   ReadResult,
   ReceiveResult,
   Schema,
-  Transaction,
 } from "../b3nd-core/types.ts";
 
 // Type definitions for IndexedDB (simplified for cross-platform compatibility)
@@ -223,16 +223,16 @@ export class IndexedDBClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a transaction - the unified entry point for all state changes
-   * @param tx - Transaction tuple [uri, data]
+   * Receive a message - the unified entry point for all state changes
+   * @param msg - Message tuple [uri, data]
    * @returns ReceiveResult indicating acceptance
    */
-  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
-    const [uri, data] = tx;
+  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
+    const [uri, data] = msg;
 
     // Basic URI validation
     if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Transaction URI is required" };
+      return { accepted: false, error: "Message URI is required" };
     }
 
     try {
@@ -267,7 +267,7 @@ export class IndexedDBClient implements NodeProtocolInterface {
         request.onerror = () => {
           resolve({
             accepted: false,
-            error: `Failed to store transaction: ${request.error}`,
+            error: `Failed to store message: ${request.error}`,
           });
         };
       });

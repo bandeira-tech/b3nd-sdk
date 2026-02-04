@@ -2,12 +2,12 @@ import type {
   DeleteResult,
   ListOptions,
   ListResult,
+  Message,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   ReadMultiResult,
   ReadResult,
   ReceiveResult,
-  Transaction,
 } from "../b3nd-core/types.ts";
 
 export function parallelBroadcast(
@@ -18,9 +18,9 @@ export function parallelBroadcast(
   }
 
   return {
-    async receive<D>(tx: Transaction<D>): Promise<ReceiveResult> {
+    async receive<D>(msg: Message<D>): Promise<ReceiveResult> {
       const results = await Promise.allSettled(
-        clients.map((c) => c.receive(tx)),
+        clients.map((c) => c.receive(msg)),
       );
       const rejected = results.find((r) => r.status === "rejected") as
         | PromiseRejectedResult

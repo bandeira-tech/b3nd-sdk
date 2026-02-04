@@ -1,92 +1,92 @@
 /**
- * Transaction Layer Tests
+ * Message Layer Tests
  *
- * Tests for the txn module (Level 1) and txn-data module (Level 2)
+ * Tests for the msg module (Level 1) and msg-data module (Level 2)
  */
 
 import { assertEquals, assertExists } from "@std/assert";
 import {
-  createTransactionNode,
-  type Transaction,
-  type TransactionValidator,
+  createMessageNode,
+  type Message,
+  type MessageValidator,
 } from "./mod.ts";
 import {
   combineValidators,
   createOutputValidator,
   extractProgram,
-  type StateTransaction,
-  type TransactionData,
+  type MessageData,
+  type StateMessage,
 } from "./data/mod.ts";
 import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
 
 // =============================================================================
-// Level 1: Transaction Node Tests
+// Level 1: Message Node Tests
 // =============================================================================
 
-Deno.test("createTransactionNode - accepts valid transaction", async () => {
-  const validator: TransactionValidator = async () => ({ valid: true });
+Deno.test("createMessageNode - accepts valid message", async () => {
+  const validator: MessageValidator = async () => ({ valid: true });
 
   const storage = new MemoryClient({
-    schema: { "txn://alice": async () => ({ valid: true }) },
+    schema: { "msg://alice": async () => ({ valid: true }) },
   });
 
-  const node = createTransactionNode({
+  const node = createMessageNode({
     validate: validator,
     read: storage,
     peers: [storage],
   });
 
   const result = await node.receive([
-    "txn://alice/transfer/42",
+    "msg://alice/transfer/42",
     { amount: 100 },
   ]);
 
   assertEquals(result.accepted, true);
   assertEquals(result.error, undefined);
 
-  // Verify transaction was stored
-  const stored = await storage.read("txn://alice/transfer/42");
+  // Verify message was stored
+  const stored = await storage.read("msg://alice/transfer/42");
   assertEquals(stored.success, true);
   assertEquals(stored.record?.data, { amount: 100 });
 
   await node.cleanup();
 });
 
-Deno.test("createTransactionNode - rejects invalid transaction", async () => {
-  const validator: TransactionValidator = async () => ({
+Deno.test("createMessageNode - rejects invalid message", async () => {
+  const validator: MessageValidator = async () => ({
     valid: false,
     error: "insufficient_balance",
   });
 
   const storage = new MemoryClient({
-    schema: { "txn://alice": async () => ({ valid: true }) },
+    schema: { "msg://alice": async () => ({ valid: true }) },
   });
 
-  const node = createTransactionNode({
+  const node = createMessageNode({
     validate: validator,
     read: storage,
     peers: [storage],
   });
 
   const result = await node.receive([
-    "txn://alice/transfer/42",
+    "msg://alice/transfer/42",
     { amount: 100 },
   ]);
 
   assertEquals(result.accepted, false);
   assertEquals(result.error, "insufficient_balance");
 
-  // Verify transaction was NOT stored
-  const stored = await storage.read("txn://alice/transfer/42");
+  // Verify message was NOT stored
+  const stored = await storage.read("msg://alice/transfer/42");
   assertEquals(stored.success, false);
 
   await node.cleanup();
 });
 
-Deno.test("createTransactionNode - validator can read state", async () => {
+Deno.test("createMessageNode - validator can read state", async () => {
   const storage = new MemoryClient({
     schema: {
-      "txn://alice": async () => ({ valid: true }),
+      "msg://alice": async () => ({ valid: true }),
       "accounts://balances": async () => ({ valid: true }),
     },
   });
@@ -94,7 +94,7 @@ Deno.test("createTransactionNode - validator can read state", async () => {
   // Pre-populate balance
   await storage.receive(["accounts://balances/alice", { balance: 50 }]);
 
-  const validator: TransactionValidator<{ amount: number }> = async (
+  const validator: MessageValidator<{ amount: number }> = async (
     tx,
     read,
   ) => {
@@ -109,7 +109,7 @@ Deno.test("createTransactionNode - validator can read state", async () => {
     return { valid: true };
   };
 
-  const node = createTransactionNode({
+  const node = createMessageNode({
     validate: validator,
     read: storage,
     peers: [storage],
@@ -117,7 +117,7 @@ Deno.test("createTransactionNode - validator can read state", async () => {
 
   // Try to transfer more than balance
   const result1 = await node.receive([
-    "txn://alice/transfer/1",
+    "msg://alice/transfer/1",
     { amount: 100 },
   ]);
   assertEquals(result1.accepted, false);
@@ -125,7 +125,7 @@ Deno.test("createTransactionNode - validator can read state", async () => {
 
   // Transfer within balance
   const result2 = await node.receive([
-    "txn://alice/transfer/2",
+    "msg://alice/transfer/2",
     { amount: 25 },
   ]);
   assertEquals(result2.accepted, true);
@@ -133,30 +133,30 @@ Deno.test("createTransactionNode - validator can read state", async () => {
   await node.cleanup();
 });
 
-Deno.test("createTransactionNode - propagates to multiple peers", async () => {
+Deno.test("createMessageNode - propagates to multiple peers", async () => {
   const peer1 = new MemoryClient({
-    schema: { "txn://alice": async () => ({ valid: true }) },
+    schema: { "msg://alice": async () => ({ valid: true }) },
   });
   const peer2 = new MemoryClient({
-    schema: { "txn://alice": async () => ({ valid: true }) },
+    schema: { "msg://alice": async () => ({ valid: true }) },
   });
 
-  const node = createTransactionNode({
+  const node = createMessageNode({
     validate: async () => ({ valid: true }),
     read: peer1,
     peers: [peer1, peer2],
   });
 
   const result = await node.receive([
-    "txn://alice/transfer/42",
+    "msg://alice/transfer/42",
     { amount: 100 },
   ]);
 
   assertEquals(result.accepted, true);
 
-  // Verify both peers received the transaction
-  const stored1 = await peer1.read("txn://alice/transfer/42");
-  const stored2 = await peer2.read("txn://alice/transfer/42");
+  // Verify both peers received the message
+  const stored1 = await peer1.read("msg://alice/transfer/42");
+  const stored2 = await peer2.read("msg://alice/transfer/42");
 
   assertEquals(stored1.success, true);
   assertEquals(stored2.success, true);
@@ -166,12 +166,12 @@ Deno.test("createTransactionNode - propagates to multiple peers", async () => {
   await node.cleanup();
 });
 
-Deno.test("createTransactionNode - rejects transaction without URI", async () => {
+Deno.test("createMessageNode - rejects message without URI", async () => {
   const storage = new MemoryClient({
-    schema: { "txn://alice": async () => ({ valid: true }) },
+    schema: { "msg://alice": async () => ({ valid: true }) },
   });
 
-  const node = createTransactionNode({
+  const node = createMessageNode({
     validate: async () => ({ valid: true }),
     read: storage,
     peers: [storage],
@@ -180,13 +180,13 @@ Deno.test("createTransactionNode - rejects transaction without URI", async () =>
   const result = await node.receive(["", { amount: 100 }]);
 
   assertEquals(result.accepted, false);
-  assertEquals(result.error, "Transaction URI is required");
+  assertEquals(result.error, "Message URI is required");
 
   await node.cleanup();
 });
 
 // =============================================================================
-// Level 2: Transaction Data Convention Tests
+// Level 2: Message Data Convention Tests
 // =============================================================================
 
 Deno.test("extractProgram - extracts protocol://hostname", () => {
@@ -195,7 +195,7 @@ Deno.test("extractProgram - extracts protocol://hostname", () => {
     extractProgram("mutable://accounts/alice/profile"),
     "mutable://accounts",
   );
-  assertEquals(extractProgram("txn://firecat/block/1000"), "txn://firecat");
+  assertEquals(extractProgram("msg://firecat/block/1000"), "msg://firecat");
   assertEquals(extractProgram("utxo://alice/1"), "utxo://alice");
   assertEquals(extractProgram("fees://pool"), "fees://pool");
 });
@@ -219,9 +219,9 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
     },
   });
 
-  // Valid transaction
-  const validTx: StateTransaction<number> = [
-    "txn://alice/transfer/42",
+  // Valid message
+  const validTx: StateMessage<number> = [
+    "msg://alice/transfer/42",
     {
       inputs: ["utxo://alice/1"],
       outputs: [
@@ -236,9 +236,9 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
   const result1 = await validator(validTx, read);
   assertEquals(result1.valid, true);
 
-  // Invalid transaction (fee too low)
-  const invalidTx: StateTransaction<number> = [
-    "txn://alice/transfer/43",
+  // Invalid message (fee too low)
+  const invalidTx: StateMessage<number> = [
+    "msg://alice/transfer/43",
     {
       inputs: ["utxo://alice/1"],
       outputs: [
@@ -258,7 +258,7 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   const validator = createOutputValidator<unknown>({
     schema: {
       "immutable://blob": async (ctx) => {
-        // Check for fee output in the same transaction
+        // Check for fee output in the same message
         const feeOutput = ctx.outputs.find(([uri]) =>
           uri.startsWith("fees://")
         );
@@ -285,8 +285,8 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   const read = async () => ({ success: false, error: "not found" });
 
   // Valid: blob with sufficient fee
-  const validTx: StateTransaction<unknown> = [
-    "txn://alice/store/1",
+  const validTx: StateMessage<unknown> = [
+    "msg://alice/store/1",
     {
       inputs: [],
       outputs: [
@@ -299,8 +299,8 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   assertEquals(result1.valid, true);
 
   // Invalid: blob without fee
-  const noFeeTx: StateTransaction<unknown> = [
-    "txn://alice/store/2",
+  const noFeeTx: StateMessage<unknown> = [
+    "msg://alice/store/2",
     {
       inputs: [],
       outputs: [["immutable://blob/def456", { data: "hello" }]],
@@ -328,8 +328,8 @@ Deno.test("createOutputValidator - with preValidate", async () => {
   const read = async () => ({ success: false, error: "not found" });
 
   // Missing signature
-  const noSigTx: StateTransaction & { sig?: string } = [
-    "txn://alice/1",
+  const noSigTx: StateMessage & { sig?: string } = [
+    "msg://alice/1",
     {
       inputs: [],
       outputs: [["utxo://test/1", 100]],
@@ -341,7 +341,7 @@ Deno.test("createOutputValidator - with preValidate", async () => {
 
   // With signature
   const withSigTx = [
-    "txn://alice/2",
+    "msg://alice/2",
     {
       sig: "abc123",
       inputs: [],
@@ -353,9 +353,9 @@ Deno.test("createOutputValidator - with preValidate", async () => {
 });
 
 Deno.test("combineValidators - all must pass", async () => {
-  const v1: TransactionValidator = async () => ({ valid: true });
-  const v2: TransactionValidator = async () => ({ valid: true });
-  const v3: TransactionValidator = async () => ({
+  const v1: MessageValidator = async () => ({ valid: true });
+  const v2: MessageValidator = async () => ({ valid: true });
+  const v3: MessageValidator = async () => ({
     valid: false,
     error: "v3_failed",
   });
@@ -364,12 +364,12 @@ Deno.test("combineValidators - all must pass", async () => {
 
   // All pass
   const combined1 = combineValidators(v1, v2);
-  const result1 = await combined1(["txn://test/1", {}], read);
+  const result1 = await combined1(["msg://test/1", {}], read);
   assertEquals(result1.valid, true);
 
   // One fails
   const combined2 = combineValidators(v1, v3, v2);
-  const result2 = await combined2(["txn://test/2", {}], read);
+  const result2 = await combined2(["msg://test/2", {}], read);
   assertEquals(result2.valid, false);
   assertEquals(result2.error, "v3_failed");
 });
@@ -378,10 +378,10 @@ Deno.test("combineValidators - all must pass", async () => {
 // Integration: Level 1 + Level 2
 // =============================================================================
 
-Deno.test("integration - transaction node with output validator", async () => {
+Deno.test("integration - message node with output validator", async () => {
   const storage = new MemoryClient({
     schema: {
-      "txn://transfers": async () => ({ valid: true }),
+      "msg://transfers": async () => ({ valid: true }),
       "utxo://alice": async () => ({ valid: true }),
       "utxo://bob": async () => ({ valid: true }),
     },
@@ -433,15 +433,15 @@ Deno.test("integration - transaction node with output validator", async () => {
     },
   });
 
-  const node = createTransactionNode({
+  const node = createMessageNode({
     validate: validator,
     read: storage,
     peers: [storage],
   });
 
   // Valid transfer: 100 in, 50 + 50 out
-  const validTx: StateTransaction<number> = [
-    "txn://transfers/1",
+  const validTx: StateMessage<number> = [
+    "msg://transfers/1",
     {
       inputs: ["utxo://alice/1"],
       outputs: [
@@ -455,8 +455,8 @@ Deno.test("integration - transaction node with output validator", async () => {
   assertEquals(result1.accepted, true);
 
   // Invalid transfer: trying to create money
-  const invalidTx: StateTransaction<number> = [
-    "txn://transfers/2",
+  const invalidTx: StateMessage<number> = [
+    "msg://transfers/2",
     {
       inputs: ["utxo://alice/2"], // Only 50 available
       outputs: [

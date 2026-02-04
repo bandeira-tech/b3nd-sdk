@@ -1,16 +1,16 @@
 /**
- * Transaction Envelope Client Tests
+ * Message Envelope Client Tests
  *
- * Verifies that unpacked TransactionData outputs are correctly stored and
+ * Verifies that unpacked MessageData outputs are correctly stored and
  * accessible through standard client operations (read, list, delete, readMulti).
  * Unpacking happens inside the client's receive method, not at the node level.
  */
 
 import { assertEquals } from "@std/assert";
-import type { TransactionData } from "./data/types.ts";
+import type { MessageData } from "./data/types.ts";
 import type { Schema } from "../b3nd-core/types.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
-import { createValidatedClient, txnSchema } from "../b3nd-compose/mod.ts";
+import { createValidatedClient, msgSchema } from "../b3nd-compose/mod.ts";
 
 function createTestSetup() {
   const schema: Schema = {
@@ -19,7 +19,7 @@ function createTestSetup() {
       const existing = await read(uri);
       return { valid: !existing.success };
     },
-    "txn://open": async () => ({ valid: true }),
+    "msg://open": async () => ({ valid: true }),
   };
 
   const client = new MemoryClient({ schema });
@@ -27,7 +27,7 @@ function createTestSetup() {
   const node = createValidatedClient({
     write: client,
     read: client,
-    validate: txnSchema(schema),
+    validate: msgSchema(schema),
   });
 
   return { client, node };
@@ -40,7 +40,7 @@ function createTestSetup() {
 Deno.test("MemoryClient - read each output URI individually", async () => {
   const { client, node } = createTestSetup();
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/users/alice", { name: "Alice", age: 30 }],
@@ -49,7 +49,7 @@ Deno.test("MemoryClient - read each output URI individually", async () => {
     ],
   };
 
-  const result = await node.receive(["txn://open/batch-1", txData]);
+  const result = await node.receive(["msg://open/batch-1", msgData]);
   assertEquals(result.accepted, true);
 
   const alice = await client.read("mutable://open/users/alice");
@@ -72,7 +72,7 @@ Deno.test("MemoryClient - read each output URI individually", async () => {
 Deno.test("MemoryClient - list outputs under a parent URI", async () => {
   const { client, node } = createTestSetup();
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/items/1", { title: "Item 1" }],
@@ -81,7 +81,7 @@ Deno.test("MemoryClient - list outputs under a parent URI", async () => {
     ],
   };
 
-  const result = await node.receive(["txn://open/batch-list", txData]);
+  const result = await node.receive(["msg://open/batch-list", msgData]);
   assertEquals(result.accepted, true);
 
   const list = await client.list("mutable://open/items");
@@ -104,7 +104,7 @@ Deno.test("MemoryClient - list outputs under a parent URI", async () => {
 Deno.test("MemoryClient - delete an output URI", async () => {
   const { client, node } = createTestSetup();
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/del/a", { value: 1 }],
@@ -112,7 +112,7 @@ Deno.test("MemoryClient - delete an output URI", async () => {
     ],
   };
 
-  const result = await node.receive(["txn://open/batch-del", txData]);
+  const result = await node.receive(["msg://open/batch-del", msgData]);
   assertEquals(result.accepted, true);
 
   // Verify both exist
@@ -136,7 +136,7 @@ Deno.test("MemoryClient - delete an output URI", async () => {
 Deno.test("MemoryClient - readMulti on output URIs", async () => {
   const { client, node } = createTestSetup();
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/multi/1", { v: 1 }],
@@ -145,7 +145,7 @@ Deno.test("MemoryClient - readMulti on output URIs", async () => {
     ],
   };
 
-  const result = await node.receive(["txn://open/batch-multi", txData]);
+  const result = await node.receive(["msg://open/batch-multi", msgData]);
   assertEquals(result.accepted, true);
 
   const multi = await client.readMulti([
@@ -165,25 +165,25 @@ Deno.test("MemoryClient - readMulti on output URIs", async () => {
 });
 
 // =============================================================================
-// MemoryClient: transaction envelope is also stored
+// MemoryClient: message envelope is also stored
 // =============================================================================
 
-Deno.test("MemoryClient - transaction envelope is stored alongside outputs", async () => {
+Deno.test("MemoryClient - message envelope is stored alongside outputs", async () => {
   const { client, node } = createTestSetup();
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: ["mutable://open/ref/1"],
     outputs: [
       ["mutable://open/out/1", { value: 42 }],
     ],
   };
 
-  const result = await node.receive(["txn://open/envelope-test", txData]);
+  const result = await node.receive(["msg://open/envelope-test", msgData]);
   assertEquals(result.accepted, true);
 
   // The envelope itself is stored
-  const envelope = await client.read<TransactionData>(
-    "txn://open/envelope-test",
+  const envelope = await client.read<MessageData>(
+    "msg://open/envelope-test",
   );
   assertEquals(envelope.success, true);
   assertEquals(envelope.record?.data.inputs, ["mutable://open/ref/1"]);

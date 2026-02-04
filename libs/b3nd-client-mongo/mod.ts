@@ -11,6 +11,7 @@ import type {
   ListItem,
   ListOptions,
   ListResult,
+  Message,
   MongoClientConfig,
   NodeProtocolInterface,
   PersistenceRecord,
@@ -19,13 +20,12 @@ import type {
   ReadResult,
   ReceiveResult,
   Schema,
-  Transaction,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
-import { isTransactionData } from "../b3nd-txn/data/detect.ts";
+import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 export interface MongoExecutor {
   insertOne(doc: Record<string, unknown>): Promise<{ acknowledged?: boolean }>;
@@ -79,16 +79,16 @@ export class MongoClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a transaction - the unified entry point for all state changes
-   * @param tx - Transaction tuple [uri, data]
+   * Receive a message - the unified entry point for all state changes
+   * @param msg - Message tuple [uri, data]
    * @returns ReceiveResult indicating acceptance
    */
-  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
-    const [uri, data] = tx;
+  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
+    const [uri, data] = msg;
 
     // Basic URI validation
     if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Transaction URI is required" };
+      return { accepted: false, error: "Message URI is required" };
     }
 
     try {
@@ -139,8 +139,8 @@ export class MongoClient implements NodeProtocolInterface {
         { upsert: true },
       );
 
-      // If TransactionData, also store each output at its own URI
-      if (isTransactionData(data)) {
+      // If MessageData, also store each output at its own URI
+      if (isMessageData(data)) {
         for (const [outputUri, outputValue] of data.outputs) {
           const outputResult = await this.receive([outputUri, outputValue]);
           if (!outputResult.accepted) {

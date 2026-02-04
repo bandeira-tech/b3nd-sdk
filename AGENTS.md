@@ -8,7 +8,7 @@ b3nd/
 │   ├── b3nd-core/              # Foundation: types, encoding, binary
 │   ├── b3nd-compose/           # Node composition: createNode, validators, processors
 │   ├── b3nd-blob/              # Content-addressed storage utilities
-│   ├── b3nd-txn/               # Transaction system (node + data convention)
+│   ├── b3nd-msg/               # Message system (node + data convention)
 │   ├── b3nd-servers/           # HTTP + WebSocket server primitives
 │   ├── b3nd-client-memory/     # In-memory client
 │   ├── b3nd-client-http/       # HTTP client
@@ -40,7 +40,7 @@ b3nd/
 ├── tests/                      # E2E tests
 ├── skills/                     # Claude Code plugin skills
 │   ├── b3nd-general/           # URI schemes, protocols, encryption, wallet
-│   ├── b3nd-sdk/               # Deno/JSR SDK — clients, node system, transactions
+│   ├── b3nd-sdk/               # Deno/JSR SDK — clients, node system, messages
 │   ├── b3nd-web/               # NPM browser package
 │   ├── b3nd-webapp/            # React apps with B3nd
 │   └── b3nd-denocli/           # Deno CLI tools with B3nd
@@ -52,12 +52,12 @@ b3nd/
 
 ## Core Architecture
 
-### Transaction Primitives
+### Message Primitives
 
 Everything in B3nd flows through `receive([uri, data])`:
 
 ```typescript
-type Transaction<D = unknown> = [uri: string, data: D];
+type Message<D = unknown> = [uri: string, data: D];
 
 // The unified interface:
 await client.receive(["mutable://users/alice", { name: "Alice" }]);
@@ -66,13 +66,13 @@ await client.list("mutable://users/");
 await client.delete("mutable://users/alice");
 ```
 
-### TransactionData Envelopes
+### MessageData Envelopes
 
-Multiple writes batch into a single transaction. Each client detects
-`TransactionData` and stores outputs individually:
+Multiple writes batch into a single message. Each client detects `MessageData`
+and stores outputs individually:
 
 ```typescript
-await node.receive(["txn://open/batch-1", {
+await node.receive(["msg://open/batch-1", {
   inputs: [],
   outputs: [
     ["mutable://open/users/alice", { name: "Alice" }],
@@ -90,14 +90,14 @@ Compose validated clients from simple primitives using `createValidatedClient`:
 import {
   createValidatedClient,
   firstMatchSequence,
+  msgSchema,
   parallelBroadcast,
-  txnSchema,
 } from "@bandeira-tech/b3nd-sdk";
 
 const client = createValidatedClient({
   write: parallelBroadcast(clients), // Broadcast writes to all clients
   read: firstMatchSequence(clients), // Try readers until one succeeds
-  validate: txnSchema(schema), // Validate URI + TransactionData outputs
+  validate: msgSchema(schema), // Validate URI + MessageData outputs
 });
 ```
 
@@ -107,14 +107,14 @@ For custom behavior without class inheritance, use `FunctionalClient`:
 import { FunctionalClient } from "@bandeira-tech/b3nd-sdk";
 
 const client = new FunctionalClient({
-  receive: async (tx) => backend.receive(tx),
+  receive: async (msg) => backend.receive(msg),
   read: async (uri) => backend.read(uri),
 });
 ```
 
 Key composition utilities:
 
-- **Validators**: `seq()`, `any()`, `all()`, `txnSchema()`, `schemaValidator()`
+- **Validators**: `seq()`, `any()`, `all()`, `msgSchema()`, `schemaValidator()`
 - **Combinators**: `parallelBroadcast()`, `firstMatchSequence()`
 
 ### Schema
@@ -128,7 +128,7 @@ const schema: Schema = {
     const existing = await read(uri);
     return { valid: !existing.success };
   },
-  "txn://open": async () => ({ valid: true }),
+  "msg://open": async () => ({ valid: true }),
 };
 ```
 
@@ -151,7 +151,7 @@ cd libs/b3nd-client-memory && deno check mod.ts
 # Unit tests (no external dependencies) — run from individual libs
 cd libs/b3nd-client-memory && deno test -A
 cd libs/b3nd-client-http && deno test -A
-cd libs/b3nd-txn && deno test -A
+cd libs/b3nd-msg && deno test -A
 cd libs/b3nd-combinators && deno test -A
 cd libs/b3nd-core && deno test -A
 ```
@@ -164,11 +164,11 @@ cd libs/b3nd-client-postgres && deno test -A
 cd libs/b3nd-client-mongo && deno test -A
 ```
 
-### Transaction-Specific Tests
+### Message-Specific Tests
 
 ```bash
-cd libs/b3nd-txn
-deno test -A txn-unpack.test.ts txn-clients.test.ts
+cd libs/b3nd-msg
+deno test -A msg-unpack.test.ts msg-clients.test.ts
 ```
 
 ### HTTP Server Type Check
@@ -235,13 +235,13 @@ worktrees** of this repo, not separate applications.
 The b3nd plugin provides 5 skills that Claude agents use automatically based on
 context:
 
-| Skill          | Triggers on                                                        |
-| -------------- | ------------------------------------------------------------------ |
-| `b3nd-general` | URI schemes, protocols, encryption, wallet auth                    |
-| `b3nd-sdk`     | Deno/JSR imports, server setup, clients, node system, transactions |
-| `b3nd-web`     | NPM browser imports, HttpClient, WalletClient                      |
-| `b3nd-webapp`  | React apps, Zustand, React Query, visibility controls              |
-| `b3nd-denocli` | Deno CLI tools, scripts, server-side integrations                  |
+| Skill          | Triggers on                                                    |
+| -------------- | -------------------------------------------------------------- |
+| `b3nd-general` | URI schemes, protocols, encryption, wallet auth                |
+| `b3nd-sdk`     | Deno/JSR imports, server setup, clients, node system, messages |
+| `b3nd-web`     | NPM browser imports, HttpClient, WalletClient                  |
+| `b3nd-webapp`  | React apps, Zustand, React Query, visibility controls          |
+| `b3nd-denocli` | Deno CLI tools, scripts, server-side integrations              |
 
 Skills are the primary way agents learn the current SDK API. When the SDK
 changes:
@@ -299,7 +299,7 @@ Never leave a session with uncommitted changes.
 1. Create `libs/b3nd-client-{name}/` with `mod.ts` and `deno.json`
 2. Implement `NodeProtocolInterface` (see `libs/b3nd-client-memory/mod.ts` as
    reference)
-3. Add `isTransactionData` unpacking in `receive()` (see pattern in
+3. Add `isMessageData` unpacking in `receive()` (see pattern in
    memory/postgres/mongo clients)
 4. Run shared test suites: `runSharedSuite` and `runNodeSuite` from
    `libs/b3nd-testing/`
@@ -335,7 +335,7 @@ When the SDK API changes and apps need updating:
 5. **Minimize abstractions** — Use JS knowledge where possible. Fewer concepts
    to learn.
 6. **Client-level responsibility** — Clients handle their own storage strategy
-   (including TransactionData unpacking). Validation is composed via
+   (including MessageData unpacking). Validation is composed via
    `createValidatedClient`.
 7. **Composition over inheritance** —
    `createValidatedClient({ write, read, validate })` composes behavior from
@@ -358,5 +358,5 @@ When the SDK API changes and apps need updating:
 
 | Package | Registry | Name                      | Version |
 | ------- | -------- | ------------------------- | ------- |
-| SDK     | JSR      | `@bandeira-tech/b3nd-sdk` | 0.8.0   |
-| Web     | NPM      | `@bandeira-tech/b3nd-web` | 0.7.0   |
+| SDK     | JSR      | `@bandeira-tech/b3nd-sdk` | 0.9.0   |
+| Web     | NPM      | `@bandeira-tech/b3nd-web` | 0.8.0   |

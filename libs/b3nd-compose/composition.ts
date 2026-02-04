@@ -5,11 +5,7 @@
  * Build complex validation and processing pipelines from simple primitives.
  */
 
-import type {
-  ReadResult,
-  ReceiveResult,
-  Transaction,
-} from "../b3nd-core/types.ts";
+import type { Message, ReadResult, ReceiveResult } from "../b3nd-core/types.ts";
 import type { Processor, ReadInterface, Validator } from "./types.ts";
 
 /**
@@ -26,9 +22,9 @@ import type { Processor, ReadInterface, Validator } from "./types.ts";
  * ```
  */
 export function seq<D = unknown>(...validators: Validator<D>[]): Validator<D> {
-  return async (tx, read) => {
+  return async (msg, read) => {
     for (const validator of validators) {
-      const result = await validator(tx, read);
+      const result = await validator(msg, read);
       if (!result.valid) {
         return result;
       }
@@ -50,11 +46,11 @@ export function seq<D = unknown>(...validators: Validator<D>[]): Validator<D> {
  * ```
  */
 export function any<D = unknown>(...validators: Validator<D>[]): Validator<D> {
-  return async (tx, read) => {
+  return async (msg, read) => {
     const errors: string[] = [];
 
     for (const validator of validators) {
-      const result = await validator(tx, read);
+      const result = await validator(msg, read);
       if (result.valid) {
         return { valid: true };
       }
@@ -84,9 +80,9 @@ export function any<D = unknown>(...validators: Validator<D>[]): Validator<D> {
  * ```
  */
 export function all<D = unknown>(...validators: Validator<D>[]): Validator<D> {
-  return async (tx, read) => {
+  return async (msg, read) => {
     const results = await Promise.all(
-      validators.map((v) => v(tx, read)),
+      validators.map((v) => v(msg, read)),
     );
 
     const failures = results.filter((r) => !r.valid);
@@ -109,7 +105,7 @@ export function all<D = unknown>(...validators: Validator<D>[]): Validator<D> {
  * A receiver is anything with a `receive` method (clients, nodes, etc.)
  */
 type Receiver = {
-  receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult>;
+  receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
 };
 
 /**
@@ -126,8 +122,8 @@ function isReceiver(item: unknown): item is Receiver {
 
 function toProcessor<D>(item: ProcessorOrReceiver<D>): Processor<D> {
   if (isReceiver(item)) {
-    return async (tx) => {
-      const result = await item.receive(tx);
+    return async (msg) => {
+      const result = await item.receive(msg);
       return { success: result.accepted, error: result.error };
     };
   }
@@ -158,9 +154,9 @@ export function parallel<D = unknown>(
 ): Processor<D> {
   const processors = items.map(toProcessor);
 
-  return async (tx) => {
+  return async (msg) => {
     const results = await Promise.allSettled(
-      processors.map((p) => p(tx)),
+      processors.map((p) => p(msg)),
     );
 
     const successes = results.filter(
@@ -206,9 +202,9 @@ export function parallel<D = unknown>(
 export function pipeline<D = unknown>(
   ...processors: Processor<D>[]
 ): Processor<D> {
-  return async (tx) => {
+  return async (msg) => {
     for (const processor of processors) {
-      const result = await processor(tx);
+      const result = await processor(msg);
       if (!result.success) {
         return result;
       }

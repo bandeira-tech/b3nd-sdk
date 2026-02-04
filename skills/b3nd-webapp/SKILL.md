@@ -195,15 +195,15 @@ export function useList(
   });
 }
 
-// Transaction mutation
+// Message mutation
 export function useReceive() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (
-      { txnUri, outputs }: { txnUri: string; outputs: [string, unknown][] },
+      { msgUri, outputs }: { msgUri: string; outputs: [string, unknown][] },
     ) => {
-      const result = await client.receive([txnUri, {
+      const result = await client.receive([msgUri, {
         inputs: [],
         outputs,
       }]);
@@ -297,7 +297,7 @@ async function createAndApproveSession(
     sessionKeypair.publicKeyHex,
     sessionKeypair.privateKeyHex,
   );
-  await backendClient.receive(["txn://open/session-request", {
+  await backendClient.receive(["msg://open/session-request", {
     inputs: [],
     outputs: [[
       `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
@@ -311,7 +311,7 @@ async function createAndApproveSession(
     appKey,
     appPrivateKeyHex,
   );
-  await backendClient.receive(["txn://open/session-approve", {
+  await backendClient.receive(["msg://open/session-approve", {
     inputs: [],
     outputs: [[
       `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
@@ -494,7 +494,7 @@ export class ResourceAPI {
     const encrypted = await this.encrypt(data, uri, encryptPassword);
     const signed = await this.sign(encrypted, keys.privateKeyHex);
 
-    await httpClient.receive(["txn://open/create-resource", {
+    await httpClient.receive(["msg://open/create-resource", {
       inputs: [],
       outputs: [[uri, signed]],
     }]);
@@ -747,8 +747,8 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
     localStorage.setItem(this.storageKey, JSON.stringify(serialized));
   }
 
-  async receive<D>(tx: Transaction<D>) {
-    const result = await this.client.receive(tx);
+  async receive<D>(msg: Message<D>) {
+    const result = await this.client.receive(msg);
     this.persistStorage();
     return result;
   }

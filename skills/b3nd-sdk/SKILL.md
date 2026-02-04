@@ -55,12 +55,14 @@ import {
   // Postgres utilities
   generatePostgresSchema,
   HttpClient,
-  // Transaction data
-  isTransactionData,
+  // Message data
+  isMessageData,
   log,
   // Clients
   MemoryClient,
   MongoClient,
+  // Validators
+  msgSchema,
   noop,
   parallel,
   // Client combinators
@@ -74,8 +76,6 @@ import {
   schemaValidator,
   seq,
   servers,
-  // Validators
-  txnSchema,
   uriPattern,
   WebSocketClient,
   when,
@@ -87,14 +87,14 @@ import {
 
 ```typescript
 // Types only
-import type { Schema, NodeProtocolInterface, Node, Transaction, ReceiveResult } from "@bandeira-tech/b3nd-sdk/types";
+import type { Schema, NodeProtocolInterface, Node, Message, ReceiveResult } from "@bandeira-tech/b3nd-sdk/types";
 
 // Node system
-import { createNode, seq, parallel, txnSchema, schemaValidator } from "@bandeira-tech/b3nd-sdk/node";
+import { createNode, seq, parallel, msgSchema, schemaValidator } from "@bandeira-tech/b3nd-sdk/node";
 
-// Transaction data utilities
-import { isTransactionData } from "@bandeira-tech/b3nd-sdk/txn-data";
-import type { TransactionData } from "@bandeira-tech/b3nd-sdk/txn-data";
+// Message data utilities
+import { isMessageData } from "@bandeira-tech/b3nd-sdk/msg-data";
+import type { MessageData } from "@bandeira-tech/b3nd-sdk/msg-data";
 
 // Auth utilities
 import { ... } from "@bandeira-tech/b3nd-sdk/auth";
@@ -114,37 +114,37 @@ import { WalletClient } from "@bandeira-tech/b3nd-sdk/wallet";
 
 ## Client Composition
 
-All state changes flow through a single `receive(tx)` interface. Use
+All state changes flow through a single `receive(msg)` interface. Use
 `createValidatedClient` to compose clients with validation:
 
 ```typescript
 import {
   createValidatedClient,
   firstMatchSequence,
+  msgSchema,
   parallelBroadcast,
-  txnSchema,
 } from "@bandeira-tech/b3nd-sdk";
 
 const schema = {
   "mutable://users": async ({ value }) => ({ valid: !!value?.name }),
-  "txn://open": async () => ({ valid: true }),
+  "msg://open": async () => ({ valid: true }),
 };
 
 // Compose a validated client from multiple backends
 const client = createValidatedClient({
   write: parallelBroadcast([postgresClient, memoryClient]),
   read: firstMatchSequence([postgresClient, memoryClient]),
-  validate: txnSchema(schema),
+  validate: msgSchema(schema),
 });
 
-// Plain transactions
+// Plain messages
 const result = await client.receive(["mutable://users/alice", {
   name: "Alice",
 }]);
 // result: { accepted: true } or { accepted: false, error: "..." }
 
-// Transaction envelopes — outputs are unpacked and stored individually by each client
-const txResult = await client.receive(["txn://open/batch-1", {
+// Message envelopes — outputs are unpacked and stored individually by each client
+const msgResult = await client.receive(["msg://open/batch-1", {
   inputs: [],
   outputs: [
     ["mutable://users/alice", { name: "Alice" }],
@@ -160,21 +160,20 @@ For custom behavior without class inheritance, use `FunctionalClient`:
 import { FunctionalClient } from "@bandeira-tech/b3nd-sdk";
 
 const client = new FunctionalClient({
-  receive: async (tx) => backend.receive(tx),
+  receive: async (msg) => backend.receive(msg),
   read: async (uri) => backend.read(uri),
   list: async (uri, options) => backend.list(uri, options),
 });
 ```
 
-### TransactionData Convention
+### MessageData Convention
 
-Transaction envelopes wrap multiple operations into a single atomic-intent
-transaction:
+Message envelopes wrap multiple operations into a single atomic-intent message:
 
 ```typescript
-import type { TransactionData } from "@bandeira-tech/b3nd-sdk";
+import type { MessageData } from "@bandeira-tech/b3nd-sdk";
 
-const txData: TransactionData = {
+const msgData: MessageData = {
   inputs: ["mutable://open/ref/1"], // References (for future UTXO support)
   outputs: [ // Each [uri, data] pair gets stored individually
     ["mutable://open/users/alice", { name: "Alice" }],
@@ -182,15 +181,14 @@ const txData: TransactionData = {
   ],
 };
 
-await node.receive(["txn://open/my-batch", txData]);
+await node.receive(["msg://open/my-batch", msgData]);
 ```
 
-- `txnSchema(schema)` validates the envelope URI AND each output against its
+- `msgSchema(schema)` validates the envelope URI AND each output against its
   program's schema
-- Each client's `receive()` detects TransactionData and stores outputs
-  individually
-- The envelope itself is also stored at its `txn://` URI as an audit trail
-- Plain (non-TransactionData) transactions work unchanged
+- Each client's `receive()` detects MessageData and stores outputs individually
+- The envelope itself is also stored at its `msg://` URI as an audit trail
+- Plain (non-MessageData) messages work unchanged
 
 ### Composition Utilities
 
@@ -238,10 +236,10 @@ import {
   createValidatedClient,
   firstMatchSequence,
   MemoryClient,
+  msgSchema,
   parallelBroadcast,
   PostgresClient,
   servers,
-  txnSchema,
 } from "@bandeira-tech/b3nd-sdk";
 
 const clients = [
@@ -259,7 +257,7 @@ const clients = [
 const client = createValidatedClient({
   write: parallelBroadcast(clients),
   read: firstMatchSequence(clients),
-  validate: txnSchema(schema),
+  validate: msgSchema(schema),
 });
 
 const frontend = servers.httpServer(app);
@@ -443,7 +441,7 @@ import { computeSha256 } from "./validators.ts";
 const data = { secret: "private content" };
 const encrypted = await encrypt.encrypt(data, recipientPublicKeyHex);
 const hash = await computeSha256(encrypted);
-await client.receive(["txn://open/store-private-blob", {
+await client.receive(["msg://open/store-private-blob", {
   inputs: [],
   outputs: [[`blob://open/sha256:${hash}`, encrypted]],
 }]);
@@ -452,7 +450,7 @@ await client.receive(["txn://open/store-private-blob", {
 const key = await encrypt.deriveKeyFromSeed(password, salt, 100000);
 const encrypted = await encrypt.encryptSymmetric(data, key);
 const hash = await computeSha256(encrypted);
-await client.receive(["txn://open/store-protected-blob", {
+await client.receive(["msg://open/store-protected-blob", {
   inputs: [],
   outputs: [[`blob://open/sha256:${hash}`, encrypted]],
 }]);
@@ -475,6 +473,7 @@ import type {
   ListResult,
   // Client configs
   MemoryClientConfig,
+  Message,
   MongoClientConfig,
   NodeProtocolInterface,
   NodeProtocolReadInterface,
@@ -486,7 +485,6 @@ import type {
   ReceiveResult,
   // Core types
   Schema,
-  Transaction,
   ValidationFn,
   // Compose types
   Validator,
@@ -548,7 +546,7 @@ Browse test results by theme, view source code with line numbers, search across
 - `libs/b3nd-sdk/src/mod.ts` - Main Deno exports (facade, re-exports from
   sibling libs)
 - `libs/b3nd-core/types.ts` - Type definitions
-- `libs/b3nd-compose/types.ts` - Node/Transaction/Validator types
+- `libs/b3nd-compose/types.ts` - Node/Message/Validator types
 - `libs/b3nd-client-postgres/mod.ts` - PostgreSQL client
 - `libs/b3nd-client-mongo/mod.ts` - MongoDB client
 - `libs/b3nd-servers/node.ts` - Server node creation

@@ -11,20 +11,20 @@ import type {
   HttpClientConfig,
   ListOptions,
   ListResult,
+  Message,
   NodeProtocolInterface,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
-  Transaction,
 } from "../b3nd-core/types.ts";
 import { encodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
- * Serialize transaction data for JSON transport.
+ * Serialize message data for JSON transport.
  * Wraps Uint8Array in a base64-encoded marker object to prevent JSON corruption.
  */
-function serializeTxData<D>(data: D): unknown {
+function serializeMsgData<D>(data: D): unknown {
   if (data instanceof Uint8Array) {
     return {
       __b3nd_binary__: true,
@@ -97,25 +97,25 @@ export class HttpClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a transaction (unified Node interface)
+   * Receive a message (unified interface)
    * POSTs to /api/v1/receive endpoint
-   * @param tx - Transaction tuple [uri, data]
+   * @param msg - Message tuple [uri, data]
    * @returns ReceiveResult indicating acceptance
    */
-  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
-    const [uri] = tx;
+  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
+    const [uri] = msg;
 
     // Basic URI validation
     if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Transaction URI is required" };
+      return { accepted: false, error: "Message URI is required" };
     }
 
     try {
-      const [uri, data] = tx;
-      const serializedTx = [uri, serializeTxData(data)];
+      const [uri, data] = msg;
+      const serializedMsg = [uri, serializeMsgData(data)];
       const response = await this.request("/api/v1/receive", {
         method: "POST",
-        body: JSON.stringify({ tx: serializedTx }),
+        body: JSON.stringify({ tx: serializedMsg }),
       });
 
       const result = await response.json();

@@ -3,25 +3,25 @@
  * Built-in processors for common processing patterns
  */
 
-import type { Processor, Transaction } from "./types.ts";
+import type { Message, Processor } from "./types.ts";
 
 /**
  * Emit processor
- * Calls a callback function with the transaction (for events, logging, etc.)
+ * Calls a callback function with the message (for events, logging, etc.)
  *
  * @example
  * ```typescript
- * const process = emit(async (tx) => {
- *   await webhookService.notify(tx)
+ * const process = emit(async (msg) => {
+ *   await webhookService.notify(msg)
  * })
  * ```
  */
 export function emit<D = unknown>(
-  callback: (tx: Transaction<D>) => Promise<void> | void,
+  callback: (msg: Message<D>) => Promise<void> | void,
 ): Processor<D> {
-  return async (tx) => {
+  return async (msg) => {
     try {
-      await callback(tx);
+      await callback(msg);
       return { success: true };
     } catch (error) {
       return {
@@ -39,19 +39,19 @@ export function emit<D = unknown>(
  * @example
  * ```typescript
  * const process = when(
- *   (tx) => tx[0].startsWith("mutable://important/"),
+ *   (msg) => msg[0].startsWith("mutable://important/"),
  *   parallel(postgresClient)
  * )
  * ```
  */
 export function when<D = unknown>(
-  condition: (tx: Transaction<D>) => boolean | Promise<boolean>,
+  condition: (msg: Message<D>) => boolean | Promise<boolean>,
   processor: Processor<D>,
 ): Processor<D> {
-  return async (tx) => {
-    const shouldProcess = await condition(tx);
+  return async (msg) => {
+    const shouldProcess = await condition(msg);
     if (shouldProcess) {
-      return processor(tx);
+      return processor(msg);
     }
     return { success: true }; // Skip silently
   };
@@ -59,20 +59,20 @@ export function when<D = unknown>(
 
 /**
  * Log processor
- * Logs the transaction (for debugging)
+ * Logs the message (for debugging)
  *
  * @example
  * ```typescript
  * const process = pipeline(
- *   log("Received transaction"),
+ *   log("Received message"),
  *   parallel(postgresClient)
  * )
  * ```
  */
-export function log<D = unknown>(prefix = "tx"): Processor<D> {
+export function log<D = unknown>(prefix = "msg"): Processor<D> {
   // deno-lint-ignore require-await
-  return async (tx) => {
-    const [uri] = tx;
+  return async (msg) => {
+    const [uri] = msg;
     console.log(`[${prefix}] ${uri}`);
     return { success: true };
   };
@@ -85,7 +85,7 @@ export function log<D = unknown>(prefix = "tx"): Processor<D> {
  * @example
  * ```typescript
  * const process = when(
- *   (tx) => tx[0].startsWith("mutable://temp/"),
+ *   (msg) => msg[0].startsWith("mutable://temp/"),
  *   noop() // Don't persist temporary data
  * )
  * ```

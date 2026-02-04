@@ -8,35 +8,36 @@
  *
  * ## Core Concept
  *
- * Everything is `[uri, data]`. Transactions and stored data have the same shape.
- * There is no external "write to URI" — only "receive transaction".
+ * Everything is `[uri, data]`. Messages and stored data have the same shape.
+ * There is no external "write to URI" — only "receive message".
  *
  * ```
  * Three operations:
- * 1. RECEIVE TXN  →  validate, process
+ * 1. RECEIVE MSG  →  validate, process
  * 2. READ URI     →  retrieve stored data
  * 3. (internal)   →  clients persist what they choose
  * ```
  *
  * @example Using createValidatedClient
  * ```typescript
- * import { createValidatedClient, txnSchema } from "@bandeira-tech/b3nd-sdk"
+ * import { createValidatedClient, msgSchema } from "@bandeira-tech/b3nd-sdk"
  * import { parallelBroadcast, firstMatchSequence } from "@bandeira-tech/b3nd-sdk"
  *
  * const client = createValidatedClient({
  *   write: parallelBroadcast(clients),
  *   read: firstMatchSequence(clients),
- *   validate: txnSchema(schema),
+ *   validate: msgSchema(schema),
  * })
  *
  * await client.receive(["mutable://users/alice", { name: "Alice" }])
  * ```
  */
 
-import type { Node, NodeConfig, ReceiveResult, Transaction } from "./types.ts";
+import type { Message, Node, NodeConfig, ReceiveResult } from "./types.ts";
 
 // Re-export types
 export type {
+  Message,
   /** @deprecated Use Validator from compose types directly */
   Node,
   /** @deprecated Use FunctionalClientConfig instead */
@@ -46,6 +47,7 @@ export type {
   /** @deprecated Use NodeProtocolReadInterface from core instead */
   ReadInterface,
   ReceiveResult,
+  /** @deprecated Use `Message` instead */
   Transaction,
   Validator,
 } from "./types.ts";
@@ -67,6 +69,7 @@ export {
 export {
   accept,
   format,
+  msgSchema,
   reject,
   requireFields,
   schema,
@@ -99,7 +102,7 @@ export { createValidatedClient } from "./validated-client.ts";
  * // Before:
  * const node = createNode({
  *   read: firstMatch(client),
- *   validate: txnSchema(schema),
+ *   validate: msgSchema(schema),
  *   process: parallel(client),
  * })
  *
@@ -107,7 +110,7 @@ export { createValidatedClient } from "./validated-client.ts";
  * const client = createValidatedClient({
  *   write: parallelBroadcast(clients),
  *   read: firstMatchSequence(clients),
- *   validate: txnSchema(schema),
+ *   validate: msgSchema(schema),
  * })
  * ```
  */
@@ -118,12 +121,12 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
   const { read, validate, process } = config;
 
   return {
-    async receive<T = unknown>(tx: Transaction<T>): Promise<ReceiveResult> {
-      const [uri] = tx;
+    async receive<T = unknown>(msg: Message<T>): Promise<ReceiveResult> {
+      const [uri] = msg;
 
       // 1. Basic URI validation
       if (!uri || typeof uri !== "string") {
-        return { accepted: false, error: "Transaction URI is required" };
+        return { accepted: false, error: "Message URI is required" };
       }
 
       // 2. Run validation pipeline if provided
@@ -131,7 +134,7 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
         try {
           const validationResult =
             await (validate as unknown as typeof validate)(
-              tx as unknown as Transaction<D>,
+              msg as unknown as Message<D>,
               read.read.bind(read),
             );
 
@@ -155,7 +158,7 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
       if (process) {
         try {
           const processResult = await (process as unknown as typeof process)(
-            tx as unknown as Transaction<D>,
+            msg as unknown as Message<D>,
           );
 
           if (!processResult.success) {

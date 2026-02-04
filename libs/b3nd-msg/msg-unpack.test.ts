@@ -1,84 +1,84 @@
 /**
- * Transaction Envelope Unpack Tests
+ * Message Envelope Unpack Tests
  *
- * Tests for isTransactionData detection, txnSchema validator,
- * client-level TransactionData unpacking, and integration with
+ * Tests for isMessageData detection, msgSchema validator,
+ * client-level MessageData unpacking, and integration with
  * the unified node system.
  */
 
 import { assertEquals } from "@std/assert";
-import { isTransactionData } from "./data/detect.ts";
-import type { TransactionData } from "./data/types.ts";
+import { isMessageData } from "./data/detect.ts";
+import type { MessageData } from "./data/types.ts";
 import type { Schema } from "../b3nd-core/types.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
-import { createValidatedClient, txnSchema } from "../b3nd-compose/mod.ts";
+import { createValidatedClient, msgSchema } from "../b3nd-compose/mod.ts";
 
 // =============================================================================
-// isTransactionData detection
+// isMessageData detection
 // =============================================================================
 
-Deno.test("isTransactionData - detects valid TransactionData", () => {
-  const valid: TransactionData = {
+Deno.test("isMessageData - detects valid MessageData", () => {
+  const valid: MessageData = {
     inputs: ["utxo://alice/1"],
     outputs: [
       ["mutable://open/x", { value: 1 }],
       ["mutable://open/y", { value: 2 }],
     ],
   };
-  assertEquals(isTransactionData(valid), true);
+  assertEquals(isMessageData(valid), true);
 });
 
-Deno.test("isTransactionData - detects valid with empty inputs/outputs", () => {
-  assertEquals(isTransactionData({ inputs: [], outputs: [] }), true);
+Deno.test("isMessageData - detects valid with empty inputs/outputs", () => {
+  assertEquals(isMessageData({ inputs: [], outputs: [] }), true);
 });
 
-Deno.test("isTransactionData - rejects null", () => {
-  assertEquals(isTransactionData(null), false);
+Deno.test("isMessageData - rejects null", () => {
+  assertEquals(isMessageData(null), false);
 });
 
-Deno.test("isTransactionData - rejects primitives", () => {
-  assertEquals(isTransactionData("string"), false);
-  assertEquals(isTransactionData(42), false);
-  assertEquals(isTransactionData(undefined), false);
+Deno.test("isMessageData - rejects primitives", () => {
+  assertEquals(isMessageData("string"), false);
+  assertEquals(isMessageData(42), false);
+  assertEquals(isMessageData(undefined), false);
 });
 
-Deno.test("isTransactionData - rejects missing inputs", () => {
-  assertEquals(isTransactionData({ outputs: [] }), false);
+Deno.test("isMessageData - rejects missing inputs", () => {
+  assertEquals(isMessageData({ outputs: [] }), false);
 });
 
-Deno.test("isTransactionData - rejects missing outputs", () => {
-  assertEquals(isTransactionData({ inputs: [] }), false);
+Deno.test("isMessageData - rejects missing outputs", () => {
+  assertEquals(isMessageData({ inputs: [] }), false);
 });
 
-Deno.test("isTransactionData - rejects malformed outputs", () => {
+Deno.test("isMessageData - rejects malformed outputs", () => {
   assertEquals(
-    isTransactionData({ inputs: [], outputs: [["only-one-element"]] }),
+    isMessageData({ inputs: [], outputs: [["only-one-element"]] }),
     false,
   );
   assertEquals(
-    isTransactionData({ inputs: [], outputs: [[123, "value"]] }),
+    isMessageData({ inputs: [], outputs: [[123, "value"]] }),
     false,
   );
 });
 
-Deno.test("isTransactionData - rejects plain objects (not TransactionData)", () => {
-  assertEquals(isTransactionData({ name: "Alice", age: 30 }), false);
-  assertEquals(isTransactionData({ data: "hello" }), false);
+Deno.test("isMessageData - rejects plain objects (not MessageData)", () => {
+  assertEquals(isMessageData({ name: "Alice", age: 30 }), false);
+  assertEquals(isMessageData({ data: "hello" }), false);
 });
 
 // =============================================================================
-// Client-level TransactionData unpacking (MemoryClient)
+// Client-level MessageData unpacking (MemoryClient)
 // =============================================================================
 
-Deno.test("MemoryClient - unpacks TransactionData outputs on receive", async () => {
+Deno.test("MemoryClient - unpacks MessageData outputs on receive", async () => {
   const client = new MemoryClient({
     schema: {
       "mutable://open": async () => ({ valid: true }),
-      "txn://open": async () => ({ valid: true }),
+      "msg://open": async () => ({ valid: true }),
     },
   });
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/x", { value: 1 }],
@@ -86,11 +86,11 @@ Deno.test("MemoryClient - unpacks TransactionData outputs on receive", async () 
     ],
   };
 
-  const result = await client.receive(["txn://open/test", txData]);
+  const result = await client.receive(["msg://open/test", msgData]);
   assertEquals(result.accepted, true);
 
   // Verify envelope was stored
-  const envelope = await client.read("txn://open/test");
+  const envelope = await client.read("msg://open/test");
   assertEquals(envelope.success, true);
 
   // Verify each output was stored
@@ -118,16 +118,16 @@ Deno.test("MemoryClient - plain data stored normally (no unpacking)", async () =
   assertEquals(read.record?.data, { name: "Alice" });
 });
 
-Deno.test("MemoryClient - fails if any output in TransactionData fails", async () => {
+Deno.test("MemoryClient - fails if any output in MessageData fails", async () => {
   const client = new MemoryClient({
     schema: {
       "mutable://open": async () => ({ valid: true }),
-      "txn://open": async () => ({ valid: true }),
+      "msg://open": async () => ({ valid: true }),
       // No schema for "unknown://program"
     },
   });
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/x", { value: 1 }],
@@ -135,24 +135,24 @@ Deno.test("MemoryClient - fails if any output in TransactionData fails", async (
     ],
   };
 
-  const result = await client.receive(["txn://open/test", txData]);
+  const result = await client.receive(["msg://open/test", msgData]);
   assertEquals(result.accepted, false);
 });
 
 // =============================================================================
-// txnSchema validator
+// msgSchema validator
 // =============================================================================
 
-Deno.test("txnSchema - validates each output against schema", async () => {
+Deno.test("msgSchema - validates each output against schema", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
-    "txn://open": async () => ({ valid: true }),
+    "msg://open": async () => ({ valid: true }),
   };
 
-  const validator = txnSchema(testSchema);
+  const validator = msgSchema(testSchema);
   const read = async () => ({ success: false as const, error: "not found" });
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/x", { value: 1 }],
@@ -160,20 +160,20 @@ Deno.test("txnSchema - validates each output against schema", async () => {
     ],
   };
 
-  const result = await validator(["txn://open/test", txData], read);
+  const result = await validator(["msg://open/test", msgData], read);
   assertEquals(result.valid, true);
 });
 
-Deno.test("txnSchema - rejects if output program unknown", async () => {
+Deno.test("msgSchema - rejects if output program unknown", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
-    "txn://open": async () => ({ valid: true }),
+    "msg://open": async () => ({ valid: true }),
   };
 
-  const validator = txnSchema(testSchema);
+  const validator = msgSchema(testSchema);
   const read = async () => ({ success: false as const, error: "not found" });
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/x", { value: 1 }],
@@ -181,29 +181,29 @@ Deno.test("txnSchema - rejects if output program unknown", async () => {
     ],
   };
 
-  const result = await validator(["txn://open/test", txData], read);
+  const result = await validator(["msg://open/test", msgData], read);
   assertEquals(result.valid, false);
   assertEquals(result.error, "Unknown program: unknown://program");
 });
 
-Deno.test("txnSchema - delegates non-TransactionData to plain schema validation", async () => {
+Deno.test("msgSchema - delegates non-MessageData to plain schema validation", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
   };
 
-  const validator = txnSchema(testSchema);
+  const validator = msgSchema(testSchema);
   const read = async () => ({ success: false as const, error: "not found" });
 
   const result = await validator(["mutable://open/x", { name: "Alice" }], read);
   assertEquals(result.valid, true);
 });
 
-Deno.test("txnSchema - rejects non-TransactionData with unknown program", async () => {
+Deno.test("msgSchema - rejects non-MessageData with unknown program", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
   };
 
-  const validator = txnSchema(testSchema);
+  const validator = msgSchema(testSchema);
   const read = async () => ({ success: false as const, error: "not found" });
 
   const result = await validator(
@@ -218,10 +218,10 @@ Deno.test("txnSchema - rejects non-TransactionData with unknown program", async 
 // Integration tests (node + client)
 // =============================================================================
 
-Deno.test("integration - receive TransactionData through node → client unpacks outputs", async () => {
+Deno.test("integration - receive MessageData through node → client unpacks outputs", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
-    "txn://open": async () => ({ valid: true }),
+    "msg://open": async () => ({ valid: true }),
   };
 
   const client = new MemoryClient({ schema: testSchema });
@@ -229,10 +229,10 @@ Deno.test("integration - receive TransactionData through node → client unpacks
   const node = createValidatedClient({
     write: client,
     read: client,
-    validate: txnSchema(testSchema),
+    validate: msgSchema(testSchema),
   });
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/x", { value: 1 }],
@@ -240,13 +240,13 @@ Deno.test("integration - receive TransactionData through node → client unpacks
     ],
   };
 
-  const result = await node.receive(["txn://open/test-1", txData]);
+  const result = await node.receive(["msg://open/test-1", msgData]);
   assertEquals(result.accepted, true);
 
   // Envelope stored
-  const storedTxn = await client.read("txn://open/test-1");
-  assertEquals(storedTxn.success, true);
-  assertEquals(storedTxn.record?.data, txData);
+  const storedMsg = await client.read("msg://open/test-1");
+  assertEquals(storedMsg.success, true);
+  assertEquals(storedMsg.record?.data, msgData);
 
   // Outputs stored by client
   const readX = await client.read("mutable://open/x");
@@ -258,10 +258,10 @@ Deno.test("integration - receive TransactionData through node → client unpacks
   assertEquals(readY.record?.data, { value: 2 });
 });
 
-Deno.test("integration - plain transactions still work alongside TransactionData", async () => {
+Deno.test("integration - plain messages still work alongside MessageData", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
-    "txn://open": async () => ({ valid: true }),
+    "msg://open": async () => ({ valid: true }),
   };
 
   const client = new MemoryClient({ schema: testSchema });
@@ -269,10 +269,10 @@ Deno.test("integration - plain transactions still work alongside TransactionData
   const node = createValidatedClient({
     write: client,
     read: client,
-    validate: txnSchema(testSchema),
+    validate: msgSchema(testSchema),
   });
 
-  // Plain transaction
+  // Plain message
   const plainResult = await node.receive(["mutable://open/plain", {
     name: "Alice",
   }]);
@@ -282,27 +282,27 @@ Deno.test("integration - plain transactions still work alongside TransactionData
   assertEquals(readPlain.success, true);
   assertEquals(readPlain.record?.data, { name: "Alice" });
 
-  // TransactionData
-  const txData: TransactionData = {
+  // MessageData
+  const msgData: MessageData = {
     inputs: [],
-    outputs: [["mutable://open/from-txn", { value: 42 }]],
+    outputs: [["mutable://open/from-msg", { value: 42 }]],
   };
-  const txnResult = await node.receive(["txn://open/test-2", txData]);
-  assertEquals(txnResult.accepted, true);
+  const msgResult = await node.receive(["msg://open/test-2", msgData]);
+  assertEquals(msgResult.accepted, true);
 
-  const readFromTxn = await client.read("mutable://open/from-txn");
-  assertEquals(readFromTxn.success, true);
-  assertEquals(readFromTxn.record?.data, { value: 42 });
+  const readFromMsg = await client.read("mutable://open/from-msg");
+  assertEquals(readFromMsg.success, true);
+  assertEquals(readFromMsg.record?.data, { value: 42 });
 });
 
-Deno.test("integration - TransactionData with mixed programs (mutable + immutable)", async () => {
+Deno.test("integration - MessageData with mixed programs (mutable + immutable)", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
     "immutable://open": async ({ uri, read }) => {
       const existing = await read(uri);
       return { valid: !existing.success };
     },
-    "txn://open": async () => ({ valid: true }),
+    "msg://open": async () => ({ valid: true }),
   };
 
   const client = new MemoryClient({ schema: testSchema });
@@ -310,10 +310,10 @@ Deno.test("integration - TransactionData with mixed programs (mutable + immutabl
   const node = createValidatedClient({
     write: client,
     read: client,
-    validate: txnSchema(testSchema),
+    validate: msgSchema(testSchema),
   });
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/a", { mutable: true }],
@@ -321,7 +321,7 @@ Deno.test("integration - TransactionData with mixed programs (mutable + immutabl
     ],
   };
 
-  const result = await node.receive(["txn://open/mixed-1", txData]);
+  const result = await node.receive(["msg://open/mixed-1", msgData]);
   assertEquals(result.accepted, true);
 
   const readA = await client.read("mutable://open/a");
@@ -333,14 +333,14 @@ Deno.test("integration - TransactionData with mixed programs (mutable + immutabl
   assertEquals(readB.record?.data, { immutable: true });
 });
 
-Deno.test("integration - txnSchema rejects invalid outputs before client sees them", async () => {
+Deno.test("integration - msgSchema rejects invalid outputs before client sees them", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
     "mutable://restricted": async () => ({
       valid: false,
       error: "access denied",
     }),
-    "txn://open": async () => ({ valid: true }),
+    "msg://open": async () => ({ valid: true }),
   };
 
   const client = new MemoryClient({ schema: testSchema });
@@ -348,10 +348,10 @@ Deno.test("integration - txnSchema rejects invalid outputs before client sees th
   const node = createValidatedClient({
     write: client,
     read: client,
-    validate: txnSchema(testSchema),
+    validate: msgSchema(testSchema),
   });
 
-  const txData: TransactionData = {
+  const msgData: MessageData = {
     inputs: [],
     outputs: [
       ["mutable://open/ok", { value: 1 }],
@@ -359,8 +359,8 @@ Deno.test("integration - txnSchema rejects invalid outputs before client sees th
     ],
   };
 
-  // txnSchema rejects because mutable://restricted fails
-  const result = await node.receive(["txn://open/fail-1", txData]);
+  // msgSchema rejects because mutable://restricted fails
+  const result = await node.receive(["msg://open/fail-1", msgData]);
   assertEquals(result.accepted, false);
 
   // Nothing stored — validation rejected before processing

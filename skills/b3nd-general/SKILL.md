@@ -55,8 +55,8 @@ own network.
 ### Protocol Patterns
 
 ```typescript
-// Transaction delivering data to multiple protocols
-await client.receive(["txn://open/setup-batch", {
+// Message delivering data to multiple protocols
+await client.receive(["msg://open/setup-batch", {
   inputs: [],
   outputs: [
     ["mutable://open/my-app/config", { theme: "dark" }],
@@ -95,7 +95,7 @@ const data = { title: "Hello", content: "World" };
 const hash = await computeSha256(data);
 const blobUri = `blob://open/sha256:${hash}`;
 
-await client.receive(["txn://open/store-blob", {
+await client.receive(["msg://open/store-blob", {
   inputs: [],
   outputs: [[blobUri, data]],
 }]);
@@ -125,7 +125,7 @@ await wallet.proxyWrite({
 });
 
 // Unauthenticated link via transaction
-await client.receive(["txn://open/update-link", {
+await client.receive(["msg://open/update-link", {
   inputs: [],
   outputs: [["link://open/latest-release", "blob://open/sha256:def456..."]],
 }]);
@@ -162,7 +162,7 @@ const hash = await computeSha256(encrypted);
 const blobUri = `blob://open/sha256:${hash}`;
 
 // 3. Store encrypted blob via transaction
-await client.receive(["txn://open/store-encrypted", {
+await client.receive(["msg://open/store-encrypted", {
   inputs: [],
   outputs: [[blobUri, encrypted]],
 }]);
@@ -186,7 +186,7 @@ const encrypted = await encrypt.encryptSymmetric(data, key);
 
 // Hash and store
 const hash = await computeSha256(encrypted);
-await client.receive(["txn://open/store-symmetric", {
+await client.receive(["msg://open/store-symmetric", {
   inputs: [],
   outputs: [[`blob://open/sha256:${hash}`, encrypted]],
 }]);
@@ -213,7 +213,7 @@ const content = { title: "My Post", body: "..." };
 const hash = await computeSha256(content);
 const blobUri = `blob://open/sha256:${hash}`;
 
-await client.receive(["txn://open/publish-post", {
+await client.receive(["msg://open/publish-post", {
   inputs: [],
   outputs: [
     [blobUri, content], // blob data
@@ -226,7 +226,7 @@ const newContent = { title: "My Post v2", body: "..." };
 const newHash = await computeSha256(newContent);
 const newBlobUri = `blob://open/sha256:${newHash}`;
 
-await client.receive(["txn://open/update-post", {
+await client.receive(["msg://open/update-post", {
   inputs: [blobUri], // references previous version
   outputs: [
     [newBlobUri, newContent],
@@ -246,17 +246,17 @@ verification:
 "mutable://accounts/052fee.../data";
 "immutable://accounts/052fee.../posts/1";
 
-// The pubkey in the URI determines who can submit transactions
-// Transactions must be signed with the matching private key
+// The pubkey in the URI determines who can submit messages
+// Messages must be signed with the matching private key
 ```
 
-## Transactions
+## Messages
 
-All state changes flow through a single `receive(tx)` interface. A transaction
-is a tuple `[uri, data]`:
+All state changes flow through a single `receive(msg)` interface. A message is a
+tuple `[uri, data]`:
 
 ```typescript
-type Transaction<D = unknown> = [uri: string, data: D];
+type Message<D = unknown> = [uri: string, data: D];
 
 interface ReceiveResult {
   accepted: boolean;
@@ -264,12 +264,12 @@ interface ReceiveResult {
 }
 ```
 
-### Single-Output Transactions
+### Single-Output Messages
 
-A transaction with one output stores data at a single URI:
+A message with one output stores data at a single URI:
 
 ```typescript
-const result = await client.receive(["txn://open/update-config", {
+const result = await client.receive(["msg://open/update-config", {
   inputs: [],
   outputs: [["mutable://open/my-app/config", { theme: "dark" }]],
 }]);
@@ -279,15 +279,14 @@ const result = await client.receive(["txn://open/update-config", {
 const config = await client.read("mutable://open/my-app/config");
 ```
 
-### Transaction Envelopes (TransactionData)
+### Message Envelopes (MessageData)
 
-Transaction envelopes wrap multiple operations into a single atomic-intent
-transaction:
+Message envelopes wrap multiple operations into a single atomic-intent message:
 
 ```typescript
-import type { TransactionData } from "@bandeira-tech/b3nd-sdk";
+import type { MessageData } from "@bandeira-tech/b3nd-sdk";
 
-const txData: TransactionData = {
+const msgData: MessageData = {
   inputs: ["mutable://open/ref/1"], // References (for future UTXO support)
   outputs: [ // Each [uri, data] pair gets stored individually
     ["mutable://open/users/alice", { name: "Alice" }],
@@ -295,18 +294,17 @@ const txData: TransactionData = {
   ],
 };
 
-await client.receive(["txn://open/my-batch", txData]);
+await client.receive(["msg://open/my-batch", msgData]);
 // Each output stored at its own URI, readable via client.read("mutable://open/users/alice")
-// The envelope itself is also stored at its txn:// URI as an audit trail
+// The envelope itself is also stored at its msg:// URI as an audit trail
 ```
 
 **Key properties:**
 
-- `txnSchema(schema)` validates the envelope URI AND each output against its
+- `msgSchema(schema)` validates the envelope URI AND each output against its
   protocol's schema
-- Each client's `receive()` detects TransactionData and stores outputs
-  individually
-- Plain (non-TransactionData) transactions work unchanged
+- Each client's `receive()` detects MessageData and stores outputs individually
+- Plain (non-MessageData) messages work unchanged
 
 ## NodeProtocolInterface
 
@@ -314,7 +312,7 @@ All clients implement:
 
 ```typescript
 interface NodeProtocolInterface {
-  receive<D>(tx: Transaction<D>): Promise<ReceiveResult>;
+  receive<D>(msg: Message<D>): Promise<ReceiveResult>;
   read<T>(uri: string): Promise<ReadResult<T>>;
   list(uri: string, options?: ListOptions): Promise<ListResult>;
   delete(uri: string): Promise<DeleteResult>;
@@ -365,7 +363,7 @@ const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
   sessionKeypair.publicKeyHex,
   sessionKeypair.privateKeyHex,
 );
-await backendClient.receive(["txn://open/session-request", {
+await backendClient.receive(["msg://open/session-request", {
   inputs: [],
   outputs: [[
     `immutable://inbox/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
@@ -379,7 +377,7 @@ const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
   APP_KEY,
   APP_PRIVATE_KEY,
 );
-await backendClient.receive(["txn://open/session-approve", {
+await backendClient.receive(["msg://open/session-approve", {
   inputs: [],
   outputs: [[
     `mutable://accounts/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
@@ -505,9 +503,9 @@ const entry = {
   publishedAt: Date.now(),
 };
 
-// Sign with app's key and submit as transaction
+// Sign with app's key and submit as message
 const signed = await sign(entry, appIdentity.privateKeyHex);
-await client.receive(["txn://open/publish-resource", {
+await client.receive(["msg://open/publish-resource", {
   inputs: [],
   outputs: [[indexUri, signed]],
 }]);
@@ -602,7 +600,7 @@ await wallet.proxyWrite({ uri, data: signed(encrypted, resourceKeys) });
 | Client               | Package                          | Use                                 |
 | -------------------- | -------------------------------- | ----------------------------------- |
 | `HttpClient`         | Both                             | Connect to Firecat or any HTTP node |
-| `WalletClient`       | `@bandeira-tech/b3nd-web/wallet` | Authenticated transactions          |
+| `WalletClient`       | `@bandeira-tech/b3nd-web/wallet` | Authenticated messages              |
 | `LocalStorageClient` | `@bandeira-tech/b3nd-web`        | Browser offline cache               |
 | `MemoryClient`       | `@bandeira-tech/b3nd-sdk`        | Testing                             |
 | `PostgresClient`     | `@bandeira-tech/b3nd-sdk`        | PostgreSQL storage                  |
@@ -634,17 +632,17 @@ import { HttpClient, MemoryClient } from "@bandeira-tech/b3nd-sdk";
 When the B3nd Claude plugin is installed, these MCP tools are available for
 agents to interact with backends directly:
 
-| Tool                   | Description                      |
-| ---------------------- | -------------------------------- |
-| `b3nd_receive`         | Submit transaction `[uri, data]` |
-| `b3nd_read`            | Read data from URI               |
-| `b3nd_list`            | List items at URI prefix         |
-| `b3nd_delete`          | Delete data                      |
-| `b3nd_health`          | Backend health check             |
-| `b3nd_schema`          | Get available protocols          |
-| `b3nd_backends_list`   | List configured backends         |
-| `b3nd_backends_switch` | Switch active backend            |
-| `b3nd_backends_add`    | Add new backend                  |
+| Tool                   | Description                  |
+| ---------------------- | ---------------------------- |
+| `b3nd_receive`         | Submit message `[uri, data]` |
+| `b3nd_read`            | Read data from URI           |
+| `b3nd_list`            | List items at URI prefix     |
+| `b3nd_delete`          | Delete data                  |
+| `b3nd_health`          | Backend health check         |
+| `b3nd_schema`          | Get available protocols      |
+| `b3nd_backends_list`   | List configured backends     |
+| `b3nd_backends_switch` | Switch active backend        |
+| `b3nd_backends_add`    | Add new backend              |
 
 Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 

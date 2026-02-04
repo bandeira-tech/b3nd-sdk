@@ -4,27 +4,27 @@
  */
 
 import type { Schema } from "../b3nd-core/types.ts";
-import type { Transaction, Validator } from "./types.ts";
-import { isTransactionData } from "../b3nd-txn/data/detect.ts";
+import type { Message, Validator } from "./types.ts";
+import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 /**
  * Format validator
- * Validates the structure of transaction data using a check function
+ * Validates the structure of message data using a check function
  *
  * @example
  * ```typescript
- * const validate = format((tx) => {
- *   const [uri, data] = tx
+ * const validate = format((msg) => {
+ *   const [uri, data] = msg
  *   return typeof data === "object" && data !== null
  * })
  * ```
  */
 export function format<D = unknown>(
-  checkFn: (tx: Transaction<D>) => boolean | string,
+  checkFn: (msg: Message<D>) => boolean | string,
 ): Validator<D> {
   // deno-lint-ignore require-await
-  return async (tx) => {
-    const result = checkFn(tx);
+  return async (msg) => {
+    const result = checkFn(msg);
     if (result === true) {
       return { valid: true };
     }
@@ -53,8 +53,8 @@ export function format<D = unknown>(
  */
 export function schema<D = unknown>(programSchema: Schema): Validator<D> {
   // deno-lint-ignore require-await
-  return async (tx, read) => {
-    const [uri, data] = tx;
+  return async (msg, read) => {
+    const [uri, data] = msg;
 
     // Parse the URI to get the program key
     const url = URL.parse(uri);
@@ -75,7 +75,7 @@ export function schema<D = unknown>(programSchema: Schema): Validator<D> {
 
 /**
  * URI pattern validator
- * Validates that the transaction URI matches a regex pattern
+ * Validates that the message URI matches a regex pattern
  *
  * @example
  * ```typescript
@@ -84,8 +84,8 @@ export function schema<D = unknown>(programSchema: Schema): Validator<D> {
  */
 export function uriPattern(pattern: RegExp): Validator {
   // deno-lint-ignore require-await
-  return async (tx) => {
-    const [uri] = tx;
+  return async (msg) => {
+    const [uri] = msg;
     if (pattern.test(uri)) {
       return { valid: true };
     }
@@ -98,7 +98,7 @@ export function uriPattern(pattern: RegExp): Validator {
 
 /**
  * Require fields validator
- * Validates that the transaction data contains specific fields
+ * Validates that the message data contains specific fields
  *
  * @example
  * ```typescript
@@ -107,8 +107,8 @@ export function uriPattern(pattern: RegExp): Validator {
  */
 export function requireFields(fields: string[]): Validator {
   // deno-lint-ignore require-await
-  return async (tx) => {
-    const [, data] = tx;
+  return async (msg) => {
+    const [, data] = msg;
 
     if (typeof data !== "object" || data === null) {
       return { valid: false, error: "Data must be an object" };
@@ -131,7 +131,7 @@ export function requireFields(fields: string[]): Validator {
 
 /**
  * Pass-through validator
- * Always accepts the transaction (useful for open/public programs)
+ * Always accepts the message (useful for open/public programs)
  *
  * @example
  * ```typescript
@@ -147,28 +147,28 @@ export function accept(): Validator {
 }
 
 /**
- * Transaction schema validator
+ * Message schema validator
  * Routes validation based on data shape:
- * - If data IS TransactionData: validates the envelope URI AND each output against schema
- * - If data is NOT TransactionData: validates as a plain transaction against schema
+ * - If data IS MessageData: validates the envelope URI AND each output against schema
+ * - If data is NOT MessageData: validates as a plain message against schema
  *
  * This is a complete validator that replaces `any(schema(), ...)` for nodes
- * that need to handle both plain transactions and TransactionData envelopes.
+ * that need to handle both plain messages and MessageData envelopes.
  *
  * @example
  * ```typescript
- * const validate = txnSchema(SCHEMA)
- * // Handles both plain writes and TransactionData envelopes
+ * const validate = msgSchema(SCHEMA)
+ * // Handles both plain writes and MessageData envelopes
  * ```
  */
-export function txnSchema<D = unknown>(programSchema: Schema): Validator<D> {
+export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
   const plainValidator = schema<D>(programSchema);
 
-  return async (tx, read) => {
-    const [uri, data] = tx;
+  return async (msg, read) => {
+    const [uri, data] = msg;
 
-    if (!isTransactionData(data)) {
-      return plainValidator(tx, read);
+    if (!isMessageData(data)) {
+      return plainValidator(msg, read);
     }
 
     // Validate the envelope URI against schema
@@ -223,9 +223,12 @@ export function txnSchema<D = unknown>(programSchema: Schema): Validator<D> {
   };
 }
 
+/** @deprecated Use `msgSchema` instead */
+export const txnSchema = msgSchema;
+
 /**
  * Reject validator
- * Always rejects the transaction with an optional message
+ * Always rejects the message with an optional message
  *
  * @example
  * ```typescript

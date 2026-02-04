@@ -11,12 +11,12 @@ import type {
   HealthStatus,
   ListOptions,
   ListResult,
+  Message,
   NodeProtocolInterface,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
-  Transaction,
 } from "./types.ts";
 
 /**
@@ -25,7 +25,7 @@ import type {
  */
 export interface FunctionalClientConfig {
   receive?: <D = unknown>(
-    tx: Transaction<D>,
+    msg: Message<D>,
   ) => Promise<ReceiveResult>;
   read?: <T = unknown>(uri: string) => Promise<ReadResult<T>>;
   readMulti?: <T = unknown>(uris: string[]) => Promise<ReadMultiResult<T>>;
@@ -64,9 +64,9 @@ export class FunctionalClient implements NodeProtocolInterface {
     this.config = config;
   }
 
-  receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
+  receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
     if (this.config.receive) {
-      return this.config.receive(tx);
+      return this.config.receive(msg);
     }
     return Promise.resolve({ accepted: false, error: "not implemented" });
   }

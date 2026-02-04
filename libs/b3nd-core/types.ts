@@ -129,9 +129,12 @@ export interface ReceiveResult {
 }
 
 /**
- * Transaction type (re-exported from node/types.ts)
+ * Message type — the minimal primitive: [uri, data]
  */
-export type Transaction<D = unknown> = [uri: string, data: D];
+export type Message<D = unknown> = [uri: string, data: D];
+
+/** @deprecated Use `Message` instead */
+export type Transaction<D = unknown> = Message<D>;
 
 /**
  * NodeProtocolInterface - The universal interface implemented by all clients
@@ -140,8 +143,8 @@ export type Transaction<D = unknown> = [uri: string, data: D];
  * implement this interface, enabling recursive composition and uniform usage.
  */
 export interface NodeProtocolWriteInterface {
-  /** Receive a transaction - the unified entry point for all state changes */
-  receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult>;
+  /** Receive a message - the unified entry point for all state changes */
+  receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
   /** Delete data at a URI */
   delete(uri: string): Promise<DeleteResult>;
   /** Health status */

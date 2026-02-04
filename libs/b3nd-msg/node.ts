@@ -1,31 +1,31 @@
 /**
- * Transaction Node Implementation
+ * Message Node Implementation
  *
- * Creates a transaction node that:
- * 1. Receives transactions
+ * Creates a message node that:
+ * 1. Receives messages
  * 2. Validates via the provided validator (read-only)
- * 3. Propagates valid transactions to all peers
+ * 3. Propagates valid messages to all peers
  *
  * The node does not write directly — it validates and propagates.
- * Peers (including data nodes) receive the full transaction and decide
+ * Peers (including data nodes) receive the full message and decide
  * what to store.
  */
 
 import type {
+  Message,
+  MessageNode,
+  MessageNodeConfig,
   SubmitResult,
-  Transaction,
-  TransactionNode,
-  TransactionNodeConfig,
 } from "./node-types.ts";
 
 /**
- * Create a transaction node
+ * Create a message node
  *
  * @deprecated Use `createValidatedClient()` from b3nd-compose instead.
  */
-export function createTransactionNode<D = unknown>(
-  config: TransactionNodeConfig<D>,
-): TransactionNode<D> {
+export function createMessageNode<D = unknown>(
+  config: MessageNodeConfig<D>,
+): MessageNode<D> {
   if (!config) throw new Error("config is required");
   if (!config.validate) throw new Error("validate function is required");
   if (!config.read) throw new Error("read interface is required");
@@ -34,18 +34,18 @@ export function createTransactionNode<D = unknown>(
   const { validate, read, peers } = config;
 
   return {
-    async receive(tx: Transaction<D>): Promise<SubmitResult> {
-      const [uri, data] = tx;
+    async receive(msg: Message<D>): Promise<SubmitResult> {
+      const [uri, data] = msg;
 
       // 1. Basic validation: must have URI
       if (!uri || typeof uri !== "string") {
-        return { accepted: false, error: "Transaction URI is required" };
+        return { accepted: false, error: "Message URI is required" };
       }
 
       // 2. Validate via the validator (read-only)
       // The validator can read state but cannot write
       try {
-        const validation = await validate(tx, read.read.bind(read));
+        const validation = await validate(msg, read.read.bind(read));
 
         if (!validation.valid) {
           return {
@@ -63,11 +63,11 @@ export function createTransactionNode<D = unknown>(
       }
 
       // 3. Propagate to all peers
-      // Full transaction transmitted — no transformation
+      // Full message transmitted — no transformation
       // Peers receive [uri, data] complete
       const propagationResults = await Promise.allSettled(
         peers.map((peer) =>
-          peer.receive(tx).catch((err) => ({
+          peer.receive(msg).catch((err) => ({
             accepted: false,
             error: err instanceof Error ? err.message : String(err),
           }))
@@ -120,3 +120,6 @@ export function createTransactionNode<D = unknown>(
     },
   };
 }
+
+/** @deprecated Use `createMessageNode` instead */
+export const createTransactionNode = createMessageNode;

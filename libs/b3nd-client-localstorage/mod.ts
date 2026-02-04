@@ -12,6 +12,7 @@ import type {
   ListOptions,
   ListResult,
   LocalStorageClientConfig,
+  Message,
   NodeProtocolInterface,
   PersistenceRecord,
   ReadMultiResult,
@@ -19,7 +20,6 @@ import type {
   ReadResult,
   ReceiveResult,
   Schema,
-  Transaction,
 } from "../b3nd-core/types.ts";
 
 export class LocalStorageClient implements NodeProtocolInterface {
@@ -108,16 +108,16 @@ export class LocalStorageClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a transaction - the unified entry point for all state changes
-   * @param tx - Transaction tuple [uri, data]
+   * Receive a message - the unified entry point for all state changes
+   * @param msg - Message tuple [uri, data]
    * @returns ReceiveResult indicating acceptance
    */
-  async receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult> {
-    const [uri, data] = tx;
+  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
+    const [uri, data] = msg;
 
     // Basic URI validation
     if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Transaction URI is required" };
+      return { accepted: false, error: "Message URI is required" };
     }
 
     try {

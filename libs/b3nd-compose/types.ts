@@ -3,7 +3,7 @@
  * B3nd Unified Node Type System
  *
  * Core types for the unified node architecture where all state changes
- * flow through a single `receive(tx)` interface.
+ * flow through a single `receive(msg)` interface.
  */
 
 import type {
@@ -14,21 +14,24 @@ import type {
 } from "../b3nd-core/types.ts";
 
 /**
- * Transaction: the minimal primitive
+ * Message: the minimal primitive
  *
  * A tuple of [uri, data]. URIs all the way down.
- * The URI is the transaction's identity. The data is the transaction's content.
+ * The URI is the message's identity. The data is the message's content.
  *
  * @example
  * ```typescript
- * // A user transaction
- * const tx: Transaction = ["mutable://users/alice/profile", { name: "Alice" }]
+ * // A user message
+ * const msg: Message = ["mutable://users/alice/profile", { name: "Alice" }]
  *
- * // A transfer transaction
- * const tx: Transaction = ["txn://alice/transfer/42", { inputs: [...], outputs: [...] }]
+ * // A transfer message
+ * const msg: Message = ["msg://alice/transfer/42", { inputs: [...], outputs: [...] }]
  * ```
  */
-export type Transaction<D = unknown> = [uri: string, data: D];
+export type Message<D = unknown> = [uri: string, data: D];
+
+/** @deprecated Use `Message` instead */
+export type Transaction<D = unknown> = Message<D>;
 
 /**
  * Result of a receive operation
@@ -54,7 +57,7 @@ export interface ReadInterface {
  * Use `createValidatedClient()` to create validated clients.
  */
 export interface Node {
-  receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult>;
+  receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
   cleanup(): Promise<void>;
 }
 
@@ -65,14 +68,14 @@ export interface Node {
  * The validator cannot write — everything needed for validation must exist
  * in the transaction or be readable from current state.
  *
- * @param tx - The transaction to validate
+ * @param msg - The message to validate
  * @param read - Function to read state for validation (read-only)
  * @returns Validation result
  *
  * @example
  * ```typescript
- * const myValidator: Validator = async (tx, read) => {
- *   const [uri, data] = tx
+ * const myValidator: Validator = async (msg, read) => {
+ *   const [uri, data] = msg
  *
  *   // Read state for validation
  *   const balance = await read("accounts://alice/balance")
@@ -86,7 +89,7 @@ export interface Node {
  * ```
  */
 export type Validator<D = unknown> = (
-  tx: Transaction<D>,
+  msg: Message<D>,
   read: <T>(uri: string) => Promise<ReadResult<T>>,
 ) => Promise<{ valid: boolean; error?: string }>;
 
@@ -96,7 +99,7 @@ export type Validator<D = unknown> = (
  * @deprecated Use `NodeProtocolInterface.receive()` directly, or pass clients to `createValidatedClient`.
  */
 export type Processor<D = unknown> = (
-  tx: Transaction<D>,
+  msg: Message<D>,
 ) => Promise<{ success: boolean; error?: string }>;
 
 /**
@@ -112,14 +115,14 @@ export interface NodeConfig<D = unknown> {
   read: ReadInterface;
 
   /**
-   * Optional validator for incoming transactions
-   * If not provided, all transactions are accepted
+   * Optional validator for incoming messages
+   * If not provided, all messages are accepted
    */
   validate?: Validator<D>;
 
   /**
-   * Optional processor for validated transactions
-   * If not provided, transactions are accepted but not persisted
+   * Optional processor for validated messages
+   * If not provided, messages are accepted but not persisted
    */
   process?: Processor<D>;
 }

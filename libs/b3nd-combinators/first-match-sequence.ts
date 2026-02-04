@@ -2,12 +2,12 @@ import type {
   DeleteResult,
   ListOptions,
   ListResult,
+  Message,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   ReadMultiResult,
   ReadResult,
   ReceiveResult,
-  Transaction,
 } from "../b3nd-core/types.ts";
 
 export function firstMatchSequence(
@@ -18,17 +18,17 @@ export function firstMatchSequence(
   }
 
   return {
-    async receive<D>(tx: Transaction<D>): Promise<ReceiveResult> {
-      // Try each client until one accepts the transaction
+    async receive<D>(msg: Message<D>): Promise<ReceiveResult> {
+      // Try each client until one accepts the message
       let lastError: string | undefined;
       for (const c of clients) {
-        const res = await c.receive<D>(tx);
+        const res = await c.receive<D>(msg);
         if (res.accepted) return res;
         lastError = res.error;
       }
       return {
         accepted: false,
-        error: lastError || "No client accepted transaction",
+        error: lastError || "No client accepted message",
       };
     },
 

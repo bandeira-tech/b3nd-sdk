@@ -15,10 +15,10 @@ import type {
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
- * Deserialize transaction data from JSON transport.
+ * Deserialize message data from JSON transport.
  * Unwraps base64-encoded binary marker objects back to Uint8Array.
  */
-function deserializeTxData(data: unknown): unknown {
+function deserializeMsgData(data: unknown): unknown {
   if (
     data &&
     typeof data === "object" &&
@@ -71,7 +71,7 @@ export class MockHttpServer {
         return this.handleSchema();
       }
 
-      // Receive endpoint (unified transaction interface)
+      // Receive endpoint (unified message interface)
       if (url.pathname === "/api/v1/receive") {
         return await this.handleReceive(req);
       }
@@ -148,31 +148,31 @@ export class MockHttpServer {
       );
     }
 
-    // Parse transaction from request body
+    // Parse message from request body
     const body: any = await req.json();
-    const tx = body.tx;
+    const msg = body.tx;
 
-    if (!tx || !Array.isArray(tx) || tx.length < 2) {
+    if (!msg || !Array.isArray(msg) || msg.length < 2) {
       return Response.json(
         {
           accepted: false,
-          error: "Invalid transaction format: expected { tx: [uri, data] }",
+          error: "Invalid message format: expected { tx: [uri, data] }",
         },
         { status: 400 },
       );
     }
 
-    const [uri, rawData] = tx;
+    const [uri, rawData] = msg;
 
     if (!uri || typeof uri !== "string") {
       return Response.json(
-        { accepted: false, error: "Transaction URI is required" },
+        { accepted: false, error: "Message URI is required" },
         { status: 400 },
       );
     }
 
     // Deserialize binary data from base64-encoded wrapper
-    const data = deserializeTxData(rawData);
+    const data = deserializeMsgData(rawData);
 
     const record: PersistenceRecord<unknown> = {
       ts: Date.now(),

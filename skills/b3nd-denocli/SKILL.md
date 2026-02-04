@@ -59,8 +59,8 @@ async function main() {
     case "send": {
       const uri = args[1];
       const data = JSON.parse(args[2]);
-      const txnUri = args[3] || `txn://open/${Date.now()}`;
-      const result = await client.receive([txnUri, {
+      const msgUri = args[3] || `msg://open/${Date.now()}`;
+      const result = await client.receive([msgUri, {
         inputs: [],
         outputs: [[uri, data]],
       }]);
@@ -78,7 +78,7 @@ async function main() {
       break;
     }
     default:
-      console.log("Usage: cli.ts <send|read> <uri> [data] [txnUri]");
+      console.log("Usage: cli.ts <send|read> <uri> [data] [msgUri]");
   }
 }
 
@@ -171,12 +171,12 @@ Deno.test("receive transaction and read", async () => {
   const client = new MemoryClient({
     schema: {
       "test://data": async () => ({ valid: true }),
-      "txn://": async () => ({ valid: true }),
+      "msg://": async () => ({ valid: true }),
     },
   });
 
-  // All state changes go through receive() with transaction envelopes
-  const result = await client.receive(["txn://test/create-item", {
+  // All state changes go through receive() with message envelopes
+  const result = await client.receive(["msg://test/create-item", {
     inputs: [],
     outputs: [["test://data/item1", { name: "Test" }]],
   }]);
@@ -199,11 +199,11 @@ Deno.test("validation error on receive", async () => {
         }
         return { valid: true };
       },
-      "txn://": async () => ({ valid: true }),
+      "msg://": async () => ({ valid: true }),
     },
   });
 
-  const result = await client.receive(["txn://test/bad-item", {
+  const result = await client.receive(["msg://test/bad-item", {
     inputs: [],
     outputs: [["test://strict/item", { other: "value" }]],
   }]);

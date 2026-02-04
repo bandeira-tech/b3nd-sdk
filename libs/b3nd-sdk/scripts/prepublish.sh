@@ -11,7 +11,7 @@ echo "Vendoring source files for JSR publish..."
 rm -rf "$VENDOR"
 
 # Copy needed source (excluding tests, node_modules, dist)
-for lib in b3nd-core b3nd-compose b3nd-blob b3nd-txn b3nd-servers \
+for lib in b3nd-core b3nd-compose b3nd-blob b3nd-msg b3nd-servers \
            b3nd-client-memory b3nd-client-http b3nd-client-ws \
            b3nd-client-postgres b3nd-client-mongo \
            b3nd-combinators b3nd-encrypt b3nd-auth; do

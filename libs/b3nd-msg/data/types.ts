@@ -1,20 +1,20 @@
 /**
- * @b3nd/sdk/txn-data Types
+ * @b3nd/sdk/msg-data Types
  * Level 2: The Inputs/Outputs Convention
  *
- * A standard way to structure transaction data for state transitions.
+ * A standard way to structure message data for state transitions.
  * This is a convention, not a requirement. Protocols that want explicit
  * state transitions use it. Others don't.
  */
 
-import type { Transaction } from "../node-types.ts";
+import type { Message } from "../node-types.ts";
 
 /**
- * Standard transaction data structure for state transitions
+ * Standard message data structure for state transitions
  *
  * @example
  * ```typescript
- * const data: TransactionData = {
+ * const data: MessageData = {
  *   inputs: ["utxo://alice/1", "utxo://alice/2"],
  *   outputs: [
  *     ["utxo://bob/99", 50],
@@ -24,9 +24,9 @@ import type { Transaction } from "../node-types.ts";
  * }
  * ```
  */
-export interface TransactionData<V = unknown> {
+export interface MessageData<V = unknown> {
   /**
-   * URIs consumed or referenced by this transaction
+   * URIs consumed or referenced by this message
    * Semantics (consumed vs referenced) are protocol-defined
    */
   inputs: string[];
@@ -38,16 +38,22 @@ export interface TransactionData<V = unknown> {
   outputs: [uri: string, value: V][];
 }
 
-/**
- * A transaction with the inputs/outputs data convention
- */
-export type StateTransaction<V = unknown> = Transaction<TransactionData<V>>;
+/** @deprecated Use `MessageData` instead */
+export type TransactionData<V = unknown> = MessageData<V>;
 
 /**
- * Extended validation context for transactions using the inputs/outputs convention
- * Provides access to transaction context during program validation
+ * A message with the inputs/outputs data convention
  */
-export interface TransactionValidationContext<V = unknown> {
+export type StateMessage<V = unknown> = Message<MessageData<V>>;
+
+/** @deprecated Use `StateMessage` instead */
+export type StateTransaction<V = unknown> = StateMessage<V>;
+
+/**
+ * Extended validation context for messages using the inputs/outputs convention
+ * Provides access to message context during program validation
+ */
+export interface MessageValidationContext<V = unknown> {
   /**
    * The URI being validated
    */
@@ -59,12 +65,12 @@ export interface TransactionValidationContext<V = unknown> {
   value: V;
 
   /**
-   * All inputs from the transaction
+   * All inputs from the message
    */
   inputs: string[];
 
   /**
-   * All outputs from the transaction (for cross-output validation)
+   * All outputs from the message (for cross-output validation)
    */
   outputs: [uri: string, value: V][];
 
@@ -76,13 +82,19 @@ export interface TransactionValidationContext<V = unknown> {
   ) => Promise<{ success: boolean; record?: { data: T }; error?: string }>;
 }
 
+/** @deprecated Use `MessageValidationContext` instead */
+export type TransactionValidationContext<V = unknown> =
+  MessageValidationContext<
+    V
+  >;
+
 /**
- * Program validator for outputs in transactions using the inputs/outputs convention
+ * Program validator for outputs in messages using the inputs/outputs convention
  *
  * @example Fee requirement validator
  * ```typescript
  * const blobValidator: ProgramValidator = async (ctx) => {
- *   // Find fee output in the same transaction
+ *   // Find fee output in the same message
  *   const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"))
  *   const requiredFee = Math.ceil(ctx.value.length / 1024) // 1 token per KB
  *
@@ -95,7 +107,7 @@ export interface TransactionValidationContext<V = unknown> {
  * ```
  */
 export type ProgramValidator<V = unknown> = (
-  ctx: TransactionValidationContext<V>,
+  ctx: MessageValidationContext<V>,
 ) => Promise<{ valid: boolean; error?: string }>;
 
 /**

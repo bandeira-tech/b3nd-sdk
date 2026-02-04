@@ -1,19 +1,19 @@
 import type { ServerFrontend } from "./node.ts";
 import type {
+  Message,
   NodeProtocolInterface,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Schema,
-  Transaction,
 } from "../b3nd-core/types.ts";
 import type { Node } from "../b3nd-compose/types.ts";
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
- * Deserialize transaction data from JSON transport.
+ * Deserialize message data from JSON transport.
  * Unwraps base64-encoded binary marker objects back to Uint8Array.
  */
-function deserializeTxData(data: unknown): unknown {
+function deserializeMsgData(data: unknown): unknown {
   if (
     data &&
     typeof data === "object" &&
@@ -201,34 +201,34 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
       }
     })();
 
-    const tx = (body as { tx?: Transaction }).tx;
-    if (!tx || !Array.isArray(tx) || tx.length < 2) {
+    const msg = (body as { tx?: Message }).tx;
+    if (!msg || !Array.isArray(msg) || msg.length < 2) {
       return c.json({
         accepted: false,
-        error: "Invalid transaction format: expected { tx: [uri, data] }",
+        error: "Invalid message format: expected { tx: [uri, data] }",
       }, 400);
     }
 
-    const [uri, rawData] = tx;
+    const [uri, rawData] = msg;
     if (!uri || typeof uri !== "string") {
       return c.json(
-        { accepted: false, error: "Transaction URI is required" },
+        { accepted: false, error: "Message URI is required" },
         400,
       );
     }
 
     // Deserialize binary data from base64-encoded wrapper
-    const data = deserializeTxData(rawData);
+    const data = deserializeMsgData(rawData);
 
     // If client is configured, delegate directly
     if (client) {
-      const result = await client.receive([uri, data] as Transaction);
+      const result = await client.receive([uri, data] as Message);
       return c.json(result, result.accepted ? 200 : 400);
     }
 
     // If node is configured, use it directly
     if (node) {
-      const result = await node.receive([uri, data] as Transaction);
+      const result = await node.receive([uri, data] as Message);
       return c.json(result, result.accepted ? 200 : 400);
     }
 
@@ -258,7 +258,7 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
       }, 400);
     }
 
-    const res = await backend.write.receive([uri, data] as Transaction);
+    const res = await backend.write.receive([uri, data] as Message);
     return c.json(res, res.accepted ? 200 : 400);
   });
 
