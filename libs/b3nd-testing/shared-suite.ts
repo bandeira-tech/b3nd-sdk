@@ -455,6 +455,129 @@ export function runSharedSuite(
     });
   }
 
+  // --- readMulti tests ---
+
+  Deno.test({
+    name: `${suiteName} - readMulti reads multiple URIs successfully`,
+    sanitizeOps: false,
+    sanitizeResources: false,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      await client.receive(["store://users/multi-a/profile", { v: 1 }]);
+      await client.receive(["store://users/multi-b/profile", { v: 2 }]);
+      await client.receive(["store://users/multi-c/profile", { v: 3 }]);
+
+      const result = await client.readMulti([
+        "store://users/multi-a/profile",
+        "store://users/multi-b/profile",
+        "store://users/multi-c/profile",
+      ]);
+
+      assertEquals(result.success, true);
+      assertEquals(result.summary.total, 3);
+      assertEquals(result.summary.succeeded, 3);
+      assertEquals(result.summary.failed, 0);
+      assertEquals(result.results.length, 3);
+
+      assertEquals(result.results[0].success, true);
+      if (result.results[0].success) {
+        assertEquals(result.results[0].record.data, { v: 1 });
+      }
+      assertEquals(result.results[1].success, true);
+      if (result.results[1].success) {
+        assertEquals(result.results[1].record.data, { v: 2 });
+      }
+      assertEquals(result.results[2].success, true);
+      if (result.results[2].success) {
+        assertEquals(result.results[2].record.data, { v: 3 });
+      }
+
+      await client.cleanup();
+    },
+  });
+
+  Deno.test({
+    name: `${suiteName} - readMulti partial success`,
+    sanitizeOps: false,
+    sanitizeResources: false,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      await client.receive(["store://users/partial-a/profile", { ok: true }]);
+      await client.receive(["store://users/partial-b/profile", { ok: true }]);
+
+      const result = await client.readMulti([
+        "store://users/partial-a/profile",
+        "store://users/partial-missing/profile",
+        "store://users/partial-b/profile",
+      ]);
+
+      assertEquals(result.success, true);
+      assertEquals(result.summary.total, 3);
+      assertEquals(result.summary.succeeded, 2);
+      assertEquals(result.summary.failed, 1);
+
+      assertEquals(result.results[0].success, true);
+      assertEquals(result.results[1].success, false);
+      assertEquals(result.results[2].success, true);
+
+      await client.cleanup();
+    },
+  });
+
+  Deno.test({
+    name: `${suiteName} - readMulti all fail`,
+    sanitizeOps: false,
+    sanitizeResources: false,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      const result = await client.readMulti([
+        "store://users/ghost-a/profile",
+        "store://users/ghost-b/profile",
+      ]);
+
+      assertEquals(result.success, false);
+      assertEquals(result.summary.total, 2);
+      assertEquals(result.summary.succeeded, 0);
+      assertEquals(result.summary.failed, 2);
+
+      await client.cleanup();
+    },
+  });
+
+  Deno.test(`${suiteName} - readMulti exceeds batch limit`, async () => {
+    const client = await Promise.resolve(factories.happy());
+
+    const uris = Array.from(
+      { length: 51 },
+      (_, i) => `store://users/limit${i}/profile`,
+    );
+    const result = await client.readMulti(uris);
+
+    assertEquals(result.success, false);
+    assertEquals(result.summary.total, 51);
+    assertEquals(result.summary.failed, 51);
+    assertEquals(result.results.length, 0);
+
+    await client.cleanup();
+  });
+
+  Deno.test(`${suiteName} - readMulti empty array`, async () => {
+    const client = await Promise.resolve(factories.happy());
+
+    const result = await client.readMulti([]);
+
+    assertEquals(result.success, false);
+    assertEquals(result.summary.total, 0);
+    assertEquals(result.summary.succeeded, 0);
+    assertEquals(result.summary.failed, 0);
+    assertEquals(result.results.length, 0);
+
+    await client.cleanup();
+  });
+
   // Validation error tests (if validationError factory provided)
   if (factories.validationError) {
     Deno.test(`${suiteName} - validation error on transaction`, async () => {

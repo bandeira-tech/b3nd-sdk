@@ -19,8 +19,15 @@ import type {
   ReadResult,
   Schema,
 } from "../b3nd-core/types.ts";
-import type { Node, ReceiveResult, Transaction } from "../b3nd-compose/types.ts";
-import { decodeBinaryFromJson, encodeBinaryForJson } from "../b3nd-core/binary.ts";
+import type {
+  Node,
+  ReceiveResult,
+  Transaction,
+} from "../b3nd-compose/types.ts";
+import {
+  decodeBinaryFromJson,
+  encodeBinaryForJson,
+} from "../b3nd-core/binary.ts";
 import { isTransactionData } from "../b3nd-txn/data/detect.ts";
 import { generatePostgresSchema } from "./schema.ts";
 
@@ -183,6 +190,14 @@ export class PostgresClient implements NodeProtocolInterface, Node {
   }
 
   async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    if (uris.length === 0) {
+      return {
+        success: false,
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      };
+    }
+
     if (uris.length > 50) {
       return {
         success: false,
@@ -191,26 +206,78 @@ export class PostgresClient implements NodeProtocolInterface, Node {
       };
     }
 
-    const results: ReadMultiResultItem<T>[] = await Promise.all(
-      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-        const result = await this.read<T>(uri);
-        if (result.success && result.record) {
-          return { uri, success: true, record: result.record };
-        }
-        return { uri, success: false, error: result.error || "Read failed" };
-      }),
-    );
+    try {
+      // Single query using ANY($1) instead of N individual queries
+      const table = `${this.tablePrefix}_data`;
+      const res = await this.executor.query(
+        `SELECT uri, data, timestamp as ts FROM ${table} WHERE uri = ANY($1)`,
+        [uris],
+      );
 
-    const succeeded = results.filter((r) => r.success).length;
-    return {
-      success: succeeded > 0,
-      results,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    };
+      // Build a map of found records for O(1) lookup
+      const found = new Map<string, PersistenceRecord<T>>();
+      for (const raw of res.rows || []) {
+        const row = raw as { uri: string; data: unknown; ts: unknown };
+        const rawData = typeof row.data === "string"
+          ? JSON.parse(row.data)
+          : row.data;
+        const decodedData = decodeBinaryFromJson(rawData) as T;
+        found.set(row.uri, {
+          ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
+          data: decodedData,
+        });
+      }
+
+      // Build results in the original URI order
+      const results: ReadMultiResultItem<T>[] = [];
+      let succeeded = 0;
+
+      for (const uri of uris) {
+        const record = found.get(uri);
+        if (record) {
+          results.push({ uri, success: true, record });
+          succeeded++;
+        } else {
+          results.push({ uri, success: false, error: `Not found: ${uri}` });
+        }
+      }
+
+      return {
+        success: succeeded > 0,
+        results,
+        summary: {
+          total: uris.length,
+          succeeded,
+          failed: uris.length - succeeded,
+        },
+      };
+    } catch (error) {
+      // Fallback to individual reads on query failure
+      const results: ReadMultiResultItem<T>[] = await Promise.all(
+        uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
+          const result = await this.read<T>(uri);
+          if (result.success && result.record) {
+            return { uri, success: true, record: result.record };
+          }
+          return {
+            uri,
+            success: false,
+            error: result.error || "Read failed",
+          };
+        }),
+      );
+
+      const succeeded = results.filter((r) => r.success).length;
+      return {
+        success: succeeded > 0,
+        results,
+        summary: {
+          total: uris.length,
+          succeeded,
+          failed: uris.length - succeeded,
+        },
+      };
+    }
   }
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {

@@ -8,14 +8,12 @@
  * 4. Session validation (approved vs revoked)
  */
 
-import { assertEquals, assertRejects } from "@std/assert";
-import {
-  generateTestServerKeys,
-  MemoryWalletClient,
-} from "./memory-client.ts";
+import { assertEquals, assertExists, assertRejects } from "@std/assert";
+import { generateTestServerKeys, MemoryWalletClient } from "./memory-client.ts";
 import { generateSessionKeypair } from "./client.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 import { generateSigningKeyPair, signWithHex, verify } from "../b3nd-encrypt/mod.ts";
+import { createTestEnvironment } from "./testing.ts";
 
 // Test app key (generated once for all tests)
 let testAppKey: string;
@@ -65,8 +63,7 @@ Deno.test("MemoryWalletClient - signup works with approved session", async () =>
 
   // Generate and approve session before signup
   const sessionKeypair = await generateSessionKeypair();
-  const sessionUri =
-    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
   await backend.receive([sessionUri, 1]);
 
   const session = await wallet.signup(appKey, sessionKeypair, {
@@ -175,8 +172,7 @@ Deno.test("MemoryWalletClient - login succeeds with approved session", async () 
 
   // Generate session and approve it
   const sessionKeypair = await generateSessionKeypair();
-  const sessionUri =
-    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
   await backend.receive([sessionUri, 1]); // Approve session
 
   // Login should succeed
@@ -216,8 +212,7 @@ Deno.test("MemoryWalletClient - login fails with revoked session", async () => {
 
   // Generate session and set it as revoked (0)
   const sessionKeypair = await generateSessionKeypair();
-  const sessionUri =
-    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
   await backend.receive([sessionUri, 0]); // Revoked session
 
   // Login should fail - session revoked
@@ -260,8 +255,7 @@ Deno.test("MemoryWalletClient - login fails with wrong password", async () => {
 
   // Generate and approve session
   const sessionKeypair = await generateSessionKeypair();
-  const sessionUri =
-    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
   await backend.receive([sessionUri, 1]);
 
   // Login should fail - wrong password
@@ -306,8 +300,7 @@ Deno.test("MemoryWalletClient - session signature is validated", async () => {
   const sessionKeypair2 = await generateSessionKeypair();
 
   // Only approve session1
-  const sessionUri1 =
-    `mutable://accounts/${appKey}/sessions/${sessionKeypair1.publicKeyHex}`;
+  const sessionUri1 = `mutable://accounts/${appKey}/sessions/${sessionKeypair1.publicKeyHex}`;
   await backend.receive([sessionUri1, 1]);
 
   // Try to login with session1's pubkey but session2's private key (wrong signature)
@@ -482,4 +475,89 @@ Deno.test("session flow - full authentication cycle", async () => {
     password: "fullpass123",
   });
   assertEquals(loginResult3.username, "fulltest");
+});
+
+// --- proxyReadMulti tests ---
+
+Deno.test("wallet.proxyReadMulti - reads multiple URIs with decryption", async () => {
+  const { wallet, signupTestUser, cleanup } = await createTestEnvironment();
+
+  await signupTestUser("test-app", "alice", "password123");
+
+  const write1 = await wallet.proxyWrite({
+    uri: "mutable://data/:key/item1",
+    data: { v: 1, encrypted: true },
+    encrypt: true,
+  });
+  const write2 = await wallet.proxyWrite({
+    uri: "mutable://data/:key/item2",
+    data: { v: 2, encrypted: true },
+    encrypt: true,
+  });
+
+  assertEquals(write1.success, true);
+  assertEquals(write2.success, true);
+
+  const result = await wallet.proxyReadMulti({
+    uris: ["mutable://data/:key/item1", "mutable://data/:key/item2"],
+  });
+
+  assertEquals(result.success, true);
+  assertEquals(result.summary.total, 2);
+  assertEquals(result.summary.succeeded, 2);
+
+  assertExists(result.results[0].decrypted);
+  assertEquals(result.results[0].decrypted, { v: 1, encrypted: true });
+  assertExists(result.results[1].decrypted);
+  assertEquals(result.results[1].decrypted, { v: 2, encrypted: true });
+
+  await cleanup();
+});
+
+Deno.test("wallet.proxyReadMulti - partial success with missing items", async () => {
+  const { wallet, signupTestUser, cleanup } = await createTestEnvironment();
+
+  await signupTestUser("test-app", "bob", "password123");
+
+  await wallet.proxyWrite({
+    uri: "mutable://data/:key/exists",
+    data: { found: true },
+  });
+
+  const result = await wallet.proxyReadMulti({
+    uris: [
+      "mutable://data/:key/exists",
+      "mutable://data/:key/missing",
+    ],
+  });
+
+  assertEquals(result.success, true);
+  assertEquals(result.summary.succeeded, 1);
+  assertEquals(result.summary.failed, 1);
+
+  assertEquals(result.results[0].success, true);
+  if (result.results[0].success && result.results[0].decrypted) {
+    assertEquals(result.results[0].decrypted, { found: true });
+  }
+  assertEquals(result.results[1].success, false);
+
+  await cleanup();
+});
+
+Deno.test("wallet.proxyReadMulti - batch limit exceeded", async () => {
+  const { wallet, signupTestUser, cleanup } = await createTestEnvironment();
+
+  await signupTestUser("test-app", "charlie", "password123");
+
+  const uris = Array.from(
+    { length: 51 },
+    (_, i) => `mutable://data/:key/item${i}`,
+  );
+  const result = await wallet.proxyReadMulti({ uris });
+
+  assertEquals(result.success, false);
+  assertExists(result.error);
+  assertEquals(result.error, "Maximum 50 URIs per request");
+
+  await cleanup();
 });

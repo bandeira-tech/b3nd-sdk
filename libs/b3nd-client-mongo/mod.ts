@@ -19,8 +19,15 @@ import type {
   ReadResult,
   Schema,
 } from "../b3nd-core/types.ts";
-import type { Node, ReceiveResult, Transaction } from "../b3nd-compose/types.ts";
-import { decodeBinaryFromJson, encodeBinaryForJson } from "../b3nd-core/binary.ts";
+import type {
+  Node,
+  ReceiveResult,
+  Transaction,
+} from "../b3nd-compose/types.ts";
+import {
+  decodeBinaryFromJson,
+  encodeBinaryForJson,
+} from "../b3nd-core/binary.ts";
 import { isTransactionData } from "../b3nd-txn/data/detect.ts";
 
 export interface MongoExecutor {
@@ -191,6 +198,14 @@ export class MongoClient implements NodeProtocolInterface, Node {
   }
 
   async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    if (uris.length === 0) {
+      return {
+        success: false,
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      };
+    }
+
     if (uris.length > 50) {
       return {
         success: false,
@@ -199,26 +214,74 @@ export class MongoClient implements NodeProtocolInterface, Node {
       };
     }
 
-    const results: ReadMultiResultItem<T>[] = await Promise.all(
-      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-        const result = await this.read<T>(uri);
-        if (result.success && result.record) {
-          return { uri, success: true, record: result.record };
-        }
-        return { uri, success: false, error: result.error || "Read failed" };
-      }),
-    );
+    try {
+      // Single query using $in instead of N individual findOne calls
+      const docs = await this.executor.findMany({ uri: { $in: uris } });
 
-    const succeeded = results.filter((r) => r.success).length;
-    return {
-      success: succeeded > 0,
-      results,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    };
+      // Build a map of found documents for O(1) lookup
+      const found = new Map<string, PersistenceRecord<T>>();
+      for (const doc of docs) {
+        const docUri = typeof doc.uri === "string" ? doc.uri : undefined;
+        if (!docUri) continue;
+
+        const tsValue = doc.timestamp;
+        const decodedData = decodeBinaryFromJson(doc.data) as T;
+        found.set(docUri, {
+          ts: typeof tsValue === "number" ? tsValue : Number(tsValue),
+          data: decodedData,
+        });
+      }
+
+      // Build results in the original URI order
+      const results: ReadMultiResultItem<T>[] = [];
+      let succeeded = 0;
+
+      for (const uri of uris) {
+        const record = found.get(uri);
+        if (record) {
+          results.push({ uri, success: true, record });
+          succeeded++;
+        } else {
+          results.push({ uri, success: false, error: `Not found: ${uri}` });
+        }
+      }
+
+      return {
+        success: succeeded > 0,
+        results,
+        summary: {
+          total: uris.length,
+          succeeded,
+          failed: uris.length - succeeded,
+        },
+      };
+    } catch (error) {
+      // Fallback to individual reads on query failure
+      const results: ReadMultiResultItem<T>[] = await Promise.all(
+        uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
+          const result = await this.read<T>(uri);
+          if (result.success && result.record) {
+            return { uri, success: true, record: result.record };
+          }
+          return {
+            uri,
+            success: false,
+            error: result.error || "Read failed",
+          };
+        }),
+      );
+
+      const succeeded = results.filter((r) => r.success).length;
+      return {
+        success: succeeded > 0,
+        results,
+        summary: {
+          total: uris.length,
+          succeeded,
+          failed: uris.length - succeeded,
+        },
+      };
+    }
   }
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {

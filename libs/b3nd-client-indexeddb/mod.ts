@@ -21,7 +21,11 @@ import type {
   ReadResult,
   Schema,
 } from "../b3nd-core/types.ts";
-import type { Node, ReceiveResult, Transaction } from "../b3nd-compose/types.ts";
+import type {
+  Node,
+  ReceiveResult,
+  Transaction,
+} from "../b3nd-compose/types.ts";
 
 // Type definitions for IndexedDB (simplified for cross-platform compatibility)
 interface IDBDatabase {
@@ -323,6 +327,14 @@ export class IndexedDBClient implements NodeProtocolInterface, Node {
   }
 
   async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    if (uris.length === 0) {
+      return {
+        success: false,
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      };
+    }
+
     if (uris.length > 50) {
       return {
         success: false,
@@ -331,26 +343,70 @@ export class IndexedDBClient implements NodeProtocolInterface, Node {
       };
     }
 
-    const results: ReadMultiResultItem<T>[] = await Promise.all(
-      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-        const result = await this.read<T>(uri);
-        if (result.success && result.record) {
-          return { uri, success: true, record: result.record };
-        }
-        return { uri, success: false, error: result.error || "Read failed" };
-      }),
-    );
+    try {
+      // Optimized: single transaction for all gets instead of N separate transactions
+      const store = await this.getStore();
+      const results: ReadMultiResultItem<T>[] = [];
+      let succeeded = 0;
 
-    const succeeded = results.filter((r) => r.success).length;
-    return {
-      success: succeeded > 0,
-      results,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    };
+      // Fire all get requests within the same transaction
+      const promises = uris.map(
+        (uri) =>
+          new Promise<ReadMultiResultItem<T>>((resolve) => {
+            const request = store.get(uri);
+
+            request.onsuccess = () => {
+              const storedRecord = request.result as StoredRecord | undefined;
+              if (storedRecord) {
+                resolve({
+                  uri,
+                  success: true,
+                  record: {
+                    ts: storedRecord.ts,
+                    data: storedRecord.data as T,
+                  },
+                });
+              } else {
+                resolve({ uri, success: false, error: "Not found" });
+              }
+            };
+
+            request.onerror = () => {
+              resolve({
+                uri,
+                success: false,
+                error: `Read failed: ${request.error}`,
+              });
+            };
+          }),
+      );
+
+      const settled = await Promise.all(promises);
+      for (const item of settled) {
+        results.push(item);
+        if (item.success) succeeded++;
+      }
+
+      return {
+        success: succeeded > 0,
+        results,
+        summary: {
+          total: uris.length,
+          succeeded,
+          failed: uris.length - succeeded,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        results: uris.map((uri) => ({
+          uri,
+          success: false as const,
+          error: error instanceof Error ? error.message : "Read failed",
+        })),
+        summary: { total: uris.length, succeeded: 0, failed: uris.length },
+      };
+    }
   }
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {

@@ -19,7 +19,11 @@ import type {
   ReadResult,
   Schema,
 } from "../b3nd-core/types.ts";
-import type { Node, ReceiveResult, Transaction } from "../b3nd-compose/types.ts";
+import type {
+  Node,
+  ReceiveResult,
+  Transaction,
+} from "../b3nd-compose/types.ts";
 
 export class LocalStorageClient implements NodeProtocolInterface, Node {
   private config: {
@@ -173,6 +177,14 @@ export class LocalStorageClient implements NodeProtocolInterface, Node {
   }
 
   async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    if (uris.length === 0) {
+      return {
+        success: false,
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      };
+    }
+
     if (uris.length > 50) {
       return {
         success: false,
@@ -181,17 +193,31 @@ export class LocalStorageClient implements NodeProtocolInterface, Node {
       };
     }
 
-    const results: ReadMultiResultItem<T>[] = await Promise.all(
-      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-        const result = await this.read<T>(uri);
-        if (result.success && result.record) {
-          return { uri, success: true, record: result.record };
-        }
-        return { uri, success: false, error: result.error || "Read failed" };
-      }),
-    );
+    // Optimized: direct synchronous getItem calls, no async overhead
+    const results: ReadMultiResultItem<T>[] = [];
+    let succeeded = 0;
 
-    const succeeded = results.filter((r) => r.success).length;
+    for (const uri of uris) {
+      try {
+        const key = this.getKey(uri);
+        const serialized = this.storage.getItem(key);
+
+        if (serialized === null) {
+          results.push({ uri, success: false, error: "Not found" });
+        } else {
+          const record = this.deserialize(serialized) as PersistenceRecord<T>;
+          results.push({ uri, success: true, record });
+          succeeded++;
+        }
+      } catch (error) {
+        results.push({
+          uri,
+          success: false,
+          error: error instanceof Error ? error.message : "Read failed",
+        });
+      }
+    }
+
     return {
       success: succeeded > 0,
       results,

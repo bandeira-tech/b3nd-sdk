@@ -11,7 +11,11 @@ import type {
   ReadResult,
   Schema,
 } from "../b3nd-core/types.ts";
-import type { Node, ReceiveResult, Transaction } from "../b3nd-compose/types.ts";
+import type {
+  Node,
+  ReceiveResult,
+  Transaction,
+} from "../b3nd-compose/types.ts";
 import { isTransactionData } from "../b3nd-txn/data/detect.ts";
 
 type MemoryClientStorageNode<T> = {
@@ -221,30 +225,61 @@ export class MemoryClient implements NodeProtocolInterface, Node {
     });
   }
 
-  public async readMulti<T = unknown>(
+  public readMulti<T = unknown>(
     uris: string[],
   ): Promise<ReadMultiResult<T>> {
+    if (uris.length === 0) {
+      return Promise.resolve({
+        success: false,
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      });
+    }
+
     // Enforce batch size limit
     if (uris.length > 50) {
-      return {
+      return Promise.resolve({
         success: false,
         results: [],
         summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
+      });
     }
 
-    const results: ReadMultiResultItem<T>[] = await Promise.all(
-      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-        const result = await this.read<T>(uri);
-        if (result.success && result.record) {
-          return { uri, success: true, record: result.record };
-        }
-        return { uri, success: false, error: result.error || "Read failed" };
-      }),
-    );
+    // Optimized: direct synchronous tree lookups, no async overhead
+    const results: ReadMultiResultItem<T>[] = [];
+    let succeeded = 0;
 
-    const succeeded = results.filter((r) => r.success).length;
-    return {
+    for (const uri of uris) {
+      const result = target(uri, this.schema, this.storage);
+      if (!result.success) {
+        results.push({ uri, success: false, error: result.error });
+        continue;
+      }
+
+      let current: MemoryClientStorageNode<unknown> | undefined = result.node;
+      let found = true;
+
+      for (const part of result.parts.filter(Boolean)) {
+        current = current?.children?.get(part);
+        if (!current) {
+          found = false;
+          break;
+        }
+      }
+
+      if (found && current?.value) {
+        results.push({
+          uri,
+          success: true,
+          record: current.value as PersistenceRecord<T>,
+        });
+        succeeded++;
+      } else {
+        results.push({ uri, success: false, error: "Not found" });
+      }
+    }
+
+    return Promise.resolve({
       success: succeeded > 0,
       results,
       summary: {
@@ -252,7 +287,7 @@ export class MemoryClient implements NodeProtocolInterface, Node {
         succeeded,
         failed: uris.length - succeeded,
       },
-    };
+    });
   }
 
   public list(uri: string, options?: ListOptions): Promise<ListResult> {

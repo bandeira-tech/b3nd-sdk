@@ -16,7 +16,11 @@ import type {
   ReadMultiResultItem,
   ReadResult,
 } from "../b3nd-core/types.ts";
-import type { Node, ReceiveResult, Transaction } from "../b3nd-compose/types.ts";
+import type {
+  Node,
+  ReceiveResult,
+  Transaction,
+} from "../b3nd-compose/types.ts";
 import { encodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
@@ -195,6 +199,14 @@ export class HttpClient implements NodeProtocolInterface, Node {
   }
 
   async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    if (uris.length === 0) {
+      return {
+        success: false,
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      };
+    }
+
     // Enforce batch size limit
     if (uris.length > 50) {
       return {
