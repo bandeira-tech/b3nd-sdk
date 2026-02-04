@@ -9,7 +9,7 @@
   },
   "tasks": {
     "check": "deno check src/mod.ts",
-    "publish:jsr": "deno publish --allow-dirty"
+    "publish:jsr": "bash scripts/prepublish.sh && deno publish --allow-dirty; bash scripts/postpublish.sh"
   },
   "compilerOptions": {
     "strict": true,
@@ -25,10 +25,19 @@
       "dist/",
       "build/",
       "node_modules/",
+      "scripts/",
       "build*.ts",
       ".env*",
       "*.test.ts",
-      "*.js"
+      "*.js",
+      "*.lock",
+      "package.json",
+      "package-lock.json",
+      "tsup.config.ts",
+      "tsconfig.web.json",
+      ".npmignore",
+      "Makefile",
+      "BROWSER_USER_MANUAL.md"
     ]
   }
 }

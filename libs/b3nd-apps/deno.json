@@ -1,5 +1,4 @@
 {
-  "name": "@b3nd/apps",
   "exports": {
     ".": "./mod.ts"
   },

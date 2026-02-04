@@ -76,14 +76,14 @@ export type {
   WebSocketRequest,
   WebSocketResponse,
   WriteResult,
-} from "@b3nd/core/types";
+} from "../../b3nd-core/types.ts";
 
 // Client implementations
-export { MemoryClient } from "@b3nd/client-memory";
-export { HttpClient } from "@b3nd/client-http";
-export { WebSocketClient } from "@b3nd/client-ws";
-export { PostgresClient } from "@b3nd/client-postgres";
-export { MongoClient } from "@b3nd/client-mongo";
+export { MemoryClient } from "../../b3nd-client-memory/mod.ts";
+export { HttpClient } from "../../b3nd-client-http/mod.ts";
+export { WebSocketClient } from "../../b3nd-client-ws/mod.ts";
+export { PostgresClient } from "../../b3nd-client-postgres/mod.ts";
+export { MongoClient } from "../../b3nd-client-mongo/mod.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 
@@ -93,22 +93,25 @@ export {
   generateCompleteSchemaSQL,
   generatePostgresSchema,
   type SchemaInitOptions,
-} from "@b3nd/client-postgres/schema";
+} from "../../b3nd-client-postgres/schema.ts";
 
 // Combinators
-export { firstMatchSequence, parallelBroadcast } from "@b3nd/combinators";
+export {
+  firstMatchSequence,
+  parallelBroadcast,
+} from "../../b3nd-combinators/mod.ts";
 
 // Server primitives
-export { createServerNode } from "@b3nd/servers/node";
-export * as servers from "@b3nd/servers/http";
-export * as wsservers from "@b3nd/servers/websocket";
+export { createServerNode } from "../../b3nd-servers/node.ts";
+export * as servers from "../../b3nd-servers/http.ts";
+export * as wsservers from "../../b3nd-servers/websocket.ts";
 
 // Crypto utilities
-export { pemToCryptoKey } from "@b3nd/encrypt";
-export { deriveObfuscatedPath } from "@b3nd/encrypt/utils";
+export { pemToCryptoKey } from "../../b3nd-encrypt/mod.ts";
+export { deriveObfuscatedPath } from "../../b3nd-encrypt/utils.ts";
 
 // Unified Node system
-export { createNode } from "@b3nd/compose";
+export { createNode } from "../../b3nd-compose/mod.ts";
 export type {
   Node,
   NodeConfig,
@@ -117,7 +120,7 @@ export type {
   ReceiveResult,
   Transaction,
   Validator,
-} from "@b3nd/compose";
+} from "../../b3nd-compose/mod.ts";
 export {
   // Built-in validators
   accept,
@@ -139,17 +142,17 @@ export {
   txnSchema,
   uriPattern,
   when,
-} from "@b3nd/compose";
+} from "../../b3nd-compose/mod.ts";
 
 // Legacy transaction layer (deprecated - use node system instead)
-export { createTransactionNode } from "@b3nd/txn/node";
+export { createTransactionNode } from "../../b3nd-txn/node-mod.ts";
 export type {
   SubmitResult,
   Transaction as LegacyTransaction,
   TransactionNode,
   TransactionNodeConfig,
   TransactionValidator,
-} from "@b3nd/txn/node";
+} from "../../b3nd-txn/node-mod.ts";
 
 // Transaction data convention (Level 2)
 export {
@@ -157,11 +160,11 @@ export {
   createOutputValidator,
   extractProgram,
   isTransactionData,
-} from "@b3nd/txn/data";
+} from "../../b3nd-txn/data/mod.ts";
 export type {
   ProgramSchema,
   ProgramValidator,
   StateTransaction,
   TransactionData,
   TransactionValidationContext,
-} from "@b3nd/txn/data";
+} from "../../b3nd-txn/data/mod.ts";
