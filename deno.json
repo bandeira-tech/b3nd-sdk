@@ -1,5 +1,51 @@
 {
+  "name": "@bandeira-tech/b3nd-sdk",
+  "version": "0.7.1",
+  "description": "Universal persistence SDK with URI-based addressing, encryption, and multi-backend support (PostgreSQL, HTTP, WebSocket, in-memory)",
+  "exports": "./src/mod.ts",
   "nodeModulesDir": "auto",
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.15",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10"
+  },
+  "tasks": {
+    "check": "deno check src/mod.ts",
+    "publish:jsr": "bash scripts/prepublish.sh && deno publish --allow-dirty; bash scripts/postpublish.sh"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable",
+      "deno.ns"
+    ]
+  },
+  "publish": {
+    "exclude": [
+      "apps/",
+      "libs/",
+      "tests/",
+      "skills/",
+      ".github/",
+      "scripts/",
+      "dist/",
+      "build/",
+      "node_modules/",
+      "build*.ts",
+      ".env*",
+      "*.test.ts",
+      "*.js",
+      "*.lock",
+      "package.json",
+      "package-lock.json",
+      "tsup.config.ts",
+      "tsconfig.web.json",
+      ".npmignore",
+      "Makefile",
+      "BROWSER_USER_MANUAL.md"
+    ]
+  },
   "workspace": [
     "libs/b3nd-core",
     "libs/b3nd-compose",
@@ -15,7 +61,6 @@
     "libs/b3nd-client-localstorage",
     "libs/b3nd-combinators",
     "libs/b3nd-testing",
-    "libs/b3nd-sdk",
     "libs/b3nd-auth",
     "libs/b3nd-encrypt",
     "libs/b3nd-wallet",
