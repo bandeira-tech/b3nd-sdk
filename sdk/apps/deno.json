@@ -1,6 +1,0 @@
-{
-  "name": "@b3nd/sdk/apps",
-  "imports": {
-    "@b3nd/sdk": "../build/mod.js"
-  }
-}

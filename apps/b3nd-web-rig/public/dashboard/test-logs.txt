@@ -1,0 +1,166 @@
+[0m[32mCheck[0m auth/tests/auth.test.ts
+[0m[32mCheck[0m tests/mongo-client.test.ts
+[0m[32mCheck[0m tests/read-multi.test.ts
+[0m[32mCheck[0m tests/memory-client.test.ts
+[0m[32mCheck[0m tests/postgres-client.test.ts
+[0m[32mCheck[0m tests/http-client.test.ts
+[0m[32mCheck[0m tests/binary-operations.test.ts
+[0m[32mCheck[0m tests/wallet.test.ts
+[0m[32mCheck[0m tests/websocket-client.test.ts
+[0m[32mCheck[0m tests/txn.test.ts
+[0m[38;5;245mrunning 10 tests from ./auth/tests/auth.test.ts[0m
+pubkey-based access control ... [0m[32mok[0m [0m[38;5;245m(8ms)[0m
+signature verification ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+multiple users signing ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+relative path access control ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+cascading access control ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+combined access control ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+multiple path cascading ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+comprehensive cascading demonstration ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+pubkey namespace protection ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+comprehensive feature demonstration ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+[0m[38;5;245mrunning 15 tests from ./tests/mongo-client.test.ts[0m
+MongoClient - receive transaction and read ... [0m[32mok[0m [0m[38;5;245m(31ms)[0m
+MongoClient - receive transaction creates timestamp ... [0m[32mok[0m [0m[38;5;245m(9ms)[0m
+MongoClient - read non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(6ms)[0m
+MongoClient - list returns items ... [0m[32mok[0m [0m[38;5;245m(7ms)[0m
+MongoClient - list with pagination ... [0m[32mok[0m [0m[38;5;245m(13ms)[0m
+MongoClient - list with pattern filter ... [0m[32mok[0m [0m[38;5;245m(9ms)[0m
+MongoClient - delete removes item ... [0m[32mok[0m [0m[38;5;245m(6ms)[0m
+MongoClient - delete non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(5ms)[0m
+MongoClient - health returns status ... [0m[32mok[0m [0m[38;5;245m(6ms)[0m
+MongoClient - getSchema returns array ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MongoClient - cleanup does not throw ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MongoClient - receive and read binary data ... [0m[32mok[0m [0m[38;5;245m(5ms)[0m
+MongoClient - receive and read large binary data ... [0m[32mok[0m [0m[38;5;245m(7ms)[0m
+MongoClient - delete binary data ... [0m[32mok[0m [0m[38;5;245m(21ms)[0m
+MongoClient - validation error on transaction ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+[0m[38;5;245mrunning 8 tests from ./tests/read-multi.test.ts[0m
+MemoryClient.readMulti - reads multiple URIs successfully ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient.readMulti - partial success ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient.readMulti - all fail ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient.readMulti - exceeds batch limit ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient.readMulti - empty array ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+wallet.proxyReadMulti - reads multiple URIs with decryption ... [0m[32mok[0m [0m[38;5;245m(41ms)[0m
+wallet.proxyReadMulti - partial success with missing items ... [0m[32mok[0m [0m[38;5;245m(27ms)[0m
+wallet.proxyReadMulti - batch limit exceeded ... [0m[32mok[0m [0m[38;5;245m(25ms)[0m
+[0m[38;5;245mrunning 20 tests from ./tests/memory-client.test.ts[0m
+MemoryClient - receive transaction and read ... [0m[32mok[0m [0m[38;5;245m(8ms)[0m
+MemoryClient - receive transaction creates timestamp ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - read non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - list returns items ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - list with pagination ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - list with pattern filter ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - delete removes item ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - delete non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - health returns status ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - getSchema returns array ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - cleanup does not throw ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient - validation error on transaction ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient [Node] - receive and read ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient [Node] - receive multiple transactions ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient [Node] - receive overwrites existing data ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient [Node] - receive with empty URI returns error ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient [Node] - receive with null data ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient [Node] - list after receive ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient [Node] - readMulti after receive ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryClient [Node] - receive validation error ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+[0m[38;5;245mrunning 15 tests from ./tests/postgres-client.test.ts[0m
+PostgresClient - receive transaction and read ... [0m[32mok[0m [0m[38;5;245m(24ms)[0m
+PostgresClient - receive transaction creates timestamp ... [0m[32mok[0m [0m[38;5;245m(15ms)[0m
+PostgresClient - read non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(12ms)[0m
+PostgresClient - list returns items ... [0m[32mok[0m [0m[38;5;245m(13ms)[0m
+PostgresClient - list with pagination ... [0m[32mok[0m [0m[38;5;245m(17ms)[0m
+PostgresClient - list with pattern filter ... [0m[32mok[0m [0m[38;5;245m(14ms)[0m
+PostgresClient - delete removes item ... [0m[32mok[0m [0m[38;5;245m(10ms)[0m
+PostgresClient - delete non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(12ms)[0m
+PostgresClient - health returns status ... [0m[32mok[0m [0m[38;5;245m(10ms)[0m
+PostgresClient - getSchema returns array ... [0m[32mok[0m [0m[38;5;245m(9ms)[0m
+PostgresClient - cleanup does not throw ... [0m[32mok[0m [0m[38;5;245m(9ms)[0m
+PostgresClient - receive and read binary data ... [0m[32mok[0m [0m[38;5;245m(12ms)[0m
+PostgresClient - receive and read large binary data ... [0m[32mok[0m [0m[38;5;245m(10ms)[0m
+PostgresClient - delete binary data ... [0m[32mok[0m [0m[38;5;245m(12ms)[0m
+PostgresClient - validation error on transaction ... [0m[32mok[0m [0m[38;5;245m(8ms)[0m
+[0m[38;5;245mrunning 20 tests from ./tests/http-client.test.ts[0m
+HttpClient - receive transaction and read ... [0m[32mok[0m [0m[38;5;245m(5ms)[0m
+HttpClient - receive transaction creates timestamp ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - read non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - list returns items ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+HttpClient - list with pagination ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+HttpClient - list with pattern filter ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+HttpClient - delete removes item ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - delete non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - health returns status ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - getSchema returns array ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - cleanup does not throw ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - receive and read binary data ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - receive and read large binary data ... [0m[32mok[0m [0m[38;5;245m(4ms)[0m
+HttpClient - delete binary data ... [0m[32mok[0m [0m[38;5;245m(3ms)[0m
+HttpClient - validation error on transaction ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - connection error handling ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - cleanup servers ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - custom headers configuration ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - instance ID configuration ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+HttpClient - timeout configuration ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+[0m[38;5;245mrunning 13 tests from ./tests/binary-operations.test.ts[0m
+Binary Operations - setup ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+Binary - write and read PNG image ... [0m[32mok[0m [0m[38;5;245m(12ms)[0m
+Binary - write and read JPEG image ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+Binary - write and read WebAssembly module ... [0m[32mok[0m [0m[38;5;245m(5ms)[0m
+Binary - write and read font file ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+Binary - write and read large file (10KB) ... [0m[32mok[0m [0m[38;5;245m(2ms)[0m
+Binary - write and read very large file (100KB) ... [0m[32mok[0m [0m[38;5;245m(4ms)[0m
+Binary - write empty binary data ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+Binary - overwrite existing binary file ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+Binary - delete binary file ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+Binary - multiple files in same directory ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+Binary - mixed JSON and binary operations ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+Binary Operations - teardown ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+[0m[38;5;245mrunning 12 tests from ./tests/wallet.test.ts[0m
+generateSessionKeypair - creates valid Ed25519 keypair ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+generateSessionKeypair - creates unique keypairs ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+MemoryWalletClient - signup works with approved session ... [0m[32mok[0m [0m[38;5;245m(31ms)[0m
+MemoryWalletClient - signup fails without session approval ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+MemoryWalletClient - login fails without session approval ... [0m[32mok[0m [0m[38;5;245m(26ms)[0m
+MemoryWalletClient - login succeeds with approved session ... [0m[32mok[0m [0m[38;5;245m(48ms)[0m
+MemoryWalletClient - login fails with revoked session ... [0m[32mok[0m [0m[38;5;245m(24ms)[0m
+MemoryWalletClient - login fails with wrong password ... [0m[32mok[0m [0m[38;5;245m(46ms)[0m
+MemoryWalletClient - session signature is validated ... [0m[32mok[0m [0m[38;5;245m(25ms)[0m
+MemoryWalletClient - proxyWrite/proxyRead work after login ... [0m[32mok[0m [0m[38;5;245m(26ms)[0m
+createTestEnvironment - loginTestUser generates and approves session ... [0m[32mok[0m [0m[38;5;245m(49ms)[0m
+session flow - full authentication cycle ... [0m[32mok[0m [0m[38;5;245m(104ms)[0m
+[0m[38;5;245mrunning 20 tests from ./tests/websocket-client.test.ts[0m
+WebSocketClient - receive transaction and read ... [0m[32mok[0m [0m[38;5;245m(28ms)[0m
+WebSocketClient - receive transaction creates timestamp ... [0m[32mok[0m [0m[38;5;245m(26ms)[0m
+WebSocketClient - read non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(19ms)[0m
+WebSocketClient - list returns items ... [0m[32mok[0m [0m[38;5;245m(38ms)[0m
+WebSocketClient - list with pagination ... [0m[32mok[0m [0m[38;5;245m(93ms)[0m
+WebSocketClient - list with pattern filter ... [0m[32mok[0m [0m[38;5;245m(38ms)[0m
+WebSocketClient - delete removes item ... [0m[32mok[0m [0m[38;5;245m(32ms)[0m
+WebSocketClient - delete non-existent returns error ... [0m[32mok[0m [0m[38;5;245m(18ms)[0m
+WebSocketClient - health returns status ... [0m[32mok[0m [0m[38;5;245m(19ms)[0m
+WebSocketClient - getSchema returns array ... [0m[32mok[0m [0m[38;5;245m(19ms)[0m
+WebSocketClient - cleanup does not throw ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+WebSocketClient - receive and read binary data ... [0m[32mok[0m [0m[38;5;245m(25ms)[0m
+WebSocketClient - receive and read large binary data ... [0m[32mok[0m [0m[38;5;245m(25ms)[0m
+WebSocketClient - delete binary data ... [0m[32mok[0m [0m[38;5;245m(33ms)[0m
+WebSocketClient - validation error on transaction ... [0m[32mok[0m [0m[38;5;245m(19ms)[0m
+WebSocketClient - connection error handling ... [0m[32mok[0m [0m[38;5;245m(37ms)[0m
+WebSocketClient - connection management ... [0m[32mok[0m [0m[38;5;245m(70ms)[0m
+WebSocketClient - reconnection configuration ... [0m[32mok[0m [0m[38;5;245m(68ms)[0m
+WebSocketClient - authentication configuration ... [0m[32mok[0m [0m[38;5;245m(71ms)[0m
+WebSocketClient - timeout configuration ... [0m[32mok[0m [0m[38;5;245m(71ms)[0m
+[0m[38;5;245mrunning 12 tests from ./tests/txn.test.ts[0m
+createTransactionNode - accepts valid transaction ... [0m[32mok[0m [0m[38;5;245m(1ms)[0m
+createTransactionNode - rejects invalid transaction ... [0m[32mok[0m [0m[38;5;245m(8ms)[0m
+createTransactionNode - validator can read state ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+createTransactionNode - propagates to multiple peers ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+createTransactionNode - rejects transaction without URI ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+extractProgram - extracts protocol://hostname ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+extractProgram - returns null for invalid URIs ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+createOutputValidator - validates outputs against schema ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+createOutputValidator - provides cross-output access ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+createOutputValidator - with preValidate ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+combineValidators - all must pass ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+integration - transaction node with output validator ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+[0m[32mok[0m | 145 passed | 0 failed [0m[38;5;245m(2s)[0m

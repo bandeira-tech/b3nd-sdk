@@ -909,7 +909,7 @@ test.describe('Resource CRUD', () => {
 
 ## Key Files Reference
 
-- `explorer/app/src/App.tsx` - Main app with React Query + Zustand
-- `explorer/app/src/stores/appStore.ts` - Zustand store with persistence
-- `explorer/app/src/adapters/HttpAdapter.ts` - HttpClient adapter pattern
-- `explorer/app/src/types/index.ts` - TypeScript types for app state
+- `apps/b3nd-web-rig/src/App.tsx` - Main app with React Query + Zustand
+- `apps/b3nd-web-rig/src/stores/appStore.ts` - Zustand store with persistence
+- `apps/b3nd-web-rig/src/adapters/HttpAdapter.ts` - HttpClient adapter pattern
+- `apps/b3nd-web-rig/src/types/index.ts` - TypeScript types for app state

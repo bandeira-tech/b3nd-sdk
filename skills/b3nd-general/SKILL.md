@@ -615,13 +615,13 @@ Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 
 ## bnd CLI Tool
 
-Command-line access to B3nd nodes at `cli/bnd`:
+Command-line access to B3nd nodes at `apps/b3nd-cli/bnd`:
 
 ```bash
-./cli/bnd read mutable://users/alice/profile
-./cli/bnd list mutable://users/
-./cli/bnd config
-./cli/bnd conf node http://localhost:9942
+./apps/b3nd-cli/bnd read mutable://users/alice/profile
+./apps/b3nd-cli/bnd list mutable://users/
+./apps/b3nd-cli/bnd config
+./apps/b3nd-cli/bnd conf node http://localhost:9942
 ```
 
 ## Developer Dashboard
@@ -629,15 +629,15 @@ Command-line access to B3nd nodes at `cli/bnd`:
 Test results browser and source code explorer:
 
 ```bash
-cd explorer/dashboard && deno task dashboard:build
-cd explorer/app && npm run dev  # http://localhost:5555/dashboard
+cd apps/sdk-inspector && deno task dashboard:build
+cd apps/b3nd-web-rig && npm run dev  # http://localhost:5555/dashboard
 ```
 
 Features: 125 tests across 8 test files, browsable by theme (SDK Core, Network, Database, Auth, Binary, E2E), source code with line numbers.
 
 ## Explorer Web App
 
-The React app at `explorer/app/` provides:
+The React app at `apps/b3nd-web-rig/` provides:
 - **Explorer** (`/explorer/*`) — Browse B3nd data by URI
 - **Writer** (`/writer/*`) — Write data to B3nd nodes
 - **Dashboard** (`/dashboard/*`) — Test results and code exploration

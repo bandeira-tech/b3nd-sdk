@@ -4,41 +4,43 @@
 
 ```
 b3nd/
-├── sdk/                    # Core SDK (Deno/JSR + NPM)
-│   ├── src/                # Core types, node system, mod.ts
-│   │   └── node/           # Unified node: createNode, validators, processors, composition
-│   ├── clients/            # Client implementations (memory, http, websocket, postgres, mongo, etc.)
-│   ├── txn-data/           # TransactionData convention (detect, types, validators)
-│   ├── txn/                # Legacy transaction node (deprecated)
-│   ├── blob/               # Content-addressed storage utilities
-│   ├── encrypt/            # Client-side encryption (X25519/Ed25519/AES-GCM)
-│   ├── wallet/             # Wallet client (auth, proxy read/write)
-│   ├── wallet-server/      # Wallet server implementation
-│   ├── auth/               # Pubkey-based access control
-│   ├── servers/            # HTTP + WebSocket server primitives
-│   ├── apps/               # Apps client
-│   ├── tests/              # All test suites
-│   ├── deno.json           # JSR: @bandeira-tech/b3nd-sdk v0.6.0
-│   └── package.json        # NPM: @bandeira-tech/b3nd-web v0.5.2
-├── installations/          # Deployable server templates
-│   ├── http-server/        # Multi-backend HTTP node (Hono) — generic schema-based API
-│   ├── app-backend/        # Application backend scaffold
-│   └── wallet-server/      # Wallet/auth server
-├── explorer/               # Developer tools environment
-│   ├── app/                # React/Vite data explorer UI (port 5555)
-│   ├── dashboard/          # Test runner + monitoring backend (port 5556, WebSocket)
-│   ├── docker-compose.yml  # Dev environment: API server + dashboard + frontend
-│   └── dev.sh              # Single-command dev startup
-├── cli/                    # bnd CLI tool (Deno, compiled binary)
-├── skills/                 # Claude Code plugin skills
-│   ├── b3nd-general/       # URI schemes, protocols, encryption, wallet
-│   ├── b3nd-sdk/           # Deno/JSR SDK — clients, node system, transactions
-│   ├── b3nd-web/           # NPM browser package
-│   ├── b3nd-webapp/        # React apps with B3nd
-│   └── b3nd-denocli/       # Deno CLI tools with B3nd
-├── .claude-plugin/         # Plugin manifest + MCP server
-│   └── mcp-server/         # Deno MCP server — multi-backend CRUD tools
-└── AGENTS.md               # This file
+├── libs/                       # SDK packages
+│   ├── b3nd-sdk/               # Core SDK (Deno/JSR + NPM)
+│   │   ├── src/                # Core types, node system, mod.ts
+│   │   │   └── node/           # Unified node: createNode, validators, processors, composition
+│   │   ├── clients/            # Client implementations (memory, http, websocket, postgres, mongo, etc.)
+│   │   │   └── combinators/    # Client composition utilities
+│   │   ├── txn-data/           # TransactionData convention (detect, types, validators)
+│   │   ├── txn/                # Legacy transaction node (deprecated)
+│   │   ├── blob/               # Content-addressed storage utilities
+│   │   ├── servers/            # HTTP + WebSocket server primitives
+│   │   ├── testing/            # Shared test suites (shared-suite.ts, node-suite.ts, mock-http-server.ts)
+│   │   ├── deno.json           # JSR: @bandeira-tech/b3nd-sdk v0.6.0
+│   │   └── package.json        # NPM: @bandeira-tech/b3nd-web v0.5.2
+│   ├── b3nd-auth/              # Pubkey-based access control
+│   ├── b3nd-encrypt/           # Client-side encryption (X25519/Ed25519/AES-GCM)
+│   ├── b3nd-wallet/            # Wallet client (auth, proxy read/write)
+│   ├── b3nd-wallet-server/     # Wallet server implementation
+│   └── b3nd-apps/              # Apps client
+├── apps/                       # All applications
+│   ├── b3nd-node/              # Multi-backend HTTP node (Hono) — generic schema-based API
+│   ├── apps-node/              # Application backend scaffold
+│   ├── wallet-node/            # Wallet/auth server
+│   ├── b3nd-web-rig/           # React/Vite data explorer UI (port 5555)
+│   ├── sdk-inspector/          # Test runner + monitoring backend (port 5556, WebSocket)
+│   ├── b3nd-cli/               # bnd CLI tool (Deno, compiled binary)
+│   └── website/                # Static site
+├── tests/                      # E2E tests
+├── skills/                     # Claude Code plugin skills
+│   ├── b3nd-general/           # URI schemes, protocols, encryption, wallet
+│   ├── b3nd-sdk/               # Deno/JSR SDK — clients, node system, transactions
+│   ├── b3nd-web/               # NPM browser package
+│   ├── b3nd-webapp/            # React apps with B3nd
+│   └── b3nd-denocli/           # Deno CLI tools with B3nd
+├── .claude-plugin/             # Plugin manifest + MCP server
+│   └── mcp-server/             # Deno MCP server — multi-backend CRUD tools
+├── deno.json                   # Root workspace config
+└── AGENTS.md                   # This file
 ```
 
 ## Core Architecture
@@ -114,7 +116,7 @@ These commands are the canonical way to verify the SDK. Always run them after ma
 ### Quick Verification (no Docker required)
 
 ```bash
-cd sdk
+cd libs/b3nd-sdk
 
 # Format check (CI runs this — must pass)
 deno fmt --check src/
@@ -132,7 +134,7 @@ deno fmt --check src/ && deno check src/mod.ts && deno task test
 ### Full Verification (requires Docker containers)
 
 ```bash
-cd sdk
+cd libs/b3nd-sdk
 
 # Integration tests — reuse running containers or start new ones
 deno task test:integration
@@ -148,20 +150,20 @@ deno fmt --check src/ && deno check src/mod.ts && deno task test && deno task te
 ### Transaction-Specific Tests
 
 ```bash
-cd sdk
-deno test -A tests/txn-unpack.test.ts tests/txn-clients.test.ts
+cd libs/b3nd-sdk
+deno test -A txn-data/txn-unpack.test.ts txn-data/txn-clients.test.ts
 ```
 
 ### HTTP Server Type Check
 
 ```bash
-cd installations/http-server && deno check mod.ts
+cd apps/b3nd-node && deno check mod.ts
 ```
 
 ### Dashboard Artifacts
 
 ```bash
-cd explorer/dashboard
+cd apps/sdk-inspector
 deno task dashboard:build    # Regenerate test-results.json + test-logs.txt
 ```
 
@@ -185,12 +187,12 @@ These are applications and services inside this monorepo:
 
 | App | Path | Stack | Description |
 |-----|------|-------|-------------|
-| HTTP Server | `installations/http-server/` | Deno, Hono | Generic multi-backend API server. Loads schema modules dynamically. Supports Postgres, Mongo, Memory, HTTP backends via `BACKEND_URL`. |
-| App Backend | `installations/app-backend/` | Deno, Hono | Application backend scaffold with Docker deployment. |
-| Wallet Server | `installations/wallet-server/` | Deno | Wallet/auth server for pubkey-based authentication. |
-| Explorer App | `explorer/app/` | React, Vite, Tailwind | Data explorer UI for browsing B3nd nodes. Port 5555. Uses `@bandeira-tech/b3nd-web`. |
-| Dashboard | `explorer/dashboard/` | Deno, Hono, WebSocket | Live test runner and monitoring backend. Port 5556. Generates test artifacts. |
-| bnd CLI | `cli/` | Deno | Command-line interface for B3nd nodes. `./cli/bnd read <uri>`, `./cli/bnd list <uri>`. |
+| HTTP Server | `apps/b3nd-node/` | Deno, Hono | Generic multi-backend API server. Loads schema modules dynamically. Supports Postgres, Mongo, Memory, HTTP backends via `BACKEND_URL`. |
+| App Backend | `apps/apps-node/` | Deno, Hono | Application backend scaffold with Docker deployment. |
+| Wallet Server | `apps/wallet-node/` | Deno | Wallet/auth server for pubkey-based authentication. |
+| Explorer App | `apps/b3nd-web-rig/` | React, Vite, Tailwind | Data explorer UI for browsing B3nd nodes. Port 5555. Uses `@bandeira-tech/b3nd-web`. |
+| Dashboard | `apps/sdk-inspector/` | Deno, Hono, WebSocket | Live test runner and monitoring backend. Port 5556. Generates test artifacts. |
+| bnd CLI | `apps/b3nd-cli/` | Deno | Command-line interface for B3nd nodes. `./apps/b3nd-cli/bnd read <uri>`, `./apps/b3nd-cli/bnd list <uri>`. |
 | MCP Server | `.claude-plugin/mcp-server/` | Deno | Multi-backend CRUD tools for Claude Code. Reads `B3ND_BACKENDS` env. |
 
 ### External Applications
@@ -224,10 +226,10 @@ Skills are the primary way agents learn the current SDK API. When the SDK change
 ### Skill Update Protocol
 
 After any SDK API change:
-1. Run verification: `cd sdk && deno fmt --check src/ && deno check src/mod.ts && deno task test`
+1. Run verification: `cd libs/b3nd-sdk && deno fmt --check src/ && deno check src/mod.ts && deno task test`
 2. Update affected skills in `skills/` to reflect new exports, patterns, examples
 3. Update `AGENTS.md` if the change affects repo structure or verification commands
-4. Rebuild dashboard artifacts if tests changed: `cd explorer/dashboard && deno task dashboard:build`
+4. Rebuild dashboard artifacts if tests changed: `cd apps/sdk-inspector && deno task dashboard:build`
 
 ## Agent Workflow
 
@@ -235,10 +237,10 @@ After any SDK API change:
 
 **Every session that changes code MUST end with verification and a commit.** Do not leave uncommitted work.
 
-1. **Format** — Run `cd sdk && deno fmt` to auto-format all files.
+1. **Format** — Run `cd libs/b3nd-sdk && deno fmt` to auto-format all files.
 2. **Verify** — Run the full verification chain:
    ```bash
-   cd sdk && deno fmt --check src/ && deno check src/mod.ts && deno task test
+   cd libs/b3nd-sdk && deno fmt --check src/ && deno check src/mod.ts && deno task test
    ```
    If Docker containers are available, also run `deno task test:integration`.
 3. **Commit** — Stage and commit all changes with a clear message describing what was done.
@@ -291,6 +293,8 @@ When the SDK API changes and apps need updating:
 
 - Use `MemoryClient` for unit tests (no external dependencies)
 - Use shared test suites (`runSharedSuite`, `runNodeSuite`) for client conformance
+- Tests are colocated with source: each client has its test file in the same directory
+- Shared test utilities live in `libs/b3nd-sdk/testing/`
 - Unique URI prefixes per test for isolation in persistent backends
 - Tests assert exact values — verify actual data matches what was stored
 - Docker tests reuse running containers — never kill dev instances

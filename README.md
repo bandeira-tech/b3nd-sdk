@@ -67,15 +67,15 @@ const items = await client.list("mutable://users/");
 ### Docker with PostgreSQL
 
 ```bash
-cd installations/http-server
+cd apps/b3nd-node
 docker-compose up -d
 ```
 
 ### Deno
 
 ```bash
-cd installations/http-server
+cd apps/b3nd-node
 deno task start
 ```
 
-See [installations/](./installations/) for more deployment options.
+See [apps/](./apps/) for more deployment options.

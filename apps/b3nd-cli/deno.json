@@ -1,0 +1,25 @@
+{
+  "name": "@b3nd/cli",
+  "version": "0.1.0",
+  "description": "CLI for b3nd nodes via b3nd-sdk",
+  "tasks": {
+    "dev": "deno run --allow-read --allow-write --allow-env --allow-net src/main.ts",
+    "check": "deno check src/main.ts",
+    "fmt": "deno fmt src/",
+    "lint": "deno lint src/"
+  },
+  "imports": {
+    "@b3nd/sdk": "../../libs/b3nd-sdk/src/mod.ts",
+    "@b3nd/sdk/http": "../../libs/b3nd-sdk/clients/http/mod.ts",
+    "@b3nd/sdk/types": "../../libs/b3nd-sdk/src/types.ts",
+    "@b3nd/sdk/encrypt": "../../libs/b3nd-encrypt/mod.ts",
+    "@std/path": "https://deno.land/std@0.208.0/path/mod.ts",
+    "@std/encoding/hex": "https://deno.land/std@0.208.0/encoding/hex.ts",
+    "@std/fs": "https://deno.land/std@0.208.0/fs/mod.ts"
+  },
+  "exports": "./src/main.ts",
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["ES2020", "DOM", "deno.ns"]
+  }
+}

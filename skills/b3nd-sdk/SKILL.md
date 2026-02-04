@@ -489,29 +489,29 @@ When the B3nd plugin is installed, agents can use MCP tools directly: `b3nd_rece
 
 ## bnd CLI Tool
 
-The B3nd CLI (`cli/bnd`) provides command-line access: `./cli/bnd read <uri>`, `./cli/bnd list <uri>`, `./cli/bnd config`.
+The B3nd CLI (`apps/b3nd-cli/bnd`) provides command-line access: `./apps/b3nd-cli/bnd read <uri>`, `./apps/b3nd-cli/bnd list <uri>`, `./apps/b3nd-cli/bnd config`.
 
 ## Developer Dashboard
 
 ```bash
-cd explorer/dashboard && deno task dashboard:build  # Build test artifacts
-cd explorer/app && npm run dev                      # http://localhost:5555/dashboard
+cd apps/sdk-inspector && deno task dashboard:build  # Build test artifacts
+cd apps/b3nd-web-rig && npm run dev                      # http://localhost:5555/dashboard
 ```
 
 Browse test results by theme, view source code with line numbers, search across 125 tests.
 
 ## Source Files
 
-- `sdk/src/mod.ts` - Main Deno exports
-- `sdk/src/types.ts` - Type definitions
-- `sdk/src/node/types.ts` - Node/Transaction/Validator types
-- `sdk/clients/postgres/mod.ts` - PostgreSQL client
-- `sdk/clients/mongo/mod.ts` - MongoDB client
-- `sdk/servers/node.ts` - Server node creation
-- `sdk/servers/http.ts` - HTTP server utilities
-- `sdk/servers/websocket.ts` - WebSocket server utilities
-- `sdk/tests/shared-suite.ts` - Shared client conformance suite
-- `sdk/tests/node-suite.ts` - Node interface test suite
+- `libs/b3nd-sdk/src/mod.ts` - Main Deno exports
+- `libs/b3nd-sdk/src/types.ts` - Type definitions
+- `libs/b3nd-sdk/src/node/types.ts` - Node/Transaction/Validator types
+- `libs/b3nd-sdk/clients/postgres/mod.ts` - PostgreSQL client
+- `libs/b3nd-sdk/clients/mongo/mod.ts` - MongoDB client
+- `libs/b3nd-sdk/servers/node.ts` - Server node creation
+- `libs/b3nd-sdk/servers/http.ts` - HTTP server utilities
+- `libs/b3nd-sdk/servers/websocket.ts` - WebSocket server utilities
+- `libs/b3nd-sdk/testing/shared-suite.ts` - Shared client conformance suite
+- `libs/b3nd-sdk/testing/node-suite.ts` - Node interface test suite
 
 ## Environment Variables (HTTP Server Installation)
 

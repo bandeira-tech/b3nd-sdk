@@ -1,0 +1,20 @@
+{
+  "tasks": {
+    "dev": "deno run --watch main.ts",
+    "test:e2e": "deno run --allow-net --allow-read --allow-env src/main.ts",
+    "test:e2e:write-list-read": "deno run --allow-net --allow-read --allow-env src/write-list-read/main.ts",
+    "test:e2e:crypto": "deno run --allow-net --allow-read --allow-env src/crypto/main.ts",
+    "test:e2e:auth": "deno run --allow-net --allow-read --allow-env src/auth/main.ts",
+    "test:e2e:all": "deno task test:e2e:write-list-read && deno task test:e2e:crypto && deno task test:e2e:auth"
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert",
+    "@std/encoding": "jsr:@std/encoding",
+    "@std/crypto": "jsr:@std/crypto",
+    "@std/fs": "jsr:@std/fs",
+    "@std/testing": "jsr:@std/testing",
+    "@auth": "../libs/b3nd-auth/mod.ts",
+    "@encrypt": "../libs/b3nd-encrypt/mod.ts",
+    "hono": "npm:hono"
+  }
+}

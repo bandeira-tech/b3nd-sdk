@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "emitDeclarationOnly": false,
+    "declaration": true,
+    "outDir": "dist"
+  },
+  "include": [
+    "src/mod.web.ts",
+    "../b3nd-wallet/**/*.ts",
+    "../b3nd-apps/**/*.ts",
+    "../b3nd-encrypt/**/*.ts",
+    "clients/http/**/*.ts",
+    "clients/local-storage/**/*.ts",
+    "clients/websocket/**/*.ts",
+    "shared/**/*.ts",
+    "src/types.ts",
+    "blob/**/*.ts",
+    "../b3nd-wallet-server/**/*.ts"
+  ]
+}

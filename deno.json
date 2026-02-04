@@ -1,0 +1,15 @@
+{
+  "nodeModulesDir": "auto",
+  "workspace": [
+    "libs/b3nd-sdk",
+    "libs/b3nd-auth",
+    "libs/b3nd-encrypt",
+    "libs/b3nd-wallet",
+    "libs/b3nd-wallet-server",
+    "libs/b3nd-apps",
+    "apps/b3nd-cli",
+    "apps/b3nd-node",
+    "apps/sdk-inspector",
+    "tests"
+  ]
+}

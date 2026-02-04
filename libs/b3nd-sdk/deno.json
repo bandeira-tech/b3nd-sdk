@@ -1,0 +1,68 @@
+{
+  "name": "@bandeira-tech/b3nd-sdk",
+  "version": "0.6.0",
+  "description": "Universal persistence SDK with URI-based addressing, encryption, and multi-backend support (PostgreSQL, HTTP, WebSocket, in-memory)",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./types": "./src/types.ts",
+    "./node": "./src/node/mod.ts",
+    "./auth": "../b3nd-auth/mod.ts",
+    "./encrypt": "../b3nd-encrypt/mod.ts",
+    "./blob": "./blob/mod.ts",
+    "./txn": "./txn/mod.ts",
+    "./txn-data": "./txn-data/mod.ts",
+    "./clients/memory": "./clients/memory/mod.ts",
+    "./clients/http": "./clients/http/mod.ts",
+    "./clients/websocket": "./clients/websocket/mod.ts",
+    "./clients/postgres": "./clients/postgres/mod.ts",
+    "./wallet": "../b3nd-wallet/mod.ts",
+    "./apps": "../b3nd-apps/mod.ts",
+    "./wallet-server": "../b3nd-wallet-server/mod.ts",
+    "./wallet-server/adapters/deno": "../b3nd-wallet-server/adapters/deno.ts"
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.15",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10"
+  },
+  "tasks": {
+    "test": "deno test -A --ignore=clients/indexed-db --ignore=clients/local-storage --ignore=clients/mongo --ignore=clients/postgres --ignore=clients/websocket",
+    "test:unit": "deno test -A --ignore=clients/indexed-db --ignore=clients/local-storage --ignore=clients/mongo --ignore=clients/postgres --ignore=clients/websocket",
+    "test:integration": "deno test -A clients/postgres/postgres-client.test.ts clients/mongo/mongo-client.test.ts",
+    "test:integration:postgres": "deno test -A clients/postgres/postgres-client.test.ts",
+    "test:integration:mongo": "deno test -A clients/mongo/mongo-client.test.ts",
+    "test:all": "deno test -A",
+    "lint": "deno lint src/",
+    "fmt": "deno fmt src/",
+    "check": "deno check src/mod.ts",
+    "publish:jsr": "deno publish --allow-dirty"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable",
+      "deno.ns"
+    ]
+  },
+  "test": {
+    "exclude": [
+      "clients/indexed-db",
+      "clients/local-storage"
+    ]
+  },
+  "publish": {
+    "exclude": [
+      "dist/",
+      "build/",
+      "node_modules/",
+      "build*.ts",
+      "testing/",
+      "clients/indexed-db/",
+      "clients/local-storage/",
+      ".env*",
+      "*.test.ts",
+      "*.js"
+    ]
+  }
+}

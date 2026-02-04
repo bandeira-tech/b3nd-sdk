@@ -21,7 +21,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run SDK tests
-        run: cd sdk && deno test -A --ignore=tests/browser --ignore=tests/mongo-client.test.ts --ignore=tests/postgres-client.test.ts --ignore=tests/websocket-client.test.ts tests/
+        run: cd libs/b3nd-sdk && deno task test
 
   auth-tests:
     name: Auth Tests
@@ -37,7 +37,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run auth tests
-        run: cd sdk/auth && deno test --allow-all
+        run: cd libs/b3nd-auth && deno test --allow-all
 
   encrypt-tests:
     name: Encrypt Tests
@@ -53,7 +53,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run encrypt tests
-        run: cd sdk/encrypt && deno test --allow-all || true
+        run: cd libs/b3nd-encrypt && deno test --allow-all || true
 
   e2e-tests:
     name: E2E Tests
@@ -70,7 +70,7 @@ jobs:
 
       - name: Start test server
         run: |
-          cd integ/e2e
+          cd tests
           deno run --allow-net --allow-env test-server.ts > /tmp/test-server.log 2>&1 &
           echo "TEST_SERVER_PID=$!" >> $GITHUB_ENV
 
@@ -78,20 +78,20 @@ jobs:
           echo "Waiting for test server to start..."
           for i in {1..30}; do
             if curl -s http://localhost:8000/api/v1/health > /dev/null 2>&1; then
-              echo "✅ Test server is ready"
+              echo "Test server is ready"
               exit 0
             fi
             echo "  Attempt $i/30: Server not ready yet, waiting..."
             sleep 1
           done
 
-          echo "❌ Test server failed to start"
+          echo "Test server failed to start"
           echo "Server logs:"
           cat /tmp/test-server.log
           exit 1
 
       - name: Run E2E write-list-read tests
-        run: cd integ/e2e && E2E_BASE_URL=http://localhost:8000 deno task test:e2e:write-list-read
+        run: cd tests && E2E_BASE_URL=http://localhost:8000 deno task test:e2e:write-list-read
 
       # Note: crypto and auth E2E test suites are incomplete/under development
       # The write-list-read suite already tests encryption and authentication functionality
@@ -125,10 +125,10 @@ jobs:
           deno-version: v2.x
 
       - name: Run lint
-        run: cd sdk && deno lint src/
+        run: cd libs/b3nd-sdk && deno lint src/
 
       - name: Run format check
-        run: cd sdk && deno fmt --check src/
+        run: cd libs/b3nd-sdk && deno fmt --check src/
 
   type-check:
     name: Type Check
@@ -144,7 +144,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run type check
-        run: cd sdk && deno check src/mod.ts
+        run: cd libs/b3nd-sdk && deno check src/mod.ts
 
   sdk-integration-tests:
     name: SDK Integration Tests (PostgreSQL + MongoDB)
@@ -187,11 +187,11 @@ jobs:
       - name: Run PostgreSQL tests
         env:
           POSTGRES_URL: postgresql://postgres:postgres@localhost:55432/b3nd_test
-        run: cd sdk && deno task test:integration:postgres
+        run: cd libs/b3nd-sdk && deno task test:integration:postgres
 
       - name: Run MongoDB tests
         env:
           MONGODB_URL: mongodb://localhost:57017/b3nd_test
           MONGODB_DB: b3nd_test
           MONGODB_COLLECTION: b3nd_data
-        run: cd sdk && deno task test:integration:mongo
+        run: cd libs/b3nd-sdk && deno task test:integration:mongo

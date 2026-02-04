@@ -255,7 +255,7 @@ import type {
 ## Build
 
 ```bash
-cd sdk
+cd libs/b3nd-sdk
 npm run build  # Uses tsup
 ```
 
@@ -275,8 +275,8 @@ When the B3nd plugin is installed, agents can use MCP tools directly to interact
 
 ## Source Files
 
-- `sdk/src/mod.web.ts` - Main web exports
-- `sdk/clients/http/mod.ts` - HTTP client
-- `sdk/clients/local-storage/mod.ts` - LocalStorage client
-- `sdk/wallet/mod.ts` - Wallet client
-- `sdk/apps/mod.ts` - Apps client
+- `libs/b3nd-sdk/src/mod.web.ts` - Main web exports
+- `libs/b3nd-sdk/clients/http/mod.ts` - HTTP client
+- `libs/b3nd-sdk/clients/local-storage/mod.ts` - LocalStorage client
+- `libs/b3nd-wallet/mod.ts` - Wallet client
+- `libs/b3nd-apps/mod.ts` - Apps client

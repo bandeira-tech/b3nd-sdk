@@ -1,0 +1,9 @@
+{
+  "name": "@b3nd/apps",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "imports": {
+    "@b3nd/sdk": "../b3nd-sdk/build/mod.js"
+  }
+}

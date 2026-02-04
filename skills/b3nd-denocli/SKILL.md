@@ -309,32 +309,32 @@ make test t=tests/specific.test.ts
 
 ## bnd CLI Tool
 
-The B3nd CLI (`cli/bnd`) provides command-line access to B3nd nodes:
+The B3nd CLI (`apps/b3nd-cli/bnd`) provides command-line access to B3nd nodes:
 
 ```bash
 # Read data from a URI
-./cli/bnd read mutable://users/alice/profile
+./apps/b3nd-cli/bnd read mutable://users/alice/profile
 
 # List items at a path
-./cli/bnd list mutable://users/
+./apps/b3nd-cli/bnd list mutable://users/
 
 # Show configuration
-./cli/bnd config
+./apps/b3nd-cli/bnd config
 
 # Configure backend node
-./cli/bnd conf node http://localhost:9942
+./apps/b3nd-cli/bnd conf node http://localhost:9942
 ```
 
 ## Developer Dashboard
 
-The explorer dashboard (`explorer/dashboard/`) provides a UI for browsing test results:
+The explorer dashboard (`apps/sdk-inspector/`) provides a UI for browsing test results:
 
 ```bash
-cd explorer/dashboard
+cd apps/sdk-inspector
 deno task dashboard:build   # Build static test artifacts (JSON)
 deno task dev               # Start dashboard backend (port 5556)
 
-cd explorer/app
+cd apps/b3nd-web-rig
 npm run dev                 # Start React frontend (port 5555)
 # Browse: http://localhost:5555/dashboard
 ```
@@ -349,12 +349,12 @@ Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 
 ## Key Files Reference
 
-- `sdk/tests/memory-client.test.ts` - Test patterns
-- `sdk/tests/shared-suite.ts` - Shared test suite (client conformance)
-- `sdk/tests/node-suite.ts` - Node interface test suite
-- `installations/http-server/mod.ts` - Full HTTP server example
-- `installations/wallet-server/src/mod.ts` - Wallet server example
-- `sdk/Makefile` - Common development commands
-- `cli/bnd` - CLI tool entry point
-- `explorer/dashboard/` - Dashboard backend
-- `explorer/app/` - React frontend (explorer, writer, dashboard)
+- `libs/b3nd-sdk/testing/memory-client.test.ts` - Test patterns
+- `libs/b3nd-sdk/testing/shared-suite.ts` - Shared test suite (client conformance)
+- `libs/b3nd-sdk/testing/node-suite.ts` - Node interface test suite
+- `apps/b3nd-node/mod.ts` - Full HTTP server example
+- `apps/wallet-node/src/mod.ts` - Wallet server example
+- `libs/b3nd-sdk/Makefile` - Common development commands
+- `apps/b3nd-cli/bnd` - CLI tool entry point
+- `apps/sdk-inspector/` - Dashboard backend
+- `apps/b3nd-web-rig/` - React frontend (explorer, writer, dashboard)
