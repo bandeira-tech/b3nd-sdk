@@ -212,12 +212,28 @@ After any SDK API change:
 
 ## Agent Workflow
 
+### Completion Protocol
+
+**Every session that changes code MUST end with verification and a commit.** Do not leave uncommitted work.
+
+1. **Format** — Run `cd sdk && deno fmt` to auto-format all files.
+2. **Verify** — Run the full verification chain:
+   ```bash
+   cd sdk && deno fmt --check src/ && deno check src/mod.ts && deno task test
+   ```
+   If Docker containers are available, also run `deno task test:integration`.
+3. **Commit** — Stage and commit all changes with a clear message describing what was done.
+4. **Push** — Push to the remote branch so work is never lost.
+
+If verification fails, fix the issue and re-verify. Never commit failing code. Never leave a session with uncommitted changes.
+
 ### Making SDK Changes
 
 1. **Read first** — Never modify code you haven't read. Understand the existing pattern before changing it.
-2. **Verify before committing** — Run the quick verification suite. Every commit should pass `deno fmt --check src/ && deno check src/mod.ts && deno task test`.
-3. **Update skills** — If you changed exports, composition patterns, or client behavior, update the relevant skill files.
+2. **Implement** — Make the changes, keeping them focused and minimal.
+3. **Update skills** — If you changed exports, composition patterns, or client behavior, update the relevant skill files in `skills/`.
 4. **Rebuild artifacts** — If you added/removed/renamed tests, rebuild dashboard artifacts.
+5. **Verify and commit** — Follow the completion protocol above. Every commit should pass the full verification chain.
 
 ### Adding a New Client
 
