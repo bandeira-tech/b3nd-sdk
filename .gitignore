@@ -4,3 +4,4 @@ node_modules
 .playwright-mcp/
 explorer/app/public/dashboard/test-logs.txt
 explorer/app/public/dashboard/test-results.json
+**/b3nd-web-rig/
