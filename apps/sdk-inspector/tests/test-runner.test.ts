@@ -5,15 +5,18 @@ import { assertEquals, assertExists } from "@std/assert";
 
 // Import the stripAnsi function and patterns by testing the module
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
-const FILE_HEADER_PATTERN = /^running \d+ tests? from \.\/tests\/(.+\.test\.ts)/;
-const TEST_RESULT_PATTERN = /^(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
+const FILE_HEADER_PATTERN =
+  /^running \d+ tests? from \.\/tests\/(.+\.test\.ts)/;
+const TEST_RESULT_PATTERN =
+  /^(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
 
 function stripAnsi(str: string): string {
   return str.replace(ANSI_PATTERN, "");
 }
 
 Deno.test("stripAnsi removes color codes", () => {
-  const input = "\x1b[0m\x1b[38;5;245mrunning 13 tests from ./tests/binary-operations.test.ts\x1b[0m";
+  const input =
+    "\x1b[0m\x1b[38;5;245mrunning 13 tests from ./tests/binary-operations.test.ts\x1b[0m";
   const expected = "running 13 tests from ./tests/binary-operations.test.ts";
   assertEquals(stripAnsi(input), expected);
 });
@@ -52,7 +55,8 @@ Deno.test("TEST_RESULT_PATTERN matches ignored result", () => {
 });
 
 Deno.test("Full pipeline: strip ANSI then match", () => {
-  const rawLine = "\x1b[0mBinary - write and read PNG image ... \x1b[32mok\x1b[0m \x1b[38;5;245m(11ms)\x1b[0m";
+  const rawLine =
+    "\x1b[0mBinary - write and read PNG image ... \x1b[32mok\x1b[0m \x1b[38;5;245m(11ms)\x1b[0m";
   const clean = stripAnsi(rawLine).trim();
   const match = clean.match(TEST_RESULT_PATTERN);
   assertExists(match);
@@ -64,7 +68,12 @@ Deno.test("Full pipeline: strip ANSI then match", () => {
 // Integration test: actually run deno test and verify we can parse output
 Deno.test("Integration: parse actual deno test output", async () => {
   const command = new Deno.Command("deno", {
-    args: ["test", "-A", "--filter=MemoryClient - receive transaction and read", "clients/memory/memory-client.test.ts"],
+    args: [
+      "test",
+      "-A",
+      "--filter=MemoryClient - receive transaction and read",
+      "clients/memory/memory-client.test.ts",
+    ],
     cwd: new URL("../../../libs/b3nd-sdk", import.meta.url).pathname,
     stdout: "piped",
     stderr: "piped",

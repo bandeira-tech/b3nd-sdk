@@ -67,7 +67,7 @@ export function healthRouter(healthMonitor: HealthMonitor): Hono {
       if (!body.id || !body.name || !body.url) {
         return c.json(
           { error: "Missing required fields: id, name, url" },
-          400
+          400,
         );
       }
 

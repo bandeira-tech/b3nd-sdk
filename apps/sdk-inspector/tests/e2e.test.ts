@@ -7,7 +7,7 @@
  * - Test run triggering and result streaming
  * - Health monitoring
  */
-import { assertEquals, assertExists, assert } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 
 const DASHBOARD_URL = "http://localhost:5556";
 const DASHBOARD_WS_URL = "ws://localhost:5556/ws";
@@ -16,7 +16,7 @@ const DASHBOARD_WS_URL = "ws://localhost:5556/ws";
 function waitForWsMessage(
   ws: WebSocket,
   predicate: (msg: Record<string, unknown>) => boolean,
-  timeout = 10000
+  timeout = 10000,
 ): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -61,7 +61,10 @@ Deno.test({
     const ws = new WebSocket(DASHBOARD_WS_URL);
 
     const connectedPromise = new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("WebSocket connection timeout")), 5000);
+      const timer = setTimeout(
+        () => reject(new Error("WebSocket connection timeout")),
+        5000,
+      );
 
       ws.onopen = () => {
         clearTimeout(timer);
@@ -92,7 +95,10 @@ Deno.test({
     const ws = new WebSocket(DASHBOARD_WS_URL);
 
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("WebSocket connection timeout")), 5000);
+      const timer = setTimeout(
+        () => reject(new Error("WebSocket connection timeout")),
+        5000,
+      );
       ws.onopen = () => {
         clearTimeout(timer);
         resolve();
@@ -100,7 +106,11 @@ Deno.test({
     });
 
     // Wait for health update (should come within poll interval)
-    const msg = await waitForWsMessage(ws, (m) => m.type === "health:update", 15000);
+    const msg = await waitForWsMessage(
+      ws,
+      (m) => m.type === "health:update",
+      15000,
+    );
     assertEquals(msg.type, "health:update");
     assertExists(msg.services);
     assert(Array.isArray(msg.services));
@@ -117,7 +127,10 @@ Deno.test({
     const ws = new WebSocket(DASHBOARD_WS_URL);
 
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("WebSocket connection timeout")), 5000);
+      const timer = setTimeout(
+        () => reject(new Error("WebSocket connection timeout")),
+        5000,
+      );
       ws.onopen = () => {
         clearTimeout(timer);
         resolve();
@@ -128,7 +141,11 @@ Deno.test({
     await waitForWsMessage(ws, (m) => m.type === "connected");
 
     // Set up listeners BEFORE triggering the test run to avoid race conditions
-    const startPromise = waitForWsMessage(ws, (m) => m.type === "test:start", 10000);
+    const startPromise = waitForWsMessage(
+      ws,
+      (m) => m.type === "test:start",
+      10000,
+    );
 
     // Trigger a minimal test run (single test to keep it fast)
     const runResponse = await fetch(`${DASHBOARD_URL}/tests/run`, {
@@ -151,13 +168,16 @@ Deno.test({
     const completeMsg = await waitForWsMessage(
       ws,
       (m) => m.type === "test:complete" || m.type === "test:error",
-      60000
+      60000,
     );
 
     if (completeMsg.type === "test:complete") {
       assertExists(completeMsg.summary);
       const summary = completeMsg.summary as Record<string, number>;
-      assert(summary.total > 0 || summary.passed >= 0, "Should have test results");
+      assert(
+        summary.total > 0 || summary.passed >= 0,
+        "Should have test results",
+      );
     }
 
     ws.close();

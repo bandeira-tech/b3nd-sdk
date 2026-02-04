@@ -103,13 +103,38 @@ export interface BackendInfo {
  * Backend classifications - storage and transport backends only
  */
 export const BACKEND_TYPES: BackendInfo[] = [
-  { id: "memory", label: "Memory", pattern: /memory-client/, theme: "sdk-core" },
+  {
+    id: "memory",
+    label: "Memory",
+    pattern: /memory-client/,
+    theme: "sdk-core",
+  },
   { id: "http", label: "HTTP", pattern: /http-client/, theme: "network" },
-  { id: "websocket", label: "WebSocket", pattern: /websocket-client/, theme: "network" },
-  { id: "postgres", label: "PostgreSQL", pattern: /postgres/, theme: "database" },
+  {
+    id: "websocket",
+    label: "WebSocket",
+    pattern: /websocket-client/,
+    theme: "network",
+  },
+  {
+    id: "postgres",
+    label: "PostgreSQL",
+    pattern: /postgres/,
+    theme: "database",
+  },
   { id: "mongo", label: "MongoDB", pattern: /mongo/, theme: "database" },
-  { id: "localstorage", label: "LocalStorage", pattern: /local-storage/, theme: "browser" },
-  { id: "indexeddb", label: "IndexedDB", pattern: /indexed-db/, theme: "browser" },
+  {
+    id: "localstorage",
+    label: "LocalStorage",
+    pattern: /local-storage/,
+    theme: "browser",
+  },
+  {
+    id: "indexeddb",
+    label: "IndexedDB",
+    pattern: /indexed-db/,
+    theme: "browser",
+  },
 ];
 
 export interface ThemeInfo {
@@ -123,7 +148,8 @@ export const TEST_THEMES: ThemeInfo[] = [
   {
     id: "sdk-core",
     label: "SDK Core",
-    description: "Fundamental B3nd operations - memory client, transactions, multi-read",
+    description:
+      "Fundamental B3nd operations - memory client, transactions, multi-read",
     patterns: [/memory-client/, /txn\.test/, /read-multi/],
   },
   {
@@ -199,7 +225,9 @@ export function classifyBackendType(filePath: string): BackendType {
 /**
  * Get backend info by ID
  */
-export function getBackendInfo(backendId: BackendType): BackendInfo | undefined {
+export function getBackendInfo(
+  backendId: BackendType,
+): BackendInfo | undefined {
   return BACKEND_TYPES.find((b) => b.id === backendId);
 }
 

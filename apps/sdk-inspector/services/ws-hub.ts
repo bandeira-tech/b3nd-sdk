@@ -25,11 +25,15 @@ export class WsHub {
    */
   addClient(ws: WebSocket): void {
     this.clients.add(ws);
-    console.log(`[WsHub] Client connected. Total clients: ${this.clients.size}`);
+    console.log(
+      `[WsHub] Client connected. Total clients: ${this.clients.size}`,
+    );
 
     ws.addEventListener("close", () => {
       this.clients.delete(ws);
-      console.log(`[WsHub] Client disconnected. Total clients: ${this.clients.size}`);
+      console.log(
+        `[WsHub] Client disconnected. Total clients: ${this.clients.size}`,
+      );
     });
 
     ws.addEventListener("error", (e) => {

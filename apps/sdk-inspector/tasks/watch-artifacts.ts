@@ -14,8 +14,9 @@ import { WsHub } from "../services/ws-hub.ts";
 import { ContinuousTestRunner } from "../services/continuous-runner.ts";
 import { debounce } from "@std/async";
 
-const OUTPUT_DIR = new URL("../../b3nd-web-rig/public/dashboard/", import.meta.url)
-  .pathname;
+const OUTPUT_DIR =
+  new URL("../../b3nd-web-rig/public/dashboard/", import.meta.url)
+    .pathname;
 
 const LIBS_PATH = new URL("../../../libs", import.meta.url).pathname;
 
@@ -25,7 +26,7 @@ const WATCH_PATHS = [
 ];
 
 async function writeArtifacts(
-  testState: TestState
+  testState: TestState,
 ): Promise<void> {
   const fullState = testState.getFullState();
   const rawLogs = testState.getRunLog();
@@ -41,7 +42,7 @@ async function writeArtifacts(
         deno: Deno.version.deno,
         platform: Deno.build.os,
         hasPostgres: Boolean(
-          Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL")
+          Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL"),
         ),
         hasMongo: Boolean(Deno.env.get("MONGODB_URL")),
       },
@@ -70,12 +71,12 @@ async function writeArtifacts(
   await Deno.mkdir(OUTPUT_DIR, { recursive: true });
   await Deno.writeTextFile(
     `${OUTPUT_DIR}/test-results.json`,
-    JSON.stringify(artifact, null, 2)
+    JSON.stringify(artifact, null, 2),
   );
   await Deno.writeTextFile(`${OUTPUT_DIR}/test-logs.txt`, rawLogs.join("\n"));
 
   console.log(
-    `[watch] Updated artifacts (${artifact.summary.passed}/${artifact.summary.total} passed)`
+    `[watch] Updated artifacts (${artifact.summary.passed}/${artifact.summary.total} passed)`,
   );
 }
 
@@ -99,7 +100,9 @@ async function main() {
     isRunning = true;
     try {
       console.log(
-        `[watch] Files changed: ${changedFiles.map((f) => f.split("/").pop()).join(", ")}`
+        `[watch] Files changed: ${
+          changedFiles.map((f) => f.split("/").pop()).join(", ")
+        }`,
       );
       await runner.onFileChange(changedFiles);
       await writeArtifacts(testState);

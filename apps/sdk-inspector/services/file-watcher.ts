@@ -86,7 +86,7 @@ export class FileWatcher {
 
         // Filter to TypeScript files
         const tsPaths = event.paths.filter(
-          (p) => p.endsWith(".ts") || p.endsWith(".tsx")
+          (p) => p.endsWith(".ts") || p.endsWith(".tsx"),
         );
 
         if (tsPaths.length === 0) continue;
@@ -110,7 +110,7 @@ export class FileWatcher {
    * Map Deno's event kind to our simplified version
    */
   private mapEventKind(
-    kind: Deno.FsEvent["kind"]
+    kind: Deno.FsEvent["kind"],
   ): FileChangeEvent["kind"] {
     switch (kind) {
       case "create":
@@ -139,7 +139,7 @@ export class FileWatcher {
     });
 
     console.log(
-      `[FileWatcher] ${changes.kind}: ${relativePaths.join(", ")}`
+      `[FileWatcher] ${changes.kind}: ${relativePaths.join(", ")}`,
     );
 
     this.wsHub.broadcast({
@@ -151,7 +151,7 @@ export class FileWatcher {
 
     // Trigger callback with full paths for test runner
     if (this.onFilesChanged) {
-      this.onFilesChanged(changes.paths).catch(e => {
+      this.onFilesChanged(changes.paths).catch((e) => {
         console.error("[FileWatcher] onFilesChanged callback error:", e);
       });
     }

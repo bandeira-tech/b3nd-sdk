@@ -31,7 +31,7 @@ app.use(
     origin: (origin) => (CORS_ORIGIN === "*" ? origin : CORS_ORIGIN),
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 
 // Request logging middleware
@@ -45,7 +45,7 @@ app.use("*", async (c, next) => {
   const duration = Date.now() - start;
   const status = c.res.status;
   console.log(
-    `[${new Date().toISOString()}] ${method} ${path} ${status} - ${duration}ms`
+    `[${new Date().toISOString()}] ${method} ${path} ${status} - ${duration}ms`,
   );
 });
 
@@ -60,7 +60,11 @@ app.get("/", (c) => {
   return c.json({
     name: "B3nd Dashboard Server",
     version: "0.2.0",
-    status: summary.failed > 0 ? "failing" : summary.running > 0 ? "running" : "ok",
+    status: summary.failed > 0
+      ? "failing"
+      : summary.running > 0
+      ? "running"
+      : "ok",
     tests: summary,
     timestamp: Date.now(),
   });
@@ -85,7 +89,7 @@ Deno.serve({ port: PORT }, app.fetch);
 
 // Run initial tests after server starts
 setTimeout(() => {
-  runner.start().catch(e => {
+  runner.start().catch((e) => {
     console.error("[Dashboard] Initial test run failed:", e);
   });
 }, 1000);

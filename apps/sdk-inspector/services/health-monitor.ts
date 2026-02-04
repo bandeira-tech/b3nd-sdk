@@ -81,7 +81,7 @@ export class HealthMonitor {
     console.log("[HealthMonitor] Starting health monitor...");
     console.log(
       "[HealthMonitor] Monitoring services:",
-      this.config.services.map((s) => s.name).join(", ")
+      this.config.services.map((s) => s.name).join(", "),
     );
 
     // Initial check
@@ -187,7 +187,7 @@ export class HealthMonitor {
       console.log(
         `[HealthMonitor] ${service.name}: ${previous.status} -> ${status}${
           error ? ` (${error})` : ""
-        }`
+        }`,
       );
     }
   }

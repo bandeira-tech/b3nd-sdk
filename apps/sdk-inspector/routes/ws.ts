@@ -20,7 +20,7 @@ export function wsRouter(wsHub: WsHub): Hono {
           error: "WebSocket upgrade required",
           hint: "Connect using a WebSocket client",
         },
-        400
+        400,
       );
     }
 
@@ -36,7 +36,7 @@ export function wsRouter(wsHub: WsHub): Hono {
           type: "connected",
           timestamp: Date.now(),
           clientCount: wsHub.getClientCount(),
-        })
+        }),
       );
     };
 
@@ -50,7 +50,7 @@ export function wsRouter(wsHub: WsHub): Hono {
           JSON.stringify({
             type: "error",
             error: "Invalid JSON message",
-          })
+          }),
         );
       }
     };
@@ -85,7 +85,7 @@ export function wsRouter(wsHub: WsHub): Hono {
 function handleClientMessage(
   socket: WebSocket,
   message: { type: string; [key: string]: unknown },
-  wsHub: WsHub
+  wsHub: WsHub,
 ): void {
   switch (message.type) {
     case "ping":
@@ -93,7 +93,7 @@ function handleClientMessage(
         JSON.stringify({
           type: "pong",
           timestamp: Date.now(),
-        })
+        }),
       );
       break;
 
@@ -104,7 +104,7 @@ function handleClientMessage(
           type: "subscribed",
           topics: message.topics || ["all"],
           timestamp: Date.now(),
-        })
+        }),
       );
       break;
 

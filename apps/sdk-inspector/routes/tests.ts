@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { WsHub } from "../services/ws-hub.ts";
-import { TestRunner, type TestFilter } from "../services/test-runner.ts";
+import { type TestFilter, TestRunner } from "../services/test-runner.ts";
 import {
-  groupTestsByTheme,
-  groupTestsByBackend,
-  getThemeOrder,
-  getBackendOrder,
   classifyBackendType,
+  getBackendOrder,
+  getThemeOrder,
+  groupTestsByBackend,
+  groupTestsByTheme,
 } from "../utils/theme-classifier.ts";
-import { TEST_THEMES, BACKEND_TYPES } from "../utils/test-parser.ts";
+import { BACKEND_TYPES, TEST_THEMES } from "../utils/test-parser.ts";
 
 /**
  * Creates test routes with dependency injection of WsHub
@@ -90,7 +90,9 @@ export function testsRouter(wsHub: WsHub): Hono {
       const filter: TestFilter | undefined = body.filter;
 
       // Generate unique run ID
-      const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const runId = `run-${Date.now()}-${
+        Math.random().toString(36).slice(2, 8)
+      }`;
 
       // Start test run in background
       testRunner.run({ runId, filter }).catch((e) => {

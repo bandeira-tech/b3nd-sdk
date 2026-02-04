@@ -1,11 +1,11 @@
 /// <reference lib="deno.ns" />
 import { WsHub } from "./ws-hub.ts";
 import {
-  classifyTestTheme,
+  type BackendType,
   classifyBackendType,
+  classifyTestTheme,
   getTestFileName,
   type TestTheme,
-  type BackendType,
 } from "../utils/test-parser.ts";
 
 export interface TestFilter {
@@ -45,9 +45,12 @@ const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 
 // Regex patterns to parse Deno test output
 const FILE_HEADER_PATTERN = /^running \d+ tests? from (?:\.\/)?(.+\.test\.ts)/;
-const TEST_RESULT_PATTERN = /^(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
-const SUMMARY_PATTERN = /^ok \| (\d+) passed(?: \| (\d+) failed)?(?: \| (\d+) ignored)? \(([^)]+)\)/;
-const FAIL_SUMMARY_PATTERN = /^FAILED \| (\d+) passed \| (\d+) failed(?: \| (\d+) ignored)? \(([^)]+)\)/;
+const TEST_RESULT_PATTERN =
+  /^(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
+const SUMMARY_PATTERN =
+  /^ok \| (\d+) passed(?: \| (\d+) failed)?(?: \| (\d+) ignored)? \(([^)]+)\)/;
+const FAIL_SUMMARY_PATTERN =
+  /^FAILED \| (\d+) passed \| (\d+) failed(?: \| (\d+) ignored)? \(([^)]+)\)/;
 
 /**
  * Strip ANSI color codes from a string
@@ -71,7 +74,8 @@ export class TestRunner {
     // Determine paths relative to dashboard location (apps/sdk-inspector/services -> b3nd root)
     const dashboardDir = new URL(".", import.meta.url).pathname;
     this.libsPath = new URL("../../../libs", `file://${dashboardDir}`).pathname;
-    this.integPath = new URL("../../../tests", `file://${dashboardDir}`).pathname;
+    this.integPath =
+      new URL("../../../tests", `file://${dashboardDir}`).pathname;
   }
 
   /**
@@ -95,8 +99,10 @@ export class TestRunner {
 
     // Determine test paths based on filter
     const testPaths: string[] = [];
-    const hasBackendFilter = config.filter?.backends && config.filter.backends.length > 0;
-    const hasThemeFilter = config.filter?.themes && config.filter.themes.length > 0;
+    const hasBackendFilter = config.filter?.backends &&
+      config.filter.backends.length > 0;
+    const hasThemeFilter = config.filter?.themes &&
+      config.filter.themes.length > 0;
 
     if (config.filter?.file) {
       // Run specific file
@@ -109,7 +115,9 @@ export class TestRunner {
         const fileTheme = classifyTestTheme(f);
 
         // If backends specified, file must match one of them
-        if (hasBackendFilter && !config.filter!.backends!.includes(fileBackend)) {
+        if (
+          hasBackendFilter && !config.filter!.backends!.includes(fileBackend)
+        ) {
           return false;
         }
 
@@ -123,7 +131,9 @@ export class TestRunner {
 
       if (matchingFiles.length === 0) {
         const filterDesc = [
-          hasBackendFilter ? `backends: ${config.filter!.backends!.join(", ")}` : "",
+          hasBackendFilter
+            ? `backends: ${config.filter!.backends!.join(", ")}`
+            : "",
           hasThemeFilter ? `themes: ${config.filter!.themes!.join(", ")}` : "",
         ].filter(Boolean).join("; ");
 
@@ -146,7 +156,7 @@ export class TestRunner {
         "--ignore=b3nd-client-localstorage",
         "--ignore=b3nd-client-mongo",
         "--ignore=b3nd-client-postgres",
-        "--ignore=b3nd-client-ws"
+        "--ignore=b3nd-client-ws",
       );
     }
 
@@ -187,7 +197,7 @@ export class TestRunner {
       // Read both stdout and stderr concurrently
       const readStream = async (
         stream: ReadableStream<Uint8Array>,
-        name: string
+        name: string,
       ): Promise<void> => {
         const reader = stream.getReader();
         let buffer = "";
@@ -207,16 +217,22 @@ export class TestRunner {
               if (clean) {
                 // Log non-empty lines for debugging
                 if (!clean.startsWith("Check") && clean.length > 0) {
-                  console.log(`[TestRunner] ${name}: ${clean.substring(0, 100)}`);
+                  console.log(
+                    `[TestRunner] ${name}: ${clean.substring(0, 100)}`,
+                  );
                 }
-                this.parseLine(line, config.runId, summary, (file) => { currentFile = file; }, () => currentFile);
+                this.parseLine(line, config.runId, summary, (file) => {
+                  currentFile = file;
+                }, () => currentFile);
               }
             }
           }
 
           // Process any remaining buffer
           if (buffer.trim()) {
-            this.parseLine(buffer, config.runId, summary, (file) => { currentFile = file; }, () => currentFile);
+            this.parseLine(buffer, config.runId, summary, (file) => {
+              currentFile = file;
+            }, () => currentFile);
           }
         } finally {
           reader.releaseLock();
@@ -269,7 +285,7 @@ export class TestRunner {
     runId: string,
     summary: TestRunSummary,
     setCurrentFile: (file: string) => void,
-    getCurrentFile: () => string
+    getCurrentFile: () => string,
   ): void {
     // Strip ANSI color codes
     const clean = stripAnsi(line).trim();

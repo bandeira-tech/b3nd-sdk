@@ -7,7 +7,9 @@
  * ensures the runtime is ready.
  */
 
-async function checkContainerRuntime(): Promise<{ runtime: string; ok: boolean }> {
+async function checkContainerRuntime(): Promise<
+  { runtime: string; ok: boolean }
+> {
   // Try podman first
   for (const runtime of ["podman", "docker"]) {
     try {
@@ -34,7 +36,9 @@ async function main() {
 
   if (!ok) {
     console.error("❌ No container runtime available (podman or docker)");
-    console.error("\nDatabase tests (postgres, mongo) require a container runtime.");
+    console.error(
+      "\nDatabase tests (postgres, mongo) require a container runtime.",
+    );
     console.error("Please install and start podman or docker.\n");
     console.error("For podman on macOS:");
     console.error("  brew install podman");

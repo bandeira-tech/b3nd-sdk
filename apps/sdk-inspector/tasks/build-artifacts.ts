@@ -53,7 +53,7 @@ interface ExtractedTest {
 }
 
 /**
- * Extract all Deno.test() blocks from a source file.
+ * Extract all Deno.test() and t.step() blocks from a source file.
  * Uses paren counting to find the end of each test block.
  */
 function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
@@ -63,9 +63,20 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trimStart();
 
-    // Must start with or contain Deno.test(
-    const testIdx = trimmed.indexOf("Deno.test(");
-    if (testIdx === -1) continue;
+    // Match Deno.test( or t.step( / await t.step(
+    const denoTestIdx = trimmed.indexOf("Deno.test(");
+    const stepMatch = trimmed.match(/(?:await\s+)?t\.step\(/);
+    const testIdx = denoTestIdx >= 0
+      ? denoTestIdx
+      : stepMatch
+      ? trimmed.indexOf(stepMatch[0])
+      : -1;
+    const marker = denoTestIdx >= 0
+      ? "Deno.test("
+      : stepMatch
+      ? stepMatch[0]
+      : null;
+    if (testIdx === -1 || !marker) continue;
     // Must be the main statement (not inside a comment or string)
     if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue;
 
@@ -79,7 +90,7 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
     for (let j = i; j < lines.length; j++) {
       const line = lines[j];
       for (
-        let k = j === i ? lines[i].indexOf("Deno.test(") : 0;
+        let k = j === i ? lines[i].indexOf(marker) : 0;
         k < line.length;
         k++
       ) {
@@ -120,8 +131,12 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
 
     // Pattern 1: Deno.test("name", ...) or Deno.test('name', ...)
     const literalMatch = source.match(/Deno\.test\(\s*["']([^"']+)["']/);
+    // Pattern 1b: t.step("name", ...) or await t.step("name", ...)
+    const stepLiteral = source.match(/t\.step\(\s*["']([^"']+)["']/);
     // Pattern 2: Deno.test(`...`, ...) — template literal
     const templateMatch = source.match(/Deno\.test\(\s*`([^`]+)`/);
+    // Pattern 2b: t.step(`...`, ...)
+    const stepTemplate = source.match(/t\.step\(\s*`([^`]+)`/);
     // For object form, only search the header (first 300 chars) to avoid
     // matching `name: "Alice"` in the test body
     const header = source.slice(0, 300);
@@ -132,8 +147,13 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
 
     if (literalMatch) {
       name = literalMatch[1];
+    } else if (stepLiteral) {
+      name = stepLiteral[1];
     } else if (templateMatch) {
       name = templateMatch[1];
+      isTemplate = true;
+    } else if (stepTemplate) {
+      name = stepTemplate[1];
       isTemplate = true;
     } else if (objTemplate) {
       name = objTemplate[1];
@@ -160,8 +180,15 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
 }
 
 /**
+ * Check if a filename contains test definitions (test files + suite files).
+ */
+function isTestSourceFile(name: string): boolean {
+  return name.endsWith(".test.ts") || name.endsWith("-suite.ts");
+}
+
+/**
  * Discover all source files that contain test definitions.
- * Tests are colocated with source — walk SDK and E2E directories for .test.ts files.
+ * Includes .test.ts files and *-suite.ts files (shared test suites with template tests).
  */
 async function discoverSourceFiles(): Promise<string[]> {
   const files: string[] = [];
@@ -172,7 +199,7 @@ async function discoverSourceFiles(): Promise<string[]> {
       for await (const entry of Deno.readDir(dir)) {
         if (entry.isDirectory && skipDirs.has(entry.name)) continue;
         const full = `${dir}/${entry.name}`;
-        if (entry.isFile && entry.name.endsWith(".test.ts")) {
+        if (entry.isFile && isTestSourceFile(entry.name)) {
           files.push(full);
         } else if (entry.isDirectory) {
           await walk(full);
