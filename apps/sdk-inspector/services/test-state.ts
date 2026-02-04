@@ -11,10 +11,10 @@
 
 import { WsHub } from "./ws-hub.ts";
 import {
-  classifyTestTheme,
-  classifyBackendType,
-  type TestTheme,
   type BackendType,
+  classifyBackendType,
+  classifyTestTheme,
+  type TestTheme,
 } from "../utils/test-parser.ts";
 
 export interface TestResultState {
@@ -70,9 +70,25 @@ export class TestState {
   private currentRun: RunMetadata | null = null;
   private lastCompletedRun: RunMetadata | null = null;
   private runLog: string[] = [];
+  private projectRoot: string;
 
   constructor(wsHub: WsHub) {
     this.wsHub = wsHub;
+    const servicesDir = new URL(".", import.meta.url).pathname;
+    this.projectRoot = new URL("../../..", `file://${servicesDir}`).pathname
+      .replace(/\/$/, "");
+  }
+
+  /**
+   * Build a relative path from the project root for display
+   */
+  private toRelativePath(absolutePath: string): string {
+    if (absolutePath.startsWith(this.projectRoot + "/")) {
+      return absolutePath.slice(this.projectRoot.length + 1);
+    }
+    // Fallback: last 3 segments
+    const parts = absolutePath.split("/");
+    return parts.slice(Math.max(0, parts.length - 3)).join("/");
   }
 
   /**
@@ -262,11 +278,21 @@ export class TestState {
       for (const test of file.tests.values()) {
         total++;
         switch (test.status) {
-          case "passed": passed++; break;
-          case "failed": failed++; break;
-          case "skipped": skipped++; break;
-          case "running": running++; break;
-          case "pending": pending++; break;
+          case "passed":
+            passed++;
+            break;
+          case "failed":
+            failed++;
+            break;
+          case "skipped":
+            skipped++;
+            break;
+          case "running":
+            running++;
+            break;
+          case "pending":
+            pending++;
+            break;
         }
         if (test.duration) duration += test.duration;
         if (test.lastRun > lastRun) lastRun = test.lastRun;
@@ -279,7 +305,16 @@ export class TestState {
       }
     }
 
-    return { total, passed, failed, skipped, running, pending, duration, lastRun };
+    return {
+      total,
+      passed,
+      failed,
+      skipped,
+      running,
+      pending,
+      duration,
+      lastRun,
+    };
   }
 
   /**
@@ -338,13 +373,21 @@ export class TestState {
   getFullState(): {
     summary: TestSummary;
     results: TestResultState[];
-    files: { path: string; name: string; theme: TestTheme; backend: BackendType; status: string; testCount: number; lastRun: number }[];
+    files: {
+      path: string;
+      name: string;
+      theme: TestTheme;
+      backend: BackendType;
+      status: string;
+      testCount: number;
+      lastRun: number;
+    }[];
     runMetadata: { current: RunMetadata | null; last: RunMetadata | null };
   } {
     return {
       summary: this.getSummary(),
       results: this.getAllResults(),
-      files: Array.from(this.files.values()).map(f => ({
+      files: Array.from(this.files.values()).map((f) => ({
         path: f.path,
         name: f.name,
         theme: f.theme,
@@ -374,8 +417,10 @@ export class TestState {
    */
   private async extractSourceSnippet(
     filePath: string,
-    testName: string
-  ): Promise<{ source: string; sourceFile: string; sourceStartLine: number } | null> {
+    testName: string,
+  ): Promise<
+    { source: string; sourceFile: string; sourceStartLine: number } | null
+  > {
     try {
       const content = await Deno.readTextFile(filePath);
       const lines = content.split("\n");
@@ -395,12 +440,7 @@ export class TestState {
       const to = Math.min(lines.length, startLine + 25);
       const snippet = lines.slice(startLine, to).join("\n");
 
-      // Build a relative path for display
-      const parts = filePath.split("/");
-      const sdkIdx = parts.indexOf("sdk");
-      const integIdx = parts.indexOf("integ");
-      const fromIdx = sdkIdx >= 0 ? sdkIdx : integIdx >= 0 ? integIdx : Math.max(0, parts.length - 3);
-      const relativePath = parts.slice(fromIdx).join("/");
+      const relativePath = this.toRelativePath(filePath);
 
       return {
         source: snippet,
@@ -418,7 +458,9 @@ export class TestState {
    */
   private async writeStaticArtifacts(): Promise<void> {
     const servicesDir = new URL(".", import.meta.url).pathname;
-    const publicDir = new URL("../b3nd-web-rig/public/dashboard", `file://${servicesDir}`).pathname;
+    const publicDir =
+      new URL("../b3nd-web-rig/public/dashboard", `file://${servicesDir}`)
+        .pathname;
 
     // Ensure directory exists
     try {
@@ -432,7 +474,13 @@ export class TestState {
 
     // Extract source snippets for all results (batch by file to avoid re-reading)
     const fileCache = new Map<string, string>();
-    const enrichedResults: Array<TestResultState & { source?: string; sourceFile?: string; sourceStartLine?: number }> = [];
+    const enrichedResults: Array<
+      TestResultState & {
+        source?: string;
+        sourceFile?: string;
+        sourceStartLine?: number;
+      }
+    > = [];
 
     for (const result of results) {
       // Read file once, cache for reuse
@@ -475,13 +523,23 @@ export class TestState {
           // If found in a different file (shared suite), read that file instead
           if (matchLine === -1) {
             // Search for the suffix in known shared suite files
+            // Suite files live in libs/b3nd-testing/ after the monorepo split
+            const libsMatch = result.filePath.match(/^(.+\/libs)\//);
+            const libsBase = libsMatch ? libsMatch[1] : "";
             const suiteFiles = [
+              ...(libsBase
+                ? [
+                  `${libsBase}/b3nd-testing/shared-suite.ts`,
+                  `${libsBase}/b3nd-testing/node-suite.ts`,
+                ]
+                : []),
               result.filePath.replace(/[^/]+$/, "shared-suite.ts"),
               result.filePath.replace(/[^/]+$/, "node-suite.ts"),
             ];
             for (const suiteFile of suiteFiles) {
               try {
-                const suiteContent = fileCache.get(suiteFile) ?? await Deno.readTextFile(suiteFile);
+                const suiteContent = fileCache.get(suiteFile) ??
+                  await Deno.readTextFile(suiteFile);
                 fileCache.set(suiteFile, suiteContent);
                 const suiteLines = suiteContent.split("\n");
                 for (let i = 0; i < suiteLines.length; i++) {
@@ -491,10 +549,7 @@ export class TestState {
                     const to = Math.min(suiteLines.length, matchLine + 25);
                     source = suiteLines.slice(matchLine, to).join("\n");
                     sourceStartLine = matchLine + 1;
-                    const sParts = suiteFile.split("/");
-                    const sIdx = sParts.indexOf("sdk");
-                    const sFrom = sIdx >= 0 ? sIdx : Math.max(0, sParts.length - 3);
-                    sourceFile = sParts.slice(sFrom).join("/");
+                    sourceFile = this.toRelativePath(suiteFile);
                     break;
                   }
                 }
@@ -515,11 +570,7 @@ export class TestState {
 
         // Build relative sourceFile path if not already set
         if (source && !sourceFile) {
-          const parts = result.filePath.split("/");
-          const sdkIdx = parts.indexOf("sdk");
-          const integIdx = parts.indexOf("integ");
-          const fromIdx = sdkIdx >= 0 ? sdkIdx : integIdx >= 0 ? integIdx : Math.max(0, parts.length - 3);
-          sourceFile = parts.slice(fromIdx).join("/");
+          sourceFile = this.toRelativePath(result.filePath);
         }
       }
 
@@ -537,16 +588,18 @@ export class TestState {
       generatedAt: Date.now(),
       runMetadata: this.lastCompletedRun
         ? {
-            trigger: this.lastCompletedRun.trigger,
-            startedAt: this.lastCompletedRun.startedAt,
-            completedAt: this.lastCompletedRun.completedAt || Date.now(),
-            environment: {
-              deno: Deno.version.deno,
-              platform: Deno.build.os,
-              hasPostgres: Boolean(Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL")),
-              hasMongo: Boolean(Deno.env.get("MONGODB_URL")),
-            },
-          }
+          trigger: this.lastCompletedRun.trigger,
+          startedAt: this.lastCompletedRun.startedAt,
+          completedAt: this.lastCompletedRun.completedAt || Date.now(),
+          environment: {
+            deno: Deno.version.deno,
+            platform: Deno.build.os,
+            hasPostgres: Boolean(
+              Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL"),
+            ),
+            hasMongo: Boolean(Deno.env.get("MONGODB_URL")),
+          },
+        }
         : undefined,
       summary: {
         passed: summary.passed,
@@ -569,11 +622,15 @@ export class TestState {
     // Write test-results.json
     const jsonPath = `${publicDir}/test-results.json`;
     await Deno.writeTextFile(jsonPath, JSON.stringify(artifact, null, 2));
-    console.log(`[TestState] Wrote ${enrichedResults.length} results to ${jsonPath}`);
+    console.log(
+      `[TestState] Wrote ${enrichedResults.length} results to ${jsonPath}`,
+    );
 
     // Write test-logs.txt
     const logsPath = `${publicDir}/test-logs.txt`;
     await Deno.writeTextFile(logsPath, this.runLog.join("\n"));
-    console.log(`[TestState] Wrote ${this.runLog.length} log lines to ${logsPath}`);
+    console.log(
+      `[TestState] Wrote ${this.runLog.length} log lines to ${logsPath}`,
+    );
   }
 }

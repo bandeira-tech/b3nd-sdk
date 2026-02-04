@@ -502,16 +502,16 @@ Browse test results by theme, view source code with line numbers, search across 
 
 ## Source Files
 
-- `libs/b3nd-sdk/src/mod.ts` - Main Deno exports
-- `libs/b3nd-sdk/src/types.ts` - Type definitions
-- `libs/b3nd-sdk/src/node/types.ts` - Node/Transaction/Validator types
-- `libs/b3nd-sdk/clients/postgres/mod.ts` - PostgreSQL client
-- `libs/b3nd-sdk/clients/mongo/mod.ts` - MongoDB client
-- `libs/b3nd-sdk/servers/node.ts` - Server node creation
-- `libs/b3nd-sdk/servers/http.ts` - HTTP server utilities
-- `libs/b3nd-sdk/servers/websocket.ts` - WebSocket server utilities
-- `libs/b3nd-sdk/testing/shared-suite.ts` - Shared client conformance suite
-- `libs/b3nd-sdk/testing/node-suite.ts` - Node interface test suite
+- `libs/b3nd-sdk/src/mod.ts` - Main Deno exports (facade, re-exports from sibling libs)
+- `libs/b3nd-core/types.ts` - Type definitions
+- `libs/b3nd-compose/types.ts` - Node/Transaction/Validator types
+- `libs/b3nd-client-postgres/mod.ts` - PostgreSQL client
+- `libs/b3nd-client-mongo/mod.ts` - MongoDB client
+- `libs/b3nd-servers/node.ts` - Server node creation
+- `libs/b3nd-servers/http.ts` - HTTP server utilities
+- `libs/b3nd-servers/websocket.ts` - WebSocket server utilities
+- `libs/b3nd-testing/shared-suite.ts` - Shared client conformance suite
+- `libs/b3nd-testing/node-suite.ts` - Node interface test suite
 
 ## Environment Variables (HTTP Server Installation)
 

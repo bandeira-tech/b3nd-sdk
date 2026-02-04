@@ -1,4 +1,4 @@
-import type { Schema } from "../../libs/b3nd-sdk/src/types.ts";
+import type { Schema } from "../../libs/b3nd-core/types.ts";
 import {
   authValidation,
   createPubkeyBasedAccess,

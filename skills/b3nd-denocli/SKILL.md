@@ -349,9 +349,9 @@ Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 
 ## Key Files Reference
 
-- `libs/b3nd-sdk/testing/memory-client.test.ts` - Test patterns
-- `libs/b3nd-sdk/testing/shared-suite.ts` - Shared test suite (client conformance)
-- `libs/b3nd-sdk/testing/node-suite.ts` - Node interface test suite
+- `libs/b3nd-client-memory/memory-client.test.ts` - Test patterns
+- `libs/b3nd-testing/shared-suite.ts` - Shared test suite (client conformance)
+- `libs/b3nd-testing/node-suite.ts` - Node interface test suite
 - `apps/b3nd-node/mod.ts` - Full HTTP server example
 - `apps/wallet-node/src/mod.ts` - Wallet server example
 - `libs/b3nd-sdk/Makefile` - Common development commands

@@ -7,7 +7,10 @@ const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 /**
  * State routes - serve the current test state
  */
-export function stateRouter(testState: TestState, runner: ContinuousTestRunner): Hono {
+export function stateRouter(
+  testState: TestState,
+  runner: ContinuousTestRunner,
+): Hono {
   const app = new Hono();
 
   /**
@@ -59,19 +62,21 @@ export function stateRouter(testState: TestState, runner: ContinuousTestRunner):
       return c.json({ error: "file query parameter is required" }, 400);
     }
 
-    // Security: only allow reading files under the libs directory
+    // Security: only allow reading files under the project root
     const dashboardDir = new URL(".", import.meta.url).pathname;
-    const libsPath = new URL("../../../libs", `file://${dashboardDir}`).pathname;
+    const projectRoot = new URL("../../..", `file://${dashboardDir}`).pathname;
 
-    // Resolve the file path - accept both absolute and relative
+    // Resolve the file path - accept both absolute and relative to project root
     let resolvedPath = filePath;
     if (!filePath.startsWith("/")) {
-      resolvedPath = `${libsPath}/${filePath}`;
+      resolvedPath = `${projectRoot}/${filePath}`;
     }
 
-    // Ensure the resolved path is within the libs directory
-    if (!resolvedPath.startsWith(libsPath)) {
-      return c.json({ error: "Access denied: file must be within libs directory" }, 403);
+    // Ensure the resolved path is within the project root
+    if (!resolvedPath.startsWith(projectRoot)) {
+      return c.json({
+        error: "Access denied: file must be within project root",
+      }, 403);
     }
 
     try {
@@ -79,7 +84,7 @@ export function stateRouter(testState: TestState, runner: ContinuousTestRunner):
       const lines = content.split("\n");
       return c.json({
         file: resolvedPath,
-        relativePath: resolvedPath.replace(libsPath + "/", ""),
+        relativePath: resolvedPath.replace(projectRoot + "/", ""),
         content,
         lineCount: lines.length,
       });
@@ -87,7 +92,11 @@ export function stateRouter(testState: TestState, runner: ContinuousTestRunner):
       if (e instanceof Deno.errors.NotFound) {
         return c.json({ error: `File not found: ${resolvedPath}` }, 404);
       }
-      return c.json({ error: `Failed to read file: ${e instanceof Error ? e.message : String(e)}` }, 500);
+      return c.json({
+        error: `Failed to read file: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      }, 500);
     }
   });
 
@@ -100,7 +109,7 @@ export function stateRouter(testState: TestState, runner: ContinuousTestRunner):
     }
 
     // Run in background
-    runner.runAllTests().catch(e => {
+    runner.runAllTests().catch((e) => {
       console.error("[StateRouter] Re-run failed:", e);
     });
 

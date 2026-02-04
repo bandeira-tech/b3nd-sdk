@@ -5,7 +5,7 @@
 /// <reference lib="deno.ns" />
 
 import { IndexedDBClient } from "./mod.ts";
-import { runSharedSuite, type TestClientFactories } from "../../testing/shared-suite.ts";
+import { runSharedSuite, type TestClientFactories } from "../b3nd-testing/shared-suite.ts";
 import { indexedDB } from "fake-indexeddb";
 
 globalThis.indexedDB = indexedDB;

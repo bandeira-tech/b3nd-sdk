@@ -275,8 +275,8 @@ When the B3nd plugin is installed, agents can use MCP tools directly to interact
 
 ## Source Files
 
-- `libs/b3nd-sdk/src/mod.web.ts` - Main web exports
-- `libs/b3nd-sdk/clients/http/mod.ts` - HTTP client
-- `libs/b3nd-sdk/clients/local-storage/mod.ts` - LocalStorage client
+- `libs/b3nd-sdk/src/mod.web.ts` - Main web exports (facade, re-exports from sibling libs)
+- `libs/b3nd-client-http/mod.ts` - HTTP client
+- `libs/b3nd-client-localstorage/mod.ts` - LocalStorage client
 - `libs/b3nd-wallet/mod.ts` - Wallet client
 - `libs/b3nd-apps/mod.ts` - Apps client

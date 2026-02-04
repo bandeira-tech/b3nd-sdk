@@ -11,18 +11,20 @@
 
 import { load as loadEnv } from "@std/dotenv";
 import {
-  classifyTestTheme,
   classifyBackendType,
+  classifyTestTheme,
 } from "../utils/test-parser.ts";
 
 const DASHBOARD_ROOT = new URL("..", import.meta.url).pathname;
 const LIBS_PATH = new URL("../../../libs", import.meta.url).pathname;
 const E2E_PATH = new URL("../../../tests", import.meta.url).pathname;
-const OUTPUT_DIR = new URL("../../b3nd-web-rig/public/dashboard/", import.meta.url).pathname;
+const OUTPUT_DIR =
+  new URL("../../b3nd-web-rig/public/dashboard/", import.meta.url).pathname;
 
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 const FILE_HEADER = /^running \d+ tests? from (.+\.test\.ts)/;
-const TEST_RESULT = /^(.+?)\s+\.\.\.+\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
+const TEST_RESULT =
+  /^(.+?)\s+\.\.\.+\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
 
 interface TestResult {
   name: string;
@@ -76,7 +78,11 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
     outer:
     for (let j = i; j < lines.length; j++) {
       const line = lines[j];
-      for (let k = (j === i ? lines[i].indexOf("Deno.test(") : 0); k < line.length; k++) {
+      for (
+        let k = j === i ? lines[i].indexOf("Deno.test(") : 0;
+        k < line.length;
+        k++
+      ) {
         const ch = line[k];
 
         // Handle string tracking (skip contents)
@@ -137,7 +143,13 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
     }
 
     if (name) {
-      tests.push({ name, isTemplate, source, sourceFile: filePath, startLine: i + 1 });
+      tests.push({
+        name,
+        isTemplate,
+        source,
+        sourceFile: filePath,
+        startLine: i + 1,
+      });
     }
 
     // Skip past this block
@@ -184,7 +196,9 @@ async function discoverSourceFiles(): Promise<string[]> {
 /**
  * Build an index of test name → source code
  */
-async function buildSourceIndex(): Promise<Map<string, { source: string; sourceFile: string; startLine: number }>> {
+async function buildSourceIndex(): Promise<
+  Map<string, { source: string; sourceFile: string; startLine: number }>
+> {
   const sourceFiles = await discoverSourceFiles();
   const allBlocks: ExtractedTest[] = [];
 
@@ -198,12 +212,19 @@ async function buildSourceIndex(): Promise<Map<string, { source: string; sourceF
     }
   }
 
-  const index = new Map<string, { source: string; sourceFile: string; startLine: number }>();
+  const index = new Map<
+    string,
+    { source: string; sourceFile: string; startLine: number }
+  >();
 
   // First pass: index literal (non-template) names
   for (const block of allBlocks) {
     if (!block.isTemplate) {
-      index.set(block.name, { source: block.source, sourceFile: block.sourceFile, startLine: block.startLine });
+      index.set(block.name, {
+        source: block.source,
+        sourceFile: block.sourceFile,
+        startLine: block.startLine,
+      });
     }
   }
 
@@ -221,10 +242,12 @@ async function buildSourceIndex(): Promise<Map<string, { source: string; sourceF
         // Replace ${...} with (.+) to create a regex
         const pattern = block.name
           .replace(/\$\{[^}]+\}/g, "(.+)")
-          .replace(/[.*+?^${}()|[\]\\]/g, (m) =>
-            m === "(" || m === ")" || m === "." && block.name.includes("(.+)")
-              ? m
-              : "\\" + m
+          .replace(
+            /[.*+?^${}()|[\]\\]/g,
+            (m) =>
+              m === "(" || m === ")" || m === "." && block.name.includes("(.+)")
+                ? m
+                : "\\" + m,
           );
 
         // Simpler approach: replace ${...} with a wildcard
@@ -235,7 +258,11 @@ async function buildSourceIndex(): Promise<Map<string, { source: string; sourceF
 
         const regex = new RegExp(`^${escaped}$`);
         if (regex.test(testName)) {
-          return { source: block.source, sourceFile: block.sourceFile, startLine: block.startLine };
+          return {
+            source: block.source,
+            sourceFile: block.sourceFile,
+            startLine: block.startLine,
+          };
         }
       }
 
@@ -271,8 +298,12 @@ async function discoverTestFiles(dir: string): Promise<string[]> {
   return files;
 }
 
-function filterSdkTestFiles(files: string[]): { run: string[]; skip: string[] } {
-  const hasPostgres = Boolean(Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL"));
+function filterSdkTestFiles(
+  files: string[],
+): { run: string[]; skip: string[] } {
+  const hasPostgres = Boolean(
+    Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL"),
+  );
   const hasMongo = Boolean(Deno.env.get("MONGODB_URL"));
 
   const run: string[] = [];
@@ -280,7 +311,11 @@ function filterSdkTestFiles(files: string[]): { run: string[]; skip: string[] } 
 
   for (const file of files) {
     const name = file.split("/").pop() || "";
-    if (file.includes("/browser/") || name === "websocket-client.test.ts") {
+    if (
+      file.includes("/browser/") || name === "websocket-client.test.ts" ||
+      name === "indexed-db-client.test.ts" ||
+      name === "local-storage-client.test.ts"
+    ) {
       skip.push(name);
     } else if (name === "postgres-client.test.ts" && !hasPostgres) {
       skip.push(name);
@@ -304,9 +339,14 @@ function filterSdkTestFiles(files: string[]): { run: string[]; skip: string[] } 
 async function runAndParse(
   files: string[],
   cwd: string,
-  sourceIndex: Map<string, { source: string; sourceFile: string; startLine: number }>,
+  sourceIndex: Map<
+    string,
+    { source: string; sourceFile: string; startLine: number }
+  >,
   completedAt: number,
-): Promise<{ results: TestResult[]; stdout: string; stderr: string; exitCode: number }> {
+): Promise<
+  { results: TestResult[]; stdout: string; stderr: string; exitCode: number }
+> {
   const cmd = new Deno.Command("deno", {
     args: ["test", "-A", "--no-check", ...files],
     cwd,
@@ -354,7 +394,11 @@ async function runAndParse(
         filePath: currentFilePath,
         theme: classifyTestTheme(currentFilePath),
         backend: classifyBackendType(currentFilePath),
-        status: result === "ok" ? "passed" : result === "FAILED" ? "failed" : "skipped",
+        status: result === "ok"
+          ? "passed"
+          : result === "FAILED"
+          ? "failed"
+          : "skipped",
         duration,
         lastRun: completedAt,
         source: sourceInfo?.source,
@@ -391,7 +435,9 @@ async function main() {
   const e2eFiles = await discoverTestFiles(E2E_PATH);
   const { run: sdkRun, skip } = filterSdkTestFiles(libFiles);
 
-  console.log(`SDK: ${sdkRun.length} test files to run, ${skip.length} skipped`);
+  console.log(
+    `SDK: ${sdkRun.length} test files to run, ${skip.length} skipped`,
+  );
   if (skip.length > 0) console.log(`  Skipped: ${skip.join(", ")}`);
   console.log(`E2E: ${e2eFiles.length} test files to run`);
 
@@ -415,7 +461,9 @@ async function main() {
     allResults.push(...sdk.results);
     rawOutput += sdk.stdout + (sdk.stderr ? "\n" + sdk.stderr : "");
     if (sdk.exitCode > maxExitCode) maxExitCode = sdk.exitCode;
-    console.log(`  SDK: ${sdk.results.length} tests (exit code: ${sdk.exitCode})`);
+    console.log(
+      `  SDK: ${sdk.results.length} tests (exit code: ${sdk.exitCode})`,
+    );
   }
 
   // Run E2E tests (cwd: tests/ — separate deno.json scope)
@@ -423,9 +471,12 @@ async function main() {
     console.log(`\nRunning ${e2eFiles.length} E2E test files...`);
     const e2e = await runAndParse(e2eFiles, E2E_PATH, sourceIndex, Date.now());
     allResults.push(...e2e.results);
-    rawOutput += (rawOutput ? "\n" : "") + e2e.stdout + (e2e.stderr ? "\n" + e2e.stderr : "");
+    rawOutput += (rawOutput ? "\n" : "") + e2e.stdout +
+      (e2e.stderr ? "\n" + e2e.stderr : "");
     if (e2e.exitCode > maxExitCode) maxExitCode = e2e.exitCode;
-    console.log(`  E2E: ${e2e.results.length} tests (exit code: ${e2e.exitCode})`);
+    console.log(
+      `  E2E: ${e2e.results.length} tests (exit code: ${e2e.exitCode})`,
+    );
   }
 
   const finalCompletedAt = Date.now();
@@ -440,7 +491,17 @@ async function main() {
   }
 
   // Build file info
-  const fileMap = new Map<string, { path: string; name: string; theme: string; backend: string; status: string; testCount: number }>();
+  const fileMap = new Map<
+    string,
+    {
+      path: string;
+      name: string;
+      theme: string;
+      backend: string;
+      status: string;
+      testCount: number;
+    }
+  >();
   for (const r of allResults) {
     const existing = fileMap.get(r.filePath);
     if (!existing) {
@@ -468,7 +529,9 @@ async function main() {
       environment: {
         deno: Deno.version.deno,
         platform: Deno.build.os,
-        hasPostgres: Boolean(Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL")),
+        hasPostgres: Boolean(
+          Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL"),
+        ),
         hasMongo: Boolean(Deno.env.get("MONGODB_URL")),
       },
     },
@@ -487,7 +550,7 @@ async function main() {
   await Deno.mkdir(OUTPUT_DIR, { recursive: true });
   await Deno.writeTextFile(
     `${OUTPUT_DIR}/test-results.json`,
-    JSON.stringify(artifact, null, 2)
+    JSON.stringify(artifact, null, 2),
   );
   await Deno.writeTextFile(`${OUTPUT_DIR}/test-logs.txt`, rawOutput);
 
@@ -495,9 +558,13 @@ async function main() {
   const withSource = allResults.filter((r) => r.source).length;
 
   console.log(`\nArtifacts written to: ${OUTPUT_DIR}`);
-  console.log(`  test-results.json (${allResults.length} tests, ${withSource} with source)`);
+  console.log(
+    `  test-results.json (${allResults.length} tests, ${withSource} with source)`,
+  );
   console.log(`  test-logs.txt (${rawOutput.split("\n").length} lines)`);
-  console.log(`  Summary: ${passed} passed, ${failed} failed, ${skipped} skipped`);
+  console.log(
+    `  Summary: ${passed} passed, ${failed} failed, ${skipped} skipped`,
+  );
   console.log(`  Exit code: ${maxExitCode}`);
 
   Deno.exit(maxExitCode);

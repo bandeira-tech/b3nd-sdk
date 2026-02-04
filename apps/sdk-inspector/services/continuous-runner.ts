@@ -10,8 +10,8 @@
 import { TestState } from "./test-state.ts";
 import { WsHub } from "./ws-hub.ts";
 import {
-  classifyTestTheme,
   classifyBackendType,
+  classifyTestTheme,
 } from "../utils/test-parser.ts";
 
 // Regex to strip ANSI color codes
@@ -19,7 +19,8 @@ const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 
 // Regex patterns to parse Deno test output
 const FILE_HEADER_PATTERN = /^running \d+ tests? from (.+\.test\.ts)/;
-const TEST_RESULT_PATTERN = /^(.+?)\s+\.\.\.+\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
+const TEST_RESULT_PATTERN =
+  /^(.+?)\s+\.\.\.+\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
 
 function stripAnsi(str: string): string {
   return str.replace(ANSI_PATTERN, "");
@@ -40,7 +41,8 @@ export class ContinuousTestRunner {
     // Determine paths relative to dashboard (apps/sdk-inspector/services -> b3nd root)
     const dashboardDir = new URL(".", import.meta.url).pathname;
     this.libsPath = new URL("../../../libs", `file://${dashboardDir}`).pathname;
-    this.integE2ePath = new URL("../../../tests", `file://${dashboardDir}`).pathname;
+    this.integE2ePath =
+      new URL("../../../tests", `file://${dashboardDir}`).pathname;
   }
 
   /**
@@ -109,11 +111,18 @@ export class ContinuousTestRunner {
   /**
    * Run all tests
    */
-  async runAllTests(trigger: "startup" | "file-change" | "manual" = "manual", changedFiles?: string[]): Promise<void> {
-    const hasPostgres = Boolean(Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL"));
+  async runAllTests(
+    trigger: "startup" | "file-change" | "manual" = "manual",
+    changedFiles?: string[],
+  ): Promise<void> {
+    const hasPostgres = Boolean(
+      Deno.env.get("POSTGRES_URL") || Deno.env.get("DATABASE_URL"),
+    );
     const hasMongo = Boolean(Deno.env.get("MONGODB_URL"));
 
-    console.log(`[ContinuousRunner] Database config: postgres=${hasPostgres}, mongo=${hasMongo}`);
+    console.log(
+      `[ContinuousRunner] Database config: postgres=${hasPostgres}, mongo=${hasMongo}`,
+    );
 
     // Separate SDK tests from E2E tests (different cwd needed)
     const sdkTestsToRun: string[] = [];
@@ -130,7 +139,10 @@ export class ContinuousTestRunner {
       }
 
       // Skip browser tests (need browser environment)
-      if (file.includes("/browser/")) {
+      if (
+        file.includes("/browser/") || name === "indexed-db-client.test.ts" ||
+        name === "local-storage-client.test.ts"
+      ) {
         testsToSkip.push(name);
         continue;
       }
@@ -156,7 +168,9 @@ export class ContinuousTestRunner {
       sdkTestsToRun.push(file);
     }
 
-    console.log(`[ContinuousRunner] Running ${sdkTestsToRun.length} SDK + ${e2eTestsToRun.length} E2E test files, skipping ${testsToSkip.length}`);
+    console.log(
+      `[ContinuousRunner] Running ${sdkTestsToRun.length} SDK + ${e2eTestsToRun.length} E2E test files, skipping ${testsToSkip.length}`,
+    );
     if (testsToSkip.length > 0) {
       console.log(`[ContinuousRunner] Skipped: ${testsToSkip.join(", ")}`);
     }
@@ -181,7 +195,11 @@ export class ContinuousTestRunner {
   /**
    * Run tests for specific files
    */
-  async runTestFiles(files: string[], trigger: "startup" | "file-change" | "manual" = "manual", changedFiles?: string[]): Promise<void> {
+  async runTestFiles(
+    files: string[],
+    trigger: "startup" | "file-change" | "manual" = "manual",
+    changedFiles?: string[],
+  ): Promise<void> {
     if (files.length === 0) return;
 
     this.testState.startRun(trigger, changedFiles);
@@ -207,7 +225,10 @@ export class ContinuousTestRunner {
   /**
    * Run a deno test command and parse output
    */
-  private async runTestCommand(args: string[], cwd: string = this.libsPath): Promise<void> {
+  private async runTestCommand(
+    args: string[],
+    cwd: string = this.libsPath,
+  ): Promise<void> {
     // Stop any existing run before starting a new one
     if (this.currentProcess) {
       console.log("[ContinuousRunner] Stopping previous test run...");
@@ -238,7 +259,9 @@ export class ContinuousTestRunner {
       const decoder = new TextDecoder();
       const startTime = Date.now();
 
-      const readStream = async (stream: ReadableStream<Uint8Array>): Promise<void> => {
+      const readStream = async (
+        stream: ReadableStream<Uint8Array>,
+      ): Promise<void> => {
         const reader = stream.getReader();
         let buffer = "";
 
@@ -303,7 +326,9 @@ export class ContinuousTestRunner {
         timestamp: Date.now(),
       });
 
-      console.log(`[ContinuousRunner] Test run completed (exit code: ${status.code}, files: ${seenFiles.size})`);
+      console.log(
+        `[ContinuousRunner] Test run completed (exit code: ${status.code}, files: ${seenFiles.size})`,
+      );
     } catch (error) {
       console.error("[ContinuousRunner] Error running tests:", error);
       this.wsHub.broadcast({
@@ -346,7 +371,7 @@ export class ContinuousTestRunner {
   private parseLine(
     line: string,
     setCurrentFile: (file: string, path: string) => void,
-    getCurrentFile: () => { file: string; path: string }
+    getCurrentFile: () => { file: string; path: string },
   ): void {
     const clean = stripAnsi(line).trim();
     if (!clean) return;
@@ -371,10 +396,17 @@ export class ContinuousTestRunner {
 
       let status: "passed" | "failed" | "skipped";
       switch (result) {
-        case "ok": status = "passed"; break;
-        case "FAILED": status = "failed"; break;
-        case "ignored": status = "skipped"; break;
-        default: status = "failed";
+        case "ok":
+          status = "passed";
+          break;
+        case "FAILED":
+          status = "failed";
+          break;
+        case "ignored":
+          status = "skipped";
+          break;
+        default:
+          status = "failed";
       }
 
       let duration: number | undefined;
@@ -409,7 +441,9 @@ export class ContinuousTestRunner {
         const baseName = file.split("/").pop()?.replace(".ts", "") || "";
 
         for (const testFile of this.testFiles) {
-          if (testFile.includes(baseName) || this.isRelatedTest(file, testFile)) {
+          if (
+            testFile.includes(baseName) || this.isRelatedTest(file, testFile)
+          ) {
             testsToRun.push(testFile);
           }
         }
@@ -417,8 +451,14 @@ export class ContinuousTestRunner {
     }
 
     if (testsToRun.length > 0) {
-      console.log(`[ContinuousRunner] Re-running ${testsToRun.length} tests due to file changes`);
-      await this.runTestFiles([...new Set(testsToRun)], "file-change", changedFiles);
+      console.log(
+        `[ContinuousRunner] Re-running ${testsToRun.length} tests due to file changes`,
+      );
+      await this.runTestFiles(
+        [...new Set(testsToRun)],
+        "file-change",
+        changedFiles,
+      );
     }
   }
 
