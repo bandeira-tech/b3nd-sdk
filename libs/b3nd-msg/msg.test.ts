@@ -95,10 +95,10 @@ Deno.test("createMessageNode - validator can read state", async () => {
   await storage.receive(["accounts://balances/alice", { balance: 50 }]);
 
   const validator: MessageValidator<{ amount: number }> = async (
-    tx,
+    msg,
     read,
   ) => {
-    const [, data] = tx;
+    const [, data] = msg;
     const balance = await read<{ balance: number }>(
       "accounts://balances/alice",
     );
@@ -316,8 +316,8 @@ Deno.test("createOutputValidator - with preValidate", async () => {
     schema: {
       "utxo://test": async () => ({ valid: true }),
     },
-    preValidate: async (tx) => {
-      const [, data] = tx;
+    preValidate: async (msg) => {
+      const [, data] = msg;
       if (!("sig" in data)) {
         return { valid: false, error: "signature_required" };
       }
@@ -406,8 +406,8 @@ Deno.test("integration - message node with output validator", async () => {
         return { valid: true };
       },
     },
-    preValidate: async (tx, read) => {
-      const [, data] = tx;
+    preValidate: async (msg, read) => {
+      const [, data] = msg;
 
       // Sum inputs
       let inputSum = 0;

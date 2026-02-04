@@ -86,7 +86,7 @@ class MockWebSocket {
   protected generateResponse(request: any): any {
     const responses = {
       receive: () => {
-        // Handle receive transaction: { tx: [uri, data] }
+        // Handle receive message: { tx: [uri, data] }
         const [uri, data] = request.payload.tx;
         const ts = Date.now();
         this.storage.set(uri, { data, ts });

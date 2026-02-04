@@ -66,7 +66,7 @@ export interface Node {
  *
  * Pure function: same inputs → same result. Side effects happen downstream.
  * The validator cannot write — everything needed for validation must exist
- * in the transaction or be readable from current state.
+ * in the message or be readable from current state.
  *
  * @param msg - The message to validate
  * @param read - Function to read state for validation (read-only)

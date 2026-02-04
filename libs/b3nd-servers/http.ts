@@ -192,7 +192,7 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
 
   // Unified receive endpoint (new Node interface)
   app.post("/api/v1/receive", async (c: MinimalContext) => {
-    // Parse request body to get transaction
+    // Parse request body to get message
     const body = await (async () => {
       try {
         return await (c as any).req.json?.() ?? {};
