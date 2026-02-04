@@ -56,7 +56,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/mod.web.ts ../b3nd-wallet/mod.ts ../b3nd-apps/mod.ts ../b3nd-encrypt/mod.ts blob/mod.ts clients/http/mod.ts clients/local-storage/mod.ts clients/websocket/mod.ts clients/memory/mod.ts ../b3nd-wallet-server/mod.ts ../b3nd-wallet-server/adapters/browser.ts --dts --format esm --out-dir dist --clean --tsconfig tsconfig.web.json",
+    "build": "tsup",
     "clean": "rm -rf dist",
     "lint": "deno lint src/",
     "format": "deno fmt src/"

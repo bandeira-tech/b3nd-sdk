@@ -15,15 +15,15 @@
   },
   "include": [
     "src/mod.web.ts",
+    "../b3nd-core/**/*.ts",
     "../b3nd-wallet/**/*.ts",
     "../b3nd-apps/**/*.ts",
     "../b3nd-encrypt/**/*.ts",
-    "clients/http/**/*.ts",
-    "clients/local-storage/**/*.ts",
-    "clients/websocket/**/*.ts",
-    "shared/**/*.ts",
-    "src/types.ts",
-    "blob/**/*.ts",
+    "../b3nd-client-http/**/*.ts",
+    "../b3nd-client-localstorage/**/*.ts",
+    "../b3nd-client-ws/**/*.ts",
+    "../b3nd-client-memory/**/*.ts",
+    "../b3nd-blob/**/*.ts",
     "../b3nd-wallet-server/**/*.ts"
   ]
 }

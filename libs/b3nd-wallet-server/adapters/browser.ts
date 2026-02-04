@@ -7,7 +7,7 @@
 
 import type { Environment, FileStorage } from "../interfaces.ts";
 import { ConfigEnvironment, MemoryFileStorage } from "../interfaces.ts";
-import { LocalStorageClient } from "../../clients/local-storage/mod.ts";
+import { LocalStorageClient } from "../../b3nd-client-localstorage/mod.ts";
 import type { ServerKeys, WalletServerConfig } from "../types.ts";
 import { WalletServerCore } from "../core.ts";
 
