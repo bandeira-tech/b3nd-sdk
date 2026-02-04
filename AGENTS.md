@@ -4,17 +4,24 @@
 
 ```
 b3nd/
-├── libs/                       # SDK packages
-│   ├── b3nd-sdk/               # Core SDK (Deno/JSR + NPM)
-│   │   ├── src/                # Core types, node system, mod.ts
-│   │   │   └── node/           # Unified node: createNode, validators, processors, composition
-│   │   ├── clients/            # Client implementations (memory, http, websocket, postgres, mongo, etc.)
-│   │   │   └── combinators/    # Client composition utilities
-│   │   ├── txn-data/           # TransactionData convention (detect, types, validators)
-│   │   ├── txn/                # Legacy transaction node (deprecated)
-│   │   ├── blob/               # Content-addressed storage utilities
-│   │   ├── servers/            # HTTP + WebSocket server primitives
-│   │   ├── testing/            # Shared test suites (shared-suite.ts, node-suite.ts, mock-http-server.ts)
+├── libs/                       # SDK packages (modular)
+│   ├── b3nd-core/              # Foundation: types, encoding, binary
+│   ├── b3nd-compose/           # Node composition: createNode, validators, processors
+│   ├── b3nd-blob/              # Content-addressed storage utilities
+│   ├── b3nd-txn/               # Transaction system (node + data convention)
+│   ├── b3nd-servers/           # HTTP + WebSocket server primitives
+│   ├── b3nd-client-memory/     # In-memory client
+│   ├── b3nd-client-http/       # HTTP client
+│   ├── b3nd-client-ws/         # WebSocket client
+│   ├── b3nd-client-postgres/   # PostgreSQL client
+│   ├── b3nd-client-mongo/      # MongoDB client
+│   ├── b3nd-client-indexeddb/  # IndexedDB client (browser)
+│   ├── b3nd-client-localstorage/ # LocalStorage client (browser)
+│   ├── b3nd-combinators/       # Client composition: parallelBroadcast, firstMatchSequence
+│   ├── b3nd-testing/           # Shared test suites (shared-suite, node-suite, mock-http-server)
+│   ├── b3nd-sdk/               # Publishing facade (re-exports from sibling libs)
+│   │   ├── src/mod.ts          # JSR entry — re-exports everything
+│   │   ├── src/mod.web.ts      # NPM entry — browser-safe subset
 │   │   ├── deno.json           # JSR: @bandeira-tech/b3nd-sdk v0.6.0
 │   │   └── package.json        # NPM: @bandeira-tech/b3nd-web v0.5.2
 │   ├── b3nd-auth/              # Pubkey-based access control
@@ -116,42 +123,35 @@ These commands are the canonical way to verify the SDK. Always run them after ma
 ### Quick Verification (no Docker required)
 
 ```bash
-cd libs/b3nd-sdk
+# Type check the SDK facade
+cd libs/b3nd-sdk && deno check src/mod.ts
 
-# Format check (CI runs this — must pass)
-deno fmt --check src/
+# Type check individual libs
+cd libs/b3nd-core && deno check mod.ts
+cd libs/b3nd-compose && deno check mod.ts
+cd libs/b3nd-client-memory && deno check mod.ts
 
-# Type check
-deno check src/mod.ts
-
-# Unit tests (no external dependencies)
-deno task test
-
-# All three in sequence:
-deno fmt --check src/ && deno check src/mod.ts && deno task test
+# Unit tests (no external dependencies) — run from individual libs
+cd libs/b3nd-client-memory && deno test -A
+cd libs/b3nd-client-http && deno test -A
+cd libs/b3nd-txn && deno test -A
+cd libs/b3nd-combinators && deno test -A
+cd libs/b3nd-core && deno test -A
 ```
 
 ### Full Verification (requires Docker containers)
 
 ```bash
-cd libs/b3nd-sdk
-
 # Integration tests — reuse running containers or start new ones
-deno task test:integration
-
-# Individual database tests
-deno task test:integration:postgres
-deno task test:integration:mongo
-
-# Everything
-deno fmt --check src/ && deno check src/mod.ts && deno task test && deno task test:integration
+cd libs/b3nd-client-postgres && deno test -A
+cd libs/b3nd-client-mongo && deno test -A
 ```
 
 ### Transaction-Specific Tests
 
 ```bash
-cd libs/b3nd-sdk
-deno test -A txn-data/txn-unpack.test.ts txn-data/txn-clients.test.ts
+cd libs/b3nd-txn
+deno test -A txn-unpack.test.ts txn-clients.test.ts
 ```
 
 ### HTTP Server Type Check
@@ -226,7 +226,7 @@ Skills are the primary way agents learn the current SDK API. When the SDK change
 ### Skill Update Protocol
 
 After any SDK API change:
-1. Run verification: `cd libs/b3nd-sdk && deno fmt --check src/ && deno check src/mod.ts && deno task test`
+1. Run verification: `cd libs/b3nd-sdk && deno check src/mod.ts`
 2. Update affected skills in `skills/` to reflect new exports, patterns, examples
 3. Update `AGENTS.md` if the change affects repo structure or verification commands
 4. Rebuild dashboard artifacts if tests changed: `cd apps/sdk-inspector && deno task dashboard:build`
@@ -237,12 +237,13 @@ After any SDK API change:
 
 **Every session that changes code MUST end with verification and a commit.** Do not leave uncommitted work.
 
-1. **Format** — Run `cd libs/b3nd-sdk && deno fmt` to auto-format all files.
-2. **Verify** — Run the full verification chain:
+1. **Format** — Run `deno fmt` to auto-format all files.
+2. **Verify** — Type check the SDK facade and run unit tests:
    ```bash
-   cd libs/b3nd-sdk && deno fmt --check src/ && deno check src/mod.ts && deno task test
+   cd libs/b3nd-sdk && deno check src/mod.ts
+   cd libs/b3nd-client-memory && deno test -A
    ```
-   If Docker containers are available, also run `deno task test:integration`.
+   If Docker containers are available, also run postgres/mongo client tests.
 3. **Commit** — Stage and commit all changes with a clear message describing what was done.
 4. **Push** — Push to the remote branch so work is never lost.
 
@@ -258,17 +259,18 @@ If verification fails, fix the issue and re-verify. Never commit failing code. N
 
 ### Adding a New Client
 
-1. Implement `NodeProtocolInterface` + `Node` (see `clients/memory/mod.ts` as reference)
-2. Add `isTransactionData` unpacking in `receive()` (see pattern in memory/postgres/mongo clients)
-3. Run shared test suites: `runSharedSuite` and `runNodeSuite`
-4. Export from `src/mod.ts`
-5. Update `b3nd-sdk` skill
+1. Create `libs/b3nd-client-{name}/` with `mod.ts` and `deno.json`
+2. Implement `NodeProtocolInterface` + `Node` (see `libs/b3nd-client-memory/mod.ts` as reference)
+3. Add `isTransactionData` unpacking in `receive()` (see pattern in memory/postgres/mongo clients)
+4. Run shared test suites: `runSharedSuite` and `runNodeSuite` from `libs/b3nd-testing/`
+5. Re-export from `libs/b3nd-sdk/src/mod.ts`
+6. Update `b3nd-sdk` skill
 
 ### Adding a New Validator or Processor
 
-1. Add to `src/node/validators.ts` or `src/node/processors.ts`
-2. Re-export from `src/node/mod.ts`
-3. Re-export from `src/mod.ts`
+1. Add to `libs/b3nd-compose/validators.ts` or `libs/b3nd-compose/processors.ts`
+2. Re-export from `libs/b3nd-compose/mod.ts`
+3. Re-export from `libs/b3nd-sdk/src/mod.ts`
 4. Add tests
 5. Update `b3nd-sdk` skill composition examples
 
@@ -293,8 +295,8 @@ When the SDK API changes and apps need updating:
 
 - Use `MemoryClient` for unit tests (no external dependencies)
 - Use shared test suites (`runSharedSuite`, `runNodeSuite`) for client conformance
-- Tests are colocated with source: each client has its test file in the same directory
-- Shared test utilities live in `libs/b3nd-sdk/testing/`
+- Tests are colocated with source: each client lib has its test file in its own directory
+- Shared test utilities live in `libs/b3nd-testing/`
 - Unique URI prefixes per test for isolation in persistent backends
 - Tests assert exact values — verify actual data matches what was stored
 - Docker tests reuse running containers — never kill dev instances

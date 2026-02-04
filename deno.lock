@@ -830,6 +830,47 @@
           "jsr:@std/encoding@1"
         ]
       },
+      "libs/b3nd-client-http": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-client-memory": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-client-mongo": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-client-postgres": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-client-ws": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-combinators": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-compose": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-core": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15",
+          "jsr:@std/encoding@^1.0.10"
+        ]
+      },
       "libs/b3nd-encrypt": {
         "dependencies": [
           "jsr:@std/assert@1",
@@ -849,6 +890,21 @@
             "npm:typescript@^5.6.3"
           ]
         }
+      },
+      "libs/b3nd-testing": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-txn": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-wallet": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
       },
       "libs/b3nd-wallet-server": {
         "dependencies": [

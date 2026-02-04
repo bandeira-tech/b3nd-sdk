@@ -1,4 +1,4 @@
-import { decodeHex } from "../b3nd-sdk/shared/encoding.ts";
+import { decodeHex } from "../b3nd-core/encoding.ts";
 
 type AuthMessage<T> = {
   auth: { pubkey: string; signature: string }[];

@@ -17,13 +17,11 @@ import { debounce } from "@std/async";
 const OUTPUT_DIR = new URL("../../b3nd-web-rig/public/dashboard/", import.meta.url)
   .pathname;
 
-const SDK_PATH = new URL("../../../libs/b3nd-sdk", import.meta.url).pathname;
+const LIBS_PATH = new URL("../../../libs", import.meta.url).pathname;
 
+// Watch the entire libs directory (all b3nd-* packages)
 const WATCH_PATHS = [
-  `${SDK_PATH}/src`,
-  `${SDK_PATH}/clients`,
-  `${SDK_PATH}/txn`,
-  `${SDK_PATH}/txn-data`,
+  LIBS_PATH,
 ];
 
 async function writeArtifacts(

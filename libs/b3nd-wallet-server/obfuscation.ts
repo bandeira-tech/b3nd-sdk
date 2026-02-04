@@ -13,7 +13,7 @@
  * but the path itself reveals nothing about the data.
  */
 
-import { encodeHex } from "../b3nd-sdk/shared/encoding.ts";
+import { encodeHex } from "../b3nd-core/encoding.ts";
 import {
   createSignedEncryptedMessage,
   decrypt as decryptData,

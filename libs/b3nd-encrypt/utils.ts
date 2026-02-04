@@ -1,4 +1,4 @@
-import { encodeHex } from "../b3nd-sdk/shared/encoding.ts";
+import { encodeHex } from "../b3nd-core/encoding.ts";
 
 /**
  * Derive a deterministic obfuscated path from arbitrary parts.

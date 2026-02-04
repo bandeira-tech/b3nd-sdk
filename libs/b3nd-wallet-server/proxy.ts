@@ -5,7 +5,7 @@
  * Automatically signs writes with the user's identity key and encrypts with user's encryption key.
  */
 
-import type { NodeProtocolInterface } from "../b3nd-sdk/src/types.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import {
   type AuthenticatedMessage,
   createAuthenticatedMessage,

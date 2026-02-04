@@ -43,10 +43,10 @@ import type {
   UserPublicKeys,
 } from "./types.ts";
 
-import type { NodeProtocolInterface } from "../b3nd-sdk/src/types.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import { WalletServerCore } from "../b3nd-wallet-server/core.ts";
 import type { ServerKeys, WalletServerConfig } from "../b3nd-wallet-server/types.ts";
-import { MemoryClient } from "../b3nd-sdk/clients/memory/mod.ts";
+import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 import {
   createAuthenticatedMessageWithHex,
   exportPrivateKeyPem,

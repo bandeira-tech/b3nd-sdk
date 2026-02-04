@@ -7,7 +7,7 @@
 
 import { WalletClient } from "./mod.ts";
 import { AppsClient } from "../b3nd-apps/mod.ts";
-import { HttpClient } from "../b3nd-sdk/clients/http/mod.ts";
+import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { createAuthenticatedMessage } from "../b3nd-encrypt/mod.ts";
 
 const WALLET_SERVER_URL = "http://localhost:3001";

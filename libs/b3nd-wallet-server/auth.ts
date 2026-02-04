@@ -5,8 +5,8 @@
  * All data is encrypted before writing to backend using obfuscated paths.
  */
 
-import { decodeHex, encodeHex } from "../b3nd-sdk/shared/encoding.ts";
-import type { NodeProtocolInterface } from "../b3nd-sdk/src/types.ts";
+import { decodeHex, encodeHex } from "../b3nd-core/encoding.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import type { Logger } from "./interfaces.ts";
 import {
   createSignedEncryptedPayload,

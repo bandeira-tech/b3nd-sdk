@@ -9,9 +9,9 @@
  *   E2E_SERVER_PORT=8080 deno run --allow-net test-server.ts
  */
 
-import { httpServer } from "../libs/b3nd-sdk/servers/http.ts";
-import { MemoryClient } from "../libs/b3nd-sdk/clients/memory/mod.ts";
-import type { Schema } from "../libs/b3nd-sdk/src/types.ts";
+import { httpServer } from "../libs/b3nd-servers/http.ts";
+import { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
+import type { Schema } from "../libs/b3nd-core/types.ts";
 
 // Create a permissive schema that allows any program key
 // The schema needs exact matches on "program key" format: protocol://domain

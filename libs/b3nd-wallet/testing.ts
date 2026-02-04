@@ -22,9 +22,9 @@
  * ```
  */
 
-import type { Schema } from "../b3nd-sdk/src/types.ts";
+import type { Schema } from "../b3nd-core/types.ts";
 import type { AuthSession, SessionKeypair, UserPublicKeys } from "./types.ts";
-import { createTestSchema, MemoryClient } from "../b3nd-sdk/clients/memory/mod.ts";
+import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
 import { generateTestServerKeys, MemoryWalletClient } from "./memory-client.ts";
 import type { MemoryWalletClientConfig } from "./memory-client.ts";
 import type { ServerKeys } from "../b3nd-wallet-server/types.ts";

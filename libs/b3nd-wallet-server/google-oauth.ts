@@ -5,7 +5,7 @@
  * Supports both signup and login flows with Google OAuth2.
  */
 
-import { encodeHex } from "../b3nd-sdk/shared/encoding.ts";
+import { encodeHex } from "../b3nd-core/encoding.ts";
 import type { HttpFetch } from "./interfaces.ts";
 
 export interface GoogleTokenPayload {

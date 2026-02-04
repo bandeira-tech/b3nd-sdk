@@ -9,8 +9,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Context } from "hono";
 
-import { HttpClient } from "../b3nd-sdk/clients/http/mod.ts";
-import type { NodeProtocolInterface } from "../b3nd-sdk/src/types.ts";
+import { HttpClient } from "../b3nd-client-http/mod.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import { createAuthenticatedMessage } from "../b3nd-encrypt/mod.ts";
 
 import type { FileStorage, HttpFetch, Logger } from "./interfaces.ts";

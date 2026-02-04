@@ -25,12 +25,10 @@ export class FileWatcher {
     this.wsHub = wsHub;
 
     // Determine paths relative to dashboard location (apps/sdk-inspector/services -> b3nd root)
+    // Watch the entire libs directory (all b3nd-* packages)
     const dashboardDir = new URL(".", import.meta.url).pathname;
     this.watchPaths = [
-      new URL("../../../libs/b3nd-sdk/src", `file://${dashboardDir}`).pathname,
-      new URL("../../../libs/b3nd-sdk/clients", `file://${dashboardDir}`).pathname,
-      new URL("../../../libs/b3nd-sdk/txn", `file://${dashboardDir}`).pathname,
-      new URL("../../../libs/b3nd-sdk/txn-data", `file://${dashboardDir}`).pathname,
+      new URL("../../../libs", `file://${dashboardDir}`).pathname,
     ];
 
     // Debounce broadcasts to avoid flooding on rapid changes (e.g., save-all)

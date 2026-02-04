@@ -28,7 +28,7 @@ function stripAnsi(str: string): string {
 export class ContinuousTestRunner {
   private testState: TestState;
   private wsHub: WsHub;
-  private sdkPath: string;
+  private libsPath: string;
   private integE2ePath: string;
   private currentProcess: Deno.ChildProcess | null = null;
   private testFiles: string[] = [];
@@ -39,7 +39,7 @@ export class ContinuousTestRunner {
 
     // Determine paths relative to dashboard (apps/sdk-inspector/services -> b3nd root)
     const dashboardDir = new URL(".", import.meta.url).pathname;
-    this.sdkPath = new URL("../../../libs/b3nd-sdk", `file://${dashboardDir}`).pathname;
+    this.libsPath = new URL("../../../libs", `file://${dashboardDir}`).pathname;
     this.integE2ePath = new URL("../../../tests", `file://${dashboardDir}`).pathname;
   }
 
@@ -69,7 +69,16 @@ export class ContinuousTestRunner {
       }
     };
 
-    await walkDir(this.sdkPath);
+    // Walk all b3nd-* lib directories for test files
+    try {
+      for await (const entry of Deno.readDir(this.libsPath)) {
+        if (entry.isDirectory && entry.name.startsWith("b3nd-")) {
+          await walkDir(`${this.libsPath}/${entry.name}`);
+        }
+      }
+    } catch (e) {
+      console.error(`[ContinuousRunner] Failed to read libs directory:`, e);
+    }
     await walkDir(this.integE2ePath);
     return testFiles;
   }
@@ -157,7 +166,7 @@ export class ContinuousTestRunner {
     // Run SDK tests (cwd: sdk/)
     if (sdkTestsToRun.length > 0) {
       const args = ["test", "-A", ...sdkTestsToRun];
-      await this.runTestCommand(args, this.sdkPath);
+      await this.runTestCommand(args, this.libsPath);
     }
 
     // Run E2E tests (cwd: integ/e2e/ — separate deno.json scope)
@@ -186,7 +195,7 @@ export class ContinuousTestRunner {
     const e2eFiles = files.filter((f) => this.isE2eTest(f));
 
     if (sdkFiles.length > 0) {
-      await this.runTestCommand(["test", "-A", ...sdkFiles], this.sdkPath);
+      await this.runTestCommand(["test", "-A", ...sdkFiles], this.libsPath);
     }
     if (e2eFiles.length > 0) {
       await this.runTestCommand(["test", "-A", ...e2eFiles], this.integE2ePath);
@@ -198,7 +207,7 @@ export class ContinuousTestRunner {
   /**
    * Run a deno test command and parse output
    */
-  private async runTestCommand(args: string[], cwd: string = this.sdkPath): Promise<void> {
+  private async runTestCommand(args: string[], cwd: string = this.libsPath): Promise<void> {
     // Stop any existing run before starting a new one
     if (this.currentProcess) {
       console.log("[ContinuousRunner] Stopping previous test run...");
@@ -319,7 +328,7 @@ export class ContinuousTestRunner {
 
     // Check if this file exists under integE2ePath
     const e2eCandidate = `${this.integE2ePath}/${cleaned}`;
-    const sdkCandidate = `${this.sdkPath}/${cleaned}`;
+    const sdkCandidate = `${this.libsPath}/${cleaned}`;
 
     // Prefer the path that matches a known test file
     for (const file of this.testFiles) {
@@ -425,7 +434,7 @@ export class ContinuousTestRunner {
     const sourceDir = sourceParts.slice(0, -1).join("/");
     const testDir = testParts.slice(0, -1).join("/");
 
-    return sourceDir.includes("b3nd-sdk") && testDir.includes("b3nd-sdk");
+    return sourceDir.includes("/libs/b3nd-") && testDir.includes("/libs/b3nd-");
   }
 
   /**

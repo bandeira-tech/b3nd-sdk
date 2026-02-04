@@ -1,0 +1,11 @@
+{
+  "name": "@b3nd/client-postgres",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./schema": "./schema.ts"
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.15"
+  }
+}

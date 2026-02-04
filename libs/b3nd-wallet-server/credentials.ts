@@ -5,7 +5,7 @@
  * Each credential type has a handler that implements signup and login logic.
  */
 
-import type { NodeProtocolInterface } from "../b3nd-sdk/src/types.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import type { HttpFetch, Logger } from "./interfaces.ts";
 import {
   authenticateGoogleUser,

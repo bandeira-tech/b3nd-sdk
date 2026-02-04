@@ -4,7 +4,7 @@
 
 import { MongoClient as NativeMongoClient } from "npm:mongodb";
 
-import type { MongoExecutor } from "../../libs/b3nd-sdk/clients/mongo/mod.ts";
+import type { MongoExecutor } from "../../libs/b3nd-client-mongo/mod.ts";
 
 export async function createMongoExecutor(
   connectionString: string,

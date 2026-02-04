@@ -12,4 +12,4 @@ export {
   generateLinkUri,
   isValidSha256Hash,
   verifyBlobContent,
-} from "../../libs/b3nd-sdk/blob/mod.ts";
+} from "../../libs/b3nd-blob/mod.ts";

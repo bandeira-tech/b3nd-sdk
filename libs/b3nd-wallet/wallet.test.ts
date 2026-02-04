@@ -14,7 +14,7 @@ import {
   MemoryWalletClient,
 } from "./memory-client.ts";
 import { generateSessionKeypair } from "./client.ts";
-import { MemoryClient } from "../b3nd-sdk/clients/memory/mod.ts";
+import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 import { generateSigningKeyPair, signWithHex, verify } from "../b3nd-encrypt/mod.ts";
 
 // Test app key (generated once for all tests)
@@ -374,7 +374,7 @@ Deno.test("MemoryWalletClient - proxyWrite/proxyRead work after login", async ()
 });
 
 Deno.test("createTestEnvironment - loginTestUser generates and approves session", async () => {
-  const { createTestEnvironment } = await import("../wallet/testing.ts");
+  const { createTestEnvironment } = await import("./testing.ts");
 
   const env = await createTestEnvironment();
   const appKey = await createTestAppKey();

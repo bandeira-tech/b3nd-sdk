@@ -3,7 +3,7 @@ import {
   decodeHex,
   encodeBase64,
   encodeHex,
-} from "../b3nd-sdk/shared/encoding.ts";
+} from "../b3nd-core/encoding.ts";
 
 // Types
 export interface KeyPair {

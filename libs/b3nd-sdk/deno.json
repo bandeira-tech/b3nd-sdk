@@ -4,17 +4,17 @@
   "description": "Universal persistence SDK with URI-based addressing, encryption, and multi-backend support (PostgreSQL, HTTP, WebSocket, in-memory)",
   "exports": {
     ".": "./src/mod.ts",
-    "./types": "./src/types.ts",
-    "./node": "./src/node/mod.ts",
+    "./types": "../b3nd-core/types.ts",
+    "./node": "../b3nd-compose/mod.ts",
     "./auth": "../b3nd-auth/mod.ts",
     "./encrypt": "../b3nd-encrypt/mod.ts",
-    "./blob": "./blob/mod.ts",
-    "./txn": "./txn/mod.ts",
-    "./txn-data": "./txn-data/mod.ts",
-    "./clients/memory": "./clients/memory/mod.ts",
-    "./clients/http": "./clients/http/mod.ts",
-    "./clients/websocket": "./clients/websocket/mod.ts",
-    "./clients/postgres": "./clients/postgres/mod.ts",
+    "./blob": "../b3nd-blob/mod.ts",
+    "./txn": "../b3nd-txn/mod.ts",
+    "./txn-data": "../b3nd-txn/data/mod.ts",
+    "./clients/memory": "../b3nd-client-memory/mod.ts",
+    "./clients/http": "../b3nd-client-http/mod.ts",
+    "./clients/websocket": "../b3nd-client-ws/mod.ts",
+    "./clients/postgres": "../b3nd-client-postgres/mod.ts",
     "./wallet": "../b3nd-wallet/mod.ts",
     "./apps": "../b3nd-apps/mod.ts",
     "./wallet-server": "../b3nd-wallet-server/mod.ts",
@@ -25,14 +25,6 @@
     "@std/encoding": "jsr:@std/encoding@^1.0.10"
   },
   "tasks": {
-    "test": "deno test -A --ignore=clients/indexed-db --ignore=clients/local-storage --ignore=clients/mongo --ignore=clients/postgres --ignore=clients/websocket",
-    "test:unit": "deno test -A --ignore=clients/indexed-db --ignore=clients/local-storage --ignore=clients/mongo --ignore=clients/postgres --ignore=clients/websocket",
-    "test:integration": "deno test -A clients/postgres/postgres-client.test.ts clients/mongo/mongo-client.test.ts",
-    "test:integration:postgres": "deno test -A clients/postgres/postgres-client.test.ts",
-    "test:integration:mongo": "deno test -A clients/mongo/mongo-client.test.ts",
-    "test:all": "deno test -A",
-    "lint": "deno lint src/",
-    "fmt": "deno fmt src/",
     "check": "deno check src/mod.ts",
     "publish:jsr": "deno publish --allow-dirty"
   },
@@ -45,21 +37,12 @@
       "deno.ns"
     ]
   },
-  "test": {
-    "exclude": [
-      "clients/indexed-db",
-      "clients/local-storage"
-    ]
-  },
   "publish": {
     "exclude": [
       "dist/",
       "build/",
       "node_modules/",
       "build*.ts",
-      "testing/",
-      "clients/indexed-db/",
-      "clients/local-storage/",
       ".env*",
       "*.test.ts",
       "*.js"

@@ -59,19 +59,19 @@ export function stateRouter(testState: TestState, runner: ContinuousTestRunner):
       return c.json({ error: "file query parameter is required" }, 400);
     }
 
-    // Security: only allow reading files under the SDK directory
+    // Security: only allow reading files under the libs directory
     const dashboardDir = new URL(".", import.meta.url).pathname;
-    const sdkPath = new URL("../../../libs/b3nd-sdk", `file://${dashboardDir}`).pathname;
+    const libsPath = new URL("../../../libs", `file://${dashboardDir}`).pathname;
 
     // Resolve the file path - accept both absolute and relative
     let resolvedPath = filePath;
     if (!filePath.startsWith("/")) {
-      resolvedPath = `${sdkPath}/${filePath}`;
+      resolvedPath = `${libsPath}/${filePath}`;
     }
 
-    // Ensure the resolved path is within the SDK directory
-    if (!resolvedPath.startsWith(sdkPath)) {
-      return c.json({ error: "Access denied: file must be within SDK directory" }, 403);
+    // Ensure the resolved path is within the libs directory
+    if (!resolvedPath.startsWith(libsPath)) {
+      return c.json({ error: "Access denied: file must be within libs directory" }, 403);
     }
 
     try {
@@ -79,7 +79,7 @@ export function stateRouter(testState: TestState, runner: ContinuousTestRunner):
       const lines = content.split("\n");
       return c.json({
         file: resolvedPath,
-        relativePath: resolvedPath.replace(sdkPath + "/", ""),
+        relativePath: resolvedPath.replace(libsPath + "/", ""),
         content,
         lineCount: lines.length,
       });

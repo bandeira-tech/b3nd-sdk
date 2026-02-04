@@ -4,7 +4,7 @@
  * Type definitions for the universal wallet server SDK.
  */
 
-import type { NodeProtocolInterface } from "../b3nd-sdk/src/types.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import type { FileStorage, HttpFetch, Logger } from "./interfaces.ts";
 
 /**

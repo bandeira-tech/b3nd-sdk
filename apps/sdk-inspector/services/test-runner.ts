@@ -63,14 +63,14 @@ export class TestRunner {
   private wsHub: WsHub;
   private currentProcess: Deno.ChildProcess | null = null;
   private currentRunId: string | null = null;
-  private sdkPath: string;
+  private libsPath: string;
   private integPath: string;
 
   constructor(wsHub: WsHub) {
     this.wsHub = wsHub;
     // Determine paths relative to dashboard location (apps/sdk-inspector/services -> b3nd root)
     const dashboardDir = new URL(".", import.meta.url).pathname;
-    this.sdkPath = new URL("../../../libs/b3nd-sdk", `file://${dashboardDir}`).pathname;
+    this.libsPath = new URL("../../../libs", `file://${dashboardDir}`).pathname;
     this.integPath = new URL("../../../tests", `file://${dashboardDir}`).pathname;
   }
 
@@ -139,14 +139,14 @@ export class TestRunner {
 
       testPaths.push(...matchingFiles);
     } else {
-      // Default to SDK tests, excluding browser tests and integration-heavy tests
-      testPaths.push(this.sdkPath);
+      // Default to libs tests, excluding browser and integration-heavy tests
+      testPaths.push(this.libsPath);
       args.push(
-        "--ignore=clients/indexed-db",
-        "--ignore=clients/local-storage",
-        "--ignore=clients/mongo",
-        "--ignore=clients/postgres",
-        "--ignore=clients/websocket"
+        "--ignore=b3nd-client-indexeddb",
+        "--ignore=b3nd-client-localstorage",
+        "--ignore=b3nd-client-mongo",
+        "--ignore=b3nd-client-postgres",
+        "--ignore=b3nd-client-ws"
       );
     }
 
@@ -165,7 +165,7 @@ export class TestRunner {
     try {
       const command = new Deno.Command("deno", {
         args,
-        cwd: this.sdkPath,
+        cwd: this.libsPath,
         stdout: "piped",
         stderr: "piped",
       });
@@ -374,7 +374,7 @@ export class TestRunner {
     if (cleaned.includes("e2e") || cleaned.includes("integ")) {
       return `${this.integPath}/${cleaned}`;
     }
-    return `${this.sdkPath}/${cleaned}`;
+    return `${this.libsPath}/${cleaned}`;
   }
 
   /**
@@ -464,8 +464,16 @@ export class TestRunner {
       }
     };
 
-    // Walk entire SDK directory to find all test files
-    await walkDir(this.sdkPath);
+    // Walk all b3nd-* lib directories for test files
+    try {
+      for await (const entry of Deno.readDir(this.libsPath)) {
+        if (entry.isDirectory && entry.name.startsWith("b3nd-")) {
+          await walkDir(`${this.libsPath}/${entry.name}`);
+        }
+      }
+    } catch (e) {
+      console.error(`[TestRunner] Failed to read libs directory:`, e);
+    }
 
     // Walk integ directory for E2E tests
     await walkDir(this.integPath);

@@ -16,7 +16,7 @@ import {
 } from "../utils/test-parser.ts";
 
 const DASHBOARD_ROOT = new URL("..", import.meta.url).pathname;
-const SDK_PATH = new URL("../../../libs/b3nd-sdk", import.meta.url).pathname;
+const LIBS_PATH = new URL("../../../libs", import.meta.url).pathname;
 const E2E_PATH = new URL("../../../tests", import.meta.url).pathname;
 const OUTPUT_DIR = new URL("../../b3nd-web-rig/public/dashboard/", import.meta.url).pathname;
 
@@ -169,7 +169,14 @@ async function discoverSourceFiles(): Promise<string[]> {
     } catch { /* directory may not exist */ }
   }
 
-  await walk(SDK_PATH);
+  // Walk all b3nd-* lib directories
+  try {
+    for await (const entry of Deno.readDir(LIBS_PATH)) {
+      if (entry.isDirectory && entry.name.startsWith("b3nd-")) {
+        await walk(`${LIBS_PATH}/${entry.name}`);
+      }
+    }
+  } catch { /* libs directory may not exist */ }
   await walk(E2E_PATH);
   return files;
 }
@@ -371,10 +378,18 @@ async function main() {
     console.log("No .env file found, using environment variables");
   }
 
-  // Discover SDK and E2E test files separately
-  const sdkFiles = await discoverTestFiles(SDK_PATH);
+  // Discover lib and E2E test files separately
+  const libFiles: string[] = [];
+  try {
+    for await (const entry of Deno.readDir(LIBS_PATH)) {
+      if (entry.isDirectory && entry.name.startsWith("b3nd-")) {
+        const files = await discoverTestFiles(`${LIBS_PATH}/${entry.name}`);
+        libFiles.push(...files);
+      }
+    }
+  } catch { /* libs directory may not exist */ }
   const e2eFiles = await discoverTestFiles(E2E_PATH);
-  const { run: sdkRun, skip } = filterSdkTestFiles(sdkFiles);
+  const { run: sdkRun, skip } = filterSdkTestFiles(libFiles);
 
   console.log(`SDK: ${sdkRun.length} test files to run, ${skip.length} skipped`);
   if (skip.length > 0) console.log(`  Skipped: ${skip.join(", ")}`);
@@ -393,10 +408,10 @@ async function main() {
   const allResults: TestResult[] = [];
   let rawOutput = "";
 
-  // Run SDK tests (cwd: libs/b3nd-sdk)
+  // Run lib tests (cwd: libs/)
   if (sdkRun.length > 0) {
-    console.log(`\nRunning ${sdkRun.length} SDK test files...`);
-    const sdk = await runAndParse(sdkRun, SDK_PATH, sourceIndex, Date.now());
+    console.log(`\nRunning ${sdkRun.length} lib test files...`);
+    const sdk = await runAndParse(sdkRun, LIBS_PATH, sourceIndex, Date.now());
     allResults.push(...sdk.results);
     rawOutput += sdk.stdout + (sdk.stderr ? "\n" + sdk.stderr : "");
     if (sdk.exitCode > maxExitCode) maxExitCode = sdk.exitCode;

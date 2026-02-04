@@ -23,11 +23,11 @@ export type {
   WebSocketRequest,
   WebSocketResponse,
   WriteResult,
-} from "./types.ts";
+} from "../../b3nd-core/types.ts";
 
-export { HttpClient } from "../clients/http/mod.ts";
-export { WebSocketClient } from "../clients/websocket/mod.ts";
-export { LocalStorageClient } from "../clients/local-storage/mod.ts";
+export { HttpClient } from "../../b3nd-client-http/mod.ts";
+export { WebSocketClient } from "../../b3nd-client-ws/mod.ts";
+export { LocalStorageClient } from "../../b3nd-client-localstorage/mod.ts";
 export { WalletClient } from "../../b3nd-wallet/mod.ts";
 export { AppsClient } from "../../b3nd-apps/mod.ts";
 export * as encrypt from "../../b3nd-encrypt/mod.ts";

@@ -4,8 +4,8 @@
  * Generates and manages user Ed25519 (account/signing) and X25519 (encryption) keys.
  */
 
-import { encodeHex } from "../b3nd-sdk/shared/encoding.ts";
-import type { NodeProtocolInterface } from "../b3nd-sdk/src/types.ts";
+import { encodeHex } from "../b3nd-core/encoding.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import type { Logger } from "./interfaces.ts";
 import type { UserKeys } from "./types.ts";
 import {
