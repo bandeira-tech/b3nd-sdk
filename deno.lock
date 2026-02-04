@@ -783,6 +783,8 @@
     "https://deno.land/std@0.160.0/testing/_diff.ts": "a23e7fc2b4d8daa3e158fa06856bedf5334ce2a2831e8bf9e509717f455adb2c",
     "https://deno.land/std@0.160.0/testing/_format.ts": "cd11136e1797791045e639e9f0f4640d5b4166148796cad37e6ef75f7d7f3832",
     "https://deno.land/std@0.160.0/testing/asserts.ts": "1e340c589853e82e0807629ba31a43c84ebdcdeca910c4a9705715dfdb0f5ce8",
+    "https://deno.land/std@0.208.0/encoding/_util.ts": "f368920189c4fe6592ab2e93bd7ded8f3065b84f95cd3e036a4a10a75649dcba",
+    "https://deno.land/std@0.208.0/encoding/hex.ts": "a384101d02cd87036c708f540825feb5b073c8527a00d635e48b2e69c992a5f9",
     "https://deno.land/x/postgres@v0.17.0/client.ts": "348779c9f6a1c75ef1336db662faf08dce7d2101ff72f0d1e341ba1505c8431d",
     "https://deno.land/x/postgres@v0.17.0/client/error.ts": "0817583b666fd546664ed52c1d37beccc5a9eebcc6e3c2ead20ada99b681e5f7",
     "https://deno.land/x/postgres@v0.17.0/connection/auth.ts": "1070125e2ac4ca4ade36d69a4222d37001903092826d313217987583edd61ce9",
@@ -808,6 +810,11 @@
   },
   "workspace": {
     "members": {
+      "apps/apps-node": {
+        "dependencies": [
+          "npm:hono@*"
+        ]
+      },
       "apps/b3nd-node": {
         "dependencies": [
           "jsr:@std/encoding@^1.0.10",
@@ -821,6 +828,11 @@
           "jsr:@std/dotenv@0.225",
           "jsr:@std/path@^1.0.8",
           "npm:hono@4"
+        ]
+      },
+      "apps/wallet-node": {
+        "dependencies": [
+          "npm:hono@*"
         ]
       },
       "libs/b3nd-auth": {

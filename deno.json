@@ -21,9 +21,11 @@
     "libs/b3nd-wallet",
     "libs/b3nd-wallet-server",
     "libs/b3nd-apps",
+    "apps/apps-node",
     "apps/b3nd-cli",
     "apps/b3nd-node",
     "apps/sdk-inspector",
+    "apps/wallet-node",
     "tests"
   ]
 }

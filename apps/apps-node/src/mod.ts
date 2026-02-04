@@ -287,7 +287,7 @@ async function main() {
 
     const { uri, result } = await performActionWrite(dataClient, action, appKey, signedMessage);
     if (!result.success) return c.json({ success: false, error: result.error || "write failed" }, 400);
-    return c.json({ success: true, uri, record: result.record });
+    return c.json({ success: true, uri });
   });
 
 

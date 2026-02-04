@@ -1,7 +1,11 @@
 import type { NodeProtocolInterface } from "@b3nd/sdk/types";
-import { createSignedEncryptedMessage, type AuthenticatedMessage, verifyAndDecrypt } from "@b3nd/sdk/encrypt";
+import {
+  createSignedEncryptedMessage,
+  decrypt,
+  type AuthenticatedMessage,
+  verify,
+} from "@b3nd/sdk/encrypt";
 import { pemToCryptoKey } from "@b3nd/sdk";
-import { verify, type AuthenticatedMessage } from "@b3nd/sdk/encrypt";
 
 export interface AppActionDef {
   action: string;
@@ -34,7 +38,7 @@ export async function saveAppConfig(
   };
 
   const path = `apps/${config.appKey}`;
-  const signed = await createSignedEncryptedPayload(
+  const signed = await createSignedEncryptedMessage(
     payload,
     [{
       privateKey: await pemToCryptoKey(serverIdentityPrivateKeyPem, "Ed25519"),
@@ -65,8 +69,8 @@ export async function loadAppConfig(
     };
   }
 
-  const { data } = await verifyAndDecrypt(
-    result.record.data,
+  const data = await decrypt(
+    result.record.data.payload,
     await pemToCryptoKey(serverEncryptionPrivateKeyPem, "X25519"),
   );
   const obj = data as any;
