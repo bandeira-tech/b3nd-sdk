@@ -2,24 +2,7 @@
   "name": "@bandeira-tech/b3nd-sdk",
   "version": "0.7.0",
   "description": "Universal persistence SDK with URI-based addressing, encryption, and multi-backend support (PostgreSQL, HTTP, WebSocket, in-memory)",
-  "exports": {
-    ".": "./src/mod.ts",
-    "./types": "./../b3nd-core/types.ts",
-    "./node": "./../b3nd-compose/mod.ts",
-    "./auth": "./../b3nd-auth/mod.ts",
-    "./encrypt": "./../b3nd-encrypt/mod.ts",
-    "./blob": "./../b3nd-blob/mod.ts",
-    "./txn": "./../b3nd-txn/mod.ts",
-    "./txn-data": "./../b3nd-txn/data/mod.ts",
-    "./clients/memory": "./../b3nd-client-memory/mod.ts",
-    "./clients/http": "./../b3nd-client-http/mod.ts",
-    "./clients/websocket": "./../b3nd-client-ws/mod.ts",
-    "./clients/postgres": "./../b3nd-client-postgres/mod.ts",
-    "./wallet": "./../b3nd-wallet/mod.ts",
-    "./apps": "./../b3nd-apps/mod.ts",
-    "./wallet-server": "./../b3nd-wallet-server/mod.ts",
-    "./wallet-server/adapters/deno": "./../b3nd-wallet-server/adapters/deno.ts"
-  },
+  "exports": "./src/mod.ts",
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.15",
     "@std/encoding": "jsr:@std/encoding@^1.0.10"
