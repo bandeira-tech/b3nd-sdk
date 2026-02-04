@@ -20,19 +20,24 @@ b3nd/
 │   ├── tests/              # All test suites
 │   ├── deno.json           # JSR: @bandeira-tech/b3nd-sdk v0.6.0
 │   └── package.json        # NPM: @bandeira-tech/b3nd-web v0.5.2
-├── installations/          # Reference server deployments
-│   └── http-server/        # Multi-backend HTTP node (Hono)
-├── explorer/               # Developer tools
-│   ├── app/                # React/Vite frontend (port 5555)
-│   └── dashboard/          # Dashboard backend + test artifact builder
+├── installations/          # Deployable server templates
+│   ├── http-server/        # Multi-backend HTTP node (Hono) — generic schema-based API
+│   ├── app-backend/        # Application backend scaffold
+│   └── wallet-server/      # Wallet/auth server
+├── explorer/               # Developer tools environment
+│   ├── app/                # React/Vite data explorer UI (port 5555)
+│   ├── dashboard/          # Test runner + monitoring backend (port 5556, WebSocket)
+│   ├── docker-compose.yml  # Dev environment: API server + dashboard + frontend
+│   └── dev.sh              # Single-command dev startup
+├── cli/                    # bnd CLI tool (Deno, compiled binary)
 ├── skills/                 # Claude Code plugin skills
 │   ├── b3nd-general/       # URI schemes, protocols, encryption, wallet
 │   ├── b3nd-sdk/           # Deno/JSR SDK — clients, node system, transactions
 │   ├── b3nd-web/           # NPM browser package
 │   ├── b3nd-webapp/        # React apps with B3nd
 │   └── b3nd-denocli/       # Deno CLI tools with B3nd
-├── cli/                    # bnd CLI tool
 ├── .claude-plugin/         # Plugin manifest + MCP server
+│   └── mcp-server/         # Deno MCP server — multi-backend CRUD tools
 └── AGENTS.md               # This file
 ```
 
@@ -172,19 +177,33 @@ docker run --rm -d --name b3nd-postgres -e POSTGRES_DB=b3nd_test -e POSTGRES_USE
 docker run --rm -d --name b3nd-mongo -e MONGO_INITDB_DATABASE=b3nd_test -p 57017:27017 mongo:8
 ```
 
-## Adjacent Applications
+## Applications
 
-Apps built on b3nd that agents should be aware of:
+### In-Repo Applications
 
-| App | Path | Description |
-|-----|------|-------------|
-| listorama | `../listorama` | List management app (reference consumer of b3nd SDK) |
-| listorama-b3nd | `../listorama-b3nd` | B3nd integration layer for listorama |
-| listorama-frontend | `../listorama-frontend` | Frontend for listorama |
-| appsfirecat | `../appsfirecat` | Firecat network apps portal |
-| b3nd.fire.cat | `../b3nd.fire.cat` | Firecat network website |
+These are applications and services inside this monorepo:
 
-When the SDK changes (new features, API changes), these apps may need updates. The plugin skills guide agents through SDK adoption.
+| App | Path | Stack | Description |
+|-----|------|-------|-------------|
+| HTTP Server | `installations/http-server/` | Deno, Hono | Generic multi-backend API server. Loads schema modules dynamically. Supports Postgres, Mongo, Memory, HTTP backends via `BACKEND_URL`. |
+| App Backend | `installations/app-backend/` | Deno, Hono | Application backend scaffold with Docker deployment. |
+| Wallet Server | `installations/wallet-server/` | Deno | Wallet/auth server for pubkey-based authentication. |
+| Explorer App | `explorer/app/` | React, Vite, Tailwind | Data explorer UI for browsing B3nd nodes. Port 5555. Uses `@bandeira-tech/b3nd-web`. |
+| Dashboard | `explorer/dashboard/` | Deno, Hono, WebSocket | Live test runner and monitoring backend. Port 5556. Generates test artifacts. |
+| bnd CLI | `cli/` | Deno | Command-line interface for B3nd nodes. `./cli/bnd read <uri>`, `./cli/bnd list <uri>`. |
+| MCP Server | `.claude-plugin/mcp-server/` | Deno | Multi-backend CRUD tools for Claude Code. Reads `B3ND_BACKENDS` env. |
+
+### External Applications
+
+Standalone repos that consume the B3nd SDK. When the SDK API changes, these apps may need updates. The plugin skills guide agents through SDK adoption.
+
+| App | Path | Stack | Description |
+|-----|------|-------|-------------|
+| listorama | `../listorama` | React, Vite | List management app — reference consumer of `@bandeira-tech/b3nd-web` |
+| b3ndwebappshell | `../b3ndwebappshell` | Monorepo | Reusable application shell packages for B3nd web apps |
+| notebook | `../notebook` | React 19 | Decentralized notebook/microblogging app on Firecat network (firecat-notes) |
+
+Note: Some sibling directories (e.g. `b3nd-cleanup-docs`, `b3nd-wt1`) are **git worktrees** of this repo, not separate applications.
 
 ## Skills System
 
@@ -254,7 +273,7 @@ If verification fails, fix the issue and re-verify. Never commit failing code. N
 ### Propagating SDK Changes to Apps
 
 When the SDK API changes and apps need updating:
-1. Identify affected apps (listorama, appsfirecat, etc.)
+1. Identify affected apps (listorama, b3ndwebappshell, notebook)
 2. The skill system guides agents — when an agent works in an app repo with the b3nd plugin installed, it reads the skills automatically
 3. Skills should contain the current import paths, function names, and composition patterns so agents don't use stale APIs
 
