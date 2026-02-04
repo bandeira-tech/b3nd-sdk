@@ -186,7 +186,9 @@ async function main() {
     }
 
     console.log(
-      `\n🎯 Running ${suitesToRun.length} test suite(s): ${suitesToRun.map((s) => s.name).join(", ")}`,
+      `\n🎯 Running ${suitesToRun.length} test suite(s): ${
+        suitesToRun.map((s) => s.name).join(", ")
+      }`,
     );
   }
 

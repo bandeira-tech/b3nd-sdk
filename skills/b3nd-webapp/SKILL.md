@@ -33,13 +33,13 @@ export const config = import.meta.env.DEV ? LOCAL : FIRECAT;
 
 Use the canonical Firecat schema - don't create custom protocols:
 
-| Protocol | Use Case |
-|----------|----------|
-| `mutable://open/{path}` | Public data, no auth |
-| `mutable://accounts/{pubkey}/{path}` | User data, wallet auth |
-| `immutable://open/{path}` | Permanent public content |
-| `immutable://accounts/{pubkey}/{path}` | Permanent user content |
-| `immutable://inbox/{pubkey}/{path}` | Private messages |
+| Protocol                               | Use Case                 |
+| -------------------------------------- | ------------------------ |
+| `mutable://open/{path}`                | Public data, no auth     |
+| `mutable://accounts/{pubkey}/{path}`   | User data, wallet auth   |
+| `immutable://open/{path}`              | Permanent public content |
+| `immutable://accounts/{pubkey}/{path}` | Permanent user content   |
+| `immutable://inbox/{pubkey}/{path}`    | Private messages         |
 
 ## Project Setup
 
@@ -155,15 +155,15 @@ export const useAppStore = create<AppState & AppActions>()(
       partialize: (state) => ({
         activeBackendId: state.activeBackendId,
       }),
-    }
-  )
+    },
+  ),
 );
 ```
 
 ## React Query Integration
 
 ```typescript
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { HttpClient } from "@bandeira-tech/b3nd-web";
 
 const client = new HttpClient({ url: "http://localhost:9942" });
@@ -181,7 +181,10 @@ export function useRecord(uri: string) {
 }
 
 // List query
-export function useList(uri: string, options?: { page?: number; limit?: number }) {
+export function useList(
+  uri: string,
+  options?: { page?: number; limit?: number },
+) {
   return useQuery({
     queryKey: ["list", uri, options],
     queryFn: async () => {
@@ -197,7 +200,9 @@ export function useReceive() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ txnUri, outputs }: { txnUri: string; outputs: [string, unknown][] }) => {
+    mutationFn: async (
+      { txnUri, outputs }: { txnUri: string; outputs: [string, unknown][] },
+    ) => {
       const result = await client.receive([txnUri, {
         inputs: [],
         outputs,
@@ -220,18 +225,25 @@ export function useReceive() {
 **IMPORTANT:** Both signup AND login require an approved session keypair.
 
 Sessions use Ed25519 keypairs for authentication. Flow:
+
 1. Client generates session keypair via `generateSessionKeypair()`
-2. Client posts SIGNED request to inbox: `immutable://inbox/{appKey}/sessions/{sessionPubkey}`
+2. Client posts SIGNED request to inbox:
+   `immutable://inbox/{appKey}/sessions/{sessionPubkey}`
    - Signature proves ownership of session private key
    - Payload is arbitrary (app developers decide what info to require)
-3. App validates signature, examines payload, and APPROVES: `mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1`
+3. App validates signature, examines payload, and APPROVES:
+   `mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1`
 4. Client signs auth payload with session private key
 5. Wallet validates: session approved (=1), signature valid
 
-This supports both local approval (same process) and remote/async approval workflows.
+This supports both local approval (same process) and remote/async approval
+workflows.
 
 ```typescript
-import { WalletClient, generateSessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
+import {
+  generateSessionKeypair,
+  WalletClient,
+} from "@bandeira-tech/b3nd-web/wallet";
 import type { SessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
 import { HttpClient } from "@bandeira-tech/b3nd-web";
 
@@ -244,7 +256,7 @@ const wallet = new WalletClient({
 async function signup(
   appKey: string,
   sessionKeypair: SessionKeypair,
-  credentials: { username: string; password: string }
+  credentials: { username: string; password: string },
 ) {
   // Session must be approved first via: mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
   const result = await wallet.signup(appKey, sessionKeypair, credentials);
@@ -256,7 +268,7 @@ async function signup(
 async function login(
   appKey: string,
   sessionKeypair: SessionKeypair,
-  credentials: { username: string; password: string }
+  credentials: { username: string; password: string },
 ) {
   // Session must be approved first via: mutable://accounts/{appKey}/sessions/{sessionPubkey} = 1
   const result = await wallet.login(appKey, sessionKeypair, credentials);
@@ -273,7 +285,7 @@ async function createAndApproveSession(
   appKey: string,
   appPrivateKeyHex: string, // App's Ed25519 private key (hex)
   backendClient: HttpClient,
-  extraPayload: Record<string, unknown> = {}
+  extraPayload: Record<string, unknown> = {},
 ): Promise<SessionKeypair> {
   // 1. Generate session keypair
   const sessionKeypair = await generateSessionKeypair();
@@ -283,13 +295,13 @@ async function createAndApproveSession(
   const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
     requestPayload,
     sessionKeypair.publicKeyHex,
-    sessionKeypair.privateKeyHex
+    sessionKeypair.privateKeyHex,
   );
   await backendClient.receive(["txn://open/session-request", {
     inputs: [],
     outputs: [[
       `immutable://inbox/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
-      signedRequest
+      signedRequest,
     ]],
   }]);
 
@@ -297,13 +309,13 @@ async function createAndApproveSession(
   const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
     1,
     appKey,
-    appPrivateKeyHex
+    appPrivateKeyHex,
   );
   await backendClient.receive(["txn://open/session-approve", {
     inputs: [],
     outputs: [[
       `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`,
-      signedApproval
+      signedApproval,
     ]],
   }]);
 
@@ -319,21 +331,21 @@ async function authFlow(backendClient: HttpClient) {
   const sessionKeypair = await createAndApproveSession(
     APP_KEY,
     APP_PRIVATE_KEY,
-    backendClient
+    backendClient,
   );
 
   // 2. Signup (first time)
   const session = await wallet.signup(APP_KEY, sessionKeypair, {
-    type: 'password',
+    type: "password",
     username: "alice",
-    password: "secret123"
+    password: "secret123",
   });
 
   // Or login (returning user)
   const session = await wallet.login(APP_KEY, sessionKeypair, {
-    type: 'password',
+    type: "password",
     username: "alice",
-    password: "secret123"
+    password: "secret123",
   });
 
   wallet.setSession(session);
@@ -370,7 +382,10 @@ function NavigationTree({ path }: { path: string }) {
   return (
     <ul>
       {data?.data.map((item) => (
-        <li key={item.uri} onClick={() => navigate(item.uri)}>
+        <li
+          key={item.uri}
+          onClick={() => navigate(item.uri)}
+        >
           {item.uri}
         </li>
       ))}
@@ -379,7 +394,8 @@ function NavigationTree({ path }: { path: string }) {
 }
 ```
 
-**Note:** `list()` returns flat results with full URIs — no `type` field. All items are full stored URIs matching the prefix.
+**Note:** `list()` returns flat results with full URIs — no `type` field. All
+items are full stored URIs matching the prefix.
 
 ## Resource Visibility in React
 
@@ -393,17 +409,32 @@ import nacl from "tweetnacl";
 
 const APP_SALT = "myapp-v1-salt";
 
-export async function deriveKey(uri: string, password: string = ""): Promise<string> {
+export async function deriveKey(
+  uri: string,
+  password: string = "",
+): Promise<string> {
   const seed = `${APP_SALT}:${uri}:${password}`;
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
-    "raw", encoder.encode(seed), "PBKDF2", false, ["deriveBits"]
+    "raw",
+    encoder.encode(seed),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
   );
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: encoder.encode(APP_SALT), iterations: 100000, hash: "SHA-256" },
-    keyMaterial, 256
+    {
+      name: "PBKDF2",
+      salt: encoder.encode(APP_SALT),
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    256,
   );
-  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(bits)).map((b) =>
+    b.toString(16).padStart(2, "0")
+  ).join("");
 }
 
 export function generateKeypair() {
@@ -423,11 +454,15 @@ export type Visibility = "private" | "protected" | "public";
 export type VisibilityCode = "pvt" | "pro" | "pub";
 
 export const visibilityToCode: Record<Visibility, VisibilityCode> = {
-  private: "pvt", protected: "pro", public: "pub"
+  private: "pvt",
+  protected: "pro",
+  public: "pub",
 };
 
 export const codeToVisibility: Record<VisibilityCode, Visibility> = {
-  pvt: "private", pro: "protected", pub: "public"
+  pvt: "private",
+  pro: "protected",
+  pub: "public",
 };
 
 // URL: /resources/{visibilityCode}/{resourceId}
@@ -443,14 +478,18 @@ export function getResourcePath(id: string, visibility: Visibility): string {
 export class ResourceAPI {
   private passwordCache = new Map<string, string>();
 
-  async createResource(data: ResourceData, visibility: Visibility, password?: string) {
+  async createResource(
+    data: ResourceData,
+    visibility: Visibility,
+    password?: string,
+  ) {
     const keys = generateKeypair();
     const uri = `mutable://accounts/${keys.publicKeyHex}/data`;
 
     // Derive encryption key based on visibility
     const encryptPassword = visibility === "private"
-      ? this.getAccountPubkey()  // Owner's pubkey for private
-      : (password || "");         // User password or empty for public
+      ? this.getAccountPubkey() // Owner's pubkey for private
+      : (password || ""); // User password or empty for public
 
     const encrypted = await this.encrypt(data, uri, encryptPassword);
     const signed = await this.sign(encrypted, keys.privateKeyHex);
@@ -491,7 +530,7 @@ export class ResourceAPI {
 function PasswordDialog({
   isOpen,
   onSubmit,
-  onCancel
+  onCancel,
 }: {
   isOpen: boolean;
   onSubmit: (password: string) => void;
@@ -526,7 +565,9 @@ function PasswordDialog({
 ```typescript
 // pages/ResourcePage.tsx
 function ResourcePage() {
-  const { visibilityCode, id } = useParams<{ visibilityCode: VisibilityCode; id: string }>();
+  const { visibilityCode, id } = useParams<
+    { visibilityCode: VisibilityCode; id: string }
+  >();
   const visibility = codeToVisibility[visibilityCode!];
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [resource, setResource] = useState<Resource | null>(null);
@@ -571,7 +612,7 @@ function ResourcePage() {
   {/* /resources/pub/{id} - public */}
   {/* /resources/pro/{id} - protected (shows password dialog) */}
   {/* /resources/pvt/{id} - private (requires owner login) */}
-</Routes>
+</Routes>;
 ```
 
 ## Configuration Files
@@ -585,11 +626,17 @@ function ResourcePage() {
     "wallet": "firecat-wallet"
   },
   "backends": {
-    "firecat-testnet": { "name": "Firecat Testnet", "baseUrl": "https://testnet-evergreen.fire.cat" },
+    "firecat-testnet": {
+      "name": "Firecat Testnet",
+      "baseUrl": "https://testnet-evergreen.fire.cat"
+    },
     "local": { "name": "Local Dev", "baseUrl": "http://localhost:9942" }
   },
   "walletServers": {
-    "firecat-wallet": { "name": "Firecat Wallet", "url": "https://testnet-wallet.fire.cat" },
+    "firecat-wallet": {
+      "name": "Firecat Wallet",
+      "url": "https://testnet-wallet.fire.cat"
+    },
     "local-wallet": { "name": "Local Wallet", "url": "http://localhost:9943" }
   }
 }
@@ -597,24 +644,25 @@ function ResourcePage() {
 
 ## E2E Testing with Playwright
 
-Full integration testing using in-memory B3nd clients that persist across page reloads.
+Full integration testing using in-memory B3nd clients that persist across page
+reloads.
 
 ### Playwright Configuration
 
 ```typescript
 // playwright.config.ts
 export default defineConfig({
-  testDir: './e2e',
+  testDir: "./e2e",
   fullyParallel: true,
   use: {
     // ?e2e triggers in-memory B3nd mode
-    baseURL: 'http://localhost:5173/?e2e',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    baseURL: "http://localhost:5173/?e2e",
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
   },
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: "npm run dev",
+    url: "http://localhost:5173",
     reuseExistingServer: !process.env.CI,
   },
 });
@@ -630,18 +678,18 @@ export function parseUrlConfig(): Partial<BackendConfig> | null {
   const params = new URLSearchParams(window.location.search);
 
   // ?e2e triggers full in-memory mode
-  if (params.has('e2e')) {
+  if (params.has("e2e")) {
     return {
-      dataUrl: 'memory://',
-      walletUrl: 'memory://',
-      appUrl: 'memory://',
-      appKey: 'e2e-app-key',
+      dataUrl: "memory://",
+      walletUrl: "memory://",
+      appUrl: "memory://",
+      appKey: "e2e-app-key",
     };
   }
 
   // Or explicit params: ?data=memory://&wallet=memory://
-  const data = params.get('data');
-  const wallet = params.get('wallet');
+  const data = params.get("data");
+  const wallet = params.get("wallet");
   if (data || wallet) {
     return { dataUrl: data || undefined, walletUrl: wallet || undefined };
   }
@@ -705,16 +753,26 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
     return result;
   }
 
-  async read<T>(uri: string) { return this.client.read<T>(uri); }
-  async list(uri: string, options?: ListOptions) { return this.client.list(uri, options); }
+  async read<T>(uri: string) {
+    return this.client.read<T>(uri);
+  }
+  async list(uri: string, options?: ListOptions) {
+    return this.client.list(uri, options);
+  }
   async delete(uri: string) {
     const result = await this.client.delete(uri);
     this.persistStorage();
     return result;
   }
-  async health() { return this.client.health(); }
-  async getSchema() { return this.client.getSchema(); }
-  async cleanup() { return this.client.cleanup(); }
+  async health() {
+    return this.client.health();
+  }
+  async getSchema() {
+    return this.client.getSchema();
+  }
+  async cleanup() {
+    return this.client.cleanup();
+  }
 }
 ```
 
@@ -728,7 +786,7 @@ let httpClient: HttpClient | null = null;
 let testHttpClient: NodeProtocolInterface | null = null;
 
 export function getHttpClient(): NodeProtocolInterface {
-  if (testHttpClient) return testHttpClient;  // Test override
+  if (testHttpClient) return testHttpClient; // Test override
   if (!httpClient) {
     httpClient = new HttpClient({ url: config.backendUrl });
   }
@@ -760,23 +818,25 @@ Initialize test clients BEFORE AuthContext loads:
 ```typescript
 // main.tsx
 const backendConfig = resolveBackendConfig();
-const useMemoryMode = backendConfig.dataUrl?.startsWith('memory://');
+const useMemoryMode = backendConfig.dataUrl?.startsWith("memory://");
 
 async function startApp() {
   // CRITICAL: Initialize test clients before AuthContext import
   if (useMemoryMode) {
-    const { initializeLocalBackend } = await import('./domain/clients/local-backend');
+    const { initializeLocalBackend } = await import(
+      "./domain/clients/local-backend"
+    );
     await initializeLocalBackend(backendConfig);
   }
 
   // Dynamic imports after backend setup
-  const { AuthProvider } = await import('./contexts/AuthContext');
-  const { default: App } = await import('./App.tsx');
+  const { AuthProvider } = await import("./contexts/AuthContext");
+  const { default: App } = await import("./App.tsx");
 
-  createRoot(document.getElementById('root')!).render(
+  createRoot(document.getElementById("root")!).render(
     <AuthProvider>
       <App />
-    </AuthProvider>
+    </AuthProvider>,
   );
 }
 
@@ -788,25 +848,32 @@ startApp();
 ```typescript
 // e2e/helpers/auth.ts
 export const TEST_USERS = {
-  alice: { username: 'alice', email: 'alice@test.com', password: 'alice-password-123' },
-  bob: { username: 'bob', email: 'bob@test.com', password: 'bob-password-123' },
+  alice: {
+    username: "alice",
+    email: "alice@test.com",
+    password: "alice-password-123",
+  },
+  bob: { username: "bob", email: "bob@test.com", password: "bob-password-123" },
 };
 
 const createdUsers = new Set<string>();
 
-export async function signupTestUser(page: Page, userKey: keyof typeof TEST_USERS) {
+export async function signupTestUser(
+  page: Page,
+  userKey: keyof typeof TEST_USERS,
+) {
   const user = TEST_USERS[userKey];
 
-  await page.goto('/signup?e2e');
+  await page.goto("/signup?e2e");
   await page.getByLabel(/Email/).fill(user.email);
   await page.getByLabel(/^Password/).first().fill(user.password);
   await page.getByLabel(/Confirm Password/).fill(user.password);
-  await page.getByRole('button', { name: /create account/i }).click();
+  await page.getByRole("button", { name: /create account/i }).click();
 
   // Complete profile setup
   await page.waitForURL(/\/account\/settings/);
   await page.getByLabel(/Username/).fill(user.username);
-  await page.getByRole('button', { name: /save/i }).click();
+  await page.getByRole("button", { name: /save/i }).click();
 
   // Save session for fast switching
   await saveUserSession(page, userKey);
@@ -815,19 +882,26 @@ export async function signupTestUser(page: Page, userKey: keyof typeof TEST_USER
 
 async function saveUserSession(page: Page, userKey: string) {
   await page.evaluate((key) => {
-    const keys = ['app-memory-storage', 'app-wallet-storage', 'app-server-keys'];
+    const keys = [
+      "app-memory-storage",
+      "app-wallet-storage",
+      "app-server-keys",
+    ];
     const data: Record<string, string> = {};
     for (const k of keys) {
       const v = localStorage.getItem(k);
       if (v) data[k] = v;
     }
-    const sessions = JSON.parse(localStorage.getItem('e2e-sessions') || '{}');
+    const sessions = JSON.parse(localStorage.getItem("e2e-sessions") || "{}");
     sessions[key] = data;
-    localStorage.setItem('e2e-sessions', JSON.stringify(sessions));
+    localStorage.setItem("e2e-sessions", JSON.stringify(sessions));
   }, userKey);
 }
 
-export async function loginAsTestUser(page: Page, userKey: keyof typeof TEST_USERS) {
+export async function loginAsTestUser(
+  page: Page,
+  userKey: keyof typeof TEST_USERS,
+) {
   if (!createdUsers.has(userKey)) {
     await signupTestUser(page, userKey);
     return;
@@ -839,12 +913,17 @@ export async function loginAsTestUser(page: Page, userKey: keyof typeof TEST_USE
 
 export async function clearTestData(page: Page) {
   createdUsers.clear();
-  await page.goto('/?e2e');
+  await page.goto("/?e2e");
   await page.evaluate(() => {
-    const keys = ['app-memory-storage', 'app-wallet-storage', 'app-server-keys', 'e2e-sessions'];
-    keys.forEach(k => localStorage.removeItem(k));
+    const keys = [
+      "app-memory-storage",
+      "app-wallet-storage",
+      "app-server-keys",
+      "e2e-sessions",
+    ];
+    keys.forEach((k) => localStorage.removeItem(k));
   });
-  await page.goto('/?e2e');
+  await page.goto("/?e2e");
 }
 ```
 
@@ -852,36 +931,36 @@ export async function clearTestData(page: Page) {
 
 ```typescript
 // e2e/resource-crud.spec.ts
-import { test, expect } from '@playwright/test';
-import { loginAsTestUser, clearTestData } from './helpers/auth';
+import { expect, test } from "@playwright/test";
+import { clearTestData, loginAsTestUser } from "./helpers/auth";
 
-test.describe('Resource CRUD', () => {
+test.describe("Resource CRUD", () => {
   test.beforeEach(async ({ page }) => {
     await clearTestData(page);
-    await loginAsTestUser(page, 'alice');
+    await loginAsTestUser(page, "alice");
   });
 
-  test('can create and view resource', async ({ page }) => {
-    await page.goto('/create?e2e');
-    await page.getByLabel('Title').fill('Test Resource');
-    await page.getByRole('button', { name: /create/i }).click();
+  test("can create and view resource", async ({ page }) => {
+    await page.goto("/create?e2e");
+    await page.getByLabel("Title").fill("Test Resource");
+    await page.getByRole("button", { name: /create/i }).click();
 
     await expect(page).toHaveURL(/\/resources\//);
-    await expect(page.getByText('Test Resource')).toBeVisible();
+    await expect(page.getByText("Test Resource")).toBeVisible();
   });
 
-  test('user isolation - users see only their resources', async ({ page }) => {
+  test("user isolation - users see only their resources", async ({ page }) => {
     // Alice creates resource
-    await page.goto('/create?e2e');
-    await page.getByLabel('Title').fill('Alice Resource');
-    await page.getByRole('button', { name: /create/i }).click();
+    await page.goto("/create?e2e");
+    await page.getByLabel("Title").fill("Alice Resource");
+    await page.getByRole("button", { name: /create/i }).click();
 
     // Switch to Bob
-    await loginAsTestUser(page, 'bob');
-    await page.goto('/my-resources?e2e');
+    await loginAsTestUser(page, "bob");
+    await page.goto("/my-resources?e2e");
 
     // Bob doesn't see Alice's resource
-    await expect(page.getByText('Alice Resource')).not.toBeVisible();
+    await expect(page.getByText("Alice Resource")).not.toBeVisible();
   });
 });
 ```
@@ -904,7 +983,8 @@ test.describe('Resource CRUD', () => {
 2. **Early Initialization**: Backend setup before AuthContext import
 3. **Persisted Memory**: All storage survives page reloads via localStorage
 4. **Session Restoration**: Fast user switching without re-signup
-5. **Test Client Injection**: `configureTestClients()` replaces production clients
+5. **Test Client Injection**: `configureTestClients()` replaces production
+   clients
 6. **Data Isolation**: `clearTestData()` resets state between tests
 
 ## Key Files Reference

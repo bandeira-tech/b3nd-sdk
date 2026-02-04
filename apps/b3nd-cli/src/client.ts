@@ -8,7 +8,9 @@ let cachedClient: NodeProtocolInterface | null = null;
 /**
  * Initialize and get the HTTP client for the configured node
  */
-export async function getClient(logger?: Logger): Promise<NodeProtocolInterface> {
+export async function getClient(
+  logger?: Logger,
+): Promise<NodeProtocolInterface> {
   if (cachedClient) return cachedClient;
 
   const config = await loadConfig();
@@ -16,7 +18,7 @@ export async function getClient(logger?: Logger): Promise<NodeProtocolInterface>
   if (!config.node) {
     throw new Error(
       "No node configured. Run: bnd conf node <url>\n" +
-      "Example: bnd conf node https://testnet-evergreen.fire.cat"
+        "Example: bnd conf node https://testnet-evergreen.fire.cat",
     );
   }
 
@@ -45,7 +47,7 @@ export async function getClient(logger?: Logger): Promise<NodeProtocolInterface>
     logger?.error(`Failed to connect to ${config.node}: ${message}`);
     throw new Error(
       `Failed to connect to node at ${config.node}: ${message}\n` +
-      `Check your node URL: bnd conf node <url>`
+        `Check your node URL: bnd conf node <url>`,
     );
   }
 }

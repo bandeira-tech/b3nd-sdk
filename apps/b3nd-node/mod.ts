@@ -1,6 +1,7 @@
 /// <reference lib="deno.ns" />
 import {
   createServerNode,
+  createValidatedClient,
   firstMatchSequence,
   HttpClient,
   MemoryClient,
@@ -8,13 +9,9 @@ import {
   parallelBroadcast,
   PostgresClient,
   servers,
-  // New unified node imports
-  createNode,
-  parallel,
   txnSchema,
-  firstMatch,
 } from "@bandeira-tech/b3nd-sdk";
-import type { NodeProtocolInterface, Schema, Node } from "@bandeira-tech/b3nd-sdk";
+import type { NodeProtocolInterface, Schema } from "@bandeira-tech/b3nd-sdk";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
 import { Hono } from "hono";
@@ -100,8 +97,7 @@ for (const spec of backendSpecs) {
         `MongoDB backend spec must include database in path: ${spec}`,
       );
     }
-    const collectionName =
-      url.searchParams.get("collection") ?? "b3nd_data";
+    const collectionName = url.searchParams.get("collection") ?? "b3nd_data";
 
     const executor = await createMongoExecutor(
       spec,
@@ -137,23 +133,14 @@ if (clients.length === 0) {
   throw new Error("No valid BACKEND_URL entries resolved to backends");
 }
 
-// Compose multiple backends:
+// Compose multiple backends into a single validated client:
 // - writes are broadcast to all backends
 // - reads/lists/deletes consult backends in order until one succeeds
-const writeBackend = parallelBroadcast(clients);
-const readBackend = firstMatchSequence(clients);
-
-const backend = {
-  write: writeBackend,
-  read: readBackend,
-};
-
-// Create unified node for /api/v1/receive endpoint
-// This uses the new composition pattern
-const unifiedNode: Node = createNode({
-  read: firstMatch(...clients),
+// - validation via txnSchema
+const client = createValidatedClient({
+  write: parallelBroadcast(clients),
+  read: firstMatchSequence(clients),
   validate: txnSchema(schema),
-  process: parallel(...clients),
 });
 
 // Custom logger middleware with timestamp and response timing
@@ -191,8 +178,8 @@ app.get("/api/v1/health", (c) => {
 
 const frontend = servers.httpServer(app);
 
-// Create node and start
-const serverNode = createServerNode({ frontend, backend, schema, node: unifiedNode });
+// Create server node and start
+const serverNode = createServerNode({ frontend, client });
 serverNode.listen(PORT);
 console.log(
   `B3nd Multi-Backend Node:${PORT} (BACKEND_URL=${BACKEND_URL})`,

@@ -21,32 +21,7 @@ import type {
 /**
  * Create a transaction node
  *
- * @param config - Node configuration with validator, read interface, and peers
- * @returns TransactionNode instance
- *
- * @example
- * ```typescript
- * import { createTransactionNode } from "b3nd/txn"
- * import { firstMatchSequence, createMemoryClient, createPostgresClient } from "b3nd/clients"
- *
- * const node = createTransactionNode({
- *   validate: myValidator,
- *   read: firstMatchSequence([
- *     createMemoryClient(),
- *     createPostgresClient("postgres://...")
- *   ]),
- *   peers: [
- *     createWebSocketClient("ws://txn-node-a:8843"),
- *     createPostgresClient("postgres://...")
- *   ]
- * })
- *
- * // Submit a transaction
- * const result = await node.receive([
- *   "txn://alice/transfer/42",
- *   { sig: "...", inputs: [...], outputs: [...] }
- * ])
- * ```
+ * @deprecated Use `createValidatedClient()` from b3nd-compose instead.
  */
 export function createTransactionNode<D = unknown>(
   config: TransactionNodeConfig<D>,

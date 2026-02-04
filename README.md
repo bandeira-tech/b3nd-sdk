@@ -1,6 +1,7 @@
 # B3nd SDK
 
-Universal persistence protocol for building applications with URI-based data addressing.
+Universal persistence protocol for building applications with URI-based data
+addressing.
 
 ## Build with Claude Code
 
@@ -12,30 +13,32 @@ claude plugin install b3nd
 ```
 
 Then just ask Claude naturally:
+
 - "Create a B3nd HTTP client for my React app"
 - "Set up a multi-backend server with Postgres"
 - "Add wallet authentication to my app"
 
 ### What's Included
 
-| Skill | What Claude Learns |
-|-------|-------------------|
+| Skill            | What Claude Learns                         |
+| ---------------- | ------------------------------------------ |
 | **b3nd-general** | Core architecture, URI schemes, interfaces |
-| **b3nd-sdk** | Deno/JSR package for servers |
-| **b3nd-web** | NPM package for browsers |
-| **b3nd-webapp** | React/Vite patterns |
-| **b3nd-denocli** | Deno CLI and server patterns |
+| **b3nd-sdk**     | Deno/JSR package for servers               |
+| **b3nd-web**     | NPM package for browsers                   |
+| **b3nd-webapp**  | React/Vite patterns                        |
+| **b3nd-denocli** | Deno CLI and server patterns               |
 
-Plus MCP tools for direct data operations: `b3nd_read`, `b3nd_write`, `b3nd_list`, `b3nd_backends_switch`
+Plus MCP tools for direct data operations: `b3nd_read`, `b3nd_write`,
+`b3nd_list`, `b3nd_backends_switch`
 
 ---
 
 ## Packages
 
-| Package | Registry | Use Case |
-|---------|----------|----------|
-| [@bandeira-tech/b3nd-sdk](https://jsr.io/@bandeira-tech/b3nd-sdk) | JSR | Deno, servers |
-| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | NPM | Browser, React |
+| Package                                                                          | Registry | Use Case       |
+| -------------------------------------------------------------------------------- | -------- | -------------- |
+| [@bandeira-tech/b3nd-sdk](https://jsr.io/@bandeira-tech/b3nd-sdk)                | JSR      | Deno, servers  |
+| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | NPM      | Browser, React |
 
 ```typescript
 // Deno/Server

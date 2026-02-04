@@ -1,10 +1,10 @@
-import { updateConfig, loadConfig, getConfigPath } from "./config.ts";
-import { getClient, closeClient } from "./client.ts";
+import { getConfigPath, loadConfig, updateConfig } from "./config.ts";
+import { closeClient, getClient } from "./client.ts";
 import { createLogger, Logger } from "./logger.ts";
-import { parse, dirname } from "@std/path";
+import { dirname, parse } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { encodeHex } from "@std/encoding/hex";
-import { encrypt, decrypt, type EncryptedPayload } from "@b3nd/sdk/encrypt";
+import { decrypt, encrypt, type EncryptedPayload } from "@b3nd/sdk/encrypt";
 
 /**
  * Compute SHA256 hash of binary data
@@ -20,7 +20,9 @@ async function computeSha256(data: Uint8Array): Promise<string> {
  * Parse URI into protocol, domain, and path
  * Example: test://read-test/foobar -> { protocol: "test", domain: "read-test", path: "/foobar" }
  */
-function parseUri(uri: string): { protocol: string; domain: string; path: string } {
+function parseUri(
+  uri: string,
+): { protocol: string; domain: string; path: string } {
   const match = uri.match(/^([a-z+.-]+):\/\/([^/]+)(.*)$/);
   if (!match) {
     return { protocol: "", domain: "", path: "" };
@@ -51,12 +53,15 @@ interface EncryptionKey {
 /**
  * Convert PEM string to CryptoKey (Ed25519 or X25519)
  */
-async function pemToCryptoKey(pem: string, algorithm: "Ed25519" | "X25519" = "Ed25519"): Promise<CryptoKey> {
+async function pemToCryptoKey(
+  pem: string,
+  algorithm: "Ed25519" | "X25519" = "Ed25519",
+): Promise<CryptoKey> {
   // Extract base64 content from PEM
   const base64 = pem
-    .split('\n')
-    .filter(line => !line.startsWith('-----'))
-    .join('');
+    .split("\n")
+    .filter((line) => !line.startsWith("-----"))
+    .join("");
 
   // Decode base64 to bytes
   const binaryString = atob(base64);
@@ -72,7 +77,7 @@ async function pemToCryptoKey(pem: string, algorithm: "Ed25519" | "X25519" = "Ed
       bytes,
       { name: "Ed25519", namedCurve: "Ed25519" },
       false,
-      ["sign"]
+      ["sign"],
     );
   } else {
     return await crypto.subtle.importKey(
@@ -80,7 +85,7 @@ async function pemToCryptoKey(pem: string, algorithm: "Ed25519" | "X25519" = "Ed
       bytes,
       { name: "X25519", namedCurve: "X25519" },
       false,
-      ["deriveBits"]
+      ["deriveBits"],
     );
   }
 }
@@ -88,11 +93,13 @@ async function pemToCryptoKey(pem: string, algorithm: "Ed25519" | "X25519" = "Ed
 /**
  * Load account key from configured path (PEM format)
  */
-async function loadAccountKey(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
+async function loadAccountKey(): Promise<
+  { privateKeyPem: string; publicKeyHex: string }
+> {
   const config = await loadConfig();
   if (!config.account) {
     throw new Error(
-      "No account configured. Run: bnd account create"
+      "No account configured. Run: bnd account create",
     );
   }
 
@@ -100,7 +107,7 @@ async function loadAccountKey(): Promise<{ privateKeyPem: string; publicKeyHex: 
     const content = await Deno.readTextFile(config.account);
 
     // Parse as simple format: PEM + optional public key on last line
-    const lines = content.trim().split('\n');
+    const lines = content.trim().split("\n");
     let publicKeyHex = "";
     let pemLines: string[] = [];
 
@@ -112,7 +119,7 @@ async function loadAccountKey(): Promise<{ privateKeyPem: string; publicKeyHex: 
       }
     }
 
-    const privateKeyPem = pemLines.join('\n');
+    const privateKeyPem = pemLines.join("\n");
 
     if (!publicKeyHex) {
       throw new Error("Public key not found in account key file");
@@ -123,7 +130,7 @@ async function loadAccountKey(): Promise<{ privateKeyPem: string; publicKeyHex: 
     throw new Error(
       `Failed to load account key from ${config.account}: ${
         error instanceof Error ? error.message : String(error)
-      }`
+      }`,
     );
   }
 }
@@ -131,11 +138,13 @@ async function loadAccountKey(): Promise<{ privateKeyPem: string; publicKeyHex: 
 /**
  * Load encryption key from configured path (PEM format)
  */
-async function loadEncryptionKey(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
+async function loadEncryptionKey(): Promise<
+  { privateKeyPem: string; publicKeyHex: string }
+> {
   const config = await loadConfig();
   if (!config.encrypt) {
     throw new Error(
-      "No encryption key configured. Run: bnd encrypt create"
+      "No encryption key configured. Run: bnd encrypt create",
     );
   }
 
@@ -143,7 +152,7 @@ async function loadEncryptionKey(): Promise<{ privateKeyPem: string; publicKeyHe
     const content = await Deno.readTextFile(config.encrypt);
 
     // Parse as simple format: PEM + optional public key on last line
-    const lines = content.trim().split('\n');
+    const lines = content.trim().split("\n");
     let publicKeyHex = "";
     let pemLines: string[] = [];
 
@@ -155,7 +164,7 @@ async function loadEncryptionKey(): Promise<{ privateKeyPem: string; publicKeyHe
       }
     }
 
-    const privateKeyPem = pemLines.join('\n');
+    const privateKeyPem = pemLines.join("\n");
 
     if (!publicKeyHex) {
       throw new Error("Public key not found in encryption key file");
@@ -166,7 +175,7 @@ async function loadEncryptionKey(): Promise<{ privateKeyPem: string; publicKeyHe
     throw new Error(
       `Failed to load encryption key from ${config.encrypt}: ${
         error instanceof Error ? error.message : String(error)
-      }`
+      }`,
     );
   }
 }
@@ -174,18 +183,27 @@ async function loadEncryptionKey(): Promise<{ privateKeyPem: string; publicKeyHe
 /**
  * Sign payload with account private key (PEM format)
  */
-async function signPayload(privateKeyPem: string, payload: unknown): Promise<string> {
+async function signPayload(
+  privateKeyPem: string,
+  payload: unknown,
+): Promise<string> {
   try {
     const privateKey = await pemToCryptoKey(privateKeyPem, "Ed25519");
 
     const encoder = new TextEncoder();
     const data = encoder.encode(JSON.stringify(payload));
 
-    const signatureBytes = await crypto.subtle.sign("Ed25519", privateKey, data);
+    const signatureBytes = await crypto.subtle.sign(
+      "Ed25519",
+      privateKey,
+      data,
+    );
     return encodeHex(new Uint8Array(signatureBytes));
   } catch (error) {
     throw new Error(
-      `Failed to sign payload: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to sign payload: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
     );
   }
 }
@@ -212,7 +230,9 @@ export async function confNode(url: string): Promise<void> {
  */
 export async function confAccount(path: string): Promise<void> {
   if (!path) {
-    throw new Error("Account key path required. Usage: bnd conf account <path>");
+    throw new Error(
+      "Account key path required. Usage: bnd conf account <path>",
+    );
   }
   await updateConfig("account", path);
 }
@@ -226,22 +246,33 @@ export async function accountCreate(outputPath?: string): Promise<void> {
     const keyPair = await crypto.subtle.generateKey(
       "Ed25519",
       true, // extractable
-      ["sign", "verify"]
+      ["sign", "verify"],
     );
 
     // Export keys
-    const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-    const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+    const privateKeyBuffer = await crypto.subtle.exportKey(
+      "pkcs8",
+      keyPair.privateKey,
+    );
+    const publicKeyBuffer = await crypto.subtle.exportKey(
+      "raw",
+      keyPair.publicKey,
+    );
 
     // Convert private key to PEM format (PKCS8)
-    const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKeyBuffer)));
-    const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64.match(/.{1,64}/g)?.join('\n')}\n-----END PRIVATE KEY-----`;
+    const privateKeyBase64 = btoa(
+      String.fromCharCode(...new Uint8Array(privateKeyBuffer)),
+    );
+    const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${
+      privateKeyBase64.match(/.{1,64}/g)?.join("\n")
+    }\n-----END PRIVATE KEY-----`;
 
     // Convert public key to hex
     const publicKeyHex = encodeHex(new Uint8Array(publicKeyBuffer));
 
     // Determine output path
-    const keyPath = outputPath || `${Deno.env.get("HOME")}/.bnd/accounts/default.key`;
+    const keyPath = outputPath ||
+      `${Deno.env.get("HOME")}/.bnd/accounts/default.key`;
 
     // Create directory if needed
     await ensureDir(dirname(keyPath));
@@ -262,7 +293,9 @@ export async function accountCreate(outputPath?: string): Promise<void> {
     console.log(`  Config updated`);
   } catch (error) {
     throw new Error(
-      `Failed to create account: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to create account: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
     );
   }
 }
@@ -279,22 +312,33 @@ export async function encryptCreate(outputPath?: string): Promise<void> {
         namedCurve: "X25519",
       },
       true,
-      ["deriveBits"]
+      ["deriveBits"],
     );
 
     // Export keys
-    const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-    const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+    const privateKeyBuffer = await crypto.subtle.exportKey(
+      "pkcs8",
+      keyPair.privateKey,
+    );
+    const publicKeyBuffer = await crypto.subtle.exportKey(
+      "raw",
+      keyPair.publicKey,
+    );
 
     // Convert private key to PEM format (PKCS8)
-    const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKeyBuffer)));
-    const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyBase64.match(/.{1,64}/g)?.join('\n')}\n-----END PRIVATE KEY-----`;
+    const privateKeyBase64 = btoa(
+      String.fromCharCode(...new Uint8Array(privateKeyBuffer)),
+    );
+    const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${
+      privateKeyBase64.match(/.{1,64}/g)?.join("\n")
+    }\n-----END PRIVATE KEY-----`;
 
     // Convert public key to hex
     const publicKeyHex = encodeHex(new Uint8Array(publicKeyBuffer));
 
     // Determine output path
-    const keyPath = outputPath || `${Deno.env.get("HOME")}/.bnd/encryption/default.key`;
+    const keyPath = outputPath ||
+      `${Deno.env.get("HOME")}/.bnd/encryption/default.key`;
 
     // Create directory if needed
     await ensureDir(dirname(keyPath));
@@ -315,7 +359,9 @@ export async function encryptCreate(outputPath?: string): Promise<void> {
     console.log(`  Config updated`);
   } catch (error) {
     throw new Error(
-      `Failed to create encryption key: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to create encryption key: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
     );
   }
 }
@@ -325,7 +371,9 @@ export async function encryptCreate(outputPath?: string): Promise<void> {
  */
 export async function confEncrypt(keyPath: string): Promise<void> {
   if (!keyPath) {
-    throw new Error("Encryption key path required. Usage: bnd conf encrypt <path>");
+    throw new Error(
+      "Encryption key path required. Usage: bnd conf encrypt <path>",
+    );
   }
 
   // Verify file exists and is readable
@@ -346,7 +394,7 @@ export async function write(args: string[], verbose = false): Promise<void> {
 
   let uri: string | null = null;
   let data: unknown = null;
-  let originalData: unknown = null;  // Keep track of original before encryption
+  let originalData: unknown = null; // Keep track of original before encryption
 
   // Check for -f flag for file input
   if (args[0] === "-f" && args[1]) {
@@ -373,7 +421,7 @@ export async function write(args: string[], verbose = false): Promise<void> {
     }
   } else {
     throw new Error(
-      "Usage: bnd write <uri> <data> OR bnd write -f <filepath>"
+      "Usage: bnd write <uri> <data> OR bnd write -f <filepath>",
     );
   }
 
@@ -402,10 +450,16 @@ export async function write(args: string[], verbose = false): Promise<void> {
         if (config.encrypt) {
           try {
             const encryptionKey = await loadEncryptionKey();
-            const encryptedPayload = await encrypt(data, encryptionKey.publicKeyHex);
+            const encryptedPayload = await encrypt(
+              data,
+              encryptionKey.publicKeyHex,
+            );
             logger?.info(`Encrypted payload`);
 
-            const signature = await signPayload(accountKey.privateKeyPem, encryptedPayload);
+            const signature = await signPayload(
+              accountKey.privateKeyPem,
+              encryptedPayload,
+            );
             logger?.info(`Signed encrypted payload with account key`);
 
             data = {
@@ -418,7 +472,11 @@ export async function write(args: string[], verbose = false): Promise<void> {
               payload: encryptedPayload,
             };
           } catch (error) {
-            throw new Error(`Encryption failed: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(
+              `Encryption failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
           }
         } else {
           const signature = await signPayload(accountKey.privateKeyPem, data);
@@ -487,11 +545,16 @@ export async function read(uri: string, verbose = false): Promise<void> {
       console.log(`  URI: ${uri}`);
 
       // Always show the raw stored data first
-      console.log(`  Stored Data: ${JSON.stringify(result.record.data, null, 2)}`);
+      console.log(
+        `  Stored Data: ${JSON.stringify(result.record.data, null, 2)}`,
+      );
 
       // Try to decrypt if encryption key is configured
       const config = await loadConfig();
-      if (config.encrypt && result.record.data && typeof result.record.data === "object") {
+      if (
+        config.encrypt && result.record.data &&
+        typeof result.record.data === "object"
+      ) {
         const data = result.record.data as any;
 
         // Check if this is an auth structure with an encrypted payload
@@ -509,14 +572,23 @@ export async function read(uri: string, verbose = false): Promise<void> {
               };
 
               // Import X25519 private key for decryption
-              const privateKey = await pemToCryptoKey(encryptionKey.privateKeyPem, "X25519");
+              const privateKey = await pemToCryptoKey(
+                encryptionKey.privateKeyPem,
+                "X25519",
+              );
               const decryptedData = await decrypt(encryptedPayload, privateKey);
 
               // Show decrypted value separately
-              console.log(`  Decrypted Payload: ${JSON.stringify(decryptedData)}`);
+              console.log(
+                `  Decrypted Payload: ${JSON.stringify(decryptedData)}`,
+              );
               logger?.info(`Decrypted payload`);
             } catch (error) {
-              logger?.error(`Decryption failed: ${error instanceof Error ? error.message : String(error)}`);
+              logger?.error(
+                `Decryption failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
             }
           }
         }
@@ -536,7 +608,11 @@ export async function read(uri: string, verbose = false): Promise<void> {
 /**
  * Handle `bnd list` command
  */
-export async function list(uri: string, verbose = false, options?: { page?: number; limit?: number }): Promise<void> {
+export async function list(
+  uri: string,
+  verbose = false,
+  options?: { page?: number; limit?: number },
+): Promise<void> {
   const logger = createLogger(verbose);
 
   if (!uri) {
@@ -555,8 +631,11 @@ export async function list(uri: string, verbose = false, options?: { page?: numb
     }
 
     const { protocol, domain, path } = parseUri(uri);
-    const queryStr = new URLSearchParams(options as Record<string, string>).toString();
-    const endpoint = `${config.node}/api/v1/list/${protocol}/${domain}${path}${queryStr ? `?${queryStr}` : ""}`;
+    const queryStr = new URLSearchParams(options as Record<string, string>)
+      .toString();
+    const endpoint = `${config.node}/api/v1/list/${protocol}/${domain}${path}${
+      queryStr ? `?${queryStr}` : ""
+    }`;
     logger?.http("GET", endpoint);
 
     const result = await client.list(uri, options);
@@ -564,14 +643,27 @@ export async function list(uri: string, verbose = false, options?: { page?: numb
     if (result.success) {
       console.log(`✓ List successful`);
       console.log(`  URI: ${uri}`);
-      console.log(`  Total: ${result.pagination.total || result.data.length} items`);
-      console.log(`  Page: ${result.pagination.page}/${Math.ceil((result.pagination.total || 0) / (result.pagination.limit || 50))}`);
+      console.log(
+        `  Total: ${result.pagination.total || result.data.length} items`,
+      );
+      console.log(
+        `  Page: ${result.pagination.page}/${
+          Math.ceil(
+            (result.pagination.total || 0) / (result.pagination.limit || 50),
+          )
+        }`,
+      );
       console.log("");
       console.log("Items:");
       for (const item of result.data) {
-        const itemName = ((item as unknown) as Record<string, unknown>).name || item.uri || "unknown";
-        const itemTime = ((item as unknown) as Record<string, unknown>).timestamp || ((item as unknown) as Record<string, unknown>).ts || Date.now();
-        console.log(`  - ${itemName} (${new Date(Number(itemTime)).toISOString()})`);
+        const itemName = ((item as unknown) as Record<string, unknown>).name ||
+          item.uri || "unknown";
+        const itemTime =
+          ((item as unknown) as Record<string, unknown>).timestamp ||
+          ((item as unknown) as Record<string, unknown>).ts || Date.now();
+        console.log(
+          `  - ${itemName} (${new Date(Number(itemTime)).toISOString()})`,
+        );
       }
     } else {
       throw new Error(result.error || "List failed");
@@ -683,7 +775,10 @@ DOCUMENTATION:
  *
  * Returns the blob URI(s) for the uploaded content.
  */
-export async function upload(args: string[], verbose = false): Promise<Map<string, string>> {
+export async function upload(
+  args: string[],
+  verbose = false,
+): Promise<Map<string, string>> {
   const logger = createLogger(verbose);
 
   // Parse -r flag for recursive upload
@@ -692,7 +787,7 @@ export async function upload(args: string[], verbose = false): Promise<Map<strin
 
   if (!pathArg) {
     throw new Error(
-      "Usage: bnd upload <file> OR bnd upload -r <dir>"
+      "Usage: bnd upload <file> OR bnd upload -r <dir>",
     );
   }
 
@@ -724,32 +819,48 @@ export async function upload(args: string[], verbose = false): Promise<Map<strin
 
       for await (const entry of walkDirectory(pathArg)) {
         // Get relative path from base directory
-        const relativePath = entry.path.substring(pathArg.length).replace(/^\//, "");
+        const relativePath = entry.path.substring(pathArg.length).replace(
+          /^\//,
+          "",
+        );
 
         try {
           const fileData = await Deno.readFile(entry.path);
           const hash = await computeSha256(fileData);
           const blobUri = `blob://open/sha256:${hash}`;
-          logger?.info(`${relativePath} -> ${blobUri} (${fileData.length} bytes)`);
+          logger?.info(
+            `${relativePath} -> ${blobUri} (${fileData.length} bytes)`,
+          );
 
           // Write to blob storage
           const result = await client.receive([blobUri, fileData]);
 
           if (result.accepted) {
             blobMap.set(relativePath, blobUri);
-            console.log(`  ✓ ${relativePath} -> ${blobUri.substring(0, 40)}...`);
+            console.log(
+              `  ✓ ${relativePath} -> ${blobUri.substring(0, 40)}...`,
+            );
             uploadCount++;
-          } else if (result.error?.includes("exists") || result.error?.includes("immutable")) {
+          } else if (
+            result.error?.includes("exists") ||
+            result.error?.includes("immutable")
+          ) {
             // Blob already exists (deduplication)
             blobMap.set(relativePath, blobUri);
-            console.log(`  ○ ${relativePath} -> ${blobUri.substring(0, 40)}... [exists]`);
+            console.log(
+              `  ○ ${relativePath} -> ${blobUri.substring(0, 40)}... [exists]`,
+            );
             skippedCount++;
           } else {
             console.log(`  ✗ ${relativePath}: ${result.error}`);
             errorCount++;
           }
         } catch (error) {
-          console.log(`  ✗ ${relativePath}: ${error instanceof Error ? error.message : String(error)}`);
+          console.log(
+            `  ✗ ${relativePath}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
           errorCount++;
         }
       }
@@ -772,7 +883,9 @@ export async function upload(args: string[], verbose = false): Promise<Map<strin
         console.log(`  ✓ ${fileName}`);
         console.log(`  URI: ${blobUri}`);
         uploadCount++;
-      } else if (result.error?.includes("exists") || result.error?.includes("immutable")) {
+      } else if (
+        result.error?.includes("exists") || result.error?.includes("immutable")
+      ) {
         blobMap.set(fileName, blobUri);
         console.log(`  ○ ${fileName} [already exists]`);
         console.log(`  URI: ${blobUri}`);
@@ -784,7 +897,9 @@ export async function upload(args: string[], verbose = false): Promise<Map<strin
     }
 
     console.log("");
-    console.log(`Upload complete: ${uploadCount} new, ${skippedCount} deduplicated, ${errorCount} errors`);
+    console.log(
+      `Upload complete: ${uploadCount} new, ${skippedCount} deduplicated, ${errorCount} errors`,
+    );
 
     if (errorCount > 0) {
       Deno.exit(1);
@@ -813,14 +928,23 @@ async function* walkDirectory(dir: string): AsyncGenerator<{ path: string }> {
 /**
  * Sign binary payload with account private key
  */
-async function signBinaryPayload(privateKeyPem: string, data: Uint8Array): Promise<string> {
+async function signBinaryPayload(
+  privateKeyPem: string,
+  data: Uint8Array,
+): Promise<string> {
   try {
     const privateKey = await pemToCryptoKey(privateKeyPem, "Ed25519");
-    const signatureBytes = await crypto.subtle.sign("Ed25519", privateKey, data);
+    const signatureBytes = await crypto.subtle.sign(
+      "Ed25519",
+      privateKey,
+      data,
+    );
     return encodeHex(new Uint8Array(signatureBytes));
   } catch (error) {
     throw new Error(
-      `Failed to sign payload: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to sign payload: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
     );
   }
 }
@@ -835,36 +959,65 @@ export async function serverKeysEnv(): Promise<void> {
   }
   function formatPrivateKeyPem(base64: string): string {
     const lines = base64.match(/.{1,64}/g) || [];
-    return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----`;
+    return `-----BEGIN PRIVATE KEY-----\n${
+      lines.join("\n")
+    }\n-----END PRIVATE KEY-----`;
   }
 
-  async function genEd25519(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
-    const kp = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]) as CryptoKeyPair;
+  async function genEd25519(): Promise<
+    { privateKeyPem: string; publicKeyHex: string }
+  > {
+    const kp = await crypto.subtle.generateKey("Ed25519", true, [
+      "sign",
+      "verify",
+    ]) as CryptoKeyPair;
     const priv = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
     const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
-    const privateKeyPem = formatPrivateKeyPem(bytesToBase64(new Uint8Array(priv)));
-    const publicKeyHex = Array.from(new Uint8Array(pub)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    const privateKeyPem = formatPrivateKeyPem(
+      bytesToBase64(new Uint8Array(priv)),
+    );
+    const publicKeyHex = Array.from(new Uint8Array(pub)).map((b) =>
+      b.toString(16).padStart(2, "0")
+    ).join("");
     return { privateKeyPem, publicKeyHex };
   }
 
-  async function genX25519(): Promise<{ privateKeyPem: string; publicKeyHex: string }> {
-    const kp = await crypto.subtle.generateKey({ name: "X25519", namedCurve: "X25519" }, true, ["deriveBits"]) as CryptoKeyPair;
+  async function genX25519(): Promise<
+    { privateKeyPem: string; publicKeyHex: string }
+  > {
+    const kp = await crypto.subtle.generateKey(
+      { name: "X25519", namedCurve: "X25519" },
+      true,
+      ["deriveBits"],
+    ) as CryptoKeyPair;
     const priv = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
     const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
-    const privateKeyPem = formatPrivateKeyPem(bytesToBase64(new Uint8Array(priv)));
-    const publicKeyHex = Array.from(new Uint8Array(pub)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    const privateKeyPem = formatPrivateKeyPem(
+      bytesToBase64(new Uint8Array(priv)),
+    );
+    const publicKeyHex = Array.from(new Uint8Array(pub)).map((b) =>
+      b.toString(16).padStart(2, "0")
+    ).join("");
     return { privateKeyPem, publicKeyHex };
   }
 
   const id = await genEd25519();
   const enc = await genX25519();
 
-  const envText = `# b3nd Server Keys\n# Generated: ${new Date().toISOString()}\n\nSERVER_IDENTITY_PRIVATE_KEY_PEM="${id.privateKeyPem.replace(/\n/g, "\\n")}"\nSERVER_IDENTITY_PUBLIC_KEY_HEX="${id.publicKeyHex}"\nSERVER_ENCRYPTION_PRIVATE_KEY_PEM="${enc.privateKeyPem.replace(/\n/g, "\\n")}"\nSERVER_ENCRYPTION_PUBLIC_KEY_HEX="${enc.publicKeyHex}"\n`;
+  const envText = `# b3nd Server Keys\n# Generated: ${
+    new Date().toISOString()
+  }\n\nSERVER_IDENTITY_PRIVATE_KEY_PEM="${
+    id.privateKeyPem.replace(/\n/g, "\\n")
+  }"\nSERVER_IDENTITY_PUBLIC_KEY_HEX="${id.publicKeyHex}"\nSERVER_ENCRYPTION_PRIVATE_KEY_PEM="${
+    enc.privateKeyPem.replace(/\n/g, "\\n")
+  }"\nSERVER_ENCRYPTION_PUBLIC_KEY_HEX="${enc.publicKeyHex}"\n`;
 
   console.log(envText);
   try {
     await Deno.writeTextFile(".env.keys", envText);
-    console.log("✓ Wrote .env.keys (copy values into your .env and delete the file)");
+    console.log(
+      "✓ Wrote .env.keys (copy values into your .env and delete the file)",
+    );
   } catch (_) {
     // ignore write error
   }
@@ -893,7 +1046,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
   if (!dirPath || !targetUri) {
     throw new Error(
       "Usage: bnd deploy <dir> <target>\n" +
-      "Example: bnd deploy ./dist mutable://accounts/:key/mysite"
+        "Example: bnd deploy ./dist mutable://accounts/:key/mysite",
     );
   }
 
@@ -901,7 +1054,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
   if (!targetUri.startsWith("mutable://accounts/")) {
     throw new Error(
       "Deploy target must be mutable://accounts/:key/<site>\n" +
-      "Example: bnd deploy ./dist mutable://accounts/:key/mysite"
+        "Example: bnd deploy ./dist mutable://accounts/:key/mysite",
     );
   }
 
@@ -910,13 +1063,20 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     const accountKey = await loadAccountKey();
 
     // Replace :key placeholder
-    const resolvedTarget = replaceKeyPlaceholder(targetUri, accountKey.publicKeyHex);
+    const resolvedTarget = replaceKeyPlaceholder(
+      targetUri,
+      accountKey.publicKeyHex,
+    );
     logger?.info(`Target: ${resolvedTarget}`);
 
     // Extract site path from target (everything after accounts/:key/)
-    const targetMatch = resolvedTarget.match(/^mutable:\/\/accounts\/([^/]+)\/(.+)$/);
+    const targetMatch = resolvedTarget.match(
+      /^mutable:\/\/accounts\/([^/]+)\/(.+)$/,
+    );
     if (!targetMatch) {
-      throw new Error("Invalid target format. Expected: mutable://accounts/:key/<site>");
+      throw new Error(
+        "Invalid target format. Expected: mutable://accounts/:key/<site>",
+      );
     }
     const [, pubkey, sitePath] = targetMatch;
 
@@ -941,7 +1101,10 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     let blobExistsCount = 0;
 
     for await (const entry of walkDirectory(dirPath)) {
-      const relativePath = entry.path.substring(dirPath.length).replace(/^\//, "");
+      const relativePath = entry.path.substring(dirPath.length).replace(
+        /^\//,
+        "",
+      );
 
       try {
         const fileData = await Deno.readFile(entry.path);
@@ -954,7 +1117,10 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
           blobMap.set(relativePath, blobUri);
           console.log(`  ✓ ${relativePath} [new]`);
           blobNewCount++;
-        } else if (result.error?.includes("exists") || result.error?.includes("immutable")) {
+        } else if (
+          result.error?.includes("exists") ||
+          result.error?.includes("immutable")
+        ) {
           // Blob already exists - that's fine, it's content-addressed
           blobMap.set(relativePath, blobUri);
           console.log(`  ○ ${relativePath} [dedup]`);
@@ -963,12 +1129,18 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
           throw new Error(result.error || "Blob write failed");
         }
       } catch (error) {
-        console.log(`  ✗ ${relativePath}: ${error instanceof Error ? error.message : String(error)}`);
+        console.log(
+          `  ✗ ${relativePath}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
         throw error;
       }
     }
 
-    console.log(`  Blobs: ${blobNewCount} new, ${blobExistsCount} deduplicated`);
+    console.log(
+      `  Blobs: ${blobNewCount} new, ${blobExistsCount} deduplicated`,
+    );
     console.log("");
 
     // Phase 2: Create authenticated links
@@ -1032,7 +1204,9 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     console.log("═".repeat(60));
     console.log("Deploy complete!");
     console.log(`  Files: ${blobMap.size}`);
-    console.log(`  Blobs: ${blobNewCount} new, ${blobExistsCount} deduplicated`);
+    console.log(
+      `  Blobs: ${blobNewCount} new, ${blobExistsCount} deduplicated`,
+    );
     console.log(`  Links: ${linkCount}`);
     console.log(`  Version: ${version}`);
     console.log(`  Pointer: ${resolvedTarget}`);

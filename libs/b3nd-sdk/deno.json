@@ -1,6 +1,6 @@
 {
   "name": "@bandeira-tech/b3nd-sdk",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Universal persistence SDK with URI-based addressing, encryption, and multi-backend support (PostgreSQL, HTTP, WebSocket, in-memory)",
   "exports": "./src/mod.ts",
   "imports": {

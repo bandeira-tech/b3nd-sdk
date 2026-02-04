@@ -1,10 +1,12 @@
 # E2E Testing System
 
-A comprehensive end-to-end testing framework for testing integrated services including HTTP API, authentication, persistence, and cryptographic capabilities.
+A comprehensive end-to-end testing framework for testing integrated services
+including HTTP API, authentication, persistence, and cryptographic capabilities.
 
 ## 🎯 Overview
 
-This E2E testing system provides a modular, self-contained framework for testing the integration of various services:
+This E2E testing system provides a modular, self-contained framework for testing
+the integration of various services:
 
 - **HTTP API**: Write, read, list, and delete operations
 - **Authentication**: Signature verification and authenticated messages
@@ -64,7 +66,9 @@ E2E_BASE_URL=http://api.example.com E2E_VERBOSE=true deno task test:e2e
 ## 🧪 Test Suites
 
 ### 1. Write-List-Read Tests
+
 Tests basic CRUD operations with optional encryption and authentication:
+
 - Write records to the API
 - List records with patterns
 - Read records back
@@ -74,7 +78,9 @@ Tests basic CRUD operations with optional encryption and authentication:
 - Test signed and encrypted messages
 
 ### 2. Authentication Tests
+
 Tests signature verification and authentication features:
+
 - Single signature authentication
 - Multi-signature authentication
 - Invalid signature detection
@@ -83,7 +89,9 @@ Tests signature verification and authentication features:
 - Hierarchical signatures (signature of signature)
 
 ### 3. Cryptography Tests
+
 Tests encryption and decryption capabilities:
+
 - Key pair generation (Ed25519 for signing, X25519 for encryption)
 - AES-GCM encryption with ECDH key exchange
 - Payload encryption/decryption
@@ -94,24 +102,24 @@ Tests encryption and decryption capabilities:
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `E2E_BASE_URL` | API base URL | `http://localhost:8000` |
-| `E2E_INSTANCE` | Instance name for tests | `default` |
-| `E2E_TIMEOUT` | Request timeout in milliseconds | `30000` |
-| `E2E_VERBOSE` | Enable verbose output | `false` |
-| `E2E_CLEANUP` | Clean up test data after tests | `true` |
-| `E2E_TEST_ENCRYPTION` | Enable encryption tests | `true` |
-| `E2E_TEST_AUTH` | Enable authentication tests | `true` |
+| Variable              | Description                     | Default                 |
+| --------------------- | ------------------------------- | ----------------------- |
+| `E2E_BASE_URL`        | API base URL                    | `http://localhost:8000` |
+| `E2E_INSTANCE`        | Instance name for tests         | `default`               |
+| `E2E_TIMEOUT`         | Request timeout in milliseconds | `30000`                 |
+| `E2E_VERBOSE`         | Enable verbose output           | `false`                 |
+| `E2E_CLEANUP`         | Clean up test data after tests  | `true`                  |
+| `E2E_TEST_ENCRYPTION` | Enable encryption tests         | `true`                  |
+| `E2E_TEST_AUTH`       | Enable authentication tests     | `true`                  |
 
 ### Test Configuration Object
 
 ```typescript
 interface TestConfig {
-  baseUrl: string;      // API base URL
-  instance: string;     // Instance identifier
-  timeout: number;      // Request timeout in ms
-  verbose: boolean;     // Enable detailed logging
+  baseUrl: string; // API base URL
+  instance: string; // Instance identifier
+  timeout: number; // Request timeout in ms
+  verbose: boolean; // Enable detailed logging
 }
 ```
 
@@ -120,13 +128,15 @@ interface TestConfig {
 ### Creating a New Test Suite
 
 1. Create a new directory under `src/`:
+
 ```bash
 mkdir src/my-test-suite
 ```
 
 2. Create the test module (`mod.ts`):
+
 ```typescript
-import { TestRunner, ApiClient, assert } from "../core/mod.ts";
+import { ApiClient, assert, TestRunner } from "../core/mod.ts";
 
 export class MyTest {
   private testRunner: TestRunner;
@@ -152,11 +162,12 @@ export class MyTest {
 ```
 
 3. Create the entry point (`main.ts`):
+
 ```typescript
 import { runMyTests } from "./mod.ts";
 
 async function main() {
-  await runMyTests({ /* options */ });
+  await runMyTests({/* options */});
 }
 
 if (import.meta.main) {
@@ -165,6 +176,7 @@ if (import.meta.main) {
 ```
 
 4. Register in `src/main.ts`:
+
 ```typescript
 const testSuites: TestSuite[] = [
   // ... existing suites
@@ -178,6 +190,7 @@ const testSuites: TestSuite[] = [
 ```
 
 5. Add task to `deno.json`:
+
 ```json
 {
   "tasks": {
@@ -189,20 +202,26 @@ const testSuites: TestSuite[] = [
 ## 🔧 Core API
 
 ### ApiClient
+
 Provides methods for interacting with the HTTP API:
+
 - `write(uri: string, value: unknown)`: Write data
 - `read(uri: string)`: Read data
 - `list(pattern?: string)`: List records
 - `delete(uri: string)`: Delete records
 
 ### TestRunner
+
 Manages test execution and reporting:
+
 - `run(name: string, testFn: () => Promise<void>)`: Run a single test
 - `runAll(tests: Array)`: Run multiple tests
 - `printSummary()`: Display test results
 
 ### CryptoManager
+
 Handles cryptographic operations:
+
 - `generateSigningKeyPair(userId: string)`: Generate Ed25519 keys
 - `generateEncryptionKeyPair()`: Generate X25519 keys
 - `sign(userId: string, payload: T)`: Sign a payload
@@ -211,13 +230,16 @@ Handles cryptographic operations:
 - `decrypt(encryptedPayload, privateKey)`: Decrypt data
 
 ### UserSimulator
+
 Simulates multiple users for testing:
+
 - `createUser(userId: string, withEncryption: boolean)`: Create a test user
 - `createTestPayload(data, options)`: Create various payload types
 
 ## 🧩 Fixtures
 
-Test fixtures are JSON files stored in the `fixtures/` directory. They should follow this format:
+Test fixtures are JSON files stored in the `fixtures/` directory. They should
+follow this format:
 
 ```json
 {
@@ -237,18 +259,23 @@ Fixtures are automatically loaded and used in tests when available.
 ## 🔍 Debugging
 
 ### Verbose Mode
+
 Enable verbose output for detailed test execution logs:
+
 ```bash
 E2E_VERBOSE=true deno task test:e2e
 ```
 
 ### Run Without Cleanup
+
 Keep test data for inspection:
+
 ```bash
 E2E_CLEANUP=false deno task test:e2e
 ```
 
 ### Test Specific Endpoints
+
 ```bash
 E2E_BASE_URL=http://staging.api.com deno task test:e2e
 ```
@@ -295,6 +322,7 @@ The test runner provides comprehensive output:
 ## 🤝 Contributing
 
 When adding new tests:
+
 1. Follow the existing module structure
 2. Use the core utilities for consistency
 3. Add proper cleanup for created resources
@@ -303,4 +331,5 @@ When adding new tests:
 
 ## 📄 License
 
-This testing system is part of the b3nd project and follows the same licensing terms.
+This testing system is part of the b3nd project and follows the same licensing
+terms.

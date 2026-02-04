@@ -17,13 +17,10 @@ import type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
-  Schema,
-} from "../b3nd-core/types.ts";
-import type {
-  Node,
   ReceiveResult,
+  Schema,
   Transaction,
-} from "../b3nd-compose/types.ts";
+} from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
@@ -42,7 +39,7 @@ export interface SqlExecutor {
   cleanup?: () => Promise<void>;
 }
 
-export class PostgresClient implements NodeProtocolInterface, Node {
+export class PostgresClient implements NodeProtocolInterface {
   private readonly config: PostgresClientConfig;
   private readonly schema: Schema;
   private readonly tablePrefix: string;

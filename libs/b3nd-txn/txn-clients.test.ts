@@ -10,12 +10,7 @@ import { assertEquals } from "@std/assert";
 import type { TransactionData } from "./data/types.ts";
 import type { Schema } from "../b3nd-core/types.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
-import {
-  createNode,
-  firstMatch,
-  parallel,
-  txnSchema,
-} from "../b3nd-compose/mod.ts";
+import { createValidatedClient, txnSchema } from "../b3nd-compose/mod.ts";
 
 function createTestSetup() {
   const schema: Schema = {
@@ -29,10 +24,10 @@ function createTestSetup() {
 
   const client = new MemoryClient({ schema });
 
-  const node = createNode({
-    read: firstMatch(client),
+  const node = createValidatedClient({
+    write: client,
+    read: client,
     validate: txnSchema(schema),
-    process: parallel(client),
   });
 
   return { client, node };

@@ -2,14 +2,17 @@
 
 ## Design Philosophy
 
-The wallet server solves a fundamental UX problem in crypto: **users shouldn't have to manage private keys**.
+The wallet server solves a fundamental UX problem in crypto: **users shouldn't
+have to manage private keys**.
 
 Instead of requiring users to:
+
 1. Generate and securely store private keys locally
 2. Sign every transaction with their keys
 3. Deal with key backup/recovery
 
 The wallet server provides a **familiar web experience**:
+
 1. Log in with username/password
 2. Data is automatically signed and encrypted
 3. Password reset works like any web app
@@ -83,47 +86,55 @@ The wallet server provides a **familiar web experience**:
 ## Core Components
 
 ### 1. **HTTP Server (mod.ts)**
+
 - Hono-based REST API
 - Request/response handling
 - CORS middleware
 - Logging middleware
 
 ### 2. **Authentication (auth.ts)**
+
 - User signup/login
 - Password hashing with PBKDF2
 - Password reset flow
 - Credentials stored in b3nd backend
 
 ### 3. **JWT Token Management (jwt.ts)**
+
 - Create JWT tokens (HMAC-SHA256)
 - Verify and decode JWTs
 - Token expiration handling
 - Stateless authentication
 
 ### 4. **Key Generation (keys.ts)**
+
 - Generate user Ed25519 keys (for signing)
 - Generate user X25519 keys (for encryption)
 - Store in credential backend
 - Load on demand
 
 ### 5. **Server Identity (server-keys.ts)**
+
 - Generate and load server keys
 - Server Ed25519 key (for signing)
 - Server X25519 key (for encryption)
 - Persistent storage in `server-keys.json`
 
 ### 6. **Write Proxy (proxy.ts)**
+
 - Accept user write requests
 - Sign with server's Ed25519 key
 - Optionally encrypt with server's X25519 key
 - Forward to proxy backend
 
 ### 7. **B3nd Schema (schema.ts)**
+
 - Define URI patterns for credential storage
 - Validate data structure
 - Enforce schema rules
 
 ### 8. **Configuration (config.ts)**
+
 - Load from environment variables
 - Two separate b3nd clients:
   - **Credential client**: For storing keys/passwords
@@ -251,6 +262,7 @@ Generated on signup, stored in credential backend:
 - **Encryption Key (X25519)**: For encrypting sensitive data
 
 Stored at:
+
 - `wallet://users/{username}/account-key`
 - `wallet://users/{username}/encryption-key`
 
@@ -263,6 +275,7 @@ Web App → Wallet Server → B3nd Backend (both credential and proxy)
 ```
 
 Configuration:
+
 ```bash
 CREDENTIAL_NODE_URL=http://localhost:8080
 PROXY_NODE_URL=http://localhost:8080
@@ -276,6 +289,7 @@ Web App → Wallet Server → ┬─ Credential B3nd (private/secure)
 ```
 
 Configuration:
+
 ```bash
 CREDENTIAL_NODE_URL=https://secure-internal.example.com
 PROXY_NODE_URL=https://api.example.com
@@ -291,6 +305,7 @@ App 3 ─┘       │
 ```
 
 Configuration:
+
 ```bash
 CREDENTIAL_NODE_URL=https://wallet-backend.example.com
 PROXY_NODE_URL=https://app-api.example.com  # Can be swapped per-app
@@ -299,28 +314,33 @@ PROXY_NODE_URL=https://app-api.example.com  # Can be swapped per-app
 ## Security Properties
 
 ### Authentication
+
 - **Method**: JWT (HMAC-SHA256)
 - **Storage**: Stateless (no session storage needed)
 - **Expiration**: Configurable (default 24 hours)
 
 ### Passwords
+
 - **Hashing**: PBKDF2-SHA256
 - **Iterations**: 100,000
 - **Salt**: Random per user
 - **Never Logged**: Passwords not in logs
 
 ### Keys
+
 - **Ed25519**: For signing (authentication/integrity)
 - **X25519**: For encryption (confidentiality)
 - **Storage**: Encrypted at rest (password-derived key)
 - **Access**: Only via authenticated API
 
 ### Signing
+
 - All writes signed with server Ed25519 key
 - Signature verifiable with server's public key
 - Format: `auth[{pubkey: "server", signature: "..."}]`
 
 ### Encryption
+
 - Optional: `encrypt: true` in write request
 - Uses server's X25519 key
 - Produces: `{data, nonce, ephemeralPublicKey}`
@@ -328,16 +348,19 @@ PROXY_NODE_URL=https://app-api.example.com  # Can be swapped per-app
 ## Scalability Considerations
 
 ### Stateless Design
+
 - No session storage needed
 - JWTs contain all auth info
 - Easy to scale horizontally
 
 ### Backend Independence
+
 - Credential and proxy backends can be separate
 - Can use different scaling strategies
 - Credential backend may need less throughput
 
 ### Key Caching
+
 - Consider caching user keys in memory
 - Cache invalidation on password change
 - Trade-off between memory and latency
@@ -358,18 +381,21 @@ PROXY_NODE_URL=https://app-api.example.com  # Can be swapped per-app
 ## Testing Strategy
 
 ### Unit Tests (Future)
+
 - Password hashing/verification
 - JWT creation/verification
 - Key generation
 - Signature verification
 
 ### Integration Tests (Future)
+
 - Full signup flow
 - Write proxy flow
 - Password reset flow
 - Error cases
 
 ### End-to-End Tests (Future)
+
 - Browser-based tests
 - Multiple backends
 - Encryption/decryption round-trip
@@ -377,10 +403,12 @@ PROXY_NODE_URL=https://app-api.example.com  # Can be swapped per-app
 ## Monitoring & Observability
 
 Current logging:
+
 - HTTP request logs (method, path, status, duration)
 - Error logs with stack traces
 
 Recommended additions:
+
 - Authentication metrics (signup, login, failures)
 - Write operations metrics
 - Key generation events
@@ -389,4 +417,7 @@ Recommended additions:
 
 ## Conclusion
 
-The B3nd Wallet Server provides a user-friendly interface to b3nd's cryptographic capabilities while maintaining security. By managing keys server-side, it reduces friction for end users while preserving the integrity and privacy guarantees that blockchain-style systems provide.
+The B3nd Wallet Server provides a user-friendly interface to b3nd's
+cryptographic capabilities while maintaining security. By managing keys
+server-side, it reduces friction for end users while preserving the integrity
+and privacy guarantees that blockchain-style systems provide.

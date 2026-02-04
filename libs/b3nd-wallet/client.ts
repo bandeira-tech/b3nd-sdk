@@ -27,10 +27,7 @@ import type {
   UserPublicKeys,
   WalletClientConfig,
 } from "./types.ts";
-import {
-  createAuthenticatedMessageWithHex,
-  generateSigningKeyPair,
-} from "../b3nd-encrypt/mod.ts";
+import { createAuthenticatedMessageWithHex, generateSigningKeyPair } from "../b3nd-encrypt/mod.ts";
 
 /**
  * B3nd Wallet Client
@@ -76,9 +73,10 @@ export class WalletClient {
     }
     // Normalize apiBasePath to start with "/" and have no trailing slash
     const normalized =
-      (config.apiBasePath.startsWith("/")
-        ? config.apiBasePath
-        : `/${config.apiBasePath}`).replace(/\/$/, "");
+      (config.apiBasePath.startsWith("/") ? config.apiBasePath : `/${config.apiBasePath}`).replace(
+        /\/$/,
+        "",
+      );
     this.apiBasePath = normalized;
     if (config.fetch) {
       this.fetchImpl = config.fetch;

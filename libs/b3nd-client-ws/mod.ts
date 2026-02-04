@@ -14,21 +14,18 @@ import type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
+  ReceiveResult,
+  Transaction,
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
 } from "../b3nd-core/types.ts";
-import type {
-  Node,
-  ReceiveResult,
-  Transaction,
-} from "../b3nd-compose/types.ts";
 import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
 
-export class WebSocketClient implements NodeProtocolInterface, Node {
+export class WebSocketClient implements NodeProtocolInterface {
   private config: WebSocketClientConfig;
   private ws: WebSocket | null = null;
   private connected = false;

@@ -9,13 +9,10 @@ import type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
-  Schema,
-} from "../b3nd-core/types.ts";
-import type {
-  Node,
   ReceiveResult,
+  Schema,
   Transaction,
-} from "../b3nd-compose/types.ts";
+} from "../b3nd-core/types.ts";
 import { isTransactionData } from "../b3nd-txn/data/detect.ts";
 
 type MemoryClientStorageNode<T> = {
@@ -94,7 +91,7 @@ function target(
   };
 }
 
-export class MemoryClient implements NodeProtocolInterface, Node {
+export class MemoryClient implements NodeProtocolInterface {
   protected storage: MemoryClientStorage;
   protected schema: Schema;
 

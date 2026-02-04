@@ -78,7 +78,10 @@ export async function saveConfig(config: BndConfig): Promise<void> {
 /**
  * Update a single config value
  */
-export async function updateConfig(key: keyof BndConfig, value: string): Promise<void> {
+export async function updateConfig(
+  key: keyof BndConfig,
+  value: string,
+): Promise<void> {
   const config = await loadConfig();
   config[key] = value;
   await saveConfig(config);

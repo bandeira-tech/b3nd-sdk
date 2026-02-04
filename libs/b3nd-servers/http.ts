@@ -1,10 +1,12 @@
 import type { ServerFrontend } from "./node.ts";
 import type {
+  NodeProtocolInterface,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Schema,
+  Transaction,
 } from "../b3nd-core/types.ts";
-import type { Node, Transaction } from "../b3nd-compose/types.ts";
+import type { Node } from "../b3nd-compose/types.ts";
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
@@ -136,6 +138,8 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   let schema: Schema | undefined;
   // Node interface for unified receive() endpoint
   let node: Node | undefined;
+  // New simplified client interface
+  let client: NodeProtocolInterface | undefined;
 
   const extractProgramKey = (uri: string): string | undefined => {
     const programMatch = uri.match(/^([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/]+)/);
@@ -162,6 +166,10 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
 
   // Wire routes using the provided router interface
   app.get("/api/v1/health", async (c: MinimalContext) => {
+    if (client) {
+      const res = await client.health();
+      return c.json(res, res.status === "healthy" ? 200 : 503);
+    }
     if (!backend) {
       return c.json(
         { status: "unhealthy", message: "handler not attached" },
@@ -173,6 +181,10 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   });
 
   app.get("/api/v1/schema", async (c: MinimalContext) => {
+    if (client) {
+      const keys = await client.getSchema();
+      return c.json({ schema: keys });
+    }
     if (!backend) return c.json({ schema: [] });
     const keys = await backend.read.getSchema();
     return c.json({ schema: keys });
@@ -207,6 +219,12 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
 
     // Deserialize binary data from base64-encoded wrapper
     const data = deserializeTxData(rawData);
+
+    // If client is configured, delegate directly
+    if (client) {
+      const result = await client.receive([uri, data] as Transaction);
+      return c.json(result, result.accepted ? 200 : 400);
+    }
 
     // If node is configured, use it directly
     if (node) {
@@ -245,9 +263,10 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   });
 
   app.get("/api/v1/read/:protocol/:domain/*", async (c: MinimalContext) => {
-    if (!backend) return c.json({ error: "handler not attached" }, 501);
+    const reader = client || backend?.read;
+    if (!reader) return c.json({ error: "handler not attached" }, 501);
     const uri = extractUriFromParams(c);
-    const res = await backend.read.read(uri);
+    const res = await reader.read(uri);
 
     if (!res.success || !res.record) {
       return c.json({ error: res.error || "Not found" }, 404);
@@ -270,11 +289,12 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   });
 
   app.get("/api/v1/list/:protocol/:domain/*", async (c: MinimalContext) => {
-    if (!backend) {
+    const reader = client || backend?.read;
+    if (!reader) {
       return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
     }
     const baseUri = extractUriFromParams(c).replace(/\/$/, "");
-    const res = await backend.read.list(baseUri, {
+    const res = await reader.list(baseUri, {
       page:
         (c.req.query("page") ? Number(c.req.query("page")) : undefined) as any,
       limit: (c.req.query("limit")
@@ -290,14 +310,15 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   app.delete(
     "/api/v1/delete/:protocol/:domain/*",
     async (c: MinimalContext) => {
-      if (!backend) {
+      const writer = client || backend?.write;
+      if (!writer) {
         return c.json({
           success: false,
           error: "handler not attached",
         }, 501);
       }
       const uri = extractUriFromParams(c);
-      const res = await backend.write.delete(uri);
+      const res = await writer.delete(uri);
       return c.json(res, res.success ? 200 : 404);
     },
   );
@@ -308,18 +329,24 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
     },
     fetch: (req: Request) => app.fetch(req),
     configure: (
-      opts: {
-        backend: {
-          write: NodeProtocolWriteInterface;
-          read: NodeProtocolReadInterface;
-        };
-        schema: Schema;
-        node?: Node;
-      },
+      opts:
+        | {
+          backend: {
+            write: NodeProtocolWriteInterface;
+            read: NodeProtocolReadInterface;
+          };
+          schema: Schema;
+          node?: Node;
+        }
+        | { client: NodeProtocolInterface },
     ) => {
-      backend = opts.backend;
-      schema = opts.schema;
-      node = opts.node;
+      if ("client" in opts) {
+        client = opts.client;
+      } else {
+        backend = opts.backend;
+        schema = opts.schema;
+        node = opts.node;
+      }
     },
   } as ServerFrontend;
 }

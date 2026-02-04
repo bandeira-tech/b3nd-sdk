@@ -39,7 +39,7 @@ const baseSchema: Schema = {
 // If a key isn't explicitly defined, it returns a permissive validator
 const testSchema = new Proxy(baseSchema, {
   get(target, prop: string | symbol) {
-    if (typeof prop === 'string') {
+    if (typeof prop === "string") {
       if (prop in target) {
         return target[prop as keyof Schema];
       }
@@ -53,7 +53,6 @@ const testSchema = new Proxy(baseSchema, {
   },
 }) as Schema;
 
-
 // Create in-memory backend
 const memoryClient = new MemoryClient({
   schema: testSchema,
@@ -65,13 +64,7 @@ const app = new Hono();
 
 // Create HTTP server frontend and configure it
 const frontend = httpServer(app as any);
-frontend.configure({
-  backend: {
-    write: memoryClient,
-    read: memoryClient,
-  },
-  schema: testSchema,
-});
+frontend.configure({ client: memoryClient });
 
 // Start server
 const PORT = parseInt(Deno.env.get("E2E_SERVER_PORT") || "8000");

@@ -5,7 +5,8 @@ description: NPM package @bandeira-tech/b3nd-web for browsers. Use when importin
 
 # @bandeira-tech/b3nd-web (NPM Package)
 
-Browser-focused B3nd SDK distribution for React, Vue, and other frontend frameworks.
+Browser-focused B3nd SDK distribution for React, Vue, and other frontend
+frameworks.
 
 ## Installation
 
@@ -23,11 +24,11 @@ npm install @bandeira-tech/b3nd-web
 
 ```typescript
 import {
+  encrypt,
   HttpClient,
-  WebSocketClient,
   LocalStorageClient,
   WalletClient,
-  encrypt
+  WebSocketClient,
 } from "@bandeira-tech/b3nd-web";
 ```
 
@@ -86,7 +87,7 @@ import { LocalStorageClient } from "@bandeira-tech/b3nd-web/clients/local-storag
 
 const local = new LocalStorageClient({
   keyPrefix: "myapp_",
-  schema: { /* optional validation */ }
+  schema: {/* optional validation */},
 });
 
 await local.receive(["txn://local/update-settings", {
@@ -113,15 +114,14 @@ wallet.setSession(session);
 await wallet.proxyWrite({
   uri: "mutable://data/profile",
   data: { name: "Alice" },
-  encrypt: true
+  encrypt: true,
 });
 
 // Proxy read with auto-decryption
 const data = await wallet.proxyRead({
-  uri: "mutable://data/profile"
+  uri: "mutable://data/profile",
 });
 ```
-
 
 ## Blob and Link Usage (Browser)
 
@@ -129,11 +129,11 @@ const data = await wallet.proxyRead({
 
 ```typescript
 import {
-  computeSha256,        // Hash any value (Uint8Array or JSON)
-  generateBlobUri,      // Generate blob://open/sha256:{hash} URI
-  validateLinkValue,    // Validate link is a valid URI string
-  generateLinkUri,      // Generate link://accounts/{pubkey}/{path} URI
-  verifyBlobContent,    // Verify content matches its blob URI
+  computeSha256, // Hash any value (Uint8Array or JSON)
+  generateBlobUri, // Generate blob://open/sha256:{hash} URI
+  generateLinkUri, // Generate link://accounts/{pubkey}/{path} URI
+  validateLinkValue, // Validate link is a valid URI string
+  verifyBlobContent, // Verify content matches its blob URI
 } from "@bandeira-tech/b3nd-web/blob";
 ```
 
@@ -168,7 +168,7 @@ import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
 await wallet.proxyWrite({
   uri: `link://accounts/${userPubkey}/avatar`,
   data: "blob://open/sha256:abc123...",
-  encrypt: false
+  encrypt: false,
 });
 ```
 
@@ -225,32 +225,32 @@ const decrypted = await encrypt.decryptSymmetric(encrypted, key);
 
 ```typescript
 import type {
+  BlobData, // { type?, encoding?, data }
+  DeleteResult,
   HttpClientConfig,
+  LinkValue, // string - URI reference
+  ListResult,
   LocalStorageClientConfig,
-  WebSocketClientConfig,
   NodeProtocolInterface,
+  PersistenceRecord,
   ReadResult,
   ReceiveResult,
-  ListResult,
-  DeleteResult,
-  PersistenceRecord,
   Schema,
   ValidationFn,
-  LinkValue,        // string - URI reference
-  BlobData,         // { type?, encoding?, data }
+  WebSocketClientConfig,
 } from "@bandeira-tech/b3nd-web";
 ```
 
 ## Key Differences from b3nd-sdk
 
-| Feature | b3nd-web | b3nd-sdk |
-|---------|----------|----------|
-| Target | Browser/NPM | Deno/JSR |
-| PostgresClient | No | Yes |
-| MongoClient | No | Yes |
-| LocalStorageClient | Yes | No |
-| IndexedDBClient | Yes (browser) | No |
-| Server primitives | Limited | Full |
+| Feature            | b3nd-web      | b3nd-sdk |
+| ------------------ | ------------- | -------- |
+| Target             | Browser/NPM   | Deno/JSR |
+| PostgresClient     | No            | Yes      |
+| MongoClient        | No            | Yes      |
+| LocalStorageClient | Yes           | No       |
+| IndexedDBClient    | Yes (browser) | No       |
+| Server primitives  | Limited       | Full     |
 
 ## Build
 
@@ -261,21 +261,25 @@ npm run build  # Uses tsup
 
 ## List Interface
 
-`list()` returns flat results — all stored URIs matching the prefix. No directory/file type distinction:
+`list()` returns flat results — all stored URIs matching the prefix. No
+directory/file type distinction:
 
 ```typescript
 interface ListItem {
-  uri: string;  // Full stored URI
+  uri: string; // Full stored URI
 }
 ```
 
 ## MCP Tools (Claude Plugin)
 
-When the B3nd plugin is installed, agents can use MCP tools directly to interact with backends: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`, `b3nd_health`, `b3nd_schema`.
+When the B3nd plugin is installed, agents can use MCP tools directly to interact
+with backends: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`,
+`b3nd_health`, `b3nd_schema`.
 
 ## Source Files
 
-- `libs/b3nd-sdk/src/mod.web.ts` - Main web exports (facade, re-exports from sibling libs)
+- `libs/b3nd-sdk/src/mod.web.ts` - Main web exports (facade, re-exports from
+  sibling libs)
 - `libs/b3nd-client-http/mod.ts` - HTTP client
 - `libs/b3nd-client-localstorage/mod.ts` - LocalStorage client
 - `libs/b3nd-wallet/mod.ts` - Wallet client

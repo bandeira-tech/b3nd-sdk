@@ -1,19 +1,24 @@
 # B3nd MCP Server
 
-Model Context Protocol (MCP) server for B3nd SDK. Provides Claude Code with tools to read, write, list, and manage data across multiple B3nd backends with dynamic switching.
+Model Context Protocol (MCP) server for B3nd SDK. Provides Claude Code with
+tools to read, write, list, and manage data across multiple B3nd backends with
+dynamic switching.
 
 ## Features
 
-- **Multi-backend support**: Configure and switch between local, testnet, mainnet, etc.
+- **Multi-backend support**: Configure and switch between local, testnet,
+  mainnet, etc.
 - **Dynamic backend management**: Add/remove backends at runtime
-- **Per-operation backend selection**: Override the active backend for specific operations
+- **Per-operation backend selection**: Override the active backend for specific
+  operations
 - **Full CRUD operations**: Read, write, list, delete data via B3nd URIs
 
 ## Quick Install
 
 ### Option 1: Project Scope (Recommended)
 
-The `.mcp.json` in the repo root auto-configures the server. Just restart Claude Code in this project.
+The `.mcp.json` in the repo root auto-configures the server. Just restart Claude
+Code in this project.
 
 ### Option 2: CLI Install with Multiple Backends
 
@@ -33,10 +38,10 @@ claude mcp add --transport stdio b3nd \
 
 ## Environment Variables
 
-| Variable | Format | Description |
-|----------|--------|-------------|
-| `B3ND_BACKENDS` | `name1=url1,name2=url2` | Multiple backends (comma-separated) |
-| `B3ND_BACKEND_URL` | `http://...` | Single default backend (fallback) |
+| Variable           | Format                  | Description                         |
+| ------------------ | ----------------------- | ----------------------------------- |
+| `B3ND_BACKENDS`    | `name1=url1,name2=url2` | Multiple backends (comma-separated) |
+| `B3ND_BACKEND_URL` | `http://...`            | Single default backend (fallback)   |
 
 ### Example Configurations
 
@@ -52,25 +57,26 @@ B3ND_BACKENDS="local=http://localhost:8842,testnet=https://testnet.b3nd.io,mainn
 
 ### Backend Management
 
-| Tool | Description |
-|------|-------------|
-| `b3nd_backends_list` | List all backends and show which is active |
+| Tool                   | Description                                |
+| ---------------------- | ------------------------------------------ |
+| `b3nd_backends_list`   | List all backends and show which is active |
 | `b3nd_backends_switch` | Switch active backend (e.g., to 'testnet') |
-| `b3nd_backends_add` | Add a new backend at runtime |
-| `b3nd_backends_remove` | Remove a backend configuration |
+| `b3nd_backends_add`    | Add a new backend at runtime               |
+| `b3nd_backends_remove` | Remove a backend configuration             |
 
 ### Data Operations
 
-| Tool | Description |
-|------|-------------|
-| `b3nd_read` | Read data from a B3nd URI |
-| `b3nd_write` | Write JSON data to a B3nd URI |
-| `b3nd_list` | List items at a path |
-| `b3nd_delete` | Delete data at a URI |
-| `b3nd_health` | Check backend health |
-| `b3nd_schema` | Get available protocols |
+| Tool          | Description                   |
+| ------------- | ----------------------------- |
+| `b3nd_read`   | Read data from a B3nd URI     |
+| `b3nd_write`  | Write JSON data to a B3nd URI |
+| `b3nd_list`   | List items at a path          |
+| `b3nd_delete` | Delete data at a URI          |
+| `b3nd_health` | Check backend health          |
+| `b3nd_schema` | Get available protocols       |
 
-All data operations accept an optional `backend` parameter to target a specific backend without switching.
+All data operations accept an optional `backend` parameter to target a specific
+backend without switching.
 
 ## Usage Examples
 

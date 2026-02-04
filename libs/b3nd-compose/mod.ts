@@ -1,10 +1,10 @@
 /**
  * @module
- * B3nd Unified Node System
+ * B3nd Composition System
  *
- * The unified architecture where all state changes flow through a single
- * `receive(tx)` interface. Behavior emerges from composition of validators
- * and processors.
+ * Validators, processors, and composition utilities for building
+ * validated clients. Use `createValidatedClient()` as the primary
+ * entry point for wiring validation into a client.
  *
  * ## Core Concept
  *
@@ -18,28 +18,18 @@
  * 3. (internal)   →  clients persist what they choose
  * ```
  *
- * @example Basic node
+ * @example Using createValidatedClient
  * ```typescript
- * import { createNode, schema, parallel } from "@bandeira-tech/b3nd-sdk/node"
+ * import { createValidatedClient, txnSchema } from "@bandeira-tech/b3nd-sdk"
+ * import { parallelBroadcast, firstMatchSequence } from "@bandeira-tech/b3nd-sdk"
  *
- * const node = createNode({
- *   read: memoryClient,
- *   validate: schema(SCHEMA),
- *   process: parallel(memoryClient)
+ * const client = createValidatedClient({
+ *   write: parallelBroadcast(clients),
+ *   read: firstMatchSequence(clients),
+ *   validate: txnSchema(schema),
  * })
  *
- * await node.receive(["mutable://users/alice", { name: "Alice" }])
- * ```
- *
- * @example Multiple backends
- * ```typescript
- * import { createNode, parallel, firstMatch } from "@bandeira-tech/b3nd-sdk/node"
- *
- * const node = createNode({
- *   read: firstMatch(postgres, replica),
- *   validate: schema(SCHEMA),
- *   process: parallel(postgres, replica)
- * })
+ * await client.receive(["mutable://users/alice", { name: "Alice" }])
  * ```
  */
 
@@ -47,9 +37,13 @@ import type { Node, NodeConfig, ReceiveResult, Transaction } from "./types.ts";
 
 // Re-export types
 export type {
+  /** @deprecated Use Validator from compose types directly */
   Node,
+  /** @deprecated Use FunctionalClientConfig instead */
   NodeConfig,
+  /** @deprecated Use Processor functions directly */
   Processor,
+  /** @deprecated Use NodeProtocolReadInterface from core instead */
   ReadInterface,
   ReceiveResult,
   Transaction,
@@ -60,8 +54,11 @@ export type {
 export {
   all,
   any,
+  /** @deprecated Use firstMatchSequence from b3nd-combinators instead */
   firstMatch,
+  /** @deprecated Use parallelBroadcast from b3nd-combinators, or pass clients to createValidatedClient */
   parallel,
+  /** @deprecated Use createValidatedClient with sequential logic instead */
   pipeline,
   seq,
 } from "./composition.ts";
@@ -78,26 +75,40 @@ export {
 } from "./validators.ts";
 
 // Re-export built-in processors
-export { emit, log, noop, when } from "./processors.ts";
+export {
+  /** @deprecated Use emit callbacks directly */
+  emit,
+  /** @deprecated Use console.log directly */
+  log,
+  /** @deprecated No-op is no longer needed */
+  noop,
+  /** @deprecated Use conditional logic directly */
+  when,
+} from "./processors.ts";
+
+// Validated client convenience
+export { createValidatedClient } from "./validated-client.ts";
 
 /**
  * Create a unified node
  *
- * @param config - Node configuration with read, validate, and process
- * @returns Node instance
+ * @deprecated Use `createValidatedClient()` instead.
  *
- * @example
+ * @example Migration:
  * ```typescript
+ * // Before:
  * const node = createNode({
- *   read: memoryClient,
- *   validate: schema(SCHEMA),
- *   process: parallel(memoryClient)
+ *   read: firstMatch(client),
+ *   validate: txnSchema(schema),
+ *   process: parallel(client),
  * })
  *
- * const result = await node.receive(["mutable://users/alice", { name: "Alice" }])
- * if (result.accepted) {
- *   console.log("Transaction accepted")
- * }
+ * // After:
+ * const client = createValidatedClient({
+ *   write: parallelBroadcast(clients),
+ *   read: firstMatchSequence(clients),
+ *   validate: txnSchema(schema),
+ * })
  * ```
  */
 export function createNode<D = unknown>(config: NodeConfig<D>): Node {

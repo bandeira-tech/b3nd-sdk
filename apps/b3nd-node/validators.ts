@@ -7,9 +7,9 @@
 export {
   computeSha256,
   generateBlobUri,
-  parseBlobUri,
-  validateLinkValue,
   generateLinkUri,
   isValidSha256Hash,
+  parseBlobUri,
+  validateLinkValue,
   verifyBlobContent,
 } from "../../libs/b3nd-blob/mod.ts";

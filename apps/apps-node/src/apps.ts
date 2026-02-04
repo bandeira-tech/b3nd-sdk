@@ -1,8 +1,8 @@
 import type { NodeProtocolInterface } from "@b3nd/sdk/types";
 import {
+  type AuthenticatedMessage,
   createSignedEncryptedMessage,
   decrypt,
-  type AuthenticatedMessage,
   verify,
 } from "@b3nd/sdk/encrypt";
 import { pemToCryptoKey } from "@b3nd/sdk";
@@ -83,7 +83,10 @@ export async function loadAppConfig(
   };
 }
 
-export function validateString(val: string, rule?: { format?: "email" }): boolean {
+export function validateString(
+  val: string,
+  rule?: { format?: "email" },
+): boolean {
   if (typeof val !== "string") return false;
   if (!rule) return true;
   if (rule.format === "email") {
@@ -95,8 +98,13 @@ export function validateString(val: string, rule?: { format?: "email" }): boolea
 
 export interface SignedRequest<T = unknown> extends AuthenticatedMessage<T> {}
 
-export async function verifySignedRequest<T>(appKey: string, message: SignedRequest<T>): Promise<boolean> {
-  if (!message?.auth || !Array.isArray(message.auth) || message.auth.length === 0) return false;
+export async function verifySignedRequest<T>(
+  appKey: string,
+  message: SignedRequest<T>,
+): Promise<boolean> {
+  if (
+    !message?.auth || !Array.isArray(message.auth) || message.auth.length === 0
+  ) return false;
   const signer = message.auth.find((a) => a.pubkey === appKey);
   if (!signer?.signature) return false;
   return await verify(appKey, signer.signature, message.payload);
@@ -116,7 +124,9 @@ export async function performActionWrite(
     : JSON.stringify(signedPayload.payload);
   const enc = new TextEncoder().encode(payloadForHash);
   const digest = await crypto.subtle.digest("SHA-256", enc);
-  const digestHex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const digestHex = Array.from(new Uint8Array(digest)).map((b) =>
+    b.toString(16).padStart(2, "0")
+  ).join("");
 
   const uri = writePath
     .replace(/:key/g, appKey)

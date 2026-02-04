@@ -57,9 +57,7 @@ async function main() {
       `   🔑 Account key: ${keys.accountPublicKeyHex.substring(0, 16)}...`,
     );
     console.log(
-      `   🔐 Encryption key: ${
-        keys.encryptionPublicKeyHex.substring(0, 16)
-      }...\n`,
+      `   🔐 Encryption key: ${keys.encryptionPublicKeyHex.substring(0, 16)}...\n`,
     );
 
     // Proxy write (unencrypted)
@@ -124,14 +122,10 @@ async function main() {
     const publicKeys = await wallet.getMyPublicKeys(appKey);
     console.log(`   ✅ Retrieved public keys`);
     console.log(
-      `   🔑 Account key: ${
-        publicKeys.accountPublicKeyHex.substring(0, 16)
-      }...`,
+      `   🔑 Account key: ${publicKeys.accountPublicKeyHex.substring(0, 16)}...`,
     );
     console.log(
-      `   🔐 Encryption key: ${
-        publicKeys.encryptionPublicKeyHex.substring(0, 16)
-      }...\n`,
+      `   🔐 Encryption key: ${publicKeys.encryptionPublicKeyHex.substring(0, 16)}...\n`,
     );
 
     console.log("✨ All tests completed successfully!");

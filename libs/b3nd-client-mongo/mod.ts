@@ -17,13 +17,10 @@ import type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
-  Schema,
-} from "../b3nd-core/types.ts";
-import type {
-  Node,
   ReceiveResult,
+  Schema,
   Transaction,
-} from "../b3nd-compose/types.ts";
+} from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
@@ -50,7 +47,7 @@ export interface MongoExecutor {
   cleanup?: () => Promise<void>;
 }
 
-export class MongoClient implements NodeProtocolInterface, Node {
+export class MongoClient implements NodeProtocolInterface {
   private readonly config: MongoClientConfig;
   private readonly schema: Schema;
   private readonly collectionName: string;

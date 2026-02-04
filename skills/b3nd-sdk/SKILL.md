@@ -34,56 +34,52 @@ import { MemoryClient } from "jsr:@bandeira-tech/b3nd-sdk";
 
 ```typescript
 import {
-  // Clients
-  MemoryClient,
-  HttpClient,
-  WebSocketClient,
-  PostgresClient,
-  MongoClient,
-
-  // Unified Node system
-  createNode,
-  // Composition utilities
-  seq,
-  any,
-  all,
-  parallel,
-  pipeline,
-  firstMatch,
-  // Built-in validators
-  schemaValidator,
-  txnSchema,
-  format,
-  uriPattern,
-  requireFields,
   accept,
-  reject,
-  // Built-in processors
-  emit,
-  when,
-  log,
-  noop,
-
-  // Transaction data
-  isTransactionData,
-
+  all,
+  any,
+  // Deprecated (still exported for backward compat)
+  createNode,
   // Server primitives
   createServerNode,
-  servers,
-  wsservers,
-
-  // Legacy combinators
-  parallelBroadcast,
+  // Validated client composition
+  createValidatedClient,
+  deriveObfuscatedPath,
+  emit,
+  extractSchemaVersion,
+  firstMatch,
   firstMatchSequence,
-
+  format,
+  // FunctionalClient (custom behavior without class inheritance)
+  FunctionalClient,
+  generateCompleteSchemaSQL,
   // Postgres utilities
   generatePostgresSchema,
-  generateCompleteSchemaSQL,
-  extractSchemaVersion,
-
+  HttpClient,
+  // Transaction data
+  isTransactionData,
+  log,
+  // Clients
+  MemoryClient,
+  MongoClient,
+  noop,
+  parallel,
+  // Client combinators
+  parallelBroadcast,
   // Crypto
   pemToCryptoKey,
-  deriveObfuscatedPath,
+  pipeline,
+  PostgresClient,
+  reject,
+  requireFields,
+  schemaValidator,
+  seq,
+  servers,
+  // Validators
+  txnSchema,
+  uriPattern,
+  WebSocketClient,
+  when,
+  wsservers,
 } from "@bandeira-tech/b3nd-sdk";
 ```
 
@@ -116,31 +112,39 @@ import { PostgresClient } from "@bandeira-tech/b3nd-sdk/clients/postgres";
 import { WalletClient } from "@bandeira-tech/b3nd-sdk/wallet";
 ```
 
-## Unified Node System
+## Client Composition
 
-All state changes flow through a single `receive(tx)` interface. The unified node pattern:
+All state changes flow through a single `receive(tx)` interface. Use
+`createValidatedClient` to compose clients with validation:
 
 ```typescript
-import { createNode, txnSchema, parallel, firstMatch } from "@bandeira-tech/b3nd-sdk";
+import {
+  createValidatedClient,
+  firstMatchSequence,
+  parallelBroadcast,
+  txnSchema,
+} from "@bandeira-tech/b3nd-sdk";
 
 const schema = {
   "mutable://users": async ({ value }) => ({ valid: !!value?.name }),
   "txn://open": async () => ({ valid: true }),
 };
 
-// Create unified node — clients are passed directly to parallel()
-const node = createNode({
-  read: firstMatch(postgresClient, memoryClient),
+// Compose a validated client from multiple backends
+const client = createValidatedClient({
+  write: parallelBroadcast([postgresClient, memoryClient]),
+  read: firstMatchSequence([postgresClient, memoryClient]),
   validate: txnSchema(schema),
-  process: parallel(postgresClient, memoryClient),
 });
 
 // Plain transactions
-const result = await node.receive(["mutable://users/alice", { name: "Alice" }]);
+const result = await client.receive(["mutable://users/alice", {
+  name: "Alice",
+}]);
 // result: { accepted: true } or { accepted: false, error: "..." }
 
 // Transaction envelopes — outputs are unpacked and stored individually by each client
-const txResult = await node.receive(["txn://open/batch-1", {
+const txResult = await client.receive(["txn://open/batch-1", {
   inputs: [],
   outputs: [
     ["mutable://users/alice", { name: "Alice" }],
@@ -150,16 +154,29 @@ const txResult = await node.receive(["txn://open/batch-1", {
 // Each output stored at its own URI, readable via client.read("mutable://users/alice")
 ```
 
+For custom behavior without class inheritance, use `FunctionalClient`:
+
+```typescript
+import { FunctionalClient } from "@bandeira-tech/b3nd-sdk";
+
+const client = new FunctionalClient({
+  receive: async (tx) => backend.receive(tx),
+  read: async (uri) => backend.read(uri),
+  list: async (uri, options) => backend.list(uri, options),
+});
+```
+
 ### TransactionData Convention
 
-Transaction envelopes wrap multiple operations into a single atomic-intent transaction:
+Transaction envelopes wrap multiple operations into a single atomic-intent
+transaction:
 
 ```typescript
 import type { TransactionData } from "@bandeira-tech/b3nd-sdk";
 
 const txData: TransactionData = {
-  inputs: ["mutable://open/ref/1"],  // References (for future UTXO support)
-  outputs: [                          // Each [uri, data] pair gets stored individually
+  inputs: ["mutable://open/ref/1"], // References (for future UTXO support)
+  outputs: [ // Each [uri, data] pair gets stored individually
     ["mutable://open/users/alice", { name: "Alice" }],
     ["mutable://open/users/bob", { name: "Bob" }],
   ],
@@ -168,8 +185,10 @@ const txData: TransactionData = {
 await node.receive(["txn://open/my-batch", txData]);
 ```
 
-- `txnSchema(schema)` validates the envelope URI AND each output against its program's schema
-- Each client's `receive()` detects TransactionData and stores outputs individually
+- `txnSchema(schema)` validates the envelope URI AND each output against its
+  program's schema
+- Each client's `receive()` detects TransactionData and stores outputs
+  individually
 - The envelope itself is also stored at its `txn://` URI as an audit trail
 - Plain (non-TransactionData) transactions work unchanged
 
@@ -177,14 +196,13 @@ await node.receive(["txn://open/my-batch", txData]);
 
 ```typescript
 // Validators
-seq(v1, v2)      // Sequential, stops on first failure
-any(v1, v2)      // First to pass wins
-all(v1, v2)      // All must pass (parallel)
+seq(v1, v2); // Sequential, stops on first failure
+any(v1, v2); // First to pass wins
+all(v1, v2); // All must pass (parallel)
 
-// Processors — accept Processor functions or receivers (clients) directly
-parallel(c1, c2)   // Parallel, at least one must succeed
-pipeline(p1, p2)   // Sequential, all must succeed
-when(cond, proc)   // Conditional processing
+// Client combinators
+parallelBroadcast(clients); // Broadcast writes to all, read from first
+firstMatchSequence(clients); // Try clients in order until one succeeds
 ```
 
 ## Server Usage
@@ -192,18 +210,23 @@ when(cond, proc)   // Conditional processing
 ### HTTP Server
 
 ```typescript
-import { createServerNode, servers, MemoryClient } from "@bandeira-tech/b3nd-sdk";
+import {
+  createServerNode,
+  MemoryClient,
+  servers,
+} from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
 const schema = {
-  "users": async ({ value }) => ({ valid: !!value }),
+  "mutable://users": async ({ value }) => ({ valid: !!value }),
 };
 
-const backend = new MemoryClient({ schema });
+const client = new MemoryClient({ schema });
 const app = new Hono();
 const frontend = servers.httpServer(app);
 
-const node = createServerNode({ frontend, backend, schema });
+// New simplified config — just pass the client
+const node = createServerNode({ frontend, client });
 node.listen(43100);
 ```
 
@@ -212,28 +235,44 @@ node.listen(43100);
 ```typescript
 import {
   createServerNode,
-  servers,
-  parallelBroadcast,
+  createValidatedClient,
   firstMatchSequence,
   MemoryClient,
+  parallelBroadcast,
   PostgresClient,
+  servers,
+  txnSchema,
 } from "@bandeira-tech/b3nd-sdk";
 
 const clients = [
   new MemoryClient({ schema }),
-  new PostgresClient({ connection, schema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new PostgresClient({
+    connection,
+    schema,
+    tablePrefix: "b3nd",
+    poolSize: 5,
+    connectionTimeout: 10000,
+  }),
 ];
 
-const receiveBackend = parallelBroadcast(clients);  // Receive on all
-const readBackend = firstMatchSequence(clients);     // Read from first success
+// Compose a validated client from multiple backends
+const client = createValidatedClient({
+  write: parallelBroadcast(clients),
+  read: firstMatchSequence(clients),
+  validate: txnSchema(schema),
+});
 
-const backend = { receive: receiveBackend, read: readBackend };
+const frontend = servers.httpServer(app);
+createServerNode({ frontend, client });
 ```
 
 ### PostgreSQL Client
 
 ```typescript
-import { PostgresClient, generateCompleteSchemaSQL } from "@bandeira-tech/b3nd-sdk";
+import {
+  generateCompleteSchemaSQL,
+  PostgresClient,
+} from "@bandeira-tech/b3nd-sdk";
 
 const pg = new PostgresClient({
   connection: "postgresql://user:pass@localhost:5432/db",
@@ -279,17 +318,18 @@ deno task publish:jsr
 
 ## Blob and Link Module
 
-The SDK includes a dedicated blob module for content-addressed storage and URI references.
+The SDK includes a dedicated blob module for content-addressed storage and URI
+references.
 
 ```typescript
 import {
-  computeSha256,        // Hash any value (Uint8Array or JSON)
-  generateBlobUri,      // Generate blob://open/sha256:{hash} URI
-  parseBlobUri,         // Parse blob URI to extract algorithm and hash
-  validateLinkValue,    // Validate link is a valid URI string
-  generateLinkUri,      // Generate link://accounts/{pubkey}/{path} URI
-  isValidSha256Hash,    // Check if string is valid 64-char hex hash
-  verifyBlobContent,    // Verify content matches its blob URI
+  computeSha256, // Hash any value (Uint8Array or JSON)
+  generateBlobUri, // Generate blob://open/sha256:{hash} URI
+  generateLinkUri, // Generate link://accounts/{pubkey}/{path} URI
+  isValidSha256Hash, // Check if string is valid 64-char hex hash
+  parseBlobUri, // Parse blob URI to extract algorithm and hash
+  validateLinkValue, // Validate link is a valid URI string
+  verifyBlobContent, // Verify content matches its blob URI
 } from "@bandeira-tech/b3nd-sdk/blob";
 ```
 
@@ -311,7 +351,10 @@ const blobUri = generateBlobUri(hash);
 ### Link Validation
 
 ```typescript
-import { validateLinkValue, generateLinkUri } from "@bandeira-tech/b3nd-sdk/blob";
+import {
+  generateLinkUri,
+  validateLinkValue,
+} from "@bandeira-tech/b3nd-sdk/blob";
 
 // Validate that a value is a valid link (string URI)
 const result = validateLinkValue("blob://open/sha256:abc123...");
@@ -367,30 +410,25 @@ The SDK includes a comprehensive encryption module for client-side encryption.
 
 ```typescript
 import {
-  // Key generation
-  generateSigningKeyPair,      // Ed25519 for signing
-  generateEncryptionKeyPair,   // X25519 for encryption
-
-  // Asymmetric encryption (ECDH + AES-GCM)
-  encrypt,                     // Encrypt to recipient's public key
-  decrypt,                     // Decrypt with private key
-
-  // Symmetric encryption (AES-GCM)
-  encryptSymmetric,           // Encrypt with hex key
-  decryptSymmetric,           // Decrypt with hex key
-
-  // Key derivation
-  deriveKeyFromSeed,          // PBKDF2-SHA256 (100k iterations)
-
-  // Signing
-  sign,
-  verify,
-  signWithHex,
-
   // Authenticated messages
   createAuthenticatedMessage,
   createAuthenticatedMessageWithHex,
   createSignedEncryptedMessage,
+  decrypt, // Decrypt with private key
+  decryptSymmetric, // Decrypt with hex key
+  // Key derivation
+  deriveKeyFromSeed, // PBKDF2-SHA256 (100k iterations)
+  // Asymmetric encryption (ECDH + AES-GCM)
+  encrypt, // Encrypt to recipient's public key
+  // Symmetric encryption (AES-GCM)
+  encryptSymmetric, // Encrypt with hex key
+  generateEncryptionKeyPair, // X25519 for encryption
+  // Key generation
+  generateSigningKeyPair, // Ed25519 for signing
+  // Signing
+  sign,
+  signWithHex,
+  verify,
   verifyAndDecryptMessage,
 } from "@bandeira-tech/b3nd-sdk/encrypt";
 ```
@@ -424,59 +462,58 @@ await client.receive(["txn://open/store-protected-blob", {
 
 ```typescript
 import type {
-  // Core types
-  Schema,
-  ValidationFn,
-  NodeProtocolInterface,
-  NodeProtocolWriteInterface,  // receive + delete + health + getSchema + cleanup
-  NodeProtocolReadInterface,
-  // Node types
-  Node,
-  NodeConfig,
-  Transaction,
-  ReceiveResult,
-  ReadInterface,
-  Validator,
-  Processor,
-  // Client configs
-  MemoryClientConfig,
-  HttpClientConfig,
-  WebSocketClientConfig,
-  PostgresClientConfig,
-  MongoClientConfig,
-  // Results
-  ReadResult,
-  WriteResult,
-  ListResult,
+  BlobData,
+  ClientError,
   DeleteResult,
+  // FunctionalClient config
+  FunctionalClientConfig,
+  HealthStatus,
+  HttpClientConfig,
+  LinkValue,
   ListItem,
   ListOptions,
+  ListResult,
+  // Client configs
+  MemoryClientConfig,
+  MongoClientConfig,
+  NodeProtocolInterface,
+  NodeProtocolReadInterface,
+  NodeProtocolWriteInterface,
   PersistenceRecord,
-  HealthStatus,
-  ClientError,
-  LinkValue,        // string - URI reference
-  BlobData,         // { type?, encoding?, data }
+  PostgresClientConfig,
+  // Results
+  ReadResult,
+  ReceiveResult,
+  // Core types
+  Schema,
+  Transaction,
+  ValidationFn,
+  // Compose types
+  Validator,
+  WebSocketClientConfig,
+  WriteResult,
 } from "@bandeira-tech/b3nd-sdk";
 ```
 
 ## Key Differences from b3nd-web
 
-| Feature | b3nd-sdk | b3nd-web |
-|---------|----------|----------|
-| Target | Deno/JSR | Browser/NPM |
-| PostgresClient | Yes | No |
-| MongoClient | Yes | No |
-| LocalStorageClient | No | Yes |
-| Server primitives | Full | Limited |
-| Auth module | Yes | No |
+| Feature            | b3nd-sdk | b3nd-web    |
+| ------------------ | -------- | ----------- |
+| Target             | Deno/JSR | Browser/NPM |
+| PostgresClient     | Yes      | No          |
+| MongoClient        | Yes      | No          |
+| LocalStorageClient | No       | Yes         |
+| Server primitives  | Full     | Limited     |
+| Auth module        | Yes      | No          |
 
 ## List Interface
 
-`list()` returns flat results — all stored URIs matching the prefix. No directory/file type distinction:
+`list()` returns flat results — all stored URIs matching the prefix. No
+directory/file type distinction:
 
 ```typescript
 interface ListItem {
-  uri: string;  // Full stored URI
+  uri: string; // Full stored URI
 }
 
 const result = await client.list("mutable://users/");
@@ -485,11 +522,16 @@ const result = await client.list("mutable://users/");
 
 ## MCP Tools (Claude Plugin)
 
-When the B3nd plugin is installed, agents can use MCP tools directly: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`, `b3nd_health`, `b3nd_schema`, `b3nd_backends_list`, `b3nd_backends_switch`, `b3nd_backends_add`.
+When the B3nd plugin is installed, agents can use MCP tools directly:
+`b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`, `b3nd_health`,
+`b3nd_schema`, `b3nd_backends_list`, `b3nd_backends_switch`,
+`b3nd_backends_add`.
 
 ## bnd CLI Tool
 
-The B3nd CLI (`apps/b3nd-cli/bnd`) provides command-line access: `./apps/b3nd-cli/bnd read <uri>`, `./apps/b3nd-cli/bnd list <uri>`, `./apps/b3nd-cli/bnd config`.
+The B3nd CLI (`apps/b3nd-cli/bnd`) provides command-line access:
+`./apps/b3nd-cli/bnd read <uri>`, `./apps/b3nd-cli/bnd list <uri>`,
+`./apps/b3nd-cli/bnd config`.
 
 ## Developer Dashboard
 
@@ -498,11 +540,13 @@ cd apps/sdk-inspector && deno task dashboard:build  # Build test artifacts
 cd apps/b3nd-web-rig && npm run dev                      # http://localhost:5555/dashboard
 ```
 
-Browse test results by theme, view source code with line numbers, search across 125 tests.
+Browse test results by theme, view source code with line numbers, search across
+125 tests.
 
 ## Source Files
 
-- `libs/b3nd-sdk/src/mod.ts` - Main Deno exports (facade, re-exports from sibling libs)
+- `libs/b3nd-sdk/src/mod.ts` - Main Deno exports (facade, re-exports from
+  sibling libs)
 - `libs/b3nd-core/types.ts` - Type definitions
 - `libs/b3nd-compose/types.ts` - Node/Transaction/Validator types
 - `libs/b3nd-client-postgres/mod.ts` - PostgreSQL client

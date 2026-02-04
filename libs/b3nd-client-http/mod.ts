@@ -15,12 +15,9 @@ import type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
-} from "../b3nd-core/types.ts";
-import type {
-  Node,
   ReceiveResult,
   Transaction,
-} from "../b3nd-compose/types.ts";
+} from "../b3nd-core/types.ts";
 import { encodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
@@ -38,7 +35,7 @@ function serializeTxData<D>(data: D): unknown {
   return data;
 }
 
-export class HttpClient implements NodeProtocolInterface, Node {
+export class HttpClient implements NodeProtocolInterface {
   private baseUrl: string;
   private headers: Record<string, string>;
   private timeout: number;

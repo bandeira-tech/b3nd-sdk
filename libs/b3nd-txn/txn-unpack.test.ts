@@ -11,12 +11,7 @@ import { isTransactionData } from "./data/detect.ts";
 import type { TransactionData } from "./data/types.ts";
 import type { Schema } from "../b3nd-core/types.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
-import {
-  createNode,
-  firstMatch,
-  parallel,
-  txnSchema,
-} from "../b3nd-compose/mod.ts";
+import { createValidatedClient, txnSchema } from "../b3nd-compose/mod.ts";
 
 // =============================================================================
 // isTransactionData detection
@@ -231,10 +226,10 @@ Deno.test("integration - receive TransactionData through node → client unpacks
 
   const client = new MemoryClient({ schema: testSchema });
 
-  const node = createNode({
-    read: firstMatch(client),
+  const node = createValidatedClient({
+    write: client,
+    read: client,
     validate: txnSchema(testSchema),
-    process: parallel(client),
   });
 
   const txData: TransactionData = {
@@ -271,10 +266,10 @@ Deno.test("integration - plain transactions still work alongside TransactionData
 
   const client = new MemoryClient({ schema: testSchema });
 
-  const node = createNode({
-    read: firstMatch(client),
+  const node = createValidatedClient({
+    write: client,
+    read: client,
     validate: txnSchema(testSchema),
-    process: parallel(client),
   });
 
   // Plain transaction
@@ -312,10 +307,10 @@ Deno.test("integration - TransactionData with mixed programs (mutable + immutabl
 
   const client = new MemoryClient({ schema: testSchema });
 
-  const node = createNode({
-    read: firstMatch(client),
+  const node = createValidatedClient({
+    write: client,
+    read: client,
     validate: txnSchema(testSchema),
-    process: parallel(client),
   });
 
   const txData: TransactionData = {
@@ -350,10 +345,10 @@ Deno.test("integration - txnSchema rejects invalid outputs before client sees th
 
   const client = new MemoryClient({ schema: testSchema });
 
-  const node = createNode({
-    read: firstMatch(client),
+  const node = createValidatedClient({
+    write: client,
+    read: client,
     validate: txnSchema(testSchema),
-    process: parallel(client),
   });
 
   const txData: TransactionData = {

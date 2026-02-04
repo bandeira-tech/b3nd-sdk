@@ -110,7 +110,14 @@ export * as wsservers from "../../b3nd-servers/websocket.ts";
 export { pemToCryptoKey } from "../../b3nd-encrypt/mod.ts";
 export { deriveObfuscatedPath } from "../../b3nd-encrypt/utils.ts";
 
-// Unified Node system
+// FunctionalClient (new primary pattern)
+export { FunctionalClient } from "../../b3nd-core/functional-client.ts";
+export type { FunctionalClientConfig } from "../../b3nd-core/functional-client.ts";
+
+// Validated client convenience
+export { createValidatedClient } from "../../b3nd-compose/validated-client.ts";
+
+// Unified Node system (deprecated — use createValidatedClient instead)
 export { createNode } from "../../b3nd-compose/mod.ts";
 export type {
   Node,

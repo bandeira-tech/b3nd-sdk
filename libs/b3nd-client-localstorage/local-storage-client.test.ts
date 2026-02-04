@@ -2,7 +2,10 @@
  * LocalStorageClient tests
  */
 import { LocalStorageClient } from "./mod.ts";
-import { runSharedSuite, type TestClientFactories } from "../b3nd-testing/shared-suite.ts";
+import {
+  runSharedSuite,
+  type TestClientFactories,
+} from "../b3nd-testing/shared-suite.ts";
 
 // Run the shared test suite
 const testFactories: TestClientFactories = {

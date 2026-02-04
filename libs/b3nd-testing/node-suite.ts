@@ -9,19 +9,19 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import type { Node, ReadInterface } from "../b3nd-compose/types.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 
 /**
  * Test client factory for Node interface tests
  */
 export interface NodeTestFactory {
   /** Factory for working node (happy path tests) */
-  happy: () => (Node & ReadInterface) | Promise<Node & ReadInterface>;
+  happy: () => NodeProtocolInterface | Promise<NodeProtocolInterface>;
 
   /** Factory for node that rejects validation */
   validationError?: () =>
-    | (Node & ReadInterface)
-    | Promise<Node & ReadInterface>;
+    | NodeProtocolInterface
+    | Promise<NodeProtocolInterface>;
 }
 
 /**

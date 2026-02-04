@@ -60,7 +60,8 @@ export class ApiClient {
         const text = await response.text().catch(() => "<no body>");
         return {
           success: false,
-          error: `POST ${url} -> HTTP ${response.status} ${response.statusText} | ${text}`,
+          error:
+            `POST ${url} -> HTTP ${response.status} ${response.statusText} | ${text}`,
         };
       }
 
@@ -87,14 +88,16 @@ export class ApiClient {
   }> {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
-      const url = `${this.config.baseUrl}/api/v1/read/${protocol}/${domain}${path}`;
+      const url =
+        `${this.config.baseUrl}/api/v1/read/${protocol}/${domain}${path}`;
       const response = await fetch(url);
 
       if (!response.ok) {
         const text = await response.text().catch(() => "<no body>");
         return {
           success: false,
-          error: `GET ${url} -> HTTP ${response.status} ${response.statusText} | ${text}`,
+          error:
+            `GET ${url} -> HTTP ${response.status} ${response.statusText} | ${text}`,
         };
       }
 
@@ -168,14 +171,16 @@ export class ApiClient {
   }> {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
-      const url = `${this.config.baseUrl}/api/v1/delete/${protocol}/${domain}${path}`;
+      const url =
+        `${this.config.baseUrl}/api/v1/delete/${protocol}/${domain}${path}`;
       const response = await fetch(url, { method: "DELETE" });
 
       if (!response.ok) {
         const text = await response.text().catch(() => "<no body>");
         return {
           success: false,
-          error: `DELETE ${url} -> HTTP ${response.status} ${response.statusText} | ${text}`,
+          error:
+            `DELETE ${url} -> HTTP ${response.status} ${response.statusText} | ${text}`,
         };
       }
 

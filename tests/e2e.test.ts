@@ -60,7 +60,13 @@ Deno.test({
     // --- Start test server ---
     const serverDir = new URL(".", import.meta.url).pathname;
     const command = new Deno.Command("deno", {
-      args: ["run", "--allow-net", "--allow-env", "--allow-read", "test-server.ts"],
+      args: [
+        "run",
+        "--allow-net",
+        "--allow-env",
+        "--allow-read",
+        "test-server.ts",
+      ],
       cwd: serverDir,
       env: { ...Deno.env.toObject(), E2E_SERVER_PORT: String(SERVER_PORT) },
       stdout: "piped",
@@ -117,7 +123,9 @@ Deno.test({
           await receive(`test://list-test/${ns}/item${i}`, { i });
         }
 
-        const lr = await fetchJson(`${BASE_URL}/api/v1/list/test/list-test/${ns}`);
+        const lr = await fetchJson(
+          `${BASE_URL}/api/v1/list/test/list-test/${ns}`,
+        );
         assertEquals(lr.status, 200);
         assertEquals(lr.data.data.length, 3);
       });

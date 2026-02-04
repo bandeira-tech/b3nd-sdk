@@ -9,12 +9,12 @@ import { loadConfig } from "./config.ts";
 import { loadServerKeys } from "./server-keys.ts";
 import {
   loadAppConfig,
-  validateString,
   performActionWrite,
   saveAppConfig,
-  verifySignedRequest,
   type SignedRequest,
   type StoredAppConfig,
+  validateString,
+  verifySignedRequest,
 } from "./apps.ts";
 
 async function main() {
@@ -24,20 +24,41 @@ async function main() {
   const dataClient = new HttpClient({ url: config.dataNodeUrl });
 
   const app = new Hono();
-  app.use("/*", cors({ origin: "*", allowMethods: ["GET", "POST", "OPTIONS"], allowHeaders: ["Content-Type", "Authorization"] }));
+  app.use(
+    "/*",
+    cors({
+      origin: "*",
+      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowHeaders: ["Content-Type", "Authorization"],
+    }),
+  );
 
   app.use(async (c: Context, next) => {
     const start = Date.now();
     await next();
     const ms = Date.now() - start;
-    console.log(`[${new Date().toISOString()}] ${c.req.method} ${c.req.path} ${c.res.status} - ${ms}ms`);
+    console.log(
+      `[${
+        new Date().toISOString()
+      }] ${c.req.method} ${c.req.path} ${c.res.status} - ${ms}ms`,
+    );
   });
 
-  app.get("/api/v1/health", (c) => c.json({ status: "ok", server: "b3nd-app-backend", ts: new Date().toISOString() }));
+  app.get(
+    "/api/v1/health",
+    (c) =>
+      c.json({
+        status: "ok",
+        server: "b3nd-app-backend",
+        ts: new Date().toISOString(),
+      }),
+  );
 
   async function readSignedRequest<T>(c: Context): Promise<SignedRequest<T>> {
     const body = await c.req.json().catch(() => null);
-    if (!body || typeof body !== "object") throw new Error("invalid signed request");
+    if (!body || typeof body !== "object") {
+      throw new Error("invalid signed request");
+    }
     return body as SignedRequest<T>;
   }
 
@@ -50,9 +71,13 @@ async function main() {
         encryptionPublicKeyHex?: string | null;
       }>(c);
       const valid = await verifySignedRequest(appKey, message);
-      if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
+      if (!valid) {
+        return c.json({ success: false, error: "signature invalid" }, 401);
+      }
 
-      const allowedOrigins = Array.isArray(message.payload.allowedOrigins) ? message.payload.allowedOrigins : ["*"];
+      const allowedOrigins = Array.isArray(message.payload.allowedOrigins)
+        ? message.payload.allowedOrigins
+        : ["*"];
       const loaded = await loadAppConfig(
         dataClient,
         serverKeys.identityKey.publicKeyHex,
@@ -63,7 +88,8 @@ async function main() {
         appKey,
         allowedOrigins,
         actions: loaded.actions,
-        encryptionPublicKeyHex: message.payload.encryptionPublicKeyHex ?? loaded.encryptionPublicKeyHex ?? null,
+        encryptionPublicKeyHex: message.payload.encryptionPublicKeyHex ??
+          loaded.encryptionPublicKeyHex ?? null,
         googleClientId: loaded.googleClientId ?? null,
       };
       const res = await saveAppConfig(
@@ -74,10 +100,18 @@ async function main() {
         serverKeys.encryptionKey.publicKeyHex,
         merged,
       );
-      if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
+      if (!res.success) {
+        return c.json(
+          { success: false, error: res.error || "write failed" },
+          400,
+        );
+      }
       return c.json({ success: true });
     } catch (error) {
-      return c.json({ success: false, error: (error as Error).message || "failed" }, 400);
+      return c.json({
+        success: false,
+        error: (error as Error).message || "failed",
+      }, 400);
     }
   });
 
@@ -85,9 +119,13 @@ async function main() {
   app.post("/api/v1/apps/google-client-id/:appKey", async (c) => {
     const appKey = c.req.param("appKey");
     try {
-      const message = await readSignedRequest<{ googleClientId: string | null }>(c);
+      const message = await readSignedRequest<
+        { googleClientId: string | null }
+      >(c);
       const valid = await verifySignedRequest(appKey, message);
-      if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
+      if (!valid) {
+        return c.json({ success: false, error: "signature invalid" }, 401);
+      }
 
       const loaded = await loadAppConfig(
         dataClient,
@@ -107,10 +145,18 @@ async function main() {
         serverKeys.encryptionKey.publicKeyHex,
         merged,
       );
-      if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
+      if (!res.success) {
+        return c.json(
+          { success: false, error: res.error || "write failed" },
+          400,
+        );
+      }
       return c.json({ success: true });
     } catch (error) {
-      return c.json({ success: false, error: (error as Error).message || "failed" }, 400);
+      return c.json({
+        success: false,
+        error: (error as Error).message || "failed",
+      }, 400);
     }
   });
 
@@ -118,11 +164,18 @@ async function main() {
   app.post("/api/v1/apps/schema/:appKey", async (c) => {
     const appKey = c.req.param("appKey");
     try {
-      const message = await readSignedRequest<{ actions: any[]; encryptionPublicKeyHex?: string | null }>(c);
+      const message = await readSignedRequest<
+        { actions: any[]; encryptionPublicKeyHex?: string | null }
+      >(c);
       const valid = await verifySignedRequest(appKey, message);
-      if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
+      if (!valid) {
+        return c.json({ success: false, error: "signature invalid" }, 401);
+      }
       if (!Array.isArray(message.payload.actions)) {
-        return c.json({ success: false, error: "invalid actions payload" }, 400);
+        return c.json(
+          { success: false, error: "invalid actions payload" },
+          400,
+        );
       }
 
       const loaded = await loadAppConfig(
@@ -131,10 +184,16 @@ async function main() {
         serverKeys.encryptionKey.privateKeyPem,
         appKey,
       );
-      const wantsEncrypted = message.payload.actions.some((a: any) => a?.write?.encrypted);
-      const encryptionPublicKeyHex = message.payload.encryptionPublicKeyHex ?? loaded.encryptionPublicKeyHex ?? null;
+      const wantsEncrypted = message.payload.actions.some((a: any) =>
+        a?.write?.encrypted
+      );
+      const encryptionPublicKeyHex = message.payload.encryptionPublicKeyHex ??
+        loaded.encryptionPublicKeyHex ?? null;
       if (wantsEncrypted && !encryptionPublicKeyHex) {
-        return c.json({ success: false, error: "encrypted actions require encryptionPublicKeyHex" }, 400);
+        return c.json({
+          success: false,
+          error: "encrypted actions require encryptionPublicKeyHex",
+        }, 400);
       }
 
       const merged: StoredAppConfig = {
@@ -152,10 +211,18 @@ async function main() {
         serverKeys.encryptionKey.publicKeyHex,
         merged,
       );
-      if (!res.success) return c.json({ success: false, error: res.error || "write failed" }, 400);
+      if (!res.success) {
+        return c.json(
+          { success: false, error: res.error || "write failed" },
+          400,
+        );
+      }
       return c.json({ success: true });
     } catch (error) {
-      return c.json({ success: false, error: (error as Error).message || "failed" }, 400);
+      return c.json({
+        success: false,
+        error: (error as Error).message || "failed",
+      }, 400);
     }
   });
 
@@ -171,7 +238,10 @@ async function main() {
       );
       return c.json({ success: true, config: loaded });
     } catch (e) {
-      return c.json({ success: false, error: (e as Error).message || "not found" }, 404);
+      return c.json({
+        success: false,
+        error: (e as Error).message || "not found",
+      }, 404);
     }
   });
 
@@ -192,21 +262,35 @@ async function main() {
 
       const readRes = await dataClient.read<any>(uri);
       if (!readRes.success || !readRes.record) {
-        return c.json({ success: false, error: readRes.error || "not found" }, 404);
+        return c.json(
+          { success: false, error: readRes.error || "not found" },
+          404,
+        );
       }
 
       const raw = readRes.record.data;
       let data: unknown = raw;
-      const hasPayload = raw && typeof raw === 'object' && 'payload' in (raw as any);
+      const hasPayload = raw && typeof raw === "object" &&
+        "payload" in (raw as any);
       // If payload is present and not encrypted, unwrap it for convenience
-      const maybeEncrypted = hasPayload && (raw as any).payload && typeof (raw as any).payload === 'object' && 'nonce' in (raw as any).payload && 'data' in (raw as any).payload;
+      const maybeEncrypted = hasPayload && (raw as any).payload &&
+        typeof (raw as any).payload === "object" &&
+        "nonce" in (raw as any).payload && "data" in (raw as any).payload;
       if (!maybeEncrypted && hasPayload) {
         data = (raw as any).payload;
       }
 
-      return c.json({ success: true, uri, record: { ts: readRes.record.ts, data }, raw: readRes.record.data });
+      return c.json({
+        success: true,
+        uri,
+        record: { ts: readRes.record.ts, data },
+        raw: readRes.record.data,
+      });
     } catch (e) {
-      return c.json({ success: false, error: (e as Error).message || "read failed" }, 500);
+      return c.json({
+        success: false,
+        error: (e as Error).message || "read failed",
+      }, 500);
     }
   });
 
@@ -220,12 +304,17 @@ async function main() {
     const appKey = c.req.param("appKey");
     const origin = c.req.header("Origin") || c.req.header("origin");
     try {
-      const message = await readSignedRequest<{ sessionPubkey?: string; session?: string }>(c);
+      const message = await readSignedRequest<
+        { sessionPubkey?: string; session?: string }
+      >(c);
       const valid = await verifySignedRequest(appKey, message);
-      if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
+      if (!valid) {
+        return c.json({ success: false, error: "signature invalid" }, 401);
+      }
 
       // Support both new (sessionPubkey) and legacy (session) fields during transition
-      const sessionPubkey = message.payload.sessionPubkey || message.payload.session;
+      const sessionPubkey = message.payload.sessionPubkey ||
+        message.payload.session;
       if (!sessionPubkey || typeof sessionPubkey !== "string") {
         return c.json({ success: false, error: "sessionPubkey required" }, 400);
       }
@@ -236,7 +325,10 @@ async function main() {
         serverKeys.encryptionKey.privateKeyPem,
         appKey,
       );
-      if (origin && !loaded.allowedOrigins.includes("*") && !loaded.allowedOrigins.some((o) => origin.startsWith(o))) {
+      if (
+        origin && !loaded.allowedOrigins.includes("*") &&
+        !loaded.allowedOrigins.some((o) => origin.startsWith(o))
+      ) {
         return c.json({ success: false, error: "origin not allowed" }, 403);
       }
 
@@ -246,10 +338,18 @@ async function main() {
 
       // Write just the value 1 to indicate approval (0 would mean revoked)
       const res = await dataClient.receive([uri, 1]);
-      if (!res.accepted) return c.json({ success: false, error: res.error || "write failed" }, 400);
+      if (!res.accepted) {
+        return c.json(
+          { success: false, error: res.error || "write failed" },
+          400,
+        );
+      }
       return c.json({ success: true, sessionPubkey, uri });
     } catch (error) {
-      return c.json({ success: false, error: (error as Error).message || "failed" }, 400);
+      return c.json({
+        success: false,
+        error: (error as Error).message || "failed",
+      }, 400);
     }
   });
 
@@ -259,11 +359,15 @@ async function main() {
     const actionName = c.req.param("action");
 
     const origin = c.req.header("Origin") || c.req.header("origin");
-    if (!origin) return c.json({ success: false, error: "origin header required" }, 400);
+    if (!origin) {
+      return c.json({ success: false, error: "origin header required" }, 400);
+    }
 
     const signedMessage = await readSignedRequest<any>(c);
     const valid = await verifySignedRequest(appKey, signedMessage);
-    if (!valid) return c.json({ success: false, error: "signature invalid" }, 401);
+    if (!valid) {
+      return c.json({ success: false, error: "signature invalid" }, 401);
+    }
     const payload = signedMessage.payload;
 
     const config = await loadAppConfig(
@@ -273,23 +377,40 @@ async function main() {
       appKey,
     );
 
-    if (!config.allowedOrigins.includes("*") && !config.allowedOrigins.some((o) => origin.startsWith(o))) {
+    if (
+      !config.allowedOrigins.includes("*") &&
+      !config.allowedOrigins.some((o) => origin.startsWith(o))
+    ) {
       return c.json({ success: false, error: "origin not allowed" }, 403);
     }
 
     const action = config.actions.find((a) => a.action === actionName);
-    if (!action) return c.json({ success: false, error: "action not found" }, 404);
+    if (!action) {
+      return c.json({ success: false, error: "action not found" }, 404);
+    }
 
     // Validate (only for plain string payloads)
-    if (!action.write.encrypted && typeof payload === "string" && !validateString(payload, action.validation?.stringValue)) {
+    if (
+      !action.write.encrypted && typeof payload === "string" &&
+      !validateString(payload, action.validation?.stringValue)
+    ) {
       return c.json({ success: false, error: "validation failed" }, 400);
     }
 
-    const { uri, result } = await performActionWrite(dataClient, action, appKey, signedMessage);
-    if (!result.success) return c.json({ success: false, error: result.error || "write failed" }, 400);
+    const { uri, result } = await performActionWrite(
+      dataClient,
+      action,
+      appKey,
+      signedMessage,
+    );
+    if (!result.success) {
+      return c.json(
+        { success: false, error: result.error || "write failed" },
+        400,
+      );
+    }
     return c.json({ success: true, uri });
   });
-
 
   Deno.serve({
     port: config.port,

@@ -22,7 +22,11 @@
   "mcpServers": {
     "b3nd": {
       "command": "deno",
-      "args": ["run", "-A", "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/mcp-server/mod.ts"],
+      "args": [
+        "run",
+        "-A",
+        "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/mcp-server/mod.ts"
+      ],
       "env": {
         "B3ND_BACKENDS": "${B3ND_BACKENDS:-local=http://localhost:9942}"
       }

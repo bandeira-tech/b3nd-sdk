@@ -5,22 +5,22 @@
 
 import {
   ApiClient,
-  TestRunner,
-  loadFixtures,
   assert,
   assertEqual,
   assertExists,
-  generateTestId,
   delay,
   type Fixture,
+  generateTestId,
+  loadFixtures,
   type TestConfig,
+  TestRunner,
 } from "../core/mod.ts";
 
 import {
-  CryptoManager,
-  UserSimulator,
   type AuthenticatedMessage,
+  CryptoManager,
   type SignedEncryptedMessage,
+  UserSimulator,
 } from "../crypto/mod.ts";
 
 export interface WriteListReadTestOptions {
@@ -145,7 +145,7 @@ export class WriteListReadTest {
 
     // Check if our records are in the list
     const ourRecords = listResult.records.filter((r) =>
-      r.uri.includes(`list-test/${testId}`),
+      r.uri.includes(`list-test/${testId}`)
     );
 
     assertEqual(
@@ -160,7 +160,7 @@ export class WriteListReadTest {
     assertExists(patternResult.records, "Pattern list should return records");
 
     const patternRecords = patternResult.records.filter((r) =>
-      r.uri.includes(testId),
+      r.uri.includes(testId)
     );
 
     assert(
@@ -347,8 +347,8 @@ export class WriteListReadTest {
     assertExists(bob?.encryptionKeys, "Bob should have encryption keys");
 
     // Create signed and encrypted message (alice signs, bob receives)
-    const signedEncrypted =
-      await this.cryptoManager.createSignedEncryptedMessage(
+    const signedEncrypted = await this.cryptoManager
+      .createSignedEncryptedMessage(
         sensitiveData,
         ["alice"],
         bob.encryptionKeys.publicKeyHex,
@@ -415,7 +415,10 @@ export class WriteListReadTest {
       // Write fixture data
       const writeResult = await this.apiClient.write(uri, fixture.data);
       if (!writeResult.success) {
-        console.error(`  ❌ Fixture write error for ${fixture.name}:`, writeResult.error);
+        console.error(
+          `  ❌ Fixture write error for ${fixture.name}:`,
+          writeResult.error,
+        );
       }
       assert(
         writeResult.success,
@@ -482,7 +485,9 @@ export class WriteListReadTest {
     await this.cleanup();
   }
 
-  private parseUri(uri: string): { protocol: string; domain: string; path: string } {
+  private parseUri(
+    uri: string,
+  ): { protocol: string; domain: string; path: string } {
     const url = new URL(uri);
     return {
       protocol: url.protocol.replace(":", ""),
@@ -504,7 +509,8 @@ export class WriteListReadTest {
     console.log("-".repeat(60));
     for (const uri of this.createdUris) {
       const { protocol, domain, path } = this.parseUri(uri);
-      const readUrl = `${this.baseUrl}/api/v1/read/${protocol}/${domain}${path}`;
+      const readUrl =
+        `${this.baseUrl}/api/v1/read/${protocol}/${domain}${path}`;
       console.log(`• ${uri}`);
       console.log(`   - read: ${readUrl}`);
     }

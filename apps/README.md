@@ -1,6 +1,7 @@
 # B3nd Explorer & Dashboard
 
 Developer tools for the B3nd monorepo:
+
 - **Explorer App** - React UI for browsing B3nd data (port 5555)
 - **Dashboard** - Real-time test runner and monitoring (port 5556)
 
@@ -13,6 +14,7 @@ cd explorer
 ```
 
 This starts:
+
 - HTTP API Server (port 9942) - Memory backend
 - Dashboard Server (port 5556) - WebSocket + test runner
 - Frontend (port 5555) - React app with Vite
@@ -51,7 +53,8 @@ make dev-postgres
 ## Dashboard Features
 
 - **Test Runner**: Run SDK tests with streaming results
-- **Theme Classification**: Tests grouped by category (SDK Core, Network, Database, etc.)
+- **Theme Classification**: Tests grouped by category (SDK Core, Network,
+  Database, etc.)
 - **File Watcher**: Auto-detects changes in sdk/src and sdk/tests
 - **Health Monitor**: Shows status of all B3nd services
 - **Educational Content**: Per-theme documentation and code examples
@@ -78,16 +81,19 @@ explorer/
 ## Development
 
 ### Frontend only
+
 ```bash
 cd app && npm run dev
 ```
 
 ### Dashboard backend only
+
 ```bash
 cd dashboard && deno task dev
 ```
 
 ### With PostgreSQL
+
 ```bash
 docker compose up -d postgres
 ./dev.sh --with-postgres

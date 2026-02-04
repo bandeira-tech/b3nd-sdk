@@ -1,6 +1,6 @@
 import type {
-  PersistenceWrite,
   PersistenceValidationFn,
+  PersistenceWrite,
 } from "../../../persistence/mod.ts";
 
 export const fixtureSchema: Record<string, PersistenceValidationFn<unknown>> = {

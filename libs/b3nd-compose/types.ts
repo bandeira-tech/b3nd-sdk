@@ -50,19 +50,8 @@ export interface ReadInterface {
 /**
  * Unified Node interface
  *
- * The single entry point for all state changes. Nodes receive transactions
- * and decide what to do with them based on their configuration.
- *
- * @example
- * ```typescript
- * const node: Node = createNode({
- *   read: memoryClient,
- *   validate: schema(SCHEMA),
- *   process: parallel(memoryClient)
- * })
- *
- * const result = await node.receive(["mutable://users/alice", { name: "Alice" }])
- * ```
+ * @deprecated Use `NodeProtocolInterface` from b3nd-core instead.
+ * Use `createValidatedClient()` to create validated clients.
  */
 export interface Node {
   receive<D = unknown>(tx: Transaction<D>): Promise<ReceiveResult>;
@@ -104,20 +93,7 @@ export type Validator<D = unknown> = (
 /**
  * Processor function
  *
- * Processes a validated transaction. Can perform side effects like storing
- * data, forwarding to other nodes, emitting events, etc.
- *
- * @param tx - The transaction to process
- * @returns Processing result
- *
- * @example
- * ```typescript
- * const myProcessor: Processor = async (tx) => {
- *   const [uri, data] = tx
- *   await database.insert({ uri, data, ts: Date.now() })
- *   return { success: true }
- * }
- * ```
+ * @deprecated Use `NodeProtocolInterface.receive()` directly, or pass clients to `createValidatedClient`.
  */
 export type Processor<D = unknown> = (
   tx: Transaction<D>,
@@ -126,14 +102,7 @@ export type Processor<D = unknown> = (
 /**
  * Configuration for creating a node
  *
- * @example
- * ```typescript
- * const config: NodeConfig = {
- *   read: memoryClient,
- *   validate: seq(uriPattern(/^mutable:\/\//), schema(SCHEMA)),
- *   process: parallel(postgres, replica)
- * }
- * ```
+ * @deprecated Use `createValidatedClient({ write, read, validate })` instead.
  */
 export interface NodeConfig<D = unknown> {
   /**

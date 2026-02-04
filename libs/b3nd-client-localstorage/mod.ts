@@ -17,15 +17,12 @@ import type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
-  Schema,
-} from "../b3nd-core/types.ts";
-import type {
-  Node,
   ReceiveResult,
+  Schema,
   Transaction,
-} from "../b3nd-compose/types.ts";
+} from "../b3nd-core/types.ts";
 
-export class LocalStorageClient implements NodeProtocolInterface, Node {
+export class LocalStorageClient implements NodeProtocolInterface {
   private config: {
     keyPrefix: string;
     serializer: {

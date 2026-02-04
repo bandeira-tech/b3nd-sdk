@@ -17,7 +17,9 @@ var isWindows = osType === "windows";
 // deno:https://deno.land/std@0.208.0/path/_common/assert_path.ts
 function assertPath(path) {
   if (typeof path !== "string") {
-    throw new TypeError(`Path must be a string. Received ${JSON.stringify(path)}`);
+    throw new TypeError(
+      `Path must be a string. Received ${JSON.stringify(path)}`,
+    );
   }
 }
 
@@ -51,7 +53,11 @@ function normalizeString(path, allowAboveRoot, separator, isPathSeparator2) {
     if (isPathSeparator2(code)) {
       if (lastSlash === i - 1 || dots === 1) {
       } else if (lastSlash !== i - 1 && dots === 2) {
-        if (res.length < 2 || lastSegmentLength !== 2 || res.charCodeAt(res.length - 1) !== CHAR_DOT || res.charCodeAt(res.length - 2) !== CHAR_DOT) {
+        if (
+          res.length < 2 || lastSegmentLength !== 2 ||
+          res.charCodeAt(res.length - 1) !== CHAR_DOT ||
+          res.charCodeAt(res.length - 2) !== CHAR_DOT
+        ) {
           if (res.length > 2) {
             const lastSlashIndex = res.lastIndexOf(separator);
             if (lastSlashIndex === -1) {
@@ -102,7 +108,9 @@ function isPosixPathSeparator(code) {
 function normalize(path) {
   assertArg(path);
   const isAbsolute4 = isPosixPathSeparator(path.charCodeAt(0));
-  const trailingSeparator = isPosixPathSeparator(path.charCodeAt(path.length - 1));
+  const trailingSeparator = isPosixPathSeparator(
+    path.charCodeAt(path.length - 1),
+  );
   path = normalizeString(path, !isAbsolute4, "/", isPosixPathSeparator);
   if (path.length === 0 && !isAbsolute4) path = ".";
   if (path.length > 0 && trailingSeparator) path += "/";
@@ -149,7 +157,8 @@ function isPathSeparator(code) {
   return code === CHAR_FORWARD_SLASH || code === CHAR_BACKWARD_SLASH;
 }
 function isWindowsDeviceRoot(code) {
-  return code >= CHAR_LOWERCASE_A && code <= CHAR_LOWERCASE_Z || code >= CHAR_UPPERCASE_A && code <= CHAR_UPPERCASE_Z;
+  return code >= CHAR_LOWERCASE_A && code <= CHAR_LOWERCASE_Z ||
+    code >= CHAR_UPPERCASE_A && code <= CHAR_UPPERCASE_Z;
 }
 
 // deno:https://deno.land/std@0.208.0/path/windows/normalize.ts
@@ -208,7 +217,12 @@ function normalize2(path) {
   }
   let tail;
   if (rootEnd < len) {
-    tail = normalizeString(path.slice(rootEnd), !isAbsolute4, "\\", isPathSeparator);
+    tail = normalizeString(
+      path.slice(rootEnd),
+      !isAbsolute4,
+      "\\",
+      isPathSeparator,
+    );
   } else {
     tail = "";
   }
@@ -376,7 +390,7 @@ function parse(path) {
     dir: "",
     base: "",
     ext: "",
-    name: ""
+    name: "",
   };
   const len = path.length;
   if (len === 0) return ret;
@@ -459,9 +473,11 @@ function parse(path) {
       preDotState = -1;
     }
   }
-  if (startDot === -1 || end === -1 || // We saw a non-dot character immediately before the dot
-  preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
-  preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
+  if (
+    startDot === -1 || end === -1 || // We saw a non-dot character immediately before the dot
+    preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
+    preDotState === 1 && startDot === end - 1 && startDot === startPart + 1
+  ) {
     if (end !== -1) {
       ret.base = ret.name = path.slice(startPart, end);
     }
@@ -506,7 +522,7 @@ function parse2(path) {
     dir: "",
     base: "",
     ext: "",
-    name: ""
+    name: "",
   };
   if (path.length === 0) return ret;
   const isAbsolute4 = isPosixPathSeparator(path.charCodeAt(0));
@@ -543,9 +559,11 @@ function parse2(path) {
       preDotState = -1;
     }
   }
-  if (startDot === -1 || end === -1 || // We saw a non-dot character immediately before the dot
-  preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
-  preDotState === 1 && startDot === end - 1 && startDot === startPart + 1) {
+  if (
+    startDot === -1 || end === -1 || // We saw a non-dot character immediately before the dot
+    preDotState === 0 || // The (right-most) trimmed path component is exactly '..'
+    preDotState === 1 && startDot === end - 1 && startDot === startPart + 1
+  ) {
     if (end !== -1) {
       if (startPart === 0 && isAbsolute4) {
         ret.base = ret.name = path.slice(1, end);
@@ -565,7 +583,10 @@ function parse2(path) {
     ret.ext = path.slice(startDot, end);
   }
   if (startPart > 0) {
-    ret.dir = stripTrailingSeparators(path.slice(0, startPart - 1), isPosixPathSeparator);
+    ret.dir = stripTrailingSeparators(
+      path.slice(0, startPart - 1),
+      isPosixPathSeparator,
+    );
   } else if (isAbsolute4) ret.dir = "/";
   return ret;
 }
@@ -582,14 +603,20 @@ function parse3(path) {
 
 // deno:https://deno.land/std@0.208.0/fs/_util.ts
 function getFileInfoType(fileInfo) {
-  return fileInfo.isFile ? "file" : fileInfo.isDirectory ? "dir" : fileInfo.isSymlink ? "symlink" : void 0;
+  return fileInfo.isFile
+    ? "file"
+    : fileInfo.isDirectory
+    ? "dir"
+    : fileInfo.isSymlink
+    ? "symlink"
+    : void 0;
 }
 
 // deno:https://deno.land/std@0.208.0/fs/ensure_dir.ts
 async function ensureDir(dir) {
   try {
     await Deno.mkdir(dir, {
-      recursive: true
+      recursive: true,
     });
   } catch (err) {
     if (!(err instanceof Deno.errors.AlreadyExists)) {
@@ -597,7 +624,11 @@ async function ensureDir(dir) {
     }
     const fileInfo = await Deno.lstat(dir);
     if (!fileInfo.isDirectory) {
-      throw new Error(`Ensure path exists, expected 'dir', got '${getFileInfoType(fileInfo)}'`);
+      throw new Error(
+        `Ensure path exists, expected 'dir', got '${
+          getFileInfoType(fileInfo)
+        }'`,
+      );
     }
   }
 }
@@ -696,9 +727,9 @@ var HttpClient = class {
         headers: {
           "Content-Type": "application/json",
           ...this.headers,
-          ...options.headers
+          ...options.headers,
         },
-        signal: controller.signal
+        signal: controller.signal,
       });
       return response;
     } catch (error) {
@@ -719,7 +750,7 @@ var HttpClient = class {
     return {
       protocol: url.protocol.replace(":", ""),
       domain: url.hostname,
-      path: url.pathname
+      path: url.pathname,
     };
   }
   async write(uri, value) {
@@ -729,24 +760,24 @@ var HttpClient = class {
       const response = await this.request(requestPath, {
         method: "POST",
         body: JSON.stringify({
-          value
-        })
+          value,
+        }),
       });
       const result = await response.json();
       if (!response.ok) {
         return {
           success: false,
-          error: `Write failed: ${result.error || response.statusText}`
+          error: `Write failed: ${result.error || response.statusText}`,
         };
       }
       return {
         success: true,
-        record: result.record
+        record: result.record,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -755,30 +786,30 @@ var HttpClient = class {
       const { protocol, domain, path } = this.parseUri(uri);
       const requestPath = `/api/v1/read/${protocol}/${domain}${path}`;
       const response = await this.request(requestPath, {
-        method: "GET"
+        method: "GET",
       });
       if (!response.ok) {
         await response.text();
         if (response.status === 404) {
           return {
             success: false,
-            error: "Not found"
+            error: "Not found",
           };
         }
         return {
           success: false,
-          error: `Read failed: ${response.statusText}`
+          error: `Read failed: ${response.statusText}`,
         };
       }
       const result = await response.json();
       return {
         success: true,
-        record: result
+        record: result,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -803,9 +834,11 @@ var HttpClient = class {
       }
       const queryString = params.toString();
       const pathPart = path === "/" ? "" : path;
-      const requestPath = `/api/v1/list/${protocol}/${domain}${pathPart}${queryString ? `?${queryString}` : ""}`;
+      const requestPath = `/api/v1/list/${protocol}/${domain}${pathPart}${
+        queryString ? `?${queryString}` : ""
+      }`;
       const response = await this.request(requestPath, {
-        method: "GET"
+        method: "GET",
       });
       if (!response.ok) {
         return {
@@ -813,8 +846,8 @@ var HttpClient = class {
           data: [],
           pagination: {
             page: options?.page || 1,
-            limit: options?.limit || 50
-          }
+            limit: options?.limit || 50,
+          },
         };
       }
       const result = await response.json();
@@ -825,8 +858,8 @@ var HttpClient = class {
         data: [],
         pagination: {
           page: options?.page || 1,
-          limit: options?.limit || 50
-        }
+          limit: options?.limit || 50,
+        },
       };
     }
   }
@@ -835,36 +868,36 @@ var HttpClient = class {
       const { protocol, domain, path } = this.parseUri(uri);
       const requestPath = `/api/v1/delete/${protocol}/${domain}${path}`;
       const response = await this.request(requestPath, {
-        method: "DELETE"
+        method: "DELETE",
       });
       const result = response.ok ? await response.json() : {
-        error: await response.text()
+        error: await response.text(),
       };
       if (!response.ok) {
         return {
           success: false,
-          error: `Delete failed: ${result.error}`
+          error: `Delete failed: ${result.error}`,
         };
       }
       return {
-        success: true
+        success: true,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
   async health() {
     try {
       const response = await this.request("/api/v1/health", {
-        method: "GET"
+        method: "GET",
       });
       if (!response.ok) {
         return {
           status: "unhealthy",
-          message: "Health check failed"
+          message: "Health check failed",
         };
       }
       const result = await response.json();
@@ -872,14 +905,14 @@ var HttpClient = class {
     } catch (error) {
       return {
         status: "unhealthy",
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
       };
     }
   }
   async getSchema() {
     try {
       const response = await this.request("/api/v1/schema", {
-        method: "GET"
+        method: "GET",
       });
       if (!response.ok) {
         return [];
@@ -903,13 +936,15 @@ async function getClient(logger) {
   if (cachedClient) return cachedClient;
   const config = await loadConfig();
   if (!config.node) {
-    throw new Error("No node configured. Run: bnd conf node <url>\nExample: bnd conf node https://testnet-evergreen.fire.cat");
+    throw new Error(
+      "No node configured. Run: bnd conf node <url>\nExample: bnd conf node https://testnet-evergreen.fire.cat",
+    );
   }
   try {
     logger?.info(`Connecting to ${config.node}`);
     cachedClient = new HttpClient({
       url: config.node,
-      timeout: 3e4
+      timeout: 3e4,
     });
     logger?.http("GET", `${config.node}/api/v1/health`);
     const health = await cachedClient.health();
@@ -978,7 +1013,7 @@ ${"\u2500".repeat(60)}`);
 };
 function createLogger(verbose) {
   return new Logger({
-    verbose
+    verbose,
   });
 }
 
@@ -1002,7 +1037,11 @@ function validateBinaryLike(source) {
   } else if (source instanceof ArrayBuffer) {
     return new Uint8Array(source);
   }
-  throw new TypeError(`The input must be a Uint8Array, a string, or an ArrayBuffer. Received a value of the type ${getTypeName(source)}.`);
+  throw new TypeError(
+    `The input must be a Uint8Array, a string, or an ArrayBuffer. Received a value of the type ${
+      getTypeName(source)
+    }.`,
+  );
 }
 
 // deno:https://deno.land/std@0.208.0/encoding/hex.ts
@@ -1024,7 +1063,9 @@ function encodeHex(src) {
 var alphabet = new TextEncoder().encode("0123456789abcdef");
 var rAlphabet = new Uint8Array(128).fill(16);
 alphabet.forEach((byte, i) => rAlphabet[byte] = i);
-new TextEncoder().encode("ABCDEF").forEach((byte, i) => rAlphabet[byte] = i + 10);
+new TextEncoder().encode("ABCDEF").forEach((byte, i) =>
+  rAlphabet[byte] = i + 10
+);
 function calcSizeHex(originalSize) {
   return originalSize * 2;
 }
@@ -1038,18 +1079,27 @@ function encode(buffer, i, o, alphabet5) {
 }
 function decode(buffer, i, o, alphabet5) {
   if ((buffer.length - o) % 2 === 1) {
-    throw new RangeError(`Cannot decode input as hex: Length (${buffer.length - o}) must be divisible by 2`);
+    throw new RangeError(
+      `Cannot decode input as hex: Length (${
+        buffer.length - o
+      }) must be divisible by 2`,
+    );
   }
   i += 1;
   for (; i < buffer.length; i += 2) {
-    buffer[o++] = getByte(buffer[i - 1], alphabet5) << 4 | getByte(buffer[i], alphabet5);
+    buffer[o++] = getByte(buffer[i - 1], alphabet5) << 4 |
+      getByte(buffer[i], alphabet5);
   }
   return o;
 }
 function getByte(char, alphabet5) {
   const byte = alphabet5[char] ?? 16;
   if (byte === 16) {
-    throw new TypeError(`Cannot decode input as hex: Invalid character (${String.fromCharCode(char)})`);
+    throw new TypeError(
+      `Cannot decode input as hex: Invalid character (${
+        String.fromCharCode(char)
+      })`,
+    );
   }
   return byte;
 }
@@ -1066,7 +1116,7 @@ function detach(buffer, maxSize) {
   buffer.set(buffer.subarray(0, originalSize), maxSize - originalSize);
   return [
     buffer,
-    maxSize - originalSize
+    maxSize - originalSize,
   ];
 }
 
@@ -1074,7 +1124,9 @@ function detach(buffer, maxSize) {
 var alphabet2 = new TextEncoder().encode("0123456789abcdef");
 var rAlphabet2 = new Uint8Array(128).fill(16);
 alphabet2.forEach((byte, i) => rAlphabet2[byte] = i);
-new TextEncoder().encode("ABCDEF").forEach((byte, i) => rAlphabet2[byte] = i + 10);
+new TextEncoder().encode("ABCDEF").forEach((byte, i) =>
+  rAlphabet2[byte] = i + 10
+);
 function encodeHex2(src) {
   if (typeof src === "string") {
     src = new TextEncoder().encode(src);
@@ -1086,18 +1138,24 @@ function encodeHex2(src) {
 }
 function decodeHex(src) {
   const output = new TextEncoder().encode(src);
-  return new Uint8Array(output.buffer.transfer(decode(output, 0, 0, rAlphabet2)));
+  return new Uint8Array(
+    output.buffer.transfer(decode(output, 0, 0, rAlphabet2)),
+  );
 }
 
 // deno:https://jsr.io/@std/encoding/1.0.10/_common64.ts
 var padding = "=".charCodeAt(0);
 var alphabet3 = {
-  base64: new TextEncoder().encode("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"),
-  base64url: new TextEncoder().encode("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+  base64: new TextEncoder().encode(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
+  ),
+  base64url: new TextEncoder().encode(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+  ),
 };
 var rAlphabet3 = {
   base64: new Uint8Array(128).fill(64),
-  base64url: new Uint8Array(128).fill(64)
+  base64url: new Uint8Array(128).fill(64),
 };
 alphabet3.base64.forEach((byte, i) => rAlphabet3.base64[byte] = i);
 alphabet3.base64url.forEach((byte, i) => rAlphabet3.base64url[byte] = i);
@@ -1138,7 +1196,11 @@ function decode2(buffer, i, o, alphabet5, padding3) {
     if (buffer[x] === padding3) {
       for (let y = x + 1; y < buffer.length; ++y) {
         if (buffer[y] !== padding3) {
-          throw new TypeError(`Cannot decode input as base64: Invalid character (${String.fromCharCode(buffer[y])})`);
+          throw new TypeError(
+            `Cannot decode input as base64: Invalid character (${
+              String.fromCharCode(buffer[y])
+            })`,
+          );
         }
       }
       buffer = buffer.subarray(0, x);
@@ -1146,23 +1208,32 @@ function decode2(buffer, i, o, alphabet5, padding3) {
     }
   }
   if ((buffer.length - o) % 4 === 1) {
-    throw new RangeError(`Cannot decode input as base64: Length (${buffer.length - o}), excluding padding, must not have a remainder of 1 when divided by 4`);
+    throw new RangeError(
+      `Cannot decode input as base64: Length (${
+        buffer.length - o
+      }), excluding padding, must not have a remainder of 1 when divided by 4`,
+    );
   }
   i += 3;
   for (; i < buffer.length; i += 4) {
-    const x = getByte2(buffer[i - 3], alphabet5) << 18 | getByte2(buffer[i - 2], alphabet5) << 12 | getByte2(buffer[i - 1], alphabet5) << 6 | getByte2(buffer[i], alphabet5);
+    const x = getByte2(buffer[i - 3], alphabet5) << 18 |
+      getByte2(buffer[i - 2], alphabet5) << 12 |
+      getByte2(buffer[i - 1], alphabet5) << 6 | getByte2(buffer[i], alphabet5);
     buffer[o++] = x >> 16;
     buffer[o++] = x >> 8 & 255;
     buffer[o++] = x & 255;
   }
   switch (i) {
     case buffer.length + 1: {
-      const x = getByte2(buffer[i - 3], alphabet5) << 18 | getByte2(buffer[i - 2], alphabet5) << 12;
+      const x = getByte2(buffer[i - 3], alphabet5) << 18 |
+        getByte2(buffer[i - 2], alphabet5) << 12;
       buffer[o++] = x >> 16;
       break;
     }
     case buffer.length: {
-      const x = getByte2(buffer[i - 3], alphabet5) << 18 | getByte2(buffer[i - 2], alphabet5) << 12 | getByte2(buffer[i - 1], alphabet5) << 6;
+      const x = getByte2(buffer[i - 3], alphabet5) << 18 |
+        getByte2(buffer[i - 2], alphabet5) << 12 |
+        getByte2(buffer[i - 1], alphabet5) << 6;
       buffer[o++] = x >> 16;
       buffer[o++] = x >> 8 & 255;
       break;
@@ -1173,14 +1244,20 @@ function decode2(buffer, i, o, alphabet5, padding3) {
 function getByte2(char, alphabet5) {
   const byte = alphabet5[char] ?? 64;
   if (byte === 64) {
-    throw new TypeError(`Cannot decode input as base64: Invalid character (${String.fromCharCode(char)})`);
+    throw new TypeError(
+      `Cannot decode input as base64: Invalid character (${
+        String.fromCharCode(char)
+      })`,
+    );
   }
   return byte;
 }
 
 // deno:https://jsr.io/@std/encoding/1.0.10/base64.ts
 var padding2 = "=".charCodeAt(0);
-var alphabet4 = new TextEncoder().encode("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
+var alphabet4 = new TextEncoder().encode(
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
+);
 var rAlphabet4 = new Uint8Array(128).fill(64);
 alphabet4.forEach((byte, i) => rAlphabet4[byte] = i);
 function encodeBase64(data) {
@@ -1194,79 +1271,130 @@ function encodeBase64(data) {
 }
 function decodeBase64(b64) {
   const output = new TextEncoder().encode(b64);
-  return new Uint8Array(output.buffer.transfer(decode2(output, 0, 0, rAlphabet4, padding2)));
+  return new Uint8Array(
+    output.buffer.transfer(decode2(output, 0, 0, rAlphabet4, padding2)),
+  );
 }
 
 // ../sdk/encrypt/mod.ts
 async function generateEncryptionKeyPair() {
-  const keyPair = await crypto.subtle.generateKey({
-    name: "X25519",
-    namedCurve: "X25519"
-  }, true, [
-    "deriveBits"
-  ]);
-  const publicKeyBytes = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "X25519",
+      namedCurve: "X25519",
+    },
+    true,
+    [
+      "deriveBits",
+    ],
+  );
+  const publicKeyBytes = await crypto.subtle.exportKey(
+    "raw",
+    keyPair.publicKey,
+  );
   return {
     publicKey: keyPair.publicKey,
     privateKey: keyPair.privateKey,
-    publicKeyHex: encodeHex2(new Uint8Array(publicKeyBytes))
+    publicKeyHex: encodeHex2(new Uint8Array(publicKeyBytes)),
   };
 }
 async function encrypt(data, recipientPublicKeyHex) {
   const ephemeralKeyPair = await generateEncryptionKeyPair();
   const recipientPublicKeyBytes = decodeHex(recipientPublicKeyHex);
-  const recipientPublicKey = await crypto.subtle.importKey("raw", recipientPublicKeyBytes, {
-    name: "X25519",
-    namedCurve: "X25519"
-  }, false, []);
-  const sharedSecret = await crypto.subtle.deriveBits({
-    name: "X25519",
-    public: recipientPublicKey
-  }, ephemeralKeyPair.privateKey, 256);
-  const aesKey = await crypto.subtle.importKey("raw", sharedSecret, {
-    name: "AES-GCM",
-    length: 256
-  }, false, [
-    "encrypt"
-  ]);
+  const recipientPublicKey = await crypto.subtle.importKey(
+    "raw",
+    recipientPublicKeyBytes,
+    {
+      name: "X25519",
+      namedCurve: "X25519",
+    },
+    false,
+    [],
+  );
+  const sharedSecret = await crypto.subtle.deriveBits(
+    {
+      name: "X25519",
+      public: recipientPublicKey,
+    },
+    ephemeralKeyPair.privateKey,
+    256,
+  );
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    sharedSecret,
+    {
+      name: "AES-GCM",
+      length: 256,
+    },
+    false,
+    [
+      "encrypt",
+    ],
+  );
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const encoder2 = new TextEncoder();
   const plaintext = encoder2.encode(JSON.stringify(data));
-  const ciphertext = await crypto.subtle.encrypt({
-    name: "AES-GCM",
-    iv: nonce
-  }, aesKey, plaintext);
+  const ciphertext = await crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv: nonce,
+    },
+    aesKey,
+    plaintext,
+  );
   return {
     data: encodeBase64(new Uint8Array(ciphertext)),
     nonce: encodeBase64(nonce),
-    ephemeralPublicKey: ephemeralKeyPair.publicKeyHex
+    ephemeralPublicKey: ephemeralKeyPair.publicKeyHex,
   };
 }
 async function decrypt(encryptedPayload, recipientPrivateKey) {
   if (!encryptedPayload.ephemeralPublicKey) {
     throw new Error("Missing ephemeral public key");
   }
-  const ephemeralPublicKeyBytes = decodeHex(encryptedPayload.ephemeralPublicKey);
-  const ephemeralPublicKey = await crypto.subtle.importKey("raw", ephemeralPublicKeyBytes, {
-    name: "X25519",
-    namedCurve: "X25519"
-  }, false, []);
-  const sharedSecret = await crypto.subtle.deriveBits({
-    name: "X25519",
-    public: ephemeralPublicKey
-  }, recipientPrivateKey, 256);
-  const aesKey = await crypto.subtle.importKey("raw", sharedSecret, {
-    name: "AES-GCM",
-    length: 256
-  }, false, [
-    "decrypt"
-  ]);
+  const ephemeralPublicKeyBytes = decodeHex(
+    encryptedPayload.ephemeralPublicKey,
+  );
+  const ephemeralPublicKey = await crypto.subtle.importKey(
+    "raw",
+    ephemeralPublicKeyBytes,
+    {
+      name: "X25519",
+      namedCurve: "X25519",
+    },
+    false,
+    [],
+  );
+  const sharedSecret = await crypto.subtle.deriveBits(
+    {
+      name: "X25519",
+      public: ephemeralPublicKey,
+    },
+    recipientPrivateKey,
+    256,
+  );
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    sharedSecret,
+    {
+      name: "AES-GCM",
+      length: 256,
+    },
+    false,
+    [
+      "decrypt",
+    ],
+  );
   const ciphertext = decodeBase64(encryptedPayload.data);
   const nonce = decodeBase64(encryptedPayload.nonce);
-  const plaintext = await crypto.subtle.decrypt({
-    name: "AES-GCM",
-    iv: nonce
-  }, aesKey, ciphertext);
+  const plaintext = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: nonce,
+    },
+    aesKey,
+    ciphertext,
+  );
   const decoder = new TextDecoder();
   const json = decoder.decode(plaintext);
   return JSON.parse(json);
@@ -1279,36 +1407,49 @@ function parseUri(uri) {
     return {
       protocol: "",
       domain: "",
-      path: ""
+      path: "",
     };
   }
   return {
     protocol: match[1],
     domain: match[2],
-    path: match[3]
+    path: match[3],
   };
 }
 async function pemToCryptoKey(pem, algorithm = "Ed25519") {
-  const base64 = pem.split("\n").filter((line) => !line.startsWith("-----")).join("");
+  const base64 = pem.split("\n").filter((line) => !line.startsWith("-----"))
+    .join("");
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
   if (algorithm === "Ed25519") {
-    return await crypto.subtle.importKey("pkcs8", bytes, {
-      name: "Ed25519",
-      namedCurve: "Ed25519"
-    }, false, [
-      "sign"
-    ]);
+    return await crypto.subtle.importKey(
+      "pkcs8",
+      bytes,
+      {
+        name: "Ed25519",
+        namedCurve: "Ed25519",
+      },
+      false,
+      [
+        "sign",
+      ],
+    );
   } else {
-    return await crypto.subtle.importKey("pkcs8", bytes, {
-      name: "X25519",
-      namedCurve: "X25519"
-    }, false, [
-      "deriveBits"
-    ]);
+    return await crypto.subtle.importKey(
+      "pkcs8",
+      bytes,
+      {
+        name: "X25519",
+        namedCurve: "X25519",
+      },
+      false,
+      [
+        "deriveBits",
+      ],
+    );
   }
 }
 async function loadAccountKey() {
@@ -1334,10 +1475,14 @@ async function loadAccountKey() {
     }
     return {
       privateKeyPem,
-      publicKeyHex
+      publicKeyHex,
     };
   } catch (error) {
-    throw new Error(`Failed to load account key from ${config.account}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to load account key from ${config.account}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 }
 async function loadEncryptionKey() {
@@ -1363,10 +1508,14 @@ async function loadEncryptionKey() {
     }
     return {
       privateKeyPem,
-      publicKeyHex
+      publicKeyHex,
     };
   } catch (error) {
-    throw new Error(`Failed to load encryption key from ${config.encrypt}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to load encryption key from ${config.encrypt}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 }
 async function signPayload(privateKeyPem, payload) {
@@ -1374,10 +1523,18 @@ async function signPayload(privateKeyPem, payload) {
     const privateKey = await pemToCryptoKey(privateKeyPem, "Ed25519");
     const encoder2 = new TextEncoder();
     const data = encoder2.encode(JSON.stringify(payload));
-    const signatureBytes = await crypto.subtle.sign("Ed25519", privateKey, data);
+    const signatureBytes = await crypto.subtle.sign(
+      "Ed25519",
+      privateKey,
+      data,
+    );
     return encodeHex(new Uint8Array(signatureBytes));
   } catch (error) {
-    throw new Error(`Failed to sign payload: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to sign payload: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 }
 function replaceKeyPlaceholder(uri, publicKey) {
@@ -1391,7 +1548,9 @@ async function confNode(url) {
 }
 async function confAccount(path) {
   if (!path) {
-    throw new Error("Account key path required. Usage: bnd conf account <path>");
+    throw new Error(
+      "Account key path required. Usage: bnd conf account <path>",
+    );
   }
   await updateConfig("account", path);
 }
@@ -1399,16 +1558,25 @@ async function accountCreate(outputPath) {
   try {
     const keyPair = await crypto.subtle.generateKey("Ed25519", true, [
       "sign",
-      "verify"
+      "verify",
     ]);
-    const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-    const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
-    const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKeyBuffer)));
+    const privateKeyBuffer = await crypto.subtle.exportKey(
+      "pkcs8",
+      keyPair.privateKey,
+    );
+    const publicKeyBuffer = await crypto.subtle.exportKey(
+      "raw",
+      keyPair.publicKey,
+    );
+    const privateKeyBase64 = btoa(
+      String.fromCharCode(...new Uint8Array(privateKeyBuffer)),
+    );
     const privateKeyPem = `-----BEGIN PRIVATE KEY-----
 ${privateKeyBase64.match(/.{1,64}/g)?.join("\n")}
 -----END PRIVATE KEY-----`;
     const publicKeyHex = encodeHex(new Uint8Array(publicKeyBuffer));
-    const keyPath = outputPath || `${Deno.env.get("HOME")}/.bnd/accounts/default.key`;
+    const keyPath = outputPath ||
+      `${Deno.env.get("HOME")}/.bnd/accounts/default.key`;
     await ensureDir(dirname3(keyPath));
     const content = `${privateKeyPem}
 PUBLIC_KEY_HEX=${publicKeyHex}`;
@@ -1420,25 +1588,42 @@ PUBLIC_KEY_HEX=${publicKeyHex}`;
     console.log(`  Key file: ${keyPath}`);
     console.log(`  Config updated`);
   } catch (error) {
-    throw new Error(`Failed to create account: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to create account: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 }
 async function encryptCreate(outputPath) {
   try {
-    const keyPair = await crypto.subtle.generateKey({
-      name: "X25519",
-      namedCurve: "X25519"
-    }, true, [
-      "deriveBits"
-    ]);
-    const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-    const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
-    const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKeyBuffer)));
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: "X25519",
+        namedCurve: "X25519",
+      },
+      true,
+      [
+        "deriveBits",
+      ],
+    );
+    const privateKeyBuffer = await crypto.subtle.exportKey(
+      "pkcs8",
+      keyPair.privateKey,
+    );
+    const publicKeyBuffer = await crypto.subtle.exportKey(
+      "raw",
+      keyPair.publicKey,
+    );
+    const privateKeyBase64 = btoa(
+      String.fromCharCode(...new Uint8Array(privateKeyBuffer)),
+    );
     const privateKeyPem = `-----BEGIN PRIVATE KEY-----
 ${privateKeyBase64.match(/.{1,64}/g)?.join("\n")}
 -----END PRIVATE KEY-----`;
     const publicKeyHex = encodeHex(new Uint8Array(publicKeyBuffer));
-    const keyPath = outputPath || `${Deno.env.get("HOME")}/.bnd/encryption/default.key`;
+    const keyPath = outputPath ||
+      `${Deno.env.get("HOME")}/.bnd/encryption/default.key`;
     await ensureDir(dirname3(keyPath));
     const content = `${privateKeyPem}
 PUBLIC_KEY_HEX=${publicKeyHex}`;
@@ -1450,12 +1635,18 @@ PUBLIC_KEY_HEX=${publicKeyHex}`;
     console.log(`  Key file: ${keyPath}`);
     console.log(`  Config updated`);
   } catch (error) {
-    throw new Error(`Failed to create encryption key: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to create encryption key: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 }
 async function confEncrypt(keyPath) {
   if (!keyPath) {
-    throw new Error("Encryption key path required. Usage: bnd conf encrypt <path>");
+    throw new Error(
+      "Encryption key path required. Usage: bnd conf encrypt <path>",
+    );
   }
   try {
     await Deno.readTextFile(keyPath);
@@ -1510,21 +1701,31 @@ async function write(args, verbose = false) {
         if (config2.encrypt) {
           try {
             const encryptionKey = await loadEncryptionKey();
-            const encryptedPayload = await encrypt(data, encryptionKey.publicKeyHex);
+            const encryptedPayload = await encrypt(
+              data,
+              encryptionKey.publicKeyHex,
+            );
             logger?.info(`Encrypted payload`);
-            const signature = await signPayload(accountKey.privateKeyPem, encryptedPayload);
+            const signature = await signPayload(
+              accountKey.privateKeyPem,
+              encryptedPayload,
+            );
             logger?.info(`Signed encrypted payload with account key`);
             data = {
               auth: [
                 {
                   pubkey: accountKey.publicKeyHex,
-                  signature
-                }
+                  signature,
+                },
               ],
-              payload: encryptedPayload
+              payload: encryptedPayload,
             };
           } catch (error) {
-            throw new Error(`Encryption failed: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(
+              `Encryption failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
           }
         } else {
           const signature = await signPayload(accountKey.privateKeyPem, data);
@@ -1533,10 +1734,10 @@ async function write(args, verbose = false) {
             auth: [
               {
                 pubkey: accountKey.publicKeyHex,
-                signature
-              }
+                signature,
+              },
             ],
-            payload: data
+            payload: data,
           };
         }
       }
@@ -1580,9 +1781,14 @@ async function read(uri, verbose = false) {
     if (result.success && result.record) {
       console.log(`\u2713 Read successful`);
       console.log(`  URI: ${uri}`);
-      console.log(`  Stored Data: ${JSON.stringify(result.record.data, null, 2)}`);
+      console.log(
+        `  Stored Data: ${JSON.stringify(result.record.data, null, 2)}`,
+      );
       const config2 = await loadConfig();
-      if (config2.encrypt && result.record.data && typeof result.record.data === "object") {
+      if (
+        config2.encrypt && result.record.data &&
+        typeof result.record.data === "object"
+      ) {
         const data = result.record.data;
         if (data.payload && typeof data.payload === "object") {
           const payload = data.payload;
@@ -1592,14 +1798,23 @@ async function read(uri, verbose = false) {
               const encryptedPayload = {
                 data: payload.data,
                 nonce: payload.nonce,
-                ephemeralPublicKey: payload.ephemeralPublicKey
+                ephemeralPublicKey: payload.ephemeralPublicKey,
               };
-              const privateKey = await pemToCryptoKey(encryptionKey.privateKeyPem, "X25519");
+              const privateKey = await pemToCryptoKey(
+                encryptionKey.privateKeyPem,
+                "X25519",
+              );
               const decryptedData = await decrypt(encryptedPayload, privateKey);
-              console.log(`  Decrypted Payload: ${JSON.stringify(decryptedData)}`);
+              console.log(
+                `  Decrypted Payload: ${JSON.stringify(decryptedData)}`,
+              );
               logger?.info(`Decrypted payload`);
             } catch (error) {
-              logger?.error(`Decryption failed: ${error instanceof Error ? error.message : String(error)}`);
+              logger?.error(
+                `Decryption failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
             }
           }
         }
@@ -1629,20 +1844,32 @@ async function list(uri, verbose = false, options) {
     }
     const { protocol, domain, path } = parseUri(uri);
     const queryStr = new URLSearchParams(options).toString();
-    const endpoint = `${config.node}/api/v1/list/${protocol}/${domain}${path}${queryStr ? `?${queryStr}` : ""}`;
+    const endpoint = `${config.node}/api/v1/list/${protocol}/${domain}${path}${
+      queryStr ? `?${queryStr}` : ""
+    }`;
     logger?.http("GET", endpoint);
     const result = await client.list(uri, options);
     if (result.success) {
       console.log(`\u2713 List successful`);
       console.log(`  URI: ${uri}`);
-      console.log(`  Total: ${result.pagination.total || result.data.length} items`);
-      console.log(`  Page: ${result.pagination.page}/${Math.ceil((result.pagination.total || 0) / (result.pagination.limit || 50))}`);
+      console.log(
+        `  Total: ${result.pagination.total || result.data.length} items`,
+      );
+      console.log(
+        `  Page: ${result.pagination.page}/${
+          Math.ceil(
+            (result.pagination.total || 0) / (result.pagination.limit || 50),
+          )
+        }`,
+      );
       console.log("");
       console.log("Items:");
       for (const item of result.data) {
         const itemName = item.name || item.uri || "unknown";
         const itemTime = item.timestamp || item.ts || Date.now();
-        console.log(`  - ${itemName} (${new Date(Number(itemTime)).toISOString()})`);
+        console.log(
+          `  - ${itemName} (${new Date(Number(itemTime)).toISOString()})`,
+        );
       }
     } else {
       throw new Error(result.error || "List failed");
@@ -1745,31 +1972,43 @@ ${lines.join("\n")}
   async function genEd25519() {
     const kp = await crypto.subtle.generateKey("Ed25519", true, [
       "sign",
-      "verify"
+      "verify",
     ]);
     const priv = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
     const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
-    const privateKeyPem = formatPrivateKeyPem(bytesToBase64(new Uint8Array(priv)));
-    const publicKeyHex = Array.from(new Uint8Array(pub)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const privateKeyPem = formatPrivateKeyPem(
+      bytesToBase64(new Uint8Array(priv)),
+    );
+    const publicKeyHex = Array.from(new Uint8Array(pub)).map((b) =>
+      b.toString(16).padStart(2, "0")
+    ).join("");
     return {
       privateKeyPem,
-      publicKeyHex
+      publicKeyHex,
     };
   }
   async function genX25519() {
-    const kp = await crypto.subtle.generateKey({
-      name: "X25519",
-      namedCurve: "X25519"
-    }, true, [
-      "deriveBits"
-    ]);
+    const kp = await crypto.subtle.generateKey(
+      {
+        name: "X25519",
+        namedCurve: "X25519",
+      },
+      true,
+      [
+        "deriveBits",
+      ],
+    );
     const priv = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
     const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
-    const privateKeyPem = formatPrivateKeyPem(bytesToBase64(new Uint8Array(priv)));
-    const publicKeyHex = Array.from(new Uint8Array(pub)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const privateKeyPem = formatPrivateKeyPem(
+      bytesToBase64(new Uint8Array(priv)),
+    );
+    const publicKeyHex = Array.from(new Uint8Array(pub)).map((b) =>
+      b.toString(16).padStart(2, "0")
+    ).join("");
     return {
       privateKeyPem,
-      publicKeyHex
+      publicKeyHex,
     };
   }
   const id = await genEd25519();
@@ -1785,7 +2024,9 @@ SERVER_ENCRYPTION_PUBLIC_KEY_HEX="${enc.publicKeyHex}"
   console.log(envText);
   try {
     await Deno.writeTextFile(".env.keys", envText);
-    console.log("\u2713 Wrote .env.keys (copy values into your .env and delete the file)");
+    console.log(
+      "\u2713 Wrote .env.keys (copy values into your .env and delete the file)",
+    );
   } catch (_) {
   }
 }
@@ -1796,12 +2037,12 @@ function parseVerboseFlag(args) {
   if (index !== -1) {
     return {
       args: args.filter((_, i) => i !== index),
-      verbose: true
+      verbose: true,
     };
   }
   return {
     args,
-    verbose: false
+    verbose: false,
   };
 }
 async function main() {
@@ -1839,7 +2080,9 @@ async function main() {
       }
       case "conf": {
         if (!subcommand) {
-          throw new Error("Subcommand required. Usage: bnd conf <node|account|encrypt> <value>");
+          throw new Error(
+            "Subcommand required. Usage: bnd conf <node|account|encrypt> <value>",
+          );
         }
         if (subcommand === "node") {
           if (!cleanArgs[2]) {
@@ -1848,12 +2091,16 @@ async function main() {
           await confNode(cleanArgs[2]);
         } else if (subcommand === "account") {
           if (!cleanArgs[2]) {
-            throw new Error("Account key path required. Usage: bnd conf account <path>");
+            throw new Error(
+              "Account key path required. Usage: bnd conf account <path>",
+            );
           }
           await confAccount(cleanArgs[2]);
         } else if (subcommand === "encrypt") {
           if (!cleanArgs[2]) {
-            throw new Error("Encryption key path required. Usage: bnd conf encrypt <path>");
+            throw new Error(
+              "Encryption key path required. Usage: bnd conf encrypt <path>",
+            );
           }
           await confEncrypt(cleanArgs[2]);
         } else {
@@ -1887,7 +2134,9 @@ async function main() {
         if (subcommand === "env") {
           await serverKeysEnv();
         } else {
-          throw new Error("Unknown server-keys subcommand. Usage: bnd server-keys env");
+          throw new Error(
+            "Unknown server-keys subcommand. Usage: bnd server-keys env",
+          );
         }
         break;
       }

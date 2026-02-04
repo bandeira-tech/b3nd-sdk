@@ -3,8 +3,8 @@
  * Provides encryption, decryption, and authentication utilities
  */
 
-import { encodeHex, decodeHex } from "@std/encoding/hex";
-import { encodeBase64, decodeBase64 } from "@std/encoding/base64";
+import { decodeHex, encodeHex } from "@std/encoding/hex";
+import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 
 // Types
 export interface KeyPair {
@@ -50,11 +50,17 @@ export class CryptoManager {
         namedCurve: "Ed25519",
       },
       true,
-      ["sign", "verify"]
+      ["sign", "verify"],
     );
 
-    const publicKeyBytes = await crypto.subtle.exportKey("raw", keyPair.publicKey);
-    const privateKeyBytes = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+    const publicKeyBytes = await crypto.subtle.exportKey(
+      "raw",
+      keyPair.publicKey,
+    );
+    const privateKeyBytes = await crypto.subtle.exportKey(
+      "pkcs8",
+      keyPair.privateKey,
+    );
 
     const result: KeyPair = {
       publicKey: keyPair.publicKey,
@@ -82,10 +88,13 @@ export class CryptoManager {
         namedCurve: "X25519",
       },
       true,
-      ["deriveBits"]
+      ["deriveBits"],
     );
 
-    const publicKeyBytes = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+    const publicKeyBytes = await crypto.subtle.exportKey(
+      "raw",
+      keyPair.publicKey,
+    );
 
     return {
       publicKey: keyPair.publicKey,
@@ -116,7 +125,7 @@ export class CryptoManager {
     const signature = await crypto.subtle.sign(
       "Ed25519",
       keyPair.privateKey,
-      data
+      data,
     );
 
     return encodeHex(new Uint8Array(signature));
@@ -128,7 +137,7 @@ export class CryptoManager {
   async verify<T>(
     publicKeyHex: string,
     signatureHex: string,
-    payload: T
+    payload: T,
   ): Promise<boolean> {
     try {
       const publicKeyBytes = decodeHex(publicKeyHex);
@@ -140,7 +149,7 @@ export class CryptoManager {
           namedCurve: "Ed25519",
         },
         false,
-        ["verify"]
+        ["verify"],
       );
 
       const encoder = new TextEncoder();
@@ -151,7 +160,7 @@ export class CryptoManager {
         "Ed25519",
         publicKey,
         signatureBytes,
-        data
+        data,
       );
     } catch {
       return false;
@@ -163,7 +172,7 @@ export class CryptoManager {
    */
   async createAuthenticatedMessage<T>(
     userIds: string[],
-    payload: T
+    payload: T,
   ): Promise<AuthenticatedMessage<T>> {
     const auth = await Promise.all(
       userIds.map(async (userId) => {
@@ -178,7 +187,7 @@ export class CryptoManager {
           pubkey: keyPair.publicKeyHex,
           signature,
         };
-      })
+      }),
     );
 
     return {
@@ -192,7 +201,7 @@ export class CryptoManager {
    */
   async encrypt(
     data: unknown,
-    recipientPublicKeyHex: string
+    recipientPublicKeyHex: string,
   ): Promise<EncryptedPayload> {
     // Generate ephemeral keypair for ECDH
     const ephemeralKeyPair = await this.generateEncryptionKeyPair();
@@ -207,7 +216,7 @@ export class CryptoManager {
         namedCurve: "X25519",
       },
       false,
-      []
+      [],
     );
 
     // Derive shared secret
@@ -217,7 +226,7 @@ export class CryptoManager {
         public: recipientPublicKey,
       },
       ephemeralKeyPair.privateKey,
-      256
+      256,
     );
 
     // Import shared secret as AES-GCM key
@@ -229,7 +238,7 @@ export class CryptoManager {
         length: 256,
       },
       false,
-      ["encrypt"]
+      ["encrypt"],
     );
 
     // Generate nonce
@@ -245,7 +254,7 @@ export class CryptoManager {
         iv: nonce,
       },
       aesKey,
-      plaintext
+      plaintext,
     );
 
     return {
@@ -260,14 +269,16 @@ export class CryptoManager {
    */
   async decrypt(
     encryptedPayload: EncryptedPayload,
-    recipientPrivateKey: CryptoKey
+    recipientPrivateKey: CryptoKey,
   ): Promise<unknown> {
     if (!encryptedPayload.ephemeralPublicKey) {
       throw new Error("Missing ephemeral public key");
     }
 
     // Import ephemeral public key
-    const ephemeralPublicKeyBytes = decodeHex(encryptedPayload.ephemeralPublicKey);
+    const ephemeralPublicKeyBytes = decodeHex(
+      encryptedPayload.ephemeralPublicKey,
+    );
     const ephemeralPublicKey = await crypto.subtle.importKey(
       "raw",
       ephemeralPublicKeyBytes,
@@ -276,7 +287,7 @@ export class CryptoManager {
         namedCurve: "X25519",
       },
       false,
-      []
+      [],
     );
 
     // Derive shared secret
@@ -286,7 +297,7 @@ export class CryptoManager {
         public: ephemeralPublicKey,
       },
       recipientPrivateKey,
-      256
+      256,
     );
 
     // Import shared secret as AES-GCM key
@@ -298,7 +309,7 @@ export class CryptoManager {
         length: 256,
       },
       false,
-      ["decrypt"]
+      ["decrypt"],
     );
 
     // Decrypt data
@@ -311,7 +322,7 @@ export class CryptoManager {
         iv: nonce,
       },
       aesKey,
-      ciphertext
+      ciphertext,
     );
 
     const decoder = new TextDecoder();
@@ -325,7 +336,7 @@ export class CryptoManager {
   async createSignedEncryptedMessage(
     data: unknown,
     signerUserIds: string[],
-    recipientPublicKeyHex: string
+    recipientPublicKeyHex: string,
   ): Promise<SignedEncryptedMessage> {
     // First encrypt the data
     const encrypted = await this.encrypt(data, recipientPublicKeyHex);
@@ -343,7 +354,7 @@ export class CryptoManager {
           pubkey: keyPair.publicKeyHex,
           signature,
         };
-      })
+      }),
     );
 
     return {
@@ -357,7 +368,7 @@ export class CryptoManager {
    */
   async verifyAndDecrypt(
     message: SignedEncryptedMessage,
-    recipientPrivateKey: CryptoKey
+    recipientPrivateKey: CryptoKey,
   ): Promise<{
     data: unknown;
     verified: boolean;
@@ -369,16 +380,16 @@ export class CryptoManager {
         const verified = await this.verify(
           authEntry.pubkey,
           authEntry.signature,
-          message.encrypted
+          message.encrypted,
         );
         return { pubkey: authEntry.pubkey, verified };
-      })
+      }),
     );
 
-    const verified = verificationResults.every(r => r.verified);
+    const verified = verificationResults.every((r) => r.verified);
     const signers = verificationResults
-      .filter(r => r.verified)
-      .map(r => r.pubkey);
+      .filter((r) => r.verified)
+      .map((r) => r.pubkey);
 
     // Decrypt the data
     const data = await this.decrypt(message.encrypted, recipientPrivateKey);
@@ -413,7 +424,8 @@ export class UserSimulator {
     const user: any = { signingKeys };
 
     if (withEncryption) {
-      user.encryptionKeys = await this.cryptoManager.generateEncryptionKeyPair();
+      user.encryptionKeys = await this.cryptoManager
+        .generateEncryptionKeyPair();
     }
 
     this.users.set(userId, user);
@@ -434,7 +446,7 @@ export class UserSimulator {
       sign?: boolean;
       signerIds?: string[];
       recipientId?: string;
-    } = {}
+    } = {},
   ): Promise<unknown> {
     if (options.encrypt && options.sign) {
       if (!options.recipientId || !options.signerIds) {
@@ -443,13 +455,15 @@ export class UserSimulator {
 
       const recipient = this.users.get(options.recipientId);
       if (!recipient?.encryptionKeys) {
-        throw new Error(`Recipient ${options.recipientId} not found or lacks encryption keys`);
+        throw new Error(
+          `Recipient ${options.recipientId} not found or lacks encryption keys`,
+        );
       }
 
       return await this.cryptoManager.createSignedEncryptedMessage(
         data,
         options.signerIds,
-        recipient.encryptionKeys.publicKeyHex
+        recipient.encryptionKeys.publicKeyHex,
       );
     } else if (options.sign) {
       if (!options.signerIds) {
@@ -458,7 +472,7 @@ export class UserSimulator {
 
       return await this.cryptoManager.createAuthenticatedMessage(
         options.signerIds,
-        data
+        data,
       );
     } else if (options.encrypt) {
       if (!options.recipientId) {
@@ -467,12 +481,14 @@ export class UserSimulator {
 
       const recipient = this.users.get(options.recipientId);
       if (!recipient?.encryptionKeys) {
-        throw new Error(`Recipient ${options.recipientId} not found or lacks encryption keys`);
+        throw new Error(
+          `Recipient ${options.recipientId} not found or lacks encryption keys`,
+        );
       }
 
       return await this.cryptoManager.encrypt(
         data,
-        recipient.encryptionKeys.publicKeyHex
+        recipient.encryptionKeys.publicKeyHex,
       );
     }
 

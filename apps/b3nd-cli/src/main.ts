@@ -2,24 +2,26 @@
 
 import {
   accountCreate,
-  encryptCreate,
-  confNode,
   confAccount,
   confEncrypt,
-  write,
-  upload,
+  confNode,
   deploy,
-  read,
+  encryptCreate,
   list,
+  read,
+  serverKeysEnv,
   showConfig,
   showHelp,
-  serverKeysEnv,
+  upload,
+  write,
 } from "./commands.ts";
 
 /**
  * Parse verbose flag from args
  */
-function parseVerboseFlag(args: string[]): { args: string[]; verbose: boolean } {
+function parseVerboseFlag(
+  args: string[],
+): { args: string[]; verbose: boolean } {
   const index = args.findIndex((arg) => arg === "-v" || arg === "--verbose");
   if (index !== -1) {
     return {
@@ -75,7 +77,9 @@ async function main(): Promise<void> {
 
       case "conf": {
         if (!subcommand) {
-          throw new Error("Subcommand required. Usage: bnd conf <node|account|encrypt> <value>");
+          throw new Error(
+            "Subcommand required. Usage: bnd conf <node|account|encrypt> <value>",
+          );
         }
 
         if (subcommand === "node") {
@@ -85,12 +89,16 @@ async function main(): Promise<void> {
           await confNode(cleanArgs[2]);
         } else if (subcommand === "account") {
           if (!cleanArgs[2]) {
-            throw new Error("Account key path required. Usage: bnd conf account <path>");
+            throw new Error(
+              "Account key path required. Usage: bnd conf account <path>",
+            );
           }
           await confAccount(cleanArgs[2]);
         } else if (subcommand === "encrypt") {
           if (!cleanArgs[2]) {
-            throw new Error("Encryption key path required. Usage: bnd conf encrypt <path>");
+            throw new Error(
+              "Encryption key path required. Usage: bnd conf encrypt <path>",
+            );
           }
           await confEncrypt(cleanArgs[2]);
         } else {
@@ -139,7 +147,9 @@ async function main(): Promise<void> {
         if (subcommand === "env") {
           await serverKeysEnv();
         } else {
-          throw new Error("Unknown server-keys subcommand. Usage: bnd server-keys env");
+          throw new Error(
+            "Unknown server-keys subcommand. Usage: bnd server-keys env",
+          );
         }
         break;
       }

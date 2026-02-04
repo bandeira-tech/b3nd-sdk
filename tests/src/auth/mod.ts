@@ -5,18 +5,18 @@
 
 import {
   ApiClient,
-  TestRunner,
   assert,
   assertEqual,
   assertExists,
   generateTestId,
   type TestConfig,
+  TestRunner,
 } from "../core/mod.ts";
 
 import {
+  type AuthenticatedMessage,
   CryptoManager,
   UserSimulator,
-  type AuthenticatedMessage,
 } from "../crypto/mod.ts";
 
 export interface AuthTestOptions {
@@ -86,7 +86,7 @@ export class AuthTest {
     // Create authenticated message signed by user1
     const authMessage = await this.cryptoManager.createAuthenticatedMessage(
       ["user1"],
-      payload
+      payload,
     );
 
     // Write authenticated message
@@ -106,7 +106,7 @@ export class AuthTest {
     const verified = await this.cryptoManager.verify(
       data.auth[0].pubkey,
       data.auth[0].signature,
-      data.payload
+      data.payload,
     );
     assert(verified, "Signature should be valid");
 
@@ -115,7 +115,7 @@ export class AuthTest {
     assertEqual(
       data.auth[0].pubkey,
       user1?.signingKeys.publicKeyHex,
-      "Public key should match user1"
+      "Public key should match user1",
     );
   }
 
@@ -136,7 +136,7 @@ export class AuthTest {
     // Create multi-sig message (requires both admin and user1)
     const authMessage = await this.cryptoManager.createAuthenticatedMessage(
       ["admin", "user1"],
-      payload
+      payload,
     );
 
     // Write multi-sig message
@@ -157,23 +157,26 @@ export class AuthTest {
       const verified = await this.cryptoManager.verify(
         authEntry.pubkey,
         authEntry.signature,
-        data.payload
+        data.payload,
       );
-      assert(verified, `Signature from ${authEntry.pubkey.substring(0, 8)}... should be valid`);
+      assert(
+        verified,
+        `Signature from ${authEntry.pubkey.substring(0, 8)}... should be valid`,
+      );
     }
 
     // Verify signers are correct
     const admin = this.userSimulator.getUser("admin");
     const user1 = this.userSimulator.getUser("user1");
-    const pubkeys = data.auth.map(a => a.pubkey);
+    const pubkeys = data.auth.map((a) => a.pubkey);
 
     assert(
       pubkeys.includes(admin?.signingKeys.publicKeyHex || ""),
-      "Should include admin's signature"
+      "Should include admin's signature",
     );
     assert(
       pubkeys.includes(user1?.signingKeys.publicKeyHex || ""),
-      "Should include user1's signature"
+      "Should include user1's signature",
     );
   }
 
@@ -194,7 +197,7 @@ export class AuthTest {
     // Create a valid authenticated message
     const authMessage = await this.cryptoManager.createAuthenticatedMessage(
       ["user2"],
-      payload
+      payload,
     );
 
     // Tamper with the signature
@@ -225,16 +228,16 @@ export class AuthTest {
       const verified = await this.cryptoManager.verify(
         data.auth[0].pubkey,
         data.auth[0].signature,
-        data.payload
+        data.payload,
       );
       assert(!verified, "Tampered signature should be invalid");
     } else {
       // API rejected the tampered message, which is also correct behavior
       assert(
         writeResult.error?.includes("signature") ||
-        writeResult.error?.includes("auth") ||
-        writeResult.error?.includes("invalid"),
-        "Should reject with signature-related error"
+          writeResult.error?.includes("auth") ||
+          writeResult.error?.includes("invalid"),
+        "Should reject with signature-related error",
       );
     }
   }
@@ -255,7 +258,7 @@ export class AuthTest {
     // Create authenticated message
     const authMessage = await this.cryptoManager.createAuthenticatedMessage(
       ["admin"],
-      originalPayload
+      originalPayload,
     );
 
     // Modify the payload but keep the signature
@@ -271,7 +274,7 @@ export class AuthTest {
     const verified = await this.cryptoManager.verify(
       modifiedMessage.auth[0].pubkey,
       modifiedMessage.auth[0].signature,
-      modifiedMessage.payload
+      modifiedMessage.payload,
     );
     assert(!verified, "Signature should be invalid for modified payload");
   }
@@ -292,7 +295,7 @@ export class AuthTest {
 
     const authMessage = await this.cryptoManager.createAuthenticatedMessage(
       ["user1"],
-      payload
+      payload,
     );
 
     // Write message
@@ -309,14 +312,14 @@ export class AuthTest {
     assertEqual(
       data.payload.timestamp,
       payload.timestamp,
-      "Timestamp should be preserved"
+      "Timestamp should be preserved",
     );
 
     // Verify signature is still valid
     const verified = await this.cryptoManager.verify(
       data.auth[0].pubkey,
       data.auth[0].signature,
-      data.payload
+      data.payload,
     );
     assert(verified, "Signature should remain valid");
   }
@@ -338,13 +341,13 @@ export class AuthTest {
 
     const user1Message = await this.cryptoManager.createAuthenticatedMessage(
       ["user1"],
-      initialPayload
+      initialPayload,
     );
 
     // Second level: admin signs the user1's signed message
     const adminMessage = await this.cryptoManager.createAuthenticatedMessage(
       ["admin"],
-      user1Message
+      user1Message,
     );
 
     // Write hierarchical message
@@ -357,13 +360,15 @@ export class AuthTest {
     assert(readResult.success, "Read should succeed");
     assertExists(readResult.record, "Should return a record");
 
-    const data = readResult.record.data as AuthenticatedMessage<AuthenticatedMessage>;
+    const data = readResult.record.data as AuthenticatedMessage<
+      AuthenticatedMessage
+    >;
 
     // Verify admin's signature
     const adminVerified = await this.cryptoManager.verify(
       data.auth[0].pubkey,
       data.auth[0].signature,
-      data.payload
+      data.payload,
     );
     assert(adminVerified, "Admin signature should be valid");
 
@@ -371,7 +376,7 @@ export class AuthTest {
     const user1Verified = await this.cryptoManager.verify(
       data.payload.auth[0].pubkey,
       data.payload.auth[0].signature,
-      data.payload.payload
+      data.payload.payload,
     );
     assert(user1Verified, "User1 signature should be valid");
 
@@ -382,12 +387,12 @@ export class AuthTest {
     assertEqual(
       data.auth[0].pubkey,
       admin?.signingKeys.publicKeyHex,
-      "Top level should be signed by admin"
+      "Top level should be signed by admin",
     );
     assertEqual(
       data.payload.auth[0].pubkey,
       user1?.signingKeys.publicKeyHex,
-      "Inner level should be signed by user1"
+      "Inner level should be signed by user1",
     );
   }
 
@@ -400,10 +405,22 @@ export class AuthTest {
     const tests = [
       { name: "Single Signature", fn: () => this.testSingleSignature() },
       { name: "Multi-Signature", fn: () => this.testMultiSignature() },
-      { name: "Invalid Signature Detection", fn: () => this.testInvalidSignature() },
-      { name: "Modified Payload Detection", fn: () => this.testModifiedPayload() },
-      { name: "Timestamp Validation", fn: () => this.testTimestampValidation() },
-      { name: "Hierarchical Signatures", fn: () => this.testHierarchicalSignature() },
+      {
+        name: "Invalid Signature Detection",
+        fn: () => this.testInvalidSignature(),
+      },
+      {
+        name: "Modified Payload Detection",
+        fn: () => this.testModifiedPayload(),
+      },
+      {
+        name: "Timestamp Validation",
+        fn: () => this.testTimestampValidation(),
+      },
+      {
+        name: "Hierarchical Signatures",
+        fn: () => this.testHierarchicalSignature(),
+      },
     ];
 
     await this.testRunner.runAll(tests);
@@ -413,7 +430,7 @@ export class AuthTest {
 
 // Export convenience function
 export async function runAuthTests(
-  options: AuthTestOptions = {}
+  options: AuthTestOptions = {},
 ): Promise<void> {
   const test = new AuthTest(options);
   await test.runAll();

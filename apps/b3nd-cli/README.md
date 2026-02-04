@@ -1,18 +1,22 @@
 # b3nd CLI
 
-A command-line interface for b3nd nodes, built with Deno and the b3nd-sdk. Its primary function is to help develop and debug nodes from your terminal.
+A command-line interface for b3nd nodes, built with Deno and the b3nd-sdk. Its
+primary function is to help develop and debug nodes from your terminal.
 
 ## Installation
 
 Requirements:
+
 - Deno 1.40+
 
 Clone and run directly:
+
 ```bash
 deno run --allow-read --allow-write --allow-env --allow-net src/main.ts <command> [options]
 ```
 
 Or create an alias:
+
 ```bash
 alias bnd='deno run --allow-read --allow-write --allow-env --allow-net /path/to/cli/src/main.ts'
 ```
@@ -20,12 +24,14 @@ alias bnd='deno run --allow-read --allow-write --allow-env --allow-net /path/to/
 ## Quick Start
 
 Configure your node and account:
+
 ```bash
 bnd conf node https://testnet-evergreen.fire.cat
 bnd conf account path/to/my/key
 ```
 
 View your configuration:
+
 ```bash
 bnd config
 cat ~/.bnd/config.toml
@@ -36,11 +42,13 @@ cat ~/.bnd/config.toml
 ### Configuration Commands
 
 Set the node URL (required for all operations):
+
 ```bash
 bnd conf node <url>
 ```
 
 Set the account key path:
+
 ```bash
 bnd conf account <path>
 ```
@@ -48,12 +56,14 @@ bnd conf account <path>
 ### Data Operations
 
 Write data to a URI:
+
 ```bash
 bnd write tmp://some/path "this is a nice little payload"
 bnd write store://account/:key/data {"name": "Alice", "age": 30}
 ```
 
 Write data from a JSON file:
+
 ```bash
 # Note: The filename (without extension) becomes the URI
 # For test_payload.json, the URI will be 'test_payload'
@@ -64,12 +74,14 @@ bnd write test://my-data -f mypayload.json
 ```
 
 Read data from a URI:
+
 ```bash
 bnd read tmp://some/path
 bnd read store://account/:key/profile
 ```
 
 List items at a URI:
+
 ```bash
 bnd list store://account/:key/books
 ```
@@ -77,11 +89,13 @@ bnd list store://account/:key/books
 ### Utility Commands
 
 Show current configuration:
+
 ```bash
 bnd config
 ```
 
 Show help:
+
 ```bash
 bnd help
 bnd -h
@@ -143,6 +157,7 @@ bnd write -v tmp://test "data"
 ```
 
 **Verbose output shows:**
+
 - Configuration loading
 - HTTP client initialization
 - Node health check
@@ -150,23 +165,27 @@ bnd write -v tmp://test "data"
 - Server responses (including error details)
 - Timestamps and record data
 
-This is invaluable for debugging connection issues, protocol problems, and understanding what the node is returning.
+This is invaluable for debugging connection issues, protocol problems, and
+understanding what the node is returning.
 
 See [VERBOSE_MODE.md](./VERBOSE_MODE.md) for detailed debugging guide.
 
 ## Development
 
 Check TypeScript:
+
 ```bash
 deno check src/main.ts
 ```
 
 Format code:
+
 ```bash
 deno fmt src/
 ```
 
 Lint code:
+
 ```bash
 deno lint src/
 ```

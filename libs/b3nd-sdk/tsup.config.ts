@@ -12,7 +12,8 @@ export default defineConfig({
     "clients/websocket/mod": "../b3nd-client-ws/mod.ts",
     "clients/memory/mod": "../b3nd-client-memory/mod.ts",
     "wallet-server/mod": "../b3nd-wallet-server/mod.ts",
-    "wallet-server/adapters/browser": "../b3nd-wallet-server/adapters/browser.ts",
+    "wallet-server/adapters/browser":
+      "../b3nd-wallet-server/adapters/browser.ts",
   },
   dts: true,
   format: ["esm"],

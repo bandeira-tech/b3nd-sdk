@@ -5,7 +5,8 @@ Get up and running with the wallet server in 5 minutes.
 ## Prerequisites
 
 - Deno 1.40+ ([install](https://deno.land))
-- A running b3nd backend (or use the same instance for both credential and proxy storage)
+- A running b3nd backend (or use the same instance for both credential and proxy
+  storage)
 
 ## Setup (1 minute)
 
@@ -40,8 +41,9 @@ SCHEMA_MODULE=./example-schema.ts PORT=8080 deno task dev
 deno task dev
 ```
 
-Server running at `http://localhost:3001`
-Set `APP_KEY` from the bootstrap state written on startup (default `wallet-app-bootstrap.json`):
+Server running at `http://localhost:3001` Set `APP_KEY` from the bootstrap state
+written on startup (default `wallet-app-bootstrap.json`):
+
 ```bash
 APP_KEY=$(jq -r '.appKey' wallet-app-bootstrap.json)
 ```
@@ -81,7 +83,8 @@ curl http://localhost:3001/api/v1/auth/public-keys/${APP_KEY} \
 
 ## What's Happening
 
-1. **Sign Up**: Creates a user account, generates Ed25519 + X25519 keys, returns JWT
+1. **Sign Up**: Creates a user account, generates Ed25519 + X25519 keys, returns
+   JWT
 2. **Write**: Proxies your data to b3nd backend, signs with server's Ed25519 key
 3. **Keys**: Returns public keys (safe to share, used for verification)
 
@@ -102,16 +105,19 @@ All user data stored in b3nd at:
 ## Troubleshooting
 
 **Port 3001 already in use:**
+
 ```bash
 PORT=3002 deno task dev
 ```
 
 **SDK module not found:**
+
 ```bash
 cd ../.. && deno cache installations/wallet-server/src/mod.ts
 ```
 
 **Can't connect to b3nd backend:**
+
 ```bash
 # Check your CREDENTIAL_NODE_URL in .env
 # Make sure b3nd is running on that URL
@@ -120,4 +126,5 @@ curl http://localhost:8080/health
 
 ---
 
-For help, see the full [README.md](./README.md) or the [USAGE_GUIDE.md](./USAGE_GUIDE.md).
+For help, see the full [README.md](./README.md) or the
+[USAGE_GUIDE.md](./USAGE_GUIDE.md).

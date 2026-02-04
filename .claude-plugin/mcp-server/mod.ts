@@ -13,8 +13,8 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
-  ListToolsRequestSchema,
   ListResourcesRequestSchema,
+  ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { HttpClient } from "@bandeira-tech/b3nd-sdk";
@@ -57,7 +57,11 @@ class BackendManager {
 
     // Add local as fallback if no backends configured
     if (this.backends.size === 0) {
-      this.addBackend("local", "http://localhost:8842", "Local development server");
+      this.addBackend(
+        "local",
+        "http://localhost:8842",
+        "Local development server",
+      );
     }
 
     // Set first backend as active
@@ -120,7 +124,9 @@ class BackendManager {
     return Array.from(this.backends.values());
   }
 
-  getBackend(name: string): { config: BackendConfig; client: HttpClient } | null {
+  getBackend(
+    name: string,
+  ): { config: BackendConfig; client: HttpClient } | null {
     const config = this.backends.get(name);
     const client = this.clients.get(name);
     if (!config || !client) {
@@ -144,7 +150,7 @@ const server = new Server(
       tools: {},
       resources: {},
     },
-  }
+  },
 );
 
 // Tool definitions
@@ -152,7 +158,8 @@ const TOOLS = [
   // Backend management tools
   {
     name: "b3nd_backends_list",
-    description: "List all configured B3nd backends and show which one is currently active.",
+    description:
+      "List all configured B3nd backends and show which one is currently active.",
     inputSchema: {
       type: "object" as const,
       properties: {},
@@ -160,7 +167,8 @@ const TOOLS = [
   },
   {
     name: "b3nd_backends_switch",
-    description: "Switch to a different B3nd backend by name (e.g., 'local', 'testnet', 'mainnet').",
+    description:
+      "Switch to a different B3nd backend by name (e.g., 'local', 'testnet', 'mainnet').",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -180,7 +188,8 @@ const TOOLS = [
       properties: {
         name: {
           type: "string",
-          description: "Unique name for the backend (e.g., 'testnet', 'staging')",
+          description:
+            "Unique name for the backend (e.g., 'testnet', 'staging')",
         },
         url: {
           type: "string",
@@ -211,17 +220,20 @@ const TOOLS = [
   // Data operation tools
   {
     name: "b3nd_read",
-    description: "Read data from a B3nd URI using the active backend. Returns the stored record with timestamp and data.",
+    description:
+      "Read data from a B3nd URI using the active backend. Returns the stored record with timestamp and data.",
     inputSchema: {
       type: "object" as const,
       properties: {
         uri: {
           type: "string",
-          description: "The B3nd URI to read from (e.g., 'mutable://users/alice/profile')",
+          description:
+            "The B3nd URI to read from (e.g., 'mutable://users/alice/profile')",
         },
         backend: {
           type: "string",
-          description: "Optional: specific backend to use (defaults to active backend)",
+          description:
+            "Optional: specific backend to use (defaults to active backend)",
         },
       },
       required: ["uri"],
@@ -229,19 +241,22 @@ const TOOLS = [
   },
   {
     name: "b3nd_receive",
-    description: "Receive a transaction to store data at a B3nd URI. This is the unified interface for all state changes. Accepts a transaction tuple [uri, data].",
+    description:
+      "Receive a transaction to store data at a B3nd URI. This is the unified interface for all state changes. Accepts a transaction tuple [uri, data].",
     inputSchema: {
       type: "object" as const,
       properties: {
         tx: {
           type: "array",
-          description: "The transaction tuple [uri, data] - first element is URI string, second is data object",
+          description:
+            "The transaction tuple [uri, data] - first element is URI string, second is data object",
           minItems: 2,
           maxItems: 2,
         },
         backend: {
           type: "string",
-          description: "Optional: specific backend to use (defaults to active backend)",
+          description:
+            "Optional: specific backend to use (defaults to active backend)",
         },
       },
       required: ["tx"],
@@ -249,7 +264,8 @@ const TOOLS = [
   },
   {
     name: "b3nd_list",
-    description: "List items at a B3nd URI prefix using the active backend. Returns all stored URIs matching the prefix (flat list, full URIs).",
+    description:
+      "List items at a B3nd URI prefix using the active backend. Returns all stored URIs matching the prefix (flat list, full URIs).",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -267,7 +283,8 @@ const TOOLS = [
         },
         backend: {
           type: "string",
-          description: "Optional: specific backend to use (defaults to active backend)",
+          description:
+            "Optional: specific backend to use (defaults to active backend)",
         },
       },
       required: ["uri"],
@@ -285,7 +302,8 @@ const TOOLS = [
         },
         backend: {
           type: "string",
-          description: "Optional: specific backend to use (defaults to active backend)",
+          description:
+            "Optional: specific backend to use (defaults to active backend)",
         },
       },
       required: ["uri"],
@@ -293,26 +311,30 @@ const TOOLS = [
   },
   {
     name: "b3nd_health",
-    description: "Check the health status of the active B3nd backend (or a specific backend).",
+    description:
+      "Check the health status of the active B3nd backend (or a specific backend).",
     inputSchema: {
       type: "object" as const,
       properties: {
         backend: {
           type: "string",
-          description: "Optional: specific backend to check (defaults to active backend)",
+          description:
+            "Optional: specific backend to check (defaults to active backend)",
         },
       },
     },
   },
   {
     name: "b3nd_schema",
-    description: "Get the schema (available protocols) from the active B3nd backend.",
+    description:
+      "Get the schema (available protocols) from the active B3nd backend.",
     inputSchema: {
       type: "object" as const,
       properties: {
         backend: {
           type: "string",
-          description: "Optional: specific backend to query (defaults to active backend)",
+          description:
+            "Optional: specific backend to query (defaults to active backend)",
         },
       },
     },
@@ -320,18 +342,24 @@ const TOOLS = [
 ];
 
 // Helper to get client for operation
-function getClient(backendName?: string): { client: HttpClient; config: BackendConfig } {
+function getClient(
+  backendName?: string,
+): { client: HttpClient; config: BackendConfig } {
   if (backendName) {
     const backend = backendManager.getBackend(backendName);
     if (!backend) {
-      throw new Error(`Backend '${backendName}' not found. Use b3nd_backends_list to see available backends.`);
+      throw new Error(
+        `Backend '${backendName}' not found. Use b3nd_backends_list to see available backends.`,
+      );
     }
     return backend;
   }
 
   const active = backendManager.getActiveBackend();
   if (!active) {
-    throw new Error("No active backend. Use b3nd_backends_add to add a backend first.");
+    throw new Error(
+      "No active backend. Use b3nd_backends_add to add a backend first.",
+    );
   }
   return active;
 }
@@ -364,7 +392,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   })),
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -387,7 +415,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     activeBackend: active?.config,
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -405,7 +433,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     availableBackends: backends.map((b) => b.name),
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -432,7 +460,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   backend: { name: backendName, url, description },
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -454,7 +482,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     activeBackend: backendManager.getActiveBackendName(),
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -470,7 +498,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     error: `Backend '${backendName}' not found`,
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -481,7 +509,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // Data operations
       case "b3nd_read": {
-        const { uri, backend: backendName } = args as { uri: string; backend?: string };
+        const { uri, backend: backendName } = args as {
+          uri: string;
+          backend?: string;
+        };
         const { client, config } = getClient(backendName);
         const result = await client.read(uri);
         if (result.success) {
@@ -498,7 +529,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     data: result.record?.data,
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -509,9 +540,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               {
                 type: "text",
                 text: JSON.stringify(
-                  { success: false, backend: config.name, uri, error: result.error },
+                  {
+                    success: false,
+                    backend: config.name,
+                    uri,
+                    error: result.error,
+                  },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -539,7 +575,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   error: result.error,
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -555,7 +591,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           backend?: string;
         };
         const { client, config } = getClient(backendName);
-        const result = await client.list(uri, { limit: limit || 100, page: page || 1 });
+        const result = await client.list(uri, {
+          limit: limit || 100,
+          page: page || 1,
+        });
         if (result.success) {
           return {
             content: [
@@ -570,7 +609,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     pagination: result.pagination,
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -581,9 +620,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               {
                 type: "text",
                 text: JSON.stringify(
-                  { success: false, backend: config.name, uri, error: result.error },
+                  {
+                    success: false,
+                    backend: config.name,
+                    uri,
+                    error: result.error,
+                  },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -593,7 +637,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "b3nd_delete": {
-        const { uri, backend: backendName } = args as { uri: string; backend?: string };
+        const { uri, backend: backendName } = args as {
+          uri: string;
+          backend?: string;
+        };
         const { client, config } = getClient(backendName);
         const result = await client.delete(uri);
         return {
@@ -608,7 +655,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   error: result.error,
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -633,7 +680,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   details: result.details,
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -655,7 +702,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   protocols: schemas,
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -770,7 +817,9 @@ async function main() {
   const active = backendManager.getActiveBackendName();
   console.error(`B3nd MCP Server v0.2.0 started`);
   console.error(`Active backend: ${active}`);
-  console.error(`Configured backends: ${backends.map((b) => b.name).join(", ")}`);
+  console.error(
+    `Configured backends: ${backends.map((b) => b.name).join(", ")}`,
+  );
 }
 
 main().catch((error) => {

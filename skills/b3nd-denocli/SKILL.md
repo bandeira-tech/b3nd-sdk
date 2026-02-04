@@ -119,11 +119,11 @@ main();
 /// <reference lib="deno.ns" />
 import {
   createServerNode,
-  MemoryClient,
-  servers,
-  parallelBroadcast,
   firstMatchSequence,
+  MemoryClient,
+  parallelBroadcast,
   PostgresClient,
+  servers,
 } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -194,7 +194,9 @@ Deno.test("validation error on receive", async () => {
     schema: {
       "test://strict": async ({ value }) => {
         const v = value as any;
-        if (!v.required) return { valid: false, error: "Missing required field" };
+        if (!v.required) {
+          return { valid: false, error: "Missing required field" };
+        }
         return { valid: true };
       },
       "txn://": async () => ({ valid: true }),
@@ -327,7 +329,8 @@ The B3nd CLI (`apps/b3nd-cli/bnd`) provides command-line access to B3nd nodes:
 
 ## Developer Dashboard
 
-The explorer dashboard (`apps/sdk-inspector/`) provides a UI for browsing test results:
+The explorer dashboard (`apps/sdk-inspector/`) provides a UI for browsing test
+results:
 
 ```bash
 cd apps/sdk-inspector
@@ -339,11 +342,15 @@ npm run dev                 # Start React frontend (port 5555)
 # Browse: http://localhost:5555/dashboard
 ```
 
-Features: test results by theme, source code with line numbers, search across 125 tests.
+Features: test results by theme, source code with line numbers, search across
+125 tests.
 
 ## MCP Tools (Claude Plugin)
 
-When the B3nd Claude plugin is installed, agents can interact with B3nd backends directly using MCP tools: `b3nd_receive`, `b3nd_read`, `b3nd_list`, `b3nd_delete`, `b3nd_health`, `b3nd_schema`, `b3nd_backends_list`, `b3nd_backends_switch`, `b3nd_backends_add`.
+When the B3nd Claude plugin is installed, agents can interact with B3nd backends
+directly using MCP tools: `b3nd_receive`, `b3nd_read`, `b3nd_list`,
+`b3nd_delete`, `b3nd_health`, `b3nd_schema`, `b3nd_backends_list`,
+`b3nd_backends_switch`, `b3nd_backends_add`.
 
 Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 

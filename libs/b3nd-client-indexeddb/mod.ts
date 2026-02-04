@@ -19,13 +19,10 @@ import type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
-  Schema,
-} from "../b3nd-core/types.ts";
-import type {
-  Node,
   ReceiveResult,
+  Schema,
   Transaction,
-} from "../b3nd-compose/types.ts";
+} from "../b3nd-core/types.ts";
 
 // Type definitions for IndexedDB (simplified for cross-platform compatibility)
 interface IDBDatabase {
@@ -89,7 +86,7 @@ interface StoredRecord {
   ts: number;
 }
 
-export class IndexedDBClient implements NodeProtocolInterface, Node {
+export class IndexedDBClient implements NodeProtocolInterface {
   private config: {
     databaseName: string;
     storeName: string;

@@ -1,941 +1,1062 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>B3nd - A Different Way to Think About Data</title>
-  <meta name="description" content="B3nd is a framework for building digital experiences where data belongs to users, not platforms. Rethink the client-server model.">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-  <style>
-    :root {
-      --primary: #1E1B4B;
-      --secondary: #4338CA;
-      --accent: #F97316;
-      --money: #10B981;
-      --light: #F8FAFC;
-      --text: #1F2937;
-      --muted: #6B7280;
-      --white: #FFFFFF;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--text);
-      line-height: 1.6;
-      background: var(--white);
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    /* Navigation */
-    nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid #E5E7EB;
-      z-index: 100;
-    }
-
-    nav .container {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      height: 64px;
-    }
-
-    .logo {
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--primary);
-      text-decoration: none;
-    }
-
-    .logo span {
-      color: var(--accent);
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 32px;
-      list-style: none;
-    }
-
-    .nav-links a {
-      color: var(--text);
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-
-    .nav-links a:hover {
-      color: var(--secondary);
-    }
-
-    .nav-cta {
-      background: var(--primary);
-      color: var(--white) !important;
-      padding: 8px 16px;
-      border-radius: 6px;
-    }
-
-    .nav-cta:hover {
-      background: var(--secondary);
-      color: var(--white) !important;
-    }
-
-    /* Hero Section - Pure Mood */
-    .hero {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, var(--primary) 0%, #2D2A6E 50%, #1a1744 100%);
-      padding-top: 64px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: var(--accent);
-    }
-
-    .hero::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 800px;
-      height: 800px;
-      background: radial-gradient(circle, rgba(249, 115, 22, 0.12) 0%, transparent 60%);
-      transform: translate(-50%, -50%);
-    }
-
-    /* Ambient particles */
-    .hero .particles {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      overflow: hidden;
-      pointer-events: none;
-    }
-
-    .hero .particle {
-      position: absolute;
-      width: 4px;
-      height: 4px;
-      background: rgba(249, 115, 22, 0.4);
-      border-radius: 50%;
-      animation: float 8s ease-in-out infinite;
-    }
-
-    .hero .particle:nth-child(1) { left: 10%; top: 20%; animation-delay: 0s; }
-    .hero .particle:nth-child(2) { left: 20%; top: 80%; animation-delay: 1s; }
-    .hero .particle:nth-child(3) { left: 80%; top: 30%; animation-delay: 2s; }
-    .hero .particle:nth-child(4) { left: 70%; top: 70%; animation-delay: 3s; }
-    .hero .particle:nth-child(5) { left: 40%; top: 40%; animation-delay: 4s; }
-    .hero .particle:nth-child(6) { left: 90%; top: 60%; animation-delay: 5s; }
-    .hero .particle:nth-child(7) { left: 30%; top: 10%; animation-delay: 6s; }
-    .hero .particle:nth-child(8) { left: 60%; top: 90%; animation-delay: 7s; }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0) scale(1); opacity: 0.4; }
-      50% { transform: translateY(-20px) scale(1.2); opacity: 0.8; }
-    }
-
-    .hero-content {
-      position: relative;
-      z-index: 1;
-      text-align: center;
-    }
-
-    .hero-brand {
-      font-size: clamp(80px, 15vw, 160px);
-      font-weight: 700;
-      color: var(--white);
-      letter-spacing: -0.02em;
-      line-height: 1;
-      margin-bottom: 16px;
-      text-transform: uppercase;
-    }
-
-    .hero-brand .accent {
-      color: var(--accent);
-    }
-
-    .hero-tagline {
-      font-size: clamp(18px, 3vw, 28px);
-      color: rgba(255, 255, 255, 0.6);
-      font-weight: 400;
-      letter-spacing: 0.2em;
-      text-transform: lowercase;
-    }
-
-    .hero-scroll {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 14px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      animation: bounce 2s ease-in-out infinite;
-    }
-
-    .hero-scroll span {
-      font-size: 24px;
-    }
-
-    @keyframes bounce {
-      0%, 100% { transform: translateX(-50%) translateY(0); }
-      50% { transform: translateX(-50%) translateY(8px); }
-    }
-
-    /* Intro Section - Blurb + CTA */
-    .intro {
-      padding: 100px 0;
-      background: var(--white);
-    }
-
-    .intro-content {
-      max-width: 700px;
-      margin: 0 auto;
-      text-align: center;
-    }
-
-    .intro-content p {
-      font-size: clamp(18px, 2.5vw, 22px);
-      color: var(--text);
-      line-height: 1.7;
-      margin-bottom: 24px;
-    }
-
-    .intro-content p.lead {
-      font-size: clamp(20px, 3vw, 26px);
-      font-weight: 500;
-      color: var(--primary);
-      margin-bottom: 20px;
-    }
-
-    .intro-ctas {
-      display: flex;
-      gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-top: 40px;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 28px;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.2s;
-      cursor: pointer;
-      border: none;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: var(--white);
-    }
-
-    .btn-primary:hover {
-      background: #EA580C;
-      transform: translateY(-2px);
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--white);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    /* Section Styles */
-    section {
-      padding: 100px 0;
-    }
-
-    .section-header {
-      text-align: center;
-      margin-bottom: 60px;
-    }
-
-    .section-header h2 {
-      font-size: clamp(32px, 4vw, 42px);
-      font-weight: 700;
-      color: var(--primary);
-      margin-bottom: 16px;
-    }
-
-    .section-header p {
-      font-size: 18px;
-      color: var(--muted);
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    /* The Shift Section */
-    .the-shift {
-      background: var(--light);
-    }
-
-    .shift-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      align-items: start;
-    }
-
-    .shift-content h3 {
-      font-size: 28px;
-      color: var(--primary);
-      margin-bottom: 20px;
-    }
-
-    .shift-content p {
-      font-size: 17px;
-      color: var(--text);
-      margin-bottom: 16px;
-    }
-
-    .shift-content .key-idea {
-      background: linear-gradient(120deg, rgba(67, 56, 202, 0.1) 0%, rgba(249, 115, 22, 0.1) 100%);
-      padding: 20px 24px;
-      border-radius: 8px;
-      border-left: 4px solid var(--accent);
-      margin-top: 24px;
-    }
-
-    .shift-content .key-idea p {
-      margin: 0;
-      font-weight: 500;
-    }
-
-    .model-comparison {
-      display: flex;
-      flex-direction: column;
-      gap: 30px;
-    }
-
-    .model-box {
-      background: var(--white);
-      border-radius: 12px;
-      padding: 28px;
-      border: 2px solid #E5E7EB;
-    }
-
-    .model-box.old {
-      border-color: #FCA5A5;
-    }
-
-    .model-box.new {
-      border-color: var(--money);
-    }
-
-    .model-box h4 {
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 16px;
-    }
-
-    .model-box.old h4 {
-      color: #DC2626;
-    }
-
-    .model-box.new h4 {
-      color: var(--money);
-    }
-
-    .model-diagram {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      color: var(--text);
-      line-height: 2;
-    }
-
-    .model-diagram .arrow {
-      color: var(--muted);
-    }
-
-    .model-diagram .highlight {
-      color: var(--accent);
-      font-weight: 600;
-    }
-
-    /* What Becomes Possible */
-    .possibilities {
-      background: var(--white);
-    }
-
-    .possibilities-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 30px;
-    }
-
-    .possibility-card {
-      background: var(--light);
-      padding: 32px;
-      border-radius: 12px;
-      border: 1px solid #E5E7EB;
-    }
-
-    .possibility-card h3 {
-      font-size: 20px;
-      color: var(--primary);
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .possibility-card h3 span {
-      font-size: 28px;
-    }
-
-    .possibility-card p {
-      font-size: 15px;
-      color: var(--muted);
-      margin-bottom: 16px;
-    }
-
-    .possibility-card .example {
-      background: var(--white);
-      padding: 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      color: var(--text);
-      border-left: 3px solid var(--secondary);
-    }
-
-    /* How It Works */
-    .how-it-works {
-      background: var(--primary);
-      color: var(--white);
-    }
-
-    .how-it-works .section-header h2 {
-      color: var(--white);
-    }
-
-    .how-it-works .section-header p {
-      color: rgba(255, 255, 255, 0.7);
-    }
-
-    .concepts-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 30px;
-      margin-bottom: 60px;
-    }
-
-    .concept-card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 28px;
-    }
-
-    .concept-card h3 {
-      font-size: 18px;
-      margin-bottom: 12px;
-      color: var(--accent);
-    }
-
-    .concept-card p {
-      font-size: 15px;
-      color: rgba(255, 255, 255, 0.8);
-      margin-bottom: 16px;
-    }
-
-    .concept-card code {
-      display: block;
-      background: rgba(0, 0, 0, 0.3);
-      padding: 12px;
-      border-radius: 6px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: #86EFAC;
-      overflow-x: auto;
-    }
-
-    /* Code Example */
-    .code-section {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-
-    .code-header {
-      background: rgba(0, 0, 0, 0.2);
-      padding: 12px 20px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .code-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
-
-    .code-dot.red { background: #EF4444; }
-    .code-dot.yellow { background: #F59E0B; }
-    .code-dot.green { background: #10B981; }
-
-    .code-content {
-      padding: 24px;
-    }
-
-    .code-content pre {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 14px;
-      line-height: 1.8;
-      color: rgba(255, 255, 255, 0.9);
-      overflow-x: auto;
-    }
-
-    .code-content .comment {
-      color: rgba(255, 255, 255, 0.4);
-    }
-
-    .code-content .keyword {
-      color: #C084FC;
-    }
-
-    .code-content .string {
-      color: #86EFAC;
-    }
-
-    .code-content .function {
-      color: #93C5FD;
-    }
-
-    /* Links Section */
-    .links {
-      background: var(--light);
-    }
-
-    .links-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-    }
-
-    .link-card {
-      background: var(--white);
-      border: 1px solid #E5E7EB;
-      border-radius: 12px;
-      padding: 28px;
-      text-decoration: none;
-      color: var(--text);
-      transition: all 0.2s;
-    }
-
-    .link-card:hover {
-      border-color: var(--secondary);
-      box-shadow: 0 10px 40px rgba(67, 56, 202, 0.1);
-      transform: translateY(-4px);
-    }
-
-    .link-card-icon {
-      font-size: 32px;
-      margin-bottom: 16px;
-    }
-
-    .link-card h3 {
-      font-size: 18px;
-      color: var(--primary);
-      margin-bottom: 8px;
-    }
-
-    .link-card p {
-      font-size: 14px;
-      color: var(--muted);
-    }
-
-    .link-card .arrow {
-      display: inline-block;
-      margin-top: 16px;
-      color: var(--secondary);
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    /* Footer */
-    footer {
-      background: var(--primary);
-      color: rgba(255, 255, 255, 0.6);
-      padding: 60px 0 40px;
-    }
-
-    .footer-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: start;
-      margin-bottom: 40px;
-    }
-
-    .footer-brand .logo {
-      color: var(--white);
-      margin-bottom: 12px;
-      display: inline-block;
-    }
-
-    .footer-brand p {
-      font-size: 14px;
-      max-width: 300px;
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 60px;
-    }
-
-    .footer-links h4 {
-      color: var(--white);
-      font-size: 14px;
-      margin-bottom: 16px;
-    }
-
-    .footer-links ul {
-      list-style: none;
-    }
-
-    .footer-links li {
-      margin-bottom: 8px;
-    }
-
-    .footer-links a {
-      color: rgba(255, 255, 255, 0.6);
-      text-decoration: none;
-      font-size: 14px;
-      transition: color 0.2s;
-    }
-
-    .footer-links a:hover {
-      color: var(--accent);
-    }
-
-    .footer-bottom {
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      padding-top: 24px;
-      font-size: 13px;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .footer-bottom a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    /* Responsive */
-    @media (max-width: 1024px) {
-      .shift-grid {
-        grid-template-columns: 1fr;
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B3nd - A Different Way to Think About Data</title>
+    <meta
+      name="description"
+      content="B3nd is a framework for building digital experiences where data belongs to users, not platforms. Rethink the client-server model."
+    >
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    >
+
+    <style>
+      :root {
+        --primary: #1e1b4b;
+        --secondary: #4338ca;
+        --accent: #f97316;
+        --money: #10b981;
+        --light: #f8fafc;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --white: #ffffff;
       }
 
-      .possibilities-grid {
-        grid-template-columns: 1fr;
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
 
-      .concepts-grid {
-        grid-template-columns: repeat(2, 1fr);
+      html {
+        scroll-behavior: smooth;
       }
 
-      .links-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    .mobile-cta {
-      display: none;
-    }
-
-    @media (max-width: 768px) {
-      .nav-links {
-        display: none;
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--text);
+        line-height: 1.6;
+        background: var(--white);
       }
 
-      .mobile-cta {
-        display: inline-flex;
-        background: var(--primary);
-        color: var(--white);
-        padding: 8px 16px;
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: 500;
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* Navigation */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid #e5e7eb;
+        z-index: 100;
+      }
+
+      nav .container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 64px;
+      }
+
+      .logo {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--primary);
         text-decoration: none;
       }
 
-      .concepts-grid,
-      .links-grid {
-        grid-template-columns: 1fr;
+      .logo span {
+        color: var(--accent);
       }
 
-      .intro-ctas {
-        flex-direction: column;
+      .nav-links {
+        display: flex;
+        gap: 32px;
+        list-style: none;
       }
 
-      .btn {
+      .nav-links a {
+        color: var(--text);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+
+      .nav-links a:hover {
+        color: var(--secondary);
+      }
+
+      .nav-cta {
+        background: var(--primary);
+        color: var(--white) !important;
+        padding: 8px 16px;
+        border-radius: 6px;
+      }
+
+      .nav-cta:hover {
+        background: var(--secondary);
+        color: var(--white) !important;
+      }
+
+      /* Hero Section - Pure Mood */
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
         justify-content: center;
+        background: linear-gradient(
+          135deg,
+          var(--primary) 0%,
+          #2d2a6e 50%,
+          #1a1744 100%
+        );
+        padding-top: 64px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--accent);
+      }
+
+      .hero::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 800px;
+        height: 800px;
+        background: radial-gradient(
+          circle,
+          rgba(249, 115, 22, 0.12) 0%,
+          transparent 60%
+        );
+        transform: translate(-50%, -50%);
+      }
+
+      /* Ambient particles */
+      .hero .particles {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .hero .particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: rgba(249, 115, 22, 0.4);
+        border-radius: 50%;
+        animation: float 8s ease-in-out infinite;
+      }
+
+      .hero .particle:nth-child(1) {
+        left: 10%;
+        top: 20%;
+        animation-delay: 0s;
+      }
+      .hero .particle:nth-child(2) {
+        left: 20%;
+        top: 80%;
+        animation-delay: 1s;
+      }
+      .hero .particle:nth-child(3) {
+        left: 80%;
+        top: 30%;
+        animation-delay: 2s;
+      }
+      .hero .particle:nth-child(4) {
+        left: 70%;
+        top: 70%;
+        animation-delay: 3s;
+      }
+      .hero .particle:nth-child(5) {
+        left: 40%;
+        top: 40%;
+        animation-delay: 4s;
+      }
+      .hero .particle:nth-child(6) {
+        left: 90%;
+        top: 60%;
+        animation-delay: 5s;
+      }
+      .hero .particle:nth-child(7) {
+        left: 30%;
+        top: 10%;
+        animation-delay: 6s;
+      }
+      .hero .particle:nth-child(8) {
+        left: 60%;
+        top: 90%;
+        animation-delay: 7s;
+      }
+
+      @keyframes float {
+        0%, 100% {
+          transform: translateY(0) scale(1);
+          opacity: 0.4;
+        }
+        50% {
+          transform: translateY(-20px) scale(1.2);
+          opacity: 0.8;
+        }
+      }
+
+      .hero-content {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+      }
+
+      .hero-brand {
+        font-size: clamp(80px, 15vw, 160px);
+        font-weight: 700;
+        color: var(--white);
+        letter-spacing: -0.02em;
+        line-height: 1;
+        margin-bottom: 16px;
+        text-transform: uppercase;
+      }
+
+      .hero-brand .accent {
+        color: var(--accent);
+      }
+
+      .hero-tagline {
+        font-size: clamp(18px, 3vw, 28px);
+        color: rgba(255, 255, 255, 0.6);
+        font-weight: 400;
+        letter-spacing: 0.2em;
+        text-transform: lowercase;
       }
 
       .hero-scroll {
-        bottom: 20px;
-      }
-
-      .footer-content {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 14px;
+        display: flex;
         flex-direction: column;
-        gap: 40px;
+        align-items: center;
+        gap: 8px;
+        animation: bounce 2s ease-in-out infinite;
       }
 
-      .footer-links {
+      .hero-scroll span {
+        font-size: 24px;
+      }
+
+      @keyframes bounce {
+        0%, 100% {
+          transform: translateX(-50%) translateY(0);
+        }
+        50% {
+          transform: translateX(-50%) translateY(8px);
+        }
+      }
+
+      /* Intro Section - Blurb + CTA */
+      .intro {
+        padding: 100px 0;
+        background: var(--white);
+      }
+
+      .intro-content {
+        max-width: 700px;
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      .intro-content p {
+        font-size: clamp(18px, 2.5vw, 22px);
+        color: var(--text);
+        line-height: 1.7;
+        margin-bottom: 24px;
+      }
+
+      .intro-content p.lead {
+        font-size: clamp(20px, 3vw, 26px);
+        font-weight: 500;
+        color: var(--primary);
+        margin-bottom: 20px;
+      }
+
+      .intro-ctas {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 40px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+        cursor: pointer;
+        border: none;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: var(--white);
+      }
+
+      .btn-primary:hover {
+        background: #ea580c;
+        transform: translateY(-2px);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--white);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      /* Section Styles */
+      section {
+        padding: 100px 0;
+      }
+
+      .section-header {
+        text-align: center;
+        margin-bottom: 60px;
+      }
+
+      .section-header h2 {
+        font-size: clamp(32px, 4vw, 42px);
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 16px;
+      }
+
+      .section-header p {
+        font-size: 18px;
+        color: var(--muted);
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      /* The Shift Section */
+      .the-shift {
+        background: var(--light);
+      }
+
+      .shift-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        align-items: start;
+      }
+
+      .shift-content h3 {
+        font-size: 28px;
+        color: var(--primary);
+        margin-bottom: 20px;
+      }
+
+      .shift-content p {
+        font-size: 17px;
+        color: var(--text);
+        margin-bottom: 16px;
+      }
+
+      .shift-content .key-idea {
+        background: linear-gradient(
+          120deg,
+          rgba(67, 56, 202, 0.1) 0%,
+          rgba(249, 115, 22, 0.1) 100%
+        );
+        padding: 20px 24px;
+        border-radius: 8px;
+        border-left: 4px solid var(--accent);
+        margin-top: 24px;
+      }
+
+      .shift-content .key-idea p {
+        margin: 0;
+        font-weight: 500;
+      }
+
+      .model-comparison {
+        display: flex;
         flex-direction: column;
         gap: 30px;
       }
 
-      .footer-bottom {
-        flex-direction: column;
-        gap: 12px;
-        text-align: center;
+      .model-box {
+        background: var(--white);
+        border-radius: 12px;
+        padding: 28px;
+        border: 2px solid #e5e7eb;
       }
-    }
-  </style>
-</head>
-<body>
-  <!-- Navigation -->
-  <nav>
-    <div class="container">
-      <a href="#" class="logo">b3nd<span>.</span></a>
-      <a href="https://github.com/bandeira-tech/b3nd" class="mobile-cta">GitHub</a>
-      <ul class="nav-links">
-        <li><a href="#the-shift">The Shift</a></li>
-        <li><a href="#possibilities">What's Possible</a></li>
-        <li><a href="#how-it-works">How It Works</a></li>
-        <li><a href="#resources">Resources</a></li>
-        <li><a href="https://github.com/bandeira-tech/b3nd" class="nav-cta">GitHub</a></li>
-      </ul>
-    </div>
-  </nav>
 
-  <!-- Hero Section - Pure Mood -->
-  <section class="hero">
-    <div class="particles">
-      <div class="particle"></div>
-      <div class="particle"></div>
-      <div class="particle"></div>
-      <div class="particle"></div>
-      <div class="particle"></div>
-      <div class="particle"></div>
-      <div class="particle"></div>
-      <div class="particle"></div>
-    </div>
-    <div class="hero-content">
-      <h1 class="hero-brand">B3ND<span class="accent">.</span></h1>
-      <p class="hero-tagline">digital spellcraft</p>
-    </div>
-    <a href="#intro" class="hero-scroll">
-      <span>↓</span>
-    </a>
-  </section>
+      .model-box.old {
+        border-color: #fca5a5;
+      }
 
-  <!-- Intro Section - Blurb + CTA -->
-  <section class="intro" id="intro">
-    <div class="container">
-      <div class="intro-content">
-        <p class="lead">A different way to think about data.</p>
-        <p>
-          What if data didn't live on someone else's servers? What if messages went directly between parties? What if the software you use worked for you instead of extracting from you?
-        </p>
-        <p>
-          B3nd is a framework for building that world.
-        </p>
-        <div class="intro-ctas">
-          <a href="#the-shift" class="btn btn-primary">Understand the Shift</a>
-          <a href="https://github.com/bandeira-tech/b3nd" class="btn btn-secondary" style="background: var(--primary); border-color: var(--primary);">View on GitHub →</a>
-        </div>
+      .model-box.new {
+        border-color: var(--money);
+      }
+
+      .model-box h4 {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+      }
+
+      .model-box.old h4 {
+        color: #dc2626;
+      }
+
+      .model-box.new h4 {
+        color: var(--money);
+      }
+
+      .model-diagram {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        color: var(--text);
+        line-height: 2;
+      }
+
+      .model-diagram .arrow {
+        color: var(--muted);
+      }
+
+      .model-diagram .highlight {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* What Becomes Possible */
+      .possibilities {
+        background: var(--white);
+      }
+
+      .possibilities-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 30px;
+      }
+
+      .possibility-card {
+        background: var(--light);
+        padding: 32px;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+      }
+
+      .possibility-card h3 {
+        font-size: 20px;
+        color: var(--primary);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .possibility-card h3 span {
+        font-size: 28px;
+      }
+
+      .possibility-card p {
+        font-size: 15px;
+        color: var(--muted);
+        margin-bottom: 16px;
+      }
+
+      .possibility-card .example {
+        background: var(--white);
+        padding: 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        color: var(--text);
+        border-left: 3px solid var(--secondary);
+      }
+
+      /* How It Works */
+      .how-it-works {
+        background: var(--primary);
+        color: var(--white);
+      }
+
+      .how-it-works .section-header h2 {
+        color: var(--white);
+      }
+
+      .how-it-works .section-header p {
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .concepts-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 30px;
+        margin-bottom: 60px;
+      }
+
+      .concept-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 28px;
+      }
+
+      .concept-card h3 {
+        font-size: 18px;
+        margin-bottom: 12px;
+        color: var(--accent);
+      }
+
+      .concept-card p {
+        font-size: 15px;
+        color: rgba(255, 255, 255, 0.8);
+        margin-bottom: 16px;
+      }
+
+      .concept-card code {
+        display: block;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 12px;
+        border-radius: 6px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: #86efac;
+        overflow-x: auto;
+      }
+
+      /* Code Example */
+      .code-section {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .code-header {
+        background: rgba(0, 0, 0, 0.2);
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .code-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .code-dot.red {
+        background: #ef4444;
+      }
+      .code-dot.yellow {
+        background: #f59e0b;
+      }
+      .code-dot.green {
+        background: #10b981;
+      }
+
+      .code-content {
+        padding: 24px;
+      }
+
+      .code-content pre {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px;
+        line-height: 1.8;
+        color: rgba(255, 255, 255, 0.9);
+        overflow-x: auto;
+      }
+
+      .code-content .comment {
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      .code-content .keyword {
+        color: #c084fc;
+      }
+
+      .code-content .string {
+        color: #86efac;
+      }
+
+      .code-content .function {
+        color: #93c5fd;
+      }
+
+      /* Links Section */
+      .links {
+        background: var(--light);
+      }
+
+      .links-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+
+      .link-card {
+        background: var(--white);
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 28px;
+        text-decoration: none;
+        color: var(--text);
+        transition: all 0.2s;
+      }
+
+      .link-card:hover {
+        border-color: var(--secondary);
+        box-shadow: 0 10px 40px rgba(67, 56, 202, 0.1);
+        transform: translateY(-4px);
+      }
+
+      .link-card-icon {
+        font-size: 32px;
+        margin-bottom: 16px;
+      }
+
+      .link-card h3 {
+        font-size: 18px;
+        color: var(--primary);
+        margin-bottom: 8px;
+      }
+
+      .link-card p {
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .link-card .arrow {
+        display: inline-block;
+        margin-top: 16px;
+        color: var(--secondary);
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      /* Footer */
+      footer {
+        background: var(--primary);
+        color: rgba(255, 255, 255, 0.6);
+        padding: 60px 0 40px;
+      }
+
+      .footer-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 40px;
+      }
+
+      .footer-brand .logo {
+        color: var(--white);
+        margin-bottom: 12px;
+        display: inline-block;
+      }
+
+      .footer-brand p {
+        font-size: 14px;
+        max-width: 300px;
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 60px;
+      }
+
+      .footer-links h4 {
+        color: var(--white);
+        font-size: 14px;
+        margin-bottom: 16px;
+      }
+
+      .footer-links ul {
+        list-style: none;
+      }
+
+      .footer-links li {
+        margin-bottom: 8px;
+      }
+
+      .footer-links a {
+        color: rgba(255, 255, 255, 0.6);
+        text-decoration: none;
+        font-size: 14px;
+        transition: color 0.2s;
+      }
+
+      .footer-links a:hover {
+        color: var(--accent);
+      }
+
+      .footer-bottom {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 24px;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .footer-bottom a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      /* Responsive */
+      @media (max-width: 1024px) {
+        .shift-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .possibilities-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .concepts-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .links-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      .mobile-cta {
+        display: none;
+      }
+
+      @media (max-width: 768px) {
+        .nav-links {
+          display: none;
+        }
+
+        .mobile-cta {
+          display: inline-flex;
+          background: var(--primary);
+          color: var(--white);
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-size: 14px;
+          font-weight: 500;
+          text-decoration: none;
+        }
+
+        .concepts-grid,
+        .links-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .intro-ctas {
+          flex-direction: column;
+        }
+
+        .btn {
+          justify-content: center;
+        }
+
+        .hero-scroll {
+          bottom: 20px;
+        }
+
+        .footer-content {
+          flex-direction: column;
+          gap: 40px;
+        }
+
+        .footer-links {
+          flex-direction: column;
+          gap: 30px;
+        }
+
+        .footer-bottom {
+          flex-direction: column;
+          gap: 12px;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav>
+      <div class="container">
+        <a href="#" class="logo">b3nd<span>.</span></a>
+        <a href="https://github.com/bandeira-tech/b3nd" class="mobile-cta"
+        >GitHub</a>
+        <ul class="nav-links">
+          <li><a href="#the-shift">The Shift</a></li>
+          <li><a href="#possibilities">What's Possible</a></li>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#resources">Resources</a></li>
+          <li>
+            <a href="https://github.com/bandeira-tech/b3nd" class="nav-cta"
+            >GitHub</a>
+          </li>
+        </ul>
       </div>
-    </div>
-  </section>
+    </nav>
 
-  <!-- The Shift -->
-  <section class="the-shift" id="the-shift">
-    <div class="container">
-      <div class="shift-grid">
-        <div class="shift-content">
-          <h3>The model we inherited</h3>
+    <!-- Hero Section - Pure Mood -->
+    <section class="hero">
+      <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+      </div>
+      <div class="hero-content">
+        <h1 class="hero-brand">B3ND<span class="accent">.</span></h1>
+        <p class="hero-tagline">digital spellcraft</p>
+      </div>
+      <a href="#intro" class="hero-scroll">
+        <span>↓</span>
+      </a>
+    </section>
+
+    <!-- Intro Section - Blurb + CTA -->
+    <section class="intro" id="intro">
+      <div class="container">
+        <div class="intro-content">
+          <p class="lead">A different way to think about data.</p>
           <p>
-            The internet we use today is built on a simple assumption: users connect to servers, and servers hold everything. Your photos, your messages, your purchases, your history—all stored on computers you don't control, managed by companies whose interests aren't yours.
+            What if data didn't live on someone else's servers? What if messages
+            went directly between parties? What if the software you use worked
+            for you instead of extracting from you?
           </p>
           <p>
-            This made sense when storage was expensive and connections were slow. But that was decades ago. Now we carry supercomputers in our pockets and pay for bandwidth we barely use.
+            B3nd is a framework for building that world.
           </p>
-          <p>
-            The client-server model persists not because it's the best way to build software, but because it's the best way to build platforms that extract value from users.
-          </p>
-          <div class="key-idea">
-            <p>B3nd asks: what if we designed from first principles for today's technology and tomorrow's users?</p>
+          <div class="intro-ctas">
+            <a href="#the-shift" class="btn btn-primary"
+            >Understand the Shift</a>
+            <a
+              href="https://github.com/bandeira-tech/b3nd"
+              class="btn btn-secondary"
+              style="background: var(--primary); border-color: var(--primary)"
+            >View on GitHub →</a>
           </div>
         </div>
-        <div class="model-comparison">
-          <div class="model-box old">
-            <h4>The Old Model</h4>
-            <div class="model-diagram">
-              User <span class="arrow">→</span> Platform <span class="arrow">←</span> User<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">↓</span><br>
-              &nbsp;&nbsp;&nbsp;&nbsp;Platform owns data<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;Platform sets rules<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;Platform takes cut
+      </div>
+    </section>
+
+    <!-- The Shift -->
+    <section class="the-shift" id="the-shift">
+      <div class="container">
+        <div class="shift-grid">
+          <div class="shift-content">
+            <h3>The model we inherited</h3>
+            <p>
+              The internet we use today is built on a simple assumption: users
+              connect to servers, and servers hold everything. Your photos, your
+              messages, your purchases, your history—all stored on computers you
+              don't control, managed by companies whose interests aren't yours.
+            </p>
+            <p>
+              This made sense when storage was expensive and connections were
+              slow. But that was decades ago. Now we carry supercomputers in our
+              pockets and pay for bandwidth we barely use.
+            </p>
+            <p>
+              The client-server model persists not because it's the best way to
+              build software, but because it's the best way to build platforms
+              that extract value from users.
+            </p>
+            <div class="key-idea">
+              <p>
+                B3nd asks: what if we designed from first principles for today's
+                technology and tomorrow's users?
+              </p>
             </div>
           </div>
-          <div class="model-box new">
-            <h4>The B3nd Model</h4>
-            <div class="model-diagram">
-              User <span class="arrow">↔</span> <span class="highlight">Data</span> <span class="arrow">↔</span> User<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">↕</span><br>
-              &nbsp;&nbsp;&nbsp;&nbsp;Users own data<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;Apps compete to serve<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;Value flows direct
+          <div class="model-comparison">
+            <div class="model-box old">
+              <h4>The Old Model</h4>
+              <div class="model-diagram">
+                User <span class="arrow">→</span> Platform <span class="arrow"
+                >←</span> User<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span
+                  class="arrow"
+                >↓</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;Platform owns data<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;Platform sets rules<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;Platform takes cut
+              </div>
+            </div>
+            <div class="model-box new">
+              <h4>The B3nd Model</h4>
+              <div class="model-diagram">
+                User <span class="arrow">↔</span> <span class="highlight"
+                >Data</span> <span class="arrow">↔</span> User<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span
+                  class="arrow"
+                >↕</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;Users own data<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;Apps compete to serve<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;Value flows direct
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- What Becomes Possible -->
-  <section class="possibilities" id="possibilities">
-    <div class="container">
-      <div class="section-header">
-        <h2>What becomes possible</h2>
-        <p>When you change how data works, you change what you can build</p>
+    <!-- What Becomes Possible -->
+    <section class="possibilities" id="possibilities">
+      <div class="container">
+        <div class="section-header">
+          <h2>What becomes possible</h2>
+          <p>When you change how data works, you change what you can build</p>
+        </div>
+
+        <div class="possibilities-grid">
+          <div class="possibility-card">
+            <h3><span>💰</span> Direct value exchange</h3>
+            <p>
+              When there's no platform in the middle, advertisers can pay users
+              directly for attention. Creators can sell directly to audiences.
+              The 30% platform fee disappears.
+            </p>
+            <div class="example">
+              <strong>Example:</strong> An app where you see ads and get
+              paid—not the platform. The advertiser gets verified human
+              attention, you get compensated for yours.
+            </div>
+          </div>
+
+          <div class="possibility-card">
+            <h3><span>🔐</span> Real privacy</h3>
+            <p>
+              When data is encrypted before it leaves your device, privacy isn't
+              a policy—it's math. The network can't read what it can't decrypt.
+            </p>
+            <div class="example">
+              <strong>Example:</strong> Messages that are literally unreadable
+              by anyone except sender and recipient. Not "we promise not to
+              look"—actually impossible to look.
+            </div>
+          </div>
+
+          <div class="possibility-card">
+            <h3><span>🔄</span> Portable identity</h3>
+            <p>
+              When your data lives at addresses you control, switching apps
+              doesn't mean starting over. Your history, your relationships, your
+              content—it all comes with you.
+            </p>
+            <div class="example">
+              <strong>Example:</strong> Leave a social network but keep your
+              followers. Switch note-taking apps but keep your notes. The data
+              is yours wherever you go.
+            </div>
+          </div>
+
+          <div class="possibility-card">
+            <h3><span>🌐</span> Distributed infrastructure</h3>
+            <p>
+              When storage and messaging are protocols instead of services,
+              anyone can run the infrastructure. Local businesses can serve
+              local traffic. The network becomes the community.
+            </p>
+            <div class="example">
+              <strong>Example:</strong> A coffee shop that runs a node, serves
+              content to customers, and gets paid for the bandwidth.
+              Infrastructure as community service.
+            </div>
+          </div>
+        </div>
       </div>
+    </section>
 
-      <div class="possibilities-grid">
-        <div class="possibility-card">
-          <h3><span>💰</span> Direct value exchange</h3>
-          <p>
-            When there's no platform in the middle, advertisers can pay users directly for attention. Creators can sell directly to audiences. The 30% platform fee disappears.
-          </p>
-          <div class="example">
-            <strong>Example:</strong> An app where you see ads and get paid—not the platform. The advertiser gets verified human attention, you get compensated for yours.
+    <!-- How It Works -->
+    <section class="how-it-works" id="how-it-works">
+      <div class="container">
+        <div class="section-header">
+          <h2>How it works</h2>
+          <p>Simple concepts, powerful implications</p>
+        </div>
+
+        <div class="concepts-grid">
+          <div class="concept-card">
+            <h3>Addressable Data</h3>
+            <p>
+              Every piece of data has a URI—an address that belongs to whoever
+              controls the key. Like URLs for the web, but for everything.
+            </p>
+            <code>mutable://accounts/{key}/profile</code>
+          </div>
+
+          <div class="concept-card">
+            <h3>Signed Messages</h3>
+            <p>
+              Every write is cryptographically signed. The network doesn't need
+              to trust you—it can verify mathematically that you authorized the
+              action.
+            </p>
+            <code>{ auth: [{ pubkey, signature }], payload }</code>
+          </div>
+
+          <div class="concept-card">
+            <h3>Client-Side Encryption</h3>
+            <p>
+              Private data is encrypted before it leaves your device. The
+              network stores bytes it can't read. Privacy is structural, not
+              promised.
+            </p>
+            <code>encrypt(data, recipientKey)</code>
           </div>
         </div>
 
-        <div class="possibility-card">
-          <h3><span>🔐</span> Real privacy</h3>
-          <p>
-            When data is encrypted before it leaves your device, privacy isn't a policy—it's math. The network can't read what it can't decrypt.
-          </p>
-          <div class="example">
-            <strong>Example:</strong> Messages that are literally unreadable by anyone except sender and recipient. Not "we promise not to look"—actually impossible to look.
+        <div class="code-section">
+          <div class="code-header">
+            <span class="code-dot red"></span>
+            <span class="code-dot yellow"></span>
+            <span class="code-dot green"></span>
           </div>
-        </div>
-
-        <div class="possibility-card">
-          <h3><span>🔄</span> Portable identity</h3>
-          <p>
-            When your data lives at addresses you control, switching apps doesn't mean starting over. Your history, your relationships, your content—it all comes with you.
-          </p>
-          <div class="example">
-            <strong>Example:</strong> Leave a social network but keep your followers. Switch note-taking apps but keep your notes. The data is yours wherever you go.
-          </div>
-        </div>
-
-        <div class="possibility-card">
-          <h3><span>🌐</span> Distributed infrastructure</h3>
-          <p>
-            When storage and messaging are protocols instead of services, anyone can run the infrastructure. Local businesses can serve local traffic. The network becomes the community.
-          </p>
-          <div class="example">
-            <strong>Example:</strong> A coffee shop that runs a node, serves content to customers, and gets paid for the bandwidth. Infrastructure as community service.
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- How It Works -->
-  <section class="how-it-works" id="how-it-works">
-    <div class="container">
-      <div class="section-header">
-        <h2>How it works</h2>
-        <p>Simple concepts, powerful implications</p>
-      </div>
-
-      <div class="concepts-grid">
-        <div class="concept-card">
-          <h3>Addressable Data</h3>
-          <p>Every piece of data has a URI—an address that belongs to whoever controls the key. Like URLs for the web, but for everything.</p>
-          <code>mutable://accounts/{key}/profile</code>
-        </div>
-
-        <div class="concept-card">
-          <h3>Signed Messages</h3>
-          <p>Every write is cryptographically signed. The network doesn't need to trust you—it can verify mathematically that you authorized the action.</p>
-          <code>{ auth: [{ pubkey, signature }], payload }</code>
-        </div>
-
-        <div class="concept-card">
-          <h3>Client-Side Encryption</h3>
-          <p>Private data is encrypted before it leaves your device. The network stores bytes it can't read. Privacy is structural, not promised.</p>
-          <code>encrypt(data, recipientKey)</code>
-        </div>
-      </div>
-
-      <div class="code-section">
-        <div class="code-header">
-          <span class="code-dot red"></span>
-          <span class="code-dot yellow"></span>
-          <span class="code-dot green"></span>
-        </div>
-        <div class="code-content">
-<pre><span class="comment">// The API is simple: read, write, list, delete</span>
+          <div class="code-content">
+            <pre>
+<span class="comment">// The API is simple: read, write, list, delete</span>
 
 <span class="comment">// Write data to an address you control</span>
 <span class="keyword">await</span> client.<span class="function">write</span>(
@@ -950,80 +1071,99 @@
 
 <span class="comment">// That's it. The network handles storage, replication, delivery.</span>
 <span class="comment">// Your code handles what matters: the experience you're building.</span></pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Resources -->
-  <section class="links" id="resources">
-    <div class="container">
-      <div class="section-header">
-        <h2>Start building</h2>
-        <p>Everything you need to build with B3nd</p>
-      </div>
-
-      <div class="links-grid">
-        <a href="https://github.com/bandeira-tech/b3nd#readme" class="link-card">
-          <div class="link-card-icon">📚</div>
-          <h3>Documentation</h3>
-          <p>Guides, API reference, and examples to get started</p>
-          <span class="arrow">Read the docs →</span>
-        </a>
-        <a href="https://github.com/bandeira-tech/b3nd" class="link-card">
-          <div class="link-card-icon">💻</div>
-          <h3>GitHub</h3>
-          <p>Source code, SDK, and reference implementations</p>
-          <span class="arrow">View repository →</span>
-        </a>
-        <a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web" class="link-card">
-          <div class="link-card-icon">📦</div>
-          <h3>SDK</h3>
-          <p>npm install @bandeira-tech/b3nd-web</p>
-          <span class="arrow">Install package →</span>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer>
-    <div class="container">
-      <div class="footer-content">
-        <div class="footer-brand">
-          <a href="#" class="logo">b3nd<span>.</span></a>
-          <p>A framework for building digital experiences where data belongs to users, not platforms.</p>
-        </div>
-        <div class="footer-links">
-          <div>
-            <h4>Learn</h4>
-            <ul>
-              <li><a href="#the-shift">The Shift</a></li>
-              <li><a href="#possibilities">What's Possible</a></li>
-              <li><a href="#how-it-works">How It Works</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4>Build</h4>
-            <ul>
-              <li><a href="https://github.com/bandeira-tech/b3nd#readme">Documentation</a></li>
-              <li><a href="https://github.com/bandeira-tech/b3nd">GitHub</a></li>
-              <li><a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web">NPM</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4>Connect</h4>
-            <ul>
-              <li><a href="https://bandeira.tech">Bandeira Tech</a></li>
-            </ul>
           </div>
         </div>
       </div>
-      <div class="footer-bottom">
-        <span>B3nd is open source</span>
-        <span>Built by <a href="https://bandeira.tech">Bandeira Tech</a></span>
+    </section>
+
+    <!-- Resources -->
+    <section class="links" id="resources">
+      <div class="container">
+        <div class="section-header">
+          <h2>Start building</h2>
+          <p>Everything you need to build with B3nd</p>
+        </div>
+
+        <div class="links-grid">
+          <a
+            href="https://github.com/bandeira-tech/b3nd#readme"
+            class="link-card"
+          >
+            <div class="link-card-icon">📚</div>
+            <h3>Documentation</h3>
+            <p>Guides, API reference, and examples to get started</p>
+            <span class="arrow">Read the docs →</span>
+          </a>
+          <a href="https://github.com/bandeira-tech/b3nd" class="link-card">
+            <div class="link-card-icon">💻</div>
+            <h3>GitHub</h3>
+            <p>Source code, SDK, and reference implementations</p>
+            <span class="arrow">View repository →</span>
+          </a>
+          <a
+            href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web"
+            class="link-card"
+          >
+            <div class="link-card-icon">📦</div>
+            <h3>SDK</h3>
+            <p>npm install @bandeira-tech/b3nd-web</p>
+            <span class="arrow">Install package →</span>
+          </a>
+        </div>
       </div>
-    </div>
-  </footer>
-</body>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <a href="#" class="logo">b3nd<span>.</span></a>
+            <p>
+              A framework for building digital experiences where data belongs to
+              users, not platforms.
+            </p>
+          </div>
+          <div class="footer-links">
+            <div>
+              <h4>Learn</h4>
+              <ul>
+                <li><a href="#the-shift">The Shift</a></li>
+                <li><a href="#possibilities">What's Possible</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4>Build</h4>
+              <ul>
+                <li>
+                  <a href="https://github.com/bandeira-tech/b3nd#readme"
+                  >Documentation</a>
+                </li>
+                <li>
+                  <a href="https://github.com/bandeira-tech/b3nd">GitHub</a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web"
+                  >NPM</a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4>Connect</h4>
+              <ul>
+                <li><a href="https://bandeira.tech">Bandeira Tech</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>B3nd is open source</span>
+          <span>Built by <a href="https://bandeira.tech"
+            >Bandeira Tech</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
 </html>

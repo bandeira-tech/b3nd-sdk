@@ -1,12 +1,16 @@
 # B3nd Wallet Server
 
-A key custodian and middleware service that enables users to authenticate with familiar username/password flows while the server manages their cryptographic keys for signing and encryption.
+A key custodian and middleware service that enables users to authenticate with
+familiar username/password flows while the server manages their cryptographic
+keys for signing and encryption.
 
 ## Overview
 
-Instead of users managing private keys directly (which creates UX friction), the wallet server:
+Instead of users managing private keys directly (which creates UX friction), the
+wallet server:
 
-1. **Authenticates users** with username + password (supports password reset flows)
+1. **Authenticates users** with username + password (supports password reset
+   flows)
 2. **Manages user keys** - Ed25519 (for signing) and X25519 (for encryption)
 3. **Proxies writes** - Signs and encrypts user data with server-managed keys
 4. **Issues JWTs** - For stateless, authenticated session management
@@ -22,6 +26,7 @@ Wallet Server (HTTP API with JWT)
 ```
 
 The wallet server:
+
 - Has its own Ed25519 identity key (for signing server operations)
 - Has its own X25519 encryption key (for encrypting/decrypting data)
 - Uses b3nd itself for persistent key storage
@@ -78,29 +83,38 @@ deno run --allow-net --allow-read --allow-write --allow-env src/mod.ts
 ```
 
 The server will:
+
 1. Initialize server keys (creates `server-keys.json` if it doesn't exist)
 2. Connect to credential and proxy b3nd backends
-3. Register a "wallet app" on the app-backend using the server keys (writes state to `BOOTSTRAP_APP_STATE_PATH`)
+3. Register a "wallet app" on the app-backend using the server keys (writes
+   state to `BOOTSTRAP_APP_STATE_PATH`)
 4. Start listening on the configured port
 
 ### Wallet app bootstrap
 
-- On startup the wallet server registers an app on the configured app-backend using the server identity/encryption keys.
-- The resulting app token (format: `<appKey>.<tokenId>`) is stored in `BOOTSTRAP_APP_STATE_PATH` and logged at startup.
-- To log into the wallet server for the first time, use that app token to create a session via the app-backend (`POST /api/v1/app/{appKey}/session`) and then call the wallet signup/login endpoints with the token + session.
-- Registering any other app still requires a wallet JWT, so you must be logged into the wallet server first.
+- On startup the wallet server registers an app on the configured app-backend
+  using the server identity/encryption keys.
+- The resulting app token (format: `<appKey>.<tokenId>`) is stored in
+  `BOOTSTRAP_APP_STATE_PATH` and logged at startup.
+- To log into the wallet server for the first time, use that app token to create
+  a session via the app-backend (`POST /api/v1/app/{appKey}/session`) and then
+  call the wallet signup/login endpoints with the token + session.
+- Registering any other app still requires a wallet JWT, so you must be logged
+  into the wallet server first.
 
 ## API Endpoints
 
 ### Authentication
 
-All authentication routes include the wallet app key as the final path segment. Set an environment variable for examples:
+All authentication routes include the wallet app key as the final path segment.
+Set an environment variable for examples:
 
 ```bash
 APP_KEY="<wallet-app-key>"
 ```
 
 #### POST `/api/v1/auth/signup/:appKey`
+
 Create a new user account and generate keys.
 
 ```bash
@@ -113,6 +127,7 @@ curl -X POST http://localhost:3001/api/v1/auth/signup/${APP_KEY} \
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -123,6 +138,7 @@ Response:
 ```
 
 #### POST `/api/v1/auth/login/:appKey`
+
 Authenticate with username/password and get JWT token.
 
 ```bash
@@ -135,6 +151,7 @@ curl -X POST http://localhost:3001/api/v1/auth/login/${APP_KEY} \
 ```
 
 #### GET `/api/v1/auth/verify/:appKey`
+
 Validate a JWT and retrieve the username/expiration.
 
 ```bash
@@ -143,6 +160,7 @@ curl http://localhost:3001/api/v1/auth/verify/${APP_KEY} \
 ```
 
 #### POST `/api/v1/auth/credentials/change-password/:appKey`
+
 Change the user's password (requires JWT).
 
 ```bash
@@ -156,6 +174,7 @@ curl -X POST http://localhost:3001/api/v1/auth/credentials/change-password/${APP
 ```
 
 #### POST `/api/v1/auth/credentials/request-password-reset/:appKey`
+
 Request a password reset token.
 
 ```bash
@@ -165,6 +184,7 @@ curl -X POST http://localhost:3001/api/v1/auth/credentials/request-password-rese
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -176,11 +196,13 @@ Response:
 ## Container image
 
 Build an OCI image with the bundled Dockerfile:
+
 ```bash
 docker build -t b3nd-wallet-server -f installations/wallet-server/Dockerfile installations/wallet-server
 ```
 
 Run with your required configuration passed explicitly:
+
 ```bash
 docker run --rm -p 8843:8843 \
   -e PORT=8843 \
@@ -193,11 +215,19 @@ docker run --rm -p 8843:8843 \
   b3nd-wallet-server
 ```
 
-Provide additional environment variables as needed (for example `APP_BACKEND_URL`, `APP_BACKEND_API_BASE_PATH`, or `ALLOWED_ORIGINS`). Mount a persistent volume for any files you expect to survive container restarts, such as the server key material and bootstrap state. You can also supply a prepared `.env` file via `--env-file` if you prefer to manage configuration outside the image.
+Provide additional environment variables as needed (for example
+`APP_BACKEND_URL`, `APP_BACKEND_API_BASE_PATH`, or `ALLOWED_ORIGINS`). Mount a
+persistent volume for any files you expect to survive container restarts, such
+as the server key material and bootstrap state. You can also supply a prepared
+`.env` file via `--env-file` if you prefer to manage configuration outside the
+image.
 
-When using `--env-file`, avoid quoting the hex public keys; use `SERVER_IDENTITY_PUBLIC_KEY_HEX=abc...` (64 hex chars) rather than `"abc..."`. PEM values may include escaped newlines and can be quoted if needed.
+When using `--env-file`, avoid quoting the hex public keys; use
+`SERVER_IDENTITY_PUBLIC_KEY_HEX=abc...` (64 hex chars) rather than `"abc..."`.
+PEM values may include escaped newlines and can be quoted if needed.
 
 #### POST `/api/v1/auth/credentials/reset-password/:appKey`
+
 Reset password with a reset token.
 
 ```bash
@@ -212,6 +242,7 @@ curl -X POST http://localhost:3001/api/v1/auth/credentials/reset-password/${APP_
 ### Write Proxy
 
 #### POST `/api/v1/proxy/write`
+
 Proxy a write request with server signing.
 
 ```bash
@@ -226,6 +257,7 @@ curl -X POST http://localhost:3001/api/v1/proxy/write \
 ```
 
 For encrypted writes (using server's encryption key):
+
 ```bash
 curl -X POST http://localhost:3001/api/v1/proxy/write \
   -H "Authorization: Bearer <jwt-token>" \
@@ -240,7 +272,9 @@ curl -X POST http://localhost:3001/api/v1/proxy/write \
 ### Public Keys
 
 #### GET `/api/v1/auth/public-keys/:appKey`
-Get the current user's public keys in the context of the wallet app (requires JWT).
+
+Get the current user's public keys in the context of the wallet app (requires
+JWT).
 
 ```bash
 curl http://localhost:3001/api/v1/auth/public-keys/${APP_KEY} \
@@ -248,6 +282,7 @@ curl http://localhost:3001/api/v1/auth/public-keys/${APP_KEY} \
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -259,6 +294,7 @@ Response:
 ### Health
 
 #### GET `/api/v1/health`
+
 Health check endpoint.
 
 ```bash
@@ -267,7 +303,8 @@ curl http://localhost:3001/api/v1/health
 
 ## Data Storage Schema
 
-The wallet server uses b3nd's schema system to validate writes. Data is stored at:
+The wallet server uses b3nd's schema system to validate writes. Data is stored
+at:
 
 - `wallet://users/{username}` - User profile
 - `wallet://users/{username}/password` - Password hash + salt
@@ -280,6 +317,7 @@ The wallet server uses b3nd's schema system to validate writes. Data is stored a
 ## Deployment Scenarios
 
 ### Single Backend (Development)
+
 Both credential and proxy clients point to the same b3nd instance:
 
 ```bash
@@ -288,6 +326,7 @@ PROXY_NODE_URL=http://localhost:8080
 ```
 
 ### Separate Backends (Production)
+
 - Credential backend: Secure, access-controlled b3nd instance
 - Proxy backend: Public-facing b3nd instance for user data
 
@@ -298,7 +337,8 @@ PROXY_NODE_URL=https://api.example.com
 
 ## Security Considerations
 
-1. **Server Keys**: Generated on first run, stored in `server-keys.json`. Protect this file!
+1. **Server Keys**: Generated on first run, stored in `server-keys.json`.
+   Protect this file!
 2. **JWT Secret**: Use a strong, random value (minimum 32 characters)
 3. **HTTPS**: Always use HTTPS in production
 4. **CORS**: Restrict to trusted origins
@@ -308,11 +348,13 @@ PROXY_NODE_URL=https://api.example.com
 ## Development
 
 ### Type Checking
+
 ```bash
 deno task check
 ```
 
 ### Directory Structure
+
 ```
 wallet-server/
 ├── src/

@@ -101,7 +101,8 @@ const schema: Schema = {
       if (actualHash.toLowerCase() !== expectedHash.toLowerCase()) {
         return {
           valid: false,
-          error: `Content hash mismatch: expected ${expectedHash}, got ${actualHash}`,
+          error:
+            `Content hash mismatch: expected ${expectedHash}, got ${actualHash}`,
         };
       }
 
