@@ -125,41 +125,45 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
 
     const source = lines.slice(i, endLine + 1).join("\n");
 
-    // Extract test name
+    // Extract test name — use marker-appropriate patterns to avoid
+    // a Deno.test({...}) block matching a nested t.step() name.
     let name = "";
     let isTemplate = false;
+    const isDenoTest = denoTestIdx >= 0;
 
-    // Pattern 1: Deno.test("name", ...) or Deno.test('name', ...)
-    const literalMatch = source.match(/Deno\.test\(\s*["']([^"']+)["']/);
-    // Pattern 1b: t.step("name", ...) or await t.step("name", ...)
-    const stepLiteral = source.match(/t\.step\(\s*["']([^"']+)["']/);
-    // Pattern 2: Deno.test(`...`, ...) — template literal
-    const templateMatch = source.match(/Deno\.test\(\s*`([^`]+)`/);
-    // Pattern 2b: t.step(`...`, ...)
-    const stepTemplate = source.match(/t\.step\(\s*`([^`]+)`/);
-    // For object form, only search the header (first 300 chars) to avoid
-    // matching `name: "Alice"` in the test body
-    const header = source.slice(0, 300);
-    // Pattern 3: Deno.test({ name: `...`, ... }) — template in object (check first!)
-    const objTemplate = header.match(/name:\s*`([^`]+)`/);
-    // Pattern 4: Deno.test({ name: "name", ... }) — literal in object
-    const objLiteral = header.match(/name:\s*["']([^"']+)["']/);
+    if (isDenoTest) {
+      // Deno.test("name", ...) — literal
+      const literalMatch = source.match(/Deno\.test\(\s*["']([^"']+)["']/);
+      // Deno.test(`name`, ...) — template
+      const templateMatch = source.match(/Deno\.test\(\s*`([^`]+)`/);
+      // Deno.test({ name: ... }) — object form (search header only)
+      const header = source.slice(0, 300);
+      const objTemplate = header.match(/name:\s*`([^`]+)`/);
+      const objLiteral = header.match(/name:\s*["']([^"']+)["']/);
 
-    if (literalMatch) {
-      name = literalMatch[1];
-    } else if (stepLiteral) {
-      name = stepLiteral[1];
-    } else if (templateMatch) {
-      name = templateMatch[1];
-      isTemplate = true;
-    } else if (stepTemplate) {
-      name = stepTemplate[1];
-      isTemplate = true;
-    } else if (objTemplate) {
-      name = objTemplate[1];
-      isTemplate = true;
-    } else if (objLiteral) {
-      name = objLiteral[1];
+      if (literalMatch) {
+        name = literalMatch[1];
+      } else if (templateMatch) {
+        name = templateMatch[1];
+        isTemplate = true;
+      } else if (objTemplate) {
+        name = objTemplate[1];
+        isTemplate = true;
+      } else if (objLiteral) {
+        name = objLiteral[1];
+      }
+    } else {
+      // t.step("name", ...) — literal
+      const stepLiteral = source.match(/t\.step\(\s*["']([^"']+)["']/);
+      // t.step(`name`, ...) — template
+      const stepTemplate = source.match(/t\.step\(\s*`([^`]+)`/);
+
+      if (stepLiteral) {
+        name = stepLiteral[1];
+      } else if (stepTemplate) {
+        name = stepTemplate[1];
+        isTemplate = true;
+      }
     }
 
     if (name) {
@@ -172,8 +176,11 @@ function extractTestBlocks(content: string, filePath: string): ExtractedTest[] {
       });
     }
 
-    // Skip past this block
-    i = endLine;
+    // For t.step() blocks, skip past to avoid re-matching.
+    // For Deno.test() blocks, keep scanning inside to find nested t.step() calls.
+    if (denoTestIdx === -1) {
+      i = endLine;
+    }
   }
 
   return tests;
