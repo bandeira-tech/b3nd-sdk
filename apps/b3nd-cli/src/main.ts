@@ -15,6 +15,17 @@ import {
   upload,
   write,
 } from "./commands.ts";
+import {
+  nodeKeygen,
+  nodeConfigPush,
+  nodeConfigGet,
+  nodeStatus,
+} from "./commands/node.ts";
+import {
+  networkCreate,
+  networkUp,
+  networkStatus,
+} from "./commands/network.ts";
 
 /**
  * Parse verbose flag from args
@@ -140,6 +151,51 @@ async function main(): Promise<void> {
 
       case "config": {
         await showConfig();
+        break;
+      }
+
+      case "node": {
+        if (!subcommand) {
+          throw new Error("Subcommand required. Usage: bnd node <keygen|config|status>");
+        }
+        if (subcommand === "keygen") {
+          await nodeKeygen(cleanArgs[2]);
+        } else if (subcommand === "config") {
+          const action = cleanArgs[2];
+          if (action === "push") {
+            if (!cleanArgs[3]) throw new Error("Config file path required. Usage: bnd node config push <file>");
+            await nodeConfigPush(cleanArgs[3], verbose);
+          } else if (action === "get") {
+            if (!cleanArgs[3]) throw new Error("Node ID required. Usage: bnd node config get <nodeId>");
+            await nodeConfigGet(cleanArgs[3], verbose);
+          } else {
+            throw new Error("Usage: bnd node config <push|get>");
+          }
+        } else if (subcommand === "status") {
+          if (!cleanArgs[2]) throw new Error("Node ID required. Usage: bnd node status <nodeId>");
+          await nodeStatus(cleanArgs[2], verbose);
+        } else {
+          throw new Error(`Unknown node subcommand: ${subcommand}`);
+        }
+        break;
+      }
+
+      case "network": {
+        if (!subcommand) {
+          throw new Error("Subcommand required. Usage: bnd network <create|up|status>");
+        }
+        if (subcommand === "create") {
+          if (!cleanArgs[2]) throw new Error("Network name required. Usage: bnd network create <name>");
+          await networkCreate(cleanArgs[2], cleanArgs[3]);
+        } else if (subcommand === "up") {
+          if (!cleanArgs[2]) throw new Error("Manifest path required. Usage: bnd network up <manifest>");
+          await networkUp(cleanArgs[2], verbose);
+        } else if (subcommand === "status") {
+          if (!cleanArgs[2]) throw new Error("Network ID or manifest path required. Usage: bnd network status <id|path>");
+          await networkStatus(cleanArgs[2], verbose);
+        } else {
+          throw new Error(`Unknown network subcommand: ${subcommand}`);
+        }
         break;
       }
 

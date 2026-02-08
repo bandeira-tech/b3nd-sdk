@@ -721,6 +721,15 @@ COMMANDS:
   list <uri>               List items at a URI
   config                   Show current configuration
   server-keys env          Generate server keys and print .env entries
+
+  node keygen [path]       Generate Ed25519 keypair for a managed node
+  node config push <file>  Sign and push node config to B3nd
+  node config get <nodeId> Read current config for a node
+  node status <nodeId>     Read node heartbeat status
+  network create <name>    Create a network manifest file
+  network up <manifest>    Push configs and start a local network
+  network status <id|path> Read all node statuses in a network
+
   help                     Show this help message
 
 OPTIONS:
