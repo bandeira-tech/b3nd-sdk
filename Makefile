@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-memory test-http test-unit test-managed-node test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -15,25 +15,10 @@ else
 	@deno test --allow-all libs/
 endif
 
-# Run only MemoryClient tests
-test-memory:
-	@echo "Running MemoryClient tests..."
-	@deno test --allow-all libs/b3nd-client-memory/memory-client.test.ts
-
-# Run only HttpClient tests
-test-http:
-	@echo "Running HttpClient tests..."
-	@deno test --allow-all libs/b3nd-client-http/http-client.test.ts
-
-# Run managed node tests
-test-managed-node:
-	@echo "Running managed node tests..."
-	@deno test --allow-all libs/b3nd-managed-node/
-
-# Run unit tests only (no external dependencies)
+# Run unit tests only (no external dependencies like Postgres/Mongo)
 test-unit:
 	@echo "Running unit tests..."
-	@deno test --allow-all libs/b3nd-client-memory/memory-client.test.ts libs/b3nd-wallet/wallet.test.ts libs/b3nd-combinators/combinators.test.ts libs/b3nd-managed-node/
+	@deno test --allow-all libs/b3nd-client-memory/ libs/b3nd-wallet/ libs/b3nd-combinators/ libs/b3nd-managed-node/
 
 test-e2e-http:
 	@if [ -z "$(URL)" ]; then \
@@ -138,12 +123,9 @@ pkg:
 help:
 	@echo "Available commands:"
 	@echo ""
-	@echo "  make test              - Run all tests (requires Docker for some)"
-	@echo "  make test t=<path>     - Run specific test file"
-	@echo "  make test-unit         - Run unit tests only (no external deps)"
-	@echo "  make test-memory       - Run MemoryClient tests only"
-	@echo "  make test-http         - Run HttpClient tests only"
-	@echo "  make test-managed-node - Run managed node tests"
+	@echo "  make test              - Run all tests (auto-discovers *.test.ts in libs/)"
+	@echo "  make test t=<path>     - Run specific test file or directory"
+	@echo "  make test-unit         - Run unit tests only (no Postgres/Mongo)"
 	@echo "  make test-e2e-http     - Run E2E HTTP tests"
 	@echo ""
 	@echo "  make build-sdk         - Build web package and validate JSR exports"

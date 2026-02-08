@@ -14,6 +14,7 @@ export type TestTheme =
   | "binary"
   | "e2e"
   | "browser"
+  | "managed-node"
   | "other";
 
 export type BackendType =

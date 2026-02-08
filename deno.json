@@ -10,10 +10,9 @@
   },
   "tasks": {
     "check": "deno check src/mod.ts",
-    "test": "deno test --allow-all libs/b3nd-client-memory/memory-client.test.ts libs/b3nd-wallet/wallet.test.ts libs/b3nd-combinators/combinators.test.ts",
-    "test:managed-node": "deno test --allow-all libs/b3nd-managed-node/",
-    "test:integration:postgres": "deno test --allow-all libs/b3nd-client-postgres/postgres-client.test.ts",
-    "test:integration:mongo": "deno test --allow-all libs/b3nd-client-mongo/mongo-client.test.ts",
+    "test": "deno test --allow-all libs/",
+    "test:integration:postgres": "deno test --allow-all libs/b3nd-client-postgres/",
+    "test:integration:mongo": "deno test --allow-all libs/b3nd-client-mongo/",
     "publish:jsr": "bash scripts/prepublish.sh && deno publish --allow-dirty; bash scripts/postpublish.sh"
   },
   "compilerOptions": {
