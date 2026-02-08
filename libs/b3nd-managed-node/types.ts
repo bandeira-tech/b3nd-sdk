@@ -1,11 +1,12 @@
 /**
  * Core types for B3nd Managed Nodes.
  *
- * URI scheme:
- *   mutable://nodes/{operatorPubKeyHex}/{nodeId}/config   - signed config
- *   mutable://nodes/{operatorPubKeyHex}/{nodeId}/status   - heartbeat + status
- *   mutable://nodes/{operatorPubKeyHex}/{nodeId}/metrics  - performance data
- *   mutable://networks/{operatorPubKeyHex}/{networkId}    - network manifest
+ * URI scheme (canonical mutable://accounts):
+ *   mutable://accounts/{operatorKey}/nodes/{nodeId}/config   - signed+encrypted config
+ *   mutable://accounts/{nodeKey}/status                      - signed+encrypted status
+ *   mutable://accounts/{nodeKey}/metrics                     - signed+encrypted metrics
+ *   mutable://accounts/{operatorKey}/nodes/{nodeId}/update   - signed update manifest
+ *   mutable://accounts/{operatorKey}/networks/{networkId}    - network manifest
  */
 
 // ── Node Configuration ────────────────────────────────────────────────
@@ -88,6 +89,8 @@ export interface NetworkNodeEntry {
   nodeId: string;
   name: string;
   role: string;
+  publicKey: string;
+  encryptionPublicKey?: string;
   config: ManagedNodeConfig;
 }
 
@@ -103,17 +106,21 @@ export interface ModuleUpdate {
 // ── URI Helpers ───────────────────────────────────────────────────────
 
 export function nodeConfigUri(operatorPubKeyHex: string, nodeId: string): string {
-  return `mutable://nodes/${operatorPubKeyHex}/${nodeId}/config`;
+  return `mutable://accounts/${operatorPubKeyHex}/nodes/${nodeId}/config`;
 }
 
-export function nodeStatusUri(operatorPubKeyHex: string, nodeId: string): string {
-  return `mutable://nodes/${operatorPubKeyHex}/${nodeId}/status`;
+export function nodeStatusUri(nodeKeyHex: string): string {
+  return `mutable://accounts/${nodeKeyHex}/status`;
 }
 
-export function nodeMetricsUri(operatorPubKeyHex: string, nodeId: string): string {
-  return `mutable://nodes/${operatorPubKeyHex}/${nodeId}/metrics`;
+export function nodeMetricsUri(nodeKeyHex: string): string {
+  return `mutable://accounts/${nodeKeyHex}/metrics`;
+}
+
+export function nodeUpdateUri(operatorPubKeyHex: string, nodeId: string): string {
+  return `mutable://accounts/${operatorPubKeyHex}/nodes/${nodeId}/update`;
 }
 
 export function networkManifestUri(operatorPubKeyHex: string, networkId: string): string {
-  return `mutable://networks/${operatorPubKeyHex}/${networkId}`;
+  return `mutable://accounts/${operatorPubKeyHex}/networks/${networkId}`;
 }

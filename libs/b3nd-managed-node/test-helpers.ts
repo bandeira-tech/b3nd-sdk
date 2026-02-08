@@ -8,7 +8,6 @@ import {
   generateSigningKeyPair,
   type KeyPair,
 } from "../b3nd-encrypt/mod.ts";
-import { managedNodeSchema } from "./schema.ts";
 import type {
   BackendSpec,
   ManagedNodeConfig,
@@ -49,6 +48,7 @@ export function createTestManifest(nodeCount = 1): NetworkManifest {
     nodeId: `node-${i}`,
     name: `Node ${i}`,
     role: "worker",
+    publicKey: `pubkey-${i}`,
     config: createTestConfig({
       nodeId: `node-${i}`,
       name: `Node ${i}`,
@@ -115,53 +115,14 @@ export async function signConfig(config: ManagedNodeConfig): Promise<{
 }
 
 /**
- * Create a MemoryClient with schema keys compatible with managed node URIs.
- *
- * MemoryClient requires schema keys in "protocol://hostname" format,
- * so we register "mutable://nodes" and "mutable://networks" with
- * validators adapted from managedNodeSchema.
- */
-export function createSchemaClient(): MemoryClient {
-  // The managedNodeSchema keys have wildcards (mutable://nodes/*/config).
-  // MemoryClient needs "protocol://hostname" keys. We adapt by creating
-  // validators that route based on URI path suffix.
-  const nodeValidator = async (write: { uri: string; value: unknown }) => {
-    const { uri, value } = write;
-    if (uri.endsWith("/config")) {
-      return managedNodeSchema["mutable://nodes/*/config"]({ uri, value, read: (() => {}) as any });
-    }
-    if (uri.endsWith("/status")) {
-      return managedNodeSchema["mutable://nodes/*/status"]({ uri, value, read: (() => {}) as any });
-    }
-    if (uri.endsWith("/metrics")) {
-      return managedNodeSchema["mutable://nodes/*/metrics"]({ uri, value, read: (() => {}) as any });
-    }
-    return { valid: true };
-  };
-
-  const networkValidator = async (write: { uri: string; value: unknown }) => {
-    return managedNodeSchema["mutable://networks"]({ uri: write.uri, value: write.value, read: (() => {}) as any });
-  };
-
-  return new MemoryClient({
-    schema: {
-      "mutable://nodes": nodeValidator as any,
-      "mutable://networks": networkValidator as any,
-    },
-  });
-}
-
-/**
- * Create a MemoryClient that accepts all writes to node/network URIs.
- * Useful when you need to store data without validation (e.g., testing
- * config-loader which does its own verification).
+ * Create a MemoryClient that accepts all writes to accounts URIs.
+ * Uses mutable://accounts as the canonical program.
  */
 export function createPermissiveClient(): MemoryClient {
   const acceptAll = async () => ({ valid: true });
   return new MemoryClient({
     schema: {
-      "mutable://nodes": acceptAll,
-      "mutable://networks": acceptAll,
+      "mutable://accounts": acceptAll,
     },
   });
 }

@@ -122,10 +122,12 @@ export function generateCompose(
           }),
       ports: [`${node.config.server.port}:${node.config.server.port}`],
       environment: {
-        NODE_PUBLIC_KEY_HEX: node.nodeId,
+        NODE_PUBLIC_KEY_HEX: node.publicKey,
         NODE_PRIVATE_KEY_PEM: `\${${serviceName.toUpperCase().replace(/-/g, "_")}_PRIVATE_KEY_PEM}`,
         OPERATOR_PUBLIC_KEY_HEX: options.operatorPubKeyHex,
         CONFIG_SERVER_URL: "http://config-server:9900",
+        NODE_ENCRYPTION_PUBLIC_KEY_HEX: node.encryptionPublicKey ?? "",
+        OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX: `\${OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX}`,
       },
       depends_on: deps,
       restart: "unless-stopped",

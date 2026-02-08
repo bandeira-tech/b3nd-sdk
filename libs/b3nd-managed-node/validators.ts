@@ -1,20 +1,10 @@
 /**
- * Schema validation rules for managed node config URIs.
+ * Data structure validators for managed node documents.
  *
- * Validates writes to:
- *   mutable://nodes/{pubkey}/{nodeId}/config
- *   mutable://nodes/{pubkey}/{nodeId}/status
- *   mutable://nodes/{pubkey}/{nodeId}/metrics
- *   mutable://networks/{pubkey}/{networkId}
+ * These are pure validation functions used by the interpretation layer
+ * (config-loader, heartbeat, etc.) — NOT wired into Schema.
+ * Auth validation is handled by mutable://accounts program itself.
  */
-
-import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import type {
-  ManagedNodeConfig,
-  NetworkManifest,
-  NodeMetrics,
-  NodeStatus,
-} from "./types.ts";
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -28,7 +18,7 @@ function validateBackendSpec(b: unknown): string | null {
   return null;
 }
 
-function validateConfig(data: unknown): { valid: boolean; error?: string } {
+export function validateConfig(data: unknown): { valid: boolean; error?: string } {
   if (!isObject(data)) return { valid: false, error: "config must be an object" };
   const c = data as Record<string, unknown>;
 
@@ -56,7 +46,7 @@ function validateConfig(data: unknown): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-function validateStatus(data: unknown): { valid: boolean; error?: string } {
+export function validateStatus(data: unknown): { valid: boolean; error?: string } {
   if (!isObject(data)) return { valid: false, error: "status must be an object" };
   const s = data as Record<string, unknown>;
   if (typeof s.nodeId !== "string") return { valid: false, error: "nodeId required" };
@@ -69,7 +59,7 @@ function validateStatus(data: unknown): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-function validateMetrics(data: unknown): { valid: boolean; error?: string } {
+export function validateMetrics(data: unknown): { valid: boolean; error?: string } {
   if (!isObject(data)) return { valid: false, error: "metrics must be an object" };
   const m = data as Record<string, unknown>;
   const required = ["writeLatencyP50", "writeLatencyP99", "readLatencyP50", "readLatencyP99", "opsPerSecond", "errorRate"];
@@ -79,7 +69,7 @@ function validateMetrics(data: unknown): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-function validateNetwork(data: unknown): { valid: boolean; error?: string } {
+export function validateNetwork(data: unknown): { valid: boolean; error?: string } {
   if (!isObject(data)) return { valid: false, error: "network manifest must be an object" };
   const n = data as Record<string, unknown>;
   if (typeof n.networkId !== "string") return { valid: false, error: "networkId required" };
@@ -87,44 +77,3 @@ function validateNetwork(data: unknown): { valid: boolean; error?: string } {
   if (!Array.isArray(n.nodes)) return { valid: false, error: "nodes array required" };
   return { valid: true };
 }
-
-/**
- * Schema rules for managed node URIs.
- * Merge this into your node's schema to enable config storage validation.
- */
-export const managedNodeSchema: Schema = {
-  // Config documents: mutable://nodes/{pubkey}/{nodeId}/config
-  "mutable://nodes/*/config": async ({ value }) => {
-    // If wrapped in auth envelope, validate the payload
-    const payload = isObject(value) && Array.isArray((value as any).auth)
-      ? (value as any).payload
-      : value;
-    return validateConfig(payload);
-  },
-
-  // Status documents: mutable://nodes/{pubkey}/{nodeId}/status
-  "mutable://nodes/*/status": async ({ value }) => {
-    const payload = isObject(value) && Array.isArray((value as any).auth)
-      ? (value as any).payload
-      : value;
-    return validateStatus(payload);
-  },
-
-  // Metrics documents: mutable://nodes/{pubkey}/{nodeId}/metrics
-  "mutable://nodes/*/metrics": async ({ value }) => {
-    const payload = isObject(value) && Array.isArray((value as any).auth)
-      ? (value as any).payload
-      : value;
-    return validateMetrics(payload);
-  },
-
-  // Network manifests: mutable://networks/{pubkey}/{networkId}
-  "mutable://networks": async ({ value }) => {
-    const payload = isObject(value) && Array.isArray((value as any).auth)
-      ? (value as any).payload
-      : value;
-    return validateNetwork(payload);
-  },
-};
-
-export default managedNodeSchema;
