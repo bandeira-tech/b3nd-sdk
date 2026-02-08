@@ -34,6 +34,26 @@ const client = new HttpClient({ url: "http://localhost:9942" });
 | Wallet Server | `https://testnet-wallet.fire.cat`    |
 | App Server    | `https://testnet-app.fire.cat`       |
 
+## Protocol Philosophy: URIs Express Behavior, Not Meaning
+
+B3nd URIs define *how data behaves* (mutability, authentication), never *what
+data means* (this is a config, an invoice, a post). Meaning lives in
+interpretation — the same JSON blob is "a node config" only to software that
+reads it as one.
+
+**Implication for builders:** Higher-level protocols (node management,
+marketplaces, social features) are *workflows* — sequences of messages using
+the canonical programs below. Libraries provide TypeScript types for data
+structures, helper functions for URI conventions, and interpretation logic.
+They do NOT create new `protocol://hostname` programs or custom schema
+validators for domain rules. The canonical programs already handle
+authentication, mutability, and content-addressing.
+
+```
+WRONG:  mutable://nodes/{key}/{id}/config     (custom program, needs custom schema)
+RIGHT:  mutable://accounts/{key}/nodes/{id}/config  (canonical program, auth built-in)
+```
+
 ## Canonical Firecat Schema
 
 **Use these protocols** - don't create custom schemas unless you're running your
@@ -681,7 +701,9 @@ The React app at `apps/b3nd-web-rig/` provides:
 
 ## Custom Schemas (Enterprise)
 
-Only create custom schemas if running your own B3nd network:
+Only create custom schemas if running your own B3nd network. Custom schemas
+define new `protocol://hostname` programs with their own validation — this is
+an infrastructure concern, not an application concern.
 
 ```typescript
 // Enterprise/team deployment only
@@ -693,4 +715,7 @@ const schema: Schema = {
 };
 ```
 
-Most apps should use the canonical Firecat schema protocols.
+**Most apps should use the canonical Firecat schema protocols.** Application
+features (node management, marketplaces, social) should be built as workflows
+on top of `mutable://accounts`, `immutable://inbox`, `blob://open`, etc. —
+not as new programs. See "Protocol Philosophy" section above.

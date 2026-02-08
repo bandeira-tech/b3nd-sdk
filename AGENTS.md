@@ -28,7 +28,8 @@ b3nd/
 │   ├── b3nd-encrypt/           # Client-side encryption (X25519/Ed25519/AES-GCM)
 │   ├── b3nd-wallet/            # Wallet client (auth, proxy read/write)
 │   ├── b3nd-wallet-server/     # Wallet server implementation
-│   └── b3nd-apps/              # Apps client
+│   ├── b3nd-apps/              # Apps client
+│   └── b3nd-managed-node/      # Managed node workflows (⚠ needs URI refactor, see Protocol Philosophy)
 ├── apps/                       # All applications
 │   ├── b3nd-node/              # Multi-backend HTTP node (Hono) — generic schema-based API
 │   ├── apps-node/              # Application backend scaffold
@@ -36,6 +37,7 @@ b3nd/
 │   ├── b3nd-web-rig/           # React/Vite data explorer UI (port 5555)
 │   ├── sdk-inspector/          # Test runner + monitoring backend (port 5556, WebSocket)
 │   ├── b3nd-cli/               # bnd CLI tool (Deno, compiled binary)
+│   ├── b3nd-managed-node/      # Managed node entry point + Dockerfile
 │   └── website/                # Static site
 ├── tests/                      # E2E tests
 ├── skills/                     # Claude Code plugin skills
@@ -340,6 +342,85 @@ When the SDK API changes and apps need updating:
 7. **Composition over inheritance** —
    `createValidatedClient({ write, read, validate })` composes behavior from
    functions, not class hierarchies.
+
+## Protocol Philosophy: URIs Express Behavior, Not Meaning
+
+**This is a foundational architectural constraint.** B3nd URIs define *how data
+behaves* (mutability, authentication, content-addressing), never *what data
+means* (this is a user profile, a node config, an invoice).
+
+### Why Meaning Cannot Be Encoded in URIs
+
+Meaning lives in interpretation. A managed node config stored at
+`mutable://accounts/{key}/nodes/n1/config` is identical in protocol behavior to
+one stored at `mutable://accounts/{key}/my-stuff/v2`. The B3nd network cannot
+and should not enforce that "all node configs live at `/nodes/*/config`" because:
+
+1. **No enforcement is possible** — Anyone can organize their account data
+   however they want. A node operator could store configs at
+   `mutable://accounts/{key}/x` and their nodes would work fine.
+2. **Meaning is contextual** — The same data structure means different things to
+   different readers. A JSON blob is "a config" only to the software that
+   interprets it as one.
+3. **Custom namespaces fragment the protocol** — Inventing
+   `mutable://nodes/...` or `mutable://invoices/...` creates new "programs"
+   that require custom schema validators, custom validation rules, and custom
+   infrastructure. This fights the protocol instead of composing with it.
+
+### The Correct Pattern: Workflow + Message Interpretation
+
+Higher-level protocols (node management, marketplace, social features) are
+**workflows** — sequences of messages using the canonical Firecat programs:
+
+| Canonical Program        | Behavior                                     |
+| ------------------------ | -------------------------------------------- |
+| `mutable://accounts`     | Authenticated mutable data (pubkey-signed)   |
+| `mutable://open`         | Public mutable data (no auth)                |
+| `immutable://inbox`      | Write-once message delivery                  |
+| `immutable://accounts`   | Authenticated permanent records              |
+| `blob://open`            | Content-addressed immutable storage          |
+| `link://open/accounts`   | Mutable URI references                       |
+| `msg://open`             | Message envelopes (atomic multi-output)      |
+
+A library for a higher-level protocol provides:
+
+1. **Data structure types** — TypeScript interfaces for the domain (configs,
+   status, metrics, invoices, posts)
+2. **URI conventions** — Helper functions that construct paths within canonical
+   programs (e.g., `mutable://accounts/{key}/nodes/{id}/config`). These are
+   *conventions*, not protocol rules.
+3. **Workflow orchestration** — Functions that coordinate reading, writing,
+   polling, and signing using the existing primitives
+4. **Interpretation logic** — Functions that read data and understand it as
+   domain objects (parse, validate, verify signatures)
+
+### Example: Managed Node Protocol (Correct Design)
+
+Instead of custom programs (`mutable://nodes/...`), compose with accounts:
+
+```
+Operator stores config:     mutable://accounts/{operatorKey}/nodes/{nodeId}/config
+Node reports status:        mutable://accounts/{nodeKey}/status
+Node reports metrics:       mutable://accounts/{nodeKey}/metrics
+Operator stores manifest:   mutable://accounts/{operatorKey}/networks/{networkId}
+Async messages to operator: immutable://inbox/{operatorKey}/nodes/{nodeId}/heartbeat/{ts}
+```
+
+The `mutable://accounts` program already handles signature verification. No
+custom schema rules needed. The library provides helpers that construct these
+URIs, create the data structures, and interpret the results — but the protocol
+enforcement comes from the canonical programs, not custom validators.
+
+### What This Means for Agents
+
+When building features that require structured data exchange:
+
+- **DO** use `mutable://accounts`, `immutable://inbox`, `blob://open`, etc.
+- **DO** create helper functions for URI construction and data interpretation
+- **DO** define TypeScript types for domain data structures
+- **DON'T** invent new `protocol://hostname` programs
+- **DON'T** create custom schema validators for domain-specific rules
+- **DON'T** assume URIs can enforce meaning — meaning comes from interpretation
 
 ## Testing Conventions
 
