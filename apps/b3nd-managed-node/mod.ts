@@ -11,6 +11,8 @@
  *
  * Optional:
  *   NODE_PUBLIC_KEY_HEX       - Hex-encoded public key (derived if omitted)
+ *   NODE_ENCRYPTION_PRIVATE_KEY_HEX   - X25519 private key for decrypting configs
+ *   OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX - Operator's X25519 public key for encrypting status/metrics
  */
 
 import {
@@ -31,10 +33,8 @@ import {
   createMetricsCollector,
   loadConfig,
   loadSchemaModule,
-  managedNodeSchema,
 } from "@b3nd/managed-node";
 import type { BackendStatus, ManagedNodeConfig } from "@b3nd/managed-node/types";
-import { encodeHex } from "@std/encoding/hex";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
@@ -43,6 +43,8 @@ import { cors } from "hono/cors";
 const NODE_PRIVATE_KEY_PEM = Deno.env.get("NODE_PRIVATE_KEY_PEM");
 const OPERATOR_PUBLIC_KEY_HEX = Deno.env.get("OPERATOR_PUBLIC_KEY_HEX");
 const CONFIG_SERVER_URL = Deno.env.get("CONFIG_SERVER_URL");
+const NODE_ENCRYPTION_PRIVATE_KEY_HEX = Deno.env.get("NODE_ENCRYPTION_PRIVATE_KEY_HEX");
+const OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX = Deno.env.get("OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX");
 
 if (!NODE_PRIVATE_KEY_PEM) throw new Error("NODE_PRIVATE_KEY_PEM env var required");
 if (!OPERATOR_PUBLIC_KEY_HEX) throw new Error("OPERATOR_PUBLIC_KEY_HEX env var required");
@@ -51,59 +53,53 @@ if (!CONFIG_SERVER_URL) throw new Error("CONFIG_SERVER_URL env var required");
 // ── Derive node identity ──────────────────────────────────────────────
 
 const privateKey = await pemToCryptoKey(NODE_PRIVATE_KEY_PEM, "Ed25519");
-const publicKeyBytes = await crypto.subtle.exportKey(
-  "raw",
-  await crypto.subtle.importKey(
-    "pkcs8",
-    await (async () => {
-      // Re-import as exportable to get the public key
-      const lines = NODE_PRIVATE_KEY_PEM.split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0 && !l.startsWith("---"));
-      const base64 = lines.join("");
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      return bytes.buffer;
-    })(),
-    { name: "Ed25519", namedCurve: "Ed25519" },
-    true,
-    ["sign", "verify"],
-  ).then((k) => crypto.subtle.exportKey("pkcs8", k)),
-  { name: "Ed25519", namedCurve: "Ed25519" },
-  true,
-  ["sign", "verify"],
-).then(async (k) => {
-  // generateKey gives us a pair, but we need public from private
-  // For Ed25519, we need to use the verify key
-  return k;
-});
 
-// Use provided public key hex or derive from env
+// Use provided public key hex or require it
 const nodeId = Deno.env.get("NODE_PUBLIC_KEY_HEX") ??
   (() => {
-    // Derive from PEM - this is a simplified approach
-    // In production, public key hex should be provided
     throw new Error("NODE_PUBLIC_KEY_HEX env var required (cannot derive from PEM in this context)");
   })();
 
 const signer = { privateKey, publicKeyHex: nodeId };
 
+// ── Load encryption keys (optional) ──────────────────────────────────
+
+let nodeEncryptionPrivateKey: CryptoKey | undefined;
+if (NODE_ENCRYPTION_PRIVATE_KEY_HEX) {
+  const { decodeHex } = await import("../b3nd-core/encoding.ts");
+  nodeEncryptionPrivateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    decodeHex(NODE_ENCRYPTION_PRIVATE_KEY_HEX).buffer,
+    { name: "X25519", namedCurve: "X25519" },
+    false,
+    ["deriveBits"],
+  );
+}
+
 console.log(`[managed-node] Node ID: ${nodeId}`);
 console.log(`[managed-node] Operator: ${OPERATOR_PUBLIC_KEY_HEX}`);
 console.log(`[managed-node] Config server: ${CONFIG_SERVER_URL}`);
+if (OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX) {
+  console.log(`[managed-node] Encryption: enabled`);
+}
 
 // ── Load initial config ───────────────────────────────────────────────
 
 const configClient = new HttpClient({ url: CONFIG_SERVER_URL });
-const loaded = await loadConfig(configClient, OPERATOR_PUBLIC_KEY_HEX, nodeId);
+const loaded = await loadConfig(configClient, OPERATOR_PUBLIC_KEY_HEX, nodeId, {
+  nodeEncryptionPrivateKey,
+});
 let currentConfig = loaded.config;
 
 console.log(`[managed-node] Loaded config: "${currentConfig.name}" (v${currentConfig.configVersion})`);
 
 // ── Build schema ──────────────────────────────────────────────────────
 
-let schema: Schema = { ...managedNodeSchema };
+// Use mutable://accounts as the canonical schema — no custom managed node schema needed
+const acceptAll = async () => ({ valid: true });
+let schema: Schema = {
+  "mutable://accounts": acceptAll,
+};
 if (currentConfig.schemaModuleUrl) {
   try {
     const moduleSchema = await loadSchemaModule(currentConfig.schemaModuleUrl);
@@ -114,7 +110,7 @@ if (currentConfig.schemaModuleUrl) {
   }
 }
 if (currentConfig.schemaInline) {
-  for (const [pattern, rule] of Object.entries(currentConfig.schemaInline)) {
+  for (const [pattern, _rule] of Object.entries(currentConfig.schemaInline)) {
     schema[pattern] = async (_uri: string, _data: unknown) => ({ valid: true });
   }
 }
@@ -180,10 +176,10 @@ const frontend = servers.httpServer(app);
 
 const metrics = createMetricsCollector({
   metricsClient: configClient,
-  operatorPubKeyHex: OPERATOR_PUBLIC_KEY_HEX,
   nodeId,
   intervalMs: 30_000,
   signer,
+  operatorEncryptionPubKeyHex: OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX,
 });
 
 // Wrap client with metrics
@@ -199,12 +195,12 @@ const serverNode = createServerNode({ frontend, client: metricsClient });
 
 const heartbeat = createHeartbeatWriter({
   statusClient: configClient,
-  operatorPubKeyHex: OPERATOR_PUBLIC_KEY_HEX,
   nodeId,
   name: currentConfig.name,
   port: currentConfig.server.port,
   intervalMs: currentConfig.monitoring.heartbeatIntervalMs,
   signer,
+  operatorEncryptionPubKeyHex: OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX,
   getBackendStatuses: () => backendStatuses,
   getMetrics: currentConfig.monitoring.metricsEnabled ? () => metrics.snapshot() : undefined,
 });

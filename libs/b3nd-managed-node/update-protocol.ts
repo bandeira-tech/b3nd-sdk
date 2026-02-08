@@ -2,13 +2,14 @@
  * Software update protocol for managed nodes.
  *
  * Checks for updates published at:
- *   mutable://modules/{operatorPubKeyHex}/{moduleName}/latest
- *   mutable://nodes/{operatorPubKeyHex}/{nodeId}/updates/latest
+ *   mutable://accounts/{operatorPubKeyHex}/nodes/{nodeId}/update
  */
 
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
 import { verify } from "@b3nd/encrypt";
+import type { EncryptedPayload } from "@b3nd/encrypt";
 import type { ModuleUpdate } from "./types.ts";
+import { nodeUpdateUri } from "./types.ts";
 
 export interface UpdateCheckResult {
   available: boolean;
@@ -22,6 +23,7 @@ export interface UpdateCheckerOptions {
   intervalMs: number;
   onUpdateAvailable: (update: ModuleUpdate) => Promise<void>;
   onError?: (error: Error) => void;
+  nodeEncryptionPrivateKey?: CryptoKey;
 }
 
 export interface UpdateChecker {
@@ -38,7 +40,7 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
   let lastVersion: string | null = null;
 
   async function check(): Promise<UpdateCheckResult> {
-    const uri = `mutable://nodes/${opts.operatorPubKeyHex}/${opts.nodeId}/updates/latest`;
+    const uri = nodeUpdateUri(opts.operatorPubKeyHex, opts.nodeId);
 
     try {
       const result = await opts.client.read(uri);
@@ -49,22 +51,50 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
       const data = result.record.data as any;
       if (!data) return { available: false };
 
-      // Verify signed envelope
-      const payload = data.auth && data.payload ? data.payload : data;
-      if (data.auth) {
-        let verified = false;
-        for (const entry of data.auth) {
-          if (entry.pubkey === opts.operatorPubKeyHex) {
-            const ok = await verify(entry.pubkey, entry.signature, data.payload);
-            if (ok) {
-              verified = true;
-              break;
+      // Determine if payload is encrypted
+      let payload: unknown;
+      if (data.auth && data.payload) {
+        const payloadObj = data.payload as Record<string, unknown>;
+        const isEncrypted = typeof payloadObj.data === "string" &&
+          typeof payloadObj.nonce === "string";
+
+        if (isEncrypted && opts.nodeEncryptionPrivateKey) {
+          // Verify signature over encrypted payload first
+          let verified = false;
+          for (const entry of data.auth) {
+            if (entry.pubkey === opts.operatorPubKeyHex) {
+              const ok = await verify(entry.pubkey, entry.signature, data.payload);
+              if (ok) {
+                verified = true;
+                break;
+              }
             }
           }
+          if (!verified) return { available: false };
+
+          // Decrypt
+          const { decrypt } = await import("@b3nd/encrypt");
+          payload = await decrypt(
+            data.payload as EncryptedPayload,
+            opts.nodeEncryptionPrivateKey,
+          );
+        } else {
+          // Plaintext signed message
+          let verified = false;
+          for (const entry of data.auth) {
+            if (entry.pubkey === opts.operatorPubKeyHex) {
+              const ok = await verify(entry.pubkey, entry.signature, data.payload);
+              if (ok) {
+                verified = true;
+                break;
+              }
+            }
+          }
+          if (!verified) return { available: false };
+          payload = data.payload;
         }
-        if (!verified) {
-          return { available: false };
-        }
+      } else {
+        payload = data;
       }
 
       const update = payload as ModuleUpdate;

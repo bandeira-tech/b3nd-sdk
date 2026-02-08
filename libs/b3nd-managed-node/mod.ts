@@ -1,7 +1,7 @@
 /**
  * B3nd Managed Node library.
  *
- * Provides types, URI helpers, schema validation, and runtime components
+ * Provides types, URI helpers, validators, and runtime components
  * for self-configuring B3nd nodes that load configuration from the network.
  *
  * @module
@@ -26,10 +26,16 @@ export {
   nodeConfigUri,
   nodeMetricsUri,
   nodeStatusUri,
+  nodeUpdateUri,
 } from "./types.ts";
 
-// Schema validation
-export { managedNodeSchema } from "./schema.ts";
+// Validators
+export {
+  validateConfig,
+  validateMetrics,
+  validateNetwork,
+  validateStatus,
+} from "./validators.ts";
 
 // Config loader
 export { loadConfig } from "./config-loader.ts";

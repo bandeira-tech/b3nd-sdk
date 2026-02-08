@@ -19,6 +19,8 @@ interface NetworkManifest {
     nodeId: string;
     name: string;
     role: string;
+    publicKey: string;
+    encryptionPublicKey?: string;
     config: unknown;
   }>;
 }
@@ -88,7 +90,7 @@ export async function networkUp(
     const client = await getClient(logger);
 
     for (const node of manifest.nodes) {
-      const uri = `mutable://nodes/${publicKeyHex}/${node.nodeId}/config`;
+      const uri = `mutable://accounts/${publicKeyHex}/nodes/${node.nodeId}/config`;
       logger?.info(`Pushing config for ${node.name} to ${uri}`);
 
       // Sign the config
@@ -130,7 +132,7 @@ export async function networkUp(
     }
 
     // Also push the network manifest
-    const networkUri = `mutable://networks/${publicKeyHex}/${manifest.networkId}`;
+    const networkUri = `mutable://accounts/${publicKeyHex}/networks/${manifest.networkId}`;
     const netSigBytes = await crypto.subtle.sign(
       "Ed25519",
       await (async () => {
@@ -167,7 +169,7 @@ export async function networkUp(
 
   console.log(`\nConfigs pushed. Start managed nodes with:`);
   for (const node of manifest.nodes) {
-    console.log(`  NODE_PUBLIC_KEY_HEX=${node.nodeId} \\`);
+    console.log(`  NODE_PUBLIC_KEY_HEX=${node.publicKey} \\`);
     console.log(`  OPERATOR_PUBLIC_KEY_HEX=${publicKeyHex} \\`);
     console.log(`  CONFIG_SERVER_URL=${appConfig.node} \\`);
     console.log(`  NODE_PRIVATE_KEY_PEM=<key> \\`);
@@ -203,7 +205,7 @@ export async function networkStatus(
     // Try reading from B3nd
     try {
       const client = await getClient(logger);
-      const uri = `mutable://networks/${publicKeyHex}/${networkIdOrPath}`;
+      const uri = `mutable://accounts/${publicKeyHex}/networks/${networkIdOrPath}`;
       const result = await client.read(uri);
       if (result.success && result.record) {
         const data = result.record.data as any;
@@ -225,17 +227,19 @@ export async function networkStatus(
     const client = await getClient(logger);
 
     for (const node of manifest.nodes) {
-      const statusUri = `mutable://nodes/${publicKeyHex}/${node.nodeId}/status`;
+      // Status is at the node's own account, keyed by publicKey
+      const nodeKey = node.publicKey;
+      const statusUri = `mutable://accounts/${nodeKey}/status`;
       const result = await client.read(statusUri);
 
       if (result.success && result.record) {
         const data = result.record.data as any;
         const status = data.payload ?? data;
         const statusIcon = status.status === "online" ? "+" : status.status === "degraded" ? "~" : "x";
-        console.log(`  [${statusIcon}] ${node.name} (${node.nodeId.slice(0, 12)}...)`);
+        console.log(`  [${statusIcon}] ${node.name} (${nodeKey.slice(0, 12)}...)`);
         console.log(`      Status: ${status.status}, Port: ${status.server?.port}, Uptime: ${formatUptime(status.uptime)}`);
       } else {
-        console.log(`  [?] ${node.name} (${node.nodeId.slice(0, 12)}...) - no status`);
+        console.log(`  [?] ${node.name} (${nodeKey.slice(0, 12)}...) - no status`);
       }
     }
   } finally {

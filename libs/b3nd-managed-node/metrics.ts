@@ -2,12 +2,13 @@
  * Metrics collector for managed nodes.
  *
  * Wraps a NodeProtocolInterface to collect latency/throughput stats
- * and periodically writes them to the metrics URI.
+ * and periodically writes signed+encrypted metrics to:
+ *   mutable://accounts/{nodeKey}/metrics
  */
 
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
-import type { AuthenticatedMessage } from "@b3nd/encrypt";
-import { createAuthenticatedMessage } from "@b3nd/encrypt";
+import { createSignedEncryptedMessage } from "@b3nd/encrypt";
+import type { SignedEncryptedMessage } from "@b3nd/encrypt";
 import type { NodeMetrics } from "./types.ts";
 import { nodeMetricsUri } from "./types.ts";
 
@@ -24,10 +25,10 @@ function percentile(sorted: number[], p: number): number {
 
 export interface MetricsCollectorOptions {
   metricsClient: NodeProtocolInterface;
-  operatorPubKeyHex: string;
   nodeId: string;
   intervalMs: number;
   signer: { privateKey: CryptoKey; publicKeyHex: string };
+  operatorEncryptionPubKeyHex?: string;
 }
 
 export interface MetricsCollector {
@@ -74,12 +75,20 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
     const metrics = snapshot();
 
     try {
-      const message: AuthenticatedMessage<NodeMetrics> = await createAuthenticatedMessage(
-        metrics,
-        [opts.signer],
-      );
+      let message: SignedEncryptedMessage | { auth: Array<{ pubkey: string; signature: string }>; payload: NodeMetrics };
 
-      const uri = nodeMetricsUri(opts.operatorPubKeyHex, opts.nodeId);
+      if (opts.operatorEncryptionPubKeyHex) {
+        message = await createSignedEncryptedMessage(
+          metrics,
+          [opts.signer],
+          opts.operatorEncryptionPubKeyHex,
+        );
+      } else {
+        const { createAuthenticatedMessage } = await import("@b3nd/encrypt");
+        message = await createAuthenticatedMessage(metrics, [opts.signer]);
+      }
+
+      const uri = nodeMetricsUri(opts.signer.publicKeyHex);
       await opts.metricsClient.receive([uri, message]);
     } catch (error) {
       console.error("[metrics] Failed to write metrics:", error);

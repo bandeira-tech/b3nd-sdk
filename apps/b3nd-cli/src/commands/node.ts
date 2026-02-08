@@ -5,7 +5,7 @@
  *   bnd node keygen [path]          - Generate Ed25519 keypair for a new node
  *   bnd node config push <file>     - Sign and write config to B3nd
  *   bnd node config get <nodeId>    - Read current config for a node
- *   bnd node status <nodeId>        - Read node status
+ *   bnd node status <nodeKey>       - Read node status (by node's public key)
  */
 
 import { getClient, closeClient } from "../client.ts";
@@ -116,7 +116,7 @@ export async function nodeConfigPush(
   const cfg = config as { nodeId?: string };
   if (!cfg.nodeId) throw new Error("Config must contain nodeId field");
 
-  const uri = `mutable://nodes/${publicKeyHex}/${cfg.nodeId}/config`;
+  const uri = `mutable://accounts/${publicKeyHex}/nodes/${cfg.nodeId}/config`;
   logger?.info(`Writing config to ${uri}`);
 
   try {
@@ -153,7 +153,7 @@ export async function nodeConfigGet(
   const pubkeyLine = accountContent.split("\n").find((l) => l.startsWith("PUBLIC_KEY_HEX="));
   const publicKeyHex = pubkeyLine?.substring("PUBLIC_KEY_HEX=".length) ?? "";
 
-  const uri = `mutable://nodes/${publicKeyHex}/${nodeId}/config`;
+  const uri = `mutable://accounts/${publicKeyHex}/nodes/${nodeId}/config`;
   logger?.info(`Reading config from ${uri}`);
 
   try {
@@ -172,24 +172,15 @@ export async function nodeConfigGet(
 }
 
 /**
- * Read node status
+ * Read node status (by node's public key)
  */
 export async function nodeStatus(
-  nodeId: string,
+  nodeKey: string,
   verbose = false,
 ): Promise<void> {
   const logger = createLogger(verbose);
 
-  const appConfig = await loadConfig();
-  if (!appConfig.account) {
-    throw new Error("No account configured. Run: bnd account create");
-  }
-
-  const accountContent = await Deno.readTextFile(appConfig.account);
-  const pubkeyLine = accountContent.split("\n").find((l) => l.startsWith("PUBLIC_KEY_HEX="));
-  const publicKeyHex = pubkeyLine?.substring("PUBLIC_KEY_HEX=".length) ?? "";
-
-  const uri = `mutable://nodes/${publicKeyHex}/${nodeId}/status`;
+  const uri = `mutable://accounts/${nodeKey}/status`;
   logger?.info(`Reading status from ${uri}`);
 
   try {
@@ -199,7 +190,7 @@ export async function nodeStatus(
     if (result.success && result.record) {
       const data = result.record.data as any;
       const status = data.payload ?? data;
-      console.log(`Node status for ${nodeId}:`);
+      console.log(`Node status for ${nodeKey}:`);
       console.log(`  Name: ${status.name}`);
       console.log(`  Status: ${status.status}`);
       console.log(`  Port: ${status.server?.port}`);
@@ -212,7 +203,7 @@ export async function nodeStatus(
         }
       }
     } else {
-      console.log(`No status found for node ${nodeId}`);
+      console.log(`No status found for node ${nodeKey}`);
     }
   } finally {
     await closeClient(logger);

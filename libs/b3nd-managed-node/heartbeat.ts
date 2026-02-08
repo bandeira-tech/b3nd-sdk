@@ -1,24 +1,27 @@
 /**
  * Heartbeat writer for managed nodes.
  *
- * Periodically writes a NodeStatus document to the node's status URI,
- * making it visible to the web UI and other monitoring tools.
+ * Periodically writes a signed+encrypted NodeStatus document to:
+ *   mutable://accounts/{nodeKey}/status
+ *
+ * The node signs with its own Ed25519 key and encrypts to the operator's
+ * X25519 key so only the operator/dashboard can read it.
  */
 
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
-import type { AuthenticatedMessage } from "@b3nd/encrypt";
-import { createAuthenticatedMessage } from "@b3nd/encrypt";
+import { createSignedEncryptedMessage, encrypt, sign } from "@b3nd/encrypt";
+import type { SignedEncryptedMessage } from "@b3nd/encrypt";
 import type { BackendStatus, NodeMetrics, NodeStatus } from "./types.ts";
 import { nodeStatusUri } from "./types.ts";
 
 export interface HeartbeatWriterOptions {
   statusClient: NodeProtocolInterface;
-  operatorPubKeyHex: string;
   nodeId: string;
   name: string;
   port: number;
   intervalMs: number;
   signer: { privateKey: CryptoKey; publicKeyHex: string };
+  operatorEncryptionPubKeyHex?: string;
   getBackendStatuses: () => BackendStatus[];
   getMetrics?: () => NodeMetrics | undefined;
 }
@@ -50,12 +53,21 @@ export function createHeartbeatWriter(opts: HeartbeatWriterOptions): HeartbeatWr
     };
 
     try {
-      const message: AuthenticatedMessage<NodeStatus> = await createAuthenticatedMessage(
-        status,
-        [opts.signer],
-      );
+      let message: SignedEncryptedMessage | { auth: Array<{ pubkey: string; signature: string }>; payload: NodeStatus };
 
-      const uri = nodeStatusUri(opts.operatorPubKeyHex, opts.nodeId);
+      if (opts.operatorEncryptionPubKeyHex) {
+        message = await createSignedEncryptedMessage(
+          status,
+          [opts.signer],
+          opts.operatorEncryptionPubKeyHex,
+        );
+      } else {
+        // Fallback: signed but not encrypted (for tests / local dev)
+        const { createAuthenticatedMessage } = await import("@b3nd/encrypt");
+        message = await createAuthenticatedMessage(status, [opts.signer]);
+      }
+
+      const uri = nodeStatusUri(opts.signer.publicKeyHex);
       await opts.statusClient.receive([uri, message]);
     } catch (error) {
       console.error("[heartbeat] Failed to write status:", error);
