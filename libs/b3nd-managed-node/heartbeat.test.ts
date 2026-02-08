@@ -10,7 +10,6 @@ Deno.test("heartbeat: writes status on start", async () => {
 
   const writer = createHeartbeatWriter({
     statusClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "hb-node",
     name: "Heartbeat Node",
     port: 8080,
@@ -26,7 +25,7 @@ Deno.test("heartbeat: writes status on start", async () => {
 
   writer.stop();
 
-  const uri = nodeStatusUri(keypair.publicKeyHex, "hb-node");
+  const uri = nodeStatusUri(keypair.publicKeyHex);
   const result = await client.read(uri);
   assertEquals(result.success, true);
 
@@ -51,7 +50,6 @@ Deno.test("heartbeat: degraded status when backend has error", async () => {
 
   const writer = createHeartbeatWriter({
     statusClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "degraded-node",
     name: "Degraded Node",
     port: 8081,
@@ -67,7 +65,7 @@ Deno.test("heartbeat: degraded status when backend has error", async () => {
   await new Promise((r) => setTimeout(r, 100));
   writer.stop();
 
-  const uri = nodeStatusUri(keypair.publicKeyHex, "degraded-node");
+  const uri = nodeStatusUri(keypair.publicKeyHex);
   const result = await client.read(uri);
   assertEquals(result.success, true);
 
@@ -81,7 +79,6 @@ Deno.test("heartbeat: signed envelope has correct pubkey", async () => {
 
   const writer = createHeartbeatWriter({
     statusClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "signed-node",
     name: "Signed Node",
     port: 8082,
@@ -94,7 +91,7 @@ Deno.test("heartbeat: signed envelope has correct pubkey", async () => {
   await new Promise((r) => setTimeout(r, 100));
   writer.stop();
 
-  const uri = nodeStatusUri(keypair.publicKeyHex, "signed-node");
+  const uri = nodeStatusUri(keypair.publicKeyHex);
   const result = await client.read(uri);
   const data = (result as any).record.data;
 
@@ -110,7 +107,6 @@ Deno.test("heartbeat: includes metrics when getMetrics provided", async () => {
 
   const writer = createHeartbeatWriter({
     statusClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "metrics-node",
     name: "Metrics Node",
     port: 8083,
@@ -131,7 +127,7 @@ Deno.test("heartbeat: includes metrics when getMetrics provided", async () => {
   await new Promise((r) => setTimeout(r, 100));
   writer.stop();
 
-  const uri = nodeStatusUri(keypair.publicKeyHex, "metrics-node");
+  const uri = nodeStatusUri(keypair.publicKeyHex);
   const result = await client.read(uri);
   const status = (result as any).record.data.payload;
 
@@ -151,7 +147,6 @@ Deno.test("heartbeat: stop prevents further writes", async () => {
 
   const writer = createHeartbeatWriter({
     statusClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "stop-node",
     name: "Stop Node",
     port: 8084,

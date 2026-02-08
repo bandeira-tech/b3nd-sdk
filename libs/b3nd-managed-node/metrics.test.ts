@@ -3,19 +3,11 @@ import { generateSigningKeyPair } from "../b3nd-encrypt/mod.ts";
 import { createMetricsCollector } from "./metrics.ts";
 import { createPermissiveClient } from "./test-helpers.ts";
 
-function createCollector() {
-  const keypair = generateSigningKeyPair();
-  // We use a sync-returning helper for the collector options
-  // but the collector needs CryptoKey. We'll create async tests.
-  return keypair;
-}
-
 Deno.test("metrics: snapshot returns zeros with no data", async () => {
   const keypair = await generateSigningKeyPair();
   const client = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
@@ -34,7 +26,6 @@ Deno.test("metrics: recordWrite updates snapshot", async () => {
   const client = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
@@ -55,7 +46,6 @@ Deno.test("metrics: recordRead updates snapshot", async () => {
   const client = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
@@ -76,7 +66,6 @@ Deno.test("metrics: single value percentile", async () => {
   const client = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
@@ -93,7 +82,6 @@ Deno.test("metrics: 100 values percentile", async () => {
   const client = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
@@ -114,7 +102,6 @@ Deno.test("metrics: opsPerSecond calculation", async () => {
   const client = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
@@ -135,7 +122,6 @@ Deno.test("metrics: errorRate calculation", async () => {
   const client = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
@@ -155,14 +141,13 @@ Deno.test("metrics: wrapClient records write latency", async () => {
   const innerClient = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: createPermissiveClient(),
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
   });
 
   const wrapped = collector.wrapClient(innerClient);
-  await wrapped.receive(["mutable://nodes/abc/n1/config", { some: "data" }]);
+  await wrapped.receive(["mutable://accounts/abc/nodes/n1/config", { some: "data" }]);
 
   const snap = collector.snapshot();
   assertEquals(snap.writeLatencyP50 > 0, true);
@@ -173,7 +158,6 @@ Deno.test("metrics: wrapClient records read latency", async () => {
   const innerClient = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: createPermissiveClient(),
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
@@ -182,8 +166,8 @@ Deno.test("metrics: wrapClient records read latency", async () => {
   const wrapped = collector.wrapClient(innerClient);
 
   // Write something first, then read it
-  await wrapped.receive(["mutable://nodes/abc/n1/config", { foo: "bar" }]);
-  await wrapped.read("mutable://nodes/abc/n1/config");
+  await wrapped.receive(["mutable://accounts/abc/nodes/n1/config", { foo: "bar" }]);
+  await wrapped.read("mutable://accounts/abc/nodes/n1/config");
 
   const snap = collector.snapshot();
   assertEquals(snap.readLatencyP50 > 0, true);
@@ -195,7 +179,6 @@ Deno.test("metrics: start and stop do not throw", async () => {
   const client = createPermissiveClient();
   const collector = createMetricsCollector({
     metricsClient: client,
-    operatorPubKeyHex: keypair.publicKeyHex,
     nodeId: "test-node",
     intervalMs: 60000,
     signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
