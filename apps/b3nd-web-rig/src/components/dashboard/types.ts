@@ -28,7 +28,7 @@ export type BackendType =
 
 export type TestStatus = "running" | "passed" | "failed" | "skipped" | "pending";
 
-export type DataSource = "live" | "static";
+export type DataSource = "live" | "static" | "b3nd";
 
 export interface TestResult {
   name: string;
@@ -188,6 +188,12 @@ export interface DashboardState {
   dataSource: DataSource;
   autoRunEnabled: boolean;
 
+  // B3nd connection settings
+  b3ndUrl: string;
+  inspectorBasePath: string;
+  inspectorPort: number;
+  availableBasePaths: string[];
+
   // Live data
   services: ServiceHealth[];
   recentChanges: FileChangeEvent[];
@@ -246,4 +252,10 @@ export interface DashboardActions {
   // Initial state from server
   loadInitialState: (data: { results: TestResult[]; runMetadata: { current: RunMetadata | null; last: RunMetadata | null } }) => void;
   setRunMetadata: (metadata: { current: RunMetadata | null; last: RunMetadata | null }) => void;
+
+  // B3nd settings
+  setB3ndUrl: (url: string) => void;
+  setInspectorBasePath: (path: string) => void;
+  setInspectorPort: (port: number) => void;
+  refreshAvailableBasePaths: () => Promise<void>;
 }

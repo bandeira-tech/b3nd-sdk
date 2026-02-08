@@ -61,6 +61,21 @@ const DEFAULT_BACKEND_FACETS: FacetGroup = {
 const MAX_RAW_OUTPUT_LINES = 500;
 const MAX_RECENT_CHANGES = 20;
 
+// Load saved settings from localStorage
+function loadSavedSettings() {
+  try {
+    return {
+      b3ndUrl: localStorage.getItem("dashboard:b3ndUrl") || "http://localhost:9900",
+      inspectorBasePath: localStorage.getItem("dashboard:inspectorBasePath") || "main",
+      inspectorPort: Number(localStorage.getItem("dashboard:inspectorPort") || "5556"),
+    };
+  } catch {
+    return { b3ndUrl: "http://localhost:9900", inspectorBasePath: "main", inspectorPort: 5556 };
+  }
+}
+
+const saved = loadSavedSettings();
+
 const initialState: DashboardState = {
   loading: false,
   error: null,
@@ -78,8 +93,14 @@ const initialState: DashboardState = {
   wsConnected: false,
   wsError: null,
   isRunning: false,
-  dataSource: "live",
+  dataSource: "b3nd",
   autoRunEnabled: true,
+
+  // B3nd connection settings
+  b3ndUrl: saved.b3ndUrl,
+  inspectorBasePath: saved.inspectorBasePath,
+  inspectorPort: saved.inspectorPort,
+  availableBasePaths: [],
 
   // Live data
   services: [],
@@ -192,9 +213,57 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       return;
     }
 
-    // Fetch from static JSON files
     set({ loading: true, error: null });
 
+    const { b3ndUrl, inspectorBasePath } = get();
+
+    // Try B3nd first
+    try {
+      const uri = `mutable://open/inspector/${inspectorBasePath}/results`;
+      const b3ndReadUrl = `${b3ndUrl}/api/v1/read/mutable/open/inspector/${inspectorBasePath}/results`;
+      const res = await fetch(b3ndReadUrl);
+
+      if (res.ok) {
+        const record = await res.json();
+        // B3nd returns { data, ts } — the artifact is in data
+        const staticData: StaticTestData = record.data ?? record;
+
+        let rawLogs = "";
+        try {
+          const logsUrl = `${b3ndUrl}/api/v1/read/mutable/open/inspector/${inspectorBasePath}/logs`;
+          const logsRes = await fetch(logsUrl);
+          if (logsRes.ok) {
+            const logsRecord = await logsRes.json();
+            const logsData = logsRecord.data ?? logsRecord;
+            rawLogs = Array.isArray(logsData.lines)
+              ? logsData.lines.join("\n")
+              : typeof logsData === "string" ? logsData : "";
+          }
+        } catch {
+          // Logs are optional
+        }
+
+        const { resultsMap, expanded } = loadData(staticData.results);
+        const results = Array.from(resultsMap.values());
+        const updatedGroups = updateFacetCounts(get().facetGroups, results);
+
+        set({
+          loading: false,
+          staticData,
+          testResults: resultsMap,
+          runSummary: staticData.summary,
+          facetGroups: updatedGroups,
+          expandedTests: expanded,
+          rawLogs,
+          dataSource: "b3nd",
+        });
+        return;
+      }
+    } catch {
+      // B3nd unavailable, fall through to static file
+    }
+
+    // Fallback: fetch from static JSON files
     try {
       const resultsRes = await fetch("/dashboard/test-results.json");
       if (!resultsRes.ok) throw new Error(`Failed to load test results: ${resultsRes.status}`);
@@ -220,6 +289,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         facetGroups: updatedGroups,
         expandedTests: expanded,
         rawLogs,
+        dataSource: "static",
       });
     } catch (e) {
       set({
@@ -520,6 +590,50 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   collapseAll: () => {
     set({ expandedTests: new Set() });
+  },
+
+  // --- B3nd settings ---
+
+  setB3ndUrl: (url: string) => {
+    localStorage.setItem("dashboard:b3ndUrl", url);
+    set({ b3ndUrl: url });
+  },
+
+  setInspectorBasePath: (path: string) => {
+    localStorage.setItem("dashboard:inspectorBasePath", path);
+    set({ inspectorBasePath: path });
+    // Reload data from the new base path
+    get().loadStaticData();
+  },
+
+  setInspectorPort: (port: number) => {
+    localStorage.setItem("dashboard:inspectorPort", String(port));
+    set({ inspectorPort: port });
+  },
+
+  refreshAvailableBasePaths: async () => {
+    const { b3ndUrl } = get();
+    try {
+      const res = await fetch(
+        `${b3ndUrl}/api/v1/list/mutable/open/inspector`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.data ?? data.items ?? [];
+        const paths = items
+          .map((item: { uri?: string; key?: string }) => {
+            const uri = item.uri || item.key || "";
+            // Extract base path from URI like "mutable://open/inspector/main/..."
+            const match = uri.match(/inspector\/([^/]+)/);
+            return match ? match[1] : null;
+          })
+          .filter((p: string | null): p is string => p !== null);
+        // Deduplicate
+        set({ availableBasePaths: [...new Set(paths)] as string[] });
+      }
+    } catch {
+      // B3nd unavailable
+    }
   },
 }));
 

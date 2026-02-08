@@ -13,10 +13,35 @@ import { ContinuousTestRunner } from "./services/continuous-runner.ts";
 
 const PORT = Number(Deno.env.get("DASHBOARD_PORT") || "5556");
 const CORS_ORIGIN = Deno.env.get("CORS_ORIGIN") || "http://localhost:5555";
+const B3ND_URL = Deno.env.get("B3ND_URL") || "http://localhost:9900";
+const INSPECTOR_BASE_PATH = Deno.env.get("INSPECTOR_BASE_PATH") || await detectBasePath();
+
+/** Detect base path from git branch name, sanitized for URI use. */
+async function detectBasePath(): Promise<string> {
+  try {
+    const cmd = new Deno.Command("git", {
+      args: ["branch", "--show-current"],
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const { stdout } = await cmd.output();
+    const branch = new TextDecoder().decode(stdout).trim();
+    if (branch) {
+      // Sanitize: replace / and special chars with -
+      return branch.replace(/[^a-zA-Z0-9._-]/g, "-");
+    }
+  } catch {
+    // git not available
+  }
+  return "default";
+}
 
 // Create shared services
 const wsHub = new WsHub();
-const testState = new TestState(wsHub);
+const testState = new TestState(wsHub, {
+  b3ndUrl: B3ND_URL,
+  basePath: INSPECTOR_BASE_PATH,
+});
 const runner = new ContinuousTestRunner(testState, wsHub);
 const fileWatcher = new FileWatcher(wsHub);
 const healthMonitor = new HealthMonitor(wsHub);
@@ -84,6 +109,8 @@ healthMonitor.start();
 console.log(`B3nd Dashboard Server starting on port ${PORT}...`);
 console.log(`CORS Origin: ${CORS_ORIGIN}`);
 console.log(`WebSocket endpoint: ws://localhost:${PORT}/ws`);
+console.log(`B3nd URL: ${B3ND_URL}`);
+console.log(`Inspector base path: ${INSPECTOR_BASE_PATH}`);
 
 Deno.serve({ port: PORT }, app.fetch);
 

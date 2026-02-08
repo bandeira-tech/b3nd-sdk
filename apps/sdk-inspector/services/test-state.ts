@@ -71,9 +71,13 @@ export class TestState {
   private lastCompletedRun: RunMetadata | null = null;
   private runLog: string[] = [];
   private projectRoot: string;
+  private b3ndUrl: string | null;
+  private basePath: string;
 
-  constructor(wsHub: WsHub) {
+  constructor(wsHub: WsHub, opts?: { b3ndUrl?: string; basePath?: string }) {
     this.wsHub = wsHub;
+    this.b3ndUrl = opts?.b3ndUrl ?? null;
+    this.basePath = opts?.basePath ?? "default";
     const servicesDir = new URL(".", import.meta.url).pathname;
     this.projectRoot = new URL("../../..", `file://${servicesDir}`).pathname
       .replace(/\/$/, "");
@@ -453,22 +457,16 @@ export class TestState {
   }
 
   /**
-   * Write test-results.json and test-logs.txt to the explorer app's public directory.
-   * This is the canonical data source for the frontend.
+   * Build the enriched results artifact with source snippets.
    */
-  private async writeStaticArtifacts(): Promise<void> {
-    const servicesDir = new URL(".", import.meta.url).pathname;
-    const publicDir =
-      new URL("../b3nd-web-rig/public/dashboard", `file://${servicesDir}`)
-        .pathname;
-
-    // Ensure directory exists
-    try {
-      await Deno.mkdir(publicDir, { recursive: true });
-    } catch {
-      // Already exists
-    }
-
+  private async buildArtifact(): Promise<{
+    artifact: Record<string, unknown>;
+    enrichedResults: Array<TestResultState & {
+      source?: string;
+      sourceFile?: string;
+      sourceStartLine?: number;
+    }>;
+  }> {
     const results = this.getAllResults();
     const summary = this.getSummary();
 
@@ -522,8 +520,6 @@ export class TestState {
           }
           // If found in a different file (shared suite), read that file instead
           if (matchLine === -1) {
-            // Search for the suffix in known shared suite files
-            // Suite files live in libs/b3nd-testing/ after the monorepo split
             const libsMatch = result.filePath.match(/^(.+\/libs)\//);
             const libsBase = libsMatch ? libsMatch[1] : "";
             const suiteFiles = [
@@ -545,7 +541,6 @@ export class TestState {
                 for (let i = 0; i < suiteLines.length; i++) {
                   if (suiteLines[i].includes(suffix)) {
                     matchLine = i;
-                    // Switch content to the suite file for extraction
                     const to = Math.min(suiteLines.length, matchLine + 25);
                     source = suiteLines.slice(matchLine, to).join("\n");
                     sourceStartLine = matchLine + 1;
@@ -582,10 +577,10 @@ export class TestState {
       });
     }
 
-    // Build the static data artifact
     const artifact = {
       version: "1.0",
       generatedAt: Date.now(),
+      basePath: this.basePath,
       runMetadata: this.lastCompletedRun
         ? {
           trigger: this.lastCompletedRun.trigger,
@@ -619,18 +614,81 @@ export class TestState {
       })),
     };
 
-    // Write test-results.json
+    return { artifact, enrichedResults };
+  }
+
+  /**
+   * Write to B3nd mutable://open via HTTP API.
+   */
+  private async writeToB3nd(
+    uri: string,
+    data: unknown,
+  ): Promise<boolean> {
+    if (!this.b3ndUrl) return false;
+
+    try {
+      const response = await fetch(`${this.b3ndUrl}/api/v1/receive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tx: [uri, data] }),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        console.error(`[TestState] B3nd write failed (${response.status}): ${body}`);
+        return false;
+      }
+
+      const result = await response.json();
+      return result.accepted === true;
+    } catch (e) {
+      console.error(`[TestState] B3nd write error: ${e}`);
+      return false;
+    }
+  }
+
+  /**
+   * Write test results and logs to B3nd mutable://open and filesystem fallback.
+   */
+  private async writeStaticArtifacts(): Promise<void> {
+    const { artifact, enrichedResults } = await this.buildArtifact();
+
+    // Write to B3nd mutable://open
+    const resultsUri = `mutable://open/inspector/${this.basePath}/results`;
+    const logsUri = `mutable://open/inspector/${this.basePath}/logs`;
+
+    const b3ndOk = await this.writeToB3nd(resultsUri, artifact);
+    if (b3ndOk) {
+      console.log(
+        `[TestState] Wrote ${enrichedResults.length} results to ${resultsUri}`,
+      );
+      await this.writeToB3nd(logsUri, { lines: this.runLog });
+      console.log(
+        `[TestState] Wrote ${this.runLog.length} log lines to ${logsUri}`,
+      );
+    }
+
+    // Always write filesystem fallback too
+    const servicesDir = new URL(".", import.meta.url).pathname;
+    const publicDir =
+      new URL("../b3nd-web-rig/public/dashboard", `file://${servicesDir}`)
+        .pathname;
+
+    try {
+      await Deno.mkdir(publicDir, { recursive: true });
+    } catch {
+      // Already exists
+    }
+
     const jsonPath = `${publicDir}/test-results.json`;
     await Deno.writeTextFile(jsonPath, JSON.stringify(artifact, null, 2));
-    console.log(
-      `[TestState] Wrote ${enrichedResults.length} results to ${jsonPath}`,
-    );
+    if (!b3ndOk) {
+      console.log(
+        `[TestState] Wrote ${enrichedResults.length} results to ${jsonPath} (B3nd unavailable)`,
+      );
+    }
 
-    // Write test-logs.txt
     const logsPath = `${publicDir}/test-logs.txt`;
     await Deno.writeTextFile(logsPath, this.runLog.join("\n"));
-    console.log(
-      `[TestState] Wrote ${this.runLog.length} log lines to ${logsPath}`,
-    );
   }
 }

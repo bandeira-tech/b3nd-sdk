@@ -2,8 +2,6 @@ import { useEffect, useRef, useCallback } from "react";
 import { useDashboardStore } from "../stores/dashboardStore";
 import type { WsMessage, TestResult, ServiceHealth, FileChangeEvent, TestFilter, TestTheme, RunMetadata } from "../types";
 
-const DASHBOARD_WS_URL = "ws://localhost:5556/ws";
-const DASHBOARD_API_URL = "http://localhost:5556";
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
@@ -40,7 +38,11 @@ export function useDashboardWs() {
     autoRunEnabled,
     setRunMetadata,
     loadStaticData,
+    inspectorPort,
   } = useDashboardStore();
+
+  const DASHBOARD_WS_URL = `ws://localhost:${inspectorPort}/ws`;
+  const DASHBOARD_API_URL = `http://localhost:${inspectorPort}`;
 
   // Fetch just run metadata from the backend (not results — those come from static file)
   const fetchRunMetadata = useCallback(async () => {
@@ -113,7 +115,7 @@ export function useDashboardWs() {
       console.error("[DashboardWs] Failed to connect:", e);
       setWsError("Failed to connect to dashboard server");
     }
-  }, [setWsConnected, setWsError, fetchRunMetadata]);
+  }, [setWsConnected, setWsError, fetchRunMetadata, DASHBOARD_WS_URL]);
 
   const handleMessage = useCallback(
     (message: WsMessage) => {
