@@ -167,7 +167,7 @@ console.log(`Server running on port ${PORT}`);
 import { assertEquals } from "@std/assert";
 import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
 
-Deno.test("receive transaction and read", async () => {
+Deno.test("receive message and read", async () => {
   const client = new MemoryClient({
     schema: {
       "test://data": async () => ({ valid: true }),
