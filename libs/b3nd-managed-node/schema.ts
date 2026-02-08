@@ -94,35 +94,35 @@ function validateNetwork(data: unknown): { valid: boolean; error?: string } {
  */
 export const managedNodeSchema: Schema = {
   // Config documents: mutable://nodes/{pubkey}/{nodeId}/config
-  "mutable://nodes/*/config": async (_uri: string, data: unknown) => {
+  "mutable://nodes/*/config": async ({ value }) => {
     // If wrapped in auth envelope, validate the payload
-    const payload = isObject(data) && Array.isArray((data as any).auth)
-      ? (data as any).payload
-      : data;
+    const payload = isObject(value) && Array.isArray((value as any).auth)
+      ? (value as any).payload
+      : value;
     return validateConfig(payload);
   },
 
   // Status documents: mutable://nodes/{pubkey}/{nodeId}/status
-  "mutable://nodes/*/status": async (_uri: string, data: unknown) => {
-    const payload = isObject(data) && Array.isArray((data as any).auth)
-      ? (data as any).payload
-      : data;
+  "mutable://nodes/*/status": async ({ value }) => {
+    const payload = isObject(value) && Array.isArray((value as any).auth)
+      ? (value as any).payload
+      : value;
     return validateStatus(payload);
   },
 
   // Metrics documents: mutable://nodes/{pubkey}/{nodeId}/metrics
-  "mutable://nodes/*/metrics": async (_uri: string, data: unknown) => {
-    const payload = isObject(data) && Array.isArray((data as any).auth)
-      ? (data as any).payload
-      : data;
+  "mutable://nodes/*/metrics": async ({ value }) => {
+    const payload = isObject(value) && Array.isArray((value as any).auth)
+      ? (value as any).payload
+      : value;
     return validateMetrics(payload);
   },
 
   // Network manifests: mutable://networks/{pubkey}/{networkId}
-  "mutable://networks": async (_uri: string, data: unknown) => {
-    const payload = isObject(data) && Array.isArray((data as any).auth)
-      ? (data as any).payload
-      : data;
+  "mutable://networks": async ({ value }) => {
+    const payload = isObject(value) && Array.isArray((value as any).auth)
+      ? (value as any).payload
+      : value;
     return validateNetwork(payload);
   },
 };

@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-memory test-http test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg help
+.PHONY: test test-memory test-http test-unit test-managed-node test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -25,10 +25,15 @@ test-http:
 	@echo "Running HttpClient tests..."
 	@deno test --allow-all libs/b3nd-client-http/http-client.test.ts
 
+# Run managed node tests
+test-managed-node:
+	@echo "Running managed node tests..."
+	@deno test --allow-all libs/b3nd-managed-node/
+
 # Run unit tests only (no external dependencies)
 test-unit:
 	@echo "Running unit tests..."
-	@deno test --allow-all libs/b3nd-client-memory/memory-client.test.ts libs/b3nd-wallet/wallet.test.ts libs/b3nd-combinators/combinators.test.ts
+	@deno test --allow-all libs/b3nd-client-memory/memory-client.test.ts libs/b3nd-wallet/wallet.test.ts libs/b3nd-combinators/combinators.test.ts libs/b3nd-managed-node/
 
 test-e2e-http:
 	@if [ -z "$(URL)" ]; then \
@@ -138,6 +143,7 @@ help:
 	@echo "  make test-unit         - Run unit tests only (no external deps)"
 	@echo "  make test-memory       - Run MemoryClient tests only"
 	@echo "  make test-http         - Run HttpClient tests only"
+	@echo "  make test-managed-node - Run managed node tests"
 	@echo "  make test-e2e-http     - Run E2E HTTP tests"
 	@echo ""
 	@echo "  make build-sdk         - Build web package and validate JSR exports"
