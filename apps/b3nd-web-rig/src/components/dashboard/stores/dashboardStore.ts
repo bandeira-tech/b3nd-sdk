@@ -42,6 +42,7 @@ const DEFAULT_THEME_FACETS: FacetGroup = {
     { id: "theme:binary", type: "theme", label: "Binary", value: "binary" },
     { id: "theme:e2e", type: "theme", label: "E2E", value: "e2e" },
     { id: "theme:browser", type: "theme", label: "Browser", value: "browser" },
+    { id: "theme:managed-node", type: "theme", label: "Managed Node", value: "managed-node" },
   ],
 };
 

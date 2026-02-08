@@ -77,6 +77,7 @@ export type TestTheme =
   | "binary"
   | "e2e"
   | "browser"
+  | "managed-node"
   | "other";
 
 /**
@@ -187,6 +188,12 @@ export const TEST_THEMES: ThemeInfo[] = [
     label: "Browser",
     description: "Browser-specific client tests (localStorage, IndexedDB)",
     patterns: [/browser/, /local-storage/, /indexed-db/],
+  },
+  {
+    id: "managed-node",
+    label: "Managed Node",
+    description: "Self-configuring managed node infrastructure",
+    patterns: [/managed-node/],
   },
 ];
 
