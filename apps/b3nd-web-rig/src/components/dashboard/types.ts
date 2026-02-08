@@ -189,11 +189,9 @@ export interface DashboardState {
   dataSource: DataSource;
   autoRunEnabled: boolean;
 
-  // B3nd connection settings
+  // B3nd data source — empty means static file mode
   b3ndUrl: string;
-  inspectorBasePath: string;
-  inspectorPort: number;
-  availableBasePaths: string[];
+  b3ndUri: string;
 
   // Live data
   services: ServiceHealth[];
@@ -256,7 +254,5 @@ export interface DashboardActions {
 
   // B3nd settings
   setB3ndUrl: (url: string) => void;
-  setInspectorBasePath: (path: string) => void;
-  setInspectorPort: (port: number) => void;
-  refreshAvailableBasePaths: () => Promise<void>;
+  setB3ndUri: (uri: string) => void;
 }

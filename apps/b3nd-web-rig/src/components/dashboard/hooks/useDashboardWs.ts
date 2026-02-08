@@ -38,11 +38,10 @@ export function useDashboardWs() {
     autoRunEnabled,
     setRunMetadata,
     loadStaticData,
-    inspectorPort,
   } = useDashboardStore();
 
-  const DASHBOARD_WS_URL = `ws://localhost:${inspectorPort}/ws`;
-  const DASHBOARD_API_URL = `http://localhost:${inspectorPort}`;
+  const DASHBOARD_WS_URL = "ws://localhost:5556/ws";
+  const DASHBOARD_API_URL = "http://localhost:5556";
 
   // Fetch just run metadata from the backend (not results — those come from static file)
   const fetchRunMetadata = useCallback(async () => {
@@ -115,7 +114,7 @@ export function useDashboardWs() {
       console.error("[DashboardWs] Failed to connect:", e);
       setWsError("Failed to connect to dashboard server");
     }
-  }, [setWsConnected, setWsError, fetchRunMetadata, DASHBOARD_WS_URL]);
+  }, [setWsConnected, setWsError, fetchRunMetadata]);
 
   const handleMessage = useCallback(
     (message: WsMessage) => {

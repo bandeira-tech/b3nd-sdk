@@ -13,34 +13,19 @@ import { ContinuousTestRunner } from "./services/continuous-runner.ts";
 
 const PORT = Number(Deno.env.get("DASHBOARD_PORT") || "5556");
 const CORS_ORIGIN = Deno.env.get("CORS_ORIGIN") || "http://localhost:5555";
-const B3ND_URL = Deno.env.get("B3ND_URL") || "http://localhost:9900";
-const INSPECTOR_BASE_PATH = Deno.env.get("INSPECTOR_BASE_PATH") || await detectBasePath();
 
-/** Detect base path from git branch name, sanitized for URI use. */
-async function detectBasePath(): Promise<string> {
-  try {
-    const cmd = new Deno.Command("git", {
-      args: ["branch", "--show-current"],
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const { stdout } = await cmd.output();
-    const branch = new TextDecoder().decode(stdout).trim();
-    if (branch) {
-      // Sanitize: replace / and special chars with -
-      return branch.replace(/[^a-zA-Z0-9._-]/g, "-");
-    }
-  } catch {
-    // git not available
-  }
-  return "default";
-}
+// B3nd persistence: set both to write test data to a B3nd node.
+// B3ND_URL  = HTTP URL of the B3nd node (e.g. http://localhost:9900)
+// B3ND_URI  = base URI for data (e.g. mutable://accounts/{pubkey}/inspector)
+// If unset, only writes static files to the web rig public dir.
+const B3ND_URL = Deno.env.get("B3ND_URL") || "";
+const B3ND_URI = Deno.env.get("B3ND_URI") || "";
 
 // Create shared services
 const wsHub = new WsHub();
 const testState = new TestState(wsHub, {
-  b3ndUrl: B3ND_URL,
-  basePath: INSPECTOR_BASE_PATH,
+  b3ndUrl: B3ND_URL || undefined,
+  b3ndUri: B3ND_URI || undefined,
 });
 const runner = new ContinuousTestRunner(testState, wsHub);
 const fileWatcher = new FileWatcher(wsHub);
@@ -109,8 +94,11 @@ healthMonitor.start();
 console.log(`B3nd Dashboard Server starting on port ${PORT}...`);
 console.log(`CORS Origin: ${CORS_ORIGIN}`);
 console.log(`WebSocket endpoint: ws://localhost:${PORT}/ws`);
-console.log(`B3nd URL: ${B3ND_URL}`);
-console.log(`Inspector base path: ${INSPECTOR_BASE_PATH}`);
+if (B3ND_URL && B3ND_URI) {
+  console.log(`B3nd: ${B3ND_URI} via ${B3ND_URL}`);
+} else {
+  console.log(`B3nd: disabled (static file mode)`);
+}
 
 Deno.serve({ port: PORT }, app.fetch);
 

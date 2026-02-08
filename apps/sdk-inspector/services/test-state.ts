@@ -72,12 +72,12 @@ export class TestState {
   private runLog: string[] = [];
   private projectRoot: string;
   private b3ndUrl: string | null;
-  private basePath: string;
+  private b3ndUri: string | null;
 
-  constructor(wsHub: WsHub, opts?: { b3ndUrl?: string; basePath?: string }) {
+  constructor(wsHub: WsHub, opts?: { b3ndUrl?: string; b3ndUri?: string }) {
     this.wsHub = wsHub;
     this.b3ndUrl = opts?.b3ndUrl ?? null;
-    this.basePath = opts?.basePath ?? "default";
+    this.b3ndUri = opts?.b3ndUri ?? null;
     const servicesDir = new URL(".", import.meta.url).pathname;
     this.projectRoot = new URL("../../..", `file://${servicesDir}`).pathname
       .replace(/\/$/, "");
@@ -580,7 +580,7 @@ export class TestState {
     const artifact = {
       version: "1.0",
       generatedAt: Date.now(),
-      basePath: this.basePath,
+      b3ndUri: this.b3ndUri ?? undefined,
       runMetadata: this.lastCompletedRun
         ? {
           trigger: this.lastCompletedRun.trigger,
@@ -618,13 +618,13 @@ export class TestState {
   }
 
   /**
-   * Write to B3nd mutable://open via HTTP API.
+   * Send a message to B3nd via HTTP API.
    */
   private async writeToB3nd(
     uri: string,
     data: unknown,
   ): Promise<boolean> {
-    if (!this.b3ndUrl) return false;
+    if (!this.b3ndUrl || !this.b3ndUri) return false;
 
     try {
       const response = await fetch(`${this.b3ndUrl}/api/v1/receive`, {
@@ -648,27 +648,26 @@ export class TestState {
   }
 
   /**
-   * Write test results and logs to B3nd mutable://open and filesystem fallback.
+   * Write test results and logs.
+   * If B3ND_URI is configured, writes as messages to B3nd under that URI.
+   * Always writes static files as fallback.
    */
   private async writeStaticArtifacts(): Promise<void> {
     const { artifact, enrichedResults } = await this.buildArtifact();
+    const base = this.b3ndUri?.replace(/\/$/, "");
 
-    // Write to B3nd mutable://open
-    const resultsUri = `mutable://open/inspector/${this.basePath}/results`;
-    const logsUri = `mutable://open/inspector/${this.basePath}/logs`;
-
-    const b3ndOk = await this.writeToB3nd(resultsUri, artifact);
-    if (b3ndOk) {
-      console.log(
-        `[TestState] Wrote ${enrichedResults.length} results to ${resultsUri}`,
-      );
-      await this.writeToB3nd(logsUri, { lines: this.runLog });
-      console.log(
-        `[TestState] Wrote ${this.runLog.length} log lines to ${logsUri}`,
-      );
+    // Write to B3nd if configured
+    let b3ndOk = false;
+    if (base) {
+      b3ndOk = await this.writeToB3nd(`${base}/results`, artifact);
+      if (b3ndOk) {
+        console.log(`[TestState] Wrote ${enrichedResults.length} results to ${base}/results`);
+        await this.writeToB3nd(`${base}/logs`, { lines: this.runLog });
+        console.log(`[TestState] Wrote ${this.runLog.length} log lines to ${base}/logs`);
+      }
     }
 
-    // Always write filesystem fallback too
+    // Always write filesystem fallback
     const servicesDir = new URL(".", import.meta.url).pathname;
     const publicDir =
       new URL("../b3nd-web-rig/public/dashboard", `file://${servicesDir}`)
@@ -683,9 +682,7 @@ export class TestState {
     const jsonPath = `${publicDir}/test-results.json`;
     await Deno.writeTextFile(jsonPath, JSON.stringify(artifact, null, 2));
     if (!b3ndOk) {
-      console.log(
-        `[TestState] Wrote ${enrichedResults.length} results to ${jsonPath} (B3nd unavailable)`,
-      );
+      console.log(`[TestState] Wrote ${enrichedResults.length} results to ${jsonPath}`);
     }
 
     const logsPath = `${publicDir}/test-logs.txt`;
