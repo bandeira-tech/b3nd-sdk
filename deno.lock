@@ -827,6 +827,12 @@
           "npm:hono@*"
         ]
       },
+      "apps/b3nd-managed-node": {
+        "dependencies": [
+          "jsr:@std/encoding@^1.0.10",
+          "npm:hono@*"
+        ]
+      },
       "apps/b3nd-node": {
         "dependencies": [
           "jsr:@std/encoding@^1.0.10",

@@ -70,9 +70,11 @@
     "libs/b3nd-wallet",
     "libs/b3nd-wallet-server",
     "libs/b3nd-apps",
+    "libs/b3nd-managed-node",
     "apps/apps-node",
     "apps/b3nd-cli",
     "apps/b3nd-node",
+    "apps/b3nd-managed-node",
     "apps/sdk-inspector",
     "apps/wallet-node",
     "tests"

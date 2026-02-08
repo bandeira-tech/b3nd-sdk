@@ -1,0 +1,14 @@
+{
+  "tasks": {
+    "dev": "deno run --watch -A --env-file=.env mod.ts"
+  },
+  "imports": {
+    "@bandeira-tech/b3nd-sdk": "../../src/mod.ts",
+    "@bandeira-tech/b3nd-sdk/auth": "../../libs/b3nd-auth/mod.ts",
+    "@b3nd/managed-node": "../../libs/b3nd-managed-node/mod.ts",
+    "@b3nd/managed-node/types": "../../libs/b3nd-managed-node/types.ts",
+    "@b3nd/encrypt": "../../libs/b3nd-encrypt/mod.ts",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10",
+    "hono": "npm:hono"
+  }
+}
