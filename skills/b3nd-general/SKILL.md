@@ -90,7 +90,7 @@ the content.
 ```typescript
 import { computeSha256 } from "./validators.ts"; // or implement your own
 
-// Compute hash and store blob via transaction
+// Compute hash and store blob via message
 const data = { title: "Hello", content: "World" };
 const hash = await computeSha256(data);
 const blobUri = `blob://open/sha256:${hash}`;
@@ -124,7 +124,7 @@ await wallet.proxyWrite({
   encrypt: false,
 });
 
-// Unauthenticated link via transaction
+// Unauthenticated link via message
 await client.receive(["msg://open/update-link", {
   inputs: [],
   outputs: [["link://open/latest-release", "blob://open/sha256:def456..."]],
@@ -161,7 +161,7 @@ const encrypted = await encrypt.encrypt(privateData, recipientPublicKeyHex);
 const hash = await computeSha256(encrypted);
 const blobUri = `blob://open/sha256:${hash}`;
 
-// 3. Store encrypted blob via transaction
+// 3. Store encrypted blob via message
 await client.receive(["msg://open/store-encrypted", {
   inputs: [],
   outputs: [[blobUri, encrypted]],
@@ -208,7 +208,7 @@ const decrypted = await encrypt.decryptSymmetric(encrypted, key);
 Combine blobs (data layer) with links (reference layer):
 
 ```typescript
-// 1. Store content as blob + create link in one transaction
+// 1. Store content as blob + create link in one message
 const content = { title: "My Post", body: "..." };
 const hash = await computeSha256(content);
 const blobUri = `blob://open/sha256:${hash}`;
@@ -344,7 +344,7 @@ The protocol supports local approval (same process) and remote approval (async
 workflows):
 
 ```typescript
-// Session flow - direct transactions to data node
+// Session flow - direct messages to data node
 // App needs its Ed25519 keypair (public key = appKey)
 
 const backendClient = new HttpClient({ url: "http://localhost:9942" });
@@ -401,7 +401,7 @@ const session = await wallet.login(APP_KEY, sessionKeypair, {
 wallet.setSession(session);
 ```
 
-**That's it!** Just two transactions to the data node:
+**That's it!** Just two messages to the data node:
 
 1. `immutable://inbox/{appKey}/sessions/{sessionPubkey}` - signed request
 2. `mutable://accounts/{appKey}/sessions/{sessionPubkey}` - approval (value=1)
@@ -434,7 +434,7 @@ resource's permanent identity/address.
 ```typescript
 interface ResourceKeyBundle {
   publicKeyHex: string; // Resource ID/address
-  privateKeyHex: string; // For signing transactions (owner stores this)
+  privateKeyHex: string; // For signing messages (owner stores this)
 }
 
 // Generate new resource identity

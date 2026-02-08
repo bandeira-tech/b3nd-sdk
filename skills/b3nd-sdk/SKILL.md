@@ -132,7 +132,7 @@ const schema = {
 
 // Compose a validated client from multiple backends
 const client = createValidatedClient({
-  write: parallelBroadcast([postgresClient, memoryClient]),
+  receive: parallelBroadcast([postgresClient, memoryClient]),
   read: firstMatchSequence([postgresClient, memoryClient]),
   validate: msgSchema(schema),
 });
@@ -255,7 +255,7 @@ const clients = [
 
 // Compose a validated client from multiple backends
 const client = createValidatedClient({
-  write: parallelBroadcast(clients),
+  receive: parallelBroadcast(clients),
   read: firstMatchSequence(clients),
   validate: msgSchema(schema),
 });

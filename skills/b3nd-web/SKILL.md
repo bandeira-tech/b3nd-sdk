@@ -110,7 +110,7 @@ const wallet = new WalletClient({
 const session = await wallet.login(appKey, { username, password });
 wallet.setSession(session);
 
-// Proxy write with encryption
+// Proxy send with encryption
 await wallet.proxyWrite({
   uri: "mutable://data/profile",
   data: { name: "Alice" },
@@ -145,7 +145,7 @@ import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-web/blob";
 
 const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
 
-// Store blob + link in one transaction
+// Store blob + link in one message
 const data = { title: "Hello", content: "World" };
 const hash = await computeSha256(data);
 const blobUri = generateBlobUri(hash);
