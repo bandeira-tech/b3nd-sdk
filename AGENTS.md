@@ -214,7 +214,7 @@ These are applications and services inside this monorepo:
 | App Backend   | `apps/apps-node/`            | Deno, Hono            | Application backend scaffold with Docker deployment.                                                                                   |
 | Wallet Server | `apps/wallet-node/`          | Deno                  | Wallet/auth server for pubkey-based authentication.                                                                                    |
 | Explorer App  | `apps/b3nd-web-rig/`         | React, Vite, Tailwind | Data explorer UI for browsing B3nd nodes. Port 5555. Uses `@bandeira-tech/b3nd-web`.                                                   |
-| Dashboard     | `apps/sdk-inspector/`        | Deno, Hono, WebSocket | Live test runner and monitoring backend. Port 5556. Generates test artifacts.                                                          |
+| Dashboard     | `apps/sdk-inspector/`        | Deno, Hono            | Test runner backend. Port 5556. Writes results to B3nd.                                                                               |
 | bnd CLI       | `apps/b3nd-cli/`             | Deno                  | Command-line interface for B3nd nodes. `./apps/b3nd-cli/bnd read <uri>`, `./apps/b3nd-cli/bnd list <uri>`.                             |
 | MCP Server    | `.claude-plugin/mcp-server/` | Deno                  | Multi-backend CRUD tools for Claude Code. Reads `B3ND_BACKENDS` env.                                                                   |
 
@@ -271,15 +271,16 @@ After any SDK API change:
 not leave uncommitted work.
 
 1. **Format** — Run `deno fmt` to auto-format all files.
-2. **Verify** — Type check the SDK facade and run unit tests:
+2. **Verify** — Type check the SDK facade and all library entry points:
    ```bash
-   cd libs/b3nd-sdk && deno check src/mod.ts
-   cd libs/b3nd-client-memory && deno test -A
+   deno check src/mod.ts libs/*/mod.ts
    ```
    If Docker containers are available, also run postgres/mongo client tests.
 3. **Commit** — Stage and commit all changes with a clear message describing
    what was done.
-4. **Push** — Push to the remote branch so work is never lost.
+4. **Push** — Push to the remote branch so work is never lost. A git pre-push
+   hook runs `deno check` on all entry points and blocks the push if type
+   checking fails.
 
 If verification fails, fix the issue and re-verify. Never commit failing code.
 Never leave a session with uncommitted changes.
