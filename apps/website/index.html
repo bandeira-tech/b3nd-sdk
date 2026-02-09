@@ -3,19 +3,17 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B3nd - A Different Way to Think About Data</title>
+    <title>B3nd - Data belongs to you</title>
     <meta
       name="description"
-      content="B3nd is a framework for building digital experiences where data belongs to users, not platforms. Rethink the client-server model."
+      content="B3nd is a protocol for URI-based data where users own their data, privacy is encryption, and any app can read the same addresses."
     >
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     >
-
     <style>
       :root {
         --primary: #1e1b4b;
@@ -26,17 +24,11 @@
         --text: #1f2937;
         --muted: #6b7280;
         --white: #ffffff;
+        --code-bg: #0f0e1a;
       }
 
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
-      html {
-        scroll-behavior: smooth;
-      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
 
       body {
         font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -46,12 +38,12 @@
       }
 
       .container {
-        max-width: 1200px;
+        max-width: 1100px;
         margin: 0 auto;
         padding: 0 24px;
       }
 
-      /* Navigation */
+      /* --- Navigation --- */
       nav {
         position: fixed;
         top: 0;
@@ -67,24 +59,23 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        height: 64px;
+        height: 56px;
       }
 
       .logo {
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 700;
         color: var(--primary);
         text-decoration: none;
       }
 
-      .logo span {
-        color: var(--accent);
-      }
+      .logo span { color: var(--accent); }
 
       .nav-links {
         display: flex;
-        gap: 32px;
+        gap: 28px;
         list-style: none;
+        align-items: center;
       }
 
       .nav-links a {
@@ -95,37 +86,32 @@
         transition: color 0.2s;
       }
 
-      .nav-links a:hover {
-        color: var(--secondary);
-      }
+      .nav-links a:hover { color: var(--secondary); }
 
       .nav-cta {
-        background: var(--primary);
+        background: var(--secondary);
         color: var(--white) !important;
-        padding: 8px 16px;
+        padding: 6px 16px;
         border-radius: 6px;
       }
 
       .nav-cta:hover {
-        background: var(--secondary);
+        background: var(--primary);
         color: var(--white) !important;
       }
 
-      /* Hero Section - Pure Mood */
+      .mobile-cta { display: none; }
+
+      /* --- Hero --- */
       .hero {
-        min-height: 100vh;
+        min-height: 50vh;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(
-          135deg,
-          var(--primary) 0%,
-          #2d2a6e 50%,
-          #1a1744 100%
-        );
-        padding-top: 64px;
+        background: linear-gradient(135deg, var(--primary) 0%, #2d2a6e 60%, #1a1744 100%);
+        padding: 100px 24px 60px;
+        text-align: center;
         position: relative;
-        overflow: hidden;
       }
 
       .hero::before {
@@ -134,602 +120,354 @@
         top: 0;
         left: 0;
         right: 0;
-        height: 4px;
+        height: 3px;
         background: var(--accent);
       }
 
-      .hero::after {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 800px;
-        height: 800px;
-        background: radial-gradient(
-          circle,
-          rgba(249, 115, 22, 0.12) 0%,
-          transparent 60%
-        );
-        transform: translate(-50%, -50%);
-      }
-
-      /* Ambient particles */
-      .hero .particles {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        overflow: hidden;
-        pointer-events: none;
-      }
-
-      .hero .particle {
-        position: absolute;
-        width: 4px;
-        height: 4px;
-        background: rgba(249, 115, 22, 0.4);
-        border-radius: 50%;
-        animation: float 8s ease-in-out infinite;
-      }
-
-      .hero .particle:nth-child(1) {
-        left: 10%;
-        top: 20%;
-        animation-delay: 0s;
-      }
-      .hero .particle:nth-child(2) {
-        left: 20%;
-        top: 80%;
-        animation-delay: 1s;
-      }
-      .hero .particle:nth-child(3) {
-        left: 80%;
-        top: 30%;
-        animation-delay: 2s;
-      }
-      .hero .particle:nth-child(4) {
-        left: 70%;
-        top: 70%;
-        animation-delay: 3s;
-      }
-      .hero .particle:nth-child(5) {
-        left: 40%;
-        top: 40%;
-        animation-delay: 4s;
-      }
-      .hero .particle:nth-child(6) {
-        left: 90%;
-        top: 60%;
-        animation-delay: 5s;
-      }
-      .hero .particle:nth-child(7) {
-        left: 30%;
-        top: 10%;
-        animation-delay: 6s;
-      }
-      .hero .particle:nth-child(8) {
-        left: 60%;
-        top: 90%;
-        animation-delay: 7s;
-      }
-
-      @keyframes float {
-        0%, 100% {
-          transform: translateY(0) scale(1);
-          opacity: 0.4;
-        }
-        50% {
-          transform: translateY(-20px) scale(1.2);
-          opacity: 0.8;
-        }
-      }
-
-      .hero-content {
-        position: relative;
-        z-index: 1;
-        text-align: center;
-      }
-
-      .hero-brand {
-        font-size: clamp(80px, 15vw, 160px);
+      .hero h1 {
+        font-size: clamp(64px, 12vw, 120px);
         font-weight: 700;
         color: var(--white);
         letter-spacing: -0.02em;
         line-height: 1;
-        margin-bottom: 16px;
-        text-transform: uppercase;
+        margin-bottom: 8px;
       }
 
-      .hero-brand .accent {
-        color: var(--accent);
-      }
+      .hero h1 .accent { color: var(--accent); }
 
-      .hero-tagline {
-        font-size: clamp(18px, 3vw, 28px);
-        color: rgba(255, 255, 255, 0.6);
-        font-weight: 400;
-        letter-spacing: 0.2em;
+      .hero .tagline {
+        font-size: clamp(16px, 2.5vw, 22px);
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 0.15em;
         text-transform: lowercase;
+        margin-bottom: 16px;
       }
 
-      .hero-scroll {
-        position: absolute;
-        bottom: 40px;
-        left: 50%;
-        transform: translateX(-50%);
-        color: rgba(255, 255, 255, 0.4);
-        font-size: 14px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        animation: bounce 2s ease-in-out infinite;
-      }
-
-      .hero-scroll span {
-        font-size: 24px;
-      }
-
-      @keyframes bounce {
-        0%, 100% {
-          transform: translateX(-50%) translateY(0);
-        }
-        50% {
-          transform: translateX(-50%) translateY(8px);
-        }
-      }
-
-      /* Intro Section - Blurb + CTA */
-      .intro {
-        padding: 100px 0;
-        background: var(--white);
-      }
-
-      .intro-content {
-        max-width: 700px;
+      .hero .subtitle {
+        font-size: clamp(14px, 2vw, 17px);
+        color: rgba(255, 255, 255, 0.7);
+        max-width: 480px;
         margin: 0 auto;
-        text-align: center;
       }
 
-      .intro-content p {
-        font-size: clamp(18px, 2.5vw, 22px);
-        color: var(--text);
-        line-height: 1.7;
-        margin-bottom: 24px;
-      }
-
-      .intro-content p.lead {
-        font-size: clamp(20px, 3vw, 26px);
-        font-weight: 500;
-        color: var(--primary);
-        margin-bottom: 20px;
-      }
-
-      .intro-ctas {
-        display: flex;
-        gap: 16px;
-        justify-content: center;
-        flex-wrap: wrap;
-        margin-top: 40px;
-      }
-
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 14px 28px;
-        border-radius: 8px;
-        font-size: 16px;
-        font-weight: 600;
-        text-decoration: none;
-        transition: all 0.2s;
-        cursor: pointer;
-        border: none;
-      }
-
-      .btn-primary {
-        background: var(--accent);
-        color: var(--white);
-      }
-
-      .btn-primary:hover {
-        background: #ea580c;
-        transform: translateY(-2px);
-      }
-
-      .btn-secondary {
-        background: rgba(255, 255, 255, 0.1);
-        color: var(--white);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-      }
-
-      .btn-secondary:hover {
-        background: rgba(255, 255, 255, 0.2);
-      }
-
-      /* Section Styles */
+      /* --- Sections --- */
       section {
-        padding: 100px 0;
+        padding: 80px 0;
       }
 
-      .section-header {
-        text-align: center;
-        margin-bottom: 60px;
-      }
-
-      .section-header h2 {
-        font-size: clamp(32px, 4vw, 42px);
+      .section-title {
+        font-size: clamp(28px, 4vw, 36px);
         font-weight: 700;
         color: var(--primary);
-        margin-bottom: 16px;
+        text-align: center;
+        margin-bottom: 48px;
       }
 
-      .section-header p {
-        font-size: 18px;
+      .section-subtitle {
+        text-align: center;
         color: var(--muted);
-        max-width: 600px;
+        font-size: 16px;
+        margin-top: -36px;
+        margin-bottom: 48px;
+      }
+
+      /* --- Protocol Section --- */
+      .protocol { background: var(--light); }
+
+      .uri-anatomy {
+        margin-bottom: 40px;
+      }
+
+      .ops-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 40px;
+      }
+
+      .op-box {
+        background: var(--white);
+        border: 2px solid var(--secondary);
+        border-radius: 8px;
+        padding: 20px 16px;
+        text-align: center;
+      }
+
+      .op-box h3 {
+        font-family: "JetBrains Mono", monospace;
+        color: var(--secondary);
+        font-size: 16px;
+        margin-bottom: 4px;
+      }
+
+      .op-box p {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .protocol-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+      }
+
+      .proto-card {
+        background: var(--white);
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 20px;
+      }
+
+      .proto-card h3 {
+        font-family: "JetBrains Mono", monospace;
+        color: var(--accent);
+        font-size: 14px;
+        margin-bottom: 6px;
+      }
+
+      .proto-card p {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      /* --- Code Section --- */
+      .code-section { background: var(--white); }
+
+      .code-flow {
+        display: grid;
+        gap: 20px;
+        max-width: 700px;
         margin: 0 auto;
       }
 
-      /* The Shift Section */
-      .the-shift {
-        background: var(--light);
-      }
-
-      .shift-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 60px;
-        align-items: start;
-      }
-
-      .shift-content h3 {
-        font-size: 28px;
-        color: var(--primary);
-        margin-bottom: 20px;
-      }
-
-      .shift-content p {
-        font-size: 17px;
-        color: var(--text);
-        margin-bottom: 16px;
-      }
-
-      .shift-content .key-idea {
-        background: linear-gradient(
-          120deg,
-          rgba(67, 56, 202, 0.1) 0%,
-          rgba(249, 115, 22, 0.1) 100%
-        );
-        padding: 20px 24px;
-        border-radius: 8px;
-        border-left: 4px solid var(--accent);
-        margin-top: 24px;
-      }
-
-      .shift-content .key-idea p {
-        margin: 0;
-        font-weight: 500;
-      }
-
-      .model-comparison {
-        display: flex;
-        flex-direction: column;
-        gap: 30px;
-      }
-
-      .model-box {
-        background: var(--white);
-        border-radius: 12px;
-        padding: 28px;
-        border: 2px solid #e5e7eb;
-      }
-
-      .model-box.old {
-        border-color: #fca5a5;
-      }
-
-      .model-box.new {
-        border-color: var(--money);
-      }
-
-      .model-box h4 {
-        font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 16px;
-      }
-
-      .model-box.old h4 {
-        color: #dc2626;
-      }
-
-      .model-box.new h4 {
-        color: var(--money);
-      }
-
-      .model-diagram {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 13px;
-        color: var(--text);
-        line-height: 2;
-      }
-
-      .model-diagram .arrow {
-        color: var(--muted);
-      }
-
-      .model-diagram .highlight {
-        color: var(--accent);
-        font-weight: 600;
-      }
-
-      /* What Becomes Possible */
-      .possibilities {
-        background: var(--white);
-      }
-
-      .possibilities-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 30px;
-      }
-
-      .possibility-card {
-        background: var(--light);
-        padding: 32px;
-        border-radius: 12px;
-        border: 1px solid #e5e7eb;
-      }
-
-      .possibility-card h3 {
-        font-size: 20px;
-        color: var(--primary);
-        margin-bottom: 12px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .possibility-card h3 span {
-        font-size: 28px;
-      }
-
-      .possibility-card p {
-        font-size: 15px;
-        color: var(--muted);
-        margin-bottom: 16px;
-      }
-
-      .possibility-card .example {
-        background: var(--white);
-        padding: 16px;
-        border-radius: 8px;
-        font-size: 14px;
-        color: var(--text);
-        border-left: 3px solid var(--secondary);
-      }
-
-      /* How It Works */
-      .how-it-works {
-        background: var(--primary);
-        color: var(--white);
-      }
-
-      .how-it-works .section-header h2 {
-        color: var(--white);
-      }
-
-      .how-it-works .section-header p {
-        color: rgba(255, 255, 255, 0.7);
-      }
-
-      .concepts-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 30px;
-        margin-bottom: 60px;
-      }
-
-      .concept-card {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 28px;
-      }
-
-      .concept-card h3 {
-        font-size: 18px;
-        margin-bottom: 12px;
-        color: var(--accent);
-      }
-
-      .concept-card p {
-        font-size: 15px;
-        color: rgba(255, 255, 255, 0.8);
-        margin-bottom: 16px;
-      }
-
-      .concept-card code {
-        display: block;
-        background: rgba(0, 0, 0, 0.3);
-        padding: 12px;
-        border-radius: 6px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 12px;
-        color: #86efac;
-        overflow-x: auto;
-      }
-
-      /* Code Example */
-      .code-section {
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 12px;
+      .code-panel {
+        background: var(--code-bg);
+        border-radius: 10px;
         overflow: hidden;
       }
 
-      .code-header {
-        background: rgba(0, 0, 0, 0.2);
-        padding: 12px 20px;
+      .terminal-bar {
+        background: rgba(255, 255, 255, 0.06);
+        padding: 10px 16px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
       }
 
-      .code-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-      }
+      .dot { width: 10px; height: 10px; border-radius: 50%; }
+      .dot.r { background: #ef4444; }
+      .dot.y { background: #f59e0b; }
+      .dot.g { background: var(--money); }
 
-      .code-dot.red {
-        background: #ef4444;
-      }
-      .code-dot.yellow {
-        background: #f59e0b;
-      }
-      .code-dot.green {
-        background: #10b981;
-      }
-
-      .code-content {
-        padding: 24px;
-      }
-
-      .code-content pre {
+      .terminal-label {
+        margin-left: 12px;
         font-family: "JetBrains Mono", monospace;
-        font-size: 14px;
-        line-height: 1.8;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      .code-body {
+        padding: 20px;
+      }
+
+      .code-body pre {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        line-height: 1.7;
         color: rgba(255, 255, 255, 0.9);
         overflow-x: auto;
       }
 
-      .code-content .comment {
-        color: rgba(255, 255, 255, 0.4);
+      .kw { color: #c084fc; }
+      .str { color: #86efac; }
+      .fn { color: #93c5fd; }
+      .cm { color: rgba(255, 255, 255, 0.35); }
+
+      .flow-arrow {
+        text-align: center;
+        padding: 4px 0;
       }
 
-      .code-content .keyword {
-        color: #c084fc;
+      .flow-arrow svg {
+        width: 24px;
+        height: 24px;
       }
 
-      .code-content .string {
-        color: #86efac;
+      /* --- Ownership Section --- */
+      .ownership { background: var(--light); }
+
+      .ownership-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        margin-bottom: 32px;
       }
 
-      .code-content .function {
-        color: #93c5fd;
+      .own-panel {
+        text-align: center;
       }
 
-      /* Links Section */
-      .links {
-        background: var(--light);
+      .own-panel h3 {
+        font-size: 18px;
+        color: var(--primary);
+        margin-bottom: 20px;
       }
 
-      .links-grid {
+      .own-explain {
+        text-align: center;
+        color: var(--muted);
+        max-width: 700px;
+        margin: 0 auto;
+        font-size: 15px;
+      }
+
+      /* --- Privacy Section --- */
+      .privacy { background: var(--white); }
+
+      .privacy-flow {
+        margin-bottom: 40px;
+      }
+
+      .privacy-levels {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 24px;
+        gap: 20px;
       }
 
-      .link-card {
+      .level-card {
+        background: var(--light);
+        border-radius: 8px;
+        padding: 24px;
+        border-left: 4px solid var(--secondary);
+      }
+
+      .level-card h3 {
+        color: var(--primary);
+        font-size: 16px;
+        margin-bottom: 8px;
+      }
+
+      .level-card p {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      /* --- Run Your Own --- */
+      .run-own { background: var(--light); }
+
+      .run-own-content {
+        text-align: center;
+      }
+
+      .run-own .code-inline {
+        display: inline-block;
+        background: var(--code-bg);
+        color: #86efac;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px;
+        padding: 12px 24px;
+        border-radius: 8px;
+        margin-top: 24px;
+      }
+
+      /* --- Start Building --- */
+      .start { background: var(--white); }
+
+      .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+      }
+
+      .card {
         background: var(--white);
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 28px;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 28px 20px;
+        text-align: center;
         text-decoration: none;
         color: var(--text);
         transition: all 0.2s;
       }
 
-      .link-card:hover {
+      .card:hover {
         border-color: var(--secondary);
-        box-shadow: 0 10px 40px rgba(67, 56, 202, 0.1);
         transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(67, 56, 202, 0.1);
       }
 
-      .link-card-icon {
-        font-size: 32px;
-        margin-bottom: 16px;
-      }
-
-      .link-card h3 {
-        font-size: 18px;
+      .card h3 {
         color: var(--primary);
+        font-size: 18px;
         margin-bottom: 8px;
       }
 
-      .link-card p {
-        font-size: 14px;
+      .card p {
         color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 12px;
       }
 
-      .link-card .arrow {
-        display: inline-block;
-        margin-top: 16px;
+      .card .link {
         color: var(--secondary);
-        font-size: 14px;
-        font-weight: 600;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        word-break: break-all;
       }
 
-      /* Footer */
+      /* --- Footer --- */
       footer {
         background: var(--primary);
         color: rgba(255, 255, 255, 0.6);
-        padding: 60px 0 40px;
+        padding: 48px 0 32px;
       }
 
-      .footer-content {
-        display: flex;
-        justify-content: space-between;
-        align-items: start;
-        margin-bottom: 40px;
+      .footer-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 48px;
+        margin-bottom: 32px;
       }
 
       .footer-brand .logo {
         color: var(--white);
-        margin-bottom: 12px;
         display: inline-block;
+        margin-bottom: 8px;
       }
 
       .footer-brand p {
         font-size: 14px;
-        max-width: 300px;
+        max-width: 280px;
       }
 
-      .footer-links {
-        display: flex;
-        gap: 60px;
-      }
-
-      .footer-links h4 {
+      footer h4 {
         color: var(--white);
         font-size: 14px;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
-      .footer-links ul {
+      footer ul {
         list-style: none;
       }
 
-      .footer-links li {
-        margin-bottom: 8px;
+      footer li {
+        margin-bottom: 6px;
       }
 
-      .footer-links a {
+      footer a {
         color: rgba(255, 255, 255, 0.6);
         text-decoration: none;
         font-size: 14px;
         transition: color 0.2s;
       }
 
-      .footer-links a:hover {
+      footer a:hover {
         color: var(--accent);
       }
 
       .footer-bottom {
         border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding-top: 24px;
+        padding-top: 20px;
         font-size: 13px;
         display: flex;
         justify-content: space-between;
@@ -737,78 +475,45 @@
 
       .footer-bottom a {
         color: var(--accent);
-        text-decoration: none;
       }
 
-      /* Responsive */
+      /* --- SVG Common --- */
+      svg text {
+        font-family: "Inter", sans-serif;
+      }
+
+      svg .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      /* --- Responsive --- */
       @media (max-width: 1024px) {
-        .shift-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .possibilities-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .concepts-grid {
-          grid-template-columns: repeat(2, 1fr);
-        }
-
-        .links-grid {
-          grid-template-columns: repeat(2, 1fr);
-        }
-      }
-
-      .mobile-cta {
-        display: none;
+        .ownership-grid { grid-template-columns: 1fr; }
+        .cards-grid { grid-template-columns: repeat(2, 1fr); }
+        .footer-grid { grid-template-columns: 1fr; }
       }
 
       @media (max-width: 768px) {
-        .nav-links {
-          display: none;
-        }
+        .nav-links { display: none; }
 
         .mobile-cta {
           display: inline-flex;
-          background: var(--primary);
+          background: var(--secondary);
           color: var(--white);
-          padding: 8px 16px;
+          padding: 6px 14px;
           border-radius: 6px;
           font-size: 14px;
           font-weight: 500;
           text-decoration: none;
         }
 
-        .concepts-grid,
-        .links-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .intro-ctas {
-          flex-direction: column;
-        }
-
-        .btn {
-          justify-content: center;
-        }
-
-        .hero-scroll {
-          bottom: 20px;
-        }
-
-        .footer-content {
-          flex-direction: column;
-          gap: 40px;
-        }
-
-        .footer-links {
-          flex-direction: column;
-          gap: 30px;
-        }
+        .ops-row { grid-template-columns: repeat(2, 1fr); }
+        .privacy-levels { grid-template-columns: 1fr; }
+        .cards-grid { grid-template-columns: 1fr; }
 
         .footer-bottom {
           flex-direction: column;
-          gap: 12px;
+          gap: 8px;
           text-align: center;
         }
       }
@@ -822,9 +527,9 @@
         <a href="https://github.com/bandeira-tech/b3nd" class="mobile-cta"
         >GitHub</a>
         <ul class="nav-links">
-          <li><a href="#the-shift">The Shift</a></li>
-          <li><a href="#possibilities">What's Possible</a></li>
-          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#protocol">Protocol</a></li>
+          <li><a href="#code">Code</a></li>
+          <li><a href="#privacy">Privacy</a></li>
           <li><a href="#resources">Resources</a></li>
           <li>
             <a href="https://github.com/bandeira-tech/b3nd" class="nav-cta"
@@ -834,280 +539,414 @@
       </div>
     </nav>
 
-    <!-- Hero Section - Pure Mood -->
+    <!-- Hero -->
     <section class="hero">
-      <div class="particles">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
+      <div>
+        <h1>B3ND<span class="accent">.</span></h1>
+        <p class="tagline">digital spellcraft</p>
+        <p class="subtitle"
+        >Data belongs to you. Four operations. Any app.</p>
       </div>
-      <div class="hero-content">
-        <h1 class="hero-brand">B3ND<span class="accent">.</span></h1>
-        <p class="hero-tagline">digital spellcraft</p>
-      </div>
-      <a href="#intro" class="hero-scroll">
-        <span>↓</span>
-      </a>
     </section>
 
-    <!-- Intro Section - Blurb + CTA -->
-    <section class="intro" id="intro">
+    <!-- The Whole Protocol -->
+    <section class="protocol" id="protocol">
       <div class="container">
-        <div class="intro-content">
-          <p class="lead">A different way to think about data.</p>
-          <p>
-            What if data didn't live on someone else's servers? What if messages
-            went directly between parties? What if the software you use worked
-            for you instead of extracting from you?
-          </p>
-          <p>
-            B3nd is a framework for building that world.
-          </p>
-          <div class="intro-ctas">
-            <a href="#the-shift" class="btn btn-primary"
-            >Understand the Shift</a>
-            <a
-              href="https://github.com/bandeira-tech/b3nd"
-              class="btn btn-secondary"
-              style="background: var(--primary); border-color: var(--primary)"
-            >View on GitHub →</a>
+        <h2 class="section-title">The Whole Protocol</h2>
+        <p class="section-subtitle">Everything B3nd does, on one screen.</p>
+
+        <!-- URI Anatomy -->
+        <div class="uri-anatomy">
+          <svg viewBox="0 0 800 100" style="width: 100%; height: auto;">
+            <rect x="40" y="20" width="720" height="48" rx="8"
+              fill="var(--white)" stroke="var(--secondary)" stroke-width="2"/>
+
+            <!-- protocol -->
+            <text x="145" y="50" text-anchor="middle" class="mono"
+              font-size="15" fill="var(--secondary)" font-weight="600"
+            >mutable://</text>
+            <!-- hostname -->
+            <text x="310" y="50" text-anchor="middle" class="mono"
+              font-size="15" fill="var(--accent)" font-weight="600"
+            >accounts</text>
+            <!-- path -->
+            <text x="510" y="50" text-anchor="middle" class="mono"
+              font-size="15" fill="var(--text)"
+            >/{pubkey}/profile</text>
+
+            <!-- separators -->
+            <line x1="225" y1="24" x2="225" y2="64" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="395" y1="24" x2="395" y2="64" stroke="#e5e7eb" stroke-width="1"/>
+
+            <!-- labels -->
+            <text x="145" y="88" text-anchor="middle" font-size="11"
+              fill="var(--muted)">protocol (behavior)</text>
+            <text x="310" y="88" text-anchor="middle" font-size="11"
+              fill="var(--muted)">hostname (auth model)</text>
+            <text x="510" y="88" text-anchor="middle" font-size="11"
+              fill="var(--muted)">path (your data)</text>
+          </svg>
+        </div>
+
+        <!-- Four Operations -->
+        <div class="ops-row">
+          <div class="op-box">
+            <h3>receive</h3>
+            <p>Write data to a URI</p>
+          </div>
+          <div class="op-box">
+            <h3>read</h3>
+            <p>Get data from a URI</p>
+          </div>
+          <div class="op-box">
+            <h3>list</h3>
+            <p>Browse URIs by prefix</p>
+          </div>
+          <div class="op-box">
+            <h3>delete</h3>
+            <p>Remove data at a URI</p>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- The Shift -->
-    <section class="the-shift" id="the-shift">
-      <div class="container">
-        <div class="shift-grid">
-          <div class="shift-content">
-            <h3>The model we inherited</h3>
-            <p>
-              The internet we use today is built on a simple assumption: users
-              connect to servers, and servers hold everything. Your photos, your
-              messages, your purchases, your history—all stored on computers you
-              don't control, managed by companies whose interests aren't yours.
-            </p>
-            <p>
-              This made sense when storage was expensive and connections were
-              slow. But that was decades ago. Now we carry supercomputers in our
-              pockets and pay for bandwidth we barely use.
-            </p>
-            <p>
-              The client-server model persists not because it's the best way to
-              build software, but because it's the best way to build platforms
-              that extract value from users.
-            </p>
-            <div class="key-idea">
-              <p>
-                B3nd asks: what if we designed from first principles for today's
-                technology and tomorrow's users?
-              </p>
-            </div>
+        <!-- Protocol Family -->
+        <div class="protocol-grid">
+          <div class="proto-card">
+            <h3>mutable://</h3>
+            <p>Updatable data. Profiles, configs, state.</p>
           </div>
-          <div class="model-comparison">
-            <div class="model-box old">
-              <h4>The Old Model</h4>
-              <div class="model-diagram">
-                User <span class="arrow">→</span> Platform <span class="arrow"
-                >←</span> User<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span
-                  class="arrow"
-                >↓</span><br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Platform owns data<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Platform sets rules<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Platform takes cut
-              </div>
-            </div>
-            <div class="model-box new">
-              <h4>The B3nd Model</h4>
-              <div class="model-diagram">
-                User <span class="arrow">↔</span> <span class="highlight"
-                >Data</span> <span class="arrow">↔</span> User<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span
-                  class="arrow"
-                >↕</span><br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Users own data<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Apps compete to serve<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Value flows direct
-              </div>
-            </div>
+          <div class="proto-card">
+            <h3>immutable://</h3>
+            <p>Write-once records. Logs, posts, receipts.</p>
+          </div>
+          <div class="proto-card">
+            <h3>blob://</h3>
+            <p>Content-addressed by SHA256 hash.</p>
+          </div>
+          <div class="proto-card">
+            <h3>link://</h3>
+            <p>Mutable references to other URIs.</p>
+          </div>
+          <div class="proto-card">
+            <h3>msg://</h3>
+            <p>Message envelopes for batch writes.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- What Becomes Possible -->
-    <section class="possibilities" id="possibilities">
+    <!-- Show Don't Tell -->
+    <section class="code-section" id="code">
       <div class="container">
-        <div class="section-header">
-          <h2>What becomes possible</h2>
-          <p>When you change how data works, you change what you can build</p>
-        </div>
+        <h2 class="section-title">Show Don't Tell</h2>
 
-        <div class="possibilities-grid">
-          <div class="possibility-card">
-            <h3><span>💰</span> Direct value exchange</h3>
-            <p>
-              When there's no platform in the middle, advertisers can pay users
-              directly for attention. Creators can sell directly to audiences.
-              The 30% platform fee disappears.
-            </p>
-            <div class="example">
-              <strong>Example:</strong> An app where you see ads and get
-              paid—not the platform. The advertiser gets verified human
-              attention, you get compensated for yours.
+        <div class="code-flow">
+          <!-- Write -->
+          <div class="code-panel">
+            <div class="terminal-bar">
+              <div class="dot r"></div>
+              <div class="dot y"></div>
+              <div class="dot g"></div>
+              <span class="terminal-label">write</span>
+            </div>
+            <div class="code-body">
+              <pre><span class="cm">// Store data at a URI you control</span>
+<span class="kw">await</span> client.<span class="fn">receive</span>([
+  <span class="str">"mutable://accounts/alice/profile"</span>,
+  { name: <span class="str">"Alice"</span>, bio: <span class="str">"Builder"</span> }
+]);</pre>
             </div>
           </div>
 
-          <div class="possibility-card">
-            <h3><span>🔐</span> Real privacy</h3>
-            <p>
-              When data is encrypted before it leaves your device, privacy isn't
-              a policy—it's math. The network can't read what it can't decrypt.
-            </p>
-            <div class="example">
-              <strong>Example:</strong> Messages that are literally unreadable
-              by anyone except sender and recipient. Not "we promise not to
-              look"—actually impossible to look.
+          <div class="flow-arrow">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12l7 7 7-7" stroke="var(--accent)"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- Read -->
+          <div class="code-panel">
+            <div class="terminal-bar">
+              <div class="dot r"></div>
+              <div class="dot y"></div>
+              <div class="dot g"></div>
+              <span class="terminal-label">read</span>
             </div>
-          </div>
-
-          <div class="possibility-card">
-            <h3><span>🔄</span> Portable identity</h3>
-            <p>
-              When your data lives at addresses you control, switching apps
-              doesn't mean starting over. Your history, your relationships, your
-              content—it all comes with you.
-            </p>
-            <div class="example">
-              <strong>Example:</strong> Leave a social network but keep your
-              followers. Switch note-taking apps but keep your notes. The data
-              is yours wherever you go.
-            </div>
-          </div>
-
-          <div class="possibility-card">
-            <h3><span>🌐</span> Distributed infrastructure</h3>
-            <p>
-              When storage and messaging are protocols instead of services,
-              anyone can run the infrastructure. Local businesses can serve
-              local traffic. The network becomes the community.
-            </p>
-            <div class="example">
-              <strong>Example:</strong> A coffee shop that runs a node, serves
-              content to customers, and gets paid for the bandwidth.
-              Infrastructure as community service.
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- How It Works -->
-    <section class="how-it-works" id="how-it-works">
-      <div class="container">
-        <div class="section-header">
-          <h2>How it works</h2>
-          <p>Simple concepts, powerful implications</p>
-        </div>
-
-        <div class="concepts-grid">
-          <div class="concept-card">
-            <h3>Addressable Data</h3>
-            <p>
-              Every piece of data has a URI—an address that belongs to whoever
-              controls the key. Like URLs for the web, but for everything.
-            </p>
-            <code>mutable://accounts/{key}/profile</code>
-          </div>
-
-          <div class="concept-card">
-            <h3>Signed Messages</h3>
-            <p>
-              Every write is cryptographically signed. The network doesn't need
-              to trust you—it can verify mathematically that you authorized the
-              action.
-            </p>
-            <code>{ auth: [{ pubkey, signature }], payload }</code>
-          </div>
-
-          <div class="concept-card">
-            <h3>Client-Side Encryption</h3>
-            <p>
-              Private data is encrypted before it leaves your device. The
-              network stores bytes it can't read. Privacy is structural, not
-              promised.
-            </p>
-            <code>encrypt(data, recipientKey)</code>
-          </div>
-        </div>
-
-        <div class="code-section">
-          <div class="code-header">
-            <span class="code-dot red"></span>
-            <span class="code-dot yellow"></span>
-            <span class="code-dot green"></span>
-          </div>
-          <div class="code-content">
-            <pre>
-<span class="comment">// The API is simple: read, write, list, delete</span>
-
-<span class="comment">// Write data to an address you control</span>
-<span class="keyword">await</span> client.<span class="function">write</span>(
-  <span class="string">"mutable://accounts/{yourKey}/data"</span>,
-  { content: <span class="string">"Hello, world"</span> }
+            <div class="code-body">
+              <pre><span class="cm">// Read it back</span>
+<span class="kw">const</span> result = <span class="kw">await</span> client.<span class="fn">read</span>(
+  <span class="str">"mutable://accounts/alice/profile"</span>
 );
 
-<span class="comment">// Read data from any address</span>
-<span class="keyword">const</span> result = <span class="keyword">await</span> client.<span class="function">read</span>(
-  <span class="string">"mutable://accounts/{anyKey}/public-data"</span>
+console.<span class="fn">log</span>(result.record.data);
+<span class="cm">// { name: "Alice", bio: "Builder" }</span></pre>
+            </div>
+          </div>
+
+          <div class="flow-arrow">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12l7 7 7-7" stroke="var(--accent)"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- Any App -->
+          <div class="code-panel">
+            <div class="terminal-bar">
+              <div class="dot r"></div>
+              <div class="dot y"></div>
+              <div class="dot g"></div>
+              <span class="terminal-label">any app</span>
+            </div>
+            <div class="code-body">
+              <pre><span class="cm">// A completely different app reads the same data</span>
+<span class="kw">const</span> profile = <span class="kw">await</span> otherApp.<span class="fn">read</span>(
+  <span class="str">"mutable://accounts/alice/profile"</span>
 );
 
-<span class="comment">// That's it. The network handles storage, replication, delivery.</span>
-<span class="comment">// Your code handles what matters: the experience you're building.</span></pre>
+<span class="cm">// Same URI, same data. Your data travels with you.</span></pre>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Resources -->
-    <section class="links" id="resources">
+    <!-- Your Data, Your Keys -->
+    <section class="ownership">
       <div class="container">
-        <div class="section-header">
-          <h2>Start building</h2>
-          <p>Everything you need to build with B3nd</p>
+        <h2 class="section-title">Your Data, Your Keys</h2>
+
+        <div class="ownership-grid">
+          <!-- Today -->
+          <div class="own-panel">
+            <h3>Today</h3>
+            <svg viewBox="0 0 320 160" style="width: 100%; max-width: 320px; height: auto;">
+              <!-- User A -->
+              <circle cx="60" cy="80" r="28" fill="none" stroke="var(--secondary)"
+                stroke-width="2" opacity="0.6"/>
+              <text x="60" y="84" text-anchor="middle" font-size="12"
+                fill="var(--text)">User</text>
+
+              <!-- Platform -->
+              <rect x="120" y="52" width="80" height="56" rx="8"
+                fill="var(--accent)" fill-opacity="0.15"
+                stroke="var(--accent)" stroke-width="2"/>
+              <text x="160" y="84" text-anchor="middle" font-size="12"
+                fill="var(--text)" font-weight="600">Platform</text>
+
+              <!-- User B -->
+              <circle cx="260" cy="80" r="28" fill="none" stroke="var(--secondary)"
+                stroke-width="2" opacity="0.6"/>
+              <text x="260" y="84" text-anchor="middle" font-size="12"
+                fill="var(--text)">User</text>
+
+              <!-- Arrows to platform -->
+              <line x1="88" y1="80" x2="118" y2="80" stroke="var(--muted)" stroke-width="2"/>
+              <polygon points="118,80 112,76 112,84" fill="var(--muted)"/>
+              <line x1="232" y1="80" x2="202" y2="80" stroke="var(--muted)" stroke-width="2"/>
+              <polygon points="202,80 208,76 208,84" fill="var(--muted)"/>
+
+              <!-- Label -->
+              <text x="160" y="140" text-anchor="middle" font-size="11"
+                fill="var(--muted)">Platform owns the data</text>
+            </svg>
+          </div>
+
+          <!-- B3nd -->
+          <div class="own-panel">
+            <h3>B3nd</h3>
+            <svg viewBox="0 0 320 160" style="width: 100%; max-width: 320px; height: auto;">
+              <!-- User A -->
+              <circle cx="60" cy="80" r="28" fill="none" stroke="var(--secondary)"
+                stroke-width="2" opacity="0.6"/>
+              <text x="60" y="84" text-anchor="middle" font-size="12"
+                fill="var(--text)">User</text>
+
+              <!-- Data -->
+              <rect x="120" y="52" width="80" height="56" rx="8"
+                fill="var(--money)" fill-opacity="0.15"
+                stroke="var(--money)" stroke-width="2"/>
+              <text x="160" y="84" text-anchor="middle" font-size="12"
+                fill="var(--text)" font-weight="600">Data</text>
+
+              <!-- User B -->
+              <circle cx="260" cy="80" r="28" fill="none" stroke="var(--secondary)"
+                stroke-width="2" opacity="0.6"/>
+              <text x="260" y="84" text-anchor="middle" font-size="12"
+                fill="var(--text)">User</text>
+
+              <!-- Bidirectional arrows -->
+              <line x1="88" y1="76" x2="118" y2="76" stroke="var(--money)" stroke-width="2"/>
+              <polygon points="118,76 112,72 112,80" fill="var(--money)"/>
+              <line x1="118" y1="84" x2="88" y2="84" stroke="var(--money)" stroke-width="2"/>
+              <polygon points="88,84 94,80 94,88" fill="var(--money)"/>
+
+              <line x1="232" y1="76" x2="202" y2="76" stroke="var(--money)" stroke-width="2"/>
+              <polygon points="202,76 208,72 208,80" fill="var(--money)"/>
+              <line x1="202" y1="84" x2="232" y2="84" stroke="var(--money)" stroke-width="2"/>
+              <polygon points="232,84 226,80 226,88" fill="var(--money)"/>
+
+              <!-- Label -->
+              <text x="160" y="140" text-anchor="middle" font-size="11"
+                fill="var(--money)">Users own the data</text>
+            </svg>
+          </div>
         </div>
 
-        <div class="links-grid">
-          <a
-            href="https://github.com/bandeira-tech/b3nd#readme"
-            class="link-card"
-          >
-            <div class="link-card-icon">📚</div>
-            <h3>Documentation</h3>
-            <p>Guides, API reference, and examples to get started</p>
-            <span class="arrow">Read the docs →</span>
-          </a>
-          <a href="https://github.com/bandeira-tech/b3nd" class="link-card">
-            <div class="link-card-icon">💻</div>
+        <p class="own-explain">
+          Traditional platforms sit between users and their data. B3nd puts data
+          at the center &mdash; any app can read the same addresses, and switching
+          apps doesn't mean starting over.
+        </p>
+      </div>
+    </section>
+
+    <!-- Privacy is Math -->
+    <section class="privacy" id="privacy">
+      <div class="container">
+        <h2 class="section-title">Privacy is Math</h2>
+
+        <div class="privacy-flow">
+          <svg viewBox="0 0 900 100" style="width: 100%; height: auto;">
+            <!-- Plaintext -->
+            <rect x="20" y="25" width="160" height="50" rx="8"
+              fill="var(--light)" stroke="var(--secondary)" stroke-width="2"/>
+            <text x="100" y="55" text-anchor="middle" font-size="14"
+              fill="var(--text)">your data</text>
+
+            <!-- Arrow 1 -->
+            <line x1="180" y1="50" x2="260" y2="50" stroke="var(--accent)" stroke-width="2"/>
+            <polygon points="260,50 254,46 254,54" fill="var(--accent)"/>
+
+            <!-- Encrypt -->
+            <rect x="260" y="25" width="160" height="50" rx="8"
+              fill="var(--accent)" fill-opacity="0.1"
+              stroke="var(--accent)" stroke-width="2"/>
+            <text x="340" y="55" text-anchor="middle" font-size="14"
+              fill="var(--accent)" font-weight="600">encrypt</text>
+
+            <!-- Arrow 2 -->
+            <line x1="420" y1="50" x2="500" y2="50" stroke="var(--accent)" stroke-width="2"/>
+            <polygon points="500,50 494,46 494,54" fill="var(--accent)"/>
+
+            <!-- Ciphertext -->
+            <rect x="500" y="25" width="160" height="50" rx="8"
+              fill="var(--light)" stroke="var(--secondary)" stroke-width="2"/>
+            <text x="580" y="55" text-anchor="middle" class="mono" font-size="13"
+              fill="var(--text)">ciphertext</text>
+
+            <!-- Arrow 3 -->
+            <line x1="660" y1="50" x2="720" y2="50" stroke="var(--muted)"
+              stroke-width="2" stroke-dasharray="5,5"/>
+            <polygon points="720,50 714,46 714,54" fill="var(--muted)"/>
+
+            <!-- Network -->
+            <rect x="720" y="25" width="160" height="50" rx="8"
+              fill="var(--primary)" fill-opacity="0.08"
+              stroke="var(--primary)" stroke-width="2"/>
+            <text x="800" y="55" text-anchor="middle" font-size="14"
+              fill="var(--primary)">network</text>
+          </svg>
+        </div>
+
+        <div class="privacy-levels">
+          <div class="level-card">
+            <h3>Public</h3>
+            <p>No encryption. Open data anyone can read.</p>
+          </div>
+          <div class="level-card">
+            <h3>Protected</h3>
+            <p>Password-derived key. Share the password, share access.</p>
+          </div>
+          <div class="level-card">
+            <h3>Private</h3>
+            <p>Recipient's public key. Only the intended reader can decrypt.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Run Your Own -->
+    <section class="run-own">
+      <div class="container">
+        <h2 class="section-title">Run Your Own</h2>
+
+        <div class="run-own-content">
+          <svg viewBox="0 0 500 220" style="width: 100%; max-width: 500px; height: auto; display: block; margin: 0 auto;">
+            <!-- Center node -->
+            <circle cx="250" cy="110" r="32" fill="var(--secondary)"
+              fill-opacity="0.15" stroke="var(--secondary)" stroke-width="2"/>
+            <text x="250" y="106" text-anchor="middle" font-size="11"
+              fill="var(--text)" font-weight="600">Your</text>
+            <text x="250" y="120" text-anchor="middle" font-size="11"
+              fill="var(--text)" font-weight="600">Node</text>
+
+            <!-- Node 1 top-left -->
+            <circle cx="100" cy="50" r="26" fill="var(--light)"
+              stroke="var(--primary)" stroke-width="2"/>
+            <text x="100" y="54" text-anchor="middle" font-size="11"
+              fill="var(--text)">Node</text>
+
+            <!-- Node 2 top-right -->
+            <circle cx="400" cy="50" r="26" fill="var(--light)"
+              stroke="var(--primary)" stroke-width="2"/>
+            <text x="400" y="54" text-anchor="middle" font-size="11"
+              fill="var(--text)">Node</text>
+
+            <!-- Node 3 bottom-left -->
+            <circle cx="100" cy="170" r="26" fill="var(--light)"
+              stroke="var(--primary)" stroke-width="2"/>
+            <text x="100" y="174" text-anchor="middle" font-size="11"
+              fill="var(--text)">Node</text>
+
+            <!-- Node 4 bottom-right -->
+            <circle cx="400" cy="170" r="26" fill="var(--light)"
+              stroke="var(--primary)" stroke-width="2"/>
+            <text x="400" y="174" text-anchor="middle" font-size="11"
+              fill="var(--text)">Node</text>
+
+            <!-- Lines -->
+            <line x1="222" y1="92" x2="126" y2="66" stroke="var(--money)" stroke-width="2"/>
+            <line x1="278" y1="92" x2="374" y2="66" stroke="var(--money)" stroke-width="2"/>
+            <line x1="222" y1="128" x2="126" y2="154" stroke="var(--money)" stroke-width="2"/>
+            <line x1="278" y1="128" x2="374" y2="154" stroke="var(--money)" stroke-width="2"/>
+
+            <!-- Cross lines -->
+            <line x1="126" y1="64" x2="374" y2="64" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="126" y1="156" x2="374" y2="156" stroke="#e5e7eb" stroke-width="1"/>
+          </svg>
+
+          <div class="code-inline"
+          >new HttpClient({ url: "your-node.example.com" })</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Start Building -->
+    <section class="start" id="resources">
+      <div class="container">
+        <h2 class="section-title">Start Building</h2>
+
+        <div class="cards-grid">
+          <a href="https://github.com/bandeira-tech/b3nd" class="card">
             <h3>GitHub</h3>
-            <p>Source code, SDK, and reference implementations</p>
-            <span class="arrow">View repository →</span>
+            <p>Source code and contributions</p>
+            <span class="link">bandeira-tech/b3nd</span>
           </a>
-          <a
-            href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web"
-            class="link-card"
-          >
-            <div class="link-card-icon">📦</div>
-            <h3>SDK</h3>
-            <p>npm install @bandeira-tech/b3nd-web</p>
-            <span class="arrow">Install package →</span>
+          <a href="https://jsr.io/@bandeira-tech/b3nd-sdk" class="card">
+            <h3>JSR</h3>
+            <p>Deno / server package</p>
+            <span class="link">@bandeira-tech/b3nd-sdk</span>
+          </a>
+          <a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web" class="card">
+            <h3>NPM</h3>
+            <p>Browser / React package</p>
+            <span class="link">@bandeira-tech/b3nd-web</span>
+          </a>
+          <a href="https://github.com/bandeira-tech/b3nd#claude-code-plugin" class="card">
+            <h3>Claude Code</h3>
+            <p>AI agent plugin</p>
+            <span class="link">b3nd skill</span>
           </a>
         </div>
       </div>
@@ -1116,52 +955,40 @@
     <!-- Footer -->
     <footer>
       <div class="container">
-        <div class="footer-content">
+        <div class="footer-grid">
           <div class="footer-brand">
             <a href="#" class="logo">b3nd<span>.</span></a>
-            <p>
-              A framework for building digital experiences where data belongs to
-              users, not platforms.
-            </p>
+            <p>A protocol for URI-based data where users own their data.</p>
           </div>
-          <div class="footer-links">
-            <div>
-              <h4>Learn</h4>
-              <ul>
-                <li><a href="#the-shift">The Shift</a></li>
-                <li><a href="#possibilities">What's Possible</a></li>
-                <li><a href="#how-it-works">How It Works</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4>Build</h4>
-              <ul>
-                <li>
-                  <a href="https://github.com/bandeira-tech/b3nd#readme"
-                  >Documentation</a>
-                </li>
-                <li>
-                  <a href="https://github.com/bandeira-tech/b3nd">GitHub</a>
-                </li>
-                <li>
-                  <a
-                    href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web"
-                  >NPM</a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4>Connect</h4>
-              <ul>
-                <li><a href="https://bandeira.tech">Bandeira Tech</a></li>
-              </ul>
-            </div>
+          <div>
+            <h4>Build</h4>
+            <ul>
+              <li>
+                <a href="https://github.com/bandeira-tech/b3nd#readme"
+                >Documentation</a>
+              </li>
+              <li>
+                <a href="https://github.com/bandeira-tech/b3nd">GitHub</a>
+              </li>
+              <li>
+                <a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web"
+                >NPM</a>
+              </li>
+              <li>
+                <a href="https://jsr.io/@bandeira-tech/b3nd-sdk">JSR</a>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4>Connect</h4>
+            <ul>
+              <li><a href="https://bandeira.tech">Bandeira Tech</a></li>
+            </ul>
           </div>
         </div>
         <div class="footer-bottom">
           <span>B3nd is open source</span>
-          <span>Built by <a href="https://bandeira.tech"
-            >Bandeira Tech</a></span>
+          <span>Built by <a href="https://bandeira.tech">Bandeira Tech</a></span>
         </div>
       </div>
     </footer>

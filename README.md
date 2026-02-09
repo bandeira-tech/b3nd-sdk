@@ -1,13 +1,43 @@
-# B3nd SDK
+# B3nd
 
-Universal persistence SDK with URI-based data addressing, encryption, and multi-backend support.
+A protocol for URI-based data where users own their data, privacy is
+encryption, and any app can read the same addresses.
+
+[Website](https://b3nd.dev) |
+[GitHub](https://github.com/bandeira-tech/b3nd) |
+[JSR](https://jsr.io/@bandeira-tech/b3nd-sdk) |
+[NPM](https://www.npmjs.com/package/@bandeira-tech/b3nd-web)
+
+## The Protocol in 30 Seconds
+
+Every piece of data has a URI. Four operations do everything:
+
+```typescript
+const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+
+// Write — submit a message to a URI
+await client.receive(["mutable://open/my-app/greeting", { text: "Hello, world" }]);
+
+// Read — get data from any URI
+const result = await client.read("mutable://open/my-app/greeting");
+console.log(result.record?.data); // { text: "Hello, world" }
+
+// List — browse URIs by prefix
+const items = await client.list("mutable://open/my-app/");
+
+// Delete — remove data
+await client.delete("mutable://open/my-app/greeting");
+```
+
+URIs define behavior (mutable, immutable, encrypted), not meaning. The same
+protocol works for profiles, posts, configs, messages — any data.
 
 ## Packages
 
 | Package | Registry | Use Case |
 |---------|----------|----------|
 | [@bandeira-tech/b3nd-sdk](https://jsr.io/@bandeira-tech/b3nd-sdk) | JSR | Deno, servers |
-| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | npm | Browser, React |
+| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | NPM | Browser, React |
 
 ```typescript
 // Deno/Server
@@ -20,16 +50,16 @@ import { HttpClient, WalletClient, LocalStorageClient } from "@bandeira-tech/b3n
 ## Quick Start
 
 ```typescript
-const client = new HttpClient({ url: "http://localhost:8842" });
+const client = new HttpClient({ url: "http://localhost:9942" });
 
-// Write data (receive a message)
+// Write
 await client.receive(["mutable://users/alice/profile", { name: "Alice", age: 30 }]);
 
-// Read data
+// Read
 const result = await client.read("mutable://users/alice/profile");
 console.log(result.record?.data); // { name: "Alice", age: 30 }
 
-// List items
+// List
 const items = await client.list("mutable://users/");
 console.log(items.data); // [{ uri: "mutable://users/alice/profile" }]
 
@@ -89,19 +119,24 @@ src/           # SDK entry points (mod.ts, mod.web.ts)
 libs/          # Core libraries (clients, compose, encrypt, etc.)
 apps/          # Server applications (b3nd-node, wallet-node, etc.)
 tests/         # E2E tests
+skills/        # Claude Code plugin skills
 ```
 
 ## Claude Code Plugin
 
-Install the B3nd plugin for AI-assisted development:
+The B3nd plugin provides a unified `b3nd` skill for AI-assisted development:
 
 ```bash
 claude mcp add b3nd -- npx -y @anthropic-ai/mcp-b3nd
 ```
 
-Included skills: `b3nd-general`, `b3nd-sdk`, `b3nd-web`, `b3nd-webapp`, `b3nd-denocli`
-
 MCP tools: `b3nd_read`, `b3nd_receive`, `b3nd_list`, `b3nd_delete`, `b3nd_health`
+
+## Learn More
+
+- [AGENTS.md](AGENTS.md) — Agent reference, architecture, and development workflows
+- Protocol philosophy: URIs express behavior (mutability, authentication), not
+  meaning. Higher-level features are workflows on canonical protocols.
 
 ## License
 

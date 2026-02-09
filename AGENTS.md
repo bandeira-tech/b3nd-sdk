@@ -341,18 +341,19 @@ docker run --rm -d --name b3nd-mongo -e MONGO_INITDB_DATABASE=b3nd_test -p 57017
 
 ## Skills System
 
-The b3nd plugin provides 5 skills that Claude agents use automatically:
+The b3nd plugin provides a single unified skill that Claude agents use
+automatically:
 
-| Skill          | Triggers on                                                    |
-| -------------- | -------------------------------------------------------------- |
-| `b3nd-general` | URI schemes, protocols, encryption, wallet auth                |
-| `b3nd-sdk`     | Deno/JSR imports, server setup, clients, node system, messages |
-| `b3nd-web`     | NPM browser imports, HttpClient, WalletClient                  |
-| `b3nd-webapp`  | React apps, Zustand, React Query, visibility controls          |
-| `b3nd-denocli` | Deno CLI tools, scripts, server-side integrations              |
+| Skill  | Triggers on                                                                    |
+| ------ | ------------------------------------------------------------------------------ |
+| `b3nd` | B3nd URIs, Firecat, protocols, encryption, wallet auth, clients, React, Deno   |
+
+The skill is organized into navigable "Guide" sections: Protocol & URIs, Getting
+Started, Blob/Link/Encryption, Wallet & Auth, Resource Visibility, Server-Side,
+Browser Apps, React Applications, Deno CLI, and E2E Testing.
 
 Skills are the primary way agents learn the current SDK API. After any SDK API
-change, update the relevant skill in `skills/` so agents use correct imports and
+change, update `skills/b3nd/SKILL.md` so agents use correct imports and
 patterns.
 
 ---
