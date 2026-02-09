@@ -1,9 +1,57 @@
 # B3nd Monorepo — Agent Reference
 
+## Agent Workflow
+
+### Completion Protocol
+
+**Every session that changes code MUST end with verification and a commit.** Do
+not leave uncommitted work.
+
+1. **Verify** — Type check entry points:
+   ```bash
+   deno check src/mod.ts libs/*/mod.ts
+   ```
+2. **Commit** — Stage and commit with a clear message.
+3. **Push** — A git pre-push hook runs `deno check` on all entry points and
+   blocks the push if type checking fails.
+
+If verification fails, fix the issue and re-verify. Never commit failing code.
+Never leave a session with uncommitted changes.
+
+### Making SDK Changes
+
+1. **Read first** — Never modify code you haven't read.
+2. **Implement** — Keep changes focused and minimal.
+3. **Update skills** — If you changed exports or client behavior, update the
+   relevant skill in `skills/`.
+4. **Verify and commit** — Follow the completion protocol above.
+
+### Adding a New Client
+
+1. Create `libs/b3nd-client-{name}/` with `mod.ts` and `deno.json`
+2. Implement `NodeProtocolInterface` (see `libs/b3nd-client-memory/mod.ts`)
+3. Add `isMessageData` unpacking in `receive()` (see memory/postgres/mongo)
+4. Run shared test suites: `runSharedSuite` and `runNodeSuite` from
+   `libs/b3nd-testing/`
+5. Re-export from `src/mod.ts`
+6. Add workspace member to root `deno.json`
+
+### Adding a New Validator or Processor
+
+1. Add to `libs/b3nd-compose/validators.ts` or `libs/b3nd-compose/processors.ts`
+2. Re-export from `libs/b3nd-compose/mod.ts` and `src/mod.ts`
+3. Add tests
+4. Update `b3nd-sdk` skill
+
+---
+
 ## Repository Structure
 
 ```
 b3nd/
+├── src/mod.ts                  # SDK entry point (JSR + NPM re-exports from libs/)
+├── deno.json                   # Workspace config, tasks, JSR publish settings
+├── package.json                # NPM: @bandeira-tech/b3nd-web
 ├── libs/                       # SDK packages (modular)
 │   ├── b3nd-core/              # Foundation: types, encoding, binary
 │   ├── b3nd-compose/           # Node composition: createNode, validators, processors
@@ -18,39 +66,27 @@ b3nd/
 │   ├── b3nd-client-indexeddb/  # IndexedDB client (browser)
 │   ├── b3nd-client-localstorage/ # LocalStorage client (browser)
 │   ├── b3nd-combinators/       # Client composition: parallelBroadcast, firstMatchSequence
-│   ├── b3nd-testing/           # Shared test suites (shared-suite, node-suite, mock-http-server)
-│   ├── b3nd-sdk/               # Publishing facade (re-exports from sibling libs)
-│   │   ├── src/mod.ts          # JSR entry — re-exports everything
-│   │   ├── src/mod.web.ts      # NPM entry — browser-safe subset
-│   │   ├── deno.json           # JSR: @bandeira-tech/b3nd-sdk v0.6.0
-│   │   └── package.json        # NPM: @bandeira-tech/b3nd-web v0.5.2
+│   ├── b3nd-testing/           # Shared test suites (shared-suite, node-suite)
 │   ├── b3nd-auth/              # Pubkey-based access control
 │   ├── b3nd-encrypt/           # Client-side encryption (X25519/Ed25519/AES-GCM)
 │   ├── b3nd-wallet/            # Wallet client (auth, proxy read/write)
 │   ├── b3nd-wallet-server/     # Wallet server implementation
 │   ├── b3nd-apps/              # Apps client
-│   └── b3nd-managed-node/      # Managed node workflows (⚠ needs URI refactor, see Protocol Philosophy)
-├── apps/                       # All applications
-│   ├── b3nd-node/              # Multi-backend HTTP node (Hono) — generic schema-based API
+│   └── b3nd-managed-node/      # Managed node workflows (canonical mutable://accounts URIs)
+├── apps/
+│   ├── b3nd-node/              # Multi-backend HTTP node (Hono)
 │   ├── apps-node/              # Application backend scaffold
 │   ├── wallet-node/            # Wallet/auth server
-│   ├── b3nd-web-rig/           # React/Vite data explorer UI (port 5555)
-│   ├── sdk-inspector/          # Test runner + monitoring backend (port 5556, WebSocket)
+│   ├── b3nd-web-rig/           # React/Vite data explorer + dashboard UI (port 5555)
+│   ├── sdk-inspector/          # Test runner backend (port 5556, writes results to B3nd)
 │   ├── b3nd-cli/               # bnd CLI tool (Deno, compiled binary)
-│   ├── b3nd-managed-node/      # Managed node entry point + Dockerfile
-│   └── website/                # Static site
+│   └── b3nd-managed-node/      # Managed node entry point + Dockerfile
 ├── tests/                      # E2E tests
 ├── skills/                     # Claude Code plugin skills
-│   ├── b3nd-general/           # URI schemes, protocols, encryption, wallet
-│   ├── b3nd-sdk/               # Deno/JSR SDK — clients, node system, messages
-│   ├── b3nd-web/               # NPM browser package
-│   ├── b3nd-webapp/            # React apps with B3nd
-│   └── b3nd-denocli/           # Deno CLI tools with B3nd
-├── .claude-plugin/             # Plugin manifest + MCP server
-│   └── mcp-server/             # Deno MCP server — multi-backend CRUD tools
-├── deno.json                   # Root workspace config
-└── AGENTS.md                   # This file
+└── .claude-plugin/             # Plugin manifest + MCP server
 ```
+
+---
 
 ## Core Architecture
 
@@ -61,7 +97,6 @@ Everything in B3nd flows through `receive([uri, data])`:
 ```typescript
 type Message<D = unknown> = [uri: string, data: D];
 
-// The unified interface:
 await client.receive(["mutable://users/alice", { name: "Alice" }]);
 await client.read("mutable://users/alice");
 await client.list("mutable://users/");
@@ -86,7 +121,7 @@ await node.receive(["msg://open/batch-1", {
 
 ### Client Composition
 
-Compose validated clients from simple primitives using `createValidatedClient`:
+Compose validated clients from simple primitives:
 
 ```typescript
 import {
@@ -97,13 +132,13 @@ import {
 } from "@bandeira-tech/b3nd-sdk";
 
 const client = createValidatedClient({
-  write: parallelBroadcast(clients), // Broadcast writes to all clients
-  read: firstMatchSequence(clients), // Try readers until one succeeds
-  validate: msgSchema(schema), // Validate URI + MessageData outputs
+  write: parallelBroadcast(clients),
+  read: firstMatchSequence(clients),
+  validate: msgSchema(schema),
 });
 ```
 
-For custom behavior without class inheritance, use `FunctionalClient`:
+For custom behavior without class inheritance:
 
 ```typescript
 import { FunctionalClient } from "@bandeira-tech/b3nd-sdk";
@@ -134,215 +169,7 @@ const schema: Schema = {
 };
 ```
 
-## Verification Commands
-
-These commands are the canonical way to verify the SDK. Always run them after
-making changes.
-
-### Quick Verification (no Docker required)
-
-```bash
-# Type check the SDK facade
-cd libs/b3nd-sdk && deno check src/mod.ts
-
-# Type check individual libs
-cd libs/b3nd-core && deno check mod.ts
-cd libs/b3nd-compose && deno check mod.ts
-cd libs/b3nd-client-memory && deno check mod.ts
-
-# Unit tests (no external dependencies) — run from individual libs
-cd libs/b3nd-client-memory && deno test -A
-cd libs/b3nd-client-http && deno test -A
-cd libs/b3nd-msg && deno test -A
-cd libs/b3nd-combinators && deno test -A
-cd libs/b3nd-core && deno test -A
-```
-
-### Full Verification (requires Docker containers)
-
-```bash
-# Integration tests — reuse running containers or start new ones
-cd libs/b3nd-client-postgres && deno test -A
-cd libs/b3nd-client-mongo && deno test -A
-```
-
-### Message-Specific Tests
-
-```bash
-cd libs/b3nd-msg
-deno test -A msg-unpack.test.ts msg-clients.test.ts
-```
-
-### HTTP Server Type Check
-
-```bash
-cd apps/b3nd-node && deno check mod.ts
-```
-
-### Dashboard Artifacts
-
-```bash
-cd apps/sdk-inspector
-deno task dashboard:build    # Regenerate test-results.json + test-logs.txt
-```
-
-Dashboard artifacts are gitignored — they must be rebuilt locally after test
-changes.
-
-## Docker Container Convention
-
-Test files detect and reuse running Docker containers. If a container named
-`b3nd-mongo` or `b3nd-postgres` is already running and healthy, tests use it
-directly. No force-kill, no port conflicts with dev.
-
-Start dev containers:
-
-```bash
-docker run --rm -d --name b3nd-postgres -e POSTGRES_DB=b3nd_test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 55432:5432 postgres:17-alpine
-docker run --rm -d --name b3nd-mongo -e MONGO_INITDB_DATABASE=b3nd_test -p 57017:27017 mongo:8
-```
-
-## Applications
-
-### In-Repo Applications
-
-These are applications and services inside this monorepo:
-
-| App           | Path                         | Stack                 | Description                                                                                                                            |
-| ------------- | ---------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP Server   | `apps/b3nd-node/`            | Deno, Hono            | Generic multi-backend API server. Loads schema modules dynamically. Supports Postgres, Mongo, Memory, HTTP backends via `BACKEND_URL`. |
-| App Backend   | `apps/apps-node/`            | Deno, Hono            | Application backend scaffold with Docker deployment.                                                                                   |
-| Wallet Server | `apps/wallet-node/`          | Deno                  | Wallet/auth server for pubkey-based authentication.                                                                                    |
-| Explorer App  | `apps/b3nd-web-rig/`         | React, Vite, Tailwind | Data explorer UI for browsing B3nd nodes. Port 5555. Uses `@bandeira-tech/b3nd-web`.                                                   |
-| Dashboard     | `apps/sdk-inspector/`        | Deno, Hono            | Test runner backend. Port 5556. Writes results to B3nd.                                                                               |
-| bnd CLI       | `apps/b3nd-cli/`             | Deno                  | Command-line interface for B3nd nodes. `./apps/b3nd-cli/bnd read <uri>`, `./apps/b3nd-cli/bnd list <uri>`.                             |
-| MCP Server    | `.claude-plugin/mcp-server/` | Deno                  | Multi-backend CRUD tools for Claude Code. Reads `B3ND_BACKENDS` env.                                                                   |
-
-### External Applications
-
-Standalone repos that consume the B3nd SDK. When the SDK API changes, these apps
-may need updates. The plugin skills guide agents through SDK adoption.
-
-| App             | Path                 | Stack       | Description                                                                 |
-| --------------- | -------------------- | ----------- | --------------------------------------------------------------------------- |
-| listorama       | `../listorama`       | React, Vite | List management app — reference consumer of `@bandeira-tech/b3nd-web`       |
-| b3ndwebappshell | `../b3ndwebappshell` | Monorepo    | Reusable application shell packages for B3nd web apps                       |
-| notebook        | `../notebook`        | React 19    | Decentralized notebook/microblogging app on Firecat network (firecat-notes) |
-
-Note: Some sibling directories (e.g. `b3nd-cleanup-docs`, `b3nd-wt1`) are **git
-worktrees** of this repo, not separate applications.
-
-## Skills System
-
-The b3nd plugin provides 5 skills that Claude agents use automatically based on
-context:
-
-| Skill          | Triggers on                                                    |
-| -------------- | -------------------------------------------------------------- |
-| `b3nd-general` | URI schemes, protocols, encryption, wallet auth                |
-| `b3nd-sdk`     | Deno/JSR imports, server setup, clients, node system, messages |
-| `b3nd-web`     | NPM browser imports, HttpClient, WalletClient                  |
-| `b3nd-webapp`  | React apps, Zustand, React Query, visibility controls          |
-| `b3nd-denocli` | Deno CLI tools, scripts, server-side integrations              |
-
-Skills are the primary way agents learn the current SDK API. When the SDK
-changes:
-
-1. Update the relevant skill in `skills/`
-2. The skill guides agents to use the correct imports, patterns, and composition
-
-### Skill Update Protocol
-
-After any SDK API change:
-
-1. Run verification: `cd libs/b3nd-sdk && deno check src/mod.ts`
-2. Update affected skills in `skills/` to reflect new exports, patterns,
-   examples
-3. Update `AGENTS.md` if the change affects repo structure or verification
-   commands
-4. Rebuild dashboard artifacts if tests changed:
-   `cd apps/sdk-inspector && deno task dashboard:build`
-
-## Agent Workflow
-
-### Completion Protocol
-
-**Every session that changes code MUST end with verification and a commit.** Do
-not leave uncommitted work.
-
-1. **Format** — Run `deno fmt` to auto-format all files.
-2. **Verify** — Type check the SDK facade and all library entry points:
-   ```bash
-   deno check src/mod.ts libs/*/mod.ts
-   ```
-   If Docker containers are available, also run postgres/mongo client tests.
-3. **Commit** — Stage and commit all changes with a clear message describing
-   what was done.
-4. **Push** — Push to the remote branch so work is never lost. A git pre-push
-   hook runs `deno check` on all entry points and blocks the push if type
-   checking fails.
-
-If verification fails, fix the issue and re-verify. Never commit failing code.
-Never leave a session with uncommitted changes.
-
-### Making SDK Changes
-
-1. **Read first** — Never modify code you haven't read. Understand the existing
-   pattern before changing it.
-2. **Implement** — Make the changes, keeping them focused and minimal.
-3. **Update skills** — If you changed exports, composition patterns, or client
-   behavior, update the relevant skill files in `skills/`.
-4. **Rebuild artifacts** — If you added/removed/renamed tests, rebuild dashboard
-   artifacts.
-5. **Verify and commit** — Follow the completion protocol above. Every commit
-   should pass the full verification chain.
-
-### Adding a New Client
-
-1. Create `libs/b3nd-client-{name}/` with `mod.ts` and `deno.json`
-2. Implement `NodeProtocolInterface` (see `libs/b3nd-client-memory/mod.ts` as
-   reference)
-3. Add `isMessageData` unpacking in `receive()` (see pattern in
-   memory/postgres/mongo clients)
-4. Run shared test suites: `runSharedSuite` and `runNodeSuite` from
-   `libs/b3nd-testing/`
-5. Re-export from `libs/b3nd-sdk/src/mod.ts`
-6. Update `b3nd-sdk` skill
-
-### Adding a New Validator or Processor
-
-1. Add to `libs/b3nd-compose/validators.ts` or `libs/b3nd-compose/processors.ts`
-2. Re-export from `libs/b3nd-compose/mod.ts`
-3. Re-export from `libs/b3nd-sdk/src/mod.ts`
-4. Add tests
-5. Update `b3nd-sdk` skill composition examples
-
-### Propagating SDK Changes to Apps
-
-When the SDK API changes and apps need updating:
-
-1. Identify affected apps (listorama, b3ndwebappshell, notebook)
-2. The skill system guides agents — when an agent works in an app repo with the
-   b3nd plugin installed, it reads the skills automatically
-3. Skills should contain the current import paths, function names, and
-   composition patterns so agents don't use stale APIs
-
-## Code Design Principles
-
-1. **Latest stable dependencies** — Stay fresh, easy to evolve.
-2. **Errors bubble up** — Never suppress errors. Let callers handle them.
-3. **No ENV references in components** — Components take explicit parameters. No
-   defaults from environment.
-4. **No default values** — Require all values explicitly. Rely on the type
-   system.
-5. **Minimize abstractions** — Use JS knowledge where possible. Fewer concepts
-   to learn.
-6. **Client-level responsibility** — Clients handle their own storage strategy
-   (including MessageData unpacking). Validation is composed via
-   `createValidatedClient`.
-7. **Composition over inheritance** —
-   `createValidatedClient({ write, read, validate })` composes behavior from
-   functions, not class hierarchies.
+---
 
 ## Protocol Philosophy: URIs Express Behavior, Not Meaning
 
@@ -358,22 +185,17 @@ one stored at `mutable://accounts/{key}/my-stuff/v2`. The B3nd network cannot
 and should not enforce that "all node configs live at `/nodes/*/config`" because:
 
 1. **No enforcement is possible** — Anyone can organize their account data
-   however they want. A node operator could store configs at
-   `mutable://accounts/{key}/x` and their nodes would work fine.
+   however they want.
 2. **Meaning is contextual** — The same data structure means different things to
-   different readers. A JSON blob is "a config" only to the software that
-   interprets it as one.
+   different readers.
 3. **Custom namespaces fragment the protocol** — Inventing
    `mutable://nodes/...` or `mutable://invoices/...` creates new "programs"
-   that require custom schema validators, custom validation rules, and custom
-   infrastructure. This fights the protocol instead of composing with it.
+   that require custom schema validators and infrastructure. This fights the
+   protocol instead of composing with it.
 
-### The Correct Pattern: Workflow + Message Interpretation
+### Canonical Firecat Programs
 
-Higher-level protocols (node management, marketplace, social features) are
-**workflows** — sequences of messages using the canonical Firecat programs:
-
-| Canonical Program        | Behavior                                     |
+| Program                  | Behavior                                     |
 | ------------------------ | -------------------------------------------- |
 | `mutable://accounts`     | Authenticated mutable data (pubkey-signed)   |
 | `mutable://open`         | Public mutable data (no auth)                |
@@ -385,36 +207,13 @@ Higher-level protocols (node management, marketplace, social features) are
 
 A library for a higher-level protocol provides:
 
-1. **Data structure types** — TypeScript interfaces for the domain (configs,
-   status, metrics, invoices, posts)
-2. **URI conventions** — Helper functions that construct paths within canonical
-   programs (e.g., `mutable://accounts/{key}/nodes/{id}/config`). These are
-   *conventions*, not protocol rules.
-3. **Workflow orchestration** — Functions that coordinate reading, writing,
-   polling, and signing using the existing primitives
-4. **Interpretation logic** — Functions that read data and understand it as
-   domain objects (parse, validate, verify signatures)
-
-### Example: Managed Node Protocol (Correct Design)
-
-Instead of custom programs (`mutable://nodes/...`), compose with accounts:
-
-```
-Operator stores config:     mutable://accounts/{operatorKey}/nodes/{nodeId}/config
-Node reports status:        mutable://accounts/{nodeKey}/status
-Node reports metrics:       mutable://accounts/{nodeKey}/metrics
-Operator stores manifest:   mutable://accounts/{operatorKey}/networks/{networkId}
-Async messages to operator: immutable://inbox/{operatorKey}/nodes/{nodeId}/heartbeat/{ts}
-```
-
-The `mutable://accounts` program already handles signature verification. No
-custom schema rules needed. The library provides helpers that construct these
-URIs, create the data structures, and interpret the results — but the protocol
-enforcement comes from the canonical programs, not custom validators.
+1. **Data structure types** — TypeScript interfaces for the domain
+2. **URI conventions** — Helpers that construct paths within canonical programs
+   (these are *conventions*, not protocol rules)
+3. **Workflow orchestration** — Functions that coordinate read/write/poll/sign
+4. **Interpretation logic** — Functions that parse data into domain objects
 
 ### What This Means for Agents
-
-When building features that require structured data exchange:
 
 - **DO** use `mutable://accounts`, `immutable://inbox`, `blob://open`, etc.
 - **DO** create helper functions for URI construction and data interpretation
@@ -423,22 +222,147 @@ When building features that require structured data exchange:
 - **DON'T** create custom schema validators for domain-specific rules
 - **DON'T** assume URIs can enforce meaning — meaning comes from interpretation
 
+---
+
+## Applications
+
+| App           | Path                   | Stack                 | Description                                            |
+| ------------- | ---------------------- | --------------------- | ------------------------------------------------------ |
+| HTTP Server   | `apps/b3nd-node/`      | Deno, Hono            | Multi-backend API server. Dynamic schema loading.      |
+| App Backend   | `apps/apps-node/`      | Deno, Hono            | Application backend scaffold.                          |
+| Wallet Server | `apps/wallet-node/`    | Deno                  | Wallet/auth server (pubkey-based).                     |
+| Web Rig       | `apps/b3nd-web-rig/`   | React, Vite, Tailwind | Data explorer + developer dashboard. Port 5555.        |
+| Inspector     | `apps/sdk-inspector/`  | Deno, Hono            | Test runner. Writes results to B3nd. Port 5556.        |
+| CLI           | `apps/b3nd-cli/`       | Deno                  | `bnd read <uri>`, `bnd list <uri>`, `bnd node`, etc.  |
+| Managed Node  | `apps/b3nd-managed-node/` | Deno, Docker       | Self-configuring node entry point.                     |
+
+### Inspector + Dashboard
+
+The inspector runs tests and writes results to B3nd at
+`mutable://open/local/inspector`. The web rig dashboard reads from B3nd via the
+active backend configured in Settings. No WebSocket — polling only. The B3nd
+node URL comes from `appStore.activeBackendId`, not from the dashboard itself.
+
+### External Applications
+
+Standalone repos that consume the B3nd SDK:
+
+| App             | Path                 | Stack       | Description                                           |
+| --------------- | -------------------- | ----------- | ----------------------------------------------------- |
+| listorama       | `../listorama`       | React, Vite | List management app (`@bandeira-tech/b3nd-web`)       |
+| b3ndwebappshell | `../b3ndwebappshell` | Monorepo    | Reusable app shell packages for B3nd web apps         |
+| notebook        | `../notebook`        | React 19    | Decentralized notebook on Firecat (firecat-notes)     |
+
+Note: Some sibling directories (e.g. `b3nd-cleanup-docs`, `b3nd-wt1`) are git
+worktrees of this repo, not separate applications.
+
+---
+
+## Verification & CI
+
+### Type Checking
+
+```bash
+# All entry points (same as pre-push hook)
+deno check src/mod.ts libs/*/mod.ts
+
+# Individual lib
+deno check libs/b3nd-core/mod.ts
+
+# App entry point
+deno check apps/b3nd-node/mod.ts
+```
+
+### Running Tests
+
+```bash
+# All SDK tests
+deno test --allow-all libs/
+
+# Specific lib
+deno test --allow-all libs/b3nd-client-memory/
+
+# Integration (requires Docker containers)
+deno test --allow-all libs/b3nd-client-postgres/
+deno test --allow-all libs/b3nd-client-mongo/
+```
+
+### Makefile Targets
+
+```bash
+make test                  # All tests
+make test t=libs/b3nd-msg/ # Specific path
+make test-unit             # Unit tests only (no Postgres/Mongo)
+make test-e2e-http         # E2E HTTP tests (starts test server)
+make build-sdk             # Build web package + validate JSR exports
+```
+
+### Docker Containers
+
+Tests detect and reuse running containers. Never force-kill dev instances.
+
+```bash
+docker run --rm -d --name b3nd-postgres -e POSTGRES_DB=b3nd_test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 55432:5432 postgres:17-alpine
+docker run --rm -d --name b3nd-mongo -e MONGO_INITDB_DATABASE=b3nd_test -p 57017:27017 mongo:8
+```
+
+---
+
 ## Testing Conventions
 
 - Use `MemoryClient` for unit tests (no external dependencies)
 - Use shared test suites (`runSharedSuite`, `runNodeSuite`) for client
   conformance
-- Tests are colocated with source: each client lib has its test file in its own
+- Tests are colocated with source: each lib has its test file in its own
   directory
 - Shared test utilities live in `libs/b3nd-testing/`
 - Unique URI prefixes per test for isolation in persistent backends
 - Tests assert exact values — verify actual data matches what was stored
 - Docker tests reuse running containers — never kill dev instances
-- Dashboard artifacts are gitignored — rebuild after test changes
+
+---
+
+## Code Design Principles
+
+1. **Latest stable dependencies** — Stay fresh, easy to evolve.
+2. **Errors bubble up** — Never suppress errors. Let callers handle them.
+3. **No ENV references in components** — Components take explicit parameters.
+4. **No default values** — Require all values explicitly. Rely on the type
+   system.
+5. **Minimize abstractions** — Use JS knowledge where possible.
+6. **Client-level responsibility** — Clients handle their own storage strategy
+   (including MessageData unpacking). Validation is composed via
+   `createValidatedClient`.
+7. **Composition over inheritance** —
+   `createValidatedClient({ write, read, validate })` composes behavior from
+   functions, not class hierarchies.
+
+---
+
+## Skills System
+
+The b3nd plugin provides 5 skills that Claude agents use automatically:
+
+| Skill          | Triggers on                                                    |
+| -------------- | -------------------------------------------------------------- |
+| `b3nd-general` | URI schemes, protocols, encryption, wallet auth                |
+| `b3nd-sdk`     | Deno/JSR imports, server setup, clients, node system, messages |
+| `b3nd-web`     | NPM browser imports, HttpClient, WalletClient                  |
+| `b3nd-webapp`  | React apps, Zustand, React Query, visibility controls          |
+| `b3nd-denocli` | Deno CLI tools, scripts, server-side integrations              |
+
+Skills are the primary way agents learn the current SDK API. After any SDK API
+change, update the relevant skill in `skills/` so agents use correct imports and
+patterns.
+
+---
 
 ## Packages
 
 | Package | Registry | Name                      | Version |
 | ------- | -------- | ------------------------- | ------- |
-| SDK     | JSR      | `@bandeira-tech/b3nd-sdk` | 0.9.0   |
-| Web     | NPM      | `@bandeira-tech/b3nd-web` | 0.8.0   |
+| SDK     | JSR      | `@bandeira-tech/b3nd-sdk` | 0.7.1   |
+| Web     | NPM      | `@bandeira-tech/b3nd-web` | 0.7.1   |
+
+SDK entry point: `src/mod.ts` (re-exports from `libs/`).
+NPM build: `tsup` bundles `src/mod.web.ts` (browser-safe subset).
