@@ -8,7 +8,6 @@
  */
 
 import { TestState } from "./test-state.ts";
-import { WsHub } from "./ws-hub.ts";
 import {
   classifyBackendType,
   classifyTestTheme,
@@ -28,15 +27,13 @@ function stripAnsi(str: string): string {
 
 export class ContinuousTestRunner {
   private testState: TestState;
-  private wsHub: WsHub;
   private libsPath: string;
   private integE2ePath: string;
   private currentProcess: Deno.ChildProcess | null = null;
   private testFiles: string[] = [];
 
-  constructor(testState: TestState, wsHub: WsHub) {
+  constructor(testState: TestState) {
     this.testState = testState;
-    this.wsHub = wsHub;
 
     // Determine paths relative to dashboard (apps/sdk-inspector/services -> b3nd root)
     const dashboardDir = new URL(".", import.meta.url).pathname;
@@ -237,11 +234,6 @@ export class ContinuousTestRunner {
 
     console.log(`[ContinuousRunner] Running: deno ${args.join(" ")}`);
 
-    this.wsHub.broadcast({
-      type: "run:start",
-      timestamp: Date.now(),
-    });
-
     try {
       const command = new Deno.Command("deno", {
         args,
@@ -318,24 +310,11 @@ export class ContinuousTestRunner {
         this.testState.completeFileRun(filePath);
       }
 
-      this.wsHub.broadcast({
-        type: "run:complete",
-        exitCode: status.code,
-        duration,
-        summary: this.testState.getSummary(),
-        timestamp: Date.now(),
-      });
-
       console.log(
         `[ContinuousRunner] Test run completed (exit code: ${status.code}, files: ${seenFiles.size})`,
       );
     } catch (error) {
       console.error("[ContinuousRunner] Error running tests:", error);
-      this.wsHub.broadcast({
-        type: "run:error",
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: Date.now(),
-      });
     } finally {
       this.currentProcess = null;
     }

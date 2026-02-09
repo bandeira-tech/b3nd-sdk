@@ -9,7 +9,6 @@
  * Frontend just reads and filters this state.
  */
 
-import { WsHub } from "./ws-hub.ts";
 import {
   type BackendType,
   classifyBackendType,
@@ -65,7 +64,6 @@ export interface RunMetadata {
 
 export class TestState {
   private files: Map<string, TestFileState> = new Map();
-  private wsHub: WsHub;
   private runningFiles: Set<string> = new Set();
   private currentRun: RunMetadata | null = null;
   private lastCompletedRun: RunMetadata | null = null;
@@ -74,8 +72,7 @@ export class TestState {
   private b3ndUrl: string | null;
   private b3ndUri: string | null;
 
-  constructor(wsHub: WsHub, opts?: { b3ndUrl?: string; b3ndUri?: string }) {
-    this.wsHub = wsHub;
+  constructor(opts?: { b3ndUrl?: string; b3ndUri?: string }) {
     this.b3ndUrl = opts?.b3ndUrl ?? null;
     this.b3ndUri = opts?.b3ndUri ?? null;
     const servicesDir = new URL(".", import.meta.url).pathname;
@@ -105,7 +102,6 @@ export class TestState {
       startedAt: Date.now(),
       changedFiles,
     };
-    this.broadcastState();
   }
 
   /**
@@ -117,7 +113,6 @@ export class TestState {
       this.lastCompletedRun = { ...this.currentRun };
       this.currentRun = null;
     }
-    this.broadcastState();
 
     // Write static artifacts (fire-and-forget)
     this.writeStaticArtifacts().catch((e) => {
@@ -169,7 +164,6 @@ export class TestState {
       });
     }
 
-    this.broadcastState();
   }
 
   /**
@@ -180,8 +174,7 @@ export class TestState {
     if (file) {
       file.status = "running";
       this.runningFiles.add(filePath);
-      this.broadcastState();
-    }
+      }
   }
 
   /**
@@ -228,12 +221,6 @@ export class TestState {
     fileState.tests.set(result.name, testState);
     fileState.lastRun = Date.now();
 
-    // Broadcast individual result
-    this.wsHub.broadcast({
-      type: "test:result",
-      test: testState,
-      timestamp: Date.now(),
-    });
   }
 
   /**
@@ -262,7 +249,6 @@ export class TestState {
 
     file.status = hasFailed ? "failed" : allPassed ? "passed" : "passed";
 
-    this.broadcastState();
   }
 
   /**
@@ -402,17 +388,6 @@ export class TestState {
       })),
       runMetadata: this.getRunMetadata(),
     };
-  }
-
-  /**
-   * Broadcast current state to all clients
-   */
-  private broadcastState(): void {
-    this.wsHub.broadcast({
-      type: "state:update",
-      state: this.getFullState(),
-      timestamp: Date.now(),
-    });
   }
 
   /**

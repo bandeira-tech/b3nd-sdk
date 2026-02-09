@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { WsHub } from "../services/ws-hub.ts";
 import { type TestFilter, TestRunner } from "../services/test-runner.ts";
 import {
   classifyBackendType,
@@ -11,11 +10,11 @@ import {
 import { BACKEND_TYPES, TEST_THEMES } from "../utils/test-parser.ts";
 
 /**
- * Creates test routes with dependency injection of WsHub
+ * Creates test routes
  */
-export function testsRouter(wsHub: WsHub): Hono {
+export function testsRouter(): Hono {
   const app = new Hono();
-  const testRunner = new TestRunner(wsHub);
+  const testRunner = new TestRunner();
 
   /**
    * GET /tests - List available tests grouped by theme and backend

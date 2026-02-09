@@ -10,7 +10,6 @@
  */
 
 import { TestState } from "../services/test-state.ts";
-import { WsHub } from "../services/ws-hub.ts";
 import { ContinuousTestRunner } from "../services/continuous-runner.ts";
 import { debounce } from "@std/async";
 
@@ -83,9 +82,8 @@ async function writeArtifacts(
 async function main() {
   console.log("[watch] Starting watch mode...");
 
-  const wsHub = new WsHub();
-  const testState = new TestState(wsHub);
-  const runner = new ContinuousTestRunner(testState, wsHub);
+  const testState = new TestState();
+  const runner = new ContinuousTestRunner(testState);
 
   // Initial build
   console.log("[watch] Running initial test suite...");

@@ -2,10 +2,8 @@
 import "@std/dotenv/load";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { wsRouter } from "./routes/ws.ts";
 import { healthRouter } from "./routes/health.ts";
 import { stateRouter } from "./routes/state.ts";
-import { WsHub } from "./services/ws-hub.ts";
 import { FileWatcher } from "./services/file-watcher.ts";
 import { HealthMonitor } from "./services/health-monitor.ts";
 import { TestState } from "./services/test-state.ts";
@@ -20,14 +18,13 @@ const B3ND_URL = Deno.env.get("B3ND_URL") || "http://localhost:9942";
 const B3ND_URI = Deno.env.get("B3ND_URI") ?? "mutable://open/local/inspector";
 
 // Create shared services
-const wsHub = new WsHub();
-const testState = new TestState(wsHub, {
+const testState = new TestState({
   b3ndUrl: B3ND_URL || undefined,
   b3ndUri: B3ND_URI || undefined,
 });
-const runner = new ContinuousTestRunner(testState, wsHub);
-const fileWatcher = new FileWatcher(wsHub);
-const healthMonitor = new HealthMonitor(wsHub);
+const runner = new ContinuousTestRunner(testState);
+const fileWatcher = new FileWatcher();
+const healthMonitor = new HealthMonitor();
 
 // Create Hono app
 const app = new Hono();
@@ -59,7 +56,6 @@ app.use("*", async (c, next) => {
 
 // Mount routers
 app.route("/state", stateRouter(testState, runner));
-app.route("/ws", wsRouter(wsHub));
 app.route("/health", healthRouter(healthMonitor));
 
 // Root status
@@ -91,7 +87,6 @@ healthMonitor.start();
 // Start server first, then run tests
 console.log(`B3nd Dashboard Server starting on port ${PORT}...`);
 console.log(`CORS Origin: ${CORS_ORIGIN}`);
-console.log(`WebSocket endpoint: ws://localhost:${PORT}/ws`);
 if (B3ND_URL && B3ND_URI) {
   console.log(`B3nd: ${B3ND_URI} via ${B3ND_URL}`);
 } else {
@@ -113,6 +108,5 @@ Deno.addSignalListener("SIGINT", () => {
   runner.stop();
   fileWatcher.stop();
   healthMonitor.stop();
-  wsHub.close();
   Deno.exit(0);
 });

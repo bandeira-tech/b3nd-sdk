@@ -1,5 +1,4 @@
 /// <reference lib="deno.ns" />
-import { WsHub } from "./ws-hub.ts";
 import {
   type BackendType,
   classifyBackendType,
@@ -63,14 +62,12 @@ function stripAnsi(str: string): string {
  * Spawns and manages deno test processes, streaming results via WebSocket
  */
 export class TestRunner {
-  private wsHub: WsHub;
   private currentProcess: Deno.ChildProcess | null = null;
   private currentRunId: string | null = null;
   private libsPath: string;
   private integPath: string;
 
-  constructor(wsHub: WsHub) {
-    this.wsHub = wsHub;
+  constructor() {
     // Determine paths relative to dashboard location (apps/sdk-inspector/services -> b3nd root)
     const dashboardDir = new URL(".", import.meta.url).pathname;
     this.libsPath = new URL("../../../libs", `file://${dashboardDir}`).pathname;
@@ -138,12 +135,6 @@ export class TestRunner {
         ].filter(Boolean).join("; ");
 
         console.log(`[TestRunner] No files found for filter: ${filterDesc}`);
-        this.wsHub.broadcast({
-          type: "test:error",
-          runId: config.runId,
-          error: `No test files found for filter: ${filterDesc}`,
-          timestamp: Date.now(),
-        });
         return;
       }
 
@@ -161,14 +152,6 @@ export class TestRunner {
     }
 
     args.push(...testPaths);
-
-    // Broadcast test:start event
-    this.wsHub.broadcast({
-      type: "test:start",
-      runId: config.runId,
-      filter: config.filter || null,
-      timestamp: Date.now(),
-    });
 
     console.log(`[TestRunner] Starting: deno ${args.join(" ")}`);
 
@@ -253,24 +236,9 @@ export class TestRunner {
         summary.duration = Date.now() - startTime;
       }
 
-      // Broadcast completion
-      this.wsHub.broadcast({
-        type: "test:complete",
-        runId: config.runId,
-        summary,
-        exitCode: status.code,
-        timestamp: Date.now(),
-      });
-
       console.log(`[TestRunner] Completed with exit code ${status.code}`);
     } catch (error) {
       console.error("[TestRunner] Error:", error);
-      this.wsHub.broadcast({
-        type: "test:error",
-        runId: config.runId,
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: Date.now(),
-      });
     } finally {
       this.currentProcess = null;
       this.currentRunId = null;
@@ -337,20 +305,6 @@ export class TestRunner {
 
       const backendType = classifyBackendType(currentFile);
 
-      this.wsHub.send({
-        type: "test:result",
-        runId,
-        test: {
-          name: name.trim(),
-          file: currentFile,
-          filePath: this.resolveFilePath(currentFile),
-          theme,
-          backend: backendType,
-          status,
-          duration,
-        },
-        timestamp: Date.now(),
-      });
       return;
     }
 
@@ -424,12 +378,6 @@ export class TestRunner {
     } catch {
       // Process may already be dead
     }
-
-    this.wsHub.broadcast({
-      type: "test:cancelled",
-      runId,
-      timestamp: Date.now(),
-    });
 
     this.currentProcess = null;
     this.currentRunId = null;

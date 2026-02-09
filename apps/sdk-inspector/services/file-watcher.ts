@@ -1,5 +1,4 @@
 /// <reference lib="deno.ns" />
-import { WsHub } from "./ws-hub.ts";
 import { debounce } from "@std/async/debounce";
 
 export interface FileChangeEvent {
@@ -12,7 +11,6 @@ export interface FileChangeEvent {
  * Broadcasts changes via WebSocket for hot reload functionality
  */
 export class FileWatcher {
-  private wsHub: WsHub;
   private watcher: Deno.FsWatcher | null = null;
   private isRunning = false;
   private watchPaths: string[];
@@ -21,9 +19,7 @@ export class FileWatcher {
   // Callback for when files change - set by owner to trigger test re-runs
   onFilesChanged?: (files: string[]) => Promise<void>;
 
-  constructor(wsHub: WsHub) {
-    this.wsHub = wsHub;
-
+  constructor() {
     // Determine paths relative to dashboard location (apps/sdk-inspector/services -> b3nd root)
     // Watch the entire libs directory (all b3nd-* packages)
     const dashboardDir = new URL(".", import.meta.url).pathname;
@@ -129,7 +125,7 @@ export class FileWatcher {
   }
 
   /**
-   * Broadcast file changes to WebSocket clients and trigger callback
+   * Handle file changes: log and trigger callback
    */
   private broadcast(changes: FileChangeEvent): void {
     // Extract relative paths for cleaner output
@@ -141,13 +137,6 @@ export class FileWatcher {
     console.log(
       `[FileWatcher] ${changes.kind}: ${relativePaths.join(", ")}`,
     );
-
-    this.wsHub.broadcast({
-      type: "file:change",
-      kind: changes.kind,
-      files: relativePaths,
-      timestamp: Date.now(),
-    });
 
     // Trigger callback with full paths for test runner
     if (this.onFilesChanged) {

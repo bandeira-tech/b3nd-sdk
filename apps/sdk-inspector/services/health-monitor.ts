@@ -1,6 +1,4 @@
 /// <reference lib="deno.ns" />
-import { WsHub } from "./ws-hub.ts";
-
 export interface ServiceHealth {
   id: string;
   name: string;
@@ -49,14 +47,12 @@ const DEFAULT_CONFIG: HealthConfig = {
  * Monitors health of B3nd services and broadcasts status updates
  */
 export class HealthMonitor {
-  private wsHub: WsHub;
   private config: HealthConfig;
   private healthState: Map<string, ServiceHealth> = new Map();
   private pollTimer: number | null = null;
   private isRunning = false;
 
-  constructor(wsHub: WsHub, config: HealthConfig = DEFAULT_CONFIG) {
-    this.wsHub = wsHub;
+  constructor(config: HealthConfig = DEFAULT_CONFIG) {
     this.config = config;
 
     // Initialize health state
@@ -116,9 +112,6 @@ export class HealthMonitor {
       this.checkService(service)
     );
     await Promise.all(checks);
-
-    // Broadcast updated health state
-    this.broadcast();
   }
 
   /**
@@ -192,18 +185,6 @@ export class HealthMonitor {
     }
   }
 
-  /**
-   * Broadcast current health state to all clients
-   */
-  private broadcast(): void {
-    const services = Array.from(this.healthState.values());
-
-    this.wsHub.broadcast({
-      type: "health:update",
-      services,
-      timestamp: Date.now(),
-    });
-  }
 
   /**
    * Get current health state
