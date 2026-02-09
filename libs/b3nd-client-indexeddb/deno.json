@@ -1,6 +1,9 @@
 {
   "version": "0.3.0",
   "exports": "./mod.ts",
+  "imports": {
+    "fake-indexeddb": "npm:fake-indexeddb@6.0.0"
+  },
   "compilerOptions": {
     "lib": ["ES2020", "DOM", "DOM.Iterable", "deno.ns"]
   }

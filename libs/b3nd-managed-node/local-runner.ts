@@ -98,21 +98,22 @@ export async function startLocalNetwork(
 function streamOutput(process: Deno.ChildProcess, prefix: string) {
   const decoder = new TextDecoder();
 
-  (async () => {
-    for await (const chunk of process.stdout) {
-      const text = decoder.decode(chunk);
-      for (const line of text.split("\n").filter(Boolean)) {
-        console.log(`[${prefix}] ${line}`);
+  const readStream = async (stream: ReadableStream<Uint8Array>, log: (...args: string[]) => void) => {
+    const reader = stream.getReader();
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value, { stream: true });
+        for (const line of text.split("\n").filter(Boolean)) {
+          log(`[${prefix}] ${line}`);
+        }
       }
+    } finally {
+      reader.releaseLock();
     }
-  })();
+  };
 
-  (async () => {
-    for await (const chunk of process.stderr) {
-      const text = decoder.decode(chunk);
-      for (const line of text.split("\n").filter(Boolean)) {
-        console.error(`[${prefix}] ${line}`);
-      }
-    }
-  })();
+  readStream(process.stdout, console.log);
+  readStream(process.stderr, console.error);
 }

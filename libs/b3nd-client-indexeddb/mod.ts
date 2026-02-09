@@ -483,7 +483,7 @@ export class IndexedDBClient implements NodeProtocolInterface {
     if (sortBy === "timestamp") {
       // Get timestamps for all items
       const itemsWithTimestamps = await Promise.all(
-        itemsWithTypes.map(async (item) => {
+        items.map(async (item) => {
           const record = await this.getStoredRecord(item.uri);
           return {
             ...item,
@@ -517,7 +517,7 @@ export class IndexedDBClient implements NodeProtocolInterface {
       pagination: {
         page,
         limit,
-        total: itemsWithTypes.length,
+        total: items.length,
       },
     };
   }
