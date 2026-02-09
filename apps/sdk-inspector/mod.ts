@@ -14,12 +14,10 @@ import { ContinuousTestRunner } from "./services/continuous-runner.ts";
 const PORT = Number(Deno.env.get("DASHBOARD_PORT") || "5556");
 const CORS_ORIGIN = Deno.env.get("CORS_ORIGIN") || "http://localhost:5555";
 
-// B3nd persistence: set both to write test data to a B3nd node.
-// B3ND_URL  = HTTP URL of the B3nd node (e.g. http://localhost:9900)
-// B3ND_URI  = base URI for data (e.g. mutable://accounts/{pubkey}/inspector)
-// If unset, only writes static files to the web rig public dir.
-const B3ND_URL = Deno.env.get("B3ND_URL") || "";
-const B3ND_URI = Deno.env.get("B3ND_URI") || "";
+// B3nd persistence — defaults write to local node at mutable://open/local/inspector.
+// Override with B3ND_URL / B3ND_URI env vars. Set B3ND_URI="" to disable.
+const B3ND_URL = Deno.env.get("B3ND_URL") || "http://localhost:9942";
+const B3ND_URI = Deno.env.get("B3ND_URI") ?? "mutable://open/local/inspector";
 
 // Create shared services
 const wsHub = new WsHub();

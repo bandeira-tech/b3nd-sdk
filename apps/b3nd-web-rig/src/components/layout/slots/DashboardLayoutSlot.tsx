@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
-import { Activity, Loader2, AlertCircle, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Activity, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { useDashboardStore } from "../../dashboard/stores/dashboardStore";
-import { useDashboardWs } from "../../dashboard/hooks/useDashboardWs";
 import { SearchResultsPanel } from "../../dashboard/panels/SearchResultsPanel";
 import { RawLogsPanel } from "../../dashboard/panels/RawLogsPanel";
 import { cn } from "../../../utils";
+
+const POLL_INTERVAL_MS = 10_000;
 
 export function DashboardLayoutSlot() {
   const {
@@ -13,25 +14,30 @@ export function DashboardLayoutSlot() {
     staticData,
     contentMode,
     loadStaticData,
-    wsConnected,
-    wsError,
     dataSource,
     testResults,
     b3ndUri,
     setB3ndUri,
-    b3ndUrl,
-    setB3ndUrl,
   } = useDashboardStore();
 
   const [editUri, setEditUri] = useState(b3ndUri);
-
-  // Establish WebSocket connection for live streaming updates
-  useDashboardWs();
+  const pollRef = useRef<number | null>(null);
 
   // Load data on mount
   useEffect(() => {
     loadStaticData();
   }, [loadStaticData]);
+
+  // Poll for updates when a B3nd URI is set
+  useEffect(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (b3ndUri) {
+      pollRef.current = window.setInterval(() => loadStaticData(), POLL_INTERVAL_MS);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [b3ndUri, loadStaticData]);
 
   const hasData = testResults.size > 0;
 
@@ -83,9 +89,6 @@ export function DashboardLayoutSlot() {
               e.preventDefault();
               if (editUri !== b3ndUri) {
                 setB3ndUri(editUri);
-                if (editUri && !b3ndUrl) {
-                  setB3ndUrl("http://localhost:9900");
-                }
               }
             }}
           >
@@ -93,7 +96,7 @@ export function DashboardLayoutSlot() {
               type="text"
               value={editUri}
               onChange={(e) => setEditUri(e.target.value)}
-              placeholder="mutable://accounts/..."
+              placeholder="mutable://open/..."
               className="bg-background border border-border rounded px-2 py-0.5 font-mono text-[11px] w-64 text-foreground placeholder:text-muted-foreground/50"
             />
           </form>
@@ -104,28 +107,17 @@ export function DashboardLayoutSlot() {
             dataSource === "b3nd" ? "bg-blue-500/10 text-blue-500" :
             "bg-muted text-muted-foreground"
           )}>
-            {dataSource === "b3nd" ? "b3nd" : "file"}
+            {dataSource}
           </span>
 
-          {/* Connection status */}
-          <div
-            className={cn(
-              "flex items-center gap-1.5",
-              wsConnected ? "text-green-500" : "text-muted-foreground"
-            )}
+          {/* Manual refresh */}
+          <button
+            onClick={() => loadStaticData()}
+            className="p-1 rounded hover:bg-accent transition-colors"
+            title="Refresh"
           >
-            {wsConnected ? (
-              <>
-                <Wifi className="w-3.5 h-3.5" />
-                <span>Live</span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-3.5 h-3.5" />
-                <span>{wsError || "Offline"}</span>
-              </>
-            )}
-          </div>
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+          </button>
         </div>
       </header>
 

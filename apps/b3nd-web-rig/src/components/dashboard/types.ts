@@ -1,9 +1,5 @@
 /**
- * Dashboard types — hybrid live/static architecture
- *
- * Supports both:
- * - Live mode: WebSocket connection to dashboard server for real-time results
- * - Static mode: loads pre-built JSON artifacts from /dashboard/test-results.json
+ * Dashboard types — reads test data from B3nd or static files
  */
 
 export type TestTheme =
@@ -29,7 +25,7 @@ export type BackendType =
 
 export type TestStatus = "running" | "passed" | "failed" | "skipped" | "pending";
 
-export type DataSource = "live" | "static" | "b3nd";
+export type DataSource = "b3nd" | "static";
 
 export interface TestResult {
   name: string;
@@ -72,47 +68,7 @@ export interface ThemeGroup {
   testCount: number;
 }
 
-export interface BackendGroup {
-  id: string;
-  label: string;
-  testCount: number;
-}
-
-export interface RunMetadata {
-  trigger: string;
-  startedAt: number;
-  completedAt?: number;
-  changedFiles?: string[];
-}
-
-export interface ServiceHealth {
-  id: string;
-  name: string;
-  url: string;
-  status: "healthy" | "unhealthy" | "unknown";
-  latency?: number;
-  error?: string;
-}
-
-export interface FileChangeEvent {
-  kind: "modify" | "create" | "remove";
-  files: string[];
-  timestamp: number;
-}
-
-export interface TestFilter {
-  themes?: TestTheme[];
-  backends?: BackendType[];
-  file?: string;
-  pattern?: string;
-}
-
-export interface WsMessage {
-  type: string;
-  [key: string]: unknown;
-}
-
-// Static artifact format (loaded from /dashboard/test-results.json)
+// Static artifact format (loaded from B3nd or /dashboard/test-results.json)
 export interface StaticTestData {
   version?: string;
   generatedAt?: number;
@@ -179,29 +135,15 @@ export interface DashboardState {
   // Inline expansion
   expandedTests: Set<string>;
 
-  // Raw logs (static mode)
+  // Raw logs
   rawLogs: string;
 
-  // WebSocket / live mode
-  wsConnected: boolean;
-  wsError: string | null;
-  isRunning: boolean;
+  // Data source
   dataSource: DataSource;
-  autoRunEnabled: boolean;
 
-  // B3nd data source — empty means static file mode
-  b3ndUrl: string;
+  // B3nd data URI — empty means static file mode
+  // The node URL comes from the active backend in appStore
   b3ndUri: string;
-
-  // Live data
-  services: ServiceHealth[];
-  recentChanges: FileChangeEvent[];
-  rawOutput: string[];
-  showRawOutput: boolean;
-  currentRunId: string | null;
-  runMetadata: { current: RunMetadata | null; last: RunMetadata | null };
-  themes: ThemeGroup[];
-  backends: BackendGroup[];
 }
 
 export interface DashboardActions {
@@ -222,37 +164,6 @@ export interface DashboardActions {
   expandAllFailed: () => void;
   collapseAll: () => void;
 
-  // WebSocket state
-  setWsConnected: (connected: boolean) => void;
-  setWsError: (error: string | null) => void;
-
-  // Data source
-  setDataSource: (source: DataSource) => void;
-
-  // Themes / backends
-  setThemes: (themes: ThemeGroup[], backends: BackendGroup[], total: number) => void;
-
-  // Run control
-  startRun: (runId: string, filter: TestFilter | null) => void;
-  addTestResult: (test: TestResult) => void;
-  completeRun: (summary: TestRunSummary) => void;
-  cancelRun: () => void;
-
-  // Services
-  setServices: (services: ServiceHealth[]) => void;
-
-  // File changes
-  addFileChange: (event: FileChangeEvent) => void;
-
-  // Raw output
-  addRawOutput: (line: string) => void;
-  setShowRawOutput: (show: boolean) => void;
-
-  // Initial state from server
-  loadInitialState: (data: { results: TestResult[]; runMetadata: { current: RunMetadata | null; last: RunMetadata | null } }) => void;
-  setRunMetadata: (metadata: { current: RunMetadata | null; last: RunMetadata | null }) => void;
-
-  // B3nd settings
-  setB3ndUrl: (url: string) => void;
+  // B3nd URI
   setB3ndUri: (uri: string) => void;
 }

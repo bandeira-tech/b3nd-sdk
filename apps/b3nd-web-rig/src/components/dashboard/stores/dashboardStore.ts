@@ -7,14 +7,8 @@ import type {
   FacetGroup,
   ContentMode,
   StaticTestData,
-  DataSource,
-  ServiceHealth,
-  FileChangeEvent,
-  ThemeGroup,
-  BackendGroup,
-  TestFilter,
-  RunMetadata,
 } from "../types";
+import { useAppStore } from "../../../stores/appStore";
 
 // Default facet groups
 const DEFAULT_STATUS_FACETS: FacetGroup = {
@@ -59,9 +53,6 @@ const DEFAULT_BACKEND_FACETS: FacetGroup = {
   ],
 };
 
-const MAX_RAW_OUTPUT_LINES = 500;
-const MAX_RECENT_CHANGES = 20;
-
 const initialState: DashboardState = {
   loading: false,
   error: null,
@@ -74,27 +65,8 @@ const initialState: DashboardState = {
   customKeywords: [],
   expandedTests: new Set(),
   rawLogs: "",
-
-  // WebSocket / live mode
-  wsConnected: false,
-  wsError: null,
-  isRunning: false,
   dataSource: "static",
-  autoRunEnabled: true,
-
-  // B3nd data source — empty means static file mode
-  b3ndUrl: localStorage.getItem("dashboard:b3ndUrl") || "",
-  b3ndUri: localStorage.getItem("dashboard:b3ndUri") || "",
-
-  // Live data
-  services: [],
-  recentChanges: [],
-  rawOutput: [],
-  showRawOutput: false,
-  currentRunId: null,
-  runMetadata: { current: null, last: null },
-  themes: [],
-  backends: [],
+  b3ndUri: localStorage.getItem("dashboard:b3ndUri") ?? "mutable://open/local/inspector",
 };
 
 export interface DashboardStore extends DashboardState, DashboardActions {}
@@ -180,7 +152,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   loadStaticData: async (data?: StaticTestData) => {
     if (data) {
-      // Direct data loading (from file picker or export)
       const { resultsMap, expanded } = loadData(data.results);
       const results = Array.from(resultsMap.values());
       const updatedGroups = updateFacetCounts(get().facetGroups, results);
@@ -197,21 +168,32 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       return;
     }
 
-    set({ loading: true, error: null });
+    const prev = get();
+    const isRefresh = prev.testResults.size > 0;
+    if (!isRefresh) set({ loading: true, error: null });
 
-    const { b3ndUrl, b3ndUri } = get();
+    const { b3ndUri } = get();
+
+    // Resolve B3nd node URL from the active backend in settings
+    const appState = useAppStore.getState();
+    const activeBackend = appState.backends.find(
+      (b) => b.id === appState.activeBackendId
+    );
+    const b3ndUrl = activeBackend?.adapter?.baseUrl || "";
 
     // If a B3nd URI is configured, read from B3nd
     if (b3ndUrl && b3ndUri) {
       try {
         const base = b3ndUri.replace(/\/$/, "");
-        // mutable://accounts/abc/ns/results → /api/v1/read/mutable/accounts/abc/ns/results
         const uriPath = `${base}/results`.replace("://", "/");
         const res = await fetch(`${b3ndUrl}/api/v1/read/${uriPath}`);
 
         if (res.ok) {
           const record = await res.json();
           const staticData: StaticTestData = record.data ?? record;
+
+          // Skip update if data hasn't changed
+          if (isRefresh && staticData.generatedAt === prev.staticData?.generatedAt) return;
 
           let rawLogs = "";
           try {
@@ -238,9 +220,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
             testResults: resultsMap,
             runSummary: staticData.summary,
             facetGroups: updatedGroups,
-            expandedTests: expanded,
             rawLogs,
             dataSource: "b3nd",
+            // Only auto-expand failed on first load; preserve user state on refresh
+            ...(isRefresh ? {} : { expandedTests: expanded }),
           });
           return;
         }
@@ -249,11 +232,13 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       }
     }
 
-    // Static file mode
+    // Static file fallback
     try {
       const resultsRes = await fetch("/dashboard/test-results.json");
       if (!resultsRes.ok) throw new Error(`Failed to load test results: ${resultsRes.status}`);
       const staticData: StaticTestData = await resultsRes.json();
+
+      if (isRefresh && staticData.generatedAt === prev.staticData?.generatedAt) return;
 
       let rawLogs = "";
       try {
@@ -273,9 +258,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         testResults: resultsMap,
         runSummary: staticData.summary,
         facetGroups: updatedGroups,
-        expandedTests: expanded,
         rawLogs,
         dataSource: "static",
+        ...(isRefresh ? {} : { expandedTests: expanded }),
       });
     } catch (e) {
       set({
@@ -287,174 +272,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   setContentMode: (mode: ContentMode) => {
     set({ contentMode: mode });
-  },
-
-  // --- WebSocket state ---
-
-  setWsConnected: (connected: boolean) => {
-    set({ wsConnected: connected });
-  },
-
-  setWsError: (error: string | null) => {
-    set({ wsError: error });
-  },
-
-  // --- Data source ---
-
-  setDataSource: (source: DataSource) => {
-    set({ dataSource: source });
-  },
-
-  // --- Themes / backends ---
-
-  setThemes: (_themes: ThemeGroup[], _backends: BackendGroup[], _total: number) => {
-    set({ themes: _themes, backends: _backends });
-  },
-
-  // --- Run control ---
-
-  startRun: (runId: string, _filter: TestFilter | null) => {
-    set({
-      isRunning: true,
-      currentRunId: runId,
-      runMetadata: {
-        current: {
-          trigger: "manual",
-          startedAt: Date.now(),
-        },
-        last: get().runMetadata.last,
-      },
-    });
-  },
-
-  addTestResult: (test: TestResult) => {
-    set((state) => {
-      const key = `${test.file}::${test.name}`;
-      const newResults = new Map(state.testResults);
-      const prev = newResults.get(key);
-      // Preserve source fields from static data when live results arrive without them
-      const merged = { ...test, lastRun: Date.now() };
-      if (prev?.source && !merged.source) {
-        merged.source = prev.source;
-        merged.sourceFile = prev.sourceFile;
-        merged.sourceStartLine = prev.sourceStartLine;
-      }
-      newResults.set(key, merged);
-
-      const results = Array.from(newResults.values());
-      const updatedGroups = updateFacetCounts(state.facetGroups, results);
-
-      // Auto-expand failed tests
-      const newExpanded = new Set(state.expandedTests);
-      if (test.status === "failed") {
-        newExpanded.add(key);
-      }
-
-      return {
-        testResults: newResults,
-        facetGroups: updatedGroups,
-        expandedTests: newExpanded,
-      };
-    });
-  },
-
-  completeRun: (summary: TestRunSummary) => {
-    set((state) => ({
-      isRunning: false,
-      runSummary: summary,
-      runMetadata: {
-        current: null,
-        last: {
-          trigger: state.runMetadata.current?.trigger || "unknown",
-          startedAt: state.runMetadata.current?.startedAt || Date.now(),
-          completedAt: Date.now(),
-          changedFiles: state.runMetadata.current?.changedFiles,
-        },
-      },
-    }));
-  },
-
-  cancelRun: () => {
-    set((state) => ({
-      isRunning: false,
-      currentRunId: null,
-      runMetadata: {
-        current: null,
-        last: state.runMetadata.last,
-      },
-    }));
-  },
-
-  // --- Services ---
-
-  setServices: (services: ServiceHealth[]) => {
-    set({ services });
-  },
-
-  // --- File changes ---
-
-  addFileChange: (event: FileChangeEvent) => {
-    set((state) => ({
-      recentChanges: [event, ...state.recentChanges].slice(0, MAX_RECENT_CHANGES),
-    }));
-  },
-
-  // --- Raw output ---
-
-  addRawOutput: (line: string) => {
-    set((state) => ({
-      rawOutput: [...state.rawOutput, line].slice(-MAX_RAW_OUTPUT_LINES),
-    }));
-  },
-
-  setShowRawOutput: (show: boolean) => {
-    set({ showRawOutput: show });
-  },
-
-  // --- Initial state from server ---
-
-  loadInitialState: (data: { results: TestResult[]; runMetadata: { current: RunMetadata | null; last: RunMetadata | null } }) => {
-    const existing = get().testResults;
-    const { resultsMap, expanded } = loadData(data.results);
-
-    // Preserve source fields from existing results (loaded from static file)
-    for (const [key, result] of resultsMap) {
-      const prev = existing.get(key);
-      if (prev?.source && !result.source) {
-        result.source = prev.source;
-        result.sourceFile = prev.sourceFile;
-        result.sourceStartLine = prev.sourceStartLine;
-      }
-    }
-
-    const results = Array.from(resultsMap.values());
-    const updatedGroups = updateFacetCounts(get().facetGroups, results);
-
-    const passed = results.filter((r) => r.status === "passed").length;
-    const failed = results.filter((r) => r.status === "failed").length;
-    const skipped = results.filter((r) => r.status === "skipped").length;
-
-    set({
-      testResults: resultsMap,
-      facetGroups: updatedGroups,
-      expandedTests: expanded,
-      runMetadata: data.runMetadata,
-      isRunning: data.runMetadata.current !== null,
-      runSummary: {
-        passed,
-        failed,
-        skipped,
-        total: results.length,
-        duration: 0,
-      },
-    });
-  },
-
-  setRunMetadata: (metadata: { current: RunMetadata | null; last: RunMetadata | null }) => {
-    set({
-      runMetadata: metadata,
-      isRunning: metadata.current !== null,
-    });
   },
 
   // --- Facets ---
@@ -578,17 +395,11 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ expandedTests: new Set() });
   },
 
-  // --- B3nd settings ---
-
-  setB3ndUrl: (url: string) => {
-    localStorage.setItem("dashboard:b3ndUrl", url);
-    set({ b3ndUrl: url });
-  },
+  // --- B3nd URI ---
 
   setB3ndUri: (uri: string) => {
     localStorage.setItem("dashboard:b3ndUri", uri);
     set({ b3ndUri: uri });
-    // Reload data from the new URI
     get().loadStaticData();
   },
 }));
