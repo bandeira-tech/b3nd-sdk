@@ -1,15 +1,24 @@
-FROM denoland/deno:latest
-
-RUN apt-get update && apt-get install -y curl
+FROM denoland/deno:2.5.6
 
 WORKDIR /app
 
-# Copy only wallet-server sources; SDK is pulled from JSR during cache
-COPY deno.json deno.lock ./
-COPY src ./src
+# Copy workspace-level files needed for resolution
+COPY ./deno.json ./deno.lock /app/
 
-RUN deno cache --lock=deno.lock src/mod.ts
+# Copy SDK source (needed for imports)
+COPY ./src/ /app/src/
+COPY ./libs/b3nd-core/ /app/libs/b3nd-core/
+COPY ./libs/b3nd-encrypt/ /app/libs/b3nd-encrypt/
+COPY ./libs/b3nd-wallet-server/ /app/libs/b3nd-wallet-server/
+
+# Copy the app
+COPY ./apps/wallet-node/ /app/apps/wallet-node/
+
+WORKDIR /app/apps/wallet-node
+
+# Cache dependencies
+RUN deno cache ./src/mod.ts
 
 EXPOSE 8843
 
-CMD ["run", "--allow-net", "--allow-read", "--allow-write", "--allow-env", "src/mod.ts"]
+CMD ["deno", "run", "-A", "./src/mod.ts"]

@@ -5,6 +5,10 @@
   "imports": {
     "@bandeira-tech/b3nd-sdk": "../../src/mod.ts",
     "@bandeira-tech/b3nd-sdk/auth": "../../libs/b3nd-auth/mod.ts",
+    "@bandeira-tech/b3nd-sdk/types": "../../libs/b3nd-core/types.ts",
+    "@bandeira-tech/b3nd-sdk/blob": "../../libs/b3nd-blob/mod.ts",
+    "@bandeira-tech/b3nd-sdk/client-mongo": "../../libs/b3nd-client-mongo/mod.ts",
+    "deno-postgres": "https://deno.land/x/postgres@v0.17.0/mod.ts",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
     "hono": "npm:hono"
   }

@@ -1,4 +1,4 @@
-import type { Schema } from "../../libs/b3nd-core/types.ts";
+import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
 import {
   authValidation,
   createPubkeyBasedAccess,

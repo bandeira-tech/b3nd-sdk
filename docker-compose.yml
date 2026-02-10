@@ -1,0 +1,78 @@
+# B3nd Infrastructure — unified compose file
+#
+# Profiles:
+#   test  — ephemeral DBs on non-standard ports (CI / integration tests)
+#   dev   — persistent DBs on standard ports (local development)
+#
+# Usage:
+#   docker compose --profile test up -d
+#   docker compose --profile dev  up -d
+
+services:
+  # ── Test profile (ephemeral, non-standard ports) ──────────────────────
+
+  postgres-test:
+    image: postgres:17-alpine
+    container_name: b3nd-postgres-test
+    profiles: [test]
+    environment:
+      POSTGRES_DB: b3nd_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d b3nd_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo-test:
+    image: mongo:8
+    container_name: b3nd-mongo-test
+    profiles: [test]
+    ports:
+      - "57017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Dev profile (persistent, standard ports) ──────────────────────────
+
+  postgres-dev:
+    image: postgres:17-alpine
+    container_name: b3nd-postgres-dev
+    profiles: [dev]
+    environment:
+      POSTGRES_DB: b3nd
+      POSTGRES_USER: b3nd
+      POSTGRES_PASSWORD: b3nd
+    ports:
+      - "5432:5432"
+    volumes:
+      - b3nd-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U b3nd"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongo-dev:
+    image: mongo:8
+    container_name: b3nd-mongo-dev
+    profiles: [dev]
+    ports:
+      - "27017:27017"
+    volumes:
+      - b3nd-mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  b3nd-pgdata:
+  b3nd-mongodata:

@@ -12,4 +12,4 @@ export {
   parseBlobUri,
   validateLinkValue,
   verifyBlobContent,
-} from "../../libs/b3nd-blob/mod.ts";
+} from "@bandeira-tech/b3nd-sdk/blob";
