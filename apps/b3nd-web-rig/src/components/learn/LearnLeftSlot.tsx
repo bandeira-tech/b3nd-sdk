@@ -3,12 +3,14 @@ import { BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
 import { skillMarkdown } from "./skillContent";
 import { parseSkillSections, type SkillSection } from "./parseSkillSections";
+import { useLearnStore } from "./useLearnStore";
 
 export function LearnLeftSlot() {
   const sections = useMemo(() => parseSkillSections(skillMarkdown), []);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     () => new Set(sections.map((s) => s.id)),
   );
+  const activeSectionId = useLearnStore((s) => s.activeSectionId);
 
   const toggleSection = (id: string) => {
     setExpandedSections((prev) => {
@@ -23,6 +25,27 @@ export function LearnLeftSlot() {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  // Build a set of "active" IDs: the active section + its parent H2
+  const activeIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!activeSectionId) return ids;
+    ids.add(activeSectionId);
+    for (const section of sections) {
+      if (section.id === activeSectionId) {
+        ids.add(section.id);
+        break;
+      }
+      for (const child of section.children) {
+        if (child.id === activeSectionId) {
+          ids.add(section.id);
+          ids.add(child.id);
+          break;
+        }
+      }
+    }
+    return ids;
+  }, [activeSectionId, sections]);
 
   return (
     <div className="h-full flex flex-col">
@@ -41,6 +64,7 @@ export function LearnLeftSlot() {
             expandedSections={expandedSections}
             toggleSection={toggleSection}
             scrollToSection={scrollToSection}
+            activeIds={activeIds}
           />
         ))}
       </div>
@@ -53,14 +77,17 @@ function SectionNavItem({
   expandedSections,
   toggleSection,
   scrollToSection,
+  activeIds,
 }: {
   section: SkillSection;
   expandedSections: Set<string>;
   toggleSection: (id: string) => void;
   scrollToSection: (id: string) => void;
+  activeIds: Set<string>;
 }) {
   const isExpanded = expandedSections.has(section.id);
   const hasChildren = section.children.length > 0;
+  const isActive = activeIds.has(section.id);
 
   return (
     <div>
@@ -72,6 +99,7 @@ function SectionNavItem({
         className={cn(
           "w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors",
           "hover:bg-accent/50",
+          isActive && "bg-accent/40 text-primary font-semibold",
         )}
       >
         {hasChildren ? (
@@ -88,18 +116,22 @@ function SectionNavItem({
 
       {hasChildren && isExpanded && (
         <div>
-          {section.children.map((child) => (
-            <button
-              key={child.id}
-              onClick={() => scrollToSection(child.id)}
-              className={cn(
-                "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-xs transition-colors",
-                "hover:bg-accent/50 text-foreground",
-              )}
-            >
-              <span className="truncate">{child.title}</span>
-            </button>
-          ))}
+          {section.children.map((child) => {
+            const childActive = activeIds.has(child.id);
+            return (
+              <button
+                key={child.id}
+                onClick={() => scrollToSection(child.id)}
+                className={cn(
+                  "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-xs transition-colors",
+                  "hover:bg-accent/50 text-foreground",
+                  childActive && "bg-accent/40 text-primary font-semibold",
+                )}
+              >
+                <span className="truncate">{child.title}</span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
