@@ -3,10 +3,12 @@
 # Profiles:
 #   test  — ephemeral DBs on non-standard ports (CI / integration tests)
 #   dev   — persistent DBs on standard ports (local development)
+#   rig   — web rig (:5555) + b3nd-node (:9942, memory backend)
 #
 # Usage:
-#   docker compose --profile test up -d
-#   docker compose --profile dev  up -d
+#   make up p=test
+#   make up p=dev
+#   make up p=rig
 
 services:
   # ── Test profile (ephemeral, non-standard ports) ──────────────────────
@@ -73,6 +75,39 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Rig profile (frontend + local node) ────────────────────────────
+
+  node:
+    image: denoland/deno:2.5.6
+    container_name: b3nd-node-local
+    profiles: [rig]
+    working_dir: /app/apps/b3nd-node
+    volumes:
+      - .:/app:cached
+    ports:
+      - "9942:9942"
+    environment:
+      BACKEND_URL: memory://
+      SCHEMA_MODULE: ./example-schema.ts
+      PORT: "9942"
+      CORS_ORIGIN: "*"
+    command: deno run -A mod.ts
+
+  rig:
+    image: node:22-alpine
+    container_name: b3nd-rig
+    profiles: [rig]
+    working_dir: /app/apps/b3nd-web-rig
+    volumes:
+      - .:/app:cached
+      - rig-node-modules:/app/apps/b3nd-web-rig/node_modules
+    ports:
+      - "5555:5555"
+    command: sh -c "npm install && npx vite dev --port 5555 --host"
+    depends_on:
+      - node
+
 volumes:
   b3nd-pgdata:
   b3nd-mongodata:
+  rig-node-modules:
