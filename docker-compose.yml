@@ -3,7 +3,7 @@
 # Profiles:
 #   test  — ephemeral DBs on non-standard ports (CI / integration tests)
 #   dev   — persistent DBs on standard ports (local development)
-#   rig   — web rig (:5555) + b3nd-node (:9942, memory backend)
+#   rig   — web rig (:5555) + sdk inspector (:5556), expects node on :9942
 #
 # Usage:
 #   make up p=test
@@ -75,23 +75,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Rig profile (frontend + local node) ────────────────────────────
-
-  node:
-    image: denoland/deno:2.5.6
-    container_name: b3nd-node-local
-    profiles: [rig]
-    working_dir: /app/apps/b3nd-node
-    volumes:
-      - .:/app:cached
-    ports:
-      - "9942:9942"
-    environment:
-      BACKEND_URL: memory://
-      SCHEMA_MODULE: ./example-schema.ts
-      PORT: "9942"
-      CORS_ORIGIN: "*"
-    command: deno run -A mod.ts
+  # ── Rig profile (frontends, expects node already on :9942) ─────────
 
   rig:
     image: node:22-alpine
@@ -104,8 +88,21 @@ services:
     ports:
       - "5555:5555"
     command: sh -c "npm install && npx vite dev --port 5555 --host"
-    depends_on:
-      - node
+
+  inspector:
+    image: denoland/deno:2.5.6
+    container_name: b3nd-inspector
+    profiles: [rig]
+    working_dir: /app/apps/sdk-inspector
+    volumes:
+      - .:/app:cached
+    ports:
+      - "5556:5556"
+    environment:
+      DASHBOARD_PORT: "5556"
+      CORS_ORIGIN: "*"
+      B3ND_URL: http://host.docker.internal:9942
+    command: deno run -A mod.ts
 
 volumes:
   b3nd-pgdata:
