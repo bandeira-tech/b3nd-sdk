@@ -22,35 +22,33 @@ export function LearnLayoutSlot() {
   const containerRef = useRef<HTMLElement>(null);
   const setActiveSectionId = useLearnStore((s) => s.setActiveSectionId);
 
-  // Scroll-spy: observe all heading elements
+  // Scroll-spy: on scroll, find the last heading above the top of the viewport
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Small delay to let markdown render
-    const timer = setTimeout(() => {
+    const onScroll = () => {
       const headings = container.querySelectorAll<HTMLElement>("h2[id], h3[id]");
-      if (headings.length === 0) return;
+      const offset = container.getBoundingClientRect().top;
+      let active: string | null = null;
 
-      const observer = new IntersectionObserver(
-        (entries) => {
-          // Find the topmost visible heading
-          const visible = entries
-            .filter((e) => e.isIntersecting)
-            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      for (const h of headings) {
+        if (h.getBoundingClientRect().top - offset <= 40) {
+          active = h.id;
+        } else {
+          break;
+        }
+      }
+      setActiveSectionId(active);
+    };
 
-          if (visible.length > 0) {
-            setActiveSectionId(visible[0].target.id);
-          }
-        },
-        { root: container, rootMargin: "0px 0px -80% 0px", threshold: 0 },
-      );
-
-      headings.forEach((h) => observer.observe(h));
-      return () => observer.disconnect();
-    }, 100);
-
-    return () => clearTimeout(timer);
+    // Run once after render, then on every scroll
+    const timer = setTimeout(onScroll, 100);
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      clearTimeout(timer);
+      container.removeEventListener("scroll", onScroll);
+    };
   }, [content, setActiveSectionId]);
 
   const codeComponent = useCallback(
