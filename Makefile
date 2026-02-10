@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down rig help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -132,6 +132,13 @@ ifndef p
 endif
 	@docker compose --profile $(p) down
 
+# Web rig + inspector (runs natively, expects node on :9942)
+rig:
+	@cd apps/b3nd-web-rig && npm run dev &
+	@cd apps/sdk-inspector && deno task dev &
+	@echo "Rig :5555  Inspector :5556  (node expected on :9942)"
+	@wait
+
 # Show help
 help:
 	@echo "Available commands:"
@@ -152,6 +159,7 @@ help:
 	@echo ""
 	@echo "  make up p=<profile>    - Start a compose profile (dev, test)"
 	@echo "  make down p=<profile>  - Stop a compose profile"
+	@echo "  make rig               - Start web rig (:5555) + inspector (:5556)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make test-unit"
