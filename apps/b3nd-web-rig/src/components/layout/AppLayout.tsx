@@ -69,6 +69,11 @@ export function AppLayout() {
   useEffect(() => {
     const relativePath = location.pathname;
 
+    if (relativePath.startsWith("/learn")) {
+      if (activeApp !== "learn") setActiveApp("learn");
+      if (mainView !== "content") setMainView("content");
+      return;
+    }
     if (relativePath.startsWith("/nodes")) {
       if (activeApp !== "nodes") setActiveApp("nodes");
       if (mainView !== "content") setMainView("content");

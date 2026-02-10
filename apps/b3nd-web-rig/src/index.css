@@ -140,4 +140,39 @@
         @apply w-full px-2 py-1.5 text-xs bg-background border border-border rounded;
         @apply focus:outline-none focus:ring-1 focus:ring-primary;
     }
+
+    /* Skill documentation prose overrides */
+    .skill-prose pre {
+        @apply bg-muted border border-border rounded-lg text-xs;
+    }
+
+    .skill-prose pre code {
+        @apply text-xs;
+        font-size: 0.8em;
+    }
+
+    .skill-prose table {
+        @apply text-xs;
+    }
+
+    .skill-prose th {
+        @apply bg-muted text-left;
+    }
+
+    .skill-prose td,
+    .skill-prose th {
+        @apply border border-border px-3 py-1.5;
+    }
+
+    .skill-prose .skill-inline-code {
+        @apply bg-muted text-primary px-1.5 py-0.5 rounded text-xs font-mono;
+    }
+
+    .skill-prose h2 {
+        @apply border-b border-border pb-2 scroll-mt-4;
+    }
+
+    .skill-prose h3 {
+        @apply scroll-mt-4;
+    }
 }

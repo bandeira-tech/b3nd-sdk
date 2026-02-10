@@ -70,6 +70,7 @@ export const RIG_SETTINGS_PATH = "/settings";
 export const RIG_ACCOUNTS_PATH = "/accounts";
 export const RIG_DASHBOARD_PATH = "/dashboard";
 export const RIG_NODES_PATH = "/nodes";
+export const RIG_LEARN_PATH = "/learn";
 
 export function routeForExplorerPath(
   path: string,

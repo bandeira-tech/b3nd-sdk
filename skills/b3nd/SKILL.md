@@ -47,32 +47,69 @@ the public network running B3nd nodes — the default for most apps.
 | `PostgresClient`     | JSR        | PostgreSQL storage                  |
 | `MongoClient`        | JSR        | MongoDB storage                     |
 
+### Terminology
+
+| Term                     | Meaning                                                            |
+| ------------------------ | ------------------------------------------------------------------ |
+| **Scheme**               | URI scheme: `mutable`, `immutable`, `blob`, `link`, `msg`          |
+| **Program**              | `scheme://hostname` pair defining behavioral constraints           |
+| **Substrate**            | Synonym for program, emphasizing the low-level data layer          |
+| **Resource**             | Data stored at a URI path within a program                         |
+| **B3nd Protocol**        | The B3nd network protocol itself (only use of "protocol")          |
+| **Application protocol** | Pattern of message exchange on canonical substrates                |
+
+Usage: "protocol" only means the B3nd Protocol. Use "program" for
+`scheme://hostname`. Use "application protocol" or "workflow" for higher-level
+patterns built on top of programs.
+
 ---
 
-## Guide: Protocol & URIs
+## Guide: Programs & URIs
 
-### Protocol Philosophy: URIs Express Behavior, Not Meaning
+### Data Architecture: Programs, URIs, and Resources
 
-B3nd URIs define *how data behaves* (mutability, authentication), never *what
-data means* (this is a config, an invoice, a post). Meaning lives in
-interpretation — the same JSON blob is "a node config" only to software that
-reads it as one.
+B3nd is a lightweight backend for a public, untrusted network. Cryptography
+ensures data privacy at the level you choose, while simple programs make data
+accessible from anywhere you can reach a network node — executable on any
+machine, inexpensive, with built-in safeguards and directional flow.
 
-**Implication for builders:** Higher-level protocols (node management,
-marketplaces, social features) are *workflows* — sequences of messages using the
-canonical programs below. Libraries provide TypeScript types for data structures,
-helper functions for URI conventions, and interpretation logic. They do NOT
-create new `protocol://hostname` programs or custom schema validators for domain
-rules.
+**Programs** are the behavioral layer. A program is defined by a schema
+(`mutable://accounts`, `blob://open`, `immutable://inbox`, etc.) and determines
+the constraints: mutability, authentication, content-addressing, access patterns.
+Programs are low-level data substrates — what Firecat and other B3nd networks
+provide.
+
+**URIs** are the vehicle for information. The scheme + hostname selects the
+program (and its guarantees), while the path is where users organize resources —
+structuring domain-specific layouts like `/nodes/{id}/config` or `/posts/latest`
+on top of program guarantees. URIs carry information at every level: `blob://`
+selects content-addressed storage, `accounts` selects pubkey-authenticated
+access, and the path locates the resource within that substrate.
+
+**Programs are substrates, not domain boundaries.** Creating a program like
+`mutable://nodes` does not prevent users from describing their nodes on any other
+substrate — `mutable://open/my-nodes/...`, `mutable://accounts/.../nodes/...`,
+or anywhere else. Programs have no ownership over domain concepts. Treating them
+as if they do creates a false sense of control over resources that live on a
+public network. Instead, higher-level application protocols are patterns of message exchange
+on top of canonical substrates. Libraries provide TypeScript types, URI
+conventions, and interpretation logic — they define how resources are organized
+and exchanged, not new programs.
 
 ```
-WRONG:  mutable://nodes/{key}/{id}/config     (custom program, needs custom schema)
-RIGHT:  mutable://accounts/{key}/nodes/{id}/config  (canonical program, auth built-in)
+WRONG:  mutable://nodes/{key}/{id}/config          (new program for a domain concept)
+RIGHT:  mutable://accounts/{key}/nodes/{id}/config  (domain resources on canonical substrate)
 ```
+
+The result: B3nd serves as a shared filesystem where users (humans and agents)
+own their data and connections. The UI/frontend is a separate concern from the
+data persistence layer — B3nd handles storage, access control, and encryption,
+while applications attach their own interpretation, analysis, and interaction
+on top.
 
 ### Canonical Schema
 
-| Protocol               | Access                | Use Case                           |
+| Program                | Access                | Use Case                           |
 | ---------------------- | --------------------- | ---------------------------------- |
 | `mutable://open`       | Anyone                | Public data, no auth needed        |
 | `mutable://accounts`   | Pubkey-signed         | User data, requires wallet auth    |
@@ -82,11 +119,13 @@ RIGHT:  mutable://accounts/{key}/nodes/{id}/config  (canonical program, auth bui
 | `blob://open`          | Anyone, hash-verified | Content-addressed storage (SHA256) |
 | `link://open`          | Anyone                | Unauthenticated URI references     |
 | `link://accounts`      | Pubkey-signed writes  | Authenticated URI references       |
+| `msg://open`           | Anyone                | Message envelopes + audit trails   |
+| `msg://accounts`       | Pubkey-signed         | Authenticated message envelopes    |
 
 ### URI Structure
 
 ```typescript
-// Pattern: {protocol}://accounts/{pubkey}/{path}
+// Pattern: {scheme}://accounts/{pubkey}/{path}
 "mutable://accounts/052fee.../profile"
 "immutable://accounts/052fee.../posts/1"
 "blob://open/sha256:2cf24dba..."
@@ -100,10 +139,10 @@ tuple `[uri, data]`:
 
 ```typescript
 type Message<D = unknown> = [uri: string, data: D];
-await client.receive(["mutable://users/alice", { name: "Alice" }]);
-await client.read("mutable://users/alice");
-await client.list("mutable://users/");
-await client.delete("mutable://users/alice");
+await client.receive(["mutable://accounts/{pubkey}/profile", { name: "Alice" }]);
+await client.read("mutable://accounts/{pubkey}/profile");
+await client.list("mutable://accounts/{pubkey}/");
+await client.delete("mutable://accounts/{pubkey}/profile");
 ```
 
 ### MessageData Envelopes
@@ -116,8 +155,8 @@ import type { MessageData } from "@bandeira-tech/b3nd-sdk";
 const msgData: MessageData = {
   inputs: ["mutable://open/ref/1"],
   outputs: [
-    ["mutable://open/users/alice", { name: "Alice" }],
-    ["mutable://open/users/bob", { name: "Bob" }],
+    ["mutable://open/app/config", { theme: "dark" }],
+    ["mutable://open/app/status", { active: true }],
   ],
 };
 
@@ -126,7 +165,7 @@ await client.receive(["msg://open/my-batch", msgData]);
 ```
 
 - `msgSchema(schema)` validates the envelope URI AND each output against its
-  protocol's schema
+  program's schema
 - Each client's `receive()` detects MessageData and stores outputs individually
 - The envelope itself is stored at its `msg://` URI as an audit trail
 
@@ -150,8 +189,48 @@ interface NodeProtocolInterface {
 
 ```typescript
 interface ListItem { uri: string; }
-const result = await client.list("mutable://users/");
-// result.data = [{ uri: "mutable://users/alice/profile" }, ...]
+const result = await client.list("mutable://accounts/{pubkey}/");
+// result.data = [{ uri: "mutable://accounts/{pubkey}/profile" }, ...]
+```
+
+### URI Design Guidance
+
+**Paths as folders, resources as files.** URI paths work like filesystem
+directories. Data at a leaf URI is like a file's content. Prefix listing
+(`client.list("mutable://accounts/{key}/posts/")`) is like `ls posts/`.
+
+**Favor secure, crypto-backed patterns.** `mutable://open` is for truly public
+data anyone can modify (like app announcements). User data MUST use
+`mutable://accounts/{pubkey}/...` (signature-protected).
+
+**URI mapping — common patterns:**
+
+```
+Private user data:   mutable://accounts/{userPubkey}/app/settings      (signed, encrypted)
+User-owned resource: mutable://accounts/{resourcePubkey}/data          (resource has own keypair)
+Public announcements: mutable://open/app/announcements                 (anyone can write — use sparingly)
+Content-addressed:   blob://open/sha256:{hash}                         (trustless, immutable)
+Named reference:     link://accounts/{userPubkey}/app/avatar            (signed pointer to blob)
+Inbox message:       immutable://inbox/{recipientPubkey}/topic/{ts}    (write-once delivery)
+Message envelope:    msg://open/batch-name                              (audit trail for batched writes)
+```
+
+**Obfuscation pattern:** Encrypt path segments using deterministic key
+derivation. Instead of `/medical/records/blood-test`, derive
+`/{hex1}/{hex2}/{hex3}` from `SALT + segment + password`. The owner regenerates
+deterministically; observers see opaque hex.
+
+```typescript
+// Deterministic path obfuscation
+async function obfuscatePath(segments: string[], password: string): Promise<string> {
+  const parts = await Promise.all(
+    segments.map(async (seg) => {
+      const key = await deriveKeyFromSeed(`${APP_SALT}:${seg}:${password}`, APP_SALT, 100000);
+      return key.slice(0, 16); // truncate for readability
+    }),
+  );
+  return parts.join("/");
+}
 ```
 
 ---
@@ -491,7 +570,7 @@ const client = new FunctionalClient({
 import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
-const schema = { "mutable://users": async ({ value }) => ({ valid: !!value }) };
+const schema = { "mutable://open": async ({ value }) => ({ valid: !!value }) };
 const client = new MemoryClient({ schema });
 const app = new Hono();
 const frontend = servers.httpServer(app);
@@ -541,8 +620,8 @@ const mongo = new MongoClient({
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
-  "mutable://users": async ({ uri, value, read }) => {
-    if (!value?.email) return { valid: false, error: "Email required" };
+  "mutable://open": async ({ uri, value, read }) => {
+    if (!value) return { valid: false, error: "Value required" };
     return { valid: true };
   },
 };
@@ -950,8 +1029,8 @@ Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 ### bnd CLI Tool
 
 ```bash
-./apps/b3nd-cli/bnd read mutable://users/alice/profile
-./apps/b3nd-cli/bnd list mutable://users/
+./apps/b3nd-cli/bnd read mutable://accounts/{pubkey}/profile
+./apps/b3nd-cli/bnd list mutable://accounts/{pubkey}/
 ./apps/b3nd-cli/bnd config
 ./apps/b3nd-cli/bnd conf node http://localhost:9942
 ```
@@ -966,17 +1045,26 @@ cd apps/b3nd-web-rig && npm run dev                 # http://localhost:5555/dash
 Browse 125 tests by theme (SDK Core, Network, Database, Auth, Binary, E2E), view
 source code with line numbers.
 
-### Custom Schemas (Enterprise)
+### Custom Programs (Your Own Network)
 
-Only create custom schemas if running your own B3nd network:
+Custom programs only make sense when running your own B3nd network — a private
+deployment with a different trust model or custom validation requirements.
+
+**Why run your own network?** You control the schema, validation, and access. On
+a private network, the "false control" argument relaxes because you DO control
+what programs exist on your infrastructure.
+
+**Why this is valuable for B3nd:** More networks running B3nd = a larger
+ecosystem. Private networks validate the protocol in different environments.
+
+**This section is NOT for Firecat app developers.** If you're building on
+Firecat, use the canonical programs above.
 
 ```typescript
 const schema: Schema = {
   "mutable://my-company": async ({ uri, value }) => ({ valid: true }),
 };
 ```
-
-Most apps should use the canonical Firecat schema protocols.
 
 ---
 

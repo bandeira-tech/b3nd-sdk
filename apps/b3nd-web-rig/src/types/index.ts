@@ -82,7 +82,7 @@ export interface EndpointConfig {
 
 // Application state types
 export type AppMode = "filesystem" | "search" | "watched";
-export type AppExperience = "explorer" | "writer" | "dashboard" | "nodes";
+export type AppExperience = "explorer" | "writer" | "dashboard" | "nodes" | "learn";
 export type WriterSection =
   | "backend"
   | "blob"

@@ -8,12 +8,14 @@ import { DashboardLeftSlot } from "./slots/DashboardLeftSlot";
 import { DashboardLayoutSlot } from "./slots/DashboardLayoutSlot";
 import { NodesLeftSlot } from "../nodes/NodesLeftSlot";
 import { NodesLayoutSlot } from "../nodes/NodesLayoutSlot";
+import { LearnLeftSlot } from "../learn/LearnLeftSlot";
+import { LearnLayoutSlot } from "../learn/LearnLayoutSlot";
 import { SettingsLayoutSlot } from "./slots/SettingsLayoutSlot";
 import { AccountsLayoutSlot } from "./slots/AccountsLayoutSlot";
 import { SimpleLeftSlot } from "./slots/SimpleLeftSlot";
 import type { AppMode } from "../../types";
 
-type LayoutSlotKey = "settings" | "accounts" | "writer" | "explorer" | "dashboard" | "nodes";
+type LayoutSlotKey = "settings" | "accounts" | "writer" | "explorer" | "dashboard" | "nodes" | "learn";
 
 type LayoutSlot = {
   Left: ComponentType;
@@ -52,6 +54,11 @@ const layoutSlots: Record<LayoutSlotKey, LayoutSlot> = {
     Main: NodesLayoutSlot,
     rightPanelToggleVisible: () => true,
   },
+  learn: {
+    Left: LearnLeftSlot,
+    Main: LearnLayoutSlot,
+    rightPanelToggleVisible: () => false,
+  },
 };
 
 export function useLayoutSlots() {
@@ -62,6 +69,7 @@ export function useLayoutSlots() {
   const slotKey: LayoutSlotKey = (() => {
     if (mainView === "settings") return "settings";
     if (mainView === "accounts") return "accounts";
+    if (activeApp === "learn") return "learn";
     if (activeApp === "nodes") return "nodes";
     if (activeApp === "dashboard") return "dashboard";
     if (activeApp === "writer") return "writer";
