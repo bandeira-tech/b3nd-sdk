@@ -26,7 +26,7 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
-      "@bandeira-tech/b3nd-web": ["../../libs/b3nd-sdk/src/mod.web.ts"],
+      "@bandeira-tech/b3nd-web": ["../../src/mod.web.ts"],
       "@bandeira-tech/b3nd-web/wallet": ["../../libs/b3nd-wallet/mod.ts"],
       "@bandeira-tech/b3nd-web/apps": ["../../libs/b3nd-apps/mod.ts"],
       "@bandeira-tech/b3nd-web/encrypt": ["../../libs/b3nd-encrypt/mod.ts"],

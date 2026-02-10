@@ -5,4 +5,4 @@ _vendor/
 .playwright-mcp/
 explorer/app/public/dashboard/test-logs.txt
 explorer/app/public/dashboard/test-results.json
-**/b3nd-web-rig/
+apps/sdk-inspector/b3nd-web-rig/
