@@ -107,10 +107,10 @@ Start a Postgres container, then point the node at it:
 
 ```bash
 # Ephemeral test DBs (Postgres :55432, Mongo :57017)
-make compose-test-up
+make up p=test
 
 # — or — persistent dev DBs (Postgres :5432, Mongo :27017)
-make compose-dev-up
+make up p=dev
 ```
 
 Then set `.env`:

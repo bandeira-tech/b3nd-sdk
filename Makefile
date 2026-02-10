@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg compose-test-up compose-test-down compose-dev-up compose-dev-down help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -119,22 +119,18 @@ pkg:
 	@docker push ghcr.io/bandeira-tech/b3nd/$(target):latest
 	@echo "Done!"
 
-# Docker Compose targets
-compose-test-up:
-	@echo "Starting test databases..."
-	@docker compose --profile test up -d --wait
-	@echo "Test databases ready!"
+# Docker Compose — usage: make up p=dev, make down p=test
+up:
+ifndef p
+	$(error Usage: make up p=<profile>  (profiles: dev, test))
+endif
+	@docker compose --profile $(p) up -d --wait
 
-compose-test-down:
-	@docker compose --profile test down -v
-
-compose-dev-up:
-	@echo "Starting dev databases..."
-	@docker compose --profile dev up -d --wait
-	@echo "Dev databases ready!"
-
-compose-dev-down:
-	@docker compose --profile dev down
+down:
+ifndef p
+	$(error Usage: make down p=<profile>  (profiles: dev, test))
+endif
+	@docker compose --profile $(p) down
 
 # Show help
 help:
@@ -154,10 +150,8 @@ help:
 	@echo ""
 	@echo "  make pkg target=<name> - Build and push Docker image"
 	@echo ""
-	@echo "  make compose-test-up   - Start ephemeral test DBs (ports 55432, 57017)"
-	@echo "  make compose-test-down - Stop test DBs and remove volumes"
-	@echo "  make compose-dev-up    - Start persistent dev DBs (ports 5432, 27017)"
-	@echo "  make compose-dev-down  - Stop dev DBs (volumes preserved)"
+	@echo "  make up p=<profile>    - Start a compose profile (dev, test)"
+	@echo "  make down p=<profile>  - Stop a compose profile"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make test-unit"
