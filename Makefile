@@ -134,10 +134,11 @@ endif
 
 # Web rig + inspector (runs natively, expects node on :9942)
 rig:
-	@cd apps/b3nd-web-rig && npm run dev &
-	@cd apps/sdk-inspector && deno task dev &
-	@echo "Rig :5555  Inspector :5556  (node expected on :9942)"
-	@wait
+	@trap 'kill 0' INT TERM; \
+	(cd apps/b3nd-web-rig && npm run dev) & \
+	(cd apps/sdk-inspector && deno task dev) & \
+	echo "Rig :5555  Inspector :5556  (node expected on :9942)"; \
+	wait
 
 # Show help
 help:
