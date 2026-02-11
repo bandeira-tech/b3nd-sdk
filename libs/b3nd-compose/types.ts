@@ -24,8 +24,8 @@ import type {
  * // A user message
  * const msg: Message = ["mutable://users/alice/profile", { name: "Alice" }]
  *
- * // A transfer message
- * const msg: Message = ["msg://alice/transfer/42", { inputs: [...], outputs: [...] }]
+ * // A content-addressed message envelope
+ * const msg: Message = ["hash://sha256/abc...", { inputs: [...], outputs: [...] }]
  * ```
  */
 export type Message<D = unknown> = [uri: string, data: D];

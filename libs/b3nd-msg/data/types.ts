@@ -93,7 +93,7 @@ export type TransactionValidationContext<V = unknown> =
  *
  * @example Fee requirement validator
  * ```typescript
- * const blobValidator: ProgramValidator = async (ctx) => {
+ * const hashValidator: ProgramValidator = async (ctx) => {
  *   // Find fee output in the same message
  *   const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"))
  *   const requiredFee = Math.ceil(ctx.value.length / 1024) // 1 token per KB
@@ -116,7 +116,7 @@ export type ProgramValidator<V = unknown> = (
  * @example
  * ```typescript
  * const schema: ProgramSchema = {
- *   "immutable://blob": blobValidator,
+ *   "hash://sha256": hashValidator,
  *   "mutable://accounts": accountValidator,
  *   "fees://pool": feeValidator
  * }

@@ -53,9 +53,9 @@ import {
   signEncryptedAppPayload,
   signupWithPassword,
   updateSchema as updateSchemaService,
-  uploadBlob,
-  uploadBlobWithLink,
-  type BlobUploadResult,
+  uploadHash,
+  uploadHashWithLink,
+  type HashUploadResult,
 } from "../../services/writer/writerService";
 import { routeForExplorerPath, sanitizePath } from "../../utils";
 
@@ -124,7 +124,7 @@ export function WriterMainContent() {
   const [lastShareLink, setLastShareLink] = useState<string | null>(null);
   const [lastExplorerRoute, setLastExplorerRoute] = useState<string | null>(null);
   // Blob upload state
-  const [blobHistory, setBlobHistory] = useState<BlobUploadResult[]>([]);
+  const [hashHistory, setHashHistory] = useState<HashUploadResult[]>([]);
   const [blobEncryptEnabled, setBlobEncryptEnabled] = useState(true);
   const [blobLinkEnabled, setBlobLinkEnabled] = useState(false);
   const [blobLinkPath, setBlobLinkPath] = useState("");
@@ -694,7 +694,7 @@ export function WriterMainContent() {
 
     try {
       for (const file of Array.from(files)) {
-        let result: BlobUploadResult & { linkResponse?: { success: boolean; error?: string } };
+        let result: HashUploadResult & { linkResponse?: { success: boolean; error?: string } };
 
         // Get encryption key if enabled
         const encryptionKey = blobEncryptEnabled && account?.type === "application"
@@ -703,7 +703,7 @@ export function WriterMainContent() {
 
         if (blobLinkEnabled && account?.type === "application" && blobLinkPath) {
           // Upload with authenticated link
-          result = await uploadBlobWithLink({
+          result = await uploadHashWithLink({
             backendClient,
             file,
             linkPath: blobLinkPath.replace(/:filename/g, file.name),
@@ -713,24 +713,24 @@ export function WriterMainContent() {
           });
           logLine(
             "backend",
-            `Blob uploaded: ${file.name} -> ${result.blobUri}${result.linkUri ? ` (link: ${result.linkUri})` : ""}`,
+            `Blob uploaded: ${file.name} -> ${result.hashUri}${result.linkUri ? ` (link: ${result.linkUri})` : ""}`,
             result.response.success ? "success" : "error",
           );
         } else {
           // Upload blob only
-          result = await uploadBlob({
+          result = await uploadHash({
             backendClient,
             file,
             encryptToPublicKey: encryptionKey,
           });
           logLine(
             "backend",
-            `Blob uploaded: ${file.name} -> ${result.blobUri}`,
+            `Blob uploaded: ${file.name} -> ${result.hashUri}`,
             result.response.success ? "success" : "error",
           );
         }
 
-        setBlobHistory((prev) => [result, ...prev]);
+        setHashHistory((prev) => [result, ...prev]);
         addWriterOutput(result);
       }
     } finally {
@@ -771,7 +771,7 @@ export function WriterMainContent() {
             ? <BackendHistory history={backendHistory} />
             : null}
           {writerSection === "blob" && (
-            <BlobUploadHistory history={blobHistory} />
+            <HashUploadHistory history={hashHistory} />
           )}
           {writerSection === "shareable" && (
             <SectionCard title="Shareable Content" icon={<Share2 className="h-4 w-4" />}>
@@ -1181,7 +1181,7 @@ function BackendHistory(
   );
 }
 
-function BlobUploadHistory({ history }: { history: BlobUploadResult[] }) {
+function HashUploadHistory({ history }: { history: HashUploadResult[] }) {
   if (!history.length) {
     return (
       <SectionCard title="Uploaded Blobs" icon={<Upload className="h-4 w-4" />}>
@@ -1235,8 +1235,8 @@ function BlobUploadHistory({ history }: { history: BlobUploadResult[] }) {
             </div>
             <div className="text-xs space-y-1">
               <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Blob:</span>
-                <code className="text-foreground break-all">{entry.blobUri}</code>
+                <span className="text-muted-foreground">Hash:</span>
+                <code className="text-foreground break-all">{entry.hashUri}</code>
               </div>
               {entry.linkUri && (
                 <div className="flex items-center gap-1">

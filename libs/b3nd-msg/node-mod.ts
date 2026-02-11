@@ -45,17 +45,17 @@
  * // Create the node
  * const node = createMessageNode({
  *   validate: myValidator,
- *   read: createMemoryClient({ schema: { "msg://test": async () => ({ valid: true }) } }),
+ *   read: createMemoryClient({ schema: { "hash://sha256": hashValidator() } }),
  *   peers: [
- *     createMemoryClient({ schema: { "msg://test": async () => ({ valid: true }) } })
+ *     createMemoryClient({ schema: { "hash://sha256": hashValidator() } })
  *   ]
  * })
  *
- * // Submit a message
- * const result = await node.receive([
- *   "msg://alice/transfer/42",
- *   { sig: "...", inputs: ["utxo://alice/1"], outputs: [["utxo://bob/1", 50]] }
- * ])
+ * // Submit via send()
+ * const result = await send({
+ *   inputs: ["utxo://alice/1"],
+ *   outputs: [["utxo://bob/1", 50]],
+ * }, node)
  * ```
  */
 

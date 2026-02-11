@@ -109,14 +109,15 @@ Multiple writes batch into a single message. Each client detects `MessageData`
 and stores outputs individually:
 
 ```typescript
-await node.receive(["msg://open/batch-1", {
-  inputs: [],
+import { send } from "@bandeira-tech/b3nd-sdk";
+
+await send({
   outputs: [
     ["mutable://open/users/alice", { name: "Alice" }],
     ["mutable://open/users/bob", { name: "Bob" }],
   ],
-}]);
-// Each output stored at its own URI — reads/lists work unchanged
+}, node);
+// Envelope at hash://sha256/{hex} — each output stored at its own URI
 ```
 
 ### Client Composition
@@ -165,7 +166,7 @@ const schema: Schema = {
     const existing = await read(uri);
     return { valid: !existing.success };
   },
-  "msg://open": async () => ({ valid: true }),
+  "hash://sha256": hashValidator(),
 };
 ```
 
@@ -201,9 +202,8 @@ and should not enforce that "all node configs live at `/nodes/*/config`" because
 | `mutable://open`         | Public mutable data (no auth)                |
 | `immutable://inbox`      | Write-once message delivery                  |
 | `immutable://accounts`   | Authenticated permanent records              |
-| `blob://open`            | Content-addressed immutable storage          |
+| `hash://sha256`          | Content-addressed immutable storage          |
 | `link://open/accounts`   | Mutable URI references                       |
-| `msg://open`             | Message envelopes (atomic multi-output)      |
 
 A library for a higher-level protocol provides:
 
@@ -215,7 +215,7 @@ A library for a higher-level protocol provides:
 
 ### What This Means for Agents
 
-- **DO** use `mutable://accounts`, `immutable://inbox`, `blob://open`, etc.
+- **DO** use `mutable://accounts`, `immutable://inbox`, `hash://sha256`, etc.
 - **DO** create helper functions for URI construction and data interpretation
 - **DO** define TypeScript types for domain data structures
 - **DON'T** invent new `protocol://hostname` programs

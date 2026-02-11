@@ -17,11 +17,11 @@ import type {
  *
  * @example
  * ```typescript
- * // A user message
- * ["msg://alice/transfer/42", { inputs: [...], outputs: [...] }]
+ * // A content-addressed message envelope (via send())
+ * ["hash://sha256/abc...", { inputs: [...], outputs: [...] }]
  *
- * // A block message
- * ["msg://firecat/block/1000", { prev: "msg://firecat/block/999", msgs: [...] }]
+ * // A simple resource write
+ * ["mutable://open/config", { theme: "dark" }]
  * ```
  */
 export type Message<D = unknown> = [uri: string, data: D];
@@ -127,10 +127,9 @@ export type TransactionNodeConfig<D = unknown> = MessageNodeConfig<D>;
  * ```typescript
  * const node = createMessageNode(config)
  *
- * const result = await node.receive([
- *   "msg://alice/transfer/42",
- *   { inputs: [...], outputs: [...] }
- * ])
+ * const result = await send({
+ *   inputs: [...], outputs: [...]
+ * }, node)
  *
  * if (!result.accepted) {
  *   console.log("Message rejected:", result.error)

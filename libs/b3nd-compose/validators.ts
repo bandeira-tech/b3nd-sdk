@@ -6,6 +6,7 @@
 import type { Schema } from "../b3nd-core/types.ts";
 import type { Message, Validator } from "./types.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
+import { verifyHashContent } from "../b3nd-blob/mod.ts";
 
 /**
  * Format validator
@@ -52,9 +53,12 @@ export function format<D = unknown>(
  * ```
  */
 export function schema<D = unknown>(programSchema: Schema): Validator<D> {
-  // deno-lint-ignore require-await
   return async (msg, read) => {
     const [uri, data] = msg;
+
+    // Enforce blob hash integrity (structural, not policy)
+    const blobCheck = await enforceContentHash(uri, data);
+    if (!blobCheck.valid) return blobCheck;
 
     // Parse the URI to get the program key
     const url = URL.parse(uri);
@@ -130,6 +134,23 @@ export function requireFields(fields: string[]): Validator {
 }
 
 /**
+ * Built-in content-hash enforcement.
+ * If the URI uses the hash:// scheme, verifies content matches the digest.
+ * This is a structural property of the scheme, not a per-schema policy.
+ */
+async function enforceContentHash(
+  uri: string,
+  value: unknown,
+): Promise<{ valid: boolean; error?: string }> {
+  const url = URL.parse(uri);
+  if (!url || url.protocol !== "hash:") {
+    return { valid: true };
+  }
+  const result = await verifyHashContent(uri, value);
+  return { valid: result.valid, error: result.error };
+}
+
+/**
  * Pass-through validator
  * Always accepts the message (useful for open/public programs)
  *
@@ -194,6 +215,15 @@ export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
 
     // Validate each output against its program validator
     for (const [outputUri, outputValue] of data.outputs) {
+      // Enforce blob hash integrity on outputs (structural, not policy)
+      const blobCheck = await enforceContentHash(outputUri, outputValue);
+      if (!blobCheck.valid) {
+        return {
+          valid: false,
+          error: blobCheck.error || `Content hash verification failed: ${outputUri}`,
+        };
+      }
+
       const url = URL.parse(outputUri);
       if (!url) {
         return { valid: false, error: `Invalid output URI: ${outputUri}` };

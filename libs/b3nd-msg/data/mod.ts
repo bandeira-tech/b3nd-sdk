@@ -19,7 +19,7 @@
  *
  * This pattern enables:
  * - **UTXO-style transfers**: inputs consumed, outputs created
- * - **Blob storage with payment**: blob output + fee output in same msg
+ * - **Hash storage with payment**: hash output + fee output in same msg
  * - **Atomic swaps**: multiple inputs/outputs in single message
  * - **Cross-output validation**: fee validators can check sibling outputs
  *
@@ -28,13 +28,13 @@
  * Just like the data node has schema validators for programs, the message
  * layer can run program validators against outputs:
  *
- * @example Fee requirement for blob storage
+ * @example Fee requirement for hash storage
  * ```typescript
  * import { createOutputValidator } from "b3nd/msg-data"
  *
  * const validator = createOutputValidator({
  *   schema: {
- *     "immutable://blob": async (ctx) => {
+ *     "hash://sha256": async (ctx) => {
  *       // Find fee output in the same message
  *       const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"))
  *       const requiredFee = Math.ceil(ctx.value.length / 1024) // 1 token per KB
@@ -49,38 +49,19 @@
  * })
  * ```
  *
- * @example User message with UTXO model
+ * @example UTXO-style transfer using send()
  * ```typescript
- * const userMsg: StateMessage = [
- *   "msg://alice/transfer/42",
- *   {
- *     sig: "user-sig-123",
- *     inputs: ["utxo://alice/1"],
- *     outputs: [
- *       ["utxo://bob/99", 50],
- *       ["utxo://alice/2", 30],
- *       ["fees://pool", 1]
- *     ]
- *   }
- * ]
- * ```
+ * import { send } from "@bandeira-tech/b3nd-sdk";
  *
- * @example Block message referencing user messages
- * ```typescript
- * const blockMsg: StateMessage = [
- *   "msg://firecat/block/1000",
- *   {
- *     sig: "validator-sig",
- *     inputs: [
- *       "msg://firecat/block/999",  // Previous block
- *       "msg://alice/transfer/42",   // User msgs in this block
- *       "msg://bob/transfer/15"
- *     ],
- *     outputs: [
- *       ["block://firecat/1000", { merkleRoot: "...", timestamp: 1234567890 }]
- *     ]
- *   }
- * ]
+ * await send({
+ *   inputs: ["utxo://alice/1"],
+ *   outputs: [
+ *     ["utxo://bob/99", 50],
+ *     ["utxo://alice/2", 30],
+ *     ["fees://pool", 1],
+ *   ],
+ * }, client);
+ * // Envelope stored at hash://sha256/{hex} — replay-protected
  * ```
  */
 
@@ -109,3 +90,7 @@ export {
 
 // Detection (new name + deprecated alias)
 export { isMessageData, isTransactionData } from "./detect.ts";
+
+// Content-addressed message constructor + sender
+export { message } from "./message.ts";
+export { send, type SendResult } from "./send.ts";

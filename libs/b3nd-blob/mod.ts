@@ -1,27 +1,38 @@
 /**
- * Blob and Link utilities for B3nd content-addressed storage
+ * Content-addressed storage and link utilities for B3nd
  *
  * @module blob
  *
+ * Uses the `hash://` scheme where the hostname is the algorithm
+ * and the path is the hex digest: `hash://sha256/{hex}`
+ *
+ * JSON payloads are canonicalized per RFC 8785 (JCS) before hashing,
+ * ensuring deterministic hashes across implementations.
+ *
  * @example
  * ```typescript
- * import { computeSha256, generateBlobUri, validateLinkValue } from "@bandeira-tech/b3nd-sdk/blob";
+ * import { computeSha256, generateHashUri, hashValidator } from "@bandeira-tech/b3nd-sdk/blob";
  *
- * // Compute hash and generate blob URI
  * const data = { title: "Hello", content: "World" };
  * const hash = await computeSha256(data);
- * const blobUri = generateBlobUri(hash);
- * // blobUri = "blob://open/sha256:2cf24dba..."
+ * const uri = generateHashUri(hash);
+ * // uri = "hash://sha256/2cf24dba..."
  *
- * // Validate a link value
- * const result = validateLinkValue("blob://open/sha256:abc123...");
- * // result = { valid: true }
+ * // Use hashValidator in your schema
+ * const schema = { "hash://sha256": hashValidator() };
  * ```
  */
 
+import _canonicalize from "canonicalize";
+// CJS/ESM interop: cast to callable
+const canonicalize = _canonicalize as unknown as (input: unknown) => string | undefined;
+
 /**
- * Compute SHA256 hash of a value
- * @param value - The value to hash (Uint8Array for binary, otherwise JSON-stringified)
+ * Compute SHA256 hash of a value.
+ * - Uint8Array: hashes raw bytes
+ * - Everything else: canonicalizes to RFC 8785 JSON, then hashes UTF-8 bytes
+ *
+ * @param value - The value to hash
  * @returns Hex-encoded SHA256 hash (64 characters)
  */
 export async function computeSha256(
@@ -30,12 +41,10 @@ export async function computeSha256(
   let data: Uint8Array;
 
   if (value instanceof Uint8Array) {
-    // Binary data - hash raw bytes
     data = value;
   } else {
-    // Non-binary - hash JSON representation
     const encoder = new TextEncoder();
-    data = encoder.encode(JSON.stringify(value));
+    data = encoder.encode(canonicalize(value));
   }
 
   const hashBuffer = await crypto.subtle.digest(
@@ -50,30 +59,31 @@ export async function computeSha256(
 }
 
 /**
- * Generate a blob URI from a SHA256 hash
+ * Generate a content-addressed URI from a SHA256 hash
  * @param hash - Hex-encoded SHA256 hash (64 characters)
- * @returns Blob URI in format "blob://open/sha256:{hash}"
+ * @returns URI in format "hash://sha256/{hash}"
  */
-export function generateBlobUri(hash: string): string {
-  return `blob://open/sha256:${hash}`;
+export function generateHashUri(hash: string): string {
+  return `hash://sha256/${hash}`;
 }
 
 /**
- * Parse a blob URI to extract the hash
- * @param uri - Blob URI in format "blob://open/sha256:{hash}"
+ * Parse a hash:// URI to extract algorithm and digest
+ * @param uri - URI in format "hash://sha256/{hex}"
  * @returns Object with algorithm and hash, or null if invalid
  */
-export function parseBlobUri(
+export function parseHashUri(
   uri: string,
 ): { algorithm: string; hash: string } | null {
   try {
     const url = new URL(uri);
-    if (url.protocol !== "blob:") return null;
+    if (url.protocol !== "hash:") return null;
 
-    const match = url.pathname.match(/^\/([^:]+):([a-f0-9]+)$/i);
-    if (!match) return null;
+    const algorithm = url.hostname;
+    const hash = url.pathname.substring(1); // strip leading /
+    if (!hash) return null;
 
-    return { algorithm: match[1], hash: match[2] };
+    return { algorithm, hash };
   } catch {
     return null;
   }
@@ -87,12 +97,10 @@ export function parseBlobUri(
 export function validateLinkValue(
   value: unknown,
 ): { valid: boolean; error?: string } {
-  // Link must be a string
   if (typeof value !== "string") {
     return { valid: false, error: "Link value must be a string URI" };
   }
 
-  // Validate that it's a valid URI
   try {
     new URL(value);
   } catch {
@@ -122,21 +130,46 @@ export function isValidSha256Hash(hash: string): boolean {
 }
 
 /**
- * Verify that content matches its blob URI hash
- * @param uri - Blob URI containing the expected hash
+ * Schema validator factory for hash:// programs.
+ * Verifies that content matches the hash in the URI.
+ *
+ * @example
+ * ```typescript
+ * import { hashValidator } from "@bandeira-tech/b3nd-sdk/blob";
+ *
+ * const schema = {
+ *   "hash://sha256": hashValidator(),
+ * };
+ * ```
+ */
+export function hashValidator(): (
+  write: { uri: string; value: unknown; read: (uri: string) => Promise<{ success: boolean }> },
+) => Promise<{ valid: boolean; error?: string }> {
+  return async ({ uri, value }) => {
+    const result = await verifyHashContent(uri, value);
+    return {
+      valid: result.valid,
+      error: result.error,
+    };
+  };
+}
+
+/**
+ * Verify that content matches its hash:// URI
+ * @param uri - Hash URI containing the expected digest
  * @param value - Content to verify
  * @returns Object with valid boolean and computed hash
  */
-export async function verifyBlobContent(
+export async function verifyHashContent(
   uri: string,
   value: Uint8Array | unknown,
 ): Promise<
   { valid: boolean; expectedHash?: string; actualHash: string; error?: string }
 > {
-  const parsed = parseBlobUri(uri);
+  const parsed = parseHashUri(uri);
   if (!parsed) {
     const actualHash = await computeSha256(value);
-    return { valid: false, actualHash, error: "Invalid blob URI format" };
+    return { valid: false, actualHash, error: "Invalid hash URI format" };
   }
 
   if (parsed.algorithm !== "sha256") {

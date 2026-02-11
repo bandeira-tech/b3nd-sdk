@@ -1,6 +1,6 @@
 ---
 name: b3nd
-description: B3nd protocol and SDK for URI-based data persistence. Use when working with B3nd URIs, Firecat network, mutable/immutable protocols, accounts, open data, encryption, wallet auth, resource visibility, React/Zustand/React Query apps, Vite web apps, Deno servers, CLI tools, JSR (@bandeira-tech/b3nd-sdk), NPM (@bandeira-tech/b3nd-web), HttpClient, WalletClient, PostgresClient, MongoClient, MemoryClient, LocalStorageClient, IndexedDBClient, or any B3nd development task.
+description: B3nd protocol and SDK for URI-based data persistence. Use when working with B3nd URIs, Firecat network, mutable/immutable programs, accounts, open data, encryption, wallet auth, resource visibility, React/Zustand/React Query apps, Vite web apps, Deno servers, CLI tools, JSR (@bandeira-tech/b3nd-sdk), NPM (@bandeira-tech/b3nd-web), HttpClient, WalletClient, PostgresClient, MongoClient, MemoryClient, LocalStorageClient, IndexedDBClient, or any B3nd development task.
 ---
 
 # B3nd Development Guide
@@ -51,7 +51,7 @@ the public network running B3nd nodes — the default for most apps.
 
 | Term                     | Meaning                                                            |
 | ------------------------ | ------------------------------------------------------------------ |
-| **Scheme**               | URI scheme: `mutable`, `immutable`, `blob`, `link`, `msg`          |
+| **Scheme**               | URI scheme: `mutable`, `immutable`, `hash`, `link`                 |
 | **Program**              | `scheme://hostname` pair defining behavioral constraints           |
 | **Substrate**            | Synonym for program, emphasizing the low-level data layer          |
 | **Resource**             | Data stored at a URI path within a program                         |
@@ -74,7 +74,7 @@ accessible from anywhere you can reach a network node — executable on any
 machine, inexpensive, with built-in safeguards and directional flow.
 
 **Programs** are the behavioral layer. A program is defined by a schema
-(`mutable://accounts`, `blob://open`, `immutable://inbox`, etc.) and determines
+(`mutable://accounts`, `hash://sha256`, `immutable://inbox`, etc.) and determines
 the constraints: mutability, authentication, content-addressing, access patterns.
 Programs are low-level data substrates — what Firecat and other B3nd networks
 provide.
@@ -82,7 +82,7 @@ provide.
 **URIs** are the vehicle for information. The scheme + hostname selects the
 program (and its guarantees), while the path is where users organize resources —
 structuring domain-specific layouts like `/nodes/{id}/config` or `/posts/latest`
-on top of program guarantees. URIs carry information at every level: `blob://`
+on top of program guarantees. URIs carry information at every level: `hash://`
 selects content-addressed storage, `accounts` selects pubkey-authenticated
 access, and the path locates the resource within that substrate.
 
@@ -116,11 +116,9 @@ on top.
 | `immutable://open`     | Anyone, once          | Content-addressed, no overwrites   |
 | `immutable://accounts` | Pubkey-signed, once   | Permanent user data                |
 | `immutable://inbox`    | Message inbox         | Suggestions, notifications         |
-| `blob://open`          | Anyone, hash-verified | Content-addressed storage (SHA256) |
+| `hash://sha256`        | Anyone, hash-verified | Content-addressed storage (SHA256) |
 | `link://open`          | Anyone                | Unauthenticated URI references     |
 | `link://accounts`      | Pubkey-signed writes  | Authenticated URI references       |
-| `msg://open`           | Anyone                | Message envelopes + audit trails   |
-| `msg://accounts`       | Pubkey-signed         | Authenticated message envelopes    |
 
 ### URI Structure
 
@@ -128,7 +126,7 @@ on top.
 // Pattern: {scheme}://accounts/{pubkey}/{path}
 "mutable://accounts/052fee.../profile"
 "immutable://accounts/052fee.../posts/1"
-"blob://open/sha256:2cf24dba..."
+"hash://sha256/2cf24dba..."
 "link://accounts/052fee.../avatar"
 ```
 
@@ -145,29 +143,44 @@ await client.list("mutable://accounts/{pubkey}/");
 await client.delete("mutable://accounts/{pubkey}/profile");
 ```
 
-### MessageData Envelopes
+### The `send()` and `message()` API
 
-Multiple writes batch into a single message:
+The `send()` function is the primary way to batch multiple writes into a single
+message. It builds a content-addressed envelope (SHA256 hash of the payload via
+RFC 8785 canonical JSON), sends it through the client, and returns the result:
 
 ```typescript
-import type { MessageData } from "@bandeira-tech/b3nd-sdk";
+import { send } from "@bandeira-tech/b3nd-sdk";
+// or: import { send } from "@bandeira-tech/b3nd-web";
 
-const msgData: MessageData = {
-  inputs: ["mutable://open/ref/1"],
+const result = await send({
   outputs: [
     ["mutable://open/app/config", { theme: "dark" }],
     ["mutable://open/app/status", { active: true }],
   ],
-};
-
-await client.receive(["msg://open/my-batch", msgData]);
-// Each output stored at its own URI, readable via client.read()
+}, client);
+// result.uri = "hash://sha256/{hex}" — the envelope's content-addressed URI
+// result.accepted = true
+// Replay protection: same payload = same hash = already exists = rejected
 ```
 
-- `msgSchema(schema)` validates the envelope URI AND each output against its
+- `msgSchema(schema)` validates the envelope AND each output against its
   program's schema
 - Each client's `receive()` detects MessageData and stores outputs individually
-- The envelope itself is stored at its `msg://` URI as an audit trail
+- The envelope is stored at `hash://sha256/{hex}` as an audit trail
+
+The lower-level `message()` function builds the tuple without sending — useful
+when you need the raw `[uri, data]` pair:
+
+```typescript
+import { message } from "@bandeira-tech/b3nd-sdk";
+
+const [uri, data] = await message({
+  outputs: [["mutable://open/config", { theme: "dark" }]],
+});
+// uri = "hash://sha256/{computed-hash}"
+// data = { inputs: [], outputs: [...] }
+```
 
 ### NodeProtocolInterface
 
@@ -209,10 +222,10 @@ data anyone can modify (like app announcements). User data MUST use
 Private user data:   mutable://accounts/{userPubkey}/app/settings      (signed, encrypted)
 User-owned resource: mutable://accounts/{resourcePubkey}/data          (resource has own keypair)
 Public announcements: mutable://open/app/announcements                 (anyone can write — use sparingly)
-Content-addressed:   blob://open/sha256:{hash}                         (trustless, immutable)
-Named reference:     link://accounts/{userPubkey}/app/avatar            (signed pointer to blob)
+Content-addressed:   hash://sha256/{hash}                               (trustless, immutable)
+Named reference:     link://accounts/{userPubkey}/app/avatar            (signed pointer to hash)
 Inbox message:       immutable://inbox/{recipientPubkey}/topic/{ts}    (write-once delivery)
-Message envelope:    msg://open/batch-name                              (audit trail for batched writes)
+Message envelope:    hash://sha256/{hex}                                 (via send(), content-addressed audit trail)
 ```
 
 **Obfuscation pattern:** Encrypt path segments using deterministic key
@@ -275,34 +288,32 @@ await client.delete("mutable://open/my-app/config");
 
 ---
 
-## Guide: Blob, Link & Encryption
+## Guide: Content-Addressed Storage (hash://), Links & Encryption
 
-### Blob Protocol (Content-Addressed Storage)
+### Content-Addressed Storage (hash://)
 
-Blobs are content-addressed using SHA256 hashes. The hash in the URI must match
+Content-addressed data uses SHA256 hashes. The hash in the URI must match
 the content.
 
 ```typescript
-import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-sdk/blob";
-// or from "@bandeira-tech/b3nd-web/blob" in browser
+import { send } from "@bandeira-tech/b3nd-sdk";
+import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";
+// or from "@bandeira-tech/b3nd-web" and "@bandeira-tech/b3nd-web/hash" in browser
 
 const data = { title: "Hello", content: "World" };
 const hash = await computeSha256(data);
-const blobUri = generateBlobUri(hash); // "blob://open/sha256:{hash}"
+const hashUri = generateHashUri(hash); // "hash://sha256/{hash}"
 
-await client.receive(["msg://open/store-blob", {
-  inputs: [],
-  outputs: [[blobUri, data]],
-}]);
+await send({ outputs: [[hashUri, data]] }, client);
 
-// Read blob — content verified by hash
-const result = await client.read(blobUri);
+// Read — content verified by hash
+const result = await client.read(hashUri);
 ```
 
 **Key Properties:** Immutable, deduplicated, trustless verification, format:
-`blob://open/sha256:<64-hex-chars>`
+`hash://sha256/<64-hex-chars>`
 
-### Link Protocol (URI References)
+### Link Program (URI References)
 
 Links are simple string values pointing to other URIs:
 
@@ -310,43 +321,42 @@ Links are simple string values pointing to other URIs:
 // Authenticated link (requires wallet)
 await wallet.proxyWrite({
   uri: "link://accounts/{userPubkey}/avatar",
-  data: "blob://open/sha256:abc123...",
+  data: "hash://sha256/abc123...",
   encrypt: false,
 });
 
 // Read link → get target URI → fetch target
 const linkResult = await client.read<string>("link://accounts/alice/avatar");
-const blobResult = await client.read(linkResult.record.data);
+const hashResult = await client.read(linkResult.record.data);
 ```
 
-### Blob + Link Pattern (Recommended)
+### Hash + Link Pattern (Recommended)
 
 ```typescript
-// Store content as blob + create link in one message
+// Store content as hash + create link in one message
 const content = { title: "My Post", body: "..." };
 const hash = await computeSha256(content);
-const blobUri = `blob://open/sha256:${hash}`;
+const hashUri = `hash://sha256/${hash}`;
 
-await client.receive(["msg://open/publish-post", {
-  inputs: [],
+await send({
   outputs: [
-    [blobUri, content],
-    ["link://open/posts/latest", blobUri],
+    [hashUri, content],
+    ["link://open/posts/latest", hashUri],
   ],
-}]);
+}, client);
 
-// Update: new blob + update link
+// Update: new hash + update link
 const v2 = { title: "My Post v2", body: "..." };
 const v2Hash = await computeSha256(v2);
-const v2Uri = `blob://open/sha256:${v2Hash}`;
+const v2Uri = `hash://sha256/${v2Hash}`;
 
-await client.receive(["msg://open/update-post", {
-  inputs: [blobUri],
+await send({
+  inputs: [hashUri],
   outputs: [
     [v2Uri, v2],
     ["link://open/posts/latest", v2Uri],
   ],
-}]);
+}, client);
 ```
 
 ### Asymmetric Encryption (Private Data)
@@ -358,15 +368,12 @@ import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 // Encrypt data with recipient's public key
 const encrypted = await encrypt.encrypt(data, recipientPublicKeyHex);
 
-// Hash encrypted payload and store as blob
+// Hash encrypted payload and store content-addressed
 const hash = await computeSha256(encrypted);
-await client.receive(["msg://open/store-private", {
-  inputs: [],
-  outputs: [[`blob://open/sha256:${hash}`, encrypted]],
-}]);
+await send({ outputs: [[`hash://sha256/${hash}`, encrypted]] }, client);
 
 // Recipient decrypts
-const result = await client.read(`blob://open/sha256:${hash}`);
+const result = await client.read(`hash://sha256/${hash}`);
 const decrypted = await encrypt.decrypt(result.record.data, recipientPrivateKey);
 ```
 
@@ -407,6 +414,7 @@ const wallet = new WalletClient({
 **Both signup AND login require an approved session keypair.**
 
 ```typescript
+import { send } from "@bandeira-tech/b3nd-web";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 
 const backendClient = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
@@ -422,25 +430,23 @@ const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
   sessionKeypair.publicKeyHex,
   sessionKeypair.privateKeyHex,
 );
-await backendClient.receive(["msg://open/session-request", {
-  inputs: [],
+await send({
   outputs: [[
     `immutable://inbox/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
     signedRequest,
   ]],
-}]);
+}, backendClient);
 
 // 3. App APPROVES session (value = 1, signed by app's key)
 const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
   1, APP_KEY, APP_PRIVATE_KEY,
 );
-await backendClient.receive(["msg://open/session-approve", {
-  inputs: [],
+await send({
   outputs: [[
     `mutable://accounts/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
     signedApproval,
   ]],
-}]);
+}, backendClient);
 
 // 4. Now signup or login works
 const session = await wallet.signup(APP_KEY, sessionKeypair, {
@@ -537,7 +543,7 @@ mutable://accounts/{userPubkey}/
 import {
   createServerNode, createValidatedClient, firstMatchSequence,
   FunctionalClient, HttpClient, MemoryClient, MongoClient, msgSchema,
-  parallelBroadcast, PostgresClient, servers,
+  parallelBroadcast, PostgresClient, send, servers,
 } from "@bandeira-tech/b3nd-sdk";
 ```
 
@@ -659,7 +665,7 @@ import { LocalStorageClient } from "@bandeira-tech/b3nd-web/clients/local-storag
 import { MemoryClient } from "@bandeira-tech/b3nd-web/clients/memory";
 import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
-import { computeSha256, generateBlobUri } from "@bandeira-tech/b3nd-web/blob";
+import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
 ```
 
 ### LocalStorageClient
@@ -750,7 +756,7 @@ export const useAppStore = create<AppState & AppActions>()(
 
 ```typescript
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { HttpClient } from "@bandeira-tech/b3nd-web";
+import { HttpClient, send } from "@bandeira-tech/b3nd-web";
 
 const client = new HttpClient({ url: config.backend });
 
@@ -776,11 +782,11 @@ export function useList(uri: string, options?: { page?: number; limit?: number }
   });
 }
 
-export function useReceive() {
+export function useSend() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ msgUri, outputs }: { msgUri: string; outputs: [string, unknown][] }) => {
-      const result = await client.receive([msgUri, { inputs: [], outputs }]);
+    mutationFn: async ({ outputs }: { outputs: [string, unknown][] }) => {
+      const result = await send({ outputs }, client);
       if (!result.accepted) throw new Error(result.error);
       return result;
     },
@@ -878,15 +884,15 @@ main();
 
 ```typescript
 import { assertEquals } from "@std/assert";
-import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
+import { hashValidator, MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 
-Deno.test("receive and read", async () => {
+Deno.test("send and read", async () => {
   const client = new MemoryClient({
-    schema: { "test://data": async () => ({ valid: true }), "msg://": async () => ({ valid: true }) },
+    schema: { "test://data": async () => ({ valid: true }), "hash://sha256": hashValidator() },
   });
-  const result = await client.receive(["msg://test/create", {
-    inputs: [], outputs: [["test://data/item1", { name: "Test" }]],
-  }]);
+  const result = await send({
+    outputs: [["test://data/item1", { name: "Test" }]],
+  }, client);
   assertEquals(result.accepted, true);
   const read = await client.read("test://data/item1");
   assertEquals(read.record?.data, { name: "Test" });
@@ -1019,7 +1025,7 @@ session restoration, test client injection, data isolation.
 | `b3nd_list`            | List items at URI prefix     |
 | `b3nd_delete`          | Delete data                  |
 | `b3nd_health`          | Backend health check         |
-| `b3nd_schema`          | Get available protocols      |
+| `b3nd_schema`          | Get available programs       |
 | `b3nd_backends_list`   | List configured backends     |
 | `b3nd_backends_switch` | Switch active backend        |
 | `b3nd_backends_add`    | Add new backend              |
@@ -1075,7 +1081,7 @@ const schema: Schema = {
 - `src/mod.web.ts` — Browser exports (NPM build entry)
 - `libs/b3nd-core/types.ts` — Type definitions
 - `libs/b3nd-compose/` — Node composition, validators, processors
-- `libs/b3nd-blob/` — Content-addressed storage utilities
+- `libs/b3nd-blob/` — Content-addressed storage utilities (hash:// scheme)
 - `libs/b3nd-msg/` — Message system
 
 ### Clients

@@ -392,13 +392,16 @@ export class ClientError extends Error {
 export type LinkValue = string;
 
 /**
- * Blob metadata (optional wrapper for blob data)
+ * Content-addressed data metadata (optional wrapper for hash:// data)
  */
-export interface BlobData<T = unknown> {
+export interface ContentData<T = unknown> {
   type?: string;
   encoding?: string;
   data: T;
 }
+
+/** @deprecated Use `ContentData` instead */
+export type BlobData<T = unknown> = ContentData<T>;
 
 /**
  * WebSocket protocol types for request/response communication

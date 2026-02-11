@@ -6,10 +6,11 @@
 
 export {
   computeSha256,
-  generateBlobUri,
+  generateHashUri,
   generateLinkUri,
+  hashValidator,
   isValidSha256Hash,
-  parseBlobUri,
+  parseHashUri,
   validateLinkValue,
-  verifyBlobContent,
+  verifyHashContent,
 } from "@bandeira-tech/b3nd-sdk/blob";
