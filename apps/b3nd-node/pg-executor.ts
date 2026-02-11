@@ -1,4 +1,4 @@
-import { Client } from "deno-postgres";
+import { Client } from "npm:pg";
 
 export interface SqlExecutorResult {
   rows: unknown[];
@@ -16,10 +16,7 @@ export async function createPostgresExecutor(
 
   return {
     async query(sql: string, args?: unknown[]) {
-      const res = await client.queryObject({
-        text: sql,
-        args: args as any[] | undefined,
-      });
+      const res = await client.query(sql, args as unknown[]);
       return { rows: res.rows as unknown[], rowCount: (res as any).rowCount };
     },
   };

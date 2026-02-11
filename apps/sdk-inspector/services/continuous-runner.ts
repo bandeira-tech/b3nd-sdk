@@ -297,22 +297,38 @@ export class ContinuousTestRunner {
         }
       };
 
-      await Promise.all([
+      // Race test execution against a 120s timeout
+      const TIMEOUT_MS = 120_000;
+      const timeout = new Promise<"timeout">((resolve) =>
+        setTimeout(() => resolve("timeout"), TIMEOUT_MS)
+      );
+      const done = Promise.all([
         readStream(process.stdout),
         readStream(process.stderr),
+        process.status,
       ]);
 
-      const status = await process.status;
+      const result = await Promise.race([done, timeout]);
       const duration = Date.now() - startTime;
+
+      if (result === "timeout") {
+        console.warn(
+          `[ContinuousRunner] Test run timed out after ${TIMEOUT_MS / 1000}s — killing`,
+        );
+        try {
+          process.kill("SIGTERM");
+        } catch { /* already dead */ }
+      } else {
+        const [, , status] = result;
+        console.log(
+          `[ContinuousRunner] Test run completed (exit code: ${status.code}, files: ${seenFiles.size})`,
+        );
+      }
 
       // Mark all seen files as complete
       for (const filePath of seenFiles) {
         this.testState.completeFileRun(filePath);
       }
-
-      console.log(
-        `[ContinuousRunner] Test run completed (exit code: ${status.code}, files: ${seenFiles.size})`,
-      );
     } catch (error) {
       console.error("[ContinuousRunner] Error running tests:", error);
     } finally {

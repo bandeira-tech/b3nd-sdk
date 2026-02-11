@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down rig help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node check help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -132,13 +132,70 @@ ifndef p
 endif
 	@docker compose --profile $(p) down
 
-# Web rig + inspector (runs natively, expects node on :9942)
+# Full dev environment: databases + node (postgres) + rig + inspector
+dev:
+	@echo "Starting dev environment..."
+	@# Kill any leftover dev processes and wait for ports to free
+	@lsof -ti :5555 -i :5556 -i :9942 2>/dev/null | xargs kill -9 2>/dev/null || true
+	@sleep 1
+	@docker compose --profile dev up -d --wait
+	@trap 'kill 0; docker compose --profile dev down' INT TERM; \
+	(cd apps/b3nd-node && \
+	  BACKEND_URL=postgresql://b3nd:b3nd@localhost:5432/b3nd \
+	  SCHEMA_MODULE=./example-schema.ts PORT=9942 CORS_ORIGIN="*" \
+	  deno run --watch -A mod.ts) & \
+	(cd apps/b3nd-web-rig && npm run dev) & \
+	(cd apps/sdk-inspector && deno task dev) & \
+	echo "Node :9942 (postgres)  Rig :5555  Inspector :5556"; \
+	wait
+
+# B3nd node on :9942 with memory backend (standalone)
+node:
+	@cd apps/b3nd-node && \
+	BACKEND_URL=memory:// SCHEMA_MODULE=./example-schema.ts PORT=9942 CORS_ORIGIN="*" \
+	deno run --watch -A mod.ts
+
+# Web rig + inspector only (node must be running separately)
 rig:
 	@trap 'kill 0' INT TERM; \
 	(cd apps/b3nd-web-rig && npm run dev) & \
 	(cd apps/sdk-inspector && deno task dev) & \
 	echo "Rig :5555  Inspector :5556  (node expected on :9942)"; \
 	wait
+
+# Health check all services
+check:
+	@echo "Checking services..."
+	@printf "  B3nd node  :9942  "; \
+	if curl -sf http://localhost:9942/api/v1/health >/dev/null 2>&1; then \
+		echo "✓ healthy"; \
+	else \
+		echo "✗ not reachable"; \
+	fi
+	@printf "  Rig        :5555  "; \
+	if curl -sf http://localhost:5555/ >/dev/null 2>&1; then \
+		echo "✓ healthy"; \
+	else \
+		echo "✗ not reachable"; \
+	fi
+	@printf "  Inspector  :5556  "; \
+	if curl -sf http://localhost:5556/ >/dev/null 2>&1; then \
+		echo "✓ healthy"; \
+	else \
+		echo "✗ not reachable"; \
+	fi
+	@printf "  Postgres   :5432  "; \
+	if pg_isready -h localhost -p 5432 >/dev/null 2>&1; then \
+		echo "✓ healthy"; \
+	else \
+		echo "- not running"; \
+	fi
+	@printf "  MongoDB    :27017 "; \
+	if mongosh --quiet --eval "db.runCommand({ping:1})" >/dev/null 2>&1; then \
+		echo "✓ healthy"; \
+	else \
+		echo "- not running"; \
+	fi
 
 # Show help
 help:
@@ -158,9 +215,12 @@ help:
 	@echo ""
 	@echo "  make pkg target=<name> - Build and push Docker image"
 	@echo ""
+	@echo "  make dev               - Full dev env (dbs + node + rig + inspector)"
 	@echo "  make up p=<profile>    - Start a compose profile (dev, test)"
 	@echo "  make down p=<profile>  - Stop a compose profile"
+	@echo "  make node              - Start B3nd node (:9942, memory backend)"
 	@echo "  make rig               - Start web rig (:5555) + inspector (:5556)"
+	@echo "  make check             - Health check all services"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make test-unit"
