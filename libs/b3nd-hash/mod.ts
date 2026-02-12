@@ -1,7 +1,7 @@
 /**
  * Content-addressed storage and link utilities for B3nd
  *
- * @module blob
+ * @module hash
  *
  * Uses the `hash://` scheme where the hostname is the algorithm
  * and the path is the hex digest: `hash://sha256/{hex}`
@@ -11,7 +11,7 @@
  *
  * @example
  * ```typescript
- * import { computeSha256, generateHashUri, hashValidator } from "@bandeira-tech/b3nd-sdk/blob";
+ * import { computeSha256, generateHashUri, hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
  *
  * const data = { title: "Hello", content: "World" };
  * const hash = await computeSha256(data);
@@ -135,7 +135,7 @@ export function isValidSha256Hash(hash: string): boolean {
  *
  * @example
  * ```typescript
- * import { hashValidator } from "@bandeira-tech/b3nd-sdk/blob";
+ * import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
  *
  * const schema = {
  *   "hash://sha256": hashValidator(),
@@ -145,7 +145,13 @@ export function isValidSha256Hash(hash: string): boolean {
 export function hashValidator(): (
   write: { uri: string; value: unknown; read: (uri: string) => Promise<{ success: boolean }> },
 ) => Promise<{ valid: boolean; error?: string }> {
-  return async ({ uri, value }) => {
+  return async ({ uri, value, read }) => {
+    // Enforce write-once: reject if resource already exists
+    const existing = await read(uri);
+    if (existing.success) {
+      return { valid: false, error: "hash:// is write-once: resource already exists" };
+    }
+
     const result = await verifyHashContent(uri, value);
     return {
       valid: result.valid,
