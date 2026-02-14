@@ -6,7 +6,7 @@
 import type { Schema } from "../b3nd-core/types.ts";
 import type { Message, Validator } from "./types.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
-import { verifyHashContent } from "../b3nd-blob/mod.ts";
+import { verifyHashContent } from "../b3nd-hash/mod.ts";
 
 /**
  * Format validator
@@ -56,9 +56,9 @@ export function schema<D = unknown>(programSchema: Schema): Validator<D> {
   return async (msg, read) => {
     const [uri, data] = msg;
 
-    // Enforce blob hash integrity (structural, not policy)
-    const blobCheck = await enforceContentHash(uri, data);
-    if (!blobCheck.valid) return blobCheck;
+    // Enforce content hash integrity (structural, not policy)
+    const hashCheck = await enforceContentHash(uri, data);
+    if (!hashCheck.valid) return hashCheck;
 
     // Parse the URI to get the program key
     const url = URL.parse(uri);
@@ -215,12 +215,12 @@ export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
 
     // Validate each output against its program validator
     for (const [outputUri, outputValue] of data.outputs) {
-      // Enforce blob hash integrity on outputs (structural, not policy)
-      const blobCheck = await enforceContentHash(outputUri, outputValue);
-      if (!blobCheck.valid) {
+      // Enforce content hash integrity on outputs (structural, not policy)
+      const hashCheck = await enforceContentHash(outputUri, outputValue);
+      if (!hashCheck.valid) {
         return {
           valid: false,
-          error: blobCheck.error || `Content hash verification failed: ${outputUri}`,
+          error: hashCheck.error || `Content hash verification failed: ${outputUri}`,
         };
       }
 

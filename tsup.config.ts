@@ -6,7 +6,7 @@ export default defineConfig({
     "wallet/mod": "./libs/b3nd-wallet/mod.ts",
     "apps/mod": "./libs/b3nd-apps/mod.ts",
     "encrypt/mod": "./libs/b3nd-encrypt/mod.ts",
-    "blob/mod": "./libs/b3nd-blob/mod.ts",
+    "hash/mod": "./libs/b3nd-hash/mod.ts",
     "clients/http/mod": "./libs/b3nd-client-http/mod.ts",
     "clients/local-storage/mod": "./libs/b3nd-client-localstorage/mod.ts",
     "clients/websocket/mod": "./libs/b3nd-client-ws/mod.ts",

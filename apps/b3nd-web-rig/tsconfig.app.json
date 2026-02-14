@@ -30,7 +30,7 @@
       "@bandeira-tech/b3nd-web/wallet": ["../../libs/b3nd-wallet/mod.ts"],
       "@bandeira-tech/b3nd-web/apps": ["../../libs/b3nd-apps/mod.ts"],
       "@bandeira-tech/b3nd-web/encrypt": ["../../libs/b3nd-encrypt/mod.ts"],
-      "@bandeira-tech/b3nd-web/blob": ["../../libs/b3nd-blob/mod.ts"],
+      "@bandeira-tech/b3nd-web/hash": ["../../libs/b3nd-hash/mod.ts"],
       "@bandeira-tech/b3nd-web/clients/http": ["../../libs/b3nd-client-http/mod.ts"]
     }
   },

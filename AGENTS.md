@@ -55,7 +55,7 @@ b3nd/
 ├── libs/                       # SDK packages (modular)
 │   ├── b3nd-core/              # Foundation: types, encoding, binary
 │   ├── b3nd-compose/           # Node composition: createNode, validators, processors
-│   ├── b3nd-blob/              # Content-addressed storage utilities
+│   ├── b3nd-hash/              # Content-addressed storage utilities
 │   ├── b3nd-msg/               # Message system (node + data convention)
 │   ├── b3nd-servers/           # HTTP + WebSocket server primitives
 │   ├── b3nd-client-memory/     # In-memory client

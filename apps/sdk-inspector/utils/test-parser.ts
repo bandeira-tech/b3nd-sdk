@@ -175,7 +175,7 @@ export const TEST_THEMES: ThemeInfo[] = [
     id: "binary",
     label: "Binary",
     description: "Content-addressed and binary data handling",
-    patterns: [/binary/, /hash|blob/],
+    patterns: [/binary/, /hash/],
   },
   {
     id: "e2e",

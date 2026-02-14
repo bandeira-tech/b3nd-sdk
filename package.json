@@ -39,9 +39,9 @@
       "import": "./dist/apps/mod.js",
       "types": "./dist/apps/mod.d.ts"
     },
-    "./blob": {
-      "import": "./dist/blob/mod.js",
-      "types": "./dist/blob/mod.d.ts"
+    "./hash": {
+      "import": "./dist/hash/mod.js",
+      "types": "./dist/hash/mod.d.ts"
     },
     "./wallet-server": {
       "import": "./dist/wallet-server/mod.js",

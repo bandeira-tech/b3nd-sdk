@@ -15,7 +15,7 @@ export default defineConfig({
       { find: '@bandeira-tech/b3nd-web/wallet', replacement: path.resolve(__dirname, '../../libs/b3nd-wallet/mod.ts') },
       { find: '@bandeira-tech/b3nd-web/apps', replacement: path.resolve(__dirname, '../../libs/b3nd-apps/mod.ts') },
       { find: '@bandeira-tech/b3nd-web/encrypt', replacement: path.resolve(__dirname, '../../libs/b3nd-encrypt/mod.ts') },
-      { find: '@bandeira-tech/b3nd-web/blob', replacement: path.resolve(__dirname, '../../libs/b3nd-blob/mod.ts') },
+      { find: '@bandeira-tech/b3nd-web/hash', replacement: path.resolve(__dirname, '../../libs/b3nd-hash/mod.ts') },
       { find: '@bandeira-tech/b3nd-web/clients/http', replacement: path.resolve(__dirname, '../../libs/b3nd-client-http/mod.ts') },
       { find: '@bandeira-tech/b3nd-web', replacement: path.resolve(__dirname, '../../src/mod.web.ts') },
     ],
@@ -26,7 +26,7 @@ export default defineConfig({
       '@bandeira-tech/b3nd-web/wallet',
       '@bandeira-tech/b3nd-web/apps',
       '@bandeira-tech/b3nd-web/encrypt',
-      '@bandeira-tech/b3nd-web/blob',
+      '@bandeira-tech/b3nd-web/hash',
       '@bandeira-tech/b3nd-web/clients/http',
     ],
     esbuildOptions: {

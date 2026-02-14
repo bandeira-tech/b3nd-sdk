@@ -3,7 +3,7 @@ import type { SessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
 import { HttpClient } from "@bandeira-tech/b3nd-web";
 import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
-import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/blob";
+import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
 import type { KeyBundle } from "../../types";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
 
@@ -489,7 +489,7 @@ export const signEncryptedAppPayload = async (params: {
 // CONTENT-ADDRESSED UPLOAD SERVICES
 // ============================================================================
 
-// computeSha256 and generateHashUri are imported from @bandeira-tech/b3nd-web/blob
+// computeSha256 and generateHashUri are imported from @bandeira-tech/b3nd-web/hash
 
 /**
  * Read file as Uint8Array

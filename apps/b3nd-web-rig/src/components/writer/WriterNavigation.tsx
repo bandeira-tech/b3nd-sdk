@@ -22,9 +22,9 @@ export function WriterNavigation() {
       icon: <Server className="h-4 w-4" />,
     },
     {
-      key: "blob",
-      label: "Blob Upload",
-      description: "Upload files as encrypted blobs with links",
+      key: "hash",
+      label: "Hash Upload",
+      description: "Upload files as content-addressed hashes with links",
       icon: <Upload className="h-4 w-4" />,
     },
     {

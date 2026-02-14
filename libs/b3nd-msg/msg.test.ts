@@ -190,7 +190,7 @@ Deno.test("createMessageNode - rejects message without URI", async () => {
 // =============================================================================
 
 Deno.test("extractProgram - extracts protocol://hostname", () => {
-  assertEquals(extractProgram("immutable://blob/abc123"), "immutable://blob");
+  assertEquals(extractProgram("immutable://open/abc123"), "immutable://open");
   assertEquals(
     extractProgram("mutable://accounts/alice/profile"),
     "mutable://accounts",
@@ -254,10 +254,10 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
 });
 
 Deno.test("createOutputValidator - provides cross-output access", async () => {
-  // Fee validator that requires fee based on blob size
+  // Fee validator that requires fee based on data size
   const validator = createOutputValidator<unknown>({
     schema: {
-      "immutable://blob": async (ctx) => {
+      "immutable://open": async (ctx) => {
         // Check for fee output in the same message
         const feeOutput = ctx.outputs.find(([uri]) =>
           uri.startsWith("fees://")
@@ -266,8 +266,8 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
           return { valid: false, error: "fee_required" };
         }
 
-        const blobSize = JSON.stringify(ctx.value).length;
-        const requiredFee = Math.ceil(blobSize / 100); // 1 per 100 bytes
+        const dataSize = JSON.stringify(ctx.value).length;
+        const requiredFee = Math.ceil(dataSize / 100); // 1 per 100 bytes
 
         if ((feeOutput[1] as number) < requiredFee) {
           return {
@@ -284,13 +284,13 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
 
   const read = async () => ({ success: false, error: "not found" });
 
-  // Valid: blob with sufficient fee
+  // Valid: data with sufficient fee
   const validTx: StateMessage<unknown> = [
     "msg://alice/store/1",
     {
       inputs: [],
       outputs: [
-        ["immutable://blob/abc123", { data: "hello world" }], // ~30 bytes
+        ["immutable://open/abc123", { data: "hello world" }], // ~30 bytes
         ["fees://pool", 1],
       ],
     },
@@ -298,17 +298,17 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   const result1 = await validator(validTx, read);
   assertEquals(result1.valid, true);
 
-  // Invalid: blob without fee
+  // Invalid: data without fee
   const noFeeTx: StateMessage<unknown> = [
     "msg://alice/store/2",
     {
       inputs: [],
-      outputs: [["immutable://blob/def456", { data: "hello" }]],
+      outputs: [["immutable://open/def456", { data: "hello" }]],
     },
   ];
   const result2 = await validator(noFeeTx, read);
   assertEquals(result2.valid, false);
-  assertEquals(result2.error, "immutable://blob: fee_required");
+  assertEquals(result2.error, "immutable://open: fee_required");
 });
 
 Deno.test("createOutputValidator - with preValidate", async () => {

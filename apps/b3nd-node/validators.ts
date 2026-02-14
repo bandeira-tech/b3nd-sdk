@@ -1,7 +1,7 @@
 /**
  * Validation utilities for B3nd protocols
  *
- * Re-exports from SDK blob module for convenience
+ * Re-exports from SDK hash module for convenience
  */
 
 export {
@@ -13,4 +13,4 @@ export {
   parseHashUri,
   validateLinkValue,
   verifyHashContent,
-} from "@bandeira-tech/b3nd-sdk/blob";
+} from "@bandeira-tech/b3nd-sdk/hash";

@@ -22,7 +22,7 @@
 
 import type { MessageData } from "./types.ts";
 import type { Message } from "../node-types.ts";
-import { computeSha256, generateHashUri } from "../../b3nd-blob/mod.ts";
+import { computeSha256, generateHashUri } from "../../b3nd-hash/mod.ts";
 
 /**
  * Build a content-addressed message envelope.

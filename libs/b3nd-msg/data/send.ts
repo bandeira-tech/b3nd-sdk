@@ -11,7 +11,7 @@
  * const result = await send({
  *   outputs: [
  *     ["mutable://open/config", { theme: "dark" }],
- *     ["hash://sha256/abc123...", blobData],
+ *     ["hash://sha256/abc123...", data],
  *   ],
  * }, client);
  *

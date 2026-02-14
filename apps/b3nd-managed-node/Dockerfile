@@ -22,7 +22,7 @@ COPY ./libs/b3nd-client-mongo/ /app/libs/b3nd-client-mongo/
 COPY ./libs/b3nd-combinators/ /app/libs/b3nd-combinators/
 COPY ./libs/b3nd-encrypt/ /app/libs/b3nd-encrypt/
 COPY ./libs/b3nd-auth/ /app/libs/b3nd-auth/
-COPY ./libs/b3nd-blob/ /app/libs/b3nd-blob/
+COPY ./libs/b3nd-hash/ /app/libs/b3nd-hash/
 
 # Copy the managed node app
 COPY ./apps/b3nd-managed-node/ /app/apps/b3nd-managed-node/

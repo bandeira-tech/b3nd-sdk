@@ -400,8 +400,6 @@ export interface ContentData<T = unknown> {
   data: T;
 }
 
-/** @deprecated Use `ContentData` instead */
-export type BlobData<T = unknown> = ContentData<T>;
 
 /**
  * WebSocket protocol types for request/response communication

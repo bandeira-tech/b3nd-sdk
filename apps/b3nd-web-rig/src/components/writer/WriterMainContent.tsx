@@ -123,12 +123,12 @@ export function WriterMainContent() {
   const [lastShareUri, setLastShareUri] = useState<string | null>(null);
   const [lastShareLink, setLastShareLink] = useState<string | null>(null);
   const [lastExplorerRoute, setLastExplorerRoute] = useState<string | null>(null);
-  // Blob upload state
+  // Hash upload state
   const [hashHistory, setHashHistory] = useState<HashUploadResult[]>([]);
-  const [blobEncryptEnabled, setBlobEncryptEnabled] = useState(true);
-  const [blobLinkEnabled, setBlobLinkEnabled] = useState(false);
-  const [blobLinkPath, setBlobLinkPath] = useState("");
-  const [blobUploading, setBlobUploading] = useState(false);
+  const [hashEncryptEnabled, setHashEncryptEnabled] = useState(true);
+  const [hashLinkEnabled, setHashLinkEnabled] = useState(false);
+  const [hashLinkPath, setHashLinkPath] = useState("");
+  const [hashUploading, setHashUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const actionName = getFormValue(
     FORM_APP,
@@ -684,11 +684,11 @@ export function WriterMainContent() {
     logLine("backend", `Encrypted content saved to ${targetUri}`, "success");
   };
 
-  // Blob upload handler
+  // Hash upload handler
   const handleBlobUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    setBlobUploading(true);
+    setHashUploading(true);
     const backendClient = requireBackendClient();
     const account = activeAccount;
 
@@ -697,23 +697,23 @@ export function WriterMainContent() {
         let result: HashUploadResult & { linkResponse?: { success: boolean; error?: string } };
 
         // Get encryption key if enabled
-        const encryptionKey = blobEncryptEnabled && account?.type === "application"
+        const encryptionKey = hashEncryptEnabled && account?.type === "application"
           ? account.keyBundle.encryptionPublicKeyHex
           : undefined;
 
-        if (blobLinkEnabled && account?.type === "application" && blobLinkPath) {
+        if (hashLinkEnabled && account?.type === "application" && hashLinkPath) {
           // Upload with authenticated link
           result = await uploadHashWithLink({
             backendClient,
             file,
-            linkPath: blobLinkPath.replace(/:filename/g, file.name),
+            linkPath: hashLinkPath.replace(/:filename/g, file.name),
             appKey: account.keyBundle.appKey,
             accountPrivateKeyPem: account.keyBundle.accountPrivateKeyPem,
             encryptToPublicKey: encryptionKey,
           });
           logLine(
             "backend",
-            `Blob uploaded: ${file.name} -> ${result.hashUri}${result.linkUri ? ` (link: ${result.linkUri})` : ""}`,
+            `Hash uploaded: ${file.name} -> ${result.hashUri}${result.linkUri ? ` (link: ${result.linkUri})` : ""}`,
             result.response.success ? "success" : "error",
           );
         } else {
@@ -725,7 +725,7 @@ export function WriterMainContent() {
           });
           logLine(
             "backend",
-            `Blob uploaded: ${file.name} -> ${result.hashUri}`,
+            `Hash uploaded: ${file.name} -> ${result.hashUri}`,
             result.response.success ? "success" : "error",
           );
         }
@@ -734,7 +734,7 @@ export function WriterMainContent() {
         addWriterOutput(result);
       }
     } finally {
-      setBlobUploading(false);
+      setHashUploading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -770,7 +770,7 @@ export function WriterMainContent() {
           {writerSection === "backend"
             ? <BackendHistory history={backendHistory} />
             : null}
-          {writerSection === "blob" && (
+          {writerSection === "hash" && (
             <HashUploadHistory history={hashHistory} />
           )}
           {writerSection === "shareable" && (
@@ -841,12 +841,12 @@ export function WriterMainContent() {
               </div>
             )}
 
-            {writerSection === "blob" && (
+            {writerSection === "hash" && (
               <div className="space-y-4">
                 <SectionCard title="Upload Files" icon={<Upload className="h-4 w-4" />}>
                   <div className="space-y-4">
                     <div className="text-sm text-muted-foreground">
-                      Upload files as content-addressed blobs. Files are encrypted by default
+                      Upload files as content-addressed hashes. Files are encrypted by default
                       when an application account is selected.
                     </div>
 
@@ -858,33 +858,33 @@ export function WriterMainContent() {
                         multiple
                         accept="image/*,application/pdf,.txt,.json,.md"
                         onChange={(e) =>
-                          handleAction("Upload blob", () => handleBlobUpload(e.target.files))}
+                          handleAction("Upload hash", () => handleBlobUpload(e.target.files))}
                         className="hidden"
-                        id="blob-file-input"
+                        id="hash-file-input"
                       />
                       <label
-                        htmlFor="blob-file-input"
-                        className={`${PRIMARY_BUTTON} w-full cursor-pointer flex items-center justify-center gap-2 ${blobUploading ? "opacity-50 pointer-events-none" : ""}`}
+                        htmlFor="hash-file-input"
+                        className={`${PRIMARY_BUTTON} w-full cursor-pointer flex items-center justify-center gap-2 ${hashUploading ? "opacity-50 pointer-events-none" : ""}`}
                       >
                         <Upload className="h-4 w-4" />
-                        {blobUploading ? "Uploading..." : "Select Files"}
+                        {hashUploading ? "Uploading..." : "Select Files"}
                       </label>
                     </div>
 
                     {/* Encryption toggle */}
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Encrypt blob</label>
+                      <label className="text-sm font-medium">Encrypt content</label>
                       <button
                         type="button"
-                        onClick={() => setBlobEncryptEnabled(!blobEncryptEnabled)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${blobEncryptEnabled ? "bg-primary" : "bg-muted"}`}
+                        onClick={() => setHashEncryptEnabled(!hashEncryptEnabled)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hashEncryptEnabled ? "bg-primary" : "bg-muted"}`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${blobEncryptEnabled ? "translate-x-6" : "translate-x-1"}`}
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hashEncryptEnabled ? "translate-x-6" : "translate-x-1"}`}
                         />
                       </button>
                     </div>
-                    {blobEncryptEnabled && (
+                    {hashEncryptEnabled && (
                       <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
                         Files will be encrypted using your application's encryption key before
                         being hashed and stored. Only you can decrypt them.
@@ -896,28 +896,28 @@ export function WriterMainContent() {
                       <label className="text-sm font-medium">Create authenticated link</label>
                       <button
                         type="button"
-                        onClick={() => setBlobLinkEnabled(!blobLinkEnabled)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${blobLinkEnabled ? "bg-primary" : "bg-muted"}`}
+                        onClick={() => setHashLinkEnabled(!hashLinkEnabled)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hashLinkEnabled ? "bg-primary" : "bg-muted"}`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${blobLinkEnabled ? "translate-x-6" : "translate-x-1"}`}
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hashLinkEnabled ? "translate-x-6" : "translate-x-1"}`}
                         />
                       </button>
                     </div>
-                    {blobLinkEnabled && (
+                    {hashLinkEnabled && (
                       <div className="space-y-2">
                         <label className="text-xs text-muted-foreground">
                           Link path (use :filename for file name)
                         </label>
                         <input
                           type="text"
-                          value={blobLinkPath}
-                          onChange={(e) => setBlobLinkPath(e.target.value)}
+                          value={hashLinkPath}
+                          onChange={(e) => setHashLinkPath(e.target.value)}
                           placeholder="files/:filename"
                           className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
                         />
                         <div className="text-xs text-muted-foreground">
-                          Creates link at: link://accounts/:key/{blobLinkPath || "files/:filename"}
+                          Creates link at: link://accounts/:key/{hashLinkPath || "files/:filename"}
                         </div>
                       </div>
                     )}
@@ -1086,7 +1086,7 @@ function WriterBreadcrumb(
     string
   > = {
     backend: "Backend",
-    blob: "Blob Upload",
+    hash: "Hash Upload",
     auth: "Auth",
     actions: "Actions",
     configuration: "Application",
@@ -1184,9 +1184,9 @@ function BackendHistory(
 function HashUploadHistory({ history }: { history: HashUploadResult[] }) {
   if (!history.length) {
     return (
-      <SectionCard title="Uploaded Blobs" icon={<Upload className="h-4 w-4" />}>
+      <SectionCard title="Uploaded Hashes" icon={<Upload className="h-4 w-4" />}>
         <div className="text-sm text-muted-foreground">
-          No blobs uploaded yet. Use the controls on the right to upload files.
+          No hashes uploaded yet. Use the controls on the right to upload files.
         </div>
       </SectionCard>
     );
@@ -1199,7 +1199,7 @@ function HashUploadHistory({ history }: { history: HashUploadResult[] }) {
   };
 
   return (
-    <SectionCard title="Uploaded Blobs" icon={<Upload className="h-4 w-4" />}>
+    <SectionCard title="Uploaded Hashes" icon={<Upload className="h-4 w-4" />}>
       <div className="space-y-3">
         {history.map((entry, idx) => (
           <div

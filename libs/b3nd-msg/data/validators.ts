@@ -14,8 +14,8 @@ import type {
  *
  * @example
  * ```typescript
- * extractProgram("immutable://blob/abc123")
- * // => "immutable://blob"
+ * extractProgram("immutable://open/abc123")
+ * // => "immutable://open"
  *
  * extractProgram("mutable://accounts/alice/profile")
  * // => "mutable://accounts"
@@ -44,7 +44,7 @@ export function extractProgram(uri: string): string | null {
  *
  * const validator = createOutputValidator({
  *   schema: {
- *     "immutable://blob": async (ctx) => {
+ *     "immutable://open": async (ctx) => {
  *       const fee = ctx.outputs.find(([uri]) => uri.startsWith("fees://"))
  *       if (!fee) return { valid: false, error: "fee_required" }
  *       return { valid: true }
