@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { skillMarkdown } from "./skillContent";
+import { getDocumentMarkdown } from "./skillContent";
 import { useLearnStore } from "./useLearnStore";
 
 function slugify(text: string): string {
@@ -18,7 +18,9 @@ function stripFrontmatter(md: string): string {
 }
 
 export function LearnLayoutSlot() {
-  const content = useMemo(() => stripFrontmatter(skillMarkdown), []);
+  const activeDocument = useLearnStore((s) => s.activeDocument);
+  const markdown = useMemo(() => getDocumentMarkdown(activeDocument), [activeDocument]);
+  const content = useMemo(() => stripFrontmatter(markdown), [markdown]);
   const containerRef = useRef<HTMLElement>(null);
   const setActiveSectionId = useLearnStore((s) => s.setActiveSectionId);
 
@@ -50,6 +52,11 @@ export function LearnLayoutSlot() {
       container.removeEventListener("scroll", onScroll);
     };
   }, [content, setActiveSectionId]);
+
+  // Scroll to top when document changes
+  useEffect(() => {
+    containerRef.current?.scrollTo(0, 0);
+  }, [activeDocument]);
 
   const codeComponent = useCallback(
     ({ className, children, ...rest }: ComponentPropsWithoutRef<"code"> & { className?: string }) => {

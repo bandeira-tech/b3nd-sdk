@@ -1,16 +1,26 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
-import { skillMarkdown } from "./skillContent";
+import { learnDocuments, getDocumentMarkdown } from "./skillContent";
 import { parseSkillSections, type SkillSection } from "./parseSkillSections";
 import { useLearnStore } from "./useLearnStore";
 
 export function LearnLeftSlot() {
-  const sections = useMemo(() => parseSkillSections(skillMarkdown), []);
+  const activeDocument = useLearnStore((s) => s.activeDocument);
+  const setActiveDocument = useLearnStore((s) => s.setActiveDocument);
+  const activeSectionId = useLearnStore((s) => s.activeSectionId);
+
+  const markdown = useMemo(() => getDocumentMarkdown(activeDocument), [activeDocument]);
+  const sections = useMemo(() => parseSkillSections(markdown), [markdown]);
+
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     () => new Set(sections.map((s) => s.id)),
   );
-  const activeSectionId = useLearnStore((s) => s.activeSectionId);
+
+  // Re-expand all when document changes
+  useEffect(() => {
+    setExpandedSections(new Set(sections.map((s) => s.id)));
+  }, [sections]);
 
   const toggleSection = (id: string) => {
     setExpandedSections((prev) => {
@@ -26,7 +36,6 @@ export function LearnLeftSlot() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  // Build a set of "active" IDs: the active section + its parent H2
   const activeIds = useMemo(() => {
     const ids = new Set<string>();
     if (!activeSectionId) return ids;
@@ -53,6 +62,25 @@ export function LearnLeftSlot() {
       <div className="p-3 border-b border-border bg-card flex items-center gap-2">
         <BookOpen className="w-4 h-4 text-primary" />
         <span className="text-sm font-medium">Documentation</span>
+      </div>
+
+      {/* Document tabs */}
+      <div className="flex border-b border-border bg-card/50">
+        {learnDocuments.map((doc) => (
+          <button
+            key={doc.key}
+            onClick={() => setActiveDocument(doc.key)}
+            className={cn(
+              "flex-1 px-3 py-2 text-xs font-medium transition-colors",
+              "hover:bg-accent/50",
+              activeDocument === doc.key
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground",
+            )}
+          >
+            {doc.label}
+          </button>
+        ))}
       </div>
 
       {/* Navigation tree */}

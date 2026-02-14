@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B3nd Recursive Envelope Design &mdash; Adversarial Review</title>
+<style>
+  :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --green: #3fb950; --red: #f85149; --yellow: #d29922; --blue: #58a6ff; --purple: #bc8cff; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+  .summary { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .summary-card { flex: 1; min-width: 120px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; text-align: center; }
+  .summary-card .count { font-size: 2rem; font-weight: 700; }
+  .summary-card .label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pass .count { color: var(--green); }
+  .fail .count { color: var(--red); }
+  .warn .count { color: var(--yellow); }
+  .info .count { color: var(--purple); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+  .card-header { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+  .badge { display: inline-flex; align-items: center; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge-pass { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-fail { background: rgba(248,81,73,0.15); color: var(--red); }
+  .badge-warn { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .badge-info { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .card-title { font-weight: 600; font-size: 1rem; }
+  .card-body { padding: 1rem 1.25rem; }
+  .finding { color: var(--text); margin-bottom: 0.75rem; }
+  .finding + .finding { margin-top: 0.5rem; }
+  .evidence { list-style: none; }
+  .evidence li { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.8rem; color: var(--muted); word-break: break-all; white-space: pre-wrap; }
+  .verdict { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-top: 2rem; }
+  .verdict h2 { font-size: 1.25rem; margin-bottom: 1rem; }
+  .verdict ul { padding-left: 1.25rem; }
+  .verdict li { margin-bottom: 0.5rem; }
+  .verdict .action { color: var(--blue); font-weight: 600; }
+  .mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.85em; background: var(--bg); padding: 0.1em 0.4em; border-radius: 4px; }
+  .section-label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; margin: 1.5rem 0 0.75rem; }
+  .design-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.8rem; color: var(--muted); white-space: pre-wrap; line-height: 1.5; overflow-x: auto; }
+  footer { color: var(--muted); font-size: 0.75rem; margin-top: 2rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>Recursive Envelope Design &mdash; Adversarial Review</h1>
+<p class="subtitle">Critical analysis of the <code class="mono">{inputs, outputs}</code> envelope-of-envelopes architecture &mdash; Feb 2026</p>
+
+<div class="design-box">Design under review:
+
+[hash://sha256/{content}, {
+  auth: [{ user, sig }],
+  inputs: [],
+  outputs: [
+    [uri, { auth: [{ user, sig_output }], value }],  &larr; per-output signed
+  ]
+}]
+
+[hash://sha256/{validated}, {
+  auth: [{ validator, sig }],
+  inputs: ["hash://sha256/{content}", "stake_or_pow_ref"],
+  outputs: [
+    ["link://valid/{content_hash}", "hash://sha256/{content}"]
+  ]
+}]
+
+[hash://sha256/{confirmed}, {
+  auth: [{ confirmer, sig }],
+  inputs: ["hash://sha256/{validated}", "link://valid/{content_hash}"],
+  outputs: [
+    ["link://confirmed/{content_hash}", "hash://sha256/{validated}"]
+  ]
+}]
+
+Properties claimed:
+&bull; Self-similar structure at every depth
+&bull; Consensus = program schema for link namespaces
+&bull; Fee attribution via auth chain walking
+&bull; Replay protection via hash:// immutability
+&bull; Per-output signing = user intent, envelope signing = stage endorsement</div>
+
+<div class="summary">
+  <div class="summary-card fail"><div class="count">3</div><div class="label">Critical</div></div>
+  <div class="summary-card warn"><div class="count">4</div><div class="label">Serious</div></div>
+  <div class="summary-card info"><div class="count">3</div><div class="label">Design Q</div></div>
+  <div class="summary-card pass"><div class="count">4</div><div class="label">Sound</div></div>
+</div>
+
+<!-- ================================================================ -->
+<p class="section-label">Critical (3) &mdash; must be resolved or design breaks</p>
+<!-- ================================================================ -->
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-fail">CRITICAL</span>
+    <span class="card-title">1. Input consumption is undefined</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The design says inputs reference state to be &ldquo;consumed.&rdquo; But <code class="mono">hash://</code> is immutable &mdash; you cannot delete or mark a hash as spent. A consumed input must remain readable (the content doesn&rsquo;t vanish) but must be <strong>non-reusable</strong> as an input to future messages. There is currently no mechanism for this.</p>
+    <p class="finding">Without input consumption tracking, nothing prevents double-spend. Two separate messages can both claim the same <code class="mono">hash://sha256/{x}</code> as input. Both are structurally valid. Both get validated. The system has accepted contradictory state.</p>
+    <p class="finding">This is the hardest problem in the design. Physical mail analogy: once a letter is opened and processed, the clerk stamps it &ldquo;PROCESSED&rdquo; so it can&rsquo;t be submitted again. The digital equivalent needs an explicit consumption record.</p>
+    <ul class="evidence">
+      <li>Option A: Consumption links &mdash; validator writes link://spent/{input_hash} as an additional output. Validator schema requires checking this link doesn't exist before accepting.
+
+[hash://sha256/{validated}, {
+  inputs: ["hash://sha256/{content}"],
+  outputs: [
+    ["link://valid/{hash}", "hash://sha256/{content}"],
+    ["link://spent/{input_hash}", "hash://sha256/{validated}"],  &larr; marks input used
+  ]
+}]</li>
+      <li>Option B: UTXO-style &mdash; inputs are links, not hashes. Consuming means overwriting the link to point to the new state. Mutable links serve as "slot" that can only hold one value.
+
+["link://utxo/{token_id}", "hash://sha256/{new_state}"]  &larr; replaces old reference</li>
+      <li>Option C: Sequence numbers on mutable state &mdash; but this re-introduces ordering dependency the design avoids.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-fail">CRITICAL</span>
+    <span class="card-title">2. hash:// write-once is not enforced</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The entire security model rests on <code class="mono">hash://sha256/{hex}</code> being immutable &mdash; write once, reject duplicates. This is what prevents replay. But <code class="mono">hashValidator()</code> in <code class="mono">libs/b3nd-hash/mod.ts:148</code> only verifies content matches the hash. It does <strong>not</strong> check whether the URI already exists. The <code class="mono">read</code> parameter is accepted in the type signature but never called.</p>
+    <p class="finding">This was a known gap before the recursive envelope design. It is now load-bearing. If an attacker can re-write a <code class="mono">hash://</code> URI (even with identical content), the timestamp changes, which can disrupt ordering assumptions. If a storage backend silently upserts, the &ldquo;already exists = rejected&rdquo; invariant is broken and replay protection vanishes.</p>
+    <ul class="evidence">
+      <li>// Current: libs/b3nd-hash/mod.ts:148
+return async ({ uri, value }) => {
+  const result = await verifyHashContent(uri, value);
+  return { valid: result.valid, error: result.error };
+  // ❌ Never checks: const existing = await read(uri);
+};</li>
+      <li>// Compare: immutable:// in apps/b3nd-node/example-schema.ts:36
+const result = await read(uri);
+return { valid: !result.success };  // ✅ Rejects if exists</li>
+      <li>Fix: one line &mdash; add read-before-write check to hashValidator(). This is the #1 prerequisite before any other work on this design.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-fail">CRITICAL</span>
+    <span class="card-title">3. Circular and self-referential envelopes</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The recursive structure allows message A to reference message B as input, and message B to reference message A. With content-addressing this seems impossible (you&rsquo;d need to know B&rsquo;s hash before it exists), but it IS possible with <strong>links</strong> as intermediaries.</p>
+    <ul class="evidence">
+      <li>Attack: validator V1 writes link://valid/{x} pointing to hash A.
+Validator V2 writes link://valid/{y} pointing to hash B.
+Hash A's inputs include link://valid/{y}.
+Hash B's inputs include link://valid/{x}.
+Both are structurally valid. Neither was validated before the other.</li>
+      <li>This is a variant of the &ldquo;nothing-at-stake&rdquo; problem from PoS systems. Two validators can cross-validate each other's messages without either being independently valid first.</li>
+      <li>Mitigation: validation schemas must enforce temporal ordering &mdash; e.g., the link being referenced must have a timestamp BEFORE the message referencing it. Or: validators cannot validate messages whose inputs include their own prior outputs within the same &ldquo;round.&rdquo;</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<p class="section-label">Serious (4) &mdash; real constraints that need explicit design decisions</p>
+<!-- ================================================================ -->
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-warn">SERIOUS</span>
+    <span class="card-title">4. Chain verification cost is O(depth &times; reads)</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">To verify that content C is confirmed, a client must: read <code class="mono">link://confirmed/{C_hash}</code>, follow it to the validation hash, read that envelope, verify its auth, follow its inputs to the original content, read that, verify its auth and per-output signatures. That&rsquo;s minimum 5 reads for a 3-layer chain. For deeper chains or quorum-based consensus (check N validator links), it&rsquo;s N+3 reads.</p>
+    <p class="finding">This is fine for authoritative verification but expensive for casual reads. Most apps want &ldquo;is this confirmed? yes/no&rdquo; not &ldquo;show me the full provenance chain.&rdquo; The design needs a clear answer for how lightweight clients verify state without walking the full chain every time.</p>
+    <ul class="evidence">
+      <li>Physical analogy: you don't re-verify the entire postal chain every time you read a filed letter. You trust the filing cabinet (the confirmed state). The chain exists for disputes.</li>
+      <li>Pragmatic answer: confirmed state is written to mutable:// (the "filing cabinet"). The hash chain is the audit trail. Reads hit mutable://, verification walks hash://. Two-tier: fast path + proof path.</li>
+      <li>This means validation outputs should include BOTH: a link://confirmed (proof) AND a mutable:// write (fast-path state). The schema enforces both.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-warn">SERIOUS</span>
+    <span class="card-title">5. Liveness: no protocol-level retry or timeout</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">A user submits a message. It sits at <code class="mono">hash://sha256/{content}</code>. Nobody validates it. There is no timeout, no retry mechanism, no &ldquo;pending&rdquo; state, no way for the user to know if their message was even seen. The protocol is fire-and-forget at every layer.</p>
+    <p class="finding">This is philosophically correct for a minimal protocol (&ldquo;B3nd just delivers mail&rdquo;), but practically dangerous. A user paying fees expects delivery. If their message is silently dropped between layers, they have no recourse at the protocol level.</p>
+    <ul class="evidence">
+      <li>Physical analogy: you mail a letter and get no tracking number. The postal system has no obligation to deliver. Acceptable for postcards, not for registered mail.</li>
+      <li>Resolution: this is explicitly a program-level concern, not a protocol concern. Programs that need delivery guarantees define their own timeout/retry logic. B3nd provides the transport, not the SLA. But this must be documented clearly so developers don't assume guaranteed delivery.</li>
+      <li>Alternative: a "receipt" program &mdash; link://received/{hash} written by the first node that stores the content. Proves at least one node saw it. Still no delivery guarantee, but gives observability.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-warn">SERIOUS</span>
+    <span class="card-title">6. Validator selection and spam</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">If <code class="mono">link://valid/{hash}</code> is writable by anyone who meets the program schema requirements (e.g., has stake), then every staked entity can write a validation link for every message. This is N&times;M link writes for N validators and M messages. The link namespace becomes a spam surface.</p>
+    <p class="finding">Worse: if the confirmer requires a quorum (&ldquo;3 of 5 validators must agree&rdquo;), you need a way to enumerate validations per content hash. <code class="mono">list("link://valid/{hash}")</code> must return all validation links. If the namespace is polluted with junk validations from low-stake actors, the confirmer must filter, which adds cost.</p>
+    <ul class="evidence">
+      <li>Mitigation 1: validator writes to their OWN namespace &mdash; link://accounts/{validator_pubkey}/validations/{content_hash}. Confirmer checks specific known validators, not an open namespace.</li>
+      <li>Mitigation 2: fee-per-validation &mdash; writing a validation link itself costs a fee, so spam has economic cost.</li>
+      <li>Mitigation 3: the confirmation program has a whitelist of validator pubkeys. Simple but centralized.</li>
+      <li>Key point: this is a schema design problem, not a protocol flaw. But the &ldquo;obvious&rdquo; link://valid/ pattern is the dangerous one, and examples should not suggest it without caveats.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-warn">SERIOUS</span>
+    <span class="card-title">7. Privacy vs. provenance transparency</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The recursive chain creates a full public trace: who submitted, who validated, who confirmed, what was in each envelope. For public content this is a feature. For private data (encrypted payloads), the <strong>metadata</strong> is still exposed: who sent what to whom, when, how many outputs, which validators processed it.</p>
+    <p class="finding">Content encryption solves payload privacy but not <strong>traffic analysis</strong>. The auth field at each layer reveals participant pubkeys. The timing of validation and confirmation links reveals processing patterns. An observer who can read link namespaces can reconstruct the full message flow graph without ever decrypting a payload.</p>
+    <ul class="evidence">
+      <li>This is the same metadata problem that plagues encrypted email. The envelope is sealed but the addressing is visible.</li>
+      <li>Partial mitigation: ephemeral/derived pubkeys per message (already in the resource identity pattern). Each message uses a fresh key, so the auth chain doesn't link to a persistent identity.</li>
+      <li>Full mitigation would require mixing/onion routing at the transport layer, which is outside B3nd's scope. But the design should acknowledge this limitation explicitly.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<p class="section-label">Design Questions (3) &mdash; not flaws, but need explicit answers</p>
+<!-- ================================================================ -->
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-info">DESIGN</span>
+    <span class="card-title">8. Per-output sig + envelope sig: which is authoritative?</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The design has two signature layers: per-output (user signs each <code class="mono">[uri, value]</code> pair) and envelope (user signs the whole <code class="mono">{inputs, outputs}</code> via the hash). What happens when they disagree?</p>
+    <ul class="evidence">
+      <li>Case: envelope is validly signed, but one per-output signature is missing or invalid. Does the entire message fail? Or only the unsigned output?</li>
+      <li>Case: per-output signatures are valid, but envelope signature is from a different key. Who authorized the batch?</li>
+      <li>Proposed rule: per-output signatures are checked by the TARGET program schema (mutable://accounts checks output auth). Envelope signature is checked by the ENVELOPE program schema (hash://sha256 checks envelope auth). They're independent validations at different layers. A program that requires per-output auth will reject unsigned outputs regardless of the envelope signature.</li>
+      <li>This means: some outputs in an envelope can be unsigned (for programs that don't require auth), while others are signed (for programs that do). The envelope signature binds them as a batch but doesn't substitute for per-output auth.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-info">DESIGN</span>
+    <span class="card-title">9. &ldquo;Consensus is just program schemas&rdquo; undersells the complexity</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The claim that &ldquo;programs don&rsquo;t know about consensus; consensus emerges from schema rules&rdquo; is elegant but misleading. The schema for <code class="mono">link://valid</code> IS consensus logic. It&rsquo;s just consensus logic written as a validation function instead of a separate subsystem. The complexity doesn&rsquo;t disappear &mdash; it moves into the program schema.</p>
+    <p class="finding">This is actually fine and arguably better (consensus is explicit, inspectable, per-program). But the framing should be honest: &ldquo;B3nd makes consensus a first-class programmable concern&rdquo; rather than &ldquo;B3nd doesn&rsquo;t need consensus.&rdquo; Developers writing validation schemas ARE writing consensus protocols, whether they call them that or not.</p>
+    <ul class="evidence">
+      <li>Good framing: "B3nd separates transport from consensus. Transport is the protocol. Consensus is the program. You write both, but they don't tangle."</li>
+      <li>Dangerous framing: "Just write a schema and consensus happens." This will lead to broken consensus implementations by developers who don't realize what they're building.</li>
+      <li>Recommendation: SKILL.md Layer 3 (Firecat) should provide battle-tested consensus schemas. Most developers should use these, not write their own. Custom consensus = custom footgun.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-info">DESIGN</span>
+    <span class="card-title">10. Fee timing: when does the user pay?</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The design says fees are attributed by walking the auth chain. But when is the fee <em>charged</em>? The user&rsquo;s message includes fee outputs (e.g., <code class="mono">["fees://pool", amount]</code>). But this output is only <em>stored</em> if the message is validated. If validation fails, the fee output is never written. So the user only pays for successful messages.</p>
+    <p class="finding">This creates a free-spam vector: submit invalid messages, they fail validation, no fee charged, but the validator still spent resources checking them. The validator does work, the user pays nothing.</p>
+    <ul class="evidence">
+      <li>Physical analogy: you can mail empty envelopes all day. The post office still has to open and inspect each one. Postage is paid upfront, not on delivery.</li>
+      <li>Option A: fee is a separate pre-committed output, written BEFORE the main message. User writes ["fees://escrow/{msg_hash}", amount] as a standalone message. Validator checks escrow exists before processing. Escrow is consumed on validation (success or failure).</li>
+      <li>Option B: the network node charges at the transport layer (HTTP request fee, connection deposit) independent of message validation. This is outside the program schema entirely.</li>
+      <li>Option C: accept the free-spam risk and rate-limit at the node level. Simple but doesn't scale to adversarial environments.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<p class="section-label">Sound (4) &mdash; these aspects of the design hold up</p>
+<!-- ================================================================ -->
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">SOUND</span>
+    <span class="card-title">Self-similar structure</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">Every layer being <code class="mono">[hash_uri, { auth?, inputs, outputs }]</code> is genuinely elegant. It means one message parser, one validation path, one storage model. The protocol doesn&rsquo;t need to distinguish between &ldquo;user request&rdquo; and &ldquo;validator attestation&rdquo; and &ldquo;confirmed block.&rdquo; They&rsquo;re all the same shape. This reduces implementation surface area dramatically and means any node that speaks <code class="mono">receive([uri, data])</code> participates at any layer.</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">SOUND</span>
+    <span class="card-title">Signature scope separation</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">Per-output signatures for intent + envelope signatures for batch endorsement is the right decomposition. It resolves the original thesis finding (1.1) cleanly: the envelope hash covers all URIs (so no URI-replay), and per-output signatures cover individual values (so no attention attacks). Schema-controlled requirement means programs opt into the auth level they need. The two signature types serve different security properties and neither substitutes for the other.</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">SOUND</span>
+    <span class="card-title">Provenance as fee attribution</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The auth chain at each envelope layer creating a natural attribution trail is a genuine insight. No separate accounting system needed. The data structure IS the ledger. Every <code class="mono">hash://</code> envelope records who processed it. Walking the chain from confirmation back to submission gives you every participant and their role. Fee distribution is just a <code class="mono">read</code> traversal, not a separate computation.</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">SOUND</span>
+    <span class="card-title">Physical mail metaphor holds</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The &ldquo;addressed envelopes containing addressed envelopes&rdquo; metaphor is not just a simplification &mdash; it&rsquo;s structurally accurate. A letter (payload) goes in an envelope (user message) which goes in a mailbag (validation batch) which goes in a delivery truck (confirmation). Each container is addressed, stamped, and trackable. The metaphor breaks only at privacy (physical envelopes are opaque; digital envelopes are content-addressed) and at consumption (physical letters can&rsquo;t be duplicated; digital ones can). Both breaks correspond to real design challenges identified above.</p>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<div class="verdict">
+  <h2>Verdict: Design is architecturally sound, three load-bearing gaps remain</h2>
+  <p style="margin-bottom: 1rem;">The recursive envelope model is a genuine improvement over the current flat auth-wrapping approach. The self-similar structure, dual-signature model, and provenance-as-attribution are all well-founded. However, three issues must be resolved before implementation:</p>
+  <ul>
+    <li><span class="action">P0 &mdash; hashValidator() write-once</span>: Add <code class="mono">read</code> check. One line. Prerequisite for everything. Without this, replay protection is a documentation fiction.</li>
+    <li><span class="action">P0 &mdash; Input consumption model</span>: Choose between consumption links (<code class="mono">link://spent/</code>), UTXO-style mutable slots, or declare that input consumption is a program-level concern (and document it as such). The design cannot be silent on double-spend.</li>
+    <li><span class="action">P0 &mdash; Circular reference prevention</span>: Define ordering rules that prevent cross-validation loops. Timestamp-based ordering or round-based validation are the two obvious approaches.</li>
+    <li><span class="action">P1 &mdash; Verification fast-path</span>: Document the two-tier pattern (mutable:// for reads, hash:// chain for proofs). Without this, every read walks the full chain.</li>
+    <li><span class="action">P1 &mdash; Validator namespace design</span>: Examples should use <code class="mono">link://accounts/{validator}/validations/</code> not open <code class="mono">link://valid/</code>. Prevent namespace spam by default.</li>
+    <li><span class="action">P1 &mdash; Fee pre-commitment</span>: Design the escrow or transport-layer fee model. Free-spam is acceptable for testnets, not for production.</li>
+    <li><span class="action">P2 &mdash; Document metadata exposure</span>: Acknowledge traffic analysis limits of encryption. Recommend ephemeral keys for sensitive workflows.</li>
+  </ul>
+</div>
+
+<footer>Adversarial design review &mdash; recursive envelope architecture &mdash; Feb 2026</footer>
+
+</body>
+</html>

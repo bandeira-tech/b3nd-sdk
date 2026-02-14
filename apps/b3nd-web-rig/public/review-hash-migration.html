@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B3nd hash:// Migration Review</title>
+<style>
+  :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --green: #3fb950; --red: #f85149; --yellow: #d29922; --blue: #58a6ff; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+  .summary { display: flex; gap: 1rem; margin-bottom: 2rem; }
+  .summary-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; text-align: center; }
+  .summary-card .count { font-size: 2rem; font-weight: 700; }
+  .summary-card .label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pass .count { color: var(--green); }
+  .fail .count { color: var(--red); }
+  .warn .count { color: var(--yellow); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+  .card-header { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+  .badge { display: inline-flex; align-items: center; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge-pass { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-fail { background: rgba(248,81,73,0.15); color: var(--red); }
+  .badge-warn { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .card-title { font-weight: 600; font-size: 1rem; }
+  .card-body { padding: 1rem 1.25rem; }
+  .finding { color: var(--text); margin-bottom: 0.75rem; }
+  .evidence { list-style: none; }
+  .evidence li { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.8rem; color: var(--muted); word-break: break-all; }
+  .verdict { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-top: 2rem; }
+  .verdict h2 { font-size: 1.25rem; margin-bottom: 1rem; }
+  .verdict ul { padding-left: 1.25rem; }
+  .verdict li { margin-bottom: 0.5rem; }
+  .verdict .action { color: var(--blue); font-weight: 600; }
+  .mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.85em; background: var(--bg); padding: 0.1em 0.4em; border-radius: 4px; }
+  .section-label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; margin: 1.5rem 0 0.75rem; }
+  footer { color: var(--muted); font-size: 0.75rem; margin-top: 2rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>hash:// Migration Review &mdash; v2</h1>
+<p class="subtitle">SKILL.md consistency audit after <code class="mono">send()</code> API + msg:// removal &mdash; reviewed by clean agent using only skill data &mdash; Feb 2026</p>
+
+<div class="summary">
+  <div class="summary-card pass"><div class="count">8</div><div class="label">Pass</div></div>
+  <div class="summary-card fail"><div class="count">0</div><div class="label">Fail</div></div>
+  <div class="summary-card warn"><div class="count">2</div><div class="label">Warn</div></div>
+</div>
+
+<!-- WARN items first -->
+
+<p class="section-label">Warnings (2)</p>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-warn">WARN</span>
+    <span class="card-title">hash:// completeness</span>
+  </div>
+  <div class="card-body">
+    <p class="finding"><code class="mono">hash://sha256</code> is consistently used as the ONLY content-addressed scheme throughout all code examples and the schema table. No <code class="mono">blob://</code> URIs exist anywhere. However, the source files reference mentions <code class="mono">libs/b3nd-hash/</code> as a directory name, which is an internal directory path not a URI scheme.</p>
+    <ul class="evidence">
+      <li>| `hash://sha256` | Anyone, hash-verified | Content-addressed storage (SHA256) |</li>
+      <li>"hash://sha256/2cf24dba..."</li>
+      <li>- `libs/b3nd-hash/` &mdash; Content-addressed storage utilities (hash:// scheme)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-warn">WARN</span>
+    <span class="card-title">send() coverage</span>
+  </div>
+  <div class="card-body">
+    <p class="finding"><code class="mono">send()</code> appears 12 times and is the dominant pattern. However, <code class="mono">client.receive()</code> still appears in 2 code examples as direct calls for simple single-resource writes. Internal plumbing uses (FunctionalClient, PersistedMemoryClient) are appropriate. The Basic Operations section notably uses <code class="mono">client.receive()</code> instead of <code class="mono">send()</code>.</p>
+    <ul class="evidence">
+      <li>await client.receive(["mutable://accounts/{pubkey}/profile", { name: "Alice" }]);</li>
+      <li>await client.receive(["mutable://open/my-app/config", { theme: "dark" }]);</li>
+      <li>const result = await send({ outputs: [[hashUri, data]] }, client);</li>
+      <li>const result = await send({ outputs }, client);</li>
+    </ul>
+  </div>
+</div>
+
+<!-- PASS items -->
+
+<p class="section-label">Passing (8)</p>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">msg:// consistency</span>
+  </div>
+  <div class="card-body">
+    <p class="finding"><code class="mono">msg://</code> is completely absent from the file. No references in the schema table, code examples, or URI guidance. Message envelopes correctly use <code class="mono">hash://sha256/{hex}</code> throughout.</p>
+    <ul class="evidence">
+      <li>// result.uri = "hash://sha256/{hex}" &mdash; the envelope's content-addressed URI</li>
+      <li>Message envelope: hash://sha256/{hex} (via send(), content-addressed audit trail)</li>
+      <li>- The envelope is stored at `hash://sha256/{hex}` as an audit trail</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">Schema table accuracy</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The canonical schema table lists 8 programs. All schemes used in examples appear in the table. Code examples use <code class="mono">test://data</code> in one test but this is explicitly a test-only scheme. The table and examples are consistent.</p>
+    <ul class="evidence">
+      <li>| `mutable://open` | Anyone | Public data, no auth needed |</li>
+      <li>| `hash://sha256` | Anyone, hash-verified | Content-addressed storage (SHA256) |</li>
+      <li>schema: { "test://data": async () => ({ valid: true }), "hash://sha256": hashValidator() }</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">Import paths</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">All import paths consistently use <code class="mono">/hash</code> (not <code class="mono">/blob</code>). Both SDK and web packages show correct subpath imports. No <code class="mono">/blob</code> subpath imports exist anywhere.</p>
+    <ul class="evidence">
+      <li>import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";</li>
+      <li>import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">send() documentation</span>
+  </div>
+  <div class="card-body">
+    <p class="finding"><code class="mono">send()</code> is thoroughly documented in a dedicated section. It explains the purpose, shows the return type (<code class="mono">result.uri</code>, <code class="mono">result.accepted</code>), demonstrates usage with examples, explains replay protection, and documents <code class="mono">message()</code> as the lower-level alternative.</p>
+    <ul class="evidence">
+      <li>// result.uri = "hash://sha256/{hex}" &mdash; the envelope's content-addressed URI</li>
+      <li>// result.accepted = true</li>
+      <li>// Replay protection: same payload = same hash = already exists = rejected</li>
+      <li>The lower-level `message()` function builds the tuple without sending</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">Terminology</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The word &ldquo;blob&rdquo; appears only once, as a directory name <code class="mono">libs/b3nd-hash/</code> annotated as &ldquo;(hash:// scheme)&rdquo;. &ldquo;Protocol&rdquo; is used correctly: only for &ldquo;B3nd Protocol&rdquo; and &ldquo;application protocol&rdquo;, never where &ldquo;program&rdquo; should be.</p>
+    <ul class="evidence">
+      <li>- `libs/b3nd-hash/` &mdash; Content-addressed storage utilities (hash:// scheme)</li>
+      <li>| **B3nd Protocol** | The B3nd network protocol itself (only use of "protocol")</li>
+      <li>Usage: "protocol" only means the B3nd Protocol. Use "program" for scheme://hostname.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">URI design guidance</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">Clear guidance exists for when to use each scheme. The guidance explicitly mentions <code class="mono">send()</code> for envelope submission. <code class="mono">msg://</code> is completely absent from the guidance. Each scheme has a labeled use case pattern.</p>
+    <ul class="evidence">
+      <li>Message envelope: hash://sha256/{hex} (via send(), content-addressed audit trail)</li>
+      <li>Private user data: mutable://accounts/{userPubkey}/app/settings (signed, encrypted)</li>
+      <li>Content-addressed: hash://sha256/{hash} (trustless, immutable)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">Session keypair flow</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The session keypair flow uses <code class="mono">send()</code> for both the inbox request and the approval. No manual <code class="mono">msg://</code> construction exists. The pattern correctly writes to <code class="mono">immutable://inbox/</code> and <code class="mono">mutable://accounts/</code> via <code class="mono">send()</code>.</p>
+    <ul class="evidence">
+      <li>await send({ outputs: [[`immutable://inbox/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`, signedRequest]] }, backendClient);</li>
+      <li>await send({ outputs: [[`mutable://accounts/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`, signedApproval]] }, backendClient);</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">React hooks</span>
+  </div>
+  <div class="card-body">
+    <p class="finding">The React example provides a <code class="mono">useSend()</code> hook that wraps <code class="mono">send()</code> from <code class="mono">@bandeira-tech/b3nd-web</code>. It correctly uses <code class="mono">send({ outputs }, client)</code> internally and handles invalidation. No manual message construction is used.</p>
+    <ul class="evidence">
+      <li>export function useSend() {</li>
+      <li>const result = await send({ outputs }, client);</li>
+      <li>if (!result.accepted) throw new Error(result.error);</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Verdict -->
+
+<div class="verdict">
+  <h2>Verdict: Migration complete</h2>
+  <p style="margin-bottom: 1rem;">The <code class="mono">hash://sha256</code> scheme is now the single content-addressing mechanism. <code class="mono">msg://</code> has been fully removed. <code class="mono">send()</code> is the idiomatic API for envelope submission. Two minor notes remain:</p>
+  <ul>
+    <li><span class="action">Legacy directory name</span> &mdash; <code class="mono">libs/b3nd-hash/</code> is annotated correctly as &ldquo;hash:// scheme&rdquo;; renaming the directory is a future cleanup</li>
+    <li><span class="action">Simple receives</span> &mdash; 2 examples use bare <code class="mono">client.receive()</code> for single-resource writes (no envelope needed); this is the correct pattern for non-batched operations</li>
+  </ul>
+</div>
+
+<footer>Generated by clean agent review &mdash; source: skills/b3nd/SKILL.md only &mdash; commit e8132ee</footer>
+
+</body>
+</html>
