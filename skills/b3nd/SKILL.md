@@ -1,6 +1,6 @@
 ---
 name: b3nd
-description: B3nd DePIN framework and SDK for URI-based data persistence. Use when working with B3nd URIs, programs, schemas, encryption, auth primitives, protocol design, SDK tooling, JSR (@bandeira-tech/b3nd-sdk), NPM (@bandeira-tech/b3nd-web), HttpClient, PostgresClient, MongoClient, MemoryClient, LocalStorageClient, IndexedDBClient, client composition, message envelopes, content-addressing, or any B3nd development task. For Firecat-specific topics (wallet auth, session keypairs, canonical schema, React apps, resource visibility), see the firecat skill.
+description: B3nd DePIN framework and SDK for URI-based data persistence. Use when working with B3nd URIs, programs, schemas, encryption, auth primitives, protocol design, SDK tooling, JSR (@bandeira-tech/b3nd-sdk), NPM (@bandeira-tech/b3nd-web), HttpClient, PostgresClient, MongoClient, MemoryClient, LocalStorageClient, IndexedDBClient, client composition, message envelopes, content-addressing, or any B3nd development task. For Firecat-specific topics (canonical schema, React apps, resource visibility), see the firecat skill.
 ---
 
 # B3nd — DePIN Framework & SDK
@@ -20,7 +20,7 @@ see the separate firecat skill.
 |-------|------|-----|-----------|
 | **1. Framework** | B3nd — addressed data, schema dispatch, auth primitives, SDK | B3nd developers | Nothing — this is the foundation |
 | **2. Protocol** | e.g., Firecat — program schemas, consensus, fees, URI conventions | Protocol developers | B3nd SDK |
-| **3. App** | e.g., social network — UX, wallet flows, data display | App developers | B3nd SDK + protocol SDK/endpoints |
+| **3. App** | e.g., social network — UX, auth flows, data display | App developers | B3nd SDK + protocol SDK/endpoints |
 
 The SDK is Layer 1's product. It provides tools to everyone above. Protocol
 developers reach into it for primitives. App developers reach into it for
@@ -56,19 +56,23 @@ Messages that carry multiple outputs use the envelope structure:
 
 ```typescript
 interface MessageData<V = unknown> {
-  inputs: string[];                    // references to existing state
-  outputs: Array<[string, V]>;        // [uri, value] pairs to write
+  auth?: Array<{ pubkey: string; signature: string }>;
+  payload: {
+    inputs: string[];                    // references to existing state
+    outputs: Array<[string, V]>;        // [uri, value] pairs to write
+  };
 }
 ```
 
-An envelope is itself a message — `[uri, { inputs, outputs }]`. Envelopes can
-reference other envelopes. This recursive structure is the foundation for
-protocol design: content → validation → confirmation are all just envelopes
-referencing envelopes.
+An envelope is itself a message — `[uri, { auth?, payload: { inputs, outputs } }]`.
+`auth` is optional — programs decide whether they need it. `payload` always
+contains `{ inputs, outputs }`. Envelopes can reference other envelopes. This
+recursive structure is the foundation for protocol design: content → validation →
+confirmation are all just envelopes referencing envelopes.
 
 ```
 [envelope_uri, {
-  auth: [{ pubkey, sig }],
+  auth: [{ pubkey, signature }],
   payload: { inputs: [...], outputs: [[uri, value], ...] }
 }]
 ```
@@ -178,13 +182,25 @@ import { send } from "@bandeira-tech/b3nd-sdk";
 // or: import { send } from "@bandeira-tech/b3nd-web";
 
 const result = await send({
-  outputs: [
-    ["mutable://open/app/config", { theme: "dark" }],
-    ["mutable://open/app/status", { active: true }],
-  ],
+  payload: {
+    inputs: [],
+    outputs: [
+      ["mutable://open/app/config", { theme: "dark" }],
+      ["mutable://open/app/status", { active: true }],
+    ],
+  },
 }, client);
 // result.uri = "hash://sha256/{hex}" — the envelope's content-addressed URI
 // result.accepted = true
+
+// With auth:
+const authResult = await send({
+  auth: [{ pubkey, signature }],
+  payload: {
+    inputs: [],
+    outputs: [["mutable://accounts/{pubkey}/profile", signedData]],
+  },
+}, client);
 ```
 
 - `msgSchema(schema)` validates the envelope AND each output against its
@@ -198,10 +214,13 @@ The lower-level `message()` function builds the tuple without sending:
 import { message } from "@bandeira-tech/b3nd-sdk";
 
 const [uri, data] = await message({
-  outputs: [["mutable://open/config", { theme: "dark" }]],
+  payload: {
+    inputs: [],
+    outputs: [["mutable://open/config", { theme: "dark" }]],
+  },
 });
 // uri = "hash://sha256/{computed-hash}"
-// data = { inputs: [], outputs: [...] }
+// data = { payload: { inputs: [], outputs: [...] } }
 ```
 
 ### Auth Primitives
@@ -347,7 +366,6 @@ import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
 import { HttpClient } from "@bandeira-tech/b3nd-web";
 import { computeSha256 } from "@bandeira-tech/b3nd-web/hash";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
-import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
 ```
 
 | Feature            | b3nd-sdk (JSR) | b3nd-web (NPM) |
@@ -444,10 +462,13 @@ const hash = await computeSha256(content);
 const hashUri = `hash://sha256/${hash}`;
 
 await send({
-  outputs: [
-    [hashUri, content],                        // immutable content
-    ["link://open/posts/latest", hashUri],      // mutable pointer
-  ],
+  payload: {
+    inputs: [],
+    outputs: [
+      [hashUri, content],                        // immutable content
+      ["link://open/posts/latest", hashUri],      // mutable pointer
+    ],
+  },
 }, client);
 ```
 
@@ -673,7 +694,10 @@ Deno.test("send and read", async () => {
   const schema = { "test://data": async () => ({ valid: true }) };
   const client = new MemoryClient({ schema });
   const result = await send({
-    outputs: [["test://data/item1", { name: "Test" }]],
+    payload: {
+      inputs: [],
+      outputs: [["test://data/item1", { name: "Test" }]],
+    },
   }, client);
   assertEquals(result.accepted, true);
   const read = await client.read("test://data/item1");
@@ -717,12 +741,12 @@ start:
 | **Program**              | `scheme://hostname` pair defining behavioral constraints           |
 | **Substrate**            | Synonym for program, emphasizing the low-level data layer          |
 | **Resource**             | Data stored at a URI path within a program                         |
-| **Envelope**             | Message with `{ inputs, outputs }` structure                       |
+| **Envelope**             | Message with `{ auth?, payload: { inputs, outputs } }` structure   |
 | **Protocol**             | System built on B3nd (e.g., Firecat) — defines programs and rules  |
 | **DePIN**                | Decentralized Physical Infrastructure Network                      |
 
 Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
-(like Firecat). "Envelope" for `{ inputs, outputs }` messages.
+(like Firecat). "Envelope" for `{ auth?, payload: { inputs, outputs } }` messages.
 
 ---
 
@@ -788,13 +812,10 @@ source code with line numbers.
 ### Auth & Encryption
 - `libs/b3nd-auth/` — Pubkey-based access control
 - `libs/b3nd-encrypt/` — X25519/Ed25519/AES-GCM encryption
-- `libs/b3nd-wallet/` — Wallet client
-- `libs/b3nd-wallet-server/` — Wallet server implementation
 
 ### Servers & Apps
 - `libs/b3nd-servers/` — HTTP + WebSocket server primitives
 - `apps/b3nd-node/` — Multi-backend HTTP node
-- `apps/wallet-node/` — Wallet/auth server
 - `apps/b3nd-web-rig/` — React/Vite data explorer + dashboard
 - `apps/sdk-inspector/` — Test runner backend
 - `apps/b3nd-cli/` — bnd CLI tool

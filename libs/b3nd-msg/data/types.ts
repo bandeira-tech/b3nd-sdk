@@ -15,27 +15,40 @@ import type { Message } from "../node-types.ts";
  * @example
  * ```typescript
  * const data: MessageData = {
- *   inputs: ["utxo://alice/1", "utxo://alice/2"],
- *   outputs: [
- *     ["utxo://bob/99", 50],
- *     ["utxo://alice/3", 30],
- *     ["fees://pool", 1]
- *   ]
+ *   payload: {
+ *     inputs: ["utxo://alice/1", "utxo://alice/2"],
+ *     outputs: [
+ *       ["utxo://bob/99", 50],
+ *       ["utxo://alice/3", 30],
+ *       ["fees://pool", 1]
+ *     ]
+ *   }
  * }
  * ```
  */
 export interface MessageData<V = unknown> {
   /**
-   * URIs consumed or referenced by this message
-   * Semantics (consumed vs referenced) are protocol-defined
+   * Optional auth attestations (signatures, etc.)
+   * Protocols decide whether auth is required.
    */
-  inputs: string[];
+  auth?: Array<{ pubkey: string; signature: string }>;
 
   /**
-   * URIs produced with their values
-   * Each output is [uri, value]
+   * Payload containing inputs and outputs
    */
-  outputs: [uri: string, value: V][];
+  payload: {
+    /**
+     * URIs consumed or referenced by this message
+     * Semantics (consumed vs referenced) are protocol-defined
+     */
+    inputs: string[];
+
+    /**
+     * URIs produced with their values
+     * Each output is [uri, value]
+     */
+    outputs: [uri: string, value: V][];
+  };
 }
 
 /** @deprecated Use `MessageData` instead */

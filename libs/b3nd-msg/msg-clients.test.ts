@@ -41,12 +41,14 @@ Deno.test("MemoryClient - read each output URI individually", async () => {
   const { client, node } = createTestSetup();
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/users/alice", { name: "Alice", age: 30 }],
-      ["mutable://open/users/bob", { name: "Bob", age: 25 }],
-      ["mutable://open/settings/theme", { dark: true }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/users/alice", { name: "Alice", age: 30 }],
+        ["mutable://open/users/bob", { name: "Bob", age: 25 }],
+        ["mutable://open/settings/theme", { dark: true }],
+      ],
+    },
   };
 
   const result = await node.receive(["msg://open/batch-1", msgData]);
@@ -73,12 +75,14 @@ Deno.test("MemoryClient - list outputs under a parent URI", async () => {
   const { client, node } = createTestSetup();
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/items/1", { title: "Item 1" }],
-      ["mutable://open/items/2", { title: "Item 2" }],
-      ["mutable://open/items/3", { title: "Item 3" }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/items/1", { title: "Item 1" }],
+        ["mutable://open/items/2", { title: "Item 2" }],
+        ["mutable://open/items/3", { title: "Item 3" }],
+      ],
+    },
   };
 
   const result = await node.receive(["msg://open/batch-list", msgData]);
@@ -105,11 +109,13 @@ Deno.test("MemoryClient - delete an output URI", async () => {
   const { client, node } = createTestSetup();
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/del/a", { value: 1 }],
-      ["mutable://open/del/b", { value: 2 }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/del/a", { value: 1 }],
+        ["mutable://open/del/b", { value: 2 }],
+      ],
+    },
   };
 
   const result = await node.receive(["msg://open/batch-del", msgData]);
@@ -137,12 +143,14 @@ Deno.test("MemoryClient - readMulti on output URIs", async () => {
   const { client, node } = createTestSetup();
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/multi/1", { v: 1 }],
-      ["mutable://open/multi/2", { v: 2 }],
-      ["mutable://open/multi/3", { v: 3 }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/multi/1", { v: 1 }],
+        ["mutable://open/multi/2", { v: 2 }],
+        ["mutable://open/multi/3", { v: 3 }],
+      ],
+    },
   };
 
   const result = await node.receive(["msg://open/batch-multi", msgData]);
@@ -172,10 +180,12 @@ Deno.test("MemoryClient - message envelope is stored alongside outputs", async (
   const { client, node } = createTestSetup();
 
   const msgData: MessageData = {
-    inputs: ["mutable://open/ref/1"],
-    outputs: [
-      ["mutable://open/out/1", { value: 42 }],
-    ],
+    payload: {
+      inputs: ["mutable://open/ref/1"],
+      outputs: [
+        ["mutable://open/out/1", { value: 42 }],
+      ],
+    },
   };
 
   const result = await node.receive(["msg://open/envelope-test", msgData]);
@@ -186,8 +196,8 @@ Deno.test("MemoryClient - message envelope is stored alongside outputs", async (
     "msg://open/envelope-test",
   );
   assertEquals(envelope.success, true);
-  assertEquals(envelope.record?.data.inputs, ["mutable://open/ref/1"]);
-  assertEquals(envelope.record?.data.outputs.length, 1);
+  assertEquals(envelope.record?.data.payload.inputs, ["mutable://open/ref/1"]);
+  assertEquals(envelope.record?.data.payload.outputs.length, 1);
 
   // The output is also stored individually
   const output = await client.read("mutable://open/out/1");

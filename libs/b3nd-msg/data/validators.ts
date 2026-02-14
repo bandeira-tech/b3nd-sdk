@@ -88,16 +88,20 @@ export function createOutputValidator<V = unknown>(options: {
       return { valid: false, error: "Invalid message data" };
     }
 
-    if (!Array.isArray(data.inputs)) {
-      return { valid: false, error: "inputs must be an array" };
+    if (!data.payload || typeof data.payload !== "object") {
+      return { valid: false, error: "payload must be an object" };
     }
 
-    if (!Array.isArray(data.outputs)) {
-      return { valid: false, error: "outputs must be an array" };
+    if (!Array.isArray(data.payload.inputs)) {
+      return { valid: false, error: "payload.inputs must be an array" };
+    }
+
+    if (!Array.isArray(data.payload.outputs)) {
+      return { valid: false, error: "payload.outputs must be an array" };
     }
 
     // 3. Validate each output against its program validator
-    for (const [outputUri, outputValue] of data.outputs) {
+    for (const [outputUri, outputValue] of data.payload.outputs) {
       const program = extractProgram(outputUri);
       if (!program) {
         return { valid: false, error: `Invalid output URI: ${outputUri}` };
@@ -108,8 +112,8 @@ export function createOutputValidator<V = unknown>(options: {
         const ctx: MessageValidationContext<V> = {
           uri: outputUri,
           value: outputValue,
-          inputs: data.inputs,
-          outputs: data.outputs,
+          inputs: data.payload.inputs,
+          outputs: data.payload.outputs,
           read,
         };
 

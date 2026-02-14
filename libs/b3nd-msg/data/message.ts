@@ -9,14 +9,17 @@
  * import { message } from "@bandeira-tech/b3nd-sdk";
  *
  * // Low-level: build tuple, then send manually
- * const [uri, payload] = await message({
- *   outputs: [["mutable://open/config", { theme: "dark" }]],
+ * const [uri, data] = await message({
+ *   payload: {
+ *     inputs: [],
+ *     outputs: [["mutable://open/config", { theme: "dark" }]],
+ *   },
  * });
- * await client.receive([uri, payload]);
+ * await client.receive([uri, data]);
  *
  * // High-level: use send() instead
  * import { send } from "@bandeira-tech/b3nd-sdk";
- * await send({ outputs: [["mutable://open/config", { theme: "dark" }]] }, client);
+ * await send({ payload: { inputs: [], outputs: [["mutable://open/config", { theme: "dark" }]] } }, client);
  * ```
  */
 
@@ -27,17 +30,13 @@ import { computeSha256, generateHashUri } from "../../b3nd-hash/mod.ts";
 /**
  * Build a content-addressed message envelope.
  *
- * @param data - Message payload with outputs (and optional inputs)
+ * @param data - Canonical MessageData with payload (and optional auth)
  * @returns A `[hash://sha256/{hex}, MessageData]` tuple
  */
 export async function message<V = unknown>(
-  data: { inputs?: string[]; outputs: [uri: string, value: V][] },
+  data: MessageData<V>,
 ): Promise<Message<MessageData<V>>> {
-  const payload: MessageData<V> = {
-    inputs: data.inputs ?? [],
-    outputs: data.outputs,
-  };
-  const hash = await computeSha256(payload);
+  const hash = await computeSha256(data);
   const uri = generateHashUri(hash);
-  return [uri, payload];
+  return [uri, data];
 }

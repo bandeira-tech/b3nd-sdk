@@ -214,7 +214,7 @@ export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
     }
 
     // Validate each output against its program validator
-    for (const [outputUri, outputValue] of data.outputs) {
+    for (const [outputUri, outputValue] of data.payload.outputs) {
       // Enforce content hash integrity on outputs (structural, not policy)
       const hashCheck = await enforceContentHash(outputUri, outputValue);
       if (!hashCheck.valid) {

@@ -223,12 +223,14 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
   const validTx: StateMessage<number> = [
     "msg://alice/transfer/42",
     {
-      inputs: ["utxo://alice/1"],
-      outputs: [
-        ["utxo://bob/99", 50],
-        ["utxo://alice/2", 30],
-        ["fees://pool", 1],
-      ],
+      payload: {
+        inputs: ["utxo://alice/1"],
+        outputs: [
+          ["utxo://bob/99", 50],
+          ["utxo://alice/2", 30],
+          ["fees://pool", 1],
+        ],
+      },
     },
   ];
 
@@ -240,11 +242,13 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
   const invalidTx: StateMessage<number> = [
     "msg://alice/transfer/43",
     {
-      inputs: ["utxo://alice/1"],
-      outputs: [
-        ["utxo://bob/99", 50],
-        ["fees://pool", 0], // Invalid: fee is 0
-      ],
+      payload: {
+        inputs: ["utxo://alice/1"],
+        outputs: [
+          ["utxo://bob/99", 50],
+          ["fees://pool", 0], // Invalid: fee is 0
+        ],
+      },
     },
   ];
 
@@ -288,11 +292,13 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   const validTx: StateMessage<unknown> = [
     "msg://alice/store/1",
     {
-      inputs: [],
-      outputs: [
-        ["immutable://open/abc123", { data: "hello world" }], // ~30 bytes
-        ["fees://pool", 1],
-      ],
+      payload: {
+        inputs: [],
+        outputs: [
+          ["immutable://open/abc123", { data: "hello world" }], // ~30 bytes
+          ["fees://pool", 1],
+        ],
+      },
     },
   ];
   const result1 = await validator(validTx, read);
@@ -302,8 +308,10 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   const noFeeTx: StateMessage<unknown> = [
     "msg://alice/store/2",
     {
-      inputs: [],
-      outputs: [["immutable://open/def456", { data: "hello" }]],
+      payload: {
+        inputs: [],
+        outputs: [["immutable://open/def456", { data: "hello" }]],
+      },
     },
   ];
   const result2 = await validator(noFeeTx, read);
@@ -331,8 +339,10 @@ Deno.test("createOutputValidator - with preValidate", async () => {
   const noSigTx: StateMessage & { sig?: string } = [
     "msg://alice/1",
     {
-      inputs: [],
-      outputs: [["utxo://test/1", 100]],
+      payload: {
+        inputs: [],
+        outputs: [["utxo://test/1", 100]],
+      },
     },
   ];
   const result1 = await validator(noSigTx as any, read);
@@ -344,8 +354,10 @@ Deno.test("createOutputValidator - with preValidate", async () => {
     "msg://alice/2",
     {
       sig: "abc123",
-      inputs: [],
-      outputs: [["utxo://test/2", 100]],
+      payload: {
+        inputs: [],
+        outputs: [["utxo://test/2", 100]],
+      },
     },
   ] as const;
   const result2 = await validator(withSigTx as any, read);
@@ -411,7 +423,7 @@ Deno.test("integration - message node with output validator", async () => {
 
       // Sum inputs
       let inputSum = 0;
-      for (const inputUri of data.inputs) {
+      for (const inputUri of data.payload.inputs) {
         const input = await read<{ amount: number }>(inputUri);
         if (input.success && input.record) {
           inputSum += input.record.data.amount;
@@ -419,7 +431,7 @@ Deno.test("integration - message node with output validator", async () => {
       }
 
       // Sum outputs
-      const outputSum = data.outputs.reduce(
+      const outputSum = data.payload.outputs.reduce(
         (sum, [, value]) => sum + (value as number),
         0,
       );
@@ -443,11 +455,13 @@ Deno.test("integration - message node with output validator", async () => {
   const validTx: StateMessage<number> = [
     "msg://transfers/1",
     {
-      inputs: ["utxo://alice/1"],
-      outputs: [
-        ["utxo://bob/1", 50],
-        ["utxo://alice/2", 50],
-      ],
+      payload: {
+        inputs: ["utxo://alice/1"],
+        outputs: [
+          ["utxo://bob/1", 50],
+          ["utxo://alice/2", 50],
+        ],
+      },
     },
   ];
 
@@ -458,10 +472,12 @@ Deno.test("integration - message node with output validator", async () => {
   const invalidTx: StateMessage<number> = [
     "msg://transfers/2",
     {
-      inputs: ["utxo://alice/2"], // Only 50 available
-      outputs: [
-        ["utxo://bob/2", 100], // Trying to send 100
-      ],
+      payload: {
+        inputs: ["utxo://alice/2"], // Only 50 available
+        outputs: [
+          ["utxo://bob/2", 100], // Trying to send 100
+        ],
+      },
     },
   ];
 

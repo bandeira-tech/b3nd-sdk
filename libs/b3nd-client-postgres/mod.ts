@@ -136,7 +136,7 @@ export class PostgresClient implements NodeProtocolInterface {
 
       // If MessageData, also store each output at its own URI
       if (isMessageData(data)) {
-        for (const [outputUri, outputValue] of data.outputs) {
+        for (const [outputUri, outputValue] of data.payload.outputs) {
           const outputResult = await this.receive([outputUri, outputValue]);
           if (!outputResult.accepted) {
             return {

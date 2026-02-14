@@ -19,17 +19,29 @@ import { createValidatedClient, msgSchema } from "../b3nd-compose/mod.ts";
 
 Deno.test("isMessageData - detects valid MessageData", () => {
   const valid: MessageData = {
-    inputs: ["utxo://alice/1"],
-    outputs: [
-      ["mutable://open/x", { value: 1 }],
-      ["mutable://open/y", { value: 2 }],
-    ],
+    payload: {
+      inputs: ["utxo://alice/1"],
+      outputs: [
+        ["mutable://open/x", { value: 1 }],
+        ["mutable://open/y", { value: 2 }],
+      ],
+    },
   };
   assertEquals(isMessageData(valid), true);
 });
 
 Deno.test("isMessageData - detects valid with empty inputs/outputs", () => {
-  assertEquals(isMessageData({ inputs: [], outputs: [] }), true);
+  assertEquals(isMessageData({ payload: { inputs: [], outputs: [] } }), true);
+});
+
+Deno.test("isMessageData - detects valid with auth", () => {
+  assertEquals(
+    isMessageData({
+      auth: [{ pubkey: "abc", signature: "def" }],
+      payload: { inputs: [], outputs: [] },
+    }),
+    true,
+  );
 });
 
 Deno.test("isMessageData - rejects null", () => {
@@ -42,21 +54,25 @@ Deno.test("isMessageData - rejects primitives", () => {
   assertEquals(isMessageData(undefined), false);
 });
 
-Deno.test("isMessageData - rejects missing inputs", () => {
-  assertEquals(isMessageData({ outputs: [] }), false);
+Deno.test("isMessageData - rejects missing payload", () => {
+  assertEquals(isMessageData({ inputs: [], outputs: [] }), false);
 });
 
-Deno.test("isMessageData - rejects missing outputs", () => {
-  assertEquals(isMessageData({ inputs: [] }), false);
+Deno.test("isMessageData - rejects missing payload.inputs", () => {
+  assertEquals(isMessageData({ payload: { outputs: [] } }), false);
+});
+
+Deno.test("isMessageData - rejects missing payload.outputs", () => {
+  assertEquals(isMessageData({ payload: { inputs: [] } }), false);
 });
 
 Deno.test("isMessageData - rejects malformed outputs", () => {
   assertEquals(
-    isMessageData({ inputs: [], outputs: [["only-one-element"]] }),
+    isMessageData({ payload: { inputs: [], outputs: [["only-one-element"]] } }),
     false,
   );
   assertEquals(
-    isMessageData({ inputs: [], outputs: [[123, "value"]] }),
+    isMessageData({ payload: { inputs: [], outputs: [[123, "value"]] } }),
     false,
   );
 });
@@ -79,11 +95,13 @@ Deno.test("MemoryClient - unpacks MessageData outputs on receive", async () => {
   });
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/x", { value: 1 }],
-      ["mutable://open/y", { value: 2 }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/x", { value: 1 }],
+        ["mutable://open/y", { value: 2 }],
+      ],
+    },
   };
 
   const result = await client.receive(["msg://open/test", msgData]);
@@ -128,11 +146,13 @@ Deno.test("MemoryClient - fails if any output in MessageData fails", async () =>
   });
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/x", { value: 1 }],
-      ["unknown://program/y", { value: 2 }], // Will fail
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/x", { value: 1 }],
+        ["unknown://program/y", { value: 2 }], // Will fail
+      ],
+    },
   };
 
   const result = await client.receive(["msg://open/test", msgData]);
@@ -153,11 +173,13 @@ Deno.test("msgSchema - validates each output against schema", async () => {
   const read = async () => ({ success: false as const, error: "not found" });
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/x", { value: 1 }],
-      ["mutable://open/y", { value: 2 }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/x", { value: 1 }],
+        ["mutable://open/y", { value: 2 }],
+      ],
+    },
   };
 
   const result = await validator(["msg://open/test", msgData], read);
@@ -174,11 +196,13 @@ Deno.test("msgSchema - rejects if output program unknown", async () => {
   const read = async () => ({ success: false as const, error: "not found" });
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/x", { value: 1 }],
-      ["unknown://program/y", { value: 2 }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/x", { value: 1 }],
+        ["unknown://program/y", { value: 2 }],
+      ],
+    },
   };
 
   const result = await validator(["msg://open/test", msgData], read);
@@ -233,11 +257,13 @@ Deno.test("integration - receive MessageData through node → client unpacks out
   });
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/x", { value: 1 }],
-      ["mutable://open/y", { value: 2 }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/x", { value: 1 }],
+        ["mutable://open/y", { value: 2 }],
+      ],
+    },
   };
 
   const result = await node.receive(["msg://open/test-1", msgData]);
@@ -284,8 +310,10 @@ Deno.test("integration - plain messages still work alongside MessageData", async
 
   // MessageData
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [["mutable://open/from-msg", { value: 42 }]],
+    payload: {
+      inputs: [],
+      outputs: [["mutable://open/from-msg", { value: 42 }]],
+    },
   };
   const msgResult = await node.receive(["msg://open/test-2", msgData]);
   assertEquals(msgResult.accepted, true);
@@ -314,11 +342,13 @@ Deno.test("integration - MessageData with mixed programs (mutable + immutable)",
   });
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/a", { mutable: true }],
-      ["immutable://open/b", { immutable: true }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/a", { mutable: true }],
+        ["immutable://open/b", { immutable: true }],
+      ],
+    },
   };
 
   const result = await node.receive(["msg://open/mixed-1", msgData]);
@@ -352,11 +382,13 @@ Deno.test("integration - msgSchema rejects invalid outputs before client sees th
   });
 
   const msgData: MessageData = {
-    inputs: [],
-    outputs: [
-      ["mutable://open/ok", { value: 1 }],
-      ["mutable://restricted/nope", { value: 2 }],
-    ],
+    payload: {
+      inputs: [],
+      outputs: [
+        ["mutable://open/ok", { value: 1 }],
+        ["mutable://restricted/nope", { value: 2 }],
+      ],
+    },
   };
 
   // msgSchema rejects because mutable://restricted fails

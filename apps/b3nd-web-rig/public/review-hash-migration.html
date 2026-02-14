@@ -78,8 +78,8 @@
     <ul class="evidence">
       <li>await client.receive(["mutable://accounts/{pubkey}/profile", { name: "Alice" }]);</li>
       <li>await client.receive(["mutable://open/my-app/config", { theme: "dark" }]);</li>
-      <li>const result = await send({ outputs: [[hashUri, data]] }, client);</li>
-      <li>const result = await send({ outputs }, client);</li>
+      <li>const result = await send({ payload: { inputs: [], outputs: [[hashUri, data]] } }, client);</li>
+      <li>const result = await send({ payload: { inputs: [], outputs } }, client);</li>
     </ul>
   </div>
 </div>
@@ -186,8 +186,8 @@
   <div class="card-body">
     <p class="finding">The session keypair flow uses <code class="mono">send()</code> for both the inbox request and the approval. No manual <code class="mono">msg://</code> construction exists. The pattern correctly writes to <code class="mono">immutable://inbox/</code> and <code class="mono">mutable://accounts/</code> via <code class="mono">send()</code>.</p>
     <ul class="evidence">
-      <li>await send({ outputs: [[`immutable://inbox/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`, signedRequest]] }, backendClient);</li>
-      <li>await send({ outputs: [[`mutable://accounts/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`, signedApproval]] }, backendClient);</li>
+      <li>await send({ payload: { inputs: [], outputs: [[`immutable://inbox/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`, signedRequest]] } }, backendClient);</li>
+      <li>await send({ payload: { inputs: [], outputs: [[`mutable://accounts/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`, signedApproval]] } }, backendClient);</li>
     </ul>
   </div>
 </div>
@@ -198,10 +198,10 @@
     <span class="card-title">React hooks</span>
   </div>
   <div class="card-body">
-    <p class="finding">The React example provides a <code class="mono">useSend()</code> hook that wraps <code class="mono">send()</code> from <code class="mono">@bandeira-tech/b3nd-web</code>. It correctly uses <code class="mono">send({ outputs }, client)</code> internally and handles invalidation. No manual message construction is used.</p>
+    <p class="finding">The React example provides a <code class="mono">useSend()</code> hook that wraps <code class="mono">send()</code> from <code class="mono">@bandeira-tech/b3nd-web</code>. It correctly uses <code class="mono">send({ payload: { inputs: [], outputs } }, client)</code> internally and handles invalidation. No manual message construction is used.</p>
     <ul class="evidence">
       <li>export function useSend() {</li>
-      <li>const result = await send({ outputs }, client);</li>
+      <li>const result = await send({ payload: { inputs: [], outputs } }, client);</li>
       <li>if (!result.accepted) throw new Error(result.error);</li>
     </ul>
   </div>

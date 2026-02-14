@@ -1,6 +1,6 @@
 ---
 name: firecat
-description: Firecat public B3nd network — canonical schema, wallet auth, session keypairs, accounts, resource visibility, React/Zustand/React Query apps, proxyWrite/proxyRead, resource identity, app identity, E2E testing. Use when working with Firecat endpoints, mutable://accounts, immutable://inbox, hash://sha256, link://accounts, WalletClient, or building apps on the Firecat network.
+description: Firecat public B3nd network — canonical schema, accounts, resource identity, app identity, resource visibility, React/Zustand/React Query apps, E2E testing. Use when working with Firecat endpoints, mutable://accounts, immutable://inbox, hash://sha256, link://accounts, or building apps on the Firecat network.
 ---
 
 # Firecat — Public B3nd Network
@@ -17,8 +17,6 @@ patterns), see the b3nd skill.
 | Service       | URL                                  |
 | ------------- | ------------------------------------ |
 | Backend Node  | `https://testnet-evergreen.fire.cat` |
-| Wallet Server | `https://testnet-wallet.fire.cat`    |
-| App Server    | `https://testnet-app.fire.cat`       |
 
 ## Canonical Schema
 
@@ -28,7 +26,7 @@ create custom programs on Firecat.
 | Program                | Access                | Use Case                           |
 | ---------------------- | --------------------- | ---------------------------------- |
 | `mutable://open`       | Anyone                | Public data, no auth needed        |
-| `mutable://accounts`   | Pubkey-signed         | User data, requires wallet auth    |
+| `mutable://accounts`   | Pubkey-signed         | User data, requires auth           |
 | `immutable://open`     | Anyone, once          | Content-addressed, no overwrites   |
 | `immutable://accounts` | Pubkey-signed, once   | Permanent user data                |
 | `immutable://inbox`    | Message inbox         | Suggestions, notifications         |
@@ -57,85 +55,35 @@ Named reference:     link://accounts/{userPubkey}/app/avatar            (signed 
 Inbox message:       immutable://inbox/{recipientPubkey}/topic/{ts}    (write-once delivery)
 ```
 
-## Wallet & Authentication
+## Authentication
 
-### WalletClient Setup
-
-```typescript
-import { WalletClient } from "@bandeira-tech/b3nd-web/wallet";
-
-const wallet = new WalletClient({
-  walletServerUrl: "https://testnet-wallet.fire.cat",
-  apiBasePath: "/api/v1",
-});
-```
-
-### Session Keypair Flow
-
-**Both signup AND login require an approved session keypair.**
+Writes to `accounts` programs require Ed25519 signatures. The pubkey in the URI
+determines who can write. Messages must be signed with the matching private key
+using `createAuthenticatedMessageWithHex` from the encrypt module.
 
 ```typescript
-import { send } from "@bandeira-tech/b3nd-web";
-import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+import { send } from "@bandeira-tech/b3nd-sdk";
+import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
 
 const backendClient = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
-const APP_KEY = "app-public-key-hex";
-const APP_PRIVATE_KEY = "app-private-key-hex";
 
-// 1. Generate session keypair
-const sessionKeypair = await encrypt.generateSigningKeyPair();
-
-// 2. Post SIGNED request to inbox (proves session key ownership)
-const signedRequest = await encrypt.createAuthenticatedMessageWithHex(
-  { timestamp: Date.now() },
-  sessionKeypair.publicKeyHex,
-  sessionKeypair.privateKeyHex,
+// Sign data with your keypair
+const signed = await encrypt.createAuthenticatedMessageWithHex(
+  { name: "Alice" },
+  publicKeyHex,
+  privateKeyHex,
 );
+
+// Write to your account
 await send({
-  outputs: [[
-    `immutable://inbox/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
-    signedRequest,
-  ]],
+  payload: {
+    inputs: [],
+    outputs: [[
+      `mutable://accounts/${publicKeyHex}/profile`,
+      signed,
+    ]],
+  },
 }, backendClient);
-
-// 3. App APPROVES session (value = 1, signed by app's key)
-const signedApproval = await encrypt.createAuthenticatedMessageWithHex(
-  1, APP_KEY, APP_PRIVATE_KEY,
-);
-await send({
-  outputs: [[
-    `mutable://accounts/${APP_KEY}/sessions/${sessionKeypair.publicKeyHex}`,
-    signedApproval,
-  ]],
-}, backendClient);
-
-// 4. Now signup or login works
-const session = await wallet.signup(APP_KEY, sessionKeypair, {
-  type: "password", username, password,
-});
-// or: await wallet.login(APP_KEY, sessionKeypair, { type: "password", username, password });
-
-wallet.setSession(session);
-```
-
-Two messages to the data node:
-1. `immutable://inbox/{appKey}/sessions/{sessionPubkey}` — signed request
-2. `mutable://accounts/{appKey}/sessions/{sessionPubkey}` — approval (value=1)
-
-### proxyWrite / proxyRead
-
-```typescript
-// Write to accounts (signed + optionally encrypted)
-await wallet.proxyWrite({
-  uri: "mutable://accounts/{userPubkey}/profile",
-  data: { name: "Alice" },
-  encrypt: true,
-});
-
-// Read with auto-decryption
-const data = await wallet.proxyRead({
-  uri: "mutable://accounts/{userPubkey}/profile",
-});
 ```
 
 ## Resource Identity Pattern
@@ -147,20 +95,25 @@ permanent identity/address:
 const resourceKeys = await encrypt.generateSigningKeyPair();
 const resourceUri = `mutable://accounts/${resourceKeys.publicKeyHex}/data`;
 
-// Resource private keys stored encrypted in user's account index
-await wallet.proxyWrite({
-  uri: `mutable://accounts/${userPubkey}/resources`,
-  data: { resources: entries },
-  encrypt: true,
-});
+// Sign and write resource data
+const signed = await encrypt.createAuthenticatedMessageWithHex(
+  { title: "My Resource" },
+  resourceKeys.publicKeyHex,
+  resourceKeys.privateKeyHex,
+);
+await send({
+  payload: { inputs: [], outputs: [[resourceUri, signed]] },
+}, backendClient);
 ```
+
+Resource private keys are stored encrypted in the owner's account index.
 
 ## App Identity Pattern
 
 Apps derive a deterministic keypair for app-owned shared resources:
 
 ```typescript
-const appIdentity = await deriveKeypairFromSeed(appKey);
+const appIdentity = await encrypt.deriveKeyFromSeed(appKey, APP_SALT, 100000);
 // App owns: mutable://accounts/{appPubkey}/public-resources
 ```
 
@@ -219,13 +172,9 @@ mutable://accounts/{userPubkey}/
 ```typescript
 export const FIRECAT = {
   backend: "https://testnet-evergreen.fire.cat",
-  wallet: "https://testnet-wallet.fire.cat",
-  app: "https://testnet-app.fire.cat",
 };
 export const LOCAL = {
   backend: "http://localhost:9942",
-  wallet: "http://localhost:9943",
-  app: "http://localhost:9944",
 };
 export const config = import.meta.env.DEV ? LOCAL : FIRECAT;
 ```
@@ -290,7 +239,9 @@ export function useSend() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ outputs }: { outputs: [string, unknown][] }) => {
-      const result = await send({ outputs }, client);
+      const result = await send({
+        payload: { inputs: [], outputs },
+      }, client);
       if (!result.accepted) throw new Error(result.error);
       return result;
     },
@@ -399,10 +350,9 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
 
 ```typescript
 // ?e2e triggers full in-memory mode
-// ?data=memory://&wallet=memory:// for explicit params
 export function parseUrlConfig(): Partial<BackendConfig> | null {
   const params = new URLSearchParams(window.location.search);
-  if (params.has("e2e")) return { dataUrl: "memory://", walletUrl: "memory://", appUrl: "memory://" };
+  if (params.has("e2e")) return { dataUrl: "memory://" };
   return null;
 }
 ```
