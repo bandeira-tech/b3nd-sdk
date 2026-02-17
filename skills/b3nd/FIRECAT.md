@@ -1,16 +1,70 @@
 ---
 name: firecat
-description: Firecat public B3nd network — canonical schema, accounts, resource identity, app identity, resource visibility, React/Zustand/React Query apps, E2E testing. Use when working with Firecat endpoints, mutable://accounts, immutable://inbox, hash://sha256, link://accounts, or building apps on the Firecat network.
+description: Firecat app development — building apps on the Firecat public B3nd network. Quick start (browser + Deno), canonical schema, authentication, resource identity, app identity, resource visibility, running a Firecat node (HTTP server, Postgres/MongoDB, multi-backend), building browser apps (React, Zustand, React Query), Deno CLI, testing (MemoryClient, E2E Playwright), environment variables. Use when building any app on Firecat or asking about Firecat programs, URIs, visibility, accounts. For building your own DePIN protocol, see the b3nd-framework skill.
 ---
 
-# Firecat — Public B3nd Network
+# Firecat — Building Apps on the Public B3nd Network
 
 Firecat is a protocol built on B3nd. It defines a specific set of programs
 (schema), authentication model, and URI conventions for a public network. Apps
 built on Firecat use these programs as their data layer.
 
-For the B3nd framework itself (message primitives, SDK tools, protocol design
-patterns), see the b3nd skill.
+If you're building an app, you're in the right place. For building your own
+DePIN protocol, see the b3nd-framework skill.
+
+## Quick Start
+
+Get something working in 60 seconds, then read the architecture below.
+
+**Browser (NPM):**
+
+```bash
+npm install @bandeira-tech/b3nd-web
+```
+
+```typescript
+import { HttpClient, send } from "@bandeira-tech/b3nd-web";
+
+const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+
+// Write
+await client.receive(["mutable://open/my-app/hello", { message: "it works" }]);
+
+// Read
+const result = await client.read("mutable://open/my-app/hello");
+console.log(result.record?.data); // { message: "it works" }
+
+// Batch write (content-addressed envelope)
+await send({
+  payload: {
+    inputs: [],
+    outputs: [
+      ["mutable://open/my-app/config", { theme: "dark" }],
+      ["mutable://open/my-app/status", { active: true }],
+    ],
+  },
+}, client);
+```
+
+**Deno (JSR):**
+
+```typescript
+// deno.json: { "imports": { "@bandeira-tech/b3nd-sdk": "jsr:@bandeira-tech/b3nd-sdk" } }
+import { HttpClient, send } from "@bandeira-tech/b3nd-sdk";
+
+const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+
+// Same API — receive(), read(), send() work identically
+await client.receive(["mutable://open/my-app/hello", { message: "it works" }]);
+```
+
+**Vocabulary note:** From the app's perspective you *send* data. From the node's
+perspective it *receives* a message. The fundamental write operation is called
+`receive()` because it describes what the node does. The `send()` function is a
+higher-level helper that batches multiple writes into a single content-addressed
+envelope.
+
+---
 
 ## Firecat Endpoints
 
@@ -30,7 +84,7 @@ create custom programs on Firecat.
 | `immutable://open`     | Anyone, once          | Content-addressed, no overwrites   |
 | `immutable://accounts` | Pubkey-signed, once   | Permanent user data                |
 | `immutable://inbox`    | Message inbox         | Suggestions, notifications         |
-| `hash://sha256`        | Anyone, hash-verified | Content-addressed storage (SHA256) |
+| `hash://sha256`        | Anyone, hash-verified | Content-addressed data (SHA256) |
 | `link://open`          | Anyone                | Unauthenticated URI references     |
 | `link://accounts`      | Pubkey-signed writes  | Authenticated URI references       |
 
@@ -106,7 +160,7 @@ await send({
 }, backendClient);
 ```
 
-Resource private keys are stored encrypted in the owner's account index.
+Resource private keys are sent encrypted to the owner's account index.
 
 ## App Identity Pattern
 
@@ -116,6 +170,19 @@ Apps derive a deterministic keypair for app-owned shared resources:
 const appIdentity = await encrypt.deriveKeyFromSeed(appKey, APP_SALT, 100000);
 // App owns: mutable://accounts/{appPubkey}/public-resources
 ```
+
+## Node Operator Responsibility
+
+Firecat nodes accept messages that pass schema validation. What happens after
+acceptance — storage engine, retention policy, replication — is the node
+operator's choice. The Firecat protocol defines validation rules, not storage
+requirements.
+
+Testnet nodes (`testnet-evergreen.fire.cat`) use persistent backends, but this
+is an operator decision. A Firecat node backed by MemoryClient is still a valid
+Firecat node — it just loses state on restart. App developers should not assume
+durability from the protocol. If an app needs guaranteed persistence, it should
+confirm reads after writes or use redundant nodes.
 
 ## Resource Visibility
 
@@ -146,9 +213,115 @@ mutable://accounts/{userPubkey}/
 └── executions       (encrypted to user — activity log)
 ```
 
-## React Applications
+---
 
-### Project Setup
+## Running a Firecat Node
+
+Run your own Firecat node for local development or to operate a public node on
+the Firecat network. Firecat nodes validate messages against the canonical
+schema above.
+
+### Installation
+
+```typescript
+// deno.json
+{ "imports": { "@bandeira-tech/b3nd-sdk": "jsr:@bandeira-tech/b3nd-sdk" } }
+
+import {
+  createServerNode, createValidatedClient, firstMatchSequence,
+  FunctionalClient, HttpClient, MemoryClient, MongoClient, msgSchema,
+  parallelBroadcast, PostgresClient, send, servers,
+} from "@bandeira-tech/b3nd-sdk";
+```
+
+### HTTP Server with Hono
+
+```typescript
+import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
+import { Hono } from "hono";
+
+// Import or define the Firecat schema
+import firecatSchema from "./firecat-schema.ts";
+
+const client = new MemoryClient({ schema: firecatSchema });
+const app = new Hono();
+const frontend = servers.httpServer(app);
+const node = createServerNode({ frontend, client });
+node.listen(43100);
+```
+
+### Multi-Backend Server
+
+```typescript
+const clients = [
+  new MemoryClient({ schema: firecatSchema }),
+  new PostgresClient({ connection, schema: firecatSchema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+];
+
+const client = createValidatedClient({
+  receive: parallelBroadcast(clients),
+  read: firstMatchSequence(clients),
+  validate: msgSchema(firecatSchema),
+});
+
+const frontend = servers.httpServer(app);
+createServerNode({ frontend, client });
+```
+
+### PostgreSQL / MongoDB Setup
+
+```typescript
+// Postgres
+const pg = new PostgresClient({
+  connection: "postgresql://user:pass@localhost:5432/db",
+  schema: firecatSchema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
+}, executor);
+await pg.initializeSchema();
+
+// MongoDB
+const mongo = new MongoClient({
+  connectionString: "mongodb://localhost:27017/mydb",
+  schema: firecatSchema, collectionName: "b3nd_data",
+}, executor);
+```
+
+### Environment Variables
+
+```bash
+PORT=43100
+CORS_ORIGIN=*
+BACKEND_URL=postgres://user:pass@localhost:5432/db
+SCHEMA_MODULE=./firecat-schema.ts
+# Multiple backends:
+BACKEND_URL=memory://,postgres://...,http://other-node:9942
+```
+
+---
+
+## Building Browser Apps
+
+### Installation
+
+```bash
+npm install @bandeira-tech/b3nd-web
+```
+
+```typescript
+import { HttpClient, LocalStorageClient } from "@bandeira-tech/b3nd-web";
+import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
+```
+
+### LocalStorageClient
+
+```typescript
+const local = new LocalStorageClient({
+  keyPrefix: "myapp_",
+  schema: {/* optional */},
+});
+```
+
+### React Project Setup
 
 ```json
 {
@@ -301,9 +474,81 @@ function PasswordDialog({ isOpen, onSubmit, onCancel }) {
 }
 ```
 
-## E2E Testing
+---
 
-### Playwright Setup
+## Deno CLI & Scripts
+
+```typescript
+#!/usr/bin/env -S deno run -A
+import { HttpClient } from "@bandeira-tech/b3nd-sdk";
+
+const BACKEND_URL = Deno.env.get("BACKEND_URL") || "https://testnet-evergreen.fire.cat";
+const client = new HttpClient({ url: BACKEND_URL });
+
+async function main() {
+  const command = Deno.args[0];
+  switch (command) {
+    case "read": {
+      const result = await client.read(Deno.args[1]);
+      if (result.success) console.log(JSON.stringify(result.record?.data, null, 2));
+      else console.error(result.error);
+      break;
+    }
+    case "list": {
+      const result = await client.list(Deno.args[1], { limit: 10 });
+      if (result.success) console.log(result.data);
+      break;
+    }
+    default:
+      console.log("Usage: cli.ts <read|list> <uri>");
+  }
+}
+main();
+```
+
+---
+
+## Testing Firecat Apps
+
+### Unit Testing with MemoryClient
+
+```typescript
+import { assertEquals } from "@std/assert";
+import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
+
+// Use the Firecat schema for realistic testing
+import firecatSchema from "./firecat-schema.ts";
+
+Deno.test("send and read on Firecat schema", async () => {
+  const client = new MemoryClient({ schema: firecatSchema });
+  const result = await send({
+    payload: {
+      inputs: [],
+      outputs: [["mutable://open/my-app/item1", { name: "Test" }]],
+    },
+  }, client);
+  assertEquals(result.accepted, true);
+  const read = await client.read("mutable://open/my-app/item1");
+  assertEquals(read.record?.data, { name: "Test" });
+  await client.cleanup();
+});
+```
+
+### Shared Test Suites
+
+```typescript
+import { runSharedSuite } from "../tests/shared-suite.ts";
+import { runNodeSuite } from "../tests/node-suite.ts";
+
+runSharedSuite("MyClient", {
+  happy: () => createMyClient(firecatSchema),
+  validationError: () => createMyClient(strictSchema),
+});
+```
+
+### E2E Testing with Playwright
+
+#### Playwright Setup
 
 ```typescript
 // playwright.config.ts
@@ -322,7 +567,7 @@ export default defineConfig({
 });
 ```
 
-### PersistedMemoryClient
+#### PersistedMemoryClient
 
 Memory client that survives page reloads by backing to localStorage:
 
@@ -346,7 +591,7 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
 }
 ```
 
-### URL Parameter Detection
+#### URL Parameter Detection
 
 ```typescript
 // ?e2e triggers full in-memory mode
@@ -357,7 +602,7 @@ export function parseUrlConfig(): Partial<BackendConfig> | null {
 }
 ```
 
-### Test Client Injection
+#### Test Client Injection
 
 Initialize test clients BEFORE AuthContext loads:
 
@@ -369,7 +614,7 @@ if (useMemoryMode) {
 }
 ```
 
-### Test Helpers
+#### Test Helpers
 
 ```typescript
 export const TEST_USERS = {
@@ -384,3 +629,16 @@ export async function clearTestData(page: Page) { /* ... */ }
 
 Key patterns: URL param detection, early initialization, persisted memory,
 session restoration, test client injection, data isolation.
+
+### Makefile
+
+```makefile
+test:
+ifdef t
+	@deno test --allow-all $(t)
+else
+	@deno test --allow-all tests/
+endif
+start:
+	@deno run -A mod.ts
+```
