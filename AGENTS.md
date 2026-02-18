@@ -79,8 +79,7 @@ b3nd/
 │   ├── wallet-node/            # Wallet/auth server
 │   ├── b3nd-web-rig/           # React/Vite data explorer + dashboard UI (port 5555)
 │   ├── sdk-inspector/          # Test runner backend (port 5556, writes results to B3nd)
-│   ├── b3nd-cli/               # bnd CLI tool (Deno, compiled binary)
-│   └── b3nd-managed-node/      # Managed node entry point + Dockerfile
+│   └── b3nd-cli/               # bnd CLI tool (Deno, compiled binary)
 ├── tests/                      # E2E tests
 ├── skills/                     # Claude Code plugin skills
 └── .claude-plugin/             # Plugin manifest + MCP server
