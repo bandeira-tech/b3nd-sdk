@@ -234,7 +234,7 @@ A library for a higher-level protocol provides:
 | Web Rig       | `apps/b3nd-web-rig/`   | React, Vite, Tailwind | Data explorer + developer dashboard. Port 5555.        |
 | Inspector     | `apps/sdk-inspector/`  | Deno, Hono            | Test runner. Writes results to B3nd. Port 5556.        |
 | CLI           | `apps/b3nd-cli/`       | Deno                  | `bnd read <uri>`, `bnd list <uri>`, `bnd node`, etc.  |
-| Managed Node  | `apps/b3nd-managed-node/` | Deno, Docker       | Self-configuring node entry point.                     |
+| Managed Node  | `apps/b3nd-node/` (Phase 2) | Deno, Docker     | Managed mode activated by CONFIG_URL env var.           |
 
 ### Inspector + Dashboard
 

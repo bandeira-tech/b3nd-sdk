@@ -75,9 +75,9 @@ Deno.test("compose: environment vars include required keys", () => {
   const manifest = createTestManifest(1);
   const yaml = generateCompose(manifest, { operatorPubKeyHex: OPERATOR_KEY });
 
-  assertEquals(yaml.includes("NODE_PUBLIC_KEY_HEX"), true);
-  assertEquals(yaml.includes("OPERATOR_PUBLIC_KEY_HEX"), true);
-  assertEquals(yaml.includes("CONFIG_SERVER_URL"), true);
+  assertEquals(yaml.includes("NODE_ID"), true);
+  assertEquals(yaml.includes("OPERATOR_KEY"), true);
+  assertEquals(yaml.includes("CONFIG_URL"), true);
   assertEquals(yaml.includes(OPERATOR_KEY), true);
 });
 
@@ -123,7 +123,7 @@ Deno.test("compose: useImages option sets image instead of build", () => {
   });
 
   assertEquals(yaml.includes("image:"), true);
-  assertEquals(yaml.includes("b3nd-managed-node:latest"), true);
+  assertEquals(yaml.includes("b3nd-node:latest"), true);
 });
 
 Deno.test("compose: custom image names", () => {
@@ -160,7 +160,7 @@ Deno.test("compose: node with postgres backend depends on postgres", () => {
   assertEquals(yaml.includes("postgres"), true);
 });
 
-Deno.test("compose: NODE_PUBLIC_KEY_HEX uses node.publicKey", () => {
+Deno.test("compose: NODE_ID uses node.publicKey", () => {
   const manifest = createTestManifest(1);
   manifest.nodes[0].publicKey = "deadbeef1234";
 

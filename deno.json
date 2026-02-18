@@ -75,7 +75,6 @@
     "apps/apps-node",
     "apps/b3nd-cli",
     "apps/b3nd-node",
-    "apps/b3nd-managed-node",
     "apps/sdk-inspector",
     "apps/wallet-node",
     "tests"

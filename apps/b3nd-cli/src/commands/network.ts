@@ -169,11 +169,12 @@ export async function networkUp(
 
   console.log(`\nConfigs pushed. Start managed nodes with:`);
   for (const node of manifest.nodes) {
-    console.log(`  NODE_PUBLIC_KEY_HEX=${node.publicKey} \\`);
-    console.log(`  OPERATOR_PUBLIC_KEY_HEX=${publicKeyHex} \\`);
-    console.log(`  CONFIG_SERVER_URL=${appConfig.node} \\`);
+    console.log(`  PORT=9942 CORS_ORIGIN="*" BACKEND_URL=memory:// \\`);
+    console.log(`  CONFIG_URL=${appConfig.node} \\`);
+    console.log(`  NODE_ID=${node.publicKey} \\`);
+    console.log(`  OPERATOR_KEY=${publicKeyHex} \\`);
     console.log(`  NODE_PRIVATE_KEY_PEM=<key> \\`);
-    console.log(`  deno run -A apps/b3nd-managed-node/mod.ts`);
+    console.log(`  deno run -A apps/b3nd-node/mod.ts`);
     console.log("");
   }
 }

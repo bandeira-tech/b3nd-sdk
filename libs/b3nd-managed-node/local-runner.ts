@@ -50,10 +50,15 @@ export async function startLocalNetwork(
     }
 
     const env: Record<string, string> = {
-      NODE_PUBLIC_KEY_HEX: node.nodeId,
+      // Phase 1: bootstrap
+      PORT: String(node.config.server.port),
+      CORS_ORIGIN: node.config.server.corsOrigin,
+      BACKEND_URL: "memory://",
+      // Phase 2: managed mode
+      NODE_ID: node.nodeId,
       NODE_PRIVATE_KEY_PEM: privateKeyPem,
-      OPERATOR_PUBLIC_KEY_HEX: options.operatorPubKeyHex,
-      CONFIG_SERVER_URL: options.configServerUrl,
+      OPERATOR_KEY: options.operatorPubKeyHex,
+      CONFIG_URL: options.configServerUrl,
     };
 
     const flags = options.denoFlags ?? ["-A"];

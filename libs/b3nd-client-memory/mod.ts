@@ -75,9 +75,12 @@ function target(
     return { success: false, error: "Program not found" };
   }
 
-  const node = storage.get(program);
+  let node = storage.get(program);
   if (!node) {
-    return { success: false, error: "Storage not initialized for program" };
+    // Lazy-init storage for programs that are in the schema but weren't
+    // pre-initialized (e.g., dynamic/proxy schemas).
+    node = { children: new Map() };
+    storage.set(program, node);
   }
 
   const parts = url.pathname.substring(1).split("/");

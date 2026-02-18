@@ -8,6 +8,9 @@
     "@bandeira-tech/b3nd-sdk/types": "../../libs/b3nd-core/types.ts",
     "@bandeira-tech/b3nd-sdk/hash": "../../libs/b3nd-hash/mod.ts",
     "@bandeira-tech/b3nd-sdk/client-mongo": "../../libs/b3nd-client-mongo/mod.ts",
+    "@b3nd/managed-node": "../../libs/b3nd-managed-node/mod.ts",
+    "@b3nd/managed-node/types": "../../libs/b3nd-managed-node/types.ts",
+    "@b3nd/encrypt": "../../libs/b3nd-encrypt/mod.ts",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
     "hono": "npm:hono"
   }

@@ -113,19 +113,24 @@ export function generateCompose(
 
     compose.services[serviceName] = {
       ...(options.useImages
-        ? { image: options.managedNodeImage ?? "b3nd-managed-node:latest" }
+        ? { image: options.managedNodeImage ?? "b3nd-node:latest" }
         : {
             build: {
               context: options.projectRoot ?? ".",
-              dockerfile: "apps/b3nd-managed-node/Dockerfile",
+              dockerfile: "apps/b3nd-node/Dockerfile",
             },
           }),
       ports: [`${node.config.server.port}:${node.config.server.port}`],
       environment: {
-        NODE_PUBLIC_KEY_HEX: node.publicKey,
+        // Phase 1: bootstrap node
+        PORT: String(node.config.server.port),
+        CORS_ORIGIN: node.config.server.corsOrigin,
+        BACKEND_URL: "memory://",
+        // Phase 2: managed mode
+        NODE_ID: node.publicKey,
         NODE_PRIVATE_KEY_PEM: `\${${serviceName.toUpperCase().replace(/-/g, "_")}_PRIVATE_KEY_PEM}`,
-        OPERATOR_PUBLIC_KEY_HEX: options.operatorPubKeyHex,
-        CONFIG_SERVER_URL: "http://config-server:9900",
+        OPERATOR_KEY: options.operatorPubKeyHex,
+        CONFIG_URL: "http://config-server:9900",
         NODE_ENCRYPTION_PUBLIC_KEY_HEX: node.encryptionPublicKey ?? "",
         OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX: `\${OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX}`,
       },
