@@ -16,9 +16,10 @@ import {
   write,
 } from "./commands.ts";
 import {
-  nodeKeygen,
-  nodeConfigPush,
   nodeConfigGet,
+  nodeConfigPush,
+  nodeEnv,
+  nodeKeygen,
   nodeStatus,
 } from "./commands/node.ts";
 import {
@@ -160,6 +161,9 @@ async function main(): Promise<void> {
         }
         if (subcommand === "keygen") {
           await nodeKeygen(cleanArgs[2]);
+        } else if (subcommand === "env") {
+          if (!cleanArgs[2]) throw new Error("Key file path required. Usage: bnd node env <keyfile>");
+          await nodeEnv(cleanArgs[2]);
         } else if (subcommand === "config") {
           const action = cleanArgs[2];
           if (action === "push") {

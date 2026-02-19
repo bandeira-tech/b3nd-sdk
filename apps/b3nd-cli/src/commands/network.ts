@@ -7,9 +7,10 @@
  *   bnd network status <networkId>  - Read all node statuses in a network
  */
 
-import { getClient, closeClient } from "../client.ts";
+import { closeClient, getClient } from "../client.ts";
 import { loadConfig } from "../config.ts";
 import { createLogger } from "../logger.ts";
+import { loadAccountKey, signAsAuthenticatedMessage } from "../keys.ts";
 
 interface NetworkManifest {
   networkId: string;
@@ -53,7 +54,6 @@ export async function networkCreate(
 
 /**
  * Spin up a local network from a manifest file.
- * Uses Deno subprocess spawning (lighter weight than Docker).
  */
 export async function networkUp(
   manifestPath: string,
@@ -73,7 +73,9 @@ export async function networkUp(
     throw new Error("Network manifest has no nodes. Add nodes first.");
   }
 
-  console.log(`Starting network: ${manifest.name} (${manifest.nodes.length} nodes)`);
+  console.log(
+    `Starting network: ${manifest.name} (${manifest.nodes.length} nodes)`,
+  );
   console.log("");
 
   const appConfig = await loadConfig();
@@ -81,102 +83,46 @@ export async function networkUp(
     throw new Error("No node URL configured. Run: bnd conf node <url>");
   }
 
-  // First, push all node configs to the config server
-  const accountContent = await Deno.readTextFile(appConfig.account!);
-  const pubkeyLine = accountContent.split("\n").find((l) => l.startsWith("PUBLIC_KEY_HEX="));
-  const publicKeyHex = pubkeyLine?.substring("PUBLIC_KEY_HEX=".length) ?? "";
+  const accountKey = await loadAccountKey();
 
   try {
     const client = await getClient(logger);
 
     for (const node of manifest.nodes) {
-      const uri = `mutable://accounts/${publicKeyHex}/nodes/${node.nodeId}/config`;
+      const uri =
+        `mutable://accounts/${accountKey.publicKeyHex}/nodes/${node.nodeId}/config`;
       logger?.info(`Pushing config for ${node.name} to ${uri}`);
 
-      // Sign the config
-      const pemLines: string[] = [];
-      for (const line of accountContent.split("\n")) {
-        if (!line.startsWith("PUBLIC_KEY_HEX=")) pemLines.push(line);
-      }
-      const pem = pemLines.join("\n");
-      const base64 = pem.split("\n").filter((l) => !l.startsWith("-----")).join("");
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const privateKey = await crypto.subtle.importKey(
-        "pkcs8",
-        bytes.buffer,
-        { name: "Ed25519", namedCurve: "Ed25519" },
-        false,
-        ["sign"],
+      const signedConfig = await signAsAuthenticatedMessage(
+        node.config,
+        accountKey,
       );
-      const encoder = new TextEncoder();
-      const { encodeHex } = await import("@std/encoding/hex");
-      const sigBytes = await crypto.subtle.sign(
-        "Ed25519",
-        privateKey,
-        encoder.encode(JSON.stringify(node.config)),
-      );
-
-      const signedConfig = {
-        auth: [{ pubkey: publicKeyHex, signature: encodeHex(new Uint8Array(sigBytes)) }],
-        payload: node.config,
-      };
-
       const result = await client.receive([uri, signedConfig]);
+
       if (result.accepted) {
         console.log(`  Pushed config for ${node.name}`);
       } else {
-        console.log(`  Failed to push config for ${node.name}: ${result.error}`);
+        console.log(
+          `  Failed to push config for ${node.name}: ${result.error}`,
+        );
       }
     }
 
-    // Also push the network manifest
-    const networkUri = `mutable://accounts/${publicKeyHex}/networks/${manifest.networkId}`;
-    const netSigBytes = await crypto.subtle.sign(
-      "Ed25519",
-      await (async () => {
-        const pemLines: string[] = [];
-        for (const line of accountContent.split("\n")) {
-          if (!line.startsWith("PUBLIC_KEY_HEX=")) pemLines.push(line);
-        }
-        const pem = pemLines.join("\n");
-        const base64 = pem.split("\n").filter((l) => !l.startsWith("-----")).join("");
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        return await crypto.subtle.importKey(
-          "pkcs8",
-          bytes.buffer,
-          { name: "Ed25519", namedCurve: "Ed25519" },
-          false,
-          ["sign"],
-        );
-      })(),
-      new TextEncoder().encode(JSON.stringify(manifest)),
+    // Push network manifest
+    const networkUri =
+      `mutable://accounts/${accountKey.publicKeyHex}/networks/${manifest.networkId}`;
+    const signedManifest = await signAsAuthenticatedMessage(
+      manifest,
+      accountKey,
     );
-    const { encodeHex } = await import("@std/encoding/hex");
-    const signedManifest = {
-      auth: [{ pubkey: publicKeyHex, signature: encodeHex(new Uint8Array(netSigBytes)) }],
-      payload: manifest,
-    };
     await client.receive([networkUri, signedManifest]);
     console.log(`\nNetwork manifest pushed to ${networkUri}`);
-
   } finally {
     await closeClient(logger);
   }
 
-  console.log(`\nConfigs pushed. Start managed nodes with:`);
-  for (const node of manifest.nodes) {
-    console.log(`  PORT=9942 CORS_ORIGIN="*" BACKEND_URL=memory:// \\`);
-    console.log(`  CONFIG_URL=${appConfig.node} \\`);
-    console.log(`  NODE_ID=${node.publicKey} \\`);
-    console.log(`  OPERATOR_KEY=${publicKeyHex} \\`);
-    console.log(`  NODE_PRIVATE_KEY_PEM=<key> \\`);
-    console.log(`  deno run -A apps/b3nd-node/mod.ts`);
-    console.log("");
-  }
+  console.log(`\nConfigs pushed. To start each managed node:`);
+  console.log(`  bnd node env <keyfile>   # outputs all Phase 2 env vars`);
 }
 
 /**
@@ -188,25 +134,17 @@ export async function networkStatus(
 ): Promise<void> {
   const logger = createLogger(verbose);
 
-  const appConfig = await loadConfig();
-  if (!appConfig.account) {
-    throw new Error("No account configured. Run: bnd account create");
-  }
+  const accountKey = await loadAccountKey();
 
-  const accountContent = await Deno.readTextFile(appConfig.account);
-  const pubkeyLine = accountContent.split("\n").find((l) => l.startsWith("PUBLIC_KEY_HEX="));
-  const publicKeyHex = pubkeyLine?.substring("PUBLIC_KEY_HEX=".length) ?? "";
-
-  // Try to read network manifest from B3nd or local file
   let manifest: NetworkManifest;
   try {
     const content = await Deno.readTextFile(networkIdOrPath);
     manifest = JSON.parse(content);
   } catch {
-    // Try reading from B3nd
     try {
       const client = await getClient(logger);
-      const uri = `mutable://accounts/${publicKeyHex}/networks/${networkIdOrPath}`;
+      const uri =
+        `mutable://accounts/${accountKey.publicKeyHex}/networks/${networkIdOrPath}`;
       const result = await client.read(uri);
       if (result.success && result.record) {
         const data = result.record.data as any;
@@ -216,7 +154,9 @@ export async function networkStatus(
       }
       await closeClient(logger);
     } catch {
-      throw new Error(`Cannot find network: ${networkIdOrPath} (not a file or known network ID)`);
+      throw new Error(
+        `Cannot find network: ${networkIdOrPath} (not a file or known network ID)`,
+      );
     }
   }
 
@@ -228,7 +168,6 @@ export async function networkStatus(
     const client = await getClient(logger);
 
     for (const node of manifest.nodes) {
-      // Status is at the node's own account, keyed by publicKey
       const nodeKey = node.publicKey;
       const statusUri = `mutable://accounts/${nodeKey}/status`;
       const result = await client.read(statusUri);
@@ -236,11 +175,23 @@ export async function networkStatus(
       if (result.success && result.record) {
         const data = result.record.data as any;
         const status = data.payload ?? data;
-        const statusIcon = status.status === "online" ? "+" : status.status === "degraded" ? "~" : "x";
-        console.log(`  [${statusIcon}] ${node.name} (${nodeKey.slice(0, 12)}...)`);
-        console.log(`      Status: ${status.status}, Port: ${status.server?.port}, Uptime: ${formatUptime(status.uptime)}`);
+        const statusIcon = status.status === "online"
+          ? "+"
+          : status.status === "degraded"
+          ? "~"
+          : "x";
+        console.log(
+          `  [${statusIcon}] ${node.name} (${nodeKey.slice(0, 12)}...)`,
+        );
+        console.log(
+          `      Status: ${status.status}, Port: ${status.server?.port}, Uptime: ${
+            formatUptime(status.uptime)
+          }`,
+        );
       } else {
-        console.log(`  [?] ${node.name} (${nodeKey.slice(0, 12)}...) - no status`);
+        console.log(
+          `  [?] ${node.name} (${nodeKey.slice(0, 12)}...) - no status`,
+        );
       }
     }
   } finally {

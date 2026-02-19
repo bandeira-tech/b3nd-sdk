@@ -4,7 +4,17 @@ import { createLogger, Logger } from "./logger.ts";
 import { dirname, parse } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { encodeHex } from "@std/encoding/hex";
-import { decrypt, encrypt, type EncryptedPayload } from "@b3nd/sdk/encrypt";
+import {
+  decrypt,
+  encrypt,
+  type EncryptedPayload,
+  pemToCryptoKey,
+} from "@b3nd/sdk/encrypt";
+import {
+  loadAccountKey,
+  loadEncryptionKey,
+  signAsAuthenticatedMessage,
+} from "./keys.ts";
 
 /**
  * Compute SHA256 hash of binary data
@@ -12,7 +22,7 @@ import { decrypt, encrypt, type EncryptedPayload } from "@b3nd/sdk/encrypt";
  * @returns Hex-encoded SHA256 hash
  */
 async function computeSha256(data: Uint8Array): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data as BufferSource);
   return encodeHex(new Uint8Array(hashBuffer));
 }
 
@@ -32,180 +42,6 @@ function parseUri(
     domain: match[2],
     path: match[3],
   };
-}
-
-/**
- * Account key - stored as PEM file
- */
-interface AccountKey {
-  privateKeyPem: string; // PKCS8 PEM encoded Ed25519 private key
-  publicKeyHex: string; // Hex encoded public key
-}
-
-/**
- * Encryption key - stored as PEM file
- */
-interface EncryptionKey {
-  privateKeyPem: string; // PKCS8 PEM encoded X25519 private key
-  publicKeyHex: string; // Hex encoded public key
-}
-
-/**
- * Convert PEM string to CryptoKey (Ed25519 or X25519)
- */
-async function pemToCryptoKey(
-  pem: string,
-  algorithm: "Ed25519" | "X25519" = "Ed25519",
-): Promise<CryptoKey> {
-  // Extract base64 content from PEM
-  const base64 = pem
-    .split("\n")
-    .filter((line) => !line.startsWith("-----"))
-    .join("");
-
-  // Decode base64 to bytes
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  // Import as PKCS8 private key
-  if (algorithm === "Ed25519") {
-    return await crypto.subtle.importKey(
-      "pkcs8",
-      bytes,
-      { name: "Ed25519", namedCurve: "Ed25519" },
-      false,
-      ["sign"],
-    );
-  } else {
-    return await crypto.subtle.importKey(
-      "pkcs8",
-      bytes,
-      { name: "X25519", namedCurve: "X25519" },
-      false,
-      ["deriveBits"],
-    );
-  }
-}
-
-/**
- * Load account key from configured path (PEM format)
- */
-async function loadAccountKey(): Promise<
-  { privateKeyPem: string; publicKeyHex: string }
-> {
-  const config = await loadConfig();
-  if (!config.account) {
-    throw new Error(
-      "No account configured. Run: bnd account create",
-    );
-  }
-
-  try {
-    const content = await Deno.readTextFile(config.account);
-
-    // Parse as simple format: PEM + optional public key on last line
-    const lines = content.trim().split("\n");
-    let publicKeyHex = "";
-    let pemLines: string[] = [];
-
-    for (const line of lines) {
-      if (line.startsWith("PUBLIC_KEY_HEX=")) {
-        publicKeyHex = line.substring("PUBLIC_KEY_HEX=".length);
-      } else {
-        pemLines.push(line);
-      }
-    }
-
-    const privateKeyPem = pemLines.join("\n");
-
-    if (!publicKeyHex) {
-      throw new Error("Public key not found in account key file");
-    }
-
-    return { privateKeyPem, publicKeyHex };
-  } catch (error) {
-    throw new Error(
-      `Failed to load account key from ${config.account}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-}
-
-/**
- * Load encryption key from configured path (PEM format)
- */
-async function loadEncryptionKey(): Promise<
-  { privateKeyPem: string; publicKeyHex: string }
-> {
-  const config = await loadConfig();
-  if (!config.encrypt) {
-    throw new Error(
-      "No encryption key configured. Run: bnd encrypt create",
-    );
-  }
-
-  try {
-    const content = await Deno.readTextFile(config.encrypt);
-
-    // Parse as simple format: PEM + optional public key on last line
-    const lines = content.trim().split("\n");
-    let publicKeyHex = "";
-    let pemLines: string[] = [];
-
-    for (const line of lines) {
-      if (line.startsWith("PUBLIC_KEY_HEX=")) {
-        publicKeyHex = line.substring("PUBLIC_KEY_HEX=".length);
-      } else {
-        pemLines.push(line);
-      }
-    }
-
-    const privateKeyPem = pemLines.join("\n");
-
-    if (!publicKeyHex) {
-      throw new Error("Public key not found in encryption key file");
-    }
-
-    return { privateKeyPem, publicKeyHex };
-  } catch (error) {
-    throw new Error(
-      `Failed to load encryption key from ${config.encrypt}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-}
-
-/**
- * Sign payload with account private key (PEM format)
- */
-async function signPayload(
-  privateKeyPem: string,
-  payload: unknown,
-): Promise<string> {
-  try {
-    const privateKey = await pemToCryptoKey(privateKeyPem, "Ed25519");
-
-    const encoder = new TextEncoder();
-    const data = encoder.encode(JSON.stringify(payload));
-
-    const signatureBytes = await crypto.subtle.sign(
-      "Ed25519",
-      privateKey,
-      data,
-    );
-    return encodeHex(new Uint8Array(signatureBytes));
-  } catch (error) {
-    throw new Error(
-      `Failed to sign payload: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
 }
 
 /**
@@ -456,21 +292,11 @@ export async function write(args: string[], verbose = false): Promise<void> {
             );
             logger?.info(`Encrypted payload`);
 
-            const signature = await signPayload(
-              accountKey.privateKeyPem,
+            data = await signAsAuthenticatedMessage(
               encryptedPayload,
+              accountKey,
             );
             logger?.info(`Signed encrypted payload with account key`);
-
-            data = {
-              auth: [
-                {
-                  pubkey: accountKey.publicKeyHex,
-                  signature: signature,
-                },
-              ],
-              payload: encryptedPayload,
-            };
           } catch (error) {
             throw new Error(
               `Encryption failed: ${
@@ -479,18 +305,8 @@ export async function write(args: string[], verbose = false): Promise<void> {
             );
           }
         } else {
-          const signature = await signPayload(accountKey.privateKeyPem, data);
+          data = await signAsAuthenticatedMessage(data, accountKey);
           logger?.info(`Signed payload with account key`);
-
-          data = {
-            auth: [
-              {
-                pubkey: accountKey.publicKeyHex,
-                signature: signature,
-              },
-            ],
-            payload: data,
-          };
         }
       }
     }
@@ -722,7 +538,8 @@ COMMANDS:
   config                   Show current configuration
   server-keys env          Generate server keys and print .env entries
 
-  node keygen [path]       Generate Ed25519 keypair for a managed node
+  node keygen [path]       Generate Ed25519 + X25519 keypairs for a managed node
+  node env <keyfile>       Output Phase 2 env vars from a node key file
   node config push <file>  Sign and push node config to B3nd
   node config get <nodeId> Read current config for a node
   node status <nodeId>     Read node heartbeat status
@@ -935,30 +752,6 @@ async function* walkDirectory(dir: string): AsyncGenerator<{ path: string }> {
 }
 
 /**
- * Sign binary payload with account private key
- */
-async function signBinaryPayload(
-  privateKeyPem: string,
-  data: Uint8Array,
-): Promise<string> {
-  try {
-    const privateKey = await pemToCryptoKey(privateKeyPem, "Ed25519");
-    const signatureBytes = await crypto.subtle.sign(
-      "Ed25519",
-      privateKey,
-      data,
-    );
-    return encodeHex(new Uint8Array(signatureBytes));
-  } catch (error) {
-    throw new Error(
-      `Failed to sign payload: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-}
-
-/**
  * Generate server identity (Ed25519) and encryption (X25519) keys
  * and print .env-compatible lines. Also writes .env.keys in CWD.
  */
@@ -1159,17 +952,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     for (const [relativePath, hashUri] of hashMap) {
       const linkUri = `${versionBase}${relativePath}`;
 
-      // Create signed link payload
-      const signature = await signPayload(accountKey.privateKeyPem, hashUri);
-      const signedLink = {
-        auth: [
-          {
-            pubkey: accountKey.publicKeyHex,
-            signature: signature,
-          },
-        ],
-        payload: hashUri,
-      };
+      const signedLink = await signAsAuthenticatedMessage(hashUri, accountKey);
 
       const result = await client.receive([linkUri, signedLink]);
 
@@ -1189,16 +972,10 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     console.log("Phase 3: Updating pointer...");
 
     // The mutable pointer stores the version base (a link:// URI that paths get appended to)
-    const signature = await signPayload(accountKey.privateKeyPem, versionBase);
-    const signedPointer = {
-      auth: [
-        {
-          pubkey: accountKey.publicKeyHex,
-          signature: signature,
-        },
-      ],
-      payload: versionBase,
-    };
+    const signedPointer = await signAsAuthenticatedMessage(
+      versionBase,
+      accountKey,
+    );
 
     const pointerResult = await client.receive([resolvedTarget, signedPointer]);
 

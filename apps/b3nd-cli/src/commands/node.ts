@@ -2,49 +2,104 @@
  * CLI commands for managing B3nd nodes.
  *
  * Commands:
- *   bnd node keygen [path]          - Generate Ed25519 keypair for a new node
+ *   bnd node keygen [path]          - Generate Ed25519 + X25519 keypair for a new node
+ *   bnd node env <keyfile>          - Output Phase 2 env vars from a node key file
  *   bnd node config push <file>     - Sign and write config to B3nd
  *   bnd node config get <nodeId>    - Read current config for a node
  *   bnd node status <nodeKey>       - Read node status (by node's public key)
  */
 
-import { getClient, closeClient } from "../client.ts";
+import { closeClient, getClient } from "../client.ts";
 import { loadConfig } from "../config.ts";
 import { createLogger } from "../logger.ts";
+import {
+  loadAccountKey,
+  loadEncryptionKey,
+  loadKeyFile,
+  signAsAuthenticatedMessage,
+} from "../keys.ts";
 import { encodeHex } from "@std/encoding/hex";
+import {
+  exportPrivateKeyPem,
+  generateEncryptionKeyPair,
+  generateSigningKeyPair,
+} from "@b3nd/sdk/encrypt";
 
 /**
- * Generate Ed25519 keypair for a new managed node
+ * Generate Ed25519 + X25519 keypair for a new managed node
  */
 export async function nodeKeygen(outputPath?: string): Promise<void> {
-  const keyPair = await crypto.subtle.generateKey(
-    "Ed25519",
-    true,
-    ["sign", "verify"],
+  const signingPair = await generateSigningKeyPair();
+  const privateKeyPem = await exportPrivateKeyPem(
+    signingPair.privateKey,
+    "PRIVATE KEY",
   );
 
-  const privateKeyBuffer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-  const publicKeyBuffer = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const encryptionPair = await generateEncryptionKeyPair();
+  const encryptionPrivateKeyBytes = new Uint8Array(
+    await crypto.subtle.exportKey("pkcs8", encryptionPair.privateKey),
+  );
+  const encryptionPrivateKeyHex = encodeHex(encryptionPrivateKeyBytes);
 
-  const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKeyBuffer)));
-  const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${
-    privateKeyBase64.match(/.{1,64}/g)?.join("\n")
-  }\n-----END PRIVATE KEY-----`;
-  const publicKeyHex = encodeHex(new Uint8Array(publicKeyBuffer));
+  const keyPath = outputPath ??
+    `${Deno.env.get("HOME")}/.bnd/nodes/${signingPair.publicKeyHex.slice(0, 12)}.key`;
 
-  const keyPath = outputPath ?? `${Deno.env.get("HOME")}/.bnd/nodes/${publicKeyHex.slice(0, 12)}.key`;
-
-  // Create directory if needed
   const dir = keyPath.split("/").slice(0, -1).join("/");
   await Deno.mkdir(dir, { recursive: true });
 
-  const content = `${privateKeyPem}\nPUBLIC_KEY_HEX=${publicKeyHex}`;
+  const content = [
+    privateKeyPem,
+    `PUBLIC_KEY_HEX=${signingPair.publicKeyHex}`,
+    `ENCRYPTION_PRIVATE_KEY_HEX=${encryptionPrivateKeyHex}`,
+    `ENCRYPTION_PUBLIC_KEY_HEX=${encryptionPair.publicKeyHex}`,
+  ].join("\n");
+
   await Deno.writeTextFile(keyPath, content);
   await Deno.chmod(keyPath, 0o600);
 
   console.log(`Node keypair generated`);
-  console.log(`  Node ID (public key): ${publicKeyHex}`);
+  console.log(`  Node ID: ${signingPair.publicKeyHex}`);
+  console.log(`  Encryption: ${encryptionPair.publicKeyHex}`);
   console.log(`  Key file: ${keyPath}`);
+}
+
+/**
+ * Output Phase 2 env vars from a node key file + operator config
+ */
+export async function nodeEnv(keyFilePath: string): Promise<void> {
+  const nodeKey = await loadKeyFile(keyFilePath);
+
+  if (!nodeKey.encryptionPrivateKeyHex) {
+    throw new Error(
+      "Key file missing ENCRYPTION_PRIVATE_KEY_HEX. Regenerate with: bnd node keygen",
+    );
+  }
+
+  const config = await loadConfig();
+  const accountKey = await loadAccountKey();
+
+  let operatorEncryptionPubHex = "";
+  if (config.encrypt) {
+    const encryptionKey = await loadEncryptionKey();
+    operatorEncryptionPubHex = encryptionKey.publicKeyHex;
+  }
+
+  console.log(`NODE_ID=${nodeKey.publicKeyHex}`);
+  console.log(
+    `NODE_PRIVATE_KEY_PEM="${nodeKey.privateKeyPem.replace(/\n/g, "\\n")}"`,
+  );
+  console.log(
+    `NODE_ENCRYPTION_PRIVATE_KEY_HEX=${nodeKey.encryptionPrivateKeyHex}`,
+  );
+  console.log(`OPERATOR_KEY=${accountKey.publicKeyHex}`);
+  if (operatorEncryptionPubHex) {
+    console.log(
+      `OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX=${operatorEncryptionPubHex}`,
+    );
+  }
+  if (config.node) {
+    console.log(`CONFIG_URL=${config.node}`);
+  }
 }
 
 /**
@@ -64,59 +119,14 @@ export async function nodeConfigPush(
     throw new Error(`Failed to parse config file as JSON: ${configFilePath}`);
   }
 
-  const appConfig = await loadConfig();
-  if (!appConfig.account) {
-    throw new Error("No account configured. Run: bnd account create");
-  }
+  const accountKey = await loadAccountKey();
+  const signedMessage = await signAsAuthenticatedMessage(config, accountKey);
 
-  // Load account key for signing
-  const accountContent = await Deno.readTextFile(appConfig.account);
-  const lines = accountContent.trim().split("\n");
-  let publicKeyHex = "";
-  const pemLines: string[] = [];
-  for (const line of lines) {
-    if (line.startsWith("PUBLIC_KEY_HEX=")) {
-      publicKeyHex = line.substring("PUBLIC_KEY_HEX=".length);
-    } else {
-      pemLines.push(line);
-    }
-  }
-  const privateKeyPem = pemLines.join("\n");
-
-  // Import key and sign
-  const base64 = privateKeyPem
-    .split("\n")
-    .filter((l) => !l.startsWith("-----"))
-    .join("");
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  const privateKey = await crypto.subtle.importKey(
-    "pkcs8",
-    bytes.buffer,
-    { name: "Ed25519", namedCurve: "Ed25519" },
-    false,
-    ["sign"],
-  );
-
-  const encoder = new TextEncoder();
-  const signatureBytes = await crypto.subtle.sign(
-    "Ed25519",
-    privateKey,
-    encoder.encode(JSON.stringify(config)),
-  );
-  const signatureHex = encodeHex(new Uint8Array(signatureBytes));
-
-  const signedMessage = {
-    auth: [{ pubkey: publicKeyHex, signature: signatureHex }],
-    payload: config,
-  };
-
-  // Determine URI from config
   const cfg = config as { nodeId?: string };
   if (!cfg.nodeId) throw new Error("Config must contain nodeId field");
 
-  const uri = `mutable://accounts/${publicKeyHex}/nodes/${cfg.nodeId}/config`;
+  const uri =
+    `mutable://accounts/${accountKey.publicKeyHex}/nodes/${cfg.nodeId}/config`;
   logger?.info(`Writing config to ${uri}`);
 
   try {
@@ -144,16 +154,9 @@ export async function nodeConfigGet(
 ): Promise<void> {
   const logger = createLogger(verbose);
 
-  const appConfig = await loadConfig();
-  if (!appConfig.account) {
-    throw new Error("No account configured. Run: bnd account create");
-  }
-
-  const accountContent = await Deno.readTextFile(appConfig.account);
-  const pubkeyLine = accountContent.split("\n").find((l) => l.startsWith("PUBLIC_KEY_HEX="));
-  const publicKeyHex = pubkeyLine?.substring("PUBLIC_KEY_HEX=".length) ?? "";
-
-  const uri = `mutable://accounts/${publicKeyHex}/nodes/${nodeId}/config`;
+  const accountKey = await loadAccountKey();
+  const uri =
+    `mutable://accounts/${accountKey.publicKeyHex}/nodes/${nodeId}/config`;
   logger?.info(`Reading config from ${uri}`);
 
   try {
@@ -195,7 +198,9 @@ export async function nodeStatus(
       console.log(`  Status: ${status.status}`);
       console.log(`  Port: ${status.server?.port}`);
       console.log(`  Uptime: ${formatUptime(status.uptime)}`);
-      console.log(`  Last heartbeat: ${new Date(status.lastHeartbeat).toISOString()}`);
+      console.log(
+        `  Last heartbeat: ${new Date(status.lastHeartbeat).toISOString()}`,
+      );
       if (status.backends) {
         console.log(`  Backends:`);
         for (const b of status.backends) {
