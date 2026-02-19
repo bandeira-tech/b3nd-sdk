@@ -55,6 +55,9 @@ export { createMetricsCollector } from "./metrics.ts";
 // Module loader
 export { loadSchemaModule, createModuleWatcher } from "./module-loader.ts";
 
+// Peer replication
+export { createPeerClients, bestEffortClient } from "./peer-replication.ts";
+
 // Update protocol
 export { createUpdateChecker } from "./update-protocol.ts";
 

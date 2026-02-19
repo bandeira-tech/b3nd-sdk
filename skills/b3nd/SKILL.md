@@ -129,5 +129,9 @@ With that vocabulary in hand, here's where to go next:
   the B3nd SDK, protocol examples, node setup, and how to package your
   protocol as an SDK.
 
+- **Running B3nd infrastructure?** See [OPERATORS.md](./OPERATORS.md) for
+  node deployment, managed mode, backends, monitoring, replication,
+  and multi-node networks.
+
 - **Curious why B3nd works this way?** See [FAQ.md](./FAQ.md) for design
   rationale, trade-offs, and architectural decisions.

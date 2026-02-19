@@ -217,6 +217,9 @@ mutable://accounts/{userPubkey}/
 
 ## Running a Firecat Node
 
+> For operational details (backends, managed mode, monitoring, replication),
+> see [OPERATORS.md](./OPERATORS.md). This section covers Firecat-specific setup.
+
 Run your own Firecat node for local development or to operate a public node on
 the Firecat network. Firecat nodes validate messages against the canonical
 schema above.

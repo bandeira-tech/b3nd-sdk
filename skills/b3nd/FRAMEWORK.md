@@ -1537,6 +1537,9 @@ trusted at each layer, and the schema enforces it.
 
 ## Running Your Protocol's Node
 
+> For operational details (backends, managed mode, monitoring, replication),
+> see [OPERATORS.md](./OPERATORS.md). This section covers protocol-specific setup.
+
 After defining your protocol's schema, you need to run a node that validates
 messages against it. This section covers generic node setup — for
 Firecat-specific node setup, see [FIRECAT.md > Running a Firecat Node](./FIRECAT.md).

@@ -210,11 +210,16 @@ if (CONFIG_URL) {
   // Dynamic imports — no cost when managed mode is not activated
   const { pemToCryptoKey } = await import("@b3nd/encrypt");
   const {
+    bestEffortClient,
     buildClientsFromSpec,
     createConfigWatcher,
     createHeartbeatWriter,
     createMetricsCollector,
+    createModuleWatcher,
+    createPeerClients,
+    createUpdateChecker,
     loadConfig,
+    loadSchemaModule,
   } = await import("@b3nd/managed-node");
 
   const privateKey = await pemToCryptoKey(NODE_PRIVATE_KEY_PEM, "Ed25519");
@@ -256,18 +261,39 @@ if (CONFIG_URL) {
     console.warn(`[managed] Running with Phase 1 backends; config watcher will retry`);
   }
 
+  // Schema from config: if config specifies a schema module URL, load it
+  let activeSchema = schema; // Phase 1 schema as default
+  if (currentConfig?.schemaModuleUrl) {
+    try {
+      activeSchema = await loadSchemaModule(currentConfig.schemaModuleUrl);
+      console.log(`[managed] Schema loaded from ${currentConfig.schemaModuleUrl}`);
+    } catch (err) {
+      console.error(`[managed] Failed to load schema module: ${(err as Error).message}`);
+      console.error(`[managed] Using Phase 1 schema`);
+    }
+  }
+
+  // Helper: build a composed client from config + active schema + peers
+  async function buildManagedClient(
+    config: import("@b3nd/managed-node/types").ManagedNodeConfig,
+    schemaToUse: Schema,
+  ): Promise<NodeProtocolInterface> {
+    const localClients = await buildClientsFromSpec(config.backends, schemaToUse, {
+      postgres: createPostgresExecutor,
+      mongo: createMongoExecutor,
+    });
+    const { pushClients, pullClients } = createPeerClients(config.peers ?? []);
+    return createValidatedClient({
+      write: parallelBroadcast([...localClients, ...pushClients.map(bestEffortClient)]),
+      read: firstMatchSequence([...localClients, ...pullClients]),
+      validate: msgSchema(schemaToUse),
+    });
+  }
+
   // If config loaded, hot-swap backends from remote config
   if (currentConfig) {
     try {
-      const newClients = await buildClientsFromSpec(currentConfig.backends, schema, {
-        postgres: createPostgresExecutor,
-        mongo: createMongoExecutor,
-      });
-      const newClient = createValidatedClient({
-        write: parallelBroadcast(newClients),
-        read: firstMatchSequence(newClients),
-        validate: msgSchema(schema),
-      });
+      const newClient = await buildManagedClient(currentConfig, activeSchema);
       frontend.configure({ client: newClient });
       console.log(`[managed] Backends hot-swapped from config`);
     } catch (err) {
@@ -302,6 +328,31 @@ if (CONFIG_URL) {
     getMetrics: currentConfig?.monitoring.metricsEnabled ? () => metrics.snapshot() : undefined,
   });
 
+  // Module watcher (schema hot-reload)
+  const moduleWatcher = createModuleWatcher({
+    currentUrl: currentConfig?.schemaModuleUrl,
+    intervalMs: 60_000,
+    async onModuleChange(newSchema, url) {
+      console.log(`[managed] Schema module changed: ${url}`);
+      activeSchema = newSchema;
+      if (currentConfig) {
+        try {
+          const newClient = await buildManagedClient(currentConfig, activeSchema);
+          const wrappedClient = currentConfig.monitoring.metricsEnabled
+            ? metrics.wrapClient(newClient)
+            : newClient;
+          frontend.configure({ client: wrappedClient });
+          console.log(`[managed] Client rebuilt with new schema`);
+        } catch (err) {
+          console.error(`[managed] Failed to rebuild client after schema change:`, err);
+        }
+      }
+    },
+    onError(err) {
+      console.error(`[managed] Schema module error:`, err.message);
+    },
+  });
+
   // Config watcher (hot-reload)
   const configWatcher = createConfigWatcher({
     configClient,
@@ -311,16 +362,10 @@ if (CONFIG_URL) {
     async onConfigChange(newConfig: import("@b3nd/managed-node/types").ManagedNodeConfig) {
       console.log(`[managed] Config change detected, applying...`);
       try {
-        const newClients = await buildClientsFromSpec(newConfig.backends, schema, {
-          postgres: createPostgresExecutor,
-          mongo: createMongoExecutor,
-        });
-        const newClient = createValidatedClient({
-          write: parallelBroadcast(newClients),
-          read: firstMatchSequence(newClients),
-          validate: msgSchema(schema),
-        });
+        // Update module watcher URL if schemaModuleUrl changed
+        moduleWatcher.setUrl(newConfig.schemaModuleUrl);
 
+        const newClient = await buildManagedClient(newConfig, activeSchema);
         const wrappedClient = newConfig.monitoring.metricsEnabled
           ? metrics.wrapClient(newClient)
           : newClient;
@@ -337,12 +382,30 @@ if (CONFIG_URL) {
     },
   });
 
+  // Update checker
+  const updateChecker = createUpdateChecker({
+    client: configClient,
+    operatorPubKeyHex: OPERATOR_KEY,
+    nodeId: NODE_ID,
+    intervalMs: currentConfig?.monitoring.configPollIntervalMs ?? 60_000,
+    async onUpdateAvailable(update) {
+      console.log(`[managed] Update available: v${update.version} at ${update.moduleUrl}`);
+      console.log(`[managed] Release notes: ${update.releaseNotes ?? "(none)"}`);
+    },
+    onError(err) {
+      console.error(`[managed] Update check error:`, err.message);
+    },
+    nodeEncryptionPrivateKey,
+  });
+
   // Start managed services
   heartbeat.start();
   if (currentConfig?.monitoring.metricsEnabled) {
     metrics.start();
   }
+  moduleWatcher.start();
   configWatcher.start();
+  updateChecker.start();
 
   console.log(`[managed] Managed mode active`);
 }
