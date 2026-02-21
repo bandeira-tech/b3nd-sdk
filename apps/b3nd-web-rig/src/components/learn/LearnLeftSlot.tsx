@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
-import { learnDocuments, getDocumentMarkdown } from "./skillContent";
+import { learnDocuments, learnGroups, getDocumentMarkdown } from "./skillContent";
 import { parseSkillSections, type SkillSection } from "./parseSkillSections";
 import { useLearnStore } from "./useLearnStore";
 
@@ -12,6 +12,25 @@ export function LearnLeftSlot() {
 
   const markdown = useMemo(() => getDocumentMarkdown(activeDocument), [activeDocument]);
   const sections = useMemo(() => parseSkillSections(markdown), [markdown]);
+
+  // Group expand/collapse state — all expanded by default
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    () => new Set(learnGroups.map((g) => g.label)),
+  );
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
+
+  const docLabelMap = useMemo(
+    () => Object.fromEntries(learnDocuments.map((d) => [d.key, d.label])),
+    [],
+  );
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     () => new Set(sections.map((s) => s.id)),
@@ -64,26 +83,47 @@ export function LearnLeftSlot() {
         <span className="text-sm font-medium">Documentation</span>
       </div>
 
-      {/* Document tabs */}
-      <div className="flex border-b border-border bg-card/50">
-        {learnDocuments.map((doc) => (
-          <button
-            key={doc.key}
-            onClick={() => setActiveDocument(doc.key)}
-            className={cn(
-              "flex-1 px-3 py-2 text-xs font-medium transition-colors",
-              "hover:bg-accent/50",
-              activeDocument === doc.key
-                ? "text-primary border-b-2 border-primary"
-                : "text-muted-foreground",
-            )}
-          >
-            {doc.label}
-          </button>
-        ))}
+      {/* Document groups */}
+      <div className="py-1">
+        {learnGroups.map((group) => {
+          const isGroupExpanded = expandedGroups.has(group.label);
+          return (
+            <div key={group.label}>
+              <button
+                onClick={() => toggleGroup(group.label)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isGroupExpanded ? (
+                  <ChevronDown className="w-3 h-3 shrink-0" />
+                ) : (
+                  <ChevronRight className="w-3 h-3 shrink-0" />
+                )}
+                <span className="font-semibold">{group.label}</span>
+              </button>
+              {isGroupExpanded &&
+                group.docs.map((docKey) => (
+                  <button
+                    key={docKey}
+                    onClick={() => setActiveDocument(docKey)}
+                    className={cn(
+                      "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-xs transition-colors",
+                      "hover:bg-accent/50",
+                      activeDocument === docKey
+                        ? "text-primary font-semibold bg-accent/40"
+                        : "text-foreground",
+                    )}
+                  >
+                    <span className="truncate">{docLabelMap[docKey]}</span>
+                  </button>
+                ))}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Navigation tree */}
+      <div className="border-b border-border" />
+
+      {/* Section navigation tree */}
       <div className="flex-1 overflow-auto custom-scrollbar">
         {sections.map((section) => (
           <SectionNavItem
