@@ -112,25 +112,15 @@ export interface MinimalRouter {
 }
 
 type HttpServerOptions = {
-  cors?: "*" | {
-    origin:
-      | string
-      | string[]
-      | ((
-        origin: string,
-        c: unknown,
-      ) => Promise<string | undefined | null> | string | undefined | null);
-    allowMethods?:
-      | string[]
-      | ((origin: string, c: unknown) => Promise<string[]> | string[]);
-    allowHeaders?: string[];
-    maxAge?: number;
-    credentials?: boolean;
-    exposeHeaders?: string[];
-  };
+  healthMeta?: Record<string, unknown>;
 };
 
-export function httpServer(app: MinimalRouter): ServerFrontend {
+export function httpServer(
+  app: MinimalRouter,
+  options?: HttpServerOptions,
+): ServerFrontend {
+  const healthMeta = options?.healthMeta;
+
   // Backend + schema configured by createServerNode
   let backend:
     | { write: NodeProtocolWriteInterface; read: NodeProtocolReadInterface }
@@ -168,16 +158,22 @@ export function httpServer(app: MinimalRouter): ServerFrontend {
   app.get("/api/v1/health", async (c: MinimalContext) => {
     if (client) {
       const res = await client.health();
-      return c.json(res, res.status === "healthy" ? 200 : 503);
+      return c.json(
+        healthMeta ? { ...res, ...healthMeta } : res,
+        res.status === "healthy" ? 200 : 503,
+      );
     }
     if (!backend) {
       return c.json(
-        { status: "unhealthy", message: "handler not attached" },
+        { status: "unhealthy", message: "handler not attached", ...healthMeta },
         503,
       );
     }
     const res = await backend.read.health();
-    return c.json(res, res.status === "healthy" ? 200 : 503);
+    return c.json(
+      healthMeta ? { ...res, ...healthMeta } : res,
+      res.status === "healthy" ? 200 : 503,
+    );
   });
 
   app.get("/api/v1/schema", async (c: MinimalContext) => {

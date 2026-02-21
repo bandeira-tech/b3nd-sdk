@@ -7,18 +7,6 @@ description: Frequently asked questions about B3nd development. Use when develop
 
 ## Why
 
-### Why are programs called substrates?
-
-Programs define behavioral constraints — mutability, authentication,
-content-addressing. They are a layer that data sits on, not a container that owns
-it. The term "substrate" reinforces that programs provide guarantees, while
-domain-specific organization happens in URI paths above them.
-
-A program that provides pubkey-authenticated mutable storage serves any domain:
-user profiles, node configurations, application settings. The program provides
-the authentication and mutability guarantees. The path provides the domain
-structure.
-
 ### Why does B3nd make no liveness guarantees?
 
 B3nd is a DePIN framework for untrusted networks. Promising delivery, ordering,
@@ -32,7 +20,7 @@ allowing protocols to define the exact guarantees they can actually provide.
 
 ### Why is encryption client-side?
 
-B3nd nodes are untrusted by design. Nodes store what they receive — they have no
+B3nd nodes are untrusted by design. Nodes accept what they receive — they have no
 knowledge of whether content is encrypted or plaintext. Privacy is achieved by
 encrypting before sending and decrypting after reading. The network never needs
 to be trusted with cleartext data.
@@ -45,7 +33,7 @@ changes.
 
 Every message — whether from a user, a validator, or a confirmer — is the same
 action: signing intent to place outputs at addresses. A user signs intent to
-store a profile. A validator signs intent to place a validity link. A confirmer
+place a profile. A validator signs intent to place a validity link. A confirmer
 signs intent to place a confirmation link.
 
 This uniformity means the framework handles all messages identically. The program
@@ -69,10 +57,27 @@ Envelopes group related writes into a single atomic-intent unit. A transfer
 that debits one account and credits another should succeed or fail as a whole —
 not leave one side written and the other missing.
 
-The envelope is content-addressed (stored at its hash URI), which provides an
+The envelope is content-addressed (sent to its hash URI), which provides an
 audit trail and replay protection. Individual `receive()` calls remain available
 for simple single-resource writes where atomicity across multiple URIs is not
 needed.
+
+### Why doesn't B3nd guarantee storage?
+
+B3nd validates and dispatches messages. Whether an accepted message is stored,
+cached, forwarded, or discarded is a node operator decision — not a framework
+guarantee.
+
+This separation is what makes B3nd a universal interface layer. App developers
+write against the `receive()`/`read()` interface without coupling to any
+specific storage backend. Node operators choose their infrastructure — Postgres,
+MongoDB, in-memory, or something custom — without coupling to any specific
+application.
+
+A node using MemoryClient and a node using PostgresClient are both valid B3nd
+nodes. The framework treats them identically. Storage durability, replication,
+and retention are infrastructure concerns that B3nd intentionally leaves to the
+people who run the infrastructure.
 
 ## How
 
@@ -145,7 +150,7 @@ The schema defines your network's programs. Replace `MemoryClient` with
 
 ### How do I organize domain concepts in URI paths?
 
-Use protocol-provided programs as the substrate and organize domain concepts
+Use protocol-provided programs and organize domain concepts
 as paths:
 
 ```

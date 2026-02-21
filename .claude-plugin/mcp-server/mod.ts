@@ -5,6 +5,7 @@
  * Model Context Protocol server for B3nd SDK.
  * Provides tools to read, receive transactions, list, and manage data in B3nd backends.
  * Supports multiple backends with dynamic switching.
+ * Node management: keygen, sign, config push/get, status.
  */
 
 /// <reference lib="deno.ns" />
@@ -18,6 +19,13 @@ import {
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { HttpClient } from "@bandeira-tech/b3nd-sdk";
+import {
+  generateSigningKeyPair,
+  generateEncryptionKeyPair,
+  exportPrivateKeyPem,
+  IdentityKey,
+  type AuthenticatedMessage,
+} from "../../libs/b3nd-encrypt/mod.ts";
 
 // Backend configuration
 interface BackendConfig {
@@ -337,6 +345,115 @@ const TOOLS = [
             "Optional: specific backend to query (defaults to active backend)",
         },
       },
+    },
+  },
+  // Node management tools
+  {
+    name: "b3nd_keygen",
+    description:
+      "Generate Ed25519 signing + X25519 encryption keypair. Returns all key material (private key PEM, public key hex, encryption private/public key hex).",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+  {
+    name: "b3nd_sign",
+    description:
+      "Sign a payload with an Ed25519 private key. Returns an AuthenticatedMessage envelope { auth: [{pubkey, signature}], payload }.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        privateKeyPem: {
+          type: "string",
+          description: "Ed25519 private key in PEM format",
+        },
+        publicKeyHex: {
+          type: "string",
+          description: "Ed25519 public key as hex string",
+        },
+        payload: {
+          type: "object",
+          description: "The data to sign",
+        },
+      },
+      required: ["privateKeyPem", "publicKeyHex", "payload"],
+    },
+  },
+  {
+    name: "b3nd_node_config_push",
+    description:
+      "Sign a node config with the operator key and write it to the correct URI. Constructs URI mutable://accounts/{operatorKeyHex}/nodes/{nodeId}/config.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        operatorKeyPem: {
+          type: "string",
+          description: "Operator Ed25519 private key in PEM format",
+        },
+        operatorKeyHex: {
+          type: "string",
+          description: "Operator Ed25519 public key as hex string",
+        },
+        nodeId: {
+          type: "string",
+          description: "Node public key hex (used as node ID)",
+        },
+        config: {
+          type: "object",
+          description: "The node configuration object to push",
+        },
+        backend: {
+          type: "string",
+          description:
+            "Optional: specific backend to use (defaults to active backend)",
+        },
+      },
+      required: ["operatorKeyPem", "operatorKeyHex", "nodeId", "config"],
+    },
+  },
+  {
+    name: "b3nd_node_config_get",
+    description:
+      "Read a node's config from mutable://accounts/{operatorKeyHex}/nodes/{nodeId}/config.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        operatorKeyHex: {
+          type: "string",
+          description: "Operator public key hex",
+        },
+        nodeId: {
+          type: "string",
+          description: "Node public key hex (used as node ID)",
+        },
+        backend: {
+          type: "string",
+          description:
+            "Optional: specific backend to use (defaults to active backend)",
+        },
+      },
+      required: ["operatorKeyHex", "nodeId"],
+    },
+  },
+  {
+    name: "b3nd_node_status",
+    description:
+      "Read a node's status from mutable://accounts/{nodeKeyHex}/status.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        nodeKeyHex: {
+          type: "string",
+          description: "Node public key hex",
+        },
+        backend: {
+          type: "string",
+          description:
+            "Optional: specific backend to use (defaults to active backend)",
+        },
+      },
+      required: ["nodeKeyHex"],
     },
   },
 ];
@@ -706,6 +823,215 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               ),
             },
           ],
+        };
+      }
+
+      // Node management tools
+      case "b3nd_keygen": {
+        const signingPair = await generateSigningKeyPair();
+        const encPair = await generateEncryptionKeyPair();
+        const privateKeyPem = await exportPrivateKeyPem(
+          signingPair.privateKey,
+          "PRIVATE KEY",
+        );
+        const encPrivateKeyBytes = new Uint8Array(
+          await crypto.subtle.exportKey("pkcs8", encPair.privateKey),
+        );
+        const encPrivateKeyHex = Array.from(encPrivateKeyBytes)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  signing: {
+                    publicKeyHex: signingPair.publicKeyHex,
+                    privateKeyPem,
+                  },
+                  encryption: {
+                    publicKeyHex: encPair.publicKeyHex,
+                    privateKeyHex: encPrivateKeyHex,
+                  },
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+
+      case "b3nd_sign": {
+        const { privateKeyPem, publicKeyHex, payload } = args as {
+          privateKeyPem: string;
+          publicKeyHex: string;
+          payload: unknown;
+        };
+        const identity = await IdentityKey.fromPem(privateKeyPem, publicKeyHex);
+        const signature = await identity.sign(payload);
+        const authenticatedMessage: AuthenticatedMessage = {
+          auth: [{ pubkey: publicKeyHex, signature }],
+          payload,
+        };
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(authenticatedMessage, null, 2),
+            },
+          ],
+        };
+      }
+
+      case "b3nd_node_config_push": {
+        const {
+          operatorKeyPem,
+          operatorKeyHex,
+          nodeId,
+          config: nodeConfig,
+          backend: backendName,
+        } = args as {
+          operatorKeyPem: string;
+          operatorKeyHex: string;
+          nodeId: string;
+          config: unknown;
+          backend?: string;
+        };
+        const { client, config } = getClient(backendName);
+        const uri = `mutable://accounts/${operatorKeyHex}/nodes/${nodeId}/config`;
+
+        const identity = await IdentityKey.fromPem(
+          operatorKeyPem,
+          operatorKeyHex,
+        );
+        const sig = await identity.sign(nodeConfig);
+        const signedData = {
+          auth: [{ pubkey: operatorKeyHex, signature: sig }],
+          payload: nodeConfig,
+        };
+
+        const result = await client.receive([uri, signedData]);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  accepted: result.accepted,
+                  backend: config.name,
+                  uri,
+                  error: result.error,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+          isError: !result.accepted,
+        };
+      }
+
+      case "b3nd_node_config_get": {
+        const {
+          operatorKeyHex,
+          nodeId,
+          backend: backendName,
+        } = args as {
+          operatorKeyHex: string;
+          nodeId: string;
+          backend?: string;
+        };
+        const { client, config } = getClient(backendName);
+        const uri = `mutable://accounts/${operatorKeyHex}/nodes/${nodeId}/config`;
+        const result = await client.read(uri);
+        if (result.success) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(
+                  {
+                    success: true,
+                    backend: config.name,
+                    uri,
+                    timestamp: result.record?.ts,
+                    data: result.record?.data,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  backend: config.name,
+                  uri,
+                  error: result.error,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      case "b3nd_node_status": {
+        const { nodeKeyHex, backend: backendName } = args as {
+          nodeKeyHex: string;
+          backend?: string;
+        };
+        const { client, config } = getClient(backendName);
+        const uri = `mutable://accounts/${nodeKeyHex}/status`;
+        const result = await client.read(uri);
+        if (result.success) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(
+                  {
+                    success: true,
+                    backend: config.name,
+                    uri,
+                    timestamp: result.record?.ts,
+                    data: result.record?.data,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  backend: config.name,
+                  uri,
+                  error: result.error,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+          isError: true,
         };
       }
 

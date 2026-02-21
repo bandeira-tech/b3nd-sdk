@@ -7,6 +7,12 @@ import {
   type ManagedNodeConfig,
   type NetworkNodeEntry,
 } from "./stores/nodesStore";
+import { useAppStore } from "../../stores/appStore";
+import {
+  signAppPayload,
+  createBackendClient,
+} from "../../services/writer/writerService";
+import type { ManagedKeyAccount } from "../../types";
 
 interface Props {
   entry: NetworkNodeEntry;
@@ -61,13 +67,47 @@ export function ConfigEditor({ entry, networkId }: Props) {
     setPushError(null);
 
     try {
-      // The actual push would sign + write to B3nd via the active backend
-      // For now, just update the network entry
-      const { addNodeToNetwork, removeNodeFromNetwork } = useNodesStore.getState();
+      // Get active account (must be ManagedKeyAccount for signing)
+      const { accounts, activeAccountId, backends, activeBackendId } =
+        useAppStore.getState();
+      const account = accounts.find((a) => a.id === activeAccountId);
+      if (!account || account.type === "application-user") {
+        throw new Error(
+          "Select an account or application key to sign config pushes"
+        );
+      }
+      const keyAccount = account as ManagedKeyAccount;
+      const { appKey, accountPrivateKeyPem } = keyAccount.keyBundle;
+      if (!appKey || !accountPrivateKeyPem) {
+        throw new Error("Active account has no signing keys");
+      }
+
+      // Create backend client
+      const activeBackend = backends.find((b) => b.id === activeBackendId);
+      const client = createBackendClient(activeBackend ?? null);
+
+      // Sign config with operator key
+      const signed = await signAppPayload({
+        payload: draft,
+        appKey,
+        accountPrivateKeyPem,
+      });
+
+      // Write to correct URI
+      const uri = `mutable://accounts/${appKey}/nodes/${entry.nodeId}/config`;
+      const result = await client.receive([uri, signed]);
+
+      if (!result.accepted) {
+        throw new Error(result.error || "Backend rejected config push");
+      }
+
+      // Update local state on success
+      const { addNodeToNetwork, removeNodeFromNetwork } =
+        useNodesStore.getState();
       removeNodeFromNetwork(networkId, entry.nodeId);
       addNodeToNetwork(networkId, { ...entry, config: draft });
       clearConfigDraft(entry.nodeId);
-      console.log("[nodes] Config pushed for", entry.nodeId);
+      console.log("[nodes] Config pushed for", entry.nodeId, "to", uri);
     } catch (e) {
       setPushError(e instanceof Error ? e.message : "Push failed");
     } finally {

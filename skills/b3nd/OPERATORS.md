@@ -1,6 +1,6 @@
 ---
 name: b3nd-operators
-description: B3nd node operations — running, deploying, and managing B3nd nodes. Two-phase binary (standalone + managed), backend configuration (memory, PostgreSQL, MongoDB, HTTP), managed mode (config-over-B3nd, heartbeat, metrics, hot reconfiguration, software updates), peer replication (push/pull/bidirectional), multi-node networks (NetworkManifest, docker-compose generation, local dev), key generation, environment variables. Use when asking about deploying nodes, managing infrastructure, monitoring, Docker deployment, multi-node setup, or operational concerns. For app development see the firecat skill. For protocol design see the b3nd-framework skill.
+description: B3nd node operations — running, deploying, and managing B3nd nodes. Two-phase binary (standalone + managed), backend configuration (memory, PostgreSQL, MongoDB, HTTP), managed mode (config-over-B3nd, heartbeat, metrics, hot reconfiguration, software updates), peer replication (push/pull/bidirectional), multi-node networks (NetworkManifest, docker-compose generation, local dev), key generation, environment variables, management interfaces (MCP tools for keygen/sign/config push/get/status, web rig nodes experience). Use when asking about deploying nodes, managing infrastructure, monitoring, Docker deployment, multi-node setup, MCP node tools, web rig node management, or operational concerns. For app development see the firecat skill. For protocol design see the b3nd-framework skill.
 ---
 
 # B3nd Node Operations
@@ -274,6 +274,69 @@ console.log("Encryption private key (hex):", encKeys.privateKeyHex);
 | Node signing public key | Config server (`NODE_ID`) | Node identity, URI paths |
 | Node encryption private key | Each node (`NODE_ENCRYPTION_PRIVATE_KEY_HEX`) | Decrypting config from operator |
 | Node encryption public key | Config server (in `NetworkNodeEntry`) | Operator encrypts config to node |
+
+---
+
+## Management Interfaces
+
+Node management is available through three interfaces: the CLI, MCP tools
+(Claude plugin), and the web rig. All three use the same URIs and signing
+model — choose whichever fits your workflow.
+
+### MCP Tools
+
+The Claude plugin exposes node management as MCP tools. These work with the
+active backend configured via `B3ND_BACKENDS`.
+
+| Tool                       | Parameters                                      | Description                                       |
+| -------------------------- | ----------------------------------------------- | ------------------------------------------------- |
+| `b3nd_keygen`              | _(none)_                                        | Generate Ed25519 signing + X25519 encryption keys |
+| `b3nd_sign`                | `privateKeyPem`, `publicKeyHex`, `payload`      | Sign any payload, returns `AuthenticatedMessage`  |
+| `b3nd_node_config_push`    | `operatorKeyPem`, `operatorKeyHex`, `nodeId`, `config` | Sign config + write to `mutable://accounts/{operatorKey}/nodes/{nodeId}/config` |
+| `b3nd_node_config_get`     | `operatorKeyHex`, `nodeId`                      | Read config from the correct URI                  |
+| `b3nd_node_status`         | `nodeKeyHex`                                    | Read status from `mutable://accounts/{nodeKey}/status` |
+
+**Typical workflow with MCP tools:**
+
+1. `b3nd_keygen` — generate operator keys (once) and node keys (per node)
+2. `b3nd_node_config_push` — sign and publish a `ManagedNodeConfig`
+3. `b3nd_node_status` — check that the node picked up the config and is reporting
+4. `b3nd_node_config_get` — verify the config that was written
+
+The `b3nd_sign` tool is general-purpose — it works for any write that needs
+authentication, not just node configs.
+
+### Web Rig (Nodes Experience)
+
+The web rig (`apps/b3nd-web-rig/`) provides a visual node management interface
+at the **Nodes** tab. It uses the active account's signing keys and the active
+backend.
+
+**Adding a node:**
+
+- Click "Add node" in the network tree sidebar
+- Either paste an existing node public key hex, or click **Generate** to create
+  an Ed25519 + X25519 keypair in the browser
+- Generated keys are stored in the node entry and appear in the **Setup** tab
+
+**Pushing config:**
+
+- Edit config via the form or JSON editor
+- Click **Push Config** — the rig signs the config with the active account's
+  key and writes to `mutable://accounts/{operatorKey}/nodes/{nodeId}/config`
+- Requires an active `ManagedKeyAccount` (not an application-user account)
+
+**Setup tab:**
+
+- Shows a copyable `.env` block with all Phase 2 environment variables
+- If keys were generated in the browser, private key fields are populated
+- If a public key was pasted, private key fields show placeholders
+
+**Status polling:**
+
+- The rig polls `mutable://accounts/{nodeId}/status` and
+  `mutable://accounts/{nodeId}/metrics` for all nodes in the active network
+- Status and metrics update automatically on the **Status** and **Metrics** tabs
 
 ---
 

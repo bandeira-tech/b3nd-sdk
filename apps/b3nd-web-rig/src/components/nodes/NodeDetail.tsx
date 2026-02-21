@@ -1,15 +1,20 @@
 import { useState } from "react";
 import {
   ArrowLeft,
+  Check,
   CircleDot,
   Clock,
+  Copy,
   Server,
   Settings,
+  Terminal,
   Zap,
 } from "lucide-react";
 import { cn } from "../../utils";
 import { useNodesStore, type NetworkNodeEntry, type NodeMetrics, type NodeStatus } from "./stores/nodesStore";
+import { useAppStore } from "../../stores/appStore";
 import { ConfigEditor } from "./ConfigEditor";
+import type { ManagedKeyAccount } from "../../types";
 
 interface Props {
   entry: NetworkNodeEntry;
@@ -20,7 +25,7 @@ export function NodeDetail({ entry, networkId }: Props) {
   const nodeStatuses = useNodesStore((s) => s.nodeStatuses);
   const nodeMetricsMap = useNodesStore((s) => s.nodeMetrics);
   const setActiveNode = useNodesStore((s) => s.setActiveNode);
-  const [tab, setTab] = useState<"status" | "config" | "metrics">("status");
+  const [tab, setTab] = useState<"status" | "config" | "metrics" | "setup">("status");
 
   const status = nodeStatuses[entry.nodeId];
   const metrics = nodeMetricsMap[entry.nodeId];
@@ -60,6 +65,7 @@ export function NodeDetail({ entry, networkId }: Props) {
             { id: "status", label: "Status", icon: CircleDot },
             { id: "config", label: "Configuration", icon: Settings },
             { id: "metrics", label: "Metrics", icon: Zap },
+            { id: "setup", label: "Setup", icon: Terminal },
           ] as const
         ).map((t) => {
           const Icon = t.icon;
@@ -91,6 +97,9 @@ export function NodeDetail({ entry, networkId }: Props) {
         )}
         {tab === "metrics" && (
           <MetricsPanel metrics={metrics} />
+        )}
+        {tab === "setup" && (
+          <SetupPanel entry={entry} />
         )}
       </div>
     </div>
@@ -217,6 +226,91 @@ function MetricsPanel({ metrics }: { metrics?: NodeMetrics }) {
           <MetricBox label="Ops/s" value={String(metrics.opsPerSecond)} icon={<Zap className="w-3.5 h-3.5" />} />
           <MetricBox label="Error Rate" value={`${(metrics.errorRate * 100).toFixed(2)}%`} icon={<CircleDot className="w-3.5 h-3.5" />} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SetupPanel({ entry }: { entry: NetworkNodeEntry }) {
+  const [copied, setCopied] = useState(false);
+  const accounts = useAppStore((s) => s.accounts);
+  const activeAccountId = useAppStore((s) => s.activeAccountId);
+  const backends = useAppStore((s) => s.backends);
+  const activeBackendId = useAppStore((s) => s.activeBackendId);
+
+  const account = accounts.find((a) => a.id === activeAccountId);
+  const operatorKey =
+    account && account.type !== "application-user"
+      ? (account as ManagedKeyAccount).keyBundle.appKey
+      : "";
+  const operatorEncPubKey =
+    account && account.type !== "application-user"
+      ? (account as ManagedKeyAccount).keyBundle.encryptionPublicKeyHex
+      : "";
+  const activeBackend = backends.find((b) => b.id === activeBackendId);
+  const backendUrl = activeBackend?.adapter.baseUrl || "http://localhost:8842";
+
+  const hasKeys = !!entry.generatedKeys;
+  const placeholder = "<paste-or-generate-keys>";
+
+  const configUrl = operatorKey
+    ? `mutable://accounts/${operatorKey}/nodes/${entry.nodeId}/config`
+    : `mutable://accounts/<OPERATOR_KEY>/nodes/${entry.nodeId}/config`;
+
+  const envLines = [
+    `# Node identity`,
+    `NODE_ID=${entry.nodeId}`,
+    `NODE_PRIVATE_KEY_PEM="${hasKeys ? entry.generatedKeys!.privateKeyPem : placeholder}"`,
+    `NODE_ENCRYPTION_PRIVATE_KEY_HEX=${hasKeys ? entry.generatedKeys!.encryptionPrivateKeyHex : placeholder}`,
+    ``,
+    `# Operator`,
+    `OPERATOR_KEY=${operatorKey || placeholder}`,
+    `OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX=${operatorEncPubKey || entry.encryptionPublicKeyHex || placeholder}`,
+    `CONFIG_URL=${configUrl}`,
+    ``,
+    `# Server`,
+    `PORT=${entry.config.server.port}`,
+    `CORS_ORIGIN=${entry.config.server.corsOrigin}`,
+    `BACKEND_URL=${backendUrl}`,
+  ].join("\n");
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(envLines);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium">Environment Variables</h3>
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3 h-3 text-green-500" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy className="w-3 h-3" />
+                Copy to clipboard
+              </>
+            )}
+          </button>
+        </div>
+        {!hasKeys && (
+          <p className="text-xs text-yellow-600 mb-3">
+            Keys were pasted, not generated. Private key fields show placeholders.
+            Generate a keypair from the sidebar to get full env output.
+          </p>
+        )}
+        <pre className="text-xs font-mono p-3 rounded bg-muted/30 overflow-auto whitespace-pre-wrap break-all">
+          {envLines}
+        </pre>
       </div>
     </div>
   );

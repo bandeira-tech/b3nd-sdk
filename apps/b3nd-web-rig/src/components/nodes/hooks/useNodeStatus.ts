@@ -27,7 +27,7 @@ export function useNodeStatusPolling(intervalMs = 15000) {
         for (const node of network.nodes) {
           try {
             // Read status URI
-            const statusPath = `/mutable/nodes/${node.nodeId}/status`;
+            const statusPath = `/mutable/accounts/${node.nodeId}/status`;
             const statusRecord = await adapter.readRecord(statusPath);
             if (statusRecord?.data) {
               // Unwrap auth envelope if present
@@ -41,7 +41,7 @@ export function useNodeStatusPolling(intervalMs = 15000) {
 
           try {
             // Read metrics URI
-            const metricsPath = `/mutable/nodes/${node.nodeId}/metrics`;
+            const metricsPath = `/mutable/accounts/${node.nodeId}/metrics`;
             const metricsRecord = await adapter.readRecord(metricsPath);
             if (metricsRecord?.data) {
               const raw = metricsRecord.data as any;

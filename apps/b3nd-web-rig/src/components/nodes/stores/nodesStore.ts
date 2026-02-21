@@ -67,6 +67,12 @@ export interface NetworkNodeEntry {
   name: string;
   role: string;
   config: ManagedNodeConfig;
+  encryptionPublicKeyHex?: string;
+  generatedKeys?: {
+    privateKeyPem: string;
+    encryptionPrivateKeyHex: string;
+    encryptionPublicKeyHex: string;
+  };
 }
 
 // ── Store ─────────────────────────────────────────────────────────────
