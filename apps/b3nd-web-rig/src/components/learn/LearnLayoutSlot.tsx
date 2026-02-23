@@ -3,7 +3,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { getDocumentMarkdown } from "./skillContent";
+import { BookOpen, ChefHat } from "lucide-react";
+import { getDocumentMarkdown, documentationDocs, cookbookDocs, type LearnDocEntry } from "./skillContent";
 import { useLearnStore } from "./useLearnStore";
 
 function slugify(text: string): string {
@@ -18,13 +19,77 @@ function stripFrontmatter(md: string): string {
 }
 
 export function LearnLayoutSlot() {
-  const activeDocument = useLearnStore((s) => s.activeDocument);
-  const markdown = useMemo(() => getDocumentMarkdown(activeDocument), [activeDocument]);
+  const activeBook = useLearnStore((s) => s.activeBook);
+
+  if (activeBook === null) return <IndexView />;
+  return <ReaderView />;
+}
+
+/* ── Index View ─────────────────────────────────────────────── */
+
+function IndexView() {
+  const openBook = useLearnStore((s) => s.openBook);
+
+  return (
+    <div className="max-w-4xl mx-auto px-8 py-10 h-full overflow-y-auto custom-scrollbar">
+      <h1 className="text-2xl font-bold text-foreground">Learn B3nd</h1>
+      <p className="text-sm text-muted-foreground mt-1 mb-8">
+        Reference documentation and hands-on recipes for building with B3nd.
+      </p>
+
+      {/* Documentation */}
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-3">
+          <BookOpen className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Documentation</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {documentationDocs.map((doc) => (
+            <BookCard key={doc.key} doc={doc} onClick={() => openBook(doc.key)} />
+          ))}
+        </div>
+      </section>
+
+      {/* Cookbooks */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <ChefHat className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cookbooks</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {cookbookDocs.map((doc) => (
+            <BookCard key={doc.key} doc={doc} onClick={() => openBook(doc.key)} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function BookCard({ doc, onClick }: { doc: LearnDocEntry; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-left border border-border rounded-lg p-4 hover:border-primary/40 hover:bg-accent/30 transition-colors group"
+    >
+      <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+        {doc.label}
+      </span>
+      <p className="text-xs text-muted-foreground mt-1">{doc.description}</p>
+    </button>
+  );
+}
+
+/* ── Reader View ────────────────────────────────────────────── */
+
+function ReaderView() {
+  const activeBook = useLearnStore((s) => s.activeBook)!;
+  const markdown = useMemo(() => getDocumentMarkdown(activeBook), [activeBook]);
   const content = useMemo(() => stripFrontmatter(markdown), [markdown]);
   const containerRef = useRef<HTMLElement>(null);
   const setActiveSectionId = useLearnStore((s) => s.setActiveSectionId);
 
-  // Scroll-spy: on scroll, find the last heading above the top of the viewport
+  // Scroll-spy
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -44,7 +109,6 @@ export function LearnLayoutSlot() {
       setActiveSectionId(active);
     };
 
-    // Run once after render, then on every scroll
     const timer = setTimeout(onScroll, 100);
     container.addEventListener("scroll", onScroll, { passive: true });
     return () => {
@@ -53,10 +117,10 @@ export function LearnLayoutSlot() {
     };
   }, [content, setActiveSectionId]);
 
-  // Scroll to top when document changes
+  // Scroll to top when book changes
   useEffect(() => {
     containerRef.current?.scrollTo(0, 0);
-  }, [activeDocument]);
+  }, [activeBook]);
 
   const codeComponent = useCallback(
     ({ className, children, ...rest }: ComponentPropsWithoutRef<"code"> & { className?: string }) => {

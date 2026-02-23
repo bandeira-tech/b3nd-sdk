@@ -1,25 +1,30 @@
 import { useState, useMemo, useEffect } from "react";
-import { BookOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
-import { learnDocuments, learnGroups, getDocumentMarkdown } from "./skillContent";
+import { documentationDocs, cookbookDocs, getDocumentMarkdown, getDocEntry } from "./skillContent";
 import { parseSkillSections, type SkillSection } from "./parseSkillSections";
 import { useLearnStore } from "./useLearnStore";
 
 export function LearnLeftSlot() {
-  const activeDocument = useLearnStore((s) => s.activeDocument);
-  const setActiveDocument = useLearnStore((s) => s.setActiveDocument);
-  const activeSectionId = useLearnStore((s) => s.activeSectionId);
+  const activeBook = useLearnStore((s) => s.activeBook);
 
-  const markdown = useMemo(() => getDocumentMarkdown(activeDocument), [activeDocument]);
-  const sections = useMemo(() => parseSkillSections(markdown), [markdown]);
+  return (
+    <div className="h-full flex flex-col">
+      {activeBook === null ? <IndexMode /> : <ReaderMode />}
+    </div>
+  );
+}
 
-  // Group expand/collapse state — all expanded by default
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    () => new Set(learnGroups.map((g) => g.label)),
+/* ── Index Mode ─────────────────────────────────────────────── */
+
+function IndexMode() {
+  const openBook = useLearnStore((s) => s.openBook);
+  const [expandedTiers, setExpandedTiers] = useState<Set<string>>(
+    () => new Set(["Documentation", "Cookbooks"]),
   );
 
-  const toggleGroup = (label: string) => {
-    setExpandedGroups((prev) => {
+  const toggleTier = (label: string) => {
+    setExpandedTiers((prev) => {
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
       else next.add(label);
@@ -27,16 +32,98 @@ export function LearnLeftSlot() {
     });
   };
 
-  const docLabelMap = useMemo(
-    () => Object.fromEntries(learnDocuments.map((d) => [d.key, d.label])),
-    [],
+  return (
+    <>
+      <div className="p-3 border-b border-border bg-card flex items-center gap-2">
+        <BookOpen className="w-4 h-4 text-primary" />
+        <span className="text-sm font-medium">Learn</span>
+      </div>
+
+      <div className="flex-1 overflow-auto custom-scrollbar py-1">
+        {/* Documentation tier */}
+        <TierGroup
+          label="Documentation"
+          expanded={expandedTiers.has("Documentation")}
+          onToggle={() => toggleTier("Documentation")}
+        >
+          {documentationDocs.map((doc) => (
+            <button
+              key={doc.key}
+              onClick={() => openBook(doc.key)}
+              className="w-full flex flex-col gap-0.5 pl-8 pr-3 py-2 text-left hover:bg-accent/50 transition-colors"
+            >
+              <span className="text-xs font-medium text-foreground truncate">{doc.label}</span>
+              <span className="text-[10px] text-muted-foreground truncate">{doc.description}</span>
+            </button>
+          ))}
+        </TierGroup>
+
+        {/* Cookbooks tier */}
+        <TierGroup
+          label="Cookbooks"
+          expanded={expandedTiers.has("Cookbooks")}
+          onToggle={() => toggleTier("Cookbooks")}
+        >
+          {cookbookDocs.map((doc) => (
+            <button
+              key={doc.key}
+              onClick={() => openBook(doc.key)}
+              className="w-full flex flex-col gap-0.5 pl-8 pr-3 py-2 text-left hover:bg-accent/50 transition-colors"
+            >
+              <span className="text-xs font-medium text-foreground truncate">{doc.label}</span>
+              <span className="text-[10px] text-muted-foreground truncate">{doc.description}</span>
+            </button>
+          ))}
+        </TierGroup>
+      </div>
+    </>
   );
+}
+
+function TierGroup({
+  label,
+  expanded,
+  onToggle,
+  children,
+}: {
+  label: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {expanded ? (
+          <ChevronDown className="w-3 h-3 shrink-0" />
+        ) : (
+          <ChevronRight className="w-3 h-3 shrink-0" />
+        )}
+        <span className="font-semibold">{label}</span>
+      </button>
+      {expanded && children}
+    </div>
+  );
+}
+
+/* ── Reader Mode ────────────────────────────────────────────── */
+
+function ReaderMode() {
+  const activeBook = useLearnStore((s) => s.activeBook)!;
+  const closeBook = useLearnStore((s) => s.closeBook);
+  const activeSectionId = useLearnStore((s) => s.activeSectionId);
+
+  const entry = getDocEntry(activeBook);
+  const markdown = useMemo(() => getDocumentMarkdown(activeBook), [activeBook]);
+  const sections = useMemo(() => parseSkillSections(markdown), [markdown]);
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     () => new Set(sections.map((s) => s.id)),
   );
 
-  // Re-expand all when document changes
   useEffect(() => {
     setExpandedSections(new Set(sections.map((s) => s.id)));
   }, [sections]);
@@ -76,52 +163,20 @@ export function LearnLeftSlot() {
   }, [activeSectionId, sections]);
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="p-3 border-b border-border bg-card flex items-center gap-2">
-        <BookOpen className="w-4 h-4 text-primary" />
-        <span className="text-sm font-medium">Documentation</span>
+    <>
+      {/* Back button + book title */}
+      <div className="border-b border-border bg-card">
+        <button
+          onClick={closeBook}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>All Books</span>
+        </button>
+        <div className="px-3 pb-2">
+          <span className="text-sm font-medium text-foreground">{entry?.label}</span>
+        </div>
       </div>
-
-      {/* Document groups */}
-      <div className="py-1">
-        {learnGroups.map((group) => {
-          const isGroupExpanded = expandedGroups.has(group.label);
-          return (
-            <div key={group.label}>
-              <button
-                onClick={() => toggleGroup(group.label)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isGroupExpanded ? (
-                  <ChevronDown className="w-3 h-3 shrink-0" />
-                ) : (
-                  <ChevronRight className="w-3 h-3 shrink-0" />
-                )}
-                <span className="font-semibold">{group.label}</span>
-              </button>
-              {isGroupExpanded &&
-                group.docs.map((docKey) => (
-                  <button
-                    key={docKey}
-                    onClick={() => setActiveDocument(docKey)}
-                    className={cn(
-                      "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-xs transition-colors",
-                      "hover:bg-accent/50",
-                      activeDocument === docKey
-                        ? "text-primary font-semibold bg-accent/40"
-                        : "text-foreground",
-                    )}
-                  >
-                    <span className="truncate">{docLabelMap[docKey]}</span>
-                  </button>
-                ))}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="border-b border-border" />
 
       {/* Section navigation tree */}
       <div className="flex-1 overflow-auto custom-scrollbar">
@@ -136,9 +191,11 @@ export function LearnLeftSlot() {
           />
         ))}
       </div>
-    </div>
+    </>
   );
 }
+
+/* ── Section Nav Item ───────────────────────────────────────── */
 
 function SectionNavItem({
   section,
