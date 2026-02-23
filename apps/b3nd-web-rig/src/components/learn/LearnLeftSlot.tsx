@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { ArrowLeft, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
-import { documentationDocs, cookbookDocs, getDocumentMarkdown, getDocEntry } from "./skillContent";
+import { documentationDocs, cookbookDocs, designDocs, getDocumentMarkdown, getDocEntry } from "./skillContent";
 import { parseSkillSections, type SkillSection } from "./parseSkillSections";
 import { useLearnStore } from "./useLearnStore";
 
@@ -20,7 +20,7 @@ export function LearnLeftSlot() {
 function IndexMode() {
   const openBook = useLearnStore((s) => s.openBook);
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(
-    () => new Set(["Documentation", "Cookbooks"]),
+    () => new Set(["Documentation", "Cookbooks", "Design"]),
   );
 
   const toggleTier = (label: string) => {
@@ -65,6 +65,24 @@ function IndexMode() {
           onToggle={() => toggleTier("Cookbooks")}
         >
           {cookbookDocs.map((doc) => (
+            <button
+              key={doc.key}
+              onClick={() => openBook(doc.key)}
+              className="w-full flex flex-col gap-0.5 pl-8 pr-3 py-2 text-left hover:bg-accent/50 transition-colors"
+            >
+              <span className="text-xs font-medium text-foreground truncate">{doc.label}</span>
+              <span className="text-[10px] text-muted-foreground truncate">{doc.description}</span>
+            </button>
+          ))}
+        </TierGroup>
+
+        {/* Design tier */}
+        <TierGroup
+          label="Design"
+          expanded={expandedTiers.has("Design")}
+          onToggle={() => toggleTier("Design")}
+        >
+          {designDocs.map((doc) => (
             <button
               key={doc.key}
               onClick={() => openBook(doc.key)}

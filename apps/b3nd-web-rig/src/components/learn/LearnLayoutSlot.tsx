@@ -3,8 +3,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { BookOpen, ChefHat } from "lucide-react";
-import { getDocumentMarkdown, documentationDocs, cookbookDocs, type LearnDocEntry } from "./skillContent";
+import { BookOpen, ChefHat, Compass } from "lucide-react";
+import { getDocumentMarkdown, documentationDocs, cookbookDocs, designDocs, type LearnDocEntry } from "./skillContent";
 import { useLearnStore } from "./useLearnStore";
 
 function slugify(text: string): string {
@@ -51,13 +51,26 @@ function IndexView() {
       </section>
 
       {/* Cookbooks */}
-      <section>
+      <section className="mb-8">
         <div className="flex items-center gap-2 mb-3">
           <ChefHat className="w-4 h-4 text-muted-foreground" />
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cookbooks</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {cookbookDocs.map((doc) => (
+            <BookCard key={doc.key} doc={doc} onClick={() => openBook(doc.key)} />
+          ))}
+        </div>
+      </section>
+
+      {/* Design */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Compass className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Design</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {designDocs.map((doc) => (
             <BookCard key={doc.key} doc={doc} onClick={() => openBook(doc.key)} />
           ))}
         </div>
