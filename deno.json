@@ -79,6 +79,7 @@
     "apps/sdk-inspector",
     "apps/vault-listener",
     "apps/wallet-node",
-    "tests"
+    "tests",
+    ".claude-plugin/mcp-server"
   ]
 }
