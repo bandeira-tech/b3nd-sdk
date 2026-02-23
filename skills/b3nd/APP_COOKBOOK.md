@@ -1,8 +1,3 @@
----
-name: app-cookbook
-description: Building Firecat Apps — quick start, URI design, CRUD operations, authenticated writes, batch envelopes, React hooks, complete content app recipe, browser app setup (React, Zustand, React Query), component patterns, and testing (MemoryClient, E2E Playwright). Task-oriented recipes for app developers building on the Firecat network.
----
-
 # Building Firecat Apps
 
 Recipes and patterns for building apps on the Firecat network. Each section is

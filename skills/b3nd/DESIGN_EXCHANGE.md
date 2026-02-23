@@ -1,8 +1,3 @@
----
-name: design-exchange
-description: Design exploration of B3nd as an exchange medium between parties with different trust models. Covers the exchange primitive, six trust models (serverless, non-custodial, custodial, pubkey access control, managed operator, three-party consensus), party interaction diagrams, crypto guarantees, and how compose primitives express trust boundaries in code.
----
-
 # Exchange Patterns & Trust Models
 
 B3nd is a message exchange medium. Two parties that have never met can

@@ -1,8 +1,3 @@
----
-name: node-cookbook
-description: Running Nodes — quick start standalone node, key generation (Ed25519 signing, X25519 encryption), writing and signing node configs, monitoring (heartbeat, metrics), multi-node networks (NetworkManifest, Docker Compose generation, local dev runner), and Docker deployment (building, running, managed mode, compose profiles). Task-oriented recipes for infrastructure operators.
----
-
 # Running Nodes
 
 Recipes and patterns for deploying and managing B3nd nodes. Each section is

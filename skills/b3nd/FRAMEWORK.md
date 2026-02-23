@@ -1,8 +1,3 @@
----
-name: b3nd-framework
-description: B3nd DePIN framework — for protocol designers building decentralized networks. Message primitives, schema dispatch, envelope structure, NodeProtocolInterface, auth primitives, encryption, content-addressing, client composition, protocol examples (open CRUD, auth-based, content-addressed, fee collection, UTXO conservation, hash-chain retelling, consensus), ProgramValidator, createOutputValidator, protocol versioning, packaging a protocol SDK, running protocol nodes. Use when building a new DePIN protocol or extending the B3nd framework. For app development on Firecat, see the firecat skill.
----
-
 # B3nd — DePIN Framework & SDK
 
 You are here to create a DePIN network. B3nd provides URI-addressed resource

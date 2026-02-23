@@ -1,8 +1,3 @@
----
-name: design-transport
-description: Design exploration of transport layers for B3nd. Covers HTTP polling (current), WebSocket (existing client), Server-Sent Events, WebRTC data channels, WebTransport, a transport comparison matrix, the subscribe() primitive design, and how all transports converge on NodeProtocolInterface.
----
-
 # Transport & Web Standards
 
 A B3nd handler doesn't care how messages arrive. It composes with

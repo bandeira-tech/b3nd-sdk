@@ -1,6 +1,29 @@
 ---
 name: b3nd
-description: B3nd conceptual overview — what B3nd is, how it works in plain language, the three roles (app builders, protocol designers, infrastructure operators), core ideas (addresses, messages, validation, signing, privacy levels), and example use cases (recipe apps, journals, small business). Use for introductory questions, non-technical explanations, and understanding what B3nd does before diving into code. Building an app on Firecat? See the firecat skill. Creating a DePIN protocol? See the b3nd-framework skill.
+description: |
+  B3nd SDK — single entry point for all B3nd knowledge. Read this file first for the conceptual overview (three roles, core ideas, example use cases), then read the referenced file when the question matches a topic below.
+
+  FIRECAT.md — Firecat app development: quick start, canonical schema, authentication, resource identity/visibility, CRUD patterns, URI design, React hooks, browser apps, Deno CLI, testing, environment variables. Read when building apps on the Firecat network.
+
+  FRAMEWORK.md — DePIN framework & SDK: message primitives, schema dispatch, envelope structure, NodeProtocolInterface, auth/encryption, content-addressing, client composition, ProgramValidator, createOutputValidator, protocol versioning, packaging a protocol SDK. Read when designing a new DePIN protocol.
+
+  OPERATORS.md — Node operations: two-phase binary, backend configuration (memory/Postgres/MongoDB/HTTP), managed mode, peer replication, multi-node networks, key generation, environment variables, MCP node tools. Read when deploying or managing infrastructure.
+
+  FAQ.md — Design rationale, trade-offs, architectural decisions, troubleshooting. Read when asking "why does B3nd do X?"
+
+  APP_COOKBOOK.md — App recipes: quick start, URI design, CRUD, authenticated writes, batch envelopes, React hooks, content app recipe, browser setup, testing. Read for task-oriented app patterns.
+
+  PROTOCOL_COOKBOOK.md — Protocol recipes: open CRUD, auth-based, content-addressed, fee collection, UTXO conservation, hash-chain retelling, consensus chain, packaging a protocol SDK, running nodes with schema modules. Read for worked protocol examples.
+
+  NODE_COOKBOOK.md — Node recipes: standalone quick start, key generation (Ed25519/X25519), config signing, monitoring, multi-node networks (NetworkManifest, Docker Compose), Docker deployment. Read for infrastructure how-tos.
+
+  DESIGN_EXCHANGE.md — Exchange patterns & trust models: serverless, non-custodial, custodial, pubkey access control, managed operator, three-party consensus, party interaction diagrams, crypto guarantees. Read for trust model design.
+
+  DESIGN_INFRASTRUCTURE.md — Infrastructure design: node requirements, deployment topologies (single node, remote listener, cluster, peer replication), inbox/outbox URIs, scaling, vault listener reference architecture. Read for deployment architecture.
+
+  DESIGN_TRANSPORT.md — Transport design: HTTP polling, WebSocket, SSE, WebRTC, WebTransport, comparison matrix, subscribe() primitive, NodeProtocolInterface convergence. Read for transport layer decisions.
+
+  All files are in skills/b3nd/. Read the relevant file to answer the user's question.
 ---
 
 # B3nd

@@ -1,8 +1,3 @@
----
-name: b3nd-operators
-description: B3nd node operations — running, deploying, and managing B3nd nodes. Two-phase binary (standalone + managed), backend configuration (memory, PostgreSQL, MongoDB, HTTP), managed mode (config-over-B3nd, heartbeat, metrics, hot reconfiguration, software updates), peer replication (push/pull/bidirectional), multi-node networks (NetworkManifest, docker-compose generation, local dev), key generation, environment variables, management interfaces (MCP tools for keygen/sign/config push/get/status, web rig nodes experience). Use when asking about deploying nodes, managing infrastructure, monitoring, Docker deployment, multi-node setup, MCP node tools, web rig node management, or operational concerns. For app development see the firecat skill. For protocol design see the b3nd-framework skill.
----
-
 # B3nd Node Operations
 
 You run the infrastructure. The protocol (schema) comes from someone else —

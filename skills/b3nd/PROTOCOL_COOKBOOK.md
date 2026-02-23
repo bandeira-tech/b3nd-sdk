@@ -1,8 +1,3 @@
----
-name: protocol-cookbook
-description: Designing Protocols — worked examples of progressively complex B3nd protocols (open CRUD, auth-based, content-addressed, fee collection, UTXO conservation, hash-chain retelling, consensus chain), packaging a protocol SDK, running your protocol's node with schema modules and multi-backend composition. Task-oriented recipes for protocol designers.
----
-
 # Designing Protocols
 
 Recipes and worked examples for building DePIN protocols on B3nd. Each section

@@ -1,8 +1,3 @@
----
-name: design-infrastructure
-description: Design exploration of B3nd infrastructure and deployment. Covers node requirements for handler support, deployment topologies (single node, remote listener, cluster, peer replication), inbox/outbox URI conventions, scaling considerations, operational model, and the vault listener as reference architecture.
----
-
 # Infrastructure & Deployment
 
 A B3nd node is a process that speaks the `NodeProtocolInterface` — it

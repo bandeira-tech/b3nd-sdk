@@ -1,8 +1,3 @@
----
-name: b3nd-faq
-description: Frequently asked questions about B3nd development. Use when developers ask about design rationale, implementation techniques, common patterns, or when troubleshooting B3nd SDK issues.
----
-
 # B3nd FAQ
 
 ## Why

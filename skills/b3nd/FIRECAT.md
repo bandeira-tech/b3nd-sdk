@@ -1,8 +1,3 @@
----
-name: firecat
-description: Firecat app development — building apps on the Firecat public B3nd network. Quick start (browser + Deno), canonical schema, authentication, resource identity, app identity, resource visibility, cookbook with full CRUD patterns (create/read/list/update/delete), URI design for pages/posts/users, authenticated writes, batch envelopes, React hooks (useRecord, useList, useWrite, useSignedWrite, useDelete), complete content app recipe with components, running a Firecat node (HTTP server, Postgres/MongoDB, multi-backend), building browser apps (React, Zustand, React Query), Deno CLI, testing (MemoryClient, E2E Playwright), environment variables. Use when building any app on Firecat or asking about Firecat programs, URIs, visibility, accounts, pages, posts, content, users, or resources. For building your own DePIN protocol, see the b3nd-framework skill.
----
-
 # Firecat — Building Apps on the Public B3nd Network
 
 Firecat is a protocol built on B3nd. It defines a specific set of programs
