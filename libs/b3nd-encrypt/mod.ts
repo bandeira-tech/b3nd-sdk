@@ -834,3 +834,196 @@ export async function createSignedSymmetricMessage(
     payload: encryptedPayload,
   };
 }
+
+/**
+ * Compute HMAC-SHA256 of data with a key
+ * Returns hex-encoded 32-byte result
+ */
+export async function hmac(
+  key: string,
+  data: string,
+): Promise<string> {
+  const encoder = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    cryptoKey,
+    encoder.encode(data),
+  );
+  return encodeHex(new Uint8Array(signature));
+}
+
+/**
+ * Derive a deterministic Ed25519 signing keypair from a seed string.
+ * Uses HKDF to expand the seed into key material suitable for Ed25519.
+ *
+ * The same seed always produces the same keypair.
+ */
+export async function deriveSigningKeyPairFromSeed(
+  seed: string,
+): Promise<KeyPair> {
+  const encoder = new TextEncoder();
+
+  // Import seed as HKDF key material
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(seed),
+    "HKDF",
+    false,
+    ["deriveBits"],
+  );
+
+  // Derive 32 bytes for Ed25519 private key seed
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: encoder.encode("b3nd-signing-key"),
+      info: encoder.encode("Ed25519"),
+    },
+    keyMaterial,
+    256,
+  );
+
+  const privateKeyBytes = new Uint8Array(derivedBits);
+
+  // Ed25519 PKCS8 wrapper: ASN.1 prefix for a 32-byte Ed25519 private key
+  const pkcs8Prefix = new Uint8Array([
+    0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
+    0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+  ]);
+  const pkcs8Key = new Uint8Array(pkcs8Prefix.length + privateKeyBytes.length);
+  pkcs8Key.set(pkcs8Prefix);
+  pkcs8Key.set(privateKeyBytes, pkcs8Prefix.length);
+
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    pkcs8Key.buffer,
+    { name: "Ed25519", namedCurve: "Ed25519" },
+    true,
+    ["sign"],
+  );
+
+  // Extract public key from the JWK representation
+  const jwk = await crypto.subtle.exportKey("jwk", privateKey);
+
+  // Import just the public part (x only, no d) as a verify key
+  const publicKey = await crypto.subtle.importKey(
+    "jwk",
+    { kty: jwk.kty, crv: jwk.crv, x: jwk.x },
+    { name: "Ed25519", namedCurve: "Ed25519" },
+    true,
+    ["verify"],
+  );
+
+  const publicKeyBytes = await crypto.subtle.exportKey("raw", publicKey);
+  const exportedPrivateKey = await crypto.subtle.exportKey("pkcs8", privateKey);
+
+  return {
+    publicKey,
+    privateKey,
+    publicKeyHex: encodeHex(new Uint8Array(publicKeyBytes)),
+    privateKeyHex: encodeHex(new Uint8Array(exportedPrivateKey)),
+  };
+}
+
+/**
+ * Derive a deterministic X25519 encryption keypair from a seed string.
+ * Uses HKDF to expand the seed into key material suitable for X25519.
+ *
+ * The same seed always produces the same keypair.
+ */
+export async function deriveEncryptionKeyPairFromSeed(
+  seed: string,
+): Promise<EncryptionKeyPair> {
+  const encoder = new TextEncoder();
+
+  // Import seed as HKDF key material
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(seed),
+    "HKDF",
+    false,
+    ["deriveBits"],
+  );
+
+  // Derive 32 bytes for X25519 private key
+  // Use different info than signing to get a different key from the same seed
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: encoder.encode("b3nd-encryption-key"),
+      info: encoder.encode("X25519"),
+    },
+    keyMaterial,
+    256,
+  );
+
+  const privateKeyBytes = new Uint8Array(derivedBits);
+
+  // X25519 PKCS8 wrapper: ASN.1 prefix for a 32-byte X25519 private key
+  const pkcs8Prefix = new Uint8Array([
+    0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
+    0x03, 0x2b, 0x65, 0x6e, 0x04, 0x22, 0x04, 0x20,
+  ]);
+  const pkcs8Key = new Uint8Array(pkcs8Prefix.length + privateKeyBytes.length);
+  pkcs8Key.set(pkcs8Prefix);
+  pkcs8Key.set(privateKeyBytes, pkcs8Prefix.length);
+
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    pkcs8Key.buffer,
+    { name: "X25519", namedCurve: "X25519" },
+    true,
+    ["deriveBits"],
+  );
+
+  // Get public key via JWK round-trip
+  const jwk = await crypto.subtle.exportKey("jwk", privateKey);
+  const publicKey = await crypto.subtle.importKey(
+    "jwk",
+    { kty: jwk.kty, crv: jwk.crv, x: jwk.x, key_ops: [] },
+    { name: "X25519", namedCurve: "X25519" },
+    true,
+    [],
+  );
+
+  const publicKeyBytes = await crypto.subtle.exportKey("raw", publicKey);
+
+  return {
+    publicKey,
+    privateKey,
+    publicKeyHex: encodeHex(new Uint8Array(publicKeyBytes)),
+  };
+}
+
+/**
+ * Generate a PKCE code verifier (RFC 7636)
+ * 32 random bytes, base64url-encoded (43 characters)
+ */
+export function generateCodeVerifier(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const base64 = encodeBase64(bytes);
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
+ * Generate a PKCE code challenge from a verifier (RFC 7636, S256 method)
+ * SHA-256 hash of verifier, base64url-encoded (43 characters)
+ */
+export async function generateCodeChallenge(
+  verifier: string,
+): Promise<string> {
+  const encoder = new TextEncoder();
+  const hash = await crypto.subtle.digest("SHA-256", encoder.encode(verifier));
+  const hashArray = new Uint8Array(hash);
+  const base64 = encodeBase64(hashArray);
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}

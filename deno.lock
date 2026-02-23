@@ -945,6 +945,11 @@
           "npm:hono@4"
         ]
       },
+      "apps/vault-listener": {
+        "dependencies": [
+          "jsr:@std/assert@1"
+        ]
+      },
       "apps/wallet-node": {
         "dependencies": [
           "npm:hono@*"
@@ -1004,6 +1009,12 @@
         ]
       },
       "libs/b3nd-encrypt": {
+        "dependencies": [
+          "jsr:@std/assert@1",
+          "jsr:@std/encoding@1"
+        ]
+      },
+      "libs/b3nd-listener": {
         "dependencies": [
           "jsr:@std/assert@1",
           "jsr:@std/encoding@1"
