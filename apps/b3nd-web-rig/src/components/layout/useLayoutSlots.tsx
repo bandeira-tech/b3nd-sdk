@@ -10,12 +10,14 @@ import { NodesLeftSlot } from "../nodes/NodesLeftSlot";
 import { NodesLayoutSlot } from "../nodes/NodesLayoutSlot";
 import { LearnLeftSlot } from "../learn/LearnLeftSlot";
 import { LearnLayoutSlot } from "../learn/LearnLayoutSlot";
+import { EditorLeftSlotConnected } from "../editor/EditorLayoutSlot";
+import { EditorMainSlotConnected } from "../editor/EditorLayoutSlot";
 import { SettingsLayoutSlot } from "./slots/SettingsLayoutSlot";
 import { AccountsLayoutSlot } from "./slots/AccountsLayoutSlot";
 import { SimpleLeftSlot } from "./slots/SimpleLeftSlot";
 import type { AppMode } from "../../types";
 
-type LayoutSlotKey = "settings" | "accounts" | "writer" | "explorer" | "dashboard" | "nodes" | "learn";
+type LayoutSlotKey = "settings" | "accounts" | "editor" | "writer" | "explorer" | "dashboard" | "nodes" | "learn";
 
 type LayoutSlot = {
   Left: ComponentType;
@@ -33,6 +35,11 @@ const layoutSlots: Record<LayoutSlotKey, LayoutSlot> = {
     Left: () => <SimpleLeftSlot title="Accounts" />,
     Main: AccountsLayoutSlot,
     rightPanelToggleVisible: () => true,
+  },
+  editor: {
+    Left: EditorLeftSlotConnected,
+    Main: EditorMainSlotConnected,
+    rightPanelToggleVisible: () => false,
   },
   writer: {
     Left: WriterLeftSlot,
@@ -72,6 +79,7 @@ export function useLayoutSlots() {
     if (activeApp === "learn") return "learn";
     if (activeApp === "nodes") return "nodes";
     if (activeApp === "dashboard") return "dashboard";
+    if (activeApp === "editor") return "editor";
     if (activeApp === "writer") return "writer";
     if (activeApp === "explorer") return "explorer";
     throw new Error("Unsupported layout slot configuration");

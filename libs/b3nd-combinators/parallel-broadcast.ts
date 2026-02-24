@@ -22,25 +22,26 @@ export function parallelBroadcast(
       const results = await Promise.allSettled(
         clients.map((c) => c.receive(msg)),
       );
+      const [uri] = msg;
       const rejected = results.find((r) => r.status === "rejected") as
         | PromiseRejectedResult
         | undefined;
       if (rejected) {
-        return {
-          accepted: false,
-          error: rejected.reason instanceof Error
-            ? rejected.reason.message
-            : String(rejected.reason),
-        };
+        const err = rejected.reason instanceof Error
+          ? rejected.reason.message
+          : String(rejected.reason);
+        console.warn(`[broadcast] Client threw on ${uri}: ${err}`);
+        return { accepted: false, error: err };
       }
       const failures = results.filter((r: any) =>
         r.status === "fulfilled" && r.value?.accepted === false
       ) as PromiseFulfilledResult<ReceiveResult>[];
       if (failures.length) {
-        return {
-          accepted: false,
-          error: failures[0].value.error || "Broadcast failed",
-        };
+        const err = failures[0].value.error || "Broadcast failed";
+        console.warn(
+          `[broadcast] ${failures.length}/${clients.length} client(s) rejected ${uri}: ${err}`,
+        );
+        return { accepted: false, error: err };
       }
       return { accepted: true };
     },

@@ -10,8 +10,6 @@ export interface NavigationNode {
   name: string; // Display name (last segment of path)
   type: "directory" | "file";
   children?: NavigationNode[]; // Lazy-loaded via listPath
-  // Optional record metadata when a file node includes it (e.g., mock data)
-  record?: PersistenceRecord;
 }
 
 export interface SearchResult {
@@ -46,7 +44,7 @@ export interface PaginatedResponse<T> {
 // Backend adapter interface
 export interface BackendAdapter {
   name: string;
-  type: "mock" | "http";
+  type: "http";
   baseUrl?: string;
 
   // Core operations
@@ -82,7 +80,7 @@ export interface EndpointConfig {
 
 // Application state types
 export type AppMode = "filesystem" | "search" | "watched";
-export type AppExperience = "explorer" | "writer" | "dashboard" | "nodes" | "learn";
+export type AppExperience = "explorer" | "editor" | "writer" | "dashboard" | "nodes" | "learn";
 export type WriterSection =
   | "backend"
   | "hash"

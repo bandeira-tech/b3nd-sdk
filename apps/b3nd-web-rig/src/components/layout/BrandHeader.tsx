@@ -1,8 +1,8 @@
 // React import not needed with react-jsx runtime
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
-import { Monitor, Moon, Settings, Sun, PenSquare, Compass, Users, Activity, Server, BookOpen } from "lucide-react";
-import { RIG_ACCOUNTS_PATH, RIG_DASHBOARD_PATH, RIG_EXPLORER_BASE_PATH, RIG_LEARN_PATH, RIG_NODES_PATH, RIG_SETTINGS_PATH, RIG_WRITER_BASE_PATH, cn } from "../../utils";
+import { Monitor, Moon, Settings, Sun, PenSquare, Compass, Users, Activity, Server, BookOpen, FileEdit } from "lucide-react";
+import { RIG_ACCOUNTS_PATH, RIG_DASHBOARD_PATH, RIG_EDITOR_BASE_PATH, RIG_EXPLORER_BASE_PATH, RIG_LEARN_PATH, RIG_NODES_PATH, RIG_SETTINGS_PATH, RIG_WRITER_BASE_PATH, cn } from "../../utils";
 import type { ReactNode } from "react";
 
 export function BrandHeader() {
@@ -56,6 +56,14 @@ export function BrandHeader() {
           icon={<Compass className="h-4 w-4" />}
           onClick={() => {
             navigate(RIG_EXPLORER_BASE_PATH);
+          }}
+        />
+        <AppSwitchButton
+          active={activeApp === "editor"}
+          label="Editor"
+          icon={<FileEdit className="h-4 w-4" />}
+          onClick={() => {
+            navigate(RIG_EDITOR_BASE_PATH);
           }}
         />
         <AppSwitchButton

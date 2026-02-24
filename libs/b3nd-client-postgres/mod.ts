@@ -168,9 +168,9 @@ export class PostgresClient implements NodeProtocolInterface {
         return { success: false, error: `Not found: ${uri}` };
       }
       const row: any = res.rows[0];
-      const rawData = typeof row.data === "string"
-        ? JSON.parse(row.data)
-        : row.data;
+      // pg driver auto-parses jsonb — row.data is already a native JS value.
+      // Do NOT JSON.parse string values; that breaks scalar strings like "hello".
+      const rawData = row.data;
       // Decode binary data if encoded
       const decodedData = decodeBinaryFromJson(rawData) as T;
       const record: PersistenceRecord<T> = {
@@ -215,10 +215,8 @@ export class PostgresClient implements NodeProtocolInterface {
       const found = new Map<string, PersistenceRecord<T>>();
       for (const raw of res.rows || []) {
         const row = raw as { uri: string; data: unknown; ts: unknown };
-        const rawData = typeof row.data === "string"
-          ? JSON.parse(row.data)
-          : row.data;
-        const decodedData = decodeBinaryFromJson(rawData) as T;
+        // pg driver auto-parses jsonb — no manual JSON.parse needed
+        const decodedData = decodeBinaryFromJson(row.data) as T;
         found.set(row.uri, {
           ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
           data: decodedData,

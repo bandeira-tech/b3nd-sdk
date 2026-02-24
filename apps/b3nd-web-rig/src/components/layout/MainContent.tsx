@@ -306,11 +306,6 @@ function AccountRootDirectory(
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{item.name}</div>
-              {item.record && (
-                <div className="text-xs text-muted-foreground">
-                  Modified: {new Date(item.record.ts).toLocaleString()}
-                </div>
-              )}
             </div>
           </button>
         ))}

@@ -65,6 +65,7 @@ export function sanitizePath(path: string): string {
 }
 
 export const RIG_EXPLORER_BASE_PATH = "/explorer";
+export const RIG_EDITOR_BASE_PATH = "/editor";
 export const RIG_WRITER_BASE_PATH = "/writer";
 export const RIG_SETTINGS_PATH = "/settings";
 export const RIG_ACCOUNTS_PATH = "/accounts";

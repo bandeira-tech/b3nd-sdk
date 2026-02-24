@@ -100,6 +100,104 @@ export function runSharedSuite(
     await client.cleanup();
   });
 
+  // --- Scalar value tests ---
+
+  Deno.test(`${suiteName} - receive and read string value`, async () => {
+    const client = await Promise.resolve(factories.happy());
+
+    const result = await client.receive([
+      "store://users/scalar-string/data",
+      "hello world",
+    ]);
+    assertEquals(result.accepted, true);
+
+    const readResult = await client.read("store://users/scalar-string/data");
+    assertEquals(readResult.success, true, "String value read should succeed");
+    assertEquals(readResult.record?.data, "hello world");
+
+    await client.cleanup();
+  });
+
+  Deno.test(`${suiteName} - receive and read number value`, async () => {
+    const client = await Promise.resolve(factories.happy());
+
+    const result = await client.receive([
+      "store://users/scalar-number/data",
+      42,
+    ]);
+    assertEquals(result.accepted, true);
+
+    const readResult = await client.read("store://users/scalar-number/data");
+    assertEquals(readResult.success, true, "Number value read should succeed");
+    assertEquals(readResult.record?.data, 42);
+
+    await client.cleanup();
+  });
+
+  Deno.test(`${suiteName} - receive and read boolean value`, async () => {
+    const client = await Promise.resolve(factories.happy());
+
+    const result = await client.receive([
+      "store://users/scalar-bool/data",
+      true,
+    ]);
+    assertEquals(result.accepted, true);
+
+    const readResult = await client.read("store://users/scalar-bool/data");
+    assertEquals(readResult.success, true, "Boolean value read should succeed");
+    assertEquals(readResult.record?.data, true);
+
+    await client.cleanup();
+  });
+
+  Deno.test(`${suiteName} - receive and read null value`, async () => {
+    const client = await Promise.resolve(factories.happy());
+
+    const result = await client.receive([
+      "store://users/scalar-null/data",
+      null,
+    ]);
+    assertEquals(result.accepted, true);
+
+    const readResult = await client.read("store://users/scalar-null/data");
+    assertEquals(readResult.success, true, "Null value read should succeed");
+    assertEquals(readResult.record?.data, null);
+
+    await client.cleanup();
+  });
+
+  Deno.test(`${suiteName} - receive and read empty string value`, async () => {
+    const client = await Promise.resolve(factories.happy());
+
+    const result = await client.receive([
+      "store://users/scalar-empty/data",
+      "",
+    ]);
+    assertEquals(result.accepted, true);
+
+    const readResult = await client.read("store://users/scalar-empty/data");
+    assertEquals(readResult.success, true, "Empty string value read should succeed");
+    assertEquals(readResult.record?.data, "");
+
+    await client.cleanup();
+  });
+
+  Deno.test(`${suiteName} - receive and read zero value`, async () => {
+    const client = await Promise.resolve(factories.happy());
+
+    const result = await client.receive([
+      "store://users/scalar-zero/data",
+      0,
+    ]);
+    assertEquals(result.accepted, true);
+
+    const readResult = await client.read("store://users/scalar-zero/data");
+    assertEquals(readResult.success, true, "Zero value read should succeed");
+    assertEquals(readResult.record?.data, 0);
+
+    await client.cleanup();
+  });
+
   Deno.test(`${suiteName} - list returns items`, async () => {
     const client = await Promise.resolve(factories.happy());
 

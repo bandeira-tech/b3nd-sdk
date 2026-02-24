@@ -219,12 +219,18 @@ export function httpServer(
     // If client is configured, delegate directly
     if (client) {
       const result = await client.receive([uri, data] as Message);
+      if (!result.accepted) {
+        console.warn(`[receive] REJECTED ${uri}: ${result.error ?? "unknown"}`);
+      }
       return c.json(result, result.accepted ? 200 : 400);
     }
 
     // If node is configured, use it directly
     if (node) {
       const result = await node.receive([uri, data] as Message);
+      if (!result.accepted) {
+        console.warn(`[receive] REJECTED ${uri}: ${result.error ?? "unknown"}`);
+      }
       return c.json(result, result.accepted ? 200 : 400);
     }
 
@@ -265,6 +271,7 @@ export function httpServer(
     const res = await reader.read(uri);
 
     if (!res.success || !res.record) {
+      console.warn(`[read] FAILED ${uri}: ${res.error ?? "no record"}`);
       return c.json({ error: res.error || "Not found" }, 404);
     }
 
