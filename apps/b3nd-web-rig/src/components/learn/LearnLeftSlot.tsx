@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { ArrowLeft, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
-import { documentationDocs, cookbookDocs, designDocs, getDocumentMarkdown, getDocEntry } from "./skillContent";
+import { TIER_ORDER, booksByTier, findBook } from "./skillContent";
 import { parseSkillSections, type SkillSection } from "./parseSkillSections";
 import { useLearnStore } from "./useLearnStore";
 
@@ -15,12 +15,15 @@ export function LearnLeftSlot() {
   );
 }
 
-/* ── Index Mode ─────────────────────────────────────────────── */
+/* -- Index Mode ---------------------------------------------------------- */
 
 function IndexMode() {
   const openBook = useLearnStore((s) => s.openBook);
+  const catalog = useLearnStore((s) => s.catalog);
+  const books = catalog?.books ?? [];
+
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(
-    () => new Set(["Documentation", "Cookbooks", "Design"]),
+    () => new Set(TIER_ORDER.map((t) => t.label)),
   );
 
   const toggleTier = (label: string) => {
@@ -40,59 +43,30 @@ function IndexMode() {
       </div>
 
       <div className="flex-1 overflow-auto custom-scrollbar py-1">
-        {/* Documentation tier */}
-        <TierGroup
-          label="Documentation"
-          expanded={expandedTiers.has("Documentation")}
-          onToggle={() => toggleTier("Documentation")}
-        >
-          {documentationDocs.map((doc) => (
-            <button
-              key={doc.key}
-              onClick={() => openBook(doc.key)}
-              className="w-full flex flex-col gap-0.5 pl-8 pr-3 py-2 text-left hover:bg-accent/50 transition-colors"
-            >
-              <span className="text-xs font-medium text-foreground truncate">{doc.label}</span>
-              <span className="text-[10px] text-muted-foreground truncate">{doc.description}</span>
-            </button>
-          ))}
-        </TierGroup>
+        {TIER_ORDER.map((tier) => {
+          const tierBooks = booksByTier(books, tier.id);
+          if (tierBooks.length === 0) return null;
 
-        {/* Cookbooks tier */}
-        <TierGroup
-          label="Cookbooks"
-          expanded={expandedTiers.has("Cookbooks")}
-          onToggle={() => toggleTier("Cookbooks")}
-        >
-          {cookbookDocs.map((doc) => (
-            <button
-              key={doc.key}
-              onClick={() => openBook(doc.key)}
-              className="w-full flex flex-col gap-0.5 pl-8 pr-3 py-2 text-left hover:bg-accent/50 transition-colors"
+          return (
+            <TierGroup
+              key={tier.id}
+              label={tier.label}
+              expanded={expandedTiers.has(tier.label)}
+              onToggle={() => toggleTier(tier.label)}
             >
-              <span className="text-xs font-medium text-foreground truncate">{doc.label}</span>
-              <span className="text-[10px] text-muted-foreground truncate">{doc.description}</span>
-            </button>
-          ))}
-        </TierGroup>
-
-        {/* Design tier */}
-        <TierGroup
-          label="Design"
-          expanded={expandedTiers.has("Design")}
-          onToggle={() => toggleTier("Design")}
-        >
-          {designDocs.map((doc) => (
-            <button
-              key={doc.key}
-              onClick={() => openBook(doc.key)}
-              className="w-full flex flex-col gap-0.5 pl-8 pr-3 py-2 text-left hover:bg-accent/50 transition-colors"
-            >
-              <span className="text-xs font-medium text-foreground truncate">{doc.label}</span>
-              <span className="text-[10px] text-muted-foreground truncate">{doc.description}</span>
-            </button>
-          ))}
-        </TierGroup>
+              {tierBooks.map((book) => (
+                <button
+                  key={book.key}
+                  onClick={() => openBook(book.key)}
+                  className="w-full flex flex-col gap-0.5 pl-8 pr-3 py-2 text-left hover:bg-accent/50 transition-colors"
+                >
+                  <span className="text-xs font-medium text-foreground truncate">{book.label}</span>
+                  <span className="text-[10px] text-muted-foreground truncate">{book.description}</span>
+                </button>
+              ))}
+            </TierGroup>
+          );
+        })}
       </div>
     </>
   );
@@ -127,16 +101,16 @@ function TierGroup({
   );
 }
 
-/* ── Reader Mode ────────────────────────────────────────────── */
+/* -- Reader Mode --------------------------------------------------------- */
 
 function ReaderMode() {
   const activeBook = useLearnStore((s) => s.activeBook)!;
   const closeBook = useLearnStore((s) => s.closeBook);
   const activeSectionId = useLearnStore((s) => s.activeSectionId);
+  const catalog = useLearnStore((s) => s.catalog);
 
-  const entry = getDocEntry(activeBook);
-  const markdown = useMemo(() => getDocumentMarkdown(activeBook), [activeBook]);
-  const sections = useMemo(() => parseSkillSections(markdown), [markdown]);
+  const book = useMemo(() => findBook(catalog?.books ?? [], activeBook), [catalog, activeBook]);
+  const sections = useMemo(() => parseSkillSections(book?.markdown ?? ""), [book]);
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     () => new Set(sections.map((s) => s.id)),
@@ -192,7 +166,7 @@ function ReaderMode() {
           <span>All Books</span>
         </button>
         <div className="px-3 pb-2">
-          <span className="text-sm font-medium text-foreground">{entry?.label}</span>
+          <span className="text-sm font-medium text-foreground">{book?.label ?? activeBook}</span>
         </div>
       </div>
 
@@ -213,7 +187,7 @@ function ReaderMode() {
   );
 }
 
-/* ── Section Nav Item ───────────────────────────────────────── */
+/* -- Section Nav Item ---------------------------------------------------- */
 
 function SectionNavItem({
   section,

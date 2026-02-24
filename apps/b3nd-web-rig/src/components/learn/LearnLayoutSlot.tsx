@@ -3,8 +3,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { BookOpen, ChefHat, Compass } from "lucide-react";
-import { getDocumentMarkdown, documentationDocs, cookbookDocs, designDocs, type LearnDocEntry } from "./skillContent";
+import { BookOpen, ChefHat, Compass, Lightbulb, Loader2 } from "lucide-react";
+import { TIER_ORDER, booksByTier, findBook, type LearnBook } from "./skillContent";
 import { useLearnStore } from "./useLearnStore";
 
 function slugify(text: string): string {
@@ -18,17 +18,51 @@ function stripFrontmatter(md: string): string {
   return md.replace(/^---[\s\S]*?---\n*/, "");
 }
 
+const TIER_ICONS: Record<string, typeof BookOpen> = {
+  documentation: BookOpen,
+  cookbook: ChefHat,
+  design: Compass,
+  proposals: Lightbulb,
+};
+
 export function LearnLayoutSlot() {
   const activeBook = useLearnStore((s) => s.activeBook);
+  const loading = useLearnStore((s) => s.loading);
+  const error = useLearnStore((s) => s.error);
+  const catalog = useLearnStore((s) => s.catalog);
+  const loadCatalog = useLearnStore((s) => s.loadCatalog);
+
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
+
+  if (loading || (!catalog && !error)) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading learn catalog...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-sm text-destructive">{error}</p>
+      </div>
+    );
+  }
 
   if (activeBook === null) return <IndexView />;
   return <ReaderView />;
 }
 
-/* ── Index View ─────────────────────────────────────────────── */
+/* -- Index View ---------------------------------------------------------- */
 
 function IndexView() {
   const openBook = useLearnStore((s) => s.openBook);
+  const catalog = useLearnStore((s) => s.catalog);
+  const books = catalog?.books ?? [];
 
   return (
     <div className="max-w-4xl mx-auto px-8 py-10 h-full overflow-y-auto custom-scrollbar">
@@ -37,68 +71,52 @@ function IndexView() {
         Reference documentation and hands-on recipes for building with B3nd.
       </p>
 
-      {/* Documentation */}
-      <section className="mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          <BookOpen className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Documentation</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {documentationDocs.map((doc) => (
-            <BookCard key={doc.key} doc={doc} onClick={() => openBook(doc.key)} />
-          ))}
-        </div>
-      </section>
+      {TIER_ORDER.map((tier) => {
+        const tierBooks = booksByTier(books, tier.id);
+        if (tierBooks.length === 0) return null;
+        const Icon = TIER_ICONS[tier.id] ?? BookOpen;
 
-      {/* Cookbooks */}
-      <section className="mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          <ChefHat className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cookbooks</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {cookbookDocs.map((doc) => (
-            <BookCard key={doc.key} doc={doc} onClick={() => openBook(doc.key)} />
-          ))}
-        </div>
-      </section>
-
-      {/* Design */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Compass className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Design</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {designDocs.map((doc) => (
-            <BookCard key={doc.key} doc={doc} onClick={() => openBook(doc.key)} />
-          ))}
-        </div>
-      </section>
+        return (
+          <section key={tier.id} className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Icon className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {tier.label}
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {tierBooks.map((book) => (
+                <BookCard key={book.key} book={book} onClick={() => openBook(book.key)} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
 
-function BookCard({ doc, onClick }: { doc: LearnDocEntry; onClick: () => void }) {
+function BookCard({ book, onClick }: { book: LearnBook; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       className="text-left border border-border rounded-lg p-4 hover:border-primary/40 hover:bg-accent/30 transition-colors group"
     >
       <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-        {doc.label}
+        {book.label}
       </span>
-      <p className="text-xs text-muted-foreground mt-1">{doc.description}</p>
+      <p className="text-xs text-muted-foreground mt-1">{book.description}</p>
     </button>
   );
 }
 
-/* ── Reader View ────────────────────────────────────────────── */
+/* -- Reader View --------------------------------------------------------- */
 
 function ReaderView() {
   const activeBook = useLearnStore((s) => s.activeBook)!;
-  const markdown = useMemo(() => getDocumentMarkdown(activeBook), [activeBook]);
-  const content = useMemo(() => stripFrontmatter(markdown), [markdown]);
+  const catalog = useLearnStore((s) => s.catalog);
+  const book = useMemo(() => findBook(catalog?.books ?? [], activeBook), [catalog, activeBook]);
+  const content = useMemo(() => stripFrontmatter(book?.markdown ?? ""), [book]);
   const containerRef = useRef<HTMLElement>(null);
   const setActiveSectionId = useLearnStore((s) => s.setActiveSectionId);
 
@@ -158,6 +176,14 @@ function ReaderView() {
     },
     [],
   );
+
+  if (!book) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-sm text-muted-foreground">Book not found.</p>
+      </div>
+    );
+  }
 
   return (
     <article
