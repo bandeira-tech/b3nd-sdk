@@ -93,6 +93,7 @@ const BOOK_META: Record<string, BookMeta> = {
   // Proposals
   "tokenization-gas-semantics.md": { key: "tokenization-gas-semantics", label: "Tokenization & Gas Semantics", description: "Economic layer proposals for B3nd message passing", tier: "proposals" },
   "firecat-economic-model.md": { key: "firecat-economic-model", label: "Firecat Economic Model", description: "Full economic vision: subsidies, ads, node operators, DePIN template", tier: "proposals" },
+  "bridge-token-movement.md": { key: "bridge-token-movement", label: "Token Movement", description: "Layers, options, and engagement patterns for cross-chain token flow", tier: "proposals" },
 };
 
 // Part assignments for multi-chapter book chapters
