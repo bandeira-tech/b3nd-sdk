@@ -16,18 +16,19 @@
     >
     <style>
       :root {
-        --ink: #0c0a1d;
-        --primary: #1e1b4b;
-        --secondary: #4338ca;
+        --ink: #1a1747;
+        --primary: #1a1747;
+        --secondary: #4f46e5;
         --accent: #f97316;
         --emerald: #10b981;
-        --text: #1f2937;
+        --text: #334155;
+        --text-heading: #0f172a;
         --muted: #64748b;
         --faint: #94a3b8;
-        --border: #e2e8f0;
+        --border: #cbd5e1;
         --surface: #f8fafc;
         --white: #ffffff;
-        --code-bg: #0c0a1d;
+        --code-bg: #0c0b18;
         --code-surface: rgba(255,255,255,0.04);
       }
 
@@ -43,7 +44,7 @@
       }
 
       .container {
-        max-width: 960px;
+        max-width: 1100px;
         margin: 0 auto;
         padding: 0 24px;
       }
@@ -69,11 +70,11 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        height: 52px;
+        height: 56px;
       }
 
       .logo {
-        font-size: 20px;
+        font-size: 22px;
         font-weight: 700;
         color: var(--primary);
         text-decoration: none;
@@ -92,7 +93,7 @@
       .nav-links a {
         color: var(--muted);
         text-decoration: none;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 500;
         letter-spacing: 0.01em;
         transition: color 0.15s;
@@ -119,12 +120,12 @@
          HERO — Quiet confidence
          ============================================================ */
       .hero {
-        min-height: 70vh;
+        min-height: 50vh;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: var(--ink);
-        padding: 120px 24px 80px;
+        background: linear-gradient(135deg, #1a1747 0%, #2a2668 60%, #171440 100%);
+        padding: 100px 24px 60px;
         text-align: center;
         position: relative;
         overflow: hidden;
@@ -133,9 +134,9 @@
       .hero::after {
         content: "";
         position: absolute;
-        bottom: 0; left: 0; right: 0;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(67,56,202,0.3), transparent);
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--accent);
       }
 
       .hero-content {
@@ -144,7 +145,7 @@
       }
 
       .hero h1 {
-        font-size: clamp(48px, 8vw, 80px);
+        font-size: clamp(64px, 12vw, 120px);
         font-weight: 700;
         color: var(--white);
         letter-spacing: -0.03em;
@@ -152,41 +153,31 @@
         margin-bottom: 20px;
       }
 
-      .hero h1 .dot { color: var(--accent); }
+      .hero h1 .accent-dot { color: var(--accent); }
 
       .hero .tagline {
         font-family: "JetBrains Mono", monospace;
-        font-size: clamp(13px, 1.8vw, 15px);
-        color: rgba(255,255,255,0.35);
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        margin-bottom: 32px;
+        font-size: clamp(16px, 2.5vw, 22px);
+        color: rgba(255,255,255,0.5);
+        letter-spacing: 0.15em;
+        text-transform: lowercase;
+        margin-bottom: 16px;
       }
 
       .hero .subtitle {
-        font-size: clamp(15px, 2vw, 18px);
-        color: rgba(255,255,255,0.55);
+        font-size: clamp(14px, 2vw, 17px);
+        color: rgba(255,255,255,0.7);
         max-width: 520px;
         margin: 0 auto;
         line-height: 1.7;
       }
 
-      /* Grid pattern overlay */
-      .hero::before {
-        content: "";
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background-image:
-          linear-gradient(rgba(67,56,202,0.06) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(67,56,202,0.06) 1px, transparent 1px);
-        background-size: 60px 60px;
-        pointer-events: none;
-      }
+      /* No decorative background — the protocol earns trust through restraint */
 
       /* ============================================================
          SECTIONS — Generous whitespace
          ============================================================ */
-      section { padding: 100px 0; }
+      section { padding: 80px 0; }
 
       .section-label {
         font-family: "JetBrains Mono", monospace;
@@ -199,9 +190,9 @@
       }
 
       .section-title {
-        font-size: clamp(28px, 4vw, 38px);
+        font-size: clamp(28px, 4vw, 36px);
         font-weight: 700;
-        color: var(--primary);
+        color: var(--text-heading);
         text-align: center;
         letter-spacing: -0.02em;
         margin-bottom: 16px;
@@ -342,7 +333,7 @@
 
       .code-panel {
         background: var(--code-bg);
-        border-radius: 8px;
+        border-radius: 10px;
         overflow: hidden;
         border: 1px solid rgba(255,255,255,0.06);
       }
@@ -355,7 +346,7 @@
         gap: 6px;
       }
 
-      .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; }
       .dot.r { background: #ef4444; opacity: 0.7; }
       .dot.y { background: #f59e0b; opacity: 0.7; }
       .dot.g { background: #10b981; opacity: 0.7; }
@@ -550,7 +541,7 @@
       }
 
       .level-card {
-        border-left: 3px solid var(--secondary);
+        border-left: 4px solid var(--secondary);
         padding: 20px;
         background: var(--surface);
         border-radius: 0 6px 6px 0;
@@ -642,18 +633,19 @@
 
       .card {
         background: var(--white);
-        border: 1px solid var(--border);
-        border-radius: 8px;
+        border: 2px solid var(--border);
+        border-radius: 10px;
         padding: 28px 20px;
         text-align: center;
         text-decoration: none;
         color: var(--text);
-        transition: border-color 0.15s, transform 0.15s;
+        transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
       }
 
       .card:hover {
         border-color: var(--secondary);
-        transform: translateY(-2px);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(79,70,229,0.10);
       }
 
       .card h3 {
@@ -827,7 +819,7 @@
     <section class="hero">
       <div class="hero-content">
         <p class="tagline">the data protocol</p>
-        <h1>B3ND<span class="dot">.</span></h1>
+        <h1>B3ND<span class="accent-dot">.</span></h1>
         <p class="subtitle">
           A URI-based protocol for data that belongs to you.
           Four operations. Client-side encryption. Schema-agnostic.
@@ -841,9 +833,9 @@
         <p class="section-label">Protocol</p>
         <h2 class="section-title">A small protocol with a large guarantee.</h2>
         <p class="section-desc">
-          Everything B3nd does, on one screen. Four operations over URI-addressed data.
-          Schema-agnostic by design — B3nd doesn't care what your data looks like.
-          It cares who it belongs to.
+          Four operations over URI-addressed data. Think HTTP, but for data you
+          actually control. Schema-agnostic by design — B3nd doesn't care what your
+          data looks like. It cares who it belongs to.
         </p>
 
         <!-- URI Anatomy -->
@@ -983,11 +975,11 @@ console.<span class="fn">log</span>(result.record.data);
               <span class="terminal-label">any app, same data</span>
             </div>
             <div class="code-body">
-              <pre><span class="cm">// A different app reads the same URI</span>
-<span class="kw">const</span> profile = <span class="kw">await</span> otherApp.<span class="fn">read</span>(
+              <pre><span class="cm">// A completely different app, same URI</span>
+<span class="kw">const</span> other = <span class="kw">new</span> <span class="fn">HttpClient</span>({ url: <span class="str">"https://..."</span> });
+<span class="kw">const</span> profile = <span class="kw">await</span> other.<span class="fn">read</span>(
   <span class="str">"mutable://accounts/alice/profile"</span>
 );
-
 <span class="cm">// Same address. Same data. Your data travels with you.</span></pre>
             </div>
           </div>
@@ -1002,7 +994,9 @@ console.<span class="fn">log</span>(result.record.data);
         <h2 class="section-title">Ownership is not a feature. It's the protocol.</h2>
         <p class="section-desc">
           Most platforms promise you own your data, then store it behind
-          their access controls. B3nd makes anything else structurally impossible.
+          their access controls. B3nd takes a different approach: client-side
+          encryption means your data is unreadable without your keys.
+          Ownership isn't enforced by policy. It's enforced by math.
         </p>
 
         <div class="ownership-comparison">
@@ -1089,7 +1083,7 @@ console.<span class="fn">log</span>(result.record.data);
     </section>
 
     <!-- Run Your Own -->
-    <section class="run-own">
+    <section class="run-own" id="infrastructure">
       <div class="container">
         <p class="section-label">Infrastructure</p>
         <h2 class="section-title">Run the protocol.</h2>
@@ -1111,7 +1105,7 @@ console.<span class="fn">log</span>(result.record.data);
             <div class="node peer">Node</div>
           </div>
 
-          <div class="code-inline">new HttpClient({ url: "your-node.example.com" })</div>
+          <div class="code-inline">new HttpClient({ url: "https://your-node.example.com" })</div>
         </div>
       </div>
     </section>
@@ -1156,9 +1150,8 @@ console.<span class="fn">log</span>(result.record.data);
       <div class="container">
         <p>
           Looking for the public network?
-          <a href="/firecat/">Firecat</a> is the canonical protocol
-          built on B3nd — with tokenomics, community ownership,
-          and a live testnet.
+          <a href="/firecat-website/">Firecat</a> is the canonical network
+          built on B3nd — live on testnet and open to builders.
         </p>
       </div>
     </div>
@@ -1184,7 +1177,7 @@ console.<span class="fn">log</span>(result.record.data);
             <h4>Connect</h4>
             <ul>
               <li><a href="https://bandeira.tech">Bandeira Tech</a></li>
-              <li><a href="/firecat/">Firecat Network</a></li>
+              <li><a href="/firecat-website/">Firecat Network</a></li>
             </ul>
           </div>
         </div>

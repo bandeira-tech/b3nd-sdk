@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
       rel="stylesheet"
     >
     <style>
@@ -19,7 +19,6 @@
         --ember: #ea580c;
         --amber: #f59e0b;
         --teal: #14b8a6;
-        --flame-white: #fef3c7;
         --positive: #22c55e;
         --negative: #ef4444;
 
@@ -32,9 +31,6 @@
         --text-body: #d6d3d1;
         --text-muted: #a8a29e;
         --text-dim: #78716c;
-
-        --warm-cream: #fafaf9;
-        --warm-surface: #f5f5f4;
 
         --b3nd-indigo: #4338ca;
       }
@@ -55,13 +51,13 @@
       }
 
       .container {
-        max-width: 1120px;
+        max-width: 1280px;
         margin: 0 auto;
-        padding: 0 24px;
+        padding: 0 32px;
       }
 
       .mono {
-        font-family: "JetBrains Mono", monospace;
+        font-family: "Fira Code", monospace;
       }
 
       /* ============================================================
@@ -81,7 +77,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        height: 60px;
+        height: 64px;
       }
 
       .logo {
@@ -168,7 +164,7 @@
 
       .hero-badge {
         display: inline-block;
-        font-family: "JetBrains Mono", monospace;
+        font-family: "Fira Code", monospace;
         font-size: 12px;
         color: var(--teal);
         border: 1px solid rgba(20,184,166,0.3);
@@ -240,6 +236,7 @@
       .btn-primary:hover {
         background: #c2410c;
         transform: translateY(-1px);
+        box-shadow: 0 0 16px rgba(234,88,12,0.3);
       }
 
       .btn-secondary {
@@ -261,6 +258,44 @@
       }
 
       /* ============================================================
+         STATS BAR
+         ============================================================ */
+      .stats-bar {
+        background: var(--dark-surface);
+        border-bottom: 1px solid var(--dark-border);
+        padding: 20px 0;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 24px;
+        text-align: center;
+      }
+
+      .stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .stat-value {
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-heading);
+      }
+
+      .stat-value.teal-text { color: var(--teal); }
+
+      .stat-label {
+        font-size: 11px;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      /* ============================================================
          SECTIONS
          ============================================================ */
       section { padding: 100px 0; }
@@ -269,7 +304,7 @@
       .surface-section { background: var(--dark-surface); }
 
       .section-label {
-        font-family: "JetBrains Mono", monospace;
+        font-family: "Fira Code", monospace;
         font-size: 11px;
         color: var(--ember);
         text-transform: uppercase;
@@ -312,6 +347,12 @@
         border-radius: 10px;
         padding: 32px 24px;
         border-top: 3px solid var(--negative);
+        transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      }
+
+      .problem-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
       }
 
       .problem-card h3 {
@@ -421,6 +462,13 @@
         padding: 32px 24px;
         position: relative;
         overflow: hidden;
+        transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      }
+
+      .econ-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--ember);
+        box-shadow: 0 4px 20px rgba(234,88,12,0.1);
       }
 
       .econ-card::before {
@@ -531,7 +579,7 @@
       }
 
       .token-role .role-label {
-        font-family: "JetBrains Mono", monospace;
+        font-family: "Fira Code", monospace;
         font-size: 11px;
         color: var(--teal);
         text-transform: uppercase;
@@ -617,7 +665,7 @@
 
       .terminal-label {
         margin-left: 10px;
-        font-family: "JetBrains Mono", monospace;
+        font-family: "Fira Code", monospace;
         font-size: 11px;
         color: var(--text-dim);
       }
@@ -627,7 +675,7 @@
       }
 
       .code-body pre {
-        font-family: "JetBrains Mono", monospace;
+        font-family: "Fira Code", monospace;
         font-size: 13px;
         line-height: 1.8;
         color: var(--text-body);
@@ -726,13 +774,20 @@
       }
 
       .whale-row .value {
-        font-family: "JetBrains Mono", monospace;
+        font-family: "Fira Code", monospace;
         font-size: 14px;
         color: var(--text-heading);
       }
 
       .whale-row .value .accent-teal { color: var(--teal); }
       .whale-row .value .accent-amber { color: var(--amber); }
+
+      .whale-footnote {
+        margin-top: 24px;
+        font-size: 14px;
+        color: var(--text-dim);
+        text-align: center;
+      }
 
       /* ============================================================
          COMMUNITY
@@ -790,7 +845,7 @@
 
       .testnet-cta .testnet-url {
         display: inline-block;
-        font-family: "JetBrains Mono", monospace;
+        font-family: "Fira Code", monospace;
         font-size: 15px;
         color: var(--teal);
         background: var(--dark-surface);
@@ -914,6 +969,7 @@
 
       @media (max-width: 768px) {
         .nav-links { display: none; }
+        .stats-grid { grid-template-columns: repeat(2, 1fr); }
 
         .mobile-cta {
           display: inline-flex;
@@ -977,6 +1033,30 @@
         </div>
       </div>
     </section>
+
+    <!-- Live Stats Bar -->
+    <div class="stats-bar">
+      <div class="container">
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-value teal-text">Testnet</span>
+            <span class="stat-label">Network status</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">DePIN</span>
+            <span class="stat-label">Architecture</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">UTXO</span>
+            <span class="stat-label">Gas model</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">MIT</span>
+            <span class="stat-label">License</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- The Problem -->
     <section class="surface-section" id="problem">
@@ -1068,7 +1148,7 @@
             <h3>Write gas</h3>
             <p>
               Every write costs a predictable fraction of a cent, paid as FCAT.
-              The fee funds the network per-message. Reads are free.
+              Each message funds its own relay. Reads are free.
             </p>
           </div>
           <div class="econ-card">
@@ -1209,8 +1289,9 @@ console.<span class="fn">log</span>(result.record?.data);
         <p class="section-label">Operators</p>
         <h2 class="section-title">Run the network. Earn from it.</h2>
         <p class="section-desc">
-          Operating Firecat infrastructure is not charity. It is a business.
-          One node. Real revenue. The reward model makes it fair.
+          Firecat infrastructure is designed to be sustainable to operate.
+          Staking rewards, relay fees, and gas economics scale as
+          the network grows. The reward model is fair from day one.
         </p>
 
         <div class="operator-grid">
@@ -1244,7 +1325,7 @@ console.<span class="fn">log</span>(result.record?.data);
             </div>
             <div class="whale-row">
               <div class="label">Operator A earns</div>
-              <div class="value"><span class="accent-amber">8.7%</span> of rewards</div>
+              <div class="value"><span class="accent-amber">9.1%</span> of rewards</div>
             </div>
             <div class="whale-row">
               <div class="label">Operator B stakes</div>
@@ -1252,12 +1333,12 @@ console.<span class="fn">log</span>(result.record?.data);
             </div>
             <div class="whale-row">
               <div class="label">Operator B earns</div>
-              <div class="value"><span class="accent-amber">87%</span> of rewards</div>
+              <div class="value"><span class="accent-amber">90.9%</span> of rewards</div>
             </div>
           </div>
-          <p style="margin-top: 24px; font-size: 14px; color: var(--text-dim);">
+          <p class="whale-footnote">
             B has 100x the stake but only 10x the reward.
-            Small operators get proportionally higher returns.
+            sqrt(100)=10, sqrt(10000)=100. The math is simple; the implications aren't.
           </p>
         </div>
       </div>
@@ -1296,6 +1377,10 @@ console.<span class="fn">log</span>(result.record?.data);
             </p>
           </div>
         </div>
+
+        <div style="text-align: center; margin-top: 40px;">
+          <a href="https://testnet-evergreen.fire.cat" class="btn-primary">Join the network for free</a>
+        </div>
       </div>
     </section>
 
@@ -1322,8 +1407,9 @@ console.<span class="fn">log</span>(result.record?.data);
       <div class="container">
         <p>
           Firecat is built on the <a href="/website/">B3nd protocol</a> — the data layer
-          where ownership is not a promise, it is the architecture. Every byte on this
+          where ownership is structural, not aspirational. Every byte on this
           network is URI-addressed, encrypted by default, and controlled by its creator.
+          We didn't build our own data layer. We built on the right one.
         </p>
       </div>
     </div>
