@@ -122,7 +122,7 @@ interface NodeProtocolInterface {
 
 ### URI Addressing
 
-URIs define behavior, not meaning: `protocol://hostname/path`
+URI format: `protocol://hostname/path`
 - `mutable://` — overwritable data
 - `immutable://` — content-addressed, write-once
 - `encrypted://` — encrypted data
@@ -247,16 +247,6 @@ GitHub Actions runs on push/PR to `main` with 7 parallel jobs:
 The Deno workspace (`deno.json`) contains 24+ members. Each lib has its own `deno.json` with version, exports, and imports. All share the same version number.
 
 Key workspace members: all `libs/b3nd-*`, `apps/*`, `tests/`, `.claude-plugin/mcp-server`.
-
-## Deprecated Names
-
-Several types were renamed from "Transaction" to "Message". Legacy aliases exist:
-- `Transaction` -> `Message`
-- `TransactionData` -> `MessageData`
-- `txnSchema` -> `msgSchema`
-- `createTransactionNode` -> `createMessageNode`
-
-Use the new names in all new code.
 
 ## Skills & Agent Knowledge
 
