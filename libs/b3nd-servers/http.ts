@@ -330,9 +330,12 @@ export function httpServer(
       }
     })();
 
-    if (!body.prefix || typeof body.prefix !== "string") {
+    // Either prefix (modes 1 & 2) or ref (mode 3) must be present
+    const hasPrefix = body.prefix && typeof body.prefix === "string";
+    const hasRef = body.ref && typeof body.ref === "string";
+    if (!hasPrefix && !hasRef) {
       return c.json(
-        { success: false, error: "prefix is required" },
+        { success: false, error: "prefix or ref is required" },
         400,
       );
     }

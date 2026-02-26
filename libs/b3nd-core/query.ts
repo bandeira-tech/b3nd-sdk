@@ -4,9 +4,132 @@
  * Provides in-memory evaluation of WhereClause, projection, and sorting.
  * Used directly by MemoryClient and as a reference for backend-specific
  * translations (Postgres, Mongo).
+ *
+ * Also provides type guards for the three query modes (portable, native,
+ * stored) and the stored query parameter resolution logic.
  */
 
-import type { QueryOptions, QueryRecord, QueryResult, WhereClause } from "./types.ts";
+import type {
+  NativeQueryOptions,
+  PortableQueryOptions,
+  QueryOptions,
+  QueryRecord,
+  QueryResult,
+  ReadResult,
+  StoredQueryDefinition,
+  StoredQueryOptions,
+  WhereClause,
+} from "./types.ts";
+
+// ─── Type guards ────────────────────────────────────────────
+
+/** Check if query options use Mode 2 (native passthrough) */
+export function isNativeQuery(
+  opts: QueryOptions,
+): opts is NativeQueryOptions {
+  return "native" in opts && opts.native !== undefined;
+}
+
+/** Check if query options use Mode 3 (stored query reference) */
+export function isStoredQuery(
+  opts: QueryOptions,
+): opts is StoredQueryOptions {
+  return "ref" in opts && typeof (opts as StoredQueryOptions).ref === "string";
+}
+
+/** Check if query options use Mode 1 (portable DSL) */
+export function isPortableQuery(
+  opts: QueryOptions,
+): opts is PortableQueryOptions {
+  return !isNativeQuery(opts) && !isStoredQuery(opts);
+}
+
+// ─── Stored query resolution ────────────────────────────────
+
+/**
+ * Recursively substitute $paramName placeholders in a native query template.
+ *
+ * - String values matching "$paramName" are replaced with the arg value.
+ * - Traverses objects and arrays recursively.
+ * - Non-string primitives pass through unchanged.
+ */
+export function substituteParams(
+  template: unknown,
+  args: Record<string, unknown>,
+): unknown {
+  if (typeof template === "string") {
+    // Exact match: "$city" → args.city (preserves type: number stays number)
+    if (template.startsWith("$") && args.hasOwnProperty(template.slice(1))) {
+      return args[template.slice(1)];
+    }
+    // Inline substitution for strings with embedded $params
+    return template.replace(/\$([a-zA-Z_][a-zA-Z0-9_]*)/g, (_match, name) => {
+      return args.hasOwnProperty(name) ? String(args[name]) : `$${name}`;
+    });
+  }
+  if (Array.isArray(template)) {
+    return template.map((item) => substituteParams(item, args));
+  }
+  if (template !== null && typeof template === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(template as Record<string, unknown>)) {
+      result[key] = substituteParams(value, args);
+    }
+    return result;
+  }
+  return template;
+}
+
+/**
+ * Resolve a stored query: read the definition, validate params, substitute, return NativeQueryOptions.
+ *
+ * @param opts - The stored query reference
+ * @param read - A read function to load the stored query definition from b3nd storage
+ * @returns A NativeQueryOptions ready for execution, or an error result
+ */
+export async function resolveStoredQuery(
+  opts: StoredQueryOptions,
+  read: <T = unknown>(uri: string) => Promise<ReadResult<T>>,
+): Promise<NativeQueryOptions | { success: false; error: string }> {
+  const readResult = await read<StoredQueryDefinition>(opts.ref);
+  if (!readResult.success || !readResult.record) {
+    return { success: false, error: `Stored query not found: ${opts.ref}` };
+  }
+
+  const def = readResult.record.data;
+
+  if (!def.prefix || !def.native) {
+    return {
+      success: false,
+      error: `Invalid stored query at ${opts.ref}: missing prefix or native`,
+    };
+  }
+
+  // Validate required params
+  const args = opts.args ?? {};
+  if (def.params) {
+    for (const [name, spec] of Object.entries(def.params)) {
+      if (spec.required && !(name in args)) {
+        if (spec.default !== undefined) {
+          args[name] = spec.default;
+        } else {
+          return {
+            success: false,
+            error: `Missing required parameter: ${name}`,
+          };
+        }
+      }
+    }
+  }
+
+  // Substitute placeholders in the native template
+  const resolvedNative = substituteParams(def.native, args);
+
+  return {
+    prefix: def.prefix,
+    native: resolvedNative,
+  };
+}
 
 /**
  * Resolve a dot-separated field path on an object.
@@ -99,12 +222,12 @@ function compareValues(a: unknown, b: unknown): number {
 }
 
 /**
- * Execute a query against an array of records in memory.
+ * Execute a portable DSL query against an array of records in memory.
  * This is the reference implementation of query semantics.
  */
 export function executeQueryInMemory<T = unknown>(
   records: QueryRecord<unknown>[],
-  options: QueryOptions,
+  options: PortableQueryOptions,
 ): QueryResult<T> {
   let filtered = records;
 

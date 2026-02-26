@@ -442,9 +442,9 @@ export type WhereClause =
   | { not: WhereClause };
 
 /**
- * Options for the query() method.
+ * Mode 1 — Portable DSL query: filter/sort/project using the structured descriptor.
  */
-export interface QueryOptions {
+export interface PortableQueryOptions {
   /** URI prefix to scope the query (required) */
   prefix: string;
 
@@ -463,6 +463,100 @@ export interface QueryOptions {
   /** Number of records to skip (default: 0) */
   offset?: number;
 }
+
+/**
+ * Mode 2 — Native passthrough: send the backend's own query language directly.
+ *
+ * The node enforces `prefix` scoping but otherwise passes `native` through as-is.
+ *
+ * @example MongoDB native query
+ * ```typescript
+ * await client.query({
+ *   prefix: "store://users",
+ *   native: {
+ *     filter: { age: { $gte: 18 }, "address.city": "NYC" },
+ *     sort: { age: -1 },
+ *     projection: { name: 1, email: 1 },
+ *     limit: 10,
+ *   },
+ * });
+ * ```
+ *
+ * @example PostgreSQL native query (WHERE-clause fragment)
+ * ```typescript
+ * await client.query({
+ *   prefix: "store://users",
+ *   native: {
+ *     sql: "data->>'role' = $1 AND (data->>'age')::int > $2",
+ *     params: ["admin", 25],
+ *     orderBy: "data->>'name' ASC",
+ *     limit: 10,
+ *   },
+ * });
+ * ```
+ */
+export interface NativeQueryOptions {
+  /** URI prefix to scope the query (required) */
+  prefix: string;
+
+  /** Backend-specific query descriptor, passed through as-is */
+  native: unknown;
+}
+
+/**
+ * Mode 3 — Stored query: execute a pre-defined query by URI reference.
+ *
+ * The stored query is itself a b3nd record that contains the native query
+ * template and parameter definitions. The node reads it, substitutes the
+ * args, and executes the resolved query.
+ *
+ * @example
+ * ```typescript
+ * // Node operator stored this query at mutable://queries/users-by-city
+ * // App developer runs it:
+ * await client.query({
+ *   ref: "mutable://queries/users-by-city",
+ *   args: { city: "NYC" },
+ * });
+ * ```
+ */
+export interface StoredQueryOptions {
+  /** URI of the stored query definition */
+  ref: string;
+
+  /** Arguments to substitute into the stored query template */
+  args?: Record<string, unknown>;
+}
+
+/**
+ * Stored query definition — the shape of the b3nd record at the `ref` URI.
+ */
+export interface StoredQueryDefinition {
+  /** Human-readable description */
+  description?: string;
+
+  /** URI prefix for scoping (can be overridden by args) */
+  prefix: string;
+
+  /** The native query template with $paramName placeholders */
+  native: unknown;
+
+  /** Parameter declarations */
+  params?: Record<string, {
+    type?: "string" | "number" | "boolean";
+    required?: boolean;
+    default?: unknown;
+  }>;
+}
+
+/**
+ * Union of all query modes.
+ * Discriminated by the presence of `native`, `ref`, or `where`/plain prefix.
+ */
+export type QueryOptions =
+  | PortableQueryOptions
+  | NativeQueryOptions
+  | StoredQueryOptions;
 
 /**
  * A single record in a query result

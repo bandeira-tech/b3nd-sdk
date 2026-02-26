@@ -62,10 +62,12 @@ export type {
   LocalStorageClientConfig,
   MemoryClientConfig,
   MongoClientConfig,
+  NativeQueryOptions,
   NodeProtocolInterface,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   PersistenceRecord,
+  PortableQueryOptions,
   PostgresClientConfig,
   QueryOptions,
   QueryRecord,
@@ -74,6 +76,8 @@ export type {
   ReadMultiResultItem,
   ReadResult,
   Schema,
+  StoredQueryDefinition,
+  StoredQueryOptions,
   ValidationFn,
   WebSocketClientConfig,
   WebSocketRequest,
@@ -89,6 +93,11 @@ export {
   evaluateWhere,
   executeQueryInMemory,
   getField,
+  isNativeQuery,
+  isPortableQuery,
+  isStoredQuery,
+  resolveStoredQuery,
+  substituteParams,
 } from "../libs/b3nd-core/query.ts";
 
 // Client implementations

@@ -12,8 +12,10 @@ import type {
   ListOptions,
   ListResult,
   Message,
+  NativeQueryOptions,
   NodeProtocolInterface,
   PersistenceRecord,
+  PortableQueryOptions,
   PostgresClientConfig,
   QueryOptions,
   QueryRecord,
@@ -31,6 +33,11 @@ import {
 } from "../b3nd-core/binary.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
 import { generatePostgresSchema } from "./schema.ts";
+import {
+  isNativeQuery,
+  isStoredQuery,
+  resolveStoredQuery,
+} from "../b3nd-core/query.ts";
 
 // Local executor types scoped to Postgres client to avoid leaking DB concerns
 export interface SqlExecutorResult {
@@ -352,6 +359,117 @@ export class PostgresClient implements NodeProtocolInterface {
   }
 
   async query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+    // Mode 3: Stored query — resolve to native, then re-enter
+    if (isStoredQuery(options)) {
+      const resolved = await resolveStoredQuery(options, this.read.bind(this));
+      if ("success" in resolved && !resolved.success) return resolved;
+      return this.query<T>(resolved as NativeQueryOptions);
+    }
+
+    // Mode 2: Native passthrough — developer sends SQL fragments directly
+    if (isNativeQuery(options)) {
+      return this.queryNative<T>(options);
+    }
+
+    // Mode 1: Portable DSL
+    return this.queryPortable<T>(options);
+  }
+
+  /**
+   * Mode 2 — Native SQL passthrough.
+   *
+   * The `native` object shape:
+   * ```
+   * { sql: string, params?: unknown[], orderBy?: string, limit?: number, offset?: number }
+   * ```
+   *
+   * `sql` is a WHERE-clause fragment. The node wraps it with prefix scoping
+   * and SELECT ... FROM ... to prevent destructive statements.
+   */
+  private async queryNative<T = unknown>(
+    options: NativeQueryOptions,
+  ): Promise<QueryResult<T>> {
+    try {
+      const table = `${this.tablePrefix}_data`;
+      const prefix = options.prefix.endsWith("/")
+        ? options.prefix
+        : `${options.prefix}/`;
+
+      const native = options.native as {
+        sql?: string;
+        params?: unknown[];
+        orderBy?: string;
+        limit?: number;
+        offset?: number;
+      };
+
+      if (!native || typeof native.sql !== "string") {
+        return {
+          success: false,
+          error: "native.sql is required for Postgres native queries",
+        };
+      }
+
+      // The developer's params use $1, $2, etc.
+      // We need to reserve $1 for the prefix and shift their params.
+      const userParams = native.params ?? [];
+      const allParams: unknown[] = [prefix];
+
+      // Rewrite $1, $2, ... in the user SQL to $2, $3, ...
+      const shiftedSQL = native.sql.replace(
+        /\$(\d+)/g,
+        (_match, num) => `$${parseInt(num, 10) + 1}`,
+      );
+      allParams.push(...userParams);
+
+      const whereParts = [`uri LIKE $1 || '%'`];
+      if (shiftedSQL.trim()) {
+        whereParts.push(`(${shiftedSQL})`);
+      }
+      const whereSQL = whereParts.join(" AND ");
+
+      const orderBySQL = native.orderBy
+        ? ` ORDER BY ${native.orderBy}`
+        : "";
+      const limit = native.limit ?? 50;
+      const offset = native.offset ?? 0;
+
+      // Count
+      const countRes = await this.executor.query(
+        `SELECT COUNT(*) as cnt FROM ${table} WHERE ${whereSQL}`,
+        allParams,
+      );
+      const total = Number((countRes.rows[0] as any)?.cnt ?? 0);
+
+      // Data
+      const dataRes = await this.executor.query(
+        `SELECT uri, data, timestamp as ts FROM ${table} WHERE ${whereSQL}${orderBySQL} LIMIT ${limit} OFFSET ${offset}`,
+        allParams,
+      );
+
+      const records: QueryRecord<T>[] = (dataRes.rows || []).map(
+        (row: any) => ({
+          uri: row.uri as string,
+          data: decodeBinaryFromJson(row.data) as T,
+          ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
+        }),
+      );
+
+      return { success: true, records, total };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Mode 1 — Portable DSL query.
+   */
+  private async queryPortable<T = unknown>(
+    options: PortableQueryOptions,
+  ): Promise<QueryResult<T>> {
     try {
       const table = `${this.tablePrefix}_data`;
       const prefix = options.prefix.endsWith("/")
@@ -417,14 +535,11 @@ export class PostgresClient implements NodeProtocolInterface {
       );
 
       const records: QueryRecord<T>[] = (dataRes.rows || []).map(
-        (row: any) => {
-          const decodedData = decodeBinaryFromJson(row.data) as T;
-          return {
-            uri: row.uri as string,
-            data: decodedData,
-            ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
-          };
-        },
+        (row: any) => ({
+          uri: row.uri as string,
+          data: decodeBinaryFromJson(row.data) as T,
+          ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
+        }),
       );
 
       return { success: true, records, total };

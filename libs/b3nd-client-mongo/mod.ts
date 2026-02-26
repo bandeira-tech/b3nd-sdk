@@ -13,8 +13,10 @@ import type {
   ListResult,
   Message,
   MongoClientConfig,
+  NativeQueryOptions,
   NodeProtocolInterface,
   PersistenceRecord,
+  PortableQueryOptions,
   QueryOptions,
   QueryRecord,
   QueryResult,
@@ -30,6 +32,11 @@ import {
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
+import {
+  isNativeQuery,
+  isStoredQuery,
+  resolveStoredQuery,
+} from "../b3nd-core/query.ts";
 
 export interface MongoExecutor {
   insertOne(doc: Record<string, unknown>): Promise<{ acknowledged?: boolean }>;
@@ -363,6 +370,91 @@ export class MongoClient implements NodeProtocolInterface {
   }
 
   async query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+    // Mode 3: Stored query — resolve to native, then re-enter
+    if (isStoredQuery(options)) {
+      const resolved = await resolveStoredQuery(options, this.read.bind(this));
+      if ("success" in resolved && !resolved.success) return resolved;
+      return this.query<T>(resolved as NativeQueryOptions);
+    }
+
+    // Mode 2: Native passthrough — developer sends Mongo query directly
+    if (isNativeQuery(options)) {
+      return this.queryNative<T>(options);
+    }
+
+    // Mode 1: Portable DSL
+    return this.queryPortable<T>(options);
+  }
+
+  /**
+   * Mode 2 — Native MongoDB passthrough.
+   *
+   * The `native` object is passed straight to findMany with prefix scoping added.
+   * Shape: { filter?, sort?, projection?, limit?, skip? }
+   */
+  private async queryNative<T = unknown>(
+    options: NativeQueryOptions,
+  ): Promise<QueryResult<T>> {
+    try {
+      const prefixBase = options.prefix.endsWith("/")
+        ? options.prefix
+        : `${options.prefix}/`;
+      const prefixRegex = new RegExp(`^${this.escapeRegex(prefixBase)}`);
+
+      const native = (options.native ?? {}) as {
+        filter?: Record<string, unknown>;
+        sort?: Record<string, 1 | -1>;
+        projection?: Record<string, 0 | 1>;
+        limit?: number;
+        skip?: number;
+      };
+
+      // Merge prefix scoping with user's filter
+      const filter: Record<string, unknown> = {
+        uri: prefixRegex,
+        ...(native.filter ?? {}),
+      };
+
+      const limit = native.limit ?? 50;
+      const skip = native.skip ?? 0;
+
+      // Get total count
+      let total: number | undefined;
+      if (this.executor.countDocuments) {
+        total = await this.executor.countDocuments(filter);
+      }
+
+      // Execute query with user's sort/projection/limit/skip
+      const docs = await this.executor.findMany(filter, {
+        sort: native.sort,
+        limit,
+        skip,
+        projection: native.projection,
+      });
+
+      const records: QueryRecord<T>[] = docs.map((doc) => ({
+        uri: doc.uri as string,
+        data: decodeBinaryFromJson(doc.data) as T,
+        ts: typeof doc.timestamp === "number"
+          ? doc.timestamp
+          : Number(doc.timestamp),
+      }));
+
+      return { success: true, records, total };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Mode 1 — Portable DSL query.
+   */
+  private async queryPortable<T = unknown>(
+    options: PortableQueryOptions,
+  ): Promise<QueryResult<T>> {
     try {
       const prefixBase = options.prefix.endsWith("/")
         ? options.prefix
@@ -410,15 +502,13 @@ export class MongoClient implements NodeProtocolInterface {
         projection,
       });
 
-      const records: QueryRecord<T>[] = docs.map((doc) => {
-        const decodedData = decodeBinaryFromJson(doc.data) as T;
-        const tsValue = doc.timestamp;
-        return {
-          uri: doc.uri as string,
-          data: decodedData,
-          ts: typeof tsValue === "number" ? tsValue : Number(tsValue),
-        };
-      });
+      const records: QueryRecord<T>[] = docs.map((doc) => ({
+        uri: doc.uri as string,
+        data: decodeBinaryFromJson(doc.data) as T,
+        ts: typeof doc.timestamp === "number"
+          ? doc.timestamp
+          : Number(doc.timestamp),
+      }));
 
       return { success: true, records, total };
     } catch (error) {

@@ -5,8 +5,10 @@ import type {
   ListOptions,
   ListResult,
   Message,
+  NativeQueryOptions,
   NodeProtocolInterface,
   PersistenceRecord,
+  PortableQueryOptions,
   QueryOptions,
   QueryRecord,
   QueryResult,
@@ -16,7 +18,12 @@ import type {
   ReceiveResult,
   Schema,
 } from "../b3nd-core/types.ts";
-import { executeQueryInMemory } from "../b3nd-core/query.ts";
+import {
+  executeQueryInMemory,
+  isNativeQuery,
+  isStoredQuery,
+  resolveStoredQuery,
+} from "../b3nd-core/query.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 type MemoryClientStorageNode<T> = {
@@ -384,7 +391,25 @@ export class MemoryClient implements NodeProtocolInterface {
       pagination: { page, limit, total: items.length },
     });
   }
-  public query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+  public async query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+    // Mode 3: Stored query — resolve then re-enter
+    if (isStoredQuery(options)) {
+      const resolved = await resolveStoredQuery(options, this.read.bind(this));
+      if ("success" in resolved && !resolved.success) return resolved;
+      return this.query<T>(resolved as NativeQueryOptions);
+    }
+
+    // Mode 2: Native passthrough — for MemoryClient this is not applicable,
+    // return an error nudging toward the portable DSL
+    if (isNativeQuery(options)) {
+      return { success: false, error: "MemoryClient does not support native queries — use the portable DSL (where/orderBy/select) or a database-backed client" };
+    }
+
+    // Mode 1: Portable DSL
+    return this.queryPortable<T>(options);
+  }
+
+  private queryPortable<T = unknown>(options: PortableQueryOptions): Promise<QueryResult<T>> {
     const uri = options.prefix;
     const result = target(uri, this.schema, this.storage);
     if (!result.success) {
