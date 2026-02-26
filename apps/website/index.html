@@ -3,28 +3,32 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B3nd - Data belongs to you</title>
+    <title>B3nd — The data protocol</title>
     <meta
       name="description"
-      content="B3nd is a protocol for URI-based data where users own their data, privacy is encryption, and any app can read the same addresses."
+      content="B3nd is a URI-based data protocol. Four operations. Client-side encryption. You own your data — not because we let you, but because the protocol makes anything else impossible."
     >
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     >
     <style>
       :root {
+        --ink: #0c0a1d;
         --primary: #1e1b4b;
         --secondary: #4338ca;
         --accent: #f97316;
-        --money: #10b981;
-        --light: #f8fafc;
+        --emerald: #10b981;
         --text: #1f2937;
-        --muted: #6b7280;
+        --muted: #64748b;
+        --faint: #94a3b8;
+        --border: #e2e8f0;
+        --surface: #f8fafc;
         --white: #ffffff;
-        --code-bg: #0f0e1a;
+        --code-bg: #0c0a1d;
+        --code-surface: rgba(255,255,255,0.04);
       }
 
       * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -33,25 +37,31 @@
       body {
         font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
         color: var(--text);
-        line-height: 1.6;
+        line-height: 1.7;
         background: var(--white);
+        -webkit-font-smoothing: antialiased;
       }
 
       .container {
-        max-width: 1100px;
+        max-width: 960px;
         margin: 0 auto;
         padding: 0 24px;
       }
 
-      /* --- Navigation --- */
+      .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      /* ============================================================
+         NAVIGATION
+         ============================================================ */
       nav {
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-bottom: 1px solid #e5e7eb;
+        top: 0; left: 0; right: 0;
+        background: rgba(255,255,255,0.92);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
         z-index: 100;
       }
 
@@ -59,304 +69,554 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        height: 56px;
+        height: 52px;
       }
 
       .logo {
-        font-size: 22px;
+        font-size: 20px;
         font-weight: 700;
         color: var(--primary);
         text-decoration: none;
+        letter-spacing: -0.02em;
       }
 
       .logo span { color: var(--accent); }
 
       .nav-links {
         display: flex;
-        gap: 28px;
+        gap: 32px;
         list-style: none;
         align-items: center;
       }
 
       .nav-links a {
-        color: var(--text);
+        color: var(--muted);
         text-decoration: none;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
-        transition: color 0.2s;
+        letter-spacing: 0.01em;
+        transition: color 0.15s;
       }
 
-      .nav-links a:hover { color: var(--secondary); }
+      .nav-links a:hover { color: var(--text); }
 
       .nav-cta {
-        background: var(--secondary);
+        background: var(--primary) !important;
         color: var(--white) !important;
-        padding: 6px 16px;
-        border-radius: 6px;
+        padding: 5px 14px;
+        border-radius: 5px;
+        font-size: 13px !important;
+        transition: background 0.15s !important;
       }
 
       .nav-cta:hover {
-        background: var(--primary);
-        color: var(--white) !important;
+        background: var(--secondary) !important;
       }
 
       .mobile-cta { display: none; }
 
-      /* --- Hero --- */
+      /* ============================================================
+         HERO — Quiet confidence
+         ============================================================ */
       .hero {
-        min-height: 50vh;
+        min-height: 70vh;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, var(--primary) 0%, #2d2a6e 60%, #1a1744 100%);
-        padding: 100px 24px 60px;
+        background: var(--ink);
+        padding: 120px 24px 80px;
         text-align: center;
         position: relative;
+        overflow: hidden;
       }
 
-      .hero::before {
+      .hero::after {
         content: "";
         position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: var(--accent);
+        bottom: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(67,56,202,0.3), transparent);
+      }
+
+      .hero-content {
+        position: relative;
+        z-index: 1;
       }
 
       .hero h1 {
-        font-size: clamp(64px, 12vw, 120px);
+        font-size: clamp(48px, 8vw, 80px);
         font-weight: 700;
         color: var(--white);
-        letter-spacing: -0.02em;
-        line-height: 1;
-        margin-bottom: 8px;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+        margin-bottom: 20px;
       }
 
-      .hero h1 .accent { color: var(--accent); }
+      .hero h1 .dot { color: var(--accent); }
 
       .hero .tagline {
-        font-size: clamp(16px, 2.5vw, 22px);
-        color: rgba(255, 255, 255, 0.5);
-        letter-spacing: 0.15em;
-        text-transform: lowercase;
-        margin-bottom: 16px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: clamp(13px, 1.8vw, 15px);
+        color: rgba(255,255,255,0.35);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        margin-bottom: 32px;
       }
 
       .hero .subtitle {
-        font-size: clamp(14px, 2vw, 17px);
-        color: rgba(255, 255, 255, 0.7);
-        max-width: 480px;
+        font-size: clamp(15px, 2vw, 18px);
+        color: rgba(255,255,255,0.55);
+        max-width: 520px;
         margin: 0 auto;
+        line-height: 1.7;
       }
 
-      /* --- Sections --- */
-      section {
-        padding: 80px 0;
+      /* Grid pattern overlay */
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image:
+          linear-gradient(rgba(67,56,202,0.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(67,56,202,0.06) 1px, transparent 1px);
+        background-size: 60px 60px;
+        pointer-events: none;
+      }
+
+      /* ============================================================
+         SECTIONS — Generous whitespace
+         ============================================================ */
+      section { padding: 100px 0; }
+
+      .section-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        text-align: center;
+        margin-bottom: 12px;
       }
 
       .section-title {
-        font-size: clamp(28px, 4vw, 36px);
+        font-size: clamp(28px, 4vw, 38px);
         font-weight: 700;
         color: var(--primary);
         text-align: center;
-        margin-bottom: 48px;
+        letter-spacing: -0.02em;
+        margin-bottom: 16px;
+        line-height: 1.2;
       }
 
-      .section-subtitle {
+      .section-desc {
         text-align: center;
         color: var(--muted);
         font-size: 16px;
-        margin-top: -36px;
-        margin-bottom: 48px;
+        max-width: 580px;
+        margin: 0 auto 56px;
+        line-height: 1.7;
       }
 
-      /* --- Protocol Section --- */
-      .protocol { background: var(--light); }
+      /* ============================================================
+         PROTOCOL SECTION
+         ============================================================ */
+      .protocol { background: var(--surface); }
 
       .uri-anatomy {
-        margin-bottom: 40px;
-      }
-
-      .ops-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
-        margin-bottom: 40px;
-      }
-
-      .op-box {
         background: var(--white);
-        border: 2px solid var(--secondary);
+        border: 1px solid var(--border);
         border-radius: 8px;
-        padding: 20px 16px;
+        padding: 32px 24px;
+        margin-bottom: 48px;
+        overflow-x: auto;
+      }
+
+      .uri-display {
+        font-family: "JetBrains Mono", monospace;
+        font-size: clamp(14px, 2vw, 18px);
+        text-align: center;
+        line-height: 2.4;
+      }
+
+      .uri-scheme { color: var(--secondary); font-weight: 600; }
+      .uri-host { color: var(--accent); font-weight: 600; }
+      .uri-path { color: var(--text); }
+      .uri-sep { color: var(--faint); }
+
+      .uri-labels {
+        display: flex;
+        justify-content: center;
+        gap: 48px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+      }
+
+      .uri-label {
+        font-size: 11px;
+        color: var(--muted);
         text-align: center;
       }
 
-      .op-box h3 {
+      .uri-label strong {
+        display: block;
         font-family: "JetBrains Mono", monospace;
-        color: var(--secondary);
-        font-size: 16px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 2px;
+      }
+
+      .uri-label strong.scheme-label { color: var(--secondary); }
+      .uri-label strong.host-label { color: var(--accent); }
+      .uri-label strong.path-label { color: var(--text); }
+
+      /* Operations row */
+      .ops-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background: var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 48px;
+      }
+
+      .op-cell {
+        background: var(--white);
+        padding: 24px 16px;
+        text-align: center;
+      }
+
+      .op-cell h3 {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 15px;
+        color: var(--primary);
+        font-weight: 600;
         margin-bottom: 4px;
       }
 
-      .op-box p {
+      .op-cell p {
         color: var(--muted);
         font-size: 13px;
       }
 
-      .protocol-grid {
+      /* Protocol family */
+      .family-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 12px;
       }
 
-      .proto-card {
+      .family-card {
         background: var(--white);
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 20px 16px;
       }
 
-      .proto-card h3 {
+      .family-card h3 {
         font-family: "JetBrains Mono", monospace;
-        color: var(--accent);
-        font-size: 14px;
-        margin-bottom: 6px;
+        font-size: 13px;
+        color: var(--secondary);
+        font-weight: 600;
+        margin-bottom: 4px;
       }
 
-      .proto-card p {
+      .family-card p {
         color: var(--muted);
         font-size: 13px;
+        line-height: 1.5;
       }
 
-      /* --- Code Section --- */
+      /* ============================================================
+         CODE SECTION — Show don't tell
+         ============================================================ */
       .code-section { background: var(--white); }
 
       .code-flow {
         display: grid;
-        gap: 20px;
-        max-width: 700px;
+        gap: 16px;
+        max-width: 680px;
         margin: 0 auto;
       }
 
       .code-panel {
         background: var(--code-bg);
-        border-radius: 10px;
+        border-radius: 8px;
         overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.06);
       }
 
       .terminal-bar {
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--code-surface);
         padding: 10px 16px;
         display: flex;
         align-items: center;
         gap: 6px;
       }
 
-      .dot { width: 10px; height: 10px; border-radius: 50%; }
-      .dot.r { background: #ef4444; }
-      .dot.y { background: #f59e0b; }
-      .dot.g { background: var(--money); }
+      .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .dot.r { background: #ef4444; opacity: 0.7; }
+      .dot.y { background: #f59e0b; opacity: 0.7; }
+      .dot.g { background: #10b981; opacity: 0.7; }
 
       .terminal-label {
-        margin-left: 12px;
+        margin-left: 10px;
         font-family: "JetBrains Mono", monospace;
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.4);
+        font-size: 11px;
+        color: rgba(255,255,255,0.3);
+        letter-spacing: 0.05em;
       }
 
       .code-body {
-        padding: 20px;
+        padding: 20px 20px 24px;
       }
 
       .code-body pre {
         font-family: "JetBrains Mono", monospace;
         font-size: 13px;
-        line-height: 1.7;
-        color: rgba(255, 255, 255, 0.9);
+        line-height: 1.8;
+        color: rgba(255,255,255,0.85);
         overflow-x: auto;
       }
 
       .kw { color: #c084fc; }
       .str { color: #86efac; }
       .fn { color: #93c5fd; }
-      .cm { color: rgba(255, 255, 255, 0.35); }
+      .cm { color: rgba(255,255,255,0.25); }
+      .num { color: #fbbf24; }
 
-      .flow-arrow {
-        text-align: center;
+      .flow-connector {
+        display: flex;
+        justify-content: center;
         padding: 4px 0;
       }
 
-      .flow-arrow svg {
-        width: 24px;
-        height: 24px;
+      .flow-connector svg {
+        width: 20px; height: 20px;
+        opacity: 0.3;
       }
 
-      /* --- Ownership Section --- */
-      .ownership { background: var(--light); }
+      /* ============================================================
+         OWNERSHIP SECTION
+         ============================================================ */
+      .ownership { background: var(--surface); }
 
-      .ownership-grid {
+      .ownership-comparison {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 40px;
-        margin-bottom: 32px;
+        gap: 24px;
+        margin-bottom: 40px;
       }
 
-      .own-panel {
+      .compare-card {
+        background: var(--white);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 32px 24px;
         text-align: center;
       }
 
-      .own-panel h3 {
-        font-size: 18px;
+      .compare-card h3 {
+        font-size: 14px;
+        font-weight: 600;
         color: var(--primary);
-        margin-bottom: 20px;
+        margin-bottom: 24px;
+        letter-spacing: 0.02em;
       }
+
+      .compare-card.today {
+        border-color: var(--border);
+      }
+
+      .compare-card.b3nd-card {
+        border-color: var(--emerald);
+        border-width: 2px;
+      }
+
+      .compare-diagram {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+
+      .entity {
+        width: 56px; height: 56px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .entity.user {
+        border: 2px solid var(--secondary);
+        color: var(--secondary);
+        background: rgba(67,56,202,0.05);
+      }
+
+      .entity.platform {
+        border: 2px solid var(--accent);
+        color: var(--accent);
+        background: rgba(249,115,22,0.08);
+      }
+
+      .entity.data {
+        border: 2px solid var(--emerald);
+        color: var(--emerald);
+        background: rgba(16,185,129,0.08);
+      }
+
+      .arrow {
+        color: var(--faint);
+        font-size: 16px;
+      }
+
+      .compare-caption {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .compare-caption.good { color: var(--emerald); font-weight: 500; }
 
       .own-explain {
         text-align: center;
         color: var(--muted);
-        max-width: 700px;
+        max-width: 620px;
         margin: 0 auto;
         font-size: 15px;
+        line-height: 1.8;
       }
 
-      /* --- Privacy Section --- */
+      /* ============================================================
+         PRIVACY SECTION
+         ============================================================ */
       .privacy { background: var(--white); }
 
       .privacy-flow {
-        margin-bottom: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        margin-bottom: 56px;
+        flex-wrap: wrap;
+      }
+
+      .flow-step {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 16px 20px;
+        text-align: center;
+        min-width: 120px;
+      }
+
+      .flow-step.encrypt-step {
+        background: rgba(249,115,22,0.06);
+        border-color: var(--accent);
+      }
+
+      .flow-step .step-label {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text);
+      }
+
+      .flow-step.encrypt-step .step-label {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .flow-step .step-sub {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 2px;
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      .flow-arrow-right {
+        color: var(--faint);
+        font-size: 18px;
       }
 
       .privacy-levels {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
+        gap: 16px;
       }
 
       .level-card {
-        background: var(--light);
-        border-radius: 8px;
-        padding: 24px;
-        border-left: 4px solid var(--secondary);
+        border-left: 3px solid var(--secondary);
+        padding: 20px;
+        background: var(--surface);
+        border-radius: 0 6px 6px 0;
       }
 
       .level-card h3 {
+        font-size: 15px;
         color: var(--primary);
-        font-size: 16px;
-        margin-bottom: 8px;
+        font-weight: 600;
+        margin-bottom: 6px;
       }
 
       .level-card p {
+        font-size: 13px;
         color: var(--muted);
-        font-size: 14px;
+        line-height: 1.6;
       }
 
-      /* --- Run Your Own --- */
-      .run-own { background: var(--light); }
+      /* ============================================================
+         RUN YOUR OWN
+         ============================================================ */
+      .run-own { background: var(--surface); }
 
       .run-own-content {
         text-align: center;
+      }
+
+      .node-diagram {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+      }
+
+      .node {
+        width: 64px; height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      .node.your-node {
+        width: 80px; height: 80px;
+        border: 2px solid var(--secondary);
+        color: var(--secondary);
+        background: rgba(67,56,202,0.06);
+        font-weight: 600;
+        font-size: 12px;
+      }
+
+      .node.peer {
+        border: 1px solid var(--border);
+        color: var(--muted);
+        background: var(--white);
+      }
+
+      .node-line {
+        width: 40px;
+        height: 2px;
+        background: var(--emerald);
+        opacity: 0.4;
       }
 
       .run-own .code-inline {
@@ -364,61 +624,90 @@
         background: var(--code-bg);
         color: #86efac;
         font-family: "JetBrains Mono", monospace;
-        font-size: 14px;
-        padding: 12px 24px;
-        border-radius: 8px;
-        margin-top: 24px;
+        font-size: 13px;
+        padding: 10px 20px;
+        border-radius: 6px;
       }
 
-      /* --- Start Building --- */
+      /* ============================================================
+         START BUILDING
+         ============================================================ */
       .start { background: var(--white); }
 
       .cards-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 20px;
+        gap: 16px;
       }
 
       .card {
         background: var(--white);
-        border: 2px solid #e5e7eb;
-        border-radius: 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
         padding: 28px 20px;
         text-align: center;
         text-decoration: none;
         color: var(--text);
-        transition: all 0.2s;
+        transition: border-color 0.15s, transform 0.15s;
       }
 
       .card:hover {
         border-color: var(--secondary);
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(67, 56, 202, 0.1);
+        transform: translateY(-2px);
       }
 
       .card h3 {
         color: var(--primary);
-        font-size: 18px;
-        margin-bottom: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 6px;
       }
 
       .card p {
         color: var(--muted);
         font-size: 13px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
+        line-height: 1.5;
       }
 
       .card .link {
         color: var(--secondary);
         font-family: "JetBrains Mono", monospace;
-        font-size: 12px;
+        font-size: 11px;
         word-break: break-all;
       }
 
-      /* --- Footer --- */
+      /* ============================================================
+         FIRECAT BRIDGE — Subtle nod to Firecat
+         ============================================================ */
+      .bridge {
+        background: var(--ink);
+        padding: 64px 0;
+        text-align: center;
+      }
+
+      .bridge p {
+        color: rgba(255,255,255,0.4);
+        font-size: 14px;
+        line-height: 1.8;
+        max-width: 480px;
+        margin: 0 auto;
+      }
+
+      .bridge a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 500;
+      }
+
+      .bridge a:hover { text-decoration: underline; }
+
+      /* ============================================================
+         FOOTER
+         ============================================================ */
       footer {
         background: var(--primary);
-        color: rgba(255, 255, 255, 0.6);
+        color: rgba(255,255,255,0.5);
         padding: 48px 0 32px;
       }
 
@@ -436,59 +725,47 @@
       }
 
       .footer-brand p {
-        font-size: 14px;
-        max-width: 280px;
+        font-size: 13px;
+        line-height: 1.6;
+        max-width: 260px;
       }
 
       footer h4 {
-        color: var(--white);
-        font-size: 14px;
+        color: rgba(255,255,255,0.8);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
         margin-bottom: 12px;
       }
 
-      footer ul {
-        list-style: none;
-      }
-
-      footer li {
-        margin-bottom: 6px;
-      }
+      footer ul { list-style: none; }
+      footer li { margin-bottom: 6px; }
 
       footer a {
-        color: rgba(255, 255, 255, 0.6);
+        color: rgba(255,255,255,0.5);
         text-decoration: none;
-        font-size: 14px;
-        transition: color 0.2s;
+        font-size: 13px;
+        transition: color 0.15s;
       }
 
-      footer a:hover {
-        color: var(--accent);
-      }
+      footer a:hover { color: var(--accent); }
 
       .footer-bottom {
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        border-top: 1px solid rgba(255,255,255,0.08);
         padding-top: 20px;
-        font-size: 13px;
+        font-size: 12px;
         display: flex;
         justify-content: space-between;
       }
 
-      .footer-bottom a {
-        color: var(--accent);
-      }
+      .footer-bottom a { color: var(--accent); }
 
-      /* --- SVG Common --- */
-      svg text {
-        font-family: "Inter", sans-serif;
-      }
-
-      svg .mono {
-        font-family: "JetBrains Mono", monospace;
-      }
-
-      /* --- Responsive --- */
+      /* ============================================================
+         RESPONSIVE
+         ============================================================ */
       @media (max-width: 1024px) {
-        .ownership-grid { grid-template-columns: 1fr; }
+        .ownership-comparison { grid-template-columns: 1fr; }
         .cards-grid { grid-template-columns: repeat(2, 1fr); }
         .footer-grid { grid-template-columns: 1fr; }
       }
@@ -498,18 +775,27 @@
 
         .mobile-cta {
           display: inline-flex;
-          background: var(--secondary);
+          background: var(--primary);
           color: var(--white);
-          padding: 6px 14px;
-          border-radius: 6px;
-          font-size: 14px;
+          padding: 5px 14px;
+          border-radius: 5px;
+          font-size: 13px;
           font-weight: 500;
           text-decoration: none;
         }
 
-        .ops-row { grid-template-columns: repeat(2, 1fr); }
+        section { padding: 72px 0; }
+        .ops-grid { grid-template-columns: repeat(2, 1fr); }
         .privacy-levels { grid-template-columns: 1fr; }
         .cards-grid { grid-template-columns: 1fr; }
+
+        .privacy-flow {
+          flex-direction: column;
+        }
+
+        .flow-arrow-right {
+          transform: rotate(90deg);
+        }
 
         .footer-bottom {
           flex-direction: column;
@@ -520,113 +806,106 @@
     </style>
   </head>
   <body>
+
     <!-- Navigation -->
     <nav>
       <div class="container">
         <a href="#" class="logo">b3nd<span>.</span></a>
-        <a href="https://github.com/bandeira-tech/b3nd" class="mobile-cta"
-        >GitHub</a>
+        <a href="https://github.com/bandeira-tech/b3nd" class="mobile-cta">GitHub</a>
         <ul class="nav-links">
           <li><a href="#protocol">Protocol</a></li>
           <li><a href="#code">Code</a></li>
+          <li><a href="#ownership">Ownership</a></li>
           <li><a href="#privacy">Privacy</a></li>
           <li><a href="#resources">Resources</a></li>
-          <li>
-            <a href="https://github.com/bandeira-tech/b3nd" class="nav-cta"
-            >GitHub</a>
-          </li>
+          <li><a href="https://github.com/bandeira-tech/b3nd" class="nav-cta">GitHub</a></li>
         </ul>
       </div>
     </nav>
 
     <!-- Hero -->
     <section class="hero">
-      <div>
-        <h1>B3ND<span class="accent">.</span></h1>
-        <p class="tagline">digital spellcraft</p>
-        <p class="subtitle"
-        >Data belongs to you. Four operations. Any app.</p>
+      <div class="hero-content">
+        <p class="tagline">the data protocol</p>
+        <h1>B3ND<span class="dot">.</span></h1>
+        <p class="subtitle">
+          A URI-based protocol for data that belongs to you.
+          Four operations. Client-side encryption. Schema-agnostic.
+        </p>
       </div>
     </section>
 
-    <!-- The Whole Protocol -->
+    <!-- Protocol -->
     <section class="protocol" id="protocol">
       <div class="container">
-        <h2 class="section-title">The Whole Protocol</h2>
-        <p class="section-subtitle">Everything B3nd does, on one screen.</p>
+        <p class="section-label">Protocol</p>
+        <h2 class="section-title">A small protocol with a large guarantee.</h2>
+        <p class="section-desc">
+          Everything B3nd does, on one screen. Four operations over URI-addressed data.
+          Schema-agnostic by design — B3nd doesn't care what your data looks like.
+          It cares who it belongs to.
+        </p>
 
         <!-- URI Anatomy -->
         <div class="uri-anatomy">
-          <svg viewBox="0 0 800 100" style="width: 100%; height: auto;">
-            <rect x="40" y="20" width="720" height="48" rx="8"
-              fill="var(--white)" stroke="var(--secondary)" stroke-width="2"/>
-
-            <!-- protocol -->
-            <text x="145" y="50" text-anchor="middle" class="mono"
-              font-size="15" fill="var(--secondary)" font-weight="600"
-            >mutable://</text>
-            <!-- hostname -->
-            <text x="310" y="50" text-anchor="middle" class="mono"
-              font-size="15" fill="var(--accent)" font-weight="600"
-            >accounts</text>
-            <!-- path -->
-            <text x="510" y="50" text-anchor="middle" class="mono"
-              font-size="15" fill="var(--text)"
-            >/{pubkey}/profile</text>
-
-            <!-- separators -->
-            <line x1="225" y1="24" x2="225" y2="64" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="395" y1="24" x2="395" y2="64" stroke="#e5e7eb" stroke-width="1"/>
-
-            <!-- labels -->
-            <text x="145" y="88" text-anchor="middle" font-size="11"
-              fill="var(--muted)">protocol (behavior)</text>
-            <text x="310" y="88" text-anchor="middle" font-size="11"
-              fill="var(--muted)">hostname (auth model)</text>
-            <text x="510" y="88" text-anchor="middle" font-size="11"
-              fill="var(--muted)">path (your data)</text>
-          </svg>
+          <div class="uri-display">
+            <span class="uri-scheme">mutable://</span><span class="uri-host">accounts</span><span class="uri-sep">/</span><span class="uri-path">{pubkey}/profile</span>
+          </div>
+          <div class="uri-labels">
+            <div class="uri-label">
+              <strong class="scheme-label">Protocol</strong>
+              behavior
+            </div>
+            <div class="uri-label">
+              <strong class="host-label">Hostname</strong>
+              auth model
+            </div>
+            <div class="uri-label">
+              <strong class="path-label">Path</strong>
+              your data
+            </div>
+          </div>
         </div>
 
         <!-- Four Operations -->
-        <div class="ops-row">
-          <div class="op-box">
+        <div class="ops-grid">
+          <div class="op-cell">
             <h3>receive</h3>
             <p>Write data to a URI</p>
           </div>
-          <div class="op-box">
+          <div class="op-cell">
             <h3>read</h3>
             <p>Get data from a URI</p>
           </div>
-          <div class="op-box">
+          <div class="op-cell">
             <h3>list</h3>
             <p>Browse URIs by prefix</p>
           </div>
-          <div class="op-box">
+          <div class="op-cell">
             <h3>delete</h3>
             <p>Remove data at a URI</p>
           </div>
         </div>
 
         <!-- Protocol Family -->
-        <div class="protocol-grid">
-          <div class="proto-card">
+        <div class="family-grid">
+          <div class="family-card">
             <h3>mutable://</h3>
             <p>Updatable data. Profiles, configs, state.</p>
           </div>
-          <div class="proto-card">
+          <div class="family-card">
             <h3>immutable://</h3>
             <p>Write-once records. Logs, posts, receipts.</p>
           </div>
-          <div class="proto-card">
+          <div class="family-card">
             <h3>hash://</h3>
-            <p>Content-addressed by SHA256 hash.</p>
+            <p>Content-addressed by SHA-256 hash.</p>
           </div>
-          <div class="proto-card">
+          <div class="family-card">
             <h3>link://</h3>
             <p>Mutable references to other URIs.</p>
           </div>
-          <div class="proto-card">
+          <div class="family-card">
             <h3>msg://</h3>
             <p>Message envelopes for batch writes.</p>
           </div>
@@ -634,10 +913,15 @@
       </div>
     </section>
 
-    <!-- Show Don't Tell -->
+    <!-- Code -->
     <section class="code-section" id="code">
       <div class="container">
-        <h2 class="section-title">Show Don't Tell</h2>
+        <p class="section-label">Code</p>
+        <h2 class="section-title">See it. Ship it.</h2>
+        <p class="section-desc">
+          The API surface is minimal by design. If you can write a fetch call,
+          you can write to B3nd.
+        </p>
 
         <div class="code-flow">
           <!-- Write -->
@@ -657,7 +941,7 @@
             </div>
           </div>
 
-          <div class="flow-arrow">
+          <div class="flow-connector">
             <svg viewBox="0 0 24 24" fill="none">
               <path d="M12 5v14M5 12l7 7 7-7" stroke="var(--accent)"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -673,7 +957,7 @@
               <span class="terminal-label">read</span>
             </div>
             <div class="code-body">
-              <pre><span class="cm">// Read it back</span>
+              <pre><span class="cm">// Read it back — any app, same address</span>
 <span class="kw">const</span> result = <span class="kw">await</span> client.<span class="fn">read</span>(
   <span class="str">"mutable://accounts/alice/profile"</span>
 );
@@ -683,7 +967,7 @@ console.<span class="fn">log</span>(result.record.data);
             </div>
           </div>
 
-          <div class="flow-arrow">
+          <div class="flow-connector">
             <svg viewBox="0 0 24 24" fill="none">
               <path d="M12 5v14M5 12l7 7 7-7" stroke="var(--accent)"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -696,157 +980,95 @@ console.<span class="fn">log</span>(result.record.data);
               <div class="dot r"></div>
               <div class="dot y"></div>
               <div class="dot g"></div>
-              <span class="terminal-label">any app</span>
+              <span class="terminal-label">any app, same data</span>
             </div>
             <div class="code-body">
-              <pre><span class="cm">// A completely different app reads the same data</span>
+              <pre><span class="cm">// A different app reads the same URI</span>
 <span class="kw">const</span> profile = <span class="kw">await</span> otherApp.<span class="fn">read</span>(
   <span class="str">"mutable://accounts/alice/profile"</span>
 );
 
-<span class="cm">// Same URI, same data. Your data travels with you.</span></pre>
+<span class="cm">// Same address. Same data. Your data travels with you.</span></pre>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Your Data, Your Keys -->
-    <section class="ownership">
+    <!-- Ownership -->
+    <section class="ownership" id="ownership">
       <div class="container">
-        <h2 class="section-title">Your Data, Your Keys</h2>
+        <p class="section-label">Ownership</p>
+        <h2 class="section-title">Ownership is not a feature. It's the protocol.</h2>
+        <p class="section-desc">
+          Most platforms promise you own your data, then store it behind
+          their access controls. B3nd makes anything else structurally impossible.
+        </p>
 
-        <div class="ownership-grid">
-          <!-- Today -->
-          <div class="own-panel">
+        <div class="ownership-comparison">
+          <div class="compare-card today">
             <h3>Today</h3>
-            <svg viewBox="0 0 320 160" style="width: 100%; max-width: 320px; height: auto;">
-              <!-- User A -->
-              <circle cx="60" cy="80" r="28" fill="none" stroke="var(--secondary)"
-                stroke-width="2" opacity="0.6"/>
-              <text x="60" y="84" text-anchor="middle" font-size="12"
-                fill="var(--text)">User</text>
-
-              <!-- Platform -->
-              <rect x="120" y="52" width="80" height="56" rx="8"
-                fill="var(--accent)" fill-opacity="0.15"
-                stroke="var(--accent)" stroke-width="2"/>
-              <text x="160" y="84" text-anchor="middle" font-size="12"
-                fill="var(--text)" font-weight="600">Platform</text>
-
-              <!-- User B -->
-              <circle cx="260" cy="80" r="28" fill="none" stroke="var(--secondary)"
-                stroke-width="2" opacity="0.6"/>
-              <text x="260" y="84" text-anchor="middle" font-size="12"
-                fill="var(--text)">User</text>
-
-              <!-- Arrows to platform -->
-              <line x1="88" y1="80" x2="118" y2="80" stroke="var(--muted)" stroke-width="2"/>
-              <polygon points="118,80 112,76 112,84" fill="var(--muted)"/>
-              <line x1="232" y1="80" x2="202" y2="80" stroke="var(--muted)" stroke-width="2"/>
-              <polygon points="202,80 208,76 208,84" fill="var(--muted)"/>
-
-              <!-- Label -->
-              <text x="160" y="140" text-anchor="middle" font-size="11"
-                fill="var(--muted)">Platform owns the data</text>
-            </svg>
+            <div class="compare-diagram">
+              <div class="entity user">User</div>
+              <span class="arrow">&rarr;</span>
+              <div class="entity platform">Platform</div>
+              <span class="arrow">&larr;</span>
+              <div class="entity user">User</div>
+            </div>
+            <p class="compare-caption">Platform owns the data</p>
           </div>
 
-          <!-- B3nd -->
-          <div class="own-panel">
+          <div class="compare-card b3nd-card">
             <h3>B3nd</h3>
-            <svg viewBox="0 0 320 160" style="width: 100%; max-width: 320px; height: auto;">
-              <!-- User A -->
-              <circle cx="60" cy="80" r="28" fill="none" stroke="var(--secondary)"
-                stroke-width="2" opacity="0.6"/>
-              <text x="60" y="84" text-anchor="middle" font-size="12"
-                fill="var(--text)">User</text>
-
-              <!-- Data -->
-              <rect x="120" y="52" width="80" height="56" rx="8"
-                fill="var(--money)" fill-opacity="0.15"
-                stroke="var(--money)" stroke-width="2"/>
-              <text x="160" y="84" text-anchor="middle" font-size="12"
-                fill="var(--text)" font-weight="600">Data</text>
-
-              <!-- User B -->
-              <circle cx="260" cy="80" r="28" fill="none" stroke="var(--secondary)"
-                stroke-width="2" opacity="0.6"/>
-              <text x="260" y="84" text-anchor="middle" font-size="12"
-                fill="var(--text)">User</text>
-
-              <!-- Bidirectional arrows -->
-              <line x1="88" y1="76" x2="118" y2="76" stroke="var(--money)" stroke-width="2"/>
-              <polygon points="118,76 112,72 112,80" fill="var(--money)"/>
-              <line x1="118" y1="84" x2="88" y2="84" stroke="var(--money)" stroke-width="2"/>
-              <polygon points="88,84 94,80 94,88" fill="var(--money)"/>
-
-              <line x1="232" y1="76" x2="202" y2="76" stroke="var(--money)" stroke-width="2"/>
-              <polygon points="202,76 208,72 208,80" fill="var(--money)"/>
-              <line x1="202" y1="84" x2="232" y2="84" stroke="var(--money)" stroke-width="2"/>
-              <polygon points="232,84 226,80 226,88" fill="var(--money)"/>
-
-              <!-- Label -->
-              <text x="160" y="140" text-anchor="middle" font-size="11"
-                fill="var(--money)">Users own the data</text>
-            </svg>
+            <div class="compare-diagram">
+              <div class="entity user">User</div>
+              <span class="arrow">&harr;</span>
+              <div class="entity data">Data</div>
+              <span class="arrow">&harr;</span>
+              <div class="entity user">User</div>
+            </div>
+            <p class="compare-caption good">Users own the data</p>
           </div>
         </div>
 
         <p class="own-explain">
           Traditional platforms sit between users and their data. B3nd puts data
-          at the center &mdash; any app can read the same addresses, and switching
-          apps doesn't mean starting over.
+          at URI addresses you control — any application can read the same address,
+          and switching apps doesn't mean starting over.
         </p>
       </div>
     </section>
 
-    <!-- Privacy is Math -->
+    <!-- Privacy -->
     <section class="privacy" id="privacy">
       <div class="container">
-        <h2 class="section-title">Privacy is Math</h2>
+        <p class="section-label">Privacy</p>
+        <h2 class="section-title">Privacy through encryption, not permission.</h2>
+        <p class="section-desc">
+          Data is encrypted on the client before it leaves your device.
+          The server stores ciphertext. It cannot read what it cannot decrypt.
+        </p>
 
         <div class="privacy-flow">
-          <svg viewBox="0 0 900 100" style="width: 100%; height: auto;">
-            <!-- Plaintext -->
-            <rect x="20" y="25" width="160" height="50" rx="8"
-              fill="var(--light)" stroke="var(--secondary)" stroke-width="2"/>
-            <text x="100" y="55" text-anchor="middle" font-size="14"
-              fill="var(--text)">your data</text>
-
-            <!-- Arrow 1 -->
-            <line x1="180" y1="50" x2="260" y2="50" stroke="var(--accent)" stroke-width="2"/>
-            <polygon points="260,50 254,46 254,54" fill="var(--accent)"/>
-
-            <!-- Encrypt -->
-            <rect x="260" y="25" width="160" height="50" rx="8"
-              fill="var(--accent)" fill-opacity="0.1"
-              stroke="var(--accent)" stroke-width="2"/>
-            <text x="340" y="55" text-anchor="middle" font-size="14"
-              fill="var(--accent)" font-weight="600">encrypt</text>
-
-            <!-- Arrow 2 -->
-            <line x1="420" y1="50" x2="500" y2="50" stroke="var(--accent)" stroke-width="2"/>
-            <polygon points="500,50 494,46 494,54" fill="var(--accent)"/>
-
-            <!-- Ciphertext -->
-            <rect x="500" y="25" width="160" height="50" rx="8"
-              fill="var(--light)" stroke="var(--secondary)" stroke-width="2"/>
-            <text x="580" y="55" text-anchor="middle" class="mono" font-size="13"
-              fill="var(--text)">ciphertext</text>
-
-            <!-- Arrow 3 -->
-            <line x1="660" y1="50" x2="720" y2="50" stroke="var(--muted)"
-              stroke-width="2" stroke-dasharray="5,5"/>
-            <polygon points="720,50 714,46 714,54" fill="var(--muted)"/>
-
-            <!-- Network -->
-            <rect x="720" y="25" width="160" height="50" rx="8"
-              fill="var(--primary)" fill-opacity="0.08"
-              stroke="var(--primary)" stroke-width="2"/>
-            <text x="800" y="55" text-anchor="middle" font-size="14"
-              fill="var(--primary)">network</text>
-          </svg>
+          <div class="flow-step">
+            <div class="step-label">your data</div>
+            <div class="step-sub">plaintext</div>
+          </div>
+          <span class="flow-arrow-right">&rarr;</span>
+          <div class="flow-step encrypt-step">
+            <div class="step-label">encrypt</div>
+            <div class="step-sub">client-side</div>
+          </div>
+          <span class="flow-arrow-right">&rarr;</span>
+          <div class="flow-step">
+            <div class="step-label">ciphertext</div>
+            <div class="step-sub">AES-GCM</div>
+          </div>
+          <span class="flow-arrow-right">&rarr;</span>
+          <div class="flow-step">
+            <div class="step-label">network</div>
+            <div class="step-sub">can't read it</div>
+          </div>
         </div>
 
         <div class="privacy-levels">
@@ -869,55 +1091,27 @@ console.<span class="fn">log</span>(result.record.data);
     <!-- Run Your Own -->
     <section class="run-own">
       <div class="container">
-        <h2 class="section-title">Run Your Own</h2>
+        <p class="section-label">Infrastructure</p>
+        <h2 class="section-title">Run the protocol.</h2>
+        <p class="section-desc">
+          B3nd nodes store encrypted data, respond to URI requests, and enforce
+          protocol guarantees. No application logic. Just the four operations.
+        </p>
 
         <div class="run-own-content">
-          <svg viewBox="0 0 500 220" style="width: 100%; max-width: 500px; height: auto; display: block; margin: 0 auto;">
-            <!-- Center node -->
-            <circle cx="250" cy="110" r="32" fill="var(--secondary)"
-              fill-opacity="0.15" stroke="var(--secondary)" stroke-width="2"/>
-            <text x="250" y="106" text-anchor="middle" font-size="11"
-              fill="var(--text)" font-weight="600">Your</text>
-            <text x="250" y="120" text-anchor="middle" font-size="11"
-              fill="var(--text)" font-weight="600">Node</text>
+          <div class="node-diagram">
+            <div class="node peer">Node</div>
+            <div class="node-line"></div>
+            <div class="node peer">Node</div>
+            <div class="node-line"></div>
+            <div class="node your-node">Your<br>Node</div>
+            <div class="node-line"></div>
+            <div class="node peer">Node</div>
+            <div class="node-line"></div>
+            <div class="node peer">Node</div>
+          </div>
 
-            <!-- Node 1 top-left -->
-            <circle cx="100" cy="50" r="26" fill="var(--light)"
-              stroke="var(--primary)" stroke-width="2"/>
-            <text x="100" y="54" text-anchor="middle" font-size="11"
-              fill="var(--text)">Node</text>
-
-            <!-- Node 2 top-right -->
-            <circle cx="400" cy="50" r="26" fill="var(--light)"
-              stroke="var(--primary)" stroke-width="2"/>
-            <text x="400" y="54" text-anchor="middle" font-size="11"
-              fill="var(--text)">Node</text>
-
-            <!-- Node 3 bottom-left -->
-            <circle cx="100" cy="170" r="26" fill="var(--light)"
-              stroke="var(--primary)" stroke-width="2"/>
-            <text x="100" y="174" text-anchor="middle" font-size="11"
-              fill="var(--text)">Node</text>
-
-            <!-- Node 4 bottom-right -->
-            <circle cx="400" cy="170" r="26" fill="var(--light)"
-              stroke="var(--primary)" stroke-width="2"/>
-            <text x="400" y="174" text-anchor="middle" font-size="11"
-              fill="var(--text)">Node</text>
-
-            <!-- Lines -->
-            <line x1="222" y1="92" x2="126" y2="66" stroke="var(--money)" stroke-width="2"/>
-            <line x1="278" y1="92" x2="374" y2="66" stroke="var(--money)" stroke-width="2"/>
-            <line x1="222" y1="128" x2="126" y2="154" stroke="var(--money)" stroke-width="2"/>
-            <line x1="278" y1="128" x2="374" y2="154" stroke="var(--money)" stroke-width="2"/>
-
-            <!-- Cross lines -->
-            <line x1="126" y1="64" x2="374" y2="64" stroke="#e5e7eb" stroke-width="1"/>
-            <line x1="126" y1="156" x2="374" y2="156" stroke="#e5e7eb" stroke-width="1"/>
-          </svg>
-
-          <div class="code-inline"
-          >new HttpClient({ url: "your-node.example.com" })</div>
+          <div class="code-inline">new HttpClient({ url: "your-node.example.com" })</div>
         </div>
       </div>
     </section>
@@ -925,12 +1119,17 @@ console.<span class="fn">log</span>(result.record.data);
     <!-- Start Building -->
     <section class="start" id="resources">
       <div class="container">
-        <h2 class="section-title">Start Building</h2>
+        <p class="section-label">Build</p>
+        <h2 class="section-title">Build on the foundation.</h2>
+        <p class="section-desc">
+          Everything you need. The protocol specification, SDK documentation,
+          and working examples. MIT license.
+        </p>
 
         <div class="cards-grid">
           <a href="https://github.com/bandeira-tech/b3nd" class="card">
             <h3>GitHub</h3>
-            <p>Source code and contributions</p>
+            <p>Source code and specification</p>
             <span class="link">bandeira-tech/b3nd</span>
           </a>
           <a href="https://jsr.io/@bandeira-tech/b3nd-sdk" class="card">
@@ -952,45 +1151,49 @@ console.<span class="fn">log</span>(result.record.data);
       </div>
     </section>
 
+    <!-- Firecat Bridge -->
+    <div class="bridge">
+      <div class="container">
+        <p>
+          Looking for the public network?
+          <a href="/firecat/">Firecat</a> is the canonical protocol
+          built on B3nd — with tokenomics, community ownership,
+          and a live testnet.
+        </p>
+      </div>
+    </div>
+
     <!-- Footer -->
     <footer>
       <div class="container">
         <div class="footer-grid">
           <div class="footer-brand">
             <a href="#" class="logo">b3nd<span>.</span></a>
-            <p>A protocol for URI-based data where users own their data.</p>
+            <p>A URI-based data protocol. Four operations. Client-side encryption. Open source.</p>
           </div>
           <div>
             <h4>Build</h4>
             <ul>
-              <li>
-                <a href="https://github.com/bandeira-tech/b3nd#readme"
-                >Documentation</a>
-              </li>
-              <li>
-                <a href="https://github.com/bandeira-tech/b3nd">GitHub</a>
-              </li>
-              <li>
-                <a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web"
-                >NPM</a>
-              </li>
-              <li>
-                <a href="https://jsr.io/@bandeira-tech/b3nd-sdk">JSR</a>
-              </li>
+              <li><a href="https://github.com/bandeira-tech/b3nd#readme">Documentation</a></li>
+              <li><a href="https://github.com/bandeira-tech/b3nd">GitHub</a></li>
+              <li><a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web">NPM</a></li>
+              <li><a href="https://jsr.io/@bandeira-tech/b3nd-sdk">JSR</a></li>
             </ul>
           </div>
           <div>
             <h4>Connect</h4>
             <ul>
               <li><a href="https://bandeira.tech">Bandeira Tech</a></li>
+              <li><a href="/firecat/">Firecat Network</a></li>
             </ul>
           </div>
         </div>
         <div class="footer-bottom">
-          <span>B3nd is open source</span>
+          <span>B3nd is open source — MIT License</span>
           <span>Built by <a href="https://bandeira.tech">Bandeira Tech</a></span>
         </div>
       </div>
     </footer>
+
   </body>
 </html>

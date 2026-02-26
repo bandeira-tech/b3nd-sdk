@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firecat — Infrastructure, owned by everyone</title>
+    <meta
+      name="description"
+      content="Firecat is a community-owned data network built on B3nd. Run a node. Earn rewards. Own the network. Live on testnet at fire.cat."
+    >
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    >
+    <style>
+      :root {
+        --ember: #ea580c;
+        --amber: #f59e0b;
+        --teal: #14b8a6;
+        --flame-white: #fef3c7;
+        --positive: #22c55e;
+        --negative: #ef4444;
+
+        --dark-base: #0c0a09;
+        --dark-surface: #1c1917;
+        --dark-elevated: #292524;
+        --dark-border: #44403c;
+
+        --text-heading: #fafaf9;
+        --text-body: #d6d3d1;
+        --text-muted: #a8a29e;
+        --text-dim: #78716c;
+
+        --warm-cream: #fafaf9;
+        --warm-surface: #f5f5f4;
+
+        --b3nd-indigo: #4338ca;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+
+      body {
+        font-family: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--text-body);
+        line-height: 1.7;
+        background: var(--dark-base);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      h1, h2, h3, h4, h5 {
+        font-family: "Space Grotesk", sans-serif;
+      }
+
+      .container {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      /* ============================================================
+         NAVIGATION — Warm, branded
+         ============================================================ */
+      nav {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        background: rgba(12,10,9,0.88);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid var(--dark-border);
+        z-index: 100;
+      }
+
+      nav .container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 60px;
+      }
+
+      .logo {
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text-heading);
+        text-decoration: none;
+        letter-spacing: -0.02em;
+      }
+
+      .logo .fire { color: var(--ember); }
+
+      .nav-links {
+        display: flex;
+        gap: 28px;
+        list-style: none;
+        align-items: center;
+      }
+
+      .nav-links a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        transition: color 0.15s;
+      }
+
+      .nav-links a:hover { color: var(--text-heading); }
+
+      .nav-cta {
+        background: var(--ember) !important;
+        color: var(--text-heading) !important;
+        padding: 7px 18px;
+        border-radius: 999px;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        transition: background 0.15s !important;
+      }
+
+      .nav-cta:hover {
+        background: #c2410c !important;
+      }
+
+      .mobile-cta { display: none; }
+
+      /* ============================================================
+         HERO — Living network, ember glow
+         ============================================================ */
+      .hero {
+        min-height: 90vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 120px 24px 80px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(ellipse 80% 60% at 50% 40%, rgba(124,45,18,0.25) 0%, transparent 70%),
+          var(--dark-base);
+      }
+
+      /* Subtle animated pulse for the ember glow */
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: 20%; left: 30%; right: 30%; bottom: 40%;
+        background: radial-gradient(ellipse at center, rgba(234,88,12,0.08) 0%, transparent 70%);
+        animation: ember-pulse 4s ease-in-out infinite alternate;
+        pointer-events: none;
+      }
+
+      @keyframes ember-pulse {
+        0% { opacity: 0.4; transform: scale(1); }
+        100% { opacity: 1; transform: scale(1.1); }
+      }
+
+      .hero-content {
+        position: relative;
+        z-index: 1;
+        max-width: 720px;
+      }
+
+      .hero-badge {
+        display: inline-block;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: var(--teal);
+        border: 1px solid rgba(20,184,166,0.3);
+        padding: 4px 14px;
+        border-radius: 999px;
+        margin-bottom: 28px;
+        letter-spacing: 0.04em;
+      }
+
+      .hero-badge .pulse {
+        display: inline-block;
+        width: 6px; height: 6px;
+        background: var(--teal);
+        border-radius: 50%;
+        margin-right: 8px;
+        animation: pulse-dot 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse-dot {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+
+      .hero h1 {
+        font-size: clamp(40px, 7vw, 72px);
+        font-weight: 700;
+        color: var(--text-heading);
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        margin-bottom: 24px;
+      }
+
+      .hero h1 .ember-text {
+        background: linear-gradient(135deg, var(--ember), var(--amber));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .hero .subtitle {
+        font-size: clamp(16px, 2.2vw, 19px);
+        color: var(--text-muted);
+        max-width: 560px;
+        margin: 0 auto 40px;
+        line-height: 1.7;
+      }
+
+      .hero-actions {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn-primary {
+        background: var(--ember);
+        color: var(--text-heading);
+        padding: 12px 28px;
+        border-radius: 999px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        font-family: "Space Grotesk", sans-serif;
+        transition: background 0.15s, transform 0.15s;
+        border: none;
+        cursor: pointer;
+      }
+
+      .btn-primary:hover {
+        background: #c2410c;
+        transform: translateY(-1px);
+      }
+
+      .btn-secondary {
+        background: transparent;
+        color: var(--text-body);
+        padding: 12px 28px;
+        border-radius: 999px;
+        font-size: 15px;
+        font-weight: 500;
+        text-decoration: none;
+        font-family: "Space Grotesk", sans-serif;
+        border: 1px solid var(--dark-border);
+        transition: border-color 0.15s, color 0.15s;
+      }
+
+      .btn-secondary:hover {
+        border-color: var(--text-muted);
+        color: var(--text-heading);
+      }
+
+      /* ============================================================
+         SECTIONS
+         ============================================================ */
+      section { padding: 100px 0; }
+
+      .dark-section { background: var(--dark-base); }
+      .surface-section { background: var(--dark-surface); }
+
+      .section-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--ember);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        text-align: center;
+        margin-bottom: 12px;
+      }
+
+      .section-title {
+        font-size: clamp(28px, 4vw, 42px);
+        font-weight: 700;
+        color: var(--text-heading);
+        text-align: center;
+        letter-spacing: -0.02em;
+        margin-bottom: 16px;
+        line-height: 1.15;
+      }
+
+      .section-desc {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 16px;
+        max-width: 600px;
+        margin: 0 auto 64px;
+        line-height: 1.8;
+      }
+
+      /* ============================================================
+         THE PROBLEM
+         ============================================================ */
+      .problem-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+
+      .problem-card {
+        background: var(--dark-surface);
+        border: 1px solid var(--dark-border);
+        border-radius: 10px;
+        padding: 32px 24px;
+        border-top: 3px solid var(--negative);
+      }
+
+      .problem-card h3 {
+        color: var(--text-heading);
+        font-size: 17px;
+        font-weight: 600;
+        margin-bottom: 10px;
+      }
+
+      .problem-card p {
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      /* ============================================================
+         WHAT IS FIRECAT
+         ============================================================ */
+      .about-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        align-items: center;
+      }
+
+      .about-text h3 {
+        color: var(--text-heading);
+        font-size: 22px;
+        margin-bottom: 16px;
+        letter-spacing: -0.01em;
+      }
+
+      .about-text p {
+        color: var(--text-muted);
+        font-size: 15px;
+        line-height: 1.8;
+        margin-bottom: 16px;
+      }
+
+      .about-text .highlight {
+        color: var(--teal);
+        font-weight: 500;
+      }
+
+      .about-visual {
+        background: var(--dark-elevated);
+        border: 1px solid var(--dark-border);
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+      }
+
+      .layer-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .layer {
+        padding: 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        text-align: center;
+      }
+
+      .layer.apps {
+        background: rgba(234,88,12,0.12);
+        border: 1px solid rgba(234,88,12,0.3);
+        color: var(--ember);
+      }
+
+      .layer.firecat-layer {
+        background: rgba(245,158,11,0.12);
+        border: 1px solid rgba(245,158,11,0.3);
+        color: var(--amber);
+        font-size: 16px;
+        padding: 20px;
+      }
+
+      .layer.b3nd-layer {
+        background: rgba(67,56,202,0.12);
+        border: 1px solid rgba(67,56,202,0.3);
+        color: var(--b3nd-indigo);
+      }
+
+      .layer-arrow {
+        text-align: center;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+
+      /* ============================================================
+         ECONOMICS
+         ============================================================ */
+      .econ-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 48px;
+      }
+
+      .econ-card {
+        background: var(--dark-elevated);
+        border: 1px solid var(--dark-border);
+        border-radius: 10px;
+        padding: 32px 24px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .econ-card::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--ember), var(--amber), var(--teal));
+      }
+
+      .econ-card .econ-icon {
+        font-size: 28px;
+        margin-bottom: 16px;
+        display: block;
+      }
+
+      .econ-card h3 {
+        color: var(--text-heading);
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 10px;
+      }
+
+      .econ-card p {
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .econ-highlight {
+        background: var(--dark-surface);
+        border: 1px solid var(--dark-border);
+        border-radius: 10px;
+        padding: 32px;
+        text-align: center;
+      }
+
+      .econ-highlight p {
+        color: var(--text-body);
+        font-size: 16px;
+        line-height: 1.8;
+        max-width: 640px;
+        margin: 0 auto;
+      }
+
+      .econ-highlight strong {
+        color: var(--amber);
+      }
+
+      /* ============================================================
+         TOKENOMICS — FCAT
+         ============================================================ */
+      .token-hero {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 48px;
+        margin-bottom: 56px;
+        flex-wrap: wrap;
+      }
+
+      .token-badge-large {
+        width: 120px; height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--ember), var(--amber));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .token-badge-large span {
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--dark-base);
+        letter-spacing: -0.02em;
+      }
+
+      .token-info {
+        max-width: 440px;
+      }
+
+      .token-info h3 {
+        color: var(--text-heading);
+        font-size: 24px;
+        margin-bottom: 12px;
+      }
+
+      .token-info p {
+        color: var(--text-muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
+      .token-roles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+
+      .token-role {
+        background: var(--dark-elevated);
+        border: 1px solid var(--dark-border);
+        border-radius: 8px;
+        padding: 20px 16px;
+        text-align: center;
+      }
+
+      .token-role .role-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--teal);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 6px;
+      }
+
+      .token-role h4 {
+        color: var(--text-heading);
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      .token-role p {
+        color: var(--text-dim);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      /* ============================================================
+         FOR DEVELOPERS
+         ============================================================ */
+      .dev-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        align-items: start;
+      }
+
+      .dev-text h3 {
+        color: var(--text-heading);
+        font-size: 20px;
+        margin-bottom: 12px;
+      }
+
+      .dev-text p {
+        color: var(--text-muted);
+        font-size: 15px;
+        line-height: 1.8;
+        margin-bottom: 16px;
+      }
+
+      .dev-text ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      .dev-text li {
+        color: var(--text-body);
+        font-size: 14px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--dark-border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .dev-text li .check {
+        color: var(--teal);
+        font-weight: 600;
+      }
+
+      .code-panel {
+        background: var(--dark-elevated);
+        border: 1px solid var(--dark-border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .terminal-bar {
+        background: rgba(255,255,255,0.03);
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .dot.r { background: #ef4444; opacity: 0.6; }
+      .dot.y { background: #f59e0b; opacity: 0.6; }
+      .dot.g { background: #10b981; opacity: 0.6; }
+
+      .terminal-label {
+        margin-left: 10px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+
+      .code-body {
+        padding: 20px;
+      }
+
+      .code-body pre {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        line-height: 1.8;
+        color: var(--text-body);
+        overflow-x: auto;
+      }
+
+      .kw { color: #c084fc; }
+      .str { color: #86efac; }
+      .fn { color: #93c5fd; }
+      .cm { color: var(--text-dim); }
+      .num { color: #fbbf24; }
+
+      /* ============================================================
+         FOR OPERATORS
+         ============================================================ */
+      .operator-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 48px;
+      }
+
+      .op-card {
+        background: var(--dark-surface);
+        border: 1px solid var(--dark-border);
+        border-radius: 10px;
+        padding: 28px 24px;
+        text-align: center;
+      }
+
+      .op-card .stat {
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 36px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        line-height: 1;
+      }
+
+      .op-card .stat.ember { color: var(--ember); }
+      .op-card .stat.amber { color: var(--amber); }
+      .op-card .stat.teal { color: var(--teal); }
+
+      .op-card h4 {
+        color: var(--text-heading);
+        font-size: 15px;
+        margin-bottom: 6px;
+      }
+
+      .op-card p {
+        color: var(--text-dim);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .anti-whale {
+        background: var(--dark-elevated);
+        border: 1px solid var(--dark-border);
+        border-radius: 10px;
+        padding: 40px;
+      }
+
+      .anti-whale h3 {
+        color: var(--amber);
+        font-size: 20px;
+        margin-bottom: 12px;
+        text-align: center;
+      }
+
+      .anti-whale p {
+        color: var(--text-muted);
+        font-size: 15px;
+        line-height: 1.8;
+        text-align: center;
+        max-width: 600px;
+        margin: 0 auto 24px;
+      }
+
+      .whale-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        max-width: 560px;
+        margin: 0 auto;
+      }
+
+      .whale-row {
+        background: var(--dark-surface);
+        border-radius: 8px;
+        padding: 16px 20px;
+      }
+
+      .whale-row .label {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-bottom: 4px;
+      }
+
+      .whale-row .value {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 14px;
+        color: var(--text-heading);
+      }
+
+      .whale-row .value .accent-teal { color: var(--teal); }
+      .whale-row .value .accent-amber { color: var(--amber); }
+
+      /* ============================================================
+         COMMUNITY
+         ============================================================ */
+      .community-features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+
+      .community-card {
+        background: var(--dark-elevated);
+        border: 1px solid var(--dark-border);
+        border-radius: 10px;
+        padding: 28px 24px;
+      }
+
+      .community-card h3 {
+        color: var(--text-heading);
+        font-size: 17px;
+        margin-bottom: 8px;
+      }
+
+      .community-card p {
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      /* ============================================================
+         TESTNET CTA
+         ============================================================ */
+      .testnet-cta {
+        background:
+          radial-gradient(ellipse 70% 50% at 50% 50%, rgba(124,45,18,0.2) 0%, transparent 70%),
+          var(--dark-base);
+        padding: 100px 0;
+        text-align: center;
+      }
+
+      .testnet-cta h2 {
+        font-size: clamp(32px, 5vw, 48px);
+        color: var(--text-heading);
+        margin-bottom: 16px;
+        letter-spacing: -0.02em;
+      }
+
+      .testnet-cta .subtitle {
+        color: var(--text-muted);
+        font-size: 17px;
+        max-width: 500px;
+        margin: 0 auto 40px;
+        line-height: 1.7;
+      }
+
+      .testnet-cta .testnet-url {
+        display: inline-block;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 15px;
+        color: var(--teal);
+        background: var(--dark-surface);
+        border: 1px solid var(--dark-border);
+        padding: 12px 24px;
+        border-radius: 8px;
+        margin-bottom: 32px;
+        text-decoration: none;
+        transition: border-color 0.15s;
+      }
+
+      .testnet-cta .testnet-url:hover {
+        border-color: var(--teal);
+      }
+
+      .testnet-cta .cta-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      /* ============================================================
+         B3ND BRIDGE — Credits the foundation
+         ============================================================ */
+      .b3nd-bridge {
+        background: var(--dark-surface);
+        border-top: 1px solid var(--dark-border);
+        border-bottom: 1px solid var(--dark-border);
+        padding: 48px 0;
+        text-align: center;
+      }
+
+      .b3nd-bridge p {
+        color: var(--text-dim);
+        font-size: 14px;
+        line-height: 1.8;
+        max-width: 520px;
+        margin: 0 auto;
+      }
+
+      .b3nd-bridge a {
+        color: var(--b3nd-indigo);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .b3nd-bridge a:hover { text-decoration: underline; }
+
+      /* ============================================================
+         FOOTER
+         ============================================================ */
+      footer {
+        background: var(--dark-base);
+        color: var(--text-dim);
+        padding: 56px 0 32px;
+      }
+
+      .footer-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        gap: 40px;
+        margin-bottom: 40px;
+      }
+
+      .footer-brand .logo {
+        color: var(--text-heading);
+        display: inline-block;
+        margin-bottom: 10px;
+      }
+
+      .footer-brand p {
+        font-size: 13px;
+        line-height: 1.6;
+        max-width: 260px;
+        color: var(--text-dim);
+      }
+
+      footer h4 {
+        color: var(--text-muted);
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-bottom: 14px;
+      }
+
+      footer ul { list-style: none; }
+      footer li { margin-bottom: 8px; }
+
+      footer a {
+        color: var(--text-dim);
+        text-decoration: none;
+        font-size: 13px;
+        transition: color 0.15s;
+      }
+
+      footer a:hover { color: var(--ember); }
+
+      .footer-bottom {
+        border-top: 1px solid var(--dark-border);
+        padding-top: 20px;
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        color: var(--text-dim);
+      }
+
+      .footer-bottom a { color: var(--ember); }
+
+      /* ============================================================
+         RESPONSIVE
+         ============================================================ */
+      @media (max-width: 1024px) {
+        .about-grid { grid-template-columns: 1fr; }
+        .dev-content { grid-template-columns: 1fr; }
+        .footer-grid { grid-template-columns: 1fr 1fr; }
+        .whale-comparison { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 768px) {
+        .nav-links { display: none; }
+
+        .mobile-cta {
+          display: inline-flex;
+          background: var(--ember);
+          color: var(--text-heading);
+          padding: 6px 16px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 600;
+          text-decoration: none;
+        }
+
+        section { padding: 72px 0; }
+        .problem-grid { grid-template-columns: 1fr; }
+        .econ-grid { grid-template-columns: 1fr; }
+        .token-roles { grid-template-columns: repeat(2, 1fr); }
+        .operator-grid { grid-template-columns: 1fr; }
+        .community-features { grid-template-columns: 1fr; }
+        .footer-grid { grid-template-columns: 1fr; }
+
+        .footer-bottom {
+          flex-direction: column;
+          gap: 8px;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- Navigation -->
+    <nav>
+      <div class="container">
+        <a href="#" class="logo"><span class="fire">fire</span>cat</a>
+        <a href="https://testnet-evergreen.fire.cat" class="mobile-cta">Testnet</a>
+        <ul class="nav-links">
+          <li><a href="#about">About</a></li>
+          <li><a href="#economics">Economics</a></li>
+          <li><a href="#token">FCAT</a></li>
+          <li><a href="#developers">Developers</a></li>
+          <li><a href="#operators">Operators</a></li>
+          <li><a href="https://testnet-evergreen.fire.cat" class="nav-cta">Testnet</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="pulse"></span> testnet live at fire.cat
+        </div>
+        <h1>Infrastructure,<br><span class="ember-text">owned by everyone.</span></h1>
+        <p class="subtitle">
+          A community-owned data network built on the B3nd protocol.
+          Run a node. Earn rewards. Own the network.
+        </p>
+        <div class="hero-actions">
+          <a href="https://testnet-evergreen.fire.cat" class="btn-primary">Join the testnet</a>
+          <a href="#economics" class="btn-secondary">Read the economics</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- The Problem -->
+    <section class="surface-section" id="problem">
+      <div class="container">
+        <p class="section-label">The Problem</p>
+        <h2 class="section-title">The internet has a landlord problem.</h2>
+        <p class="section-desc">
+          Today's infrastructure is concentrated in the hands of a few companies.
+          The people who create value have the least control over it.
+        </p>
+
+        <div class="problem-grid">
+          <div class="problem-card">
+            <h3>Infrastructure concentration</h3>
+            <p>
+              A handful of cloud providers control where data lives, what it costs
+              to store, and who can access it. Small builders pay rent to incumbents.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h3>Adversarial advertising</h3>
+            <p>
+              Marketing budgets flow to platform owners. Advertisers pay to interrupt
+              users. Users get a degraded experience. The platforms pocket the spread.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h3>Data hostage dynamics</h3>
+            <p>
+              When an app dies, users lose their data. When a platform changes terms,
+              developers lose their audience. No portability. No sovereignty.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- What is Firecat -->
+    <section class="dark-section" id="about">
+      <div class="container">
+        <p class="section-label">The Network</p>
+        <h2 class="section-title">A protocol for the public network.</h2>
+        <p class="section-desc">
+          Firecat is the canonical protocol built on B3nd. If B3nd is the foundation,
+          Firecat is the building — open to everyone, owned by the people inside it.
+        </p>
+
+        <div class="about-grid">
+          <div class="about-text">
+            <h3>Community-owned infrastructure</h3>
+            <p>
+              Firecat defines the schemas, authentication model, and URI conventions
+              for a public, community-owned data network. Nodes are operated by
+              people like you. <span class="highlight">Not a company. A network.</span>
+            </p>
+            <p>
+              Every byte on Firecat is owned by its creator, addressable by any
+              application, and encrypted by default. The data layer inherits
+              everything from B3nd — user ownership, client-side encryption,
+              URI-based addressing.
+            </p>
+          </div>
+          <div class="about-visual">
+            <div class="layer-stack">
+              <div class="layer apps">Applications</div>
+              <div class="layer-arrow">&darr;</div>
+              <div class="layer firecat-layer">Firecat Network</div>
+              <div class="layer-arrow">&darr;</div>
+              <div class="layer b3nd-layer">B3nd Protocol</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Economics -->
+    <section class="surface-section" id="economics">
+      <div class="container">
+        <p class="section-label">Economics</p>
+        <h2 class="section-title">Economics designed for flow, not accumulation.</h2>
+        <p class="section-desc">
+          Three layers hold Firecat together. No layer extracts from the others.
+          Every participant is compensated for what they contribute.
+        </p>
+
+        <div class="econ-grid">
+          <div class="econ-card">
+            <span class="econ-icon">&#9889;</span>
+            <h3>Write gas</h3>
+            <p>
+              Every write costs a predictable fraction of a cent, paid as FCAT.
+              The fee funds the network per-message. Reads are free.
+            </p>
+          </div>
+          <div class="econ-card">
+            <span class="econ-icon">&#9878;</span>
+            <h3>Operator staking</h3>
+            <p>
+              Node operators stake FCAT to join the network. Staked operators
+              receive a share of accumulated write fees and relay rewards.
+            </p>
+          </div>
+          <div class="econ-card">
+            <span class="econ-icon">&#8644;</span>
+            <h3>Relay rewards</h3>
+            <p>
+              When a node relays a message to a peer, it earns a relay credit.
+              Bilateral attestation between peers creates verifiable proofs.
+            </p>
+          </div>
+        </div>
+
+        <div class="econ-highlight">
+          <p>
+            <strong>No tokens are burned.</strong> All fees circulate back into the economy.
+            The network's health is measured by throughput — active users, messages
+            per second — not by token price.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tokenomics -->
+    <section class="dark-section" id="token">
+      <div class="container">
+        <p class="section-label">Token</p>
+        <h2 class="section-title">FCAT: gas, not speculation.</h2>
+        <p class="section-desc">
+          A utility token with UTXO-based gas semantics.
+          Its value comes from network activity, not from hype cycles.
+        </p>
+
+        <div class="token-hero">
+          <div class="token-badge-large">
+            <span>FCAT</span>
+          </div>
+          <div class="token-info">
+            <h3>One token, four functions</h3>
+            <p>
+              FCAT powers the entire Firecat economy. Spent to write, staked to operate,
+              earned by relaying, used for governance. When the network is used,
+              the token has purpose.
+            </p>
+          </div>
+        </div>
+
+        <div class="token-roles">
+          <div class="token-role">
+            <div class="role-label">Function 1</div>
+            <h4>Gas</h4>
+            <p>Spent as UTXO inputs on writes</p>
+          </div>
+          <div class="token-role">
+            <div class="role-label">Function 2</div>
+            <h4>Staking</h4>
+            <p>Locked for right to validate + earn</p>
+          </div>
+          <div class="token-role">
+            <div class="role-label">Function 3</div>
+            <h4>Exchange</h4>
+            <p>In-network payments and transfers</p>
+          </div>
+          <div class="token-role">
+            <div class="role-label">Function 4</div>
+            <h4>Governance</h4>
+            <p>Vote on fees, rewards, parameters</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- For Developers -->
+    <section class="surface-section" id="developers">
+      <div class="container">
+        <p class="section-label">Developers</p>
+        <h2 class="section-title">Build apps on infrastructure you can trust.</h2>
+        <p class="section-desc">
+          Defined schemas, predictable costs, and a network that cannot hold
+          your users' data hostage. The testnet is live.
+        </p>
+
+        <div class="dev-content">
+          <div class="dev-text">
+            <h3>What you get</h3>
+            <ul>
+              <li><span class="check">&#10003;</span> Eight canonical programs (schemas) ready to use</li>
+              <li><span class="check">&#10003;</span> Ed25519 authentication built in</li>
+              <li><span class="check">&#10003;</span> Client-side encryption (X25519 + AES-GCM)</li>
+              <li><span class="check">&#10003;</span> NPM and JSR packages for browser + server</li>
+              <li><span class="check">&#10003;</span> React hooks, Zustand stores, Vite setup</li>
+              <li><span class="check">&#10003;</span> Predictable gas costs per-message</li>
+              <li><span class="check">&#10003;</span> No vendor lock-in — data is URIs</li>
+            </ul>
+          </div>
+          <div class="code-panel">
+            <div class="terminal-bar">
+              <div class="dot r"></div>
+              <div class="dot y"></div>
+              <div class="dot g"></div>
+              <span class="terminal-label">firecat quick start</span>
+            </div>
+            <div class="code-body">
+              <pre><span class="kw">import</span> { HttpClient } <span class="kw">from</span> <span class="str">"@bandeira-tech/b3nd-web"</span>;
+
+<span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">HttpClient</span>({
+  url: <span class="str">"https://testnet-evergreen.fire.cat"</span>
+});
+
+<span class="cm">// Write to the public network</span>
+<span class="kw">await</span> client.<span class="fn">receive</span>([
+  <span class="str">"mutable://open/my-app/hello"</span>,
+  { message: <span class="str">"it works"</span> }
+]);
+
+<span class="cm">// Read it back</span>
+<span class="kw">const</span> result = <span class="kw">await</span> client.<span class="fn">read</span>(
+  <span class="str">"mutable://open/my-app/hello"</span>
+);
+console.<span class="fn">log</span>(result.record?.data);
+<span class="cm">// { message: "it works" }</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- For Operators -->
+    <section class="dark-section" id="operators">
+      <div class="container">
+        <p class="section-label">Operators</p>
+        <h2 class="section-title">Run the network. Earn from it.</h2>
+        <p class="section-desc">
+          Operating Firecat infrastructure is not charity. It is a business.
+          One node. Real revenue. The reward model makes it fair.
+        </p>
+
+        <div class="operator-grid">
+          <div class="op-card">
+            <div class="stat ember">70%</div>
+            <h4>Validator pool</h4>
+            <p>Of write fees go to the nodes doing the work</p>
+          </div>
+          <div class="op-card">
+            <div class="stat amber">20%</div>
+            <h4>Relay pool</h4>
+            <p>Of fees go to nodes replicating to peers</p>
+          </div>
+          <div class="op-card">
+            <div class="stat teal">10%</div>
+            <h4>Community pool</h4>
+            <p>For development, grants, and subsidies</p>
+          </div>
+        </div>
+
+        <div class="anti-whale">
+          <h3>Anti-whale by design</h3>
+          <p>
+            Rewards are weighted by the square root of your stake. One whale cannot
+            outrun a thousand participants. The math enforces what policy cannot.
+          </p>
+          <div class="whale-comparison">
+            <div class="whale-row">
+              <div class="label">Operator A stakes</div>
+              <div class="value"><span class="accent-teal">100</span> FCAT</div>
+            </div>
+            <div class="whale-row">
+              <div class="label">Operator A earns</div>
+              <div class="value"><span class="accent-amber">8.7%</span> of rewards</div>
+            </div>
+            <div class="whale-row">
+              <div class="label">Operator B stakes</div>
+              <div class="value"><span class="accent-teal">10,000</span> FCAT</div>
+            </div>
+            <div class="whale-row">
+              <div class="label">Operator B earns</div>
+              <div class="value"><span class="accent-amber">87%</span> of rewards</div>
+            </div>
+          </div>
+          <p style="margin-top: 24px; font-size: 14px; color: var(--text-dim);">
+            B has 100x the stake but only 10x the reward.
+            Small operators get proportionally higher returns.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Community -->
+    <section class="surface-section" id="community">
+      <div class="container">
+        <p class="section-label">Community</p>
+        <h2 class="section-title">Start for free. Stay because it's fair.</h2>
+        <p class="section-desc">
+          The barrier to entry is zero. The network grows when anyone can join —
+          not just those who can afford to.
+        </p>
+
+        <div class="community-features">
+          <div class="community-card">
+            <h3>Faucet</h3>
+            <p>
+              Claim starter FCAT with a simple proof-of-work. One-time,
+              rate-limited, enough to start writing immediately.
+            </p>
+          </div>
+          <div class="community-card">
+            <h3>Sponsors</h3>
+            <p>
+              Applications and advertisers can pre-fund gas for their users.
+              Meta-transactions mean users never see a fee.
+            </p>
+          </div>
+          <div class="community-card">
+            <h3>Invite vouching</h3>
+            <p>
+              Existing staked accounts can vouch for new users, granting initial
+              gas from a subsidy pool. Bring your friends.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testnet CTA -->
+    <section class="testnet-cta">
+      <div class="container">
+        <h2>The testnet is live.</h2>
+        <p class="subtitle">
+          Build an application. Operate a node. Break things.
+          The network gets stronger every time a builder touches it.
+        </p>
+        <a href="https://testnet-evergreen.fire.cat" class="testnet-url">
+          testnet-evergreen.fire.cat
+        </a>
+        <div class="cta-buttons">
+          <a href="https://github.com/bandeira-tech/b3nd" class="btn-primary">Start building</a>
+          <a href="https://github.com/bandeira-tech/b3nd#readme" class="btn-secondary">Read the docs</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- B3nd Bridge -->
+    <div class="b3nd-bridge">
+      <div class="container">
+        <p>
+          Firecat is built on the <a href="/website/">B3nd protocol</a> — the data layer
+          where ownership is not a promise, it is the architecture. Every byte on this
+          network is URI-addressed, encrypted by default, and controlled by its creator.
+        </p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <a href="#" class="logo"><span class="fire">fire</span>cat</a>
+            <p>Community-owned data infrastructure. Built on B3nd. Sustained by math.</p>
+          </div>
+          <div>
+            <h4>Network</h4>
+            <ul>
+              <li><a href="https://testnet-evergreen.fire.cat">Testnet</a></li>
+              <li><a href="#economics">Economics</a></li>
+              <li><a href="#token">FCAT Token</a></li>
+              <li><a href="#operators">Operators</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Build</h4>
+            <ul>
+              <li><a href="https://github.com/bandeira-tech/b3nd#readme">Documentation</a></li>
+              <li><a href="https://github.com/bandeira-tech/b3nd">GitHub</a></li>
+              <li><a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web">NPM</a></li>
+              <li><a href="https://jsr.io/@bandeira-tech/b3nd-sdk">JSR</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Connect</h4>
+            <ul>
+              <li><a href="https://bandeira.tech">Bandeira Tech</a></li>
+              <li><a href="/website/">B3nd Protocol</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>Firecat is open source — MIT License</span>
+          <span>Built by <a href="https://bandeira.tech">Bandeira Tech</a></span>
+        </div>
+      </div>
+    </footer>
+
+  </body>
+</html>
