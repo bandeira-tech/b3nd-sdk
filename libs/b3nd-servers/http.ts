@@ -310,6 +310,37 @@ export function httpServer(
     return c.json(res, 200);
   });
 
+  // Query endpoint for advanced structured queries
+  app.post("/api/v1/query", async (c: MinimalContext) => {
+    const reader = client || backend?.read;
+    if (!reader) {
+      return c.json({ success: false, error: "handler not attached" }, 501);
+    }
+    if (!reader.query) {
+      return c.json(
+        { success: false, error: "query not supported by this backend" },
+        501,
+      );
+    }
+    const body = await (async () => {
+      try {
+        return await (c as any).req.json?.() ?? {};
+      } catch {
+        return {};
+      }
+    })();
+
+    if (!body.prefix || typeof body.prefix !== "string") {
+      return c.json(
+        { success: false, error: "prefix is required" },
+        400,
+      );
+    }
+
+    const result = await reader.query(body);
+    return c.json(result, result.success ? 200 : 400);
+  });
+
   app.delete(
     "/api/v1/delete/:protocol/:domain/*",
     async (c: MinimalContext) => {

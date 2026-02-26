@@ -5,6 +5,8 @@ import type {
   Message,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
+  QueryOptions,
+  QueryResult,
   ReadMultiResult,
   ReadResult,
   ReceiveResult,
@@ -71,6 +73,16 @@ export function firstMatchSequence(
           total: 0,
         },
       };
+    },
+
+    async query<T>(options: QueryOptions): Promise<QueryResult<T>> {
+      // Try each client that supports query until one returns results
+      for (const c of clients) {
+        if (!c.query) continue;
+        const res = await c.query<T>(options);
+        if (res.success && res.records.length > 0) return res;
+      }
+      return { success: true, records: [], total: 0 };
     },
 
     async delete(uri: string): Promise<DeleteResult> {

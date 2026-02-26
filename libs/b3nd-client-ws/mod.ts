@@ -12,6 +12,8 @@ import type {
   ListResult,
   Message,
   NodeProtocolInterface,
+  QueryOptions,
+  QueryResult,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
@@ -358,6 +360,18 @@ export class WebSocketClient implements NodeProtocolInterface {
           page: options?.page || 1,
           limit: options?.limit || 50,
         },
+      };
+    }
+  }
+
+  async query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+    try {
+      const result = await this.sendRequest<QueryResult<T>>("query", options);
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }

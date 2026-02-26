@@ -15,11 +15,15 @@ import type {
   MongoClientConfig,
   NodeProtocolInterface,
   PersistenceRecord,
+  QueryOptions,
+  QueryRecord,
+  QueryResult,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
   Schema,
+  WhereClause,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -39,7 +43,18 @@ export interface MongoExecutor {
   findOne(
     filter: Record<string, unknown>,
   ): Promise<Record<string, unknown> | null>;
-  findMany(filter: Record<string, unknown>): Promise<Record<string, unknown>[]>;
+  findMany(
+    filter: Record<string, unknown>,
+    options?: {
+      sort?: Record<string, 1 | -1>;
+      limit?: number;
+      skip?: number;
+      projection?: Record<string, 0 | 1>;
+    },
+  ): Promise<Record<string, unknown>[]>;
+  countDocuments?(
+    filter: Record<string, unknown>,
+  ): Promise<number>;
   deleteOne(
     filter: Record<string, unknown>,
   ): Promise<{ deletedCount?: number }>;
@@ -344,6 +359,122 @@ export class MongoClient implements NodeProtocolInterface {
         success: false,
         error: error instanceof Error ? error.message : String(error),
       };
+    }
+  }
+
+  async query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+    try {
+      const prefixBase = options.prefix.endsWith("/")
+        ? options.prefix
+        : `${options.prefix}/`;
+      const prefixRegex = new RegExp(`^${this.escapeRegex(prefixBase)}`);
+
+      // Build Mongo filter from query descriptor
+      const filter: Record<string, unknown> = { uri: prefixRegex };
+      if (options.where) {
+        const whereFilter = this.buildMongoFilter(options.where);
+        Object.assign(filter, whereFilter);
+      }
+
+      // Build sort
+      const sort: Record<string, 1 | -1> = {};
+      if (options.orderBy && options.orderBy.length > 0) {
+        for (const { field, direction } of options.orderBy) {
+          sort[`data.${field}`] = direction === "desc" ? -1 : 1;
+        }
+      }
+
+      // Build projection
+      let projection: Record<string, 0 | 1> | undefined;
+      if (options.select && options.select.length > 0) {
+        projection = { uri: 1, timestamp: 1 } as Record<string, 0 | 1>;
+        for (const field of options.select) {
+          projection[`data.${field}`] = 1;
+        }
+      }
+
+      const limit = options.limit ?? 50;
+      const skip = options.offset ?? 0;
+
+      // Get total count
+      let total: number | undefined;
+      if (this.executor.countDocuments) {
+        total = await this.executor.countDocuments(filter);
+      }
+
+      // Execute query
+      const docs = await this.executor.findMany(filter, {
+        sort: Object.keys(sort).length > 0 ? sort : undefined,
+        limit,
+        skip,
+        projection,
+      });
+
+      const records: QueryRecord<T>[] = docs.map((doc) => {
+        const decodedData = decodeBinaryFromJson(doc.data) as T;
+        const tsValue = doc.timestamp;
+        return {
+          uri: doc.uri as string,
+          data: decodedData,
+          ts: typeof tsValue === "number" ? tsValue : Number(tsValue),
+        };
+      });
+
+      return { success: true, records, total };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Translate a WhereClause into a MongoDB filter object.
+   */
+  private buildMongoFilter(clause: WhereClause): Record<string, unknown> {
+    // Logical combinators
+    if ("and" in clause) {
+      return { $and: clause.and.map((c) => this.buildMongoFilter(c)) };
+    }
+    if ("or" in clause) {
+      return { $or: clause.or.map((c) => this.buildMongoFilter(c)) };
+    }
+    if ("not" in clause) {
+      // MongoDB $not works on field-level operators, so we wrap with $nor
+      return { $nor: [this.buildMongoFilter(clause.not)] };
+    }
+
+    // Field condition — prefix with "data." since records are stored with data field
+    const mongoField = `data.${clause.field}`;
+
+    switch (clause.op) {
+      case "eq":
+        return { [mongoField]: clause.value };
+      case "neq":
+        return { [mongoField]: { $ne: clause.value } };
+      case "gt":
+        return { [mongoField]: { $gt: clause.value } };
+      case "gte":
+        return { [mongoField]: { $gte: clause.value } };
+      case "lt":
+        return { [mongoField]: { $lt: clause.value } };
+      case "lte":
+        return { [mongoField]: { $lte: clause.value } };
+      case "in":
+        return { [mongoField]: { $in: clause.value } };
+      case "contains":
+        return {
+          [mongoField]: { $regex: this.escapeRegex(clause.value), $options: "i" },
+        };
+      case "startsWith":
+        return { [mongoField]: { $regex: `^${this.escapeRegex(clause.value)}` } };
+      case "endsWith":
+        return { [mongoField]: { $regex: `${this.escapeRegex(clause.value)}$` } };
+      case "exists":
+        return { [mongoField]: { $exists: clause.value } };
+      default:
+        return {};
     }
   }
 

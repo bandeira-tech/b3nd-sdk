@@ -5,6 +5,8 @@ import type {
   Message,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
+  QueryOptions,
+  QueryResult,
   ReadMultiResult,
   ReadResult,
   ReceiveResult,
@@ -58,6 +60,14 @@ export function parallelBroadcast(
 
     async list(uri: string, options?: ListOptions): Promise<ListResult> {
       return clients[0].list(uri, options);
+    },
+
+    async query<T>(options: QueryOptions): Promise<QueryResult<T>> {
+      // Delegate to first client that supports query
+      for (const c of clients) {
+        if (c.query) return c.query<T>(options);
+      }
+      return { success: false, error: "query not supported" };
     },
 
     async delete(uri: string): Promise<DeleteResult> {

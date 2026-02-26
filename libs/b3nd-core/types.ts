@@ -167,6 +167,12 @@ export interface NodeProtocolReadInterface {
   readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>>;
   /** List items at a URI path */
   list(uri: string, options?: ListOptions): Promise<ListResult>;
+  /**
+   * Query records under a URI prefix with structured filters, sorting, and projection.
+   * Backends translate the query descriptor into their native form.
+   * Optional — clients that don't support it return { success: false, error: "query not supported" }.
+   */
+  query?<T = unknown>(options: QueryOptions): Promise<QueryResult<T>>;
   /** Health status */
   health(): Promise<HealthStatus>;
   /** Supported program keys */
@@ -402,6 +408,86 @@ export interface ContentData<T = unknown> {
 
 
 /**
+ * Advanced query types for structured data queries
+ *
+ * Provides a portable query descriptor that backends translate into
+ * their native form (SQL for Postgres, query operators for Mongo,
+ * JS filter/sort for in-memory).
+ */
+
+/**
+ * A single comparison condition on a data field.
+ * Supports nested paths via dot notation (e.g., "address.city").
+ */
+export type WhereCondition =
+  | { field: string; op: "eq"; value: unknown }
+  | { field: string; op: "neq"; value: unknown }
+  | { field: string; op: "gt"; value: unknown }
+  | { field: string; op: "gte"; value: unknown }
+  | { field: string; op: "lt"; value: unknown }
+  | { field: string; op: "lte"; value: unknown }
+  | { field: string; op: "in"; value: unknown[] }
+  | { field: string; op: "contains"; value: string }
+  | { field: string; op: "startsWith"; value: string }
+  | { field: string; op: "endsWith"; value: string }
+  | { field: string; op: "exists"; value: boolean };
+
+/**
+ * Recursive WHERE clause combining conditions with logical operators.
+ */
+export type WhereClause =
+  | WhereCondition
+  | { and: WhereClause[] }
+  | { or: WhereClause[] }
+  | { not: WhereClause };
+
+/**
+ * Options for the query() method.
+ */
+export interface QueryOptions {
+  /** URI prefix to scope the query (required) */
+  prefix: string;
+
+  /** Filter records by data field values */
+  where?: WhereClause;
+
+  /** Select specific fields from data (projection). Omit to return all fields. */
+  select?: string[];
+
+  /** Sort by data fields */
+  orderBy?: Array<{ field: string; direction: "asc" | "desc" }>;
+
+  /** Maximum number of records to return (default: 50) */
+  limit?: number;
+
+  /** Number of records to skip (default: 0) */
+  offset?: number;
+}
+
+/**
+ * A single record in a query result
+ */
+export interface QueryRecord<T = unknown> {
+  uri: string;
+  data: T;
+  ts: number;
+}
+
+/**
+ * Result of a query operation
+ */
+export type QueryResult<T = unknown> =
+  | {
+      success: true;
+      records: QueryRecord<T>[];
+      total?: number;
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
+/**
  * WebSocket protocol types for request/response communication
  */
 export interface WebSocketRequest {
@@ -411,6 +497,7 @@ export interface WebSocketRequest {
     | "read"
     | "readMulti"
     | "list"
+    | "query"
     | "delete"
     | "health"
     | "getSchema";

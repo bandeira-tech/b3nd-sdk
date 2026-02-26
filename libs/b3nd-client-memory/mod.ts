@@ -7,12 +7,16 @@ import type {
   Message,
   NodeProtocolInterface,
   PersistenceRecord,
+  QueryOptions,
+  QueryRecord,
+  QueryResult,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
   Schema,
 } from "../b3nd-core/types.ts";
+import { executeQueryInMemory } from "../b3nd-core/query.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 type MemoryClientStorageNode<T> = {
@@ -380,6 +384,64 @@ export class MemoryClient implements NodeProtocolInterface {
       pagination: { page, limit, total: items.length },
     });
   }
+  public query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+    const uri = options.prefix;
+    const result = target(uri, this.schema, this.storage);
+    if (!result.success) {
+      return Promise.resolve(result);
+    }
+    const { node, parts, program, path } = result;
+    let current: MemoryClientStorageNode<unknown> | undefined = node;
+
+    const filteredParts = parts.filter(Boolean);
+
+    for (const part of filteredParts) {
+      current = current?.children?.get(part);
+      if (!current) {
+        return Promise.resolve({
+          success: true,
+          records: [],
+          total: 0,
+        });
+      }
+    }
+
+    if (!current.children?.size) {
+      return Promise.resolve({
+        success: true,
+        records: [],
+        total: 0,
+      });
+    }
+
+    // Collect all records under this prefix
+    const prefix = path.endsWith("/")
+      ? `${program}${path}`
+      : `${program}${path}/`;
+    const records: QueryRecord<unknown>[] = [];
+
+    function collectRecords(
+      node: MemoryClientStorageNode<unknown>,
+      currentUri: string,
+    ) {
+      if (node.value !== undefined) {
+        const rec = node.value as PersistenceRecord<unknown>;
+        records.push({ uri: currentUri, data: rec.data, ts: rec.ts });
+      }
+      if (node.children) {
+        for (const [key, child] of node.children) {
+          collectRecords(child, `${currentUri}/${key}`);
+        }
+      }
+    }
+
+    for (const [key, child] of current.children) {
+      collectRecords(child, `${prefix}${key}`);
+    }
+
+    return Promise.resolve(executeQueryInMemory<T>(records, options));
+  }
+
   public health(): Promise<HealthStatus> {
     return Promise.resolve({
       status: "healthy",

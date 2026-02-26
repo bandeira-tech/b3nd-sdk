@@ -13,6 +13,8 @@ import type {
   ListResult,
   Message,
   NodeProtocolInterface,
+  QueryOptions,
+  QueryResult,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
@@ -30,6 +32,7 @@ export interface FunctionalClientConfig {
   read?: <T = unknown>(uri: string) => Promise<ReadResult<T>>;
   readMulti?: <T = unknown>(uris: string[]) => Promise<ReadMultiResult<T>>;
   list?: (uri: string, options?: ListOptions) => Promise<ListResult>;
+  query?: <T = unknown>(options: QueryOptions) => Promise<QueryResult<T>>;
   delete?: (uri: string) => Promise<DeleteResult>;
   health?: () => Promise<HealthStatus>;
   getSchema?: () => Promise<string[]>;
@@ -134,6 +137,13 @@ export class FunctionalClient implements NodeProtocolInterface {
       data: [],
       pagination: { page: 1, limit: 50, total: 0 },
     });
+  }
+
+  query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+    if (this.config.query) {
+      return this.config.query<T>(options);
+    }
+    return Promise.resolve({ success: false, error: "query not supported" });
   }
 
   delete(uri: string): Promise<DeleteResult> {

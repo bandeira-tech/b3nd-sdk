@@ -67,6 +67,9 @@ export type {
   NodeProtocolWriteInterface,
   PersistenceRecord,
   PostgresClientConfig,
+  QueryOptions,
+  QueryRecord,
+  QueryResult,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
@@ -75,8 +78,18 @@ export type {
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
+  WhereClause,
+  WhereCondition,
   WriteResult,
 } from "../libs/b3nd-core/types.ts";
+
+// Query evaluation utilities
+export {
+  applySelect,
+  evaluateWhere,
+  executeQueryInMemory,
+  getField,
+} from "../libs/b3nd-core/query.ts";
 
 // Client implementations
 export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";

@@ -15,11 +15,15 @@ import type {
   NodeProtocolInterface,
   PersistenceRecord,
   PostgresClientConfig,
+  QueryOptions,
+  QueryRecord,
+  QueryResult,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
   Schema,
+  WhereClause,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -344,6 +348,209 @@ export class PostgresClient implements NodeProtocolInterface {
         success: false,
         error: error instanceof Error ? error.message : String(error),
       };
+    }
+  }
+
+  async query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+    try {
+      const table = `${this.tablePrefix}_data`;
+      const prefix = options.prefix.endsWith("/")
+        ? options.prefix
+        : `${options.prefix}/`;
+
+      const params: unknown[] = [prefix];
+      let paramIndex = 2;
+
+      // Build WHERE clause from query descriptor
+      const whereParts: string[] = [`uri LIKE $1 || '%'`];
+
+      if (options.where) {
+        const { sql, nextIndex } = this.buildWhereSQL(
+          options.where,
+          params,
+          paramIndex,
+        );
+        whereParts.push(sql);
+        paramIndex = nextIndex;
+      }
+
+      const whereSQL = whereParts.join(" AND ");
+
+      // Build ORDER BY
+      let orderBySQL = "";
+      if (options.orderBy && options.orderBy.length > 0) {
+        const orderParts = options.orderBy.map(({ field, direction }) => {
+          const jsonPath = this.fieldToJsonPath(field);
+          const dir = direction === "desc" ? "DESC" : "ASC";
+          return `${jsonPath} ${dir}`;
+        });
+        orderBySQL = ` ORDER BY ${orderParts.join(", ")}`;
+      }
+
+      // Build SELECT (projection)
+      let selectSQL: string;
+      if (options.select && options.select.length > 0) {
+        const jsonFields = options.select.map((f) => {
+          const jsonPath = this.fieldToJsonPath(f);
+          return `'${f.replace(/'/g, "''")}', ${jsonPath}`;
+        });
+        selectSQL = `uri, jsonb_build_object(${jsonFields.join(", ")}) as data, timestamp as ts`;
+      } else {
+        selectSQL = "uri, data, timestamp as ts";
+      }
+
+      // Pagination
+      const limit = options.limit ?? 50;
+      const offset = options.offset ?? 0;
+
+      // Count query for total
+      const countRes = await this.executor.query(
+        `SELECT COUNT(*) as cnt FROM ${table} WHERE ${whereSQL}`,
+        params,
+      );
+      const total = Number((countRes.rows[0] as any)?.cnt ?? 0);
+
+      // Data query
+      const dataRes = await this.executor.query(
+        `SELECT ${selectSQL} FROM ${table} WHERE ${whereSQL}${orderBySQL} LIMIT ${limit} OFFSET ${offset}`,
+        params,
+      );
+
+      const records: QueryRecord<T>[] = (dataRes.rows || []).map(
+        (row: any) => {
+          const decodedData = decodeBinaryFromJson(row.data) as T;
+          return {
+            uri: row.uri as string,
+            data: decodedData,
+            ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
+          };
+        },
+      );
+
+      return { success: true, records, total };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Convert a dot-separated field path to a Postgres JSONB accessor.
+   * "name" -> data->>'name'
+   * "address.city" -> data->'address'->>'city'
+   */
+  private fieldToJsonPath(field: string): string {
+    const parts = field.split(".");
+    if (parts.length === 1) {
+      return `data->>'${parts[0].replace(/'/g, "''")}'`;
+    }
+    const navigated = parts.slice(0, -1).map((p) =>
+      `'${p.replace(/'/g, "''")}'`
+    ).join("->");
+    const last = parts[parts.length - 1].replace(/'/g, "''");
+    return `data->${navigated}->>'${last}'`;
+  }
+
+  /**
+   * Translate a WhereClause into parameterized SQL.
+   * Returns the SQL fragment and the next parameter index.
+   */
+  private buildWhereSQL(
+    clause: WhereClause,
+    params: unknown[],
+    paramIndex: number,
+  ): { sql: string; nextIndex: number } {
+    // Logical combinators
+    if ("and" in clause) {
+      const parts: string[] = [];
+      let idx = paramIndex;
+      for (const c of clause.and) {
+        const r = this.buildWhereSQL(c, params, idx);
+        parts.push(r.sql);
+        idx = r.nextIndex;
+      }
+      return { sql: `(${parts.join(" AND ")})`, nextIndex: idx };
+    }
+    if ("or" in clause) {
+      const parts: string[] = [];
+      let idx = paramIndex;
+      for (const c of clause.or) {
+        const r = this.buildWhereSQL(c, params, idx);
+        parts.push(r.sql);
+        idx = r.nextIndex;
+      }
+      return { sql: `(${parts.join(" OR ")})`, nextIndex: idx };
+    }
+    if ("not" in clause) {
+      const r = this.buildWhereSQL(clause.not, params, paramIndex);
+      return { sql: `NOT (${r.sql})`, nextIndex: r.nextIndex };
+    }
+
+    // Field condition
+    const jsonPath = this.fieldToJsonPath(clause.field);
+    let idx = paramIndex;
+
+    switch (clause.op) {
+      case "eq":
+        params.push(String(clause.value));
+        return { sql: `${jsonPath} = $${idx}`, nextIndex: idx + 1 };
+      case "neq":
+        params.push(String(clause.value));
+        return { sql: `${jsonPath} != $${idx}`, nextIndex: idx + 1 };
+      case "gt":
+        params.push(Number(clause.value));
+        return {
+          sql: `(${jsonPath})::numeric > $${idx}`,
+          nextIndex: idx + 1,
+        };
+      case "gte":
+        params.push(Number(clause.value));
+        return {
+          sql: `(${jsonPath})::numeric >= $${idx}`,
+          nextIndex: idx + 1,
+        };
+      case "lt":
+        params.push(Number(clause.value));
+        return {
+          sql: `(${jsonPath})::numeric < $${idx}`,
+          nextIndex: idx + 1,
+        };
+      case "lte":
+        params.push(Number(clause.value));
+        return {
+          sql: `(${jsonPath})::numeric <= $${idx}`,
+          nextIndex: idx + 1,
+        };
+      case "in": {
+        const vals = (clause.value as unknown[]).map(String);
+        params.push(vals);
+        return {
+          sql: `${jsonPath} = ANY($${idx})`,
+          nextIndex: idx + 1,
+        };
+      }
+      case "contains":
+        params.push(`%${clause.value}%`);
+        return { sql: `${jsonPath} LIKE $${idx}`, nextIndex: idx + 1 };
+      case "startsWith":
+        params.push(`${clause.value}%`);
+        return { sql: `${jsonPath} LIKE $${idx}`, nextIndex: idx + 1 };
+      case "endsWith":
+        params.push(`%${clause.value}`);
+        return { sql: `${jsonPath} LIKE $${idx}`, nextIndex: idx + 1 };
+      case "exists": {
+        const fieldParts = clause.field.split(".");
+        const topLevel = fieldParts[0].replace(/'/g, "''");
+        if (clause.value) {
+          return { sql: `data ? '${topLevel}'`, nextIndex: idx };
+        } else {
+          return { sql: `NOT (data ? '${topLevel}')`, nextIndex: idx };
+        }
+      }
+      default:
+        return { sql: "TRUE", nextIndex: idx };
     }
   }
 

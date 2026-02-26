@@ -16,12 +16,17 @@ export type {
   LocalStorageClientConfig,
   NodeProtocolInterface,
   PersistenceRecord,
+  QueryOptions,
+  QueryRecord,
+  QueryResult,
   ReadResult,
   Schema,
   ValidationFn,
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
+  WhereClause,
+  WhereCondition,
   WriteResult,
 } from "../libs/b3nd-core/types.ts";
 

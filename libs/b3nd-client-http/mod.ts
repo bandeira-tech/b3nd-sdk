@@ -13,6 +13,8 @@ import type {
   ListResult,
   Message,
   NodeProtocolInterface,
+  QueryOptions,
+  QueryResult,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
@@ -319,6 +321,30 @@ export class HttpClient implements NodeProtocolInterface {
           page: options?.page || 1,
           limit: options?.limit || 50,
         },
+      };
+    }
+  }
+
+  async query<T = unknown>(options: QueryOptions): Promise<QueryResult<T>> {
+    try {
+      const response = await this.request("/api/v1/query", {
+        method: "POST",
+        body: JSON.stringify(options),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        return {
+          success: false,
+          error: body || response.statusText,
+        };
+      }
+
+      return await response.json();
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
