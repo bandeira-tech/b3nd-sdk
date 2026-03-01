@@ -18,22 +18,43 @@ The tone is **human, not dumbed down**. A school kid can follow because the logi
 
 ---
 
-## The Three Acts
+## The Three Acts — and Their Mediums
 
-### Act I: Dialogue (Chapters 1–5)
+Every act has a **medium** — the physical substance through which messages travel. The medium is not just a carrier. It has its own physics, its own properties, and those properties create both possibilities and problems. The solutions to those problems ARE the protocol features. They aren't invented in the abstract — they're forced into existence by the nature of the medium.
+
+### Act I: Dialogue — Medium: Air (Chapters 1–5)
 *What humans already know about communication — and what it already teaches about protocols.*
 
-Start with spoken conversation. Show that all the problems of digital systems (authentication, secrecy, consensus, trust) already exist in human dialogue, and humans already solve them intuitively. The setting, the speaker, the witnesses, the sequence — these are the original protocol.
+Start with spoken conversation. The medium is **air**. Sound travels through it, reverberates off walls, and dissipates. Everyone nearby can hear. It's immediate but ephemeral.
 
-### Act II: Letters (Chapters 6–9)
+The physics of air creates both gifts and problems:
+- **Reverberation:** your words carry to everyone in the room — which is great for public announcements, terrible for secrets. This is why humans whisper, step into private rooms, speak in code. *Privacy and encryption are responses to the physics of the medium.*
+- **Dissipation:** sound fades. You can't replay what was said last month. Memory is unreliable. This is why important conversations happen in formal settings with witnesses and minutes. *Record-keeping is a response to the medium's ephemerality.*
+- **Presence required:** you have to be in the room. The medium only carries as far as a voice projects. This is the fundamental limit that forces the transition to Act II.
+
+The setting, the speaker, the witnesses, the sequence — these are the original protocol. And they exist because air, as a medium, has specific properties that demand them.
+
+### Act II: Letters — Medium: Physical Carriers (Chapters 6–9)
 *When dialogue needs to travel, persist, and be verified — the message is born.*
 
-The transition from spoken to written is the transition from presence to protocol. You can't whisper across an ocean. You can't remember a contract from ten years ago word-for-word. So humans invented letters, seals, registries, and notaries. This is where the b3nd primitive `[address, content]` appears — not as a technical invention, but as the natural answer to "how do I have a conversation when I'm not in the room?"
+The medium becomes **physical objects**: paper, wax, ink, runners, ships, post offices. The physics change completely, and new possibilities and problems emerge:
+- **Persistence:** a letter doesn't dissipate like sound. It can be stored, filed, retrieved decades later. But it can also be found, stolen, or subpoenaed. *The archive and the security breach are born from the same property.*
+- **Distance:** a letter travels where a voice cannot — across oceans, over mountains. But it can be intercepted in transit. *Seals, locked boxes, and encryption emerge because the medium is traversable by unintended parties.*
+- **Copyability:** a letter can be transcribed, pinned to a bulletin board, sent to multiple recipients. But it can also be forged. *Signatures, seals, and notarization emerge because copies can lie about their origin.*
+- **Physicality of routing:** letters need addresses, carriers, sorting systems. The post office doesn't read your mail — it reads the address and delivers. *Routing infrastructure (addresses, delivery, mailboxes) emerges because the medium doesn't know where to go on its own.*
 
-### Act III: Digital (Chapters 10–15)
+This is where the b3nd primitive `[address, content]` appears — not as a technical invention, but as the natural shape of any message that must survive the physics of a physical carrier.
+
+### Act III: Digital — Medium: Networks (Chapters 10–15)
 *When letters need to be instant, global, and composable — the machine becomes a conversation partner.*
 
-The digital world didn't invent new problems. It inherited the same problems at impossible speed and scale. b3nd's insight: don't hide the conversation behind programming languages and abstractions. Keep it visible. A server is someone who checks their inbox. A database is a filing cabinet. A blockchain is a group of people taking turns signing the same document. The machine is bent into a shape that humans can read.
+The medium becomes **electromagnetic signals on wires and airwaves**: the network. Again, the physics change, and new properties emerge:
+- **Speed:** messages travel at the speed of light. Conversations that took weeks by post happen in milliseconds. But this also means attacks happen at the speed of light. *Rate limiting, validation, and schema enforcement emerge because the medium is too fast for human oversight.*
+- **Perfect copying:** digital messages can be duplicated infinitely at zero cost. This enables broadcast, replication, backup — but also replay attacks, forgery, and unauthorized distribution. *Cryptographic signatures and hash verification emerge because the medium makes copying trivially easy.*
+- **Global reach:** any address is reachable from anywhere. There is no "local" — the medium connects everyone. But this means anyone can try to send to any address. *Access control and public-key authentication emerge because the medium has no natural boundaries.*
+- **Opacity of the machine:** the medium runs through machines whose internals are invisible. Code, circuits, state machines — the conversation is hidden behind layers of abstraction. *This is the problem b3nd solves: make the conversation visible again. The sequence of `[address, content]` messages IS the machine's behavior, expressed in a form humans can read.*
+
+b3nd's insight: don't hide the conversation behind programming languages and abstractions. Keep it visible. A server is someone who checks their inbox. A database is a filing cabinet. A blockchain is a group of people taking turns signing the same document. The machine is bent into a shape that humans can read — because the medium's opacity is a problem, not a feature.
 
 ---
 
@@ -107,8 +128,10 @@ docs/book/
 - A courtroom has rules: who speaks when, what counts as evidence, who decides
 - A classroom has rules: the teacher speaks, students raise hands, the bell ends the session
 - None of these rules are written in code. They're understood by everyone in the room.
-- This is what a "protocol" actually is — an agreed-upon setting that gives meaning to messages
-- In b3nd, the address IS the setting. `mutable://open/` is a public square. `mutable://accounts/{key}/` is a private office. `immutable://inbox/` is a direct, private conversation. The URI is the room you're speaking in, and the room's rules determine what your words mean.
+- **The medium shapes the setting.** Air carries sound to everyone nearby — so a whispered conversation in a corner is a different setting than a speech projected from a stage, even in the same room. The physics of how sound travels IS what creates "private" vs. "public." You don't need a rule that says "this is private" — you just close the door, and the air stops carrying your voice out.
+- A king's throne room is engineered for this: high ceilings amplify the royal voice, the architecture forces petitioners to approach from a distance, the layout places witnesses along the walls. The room itself IS the protocol — the physical space encodes who speaks, who listens, and how much weight the words carry.
+- This is what a "protocol" actually is — an agreed-upon setting that gives meaning to messages. And settings are shaped by the medium they exist in.
+- In b3nd, the address IS the setting. `mutable://open/` is a public square — sound carries to everyone. `mutable://accounts/{key}/` is a private office — only the keyholder can speak here. `immutable://inbox/` is a direct, sealed delivery. The URI is the room you're speaking in, and the room's rules determine what your words mean.
 
 #### Chapter 3: Who Is Speaking
 - Not everyone's words carry the same weight, and everyone already knows this
@@ -137,33 +160,39 @@ docs/book/
   - The "formality" is just more messages from more parties in a defined sequence
 
 #### Chapter 5: The Limits of Presence
-- Everything in Act I assumes the parties are in the same room
-- But what if Alice is in Lisbon and Bob is in Tokyo?
-- What if the agreement needs to last 50 years and both parties might forget?
-- What if 10,000 people need to participate, not just 2 or 3?
-- Presence doesn't scale. Memory isn't reliable. Voices don't carry across oceans.
-- These are the problems that FORCE the transition from dialogue to messages
-- You don't write a letter because writing is better than talking — you write because the person isn't in front of you
-- You don't sign a document because signatures are fun — you sign because the agreement needs to outlast the handshake
-- You don't use a computer because it's simpler — you use it because 10,000 people can't stand in the same room
-- Every "technology" in this book is an answer to: "how do I have this conversation when I can't be present?"
-- This is the pivot of the book: from here, every chapter shows how the human patterns from Act I are preserved — not replaced — by written, then digital, messages
+- Everything in Act I runs on air. And air has limits.
+- **Air dissipates.** Sound fades. What was said at dinner last Tuesday? You remember the gist, but the exact words are gone. The medium erases itself. For casual agreements, that's fine. For a business deal, a treaty, a promise that must hold for decades — it's fatal.
+- **Air doesn't travel far.** Alice is in Lisbon, Bob is in Tokyo. Air can't carry the message. The medium's range is a room, maybe a hillside if you shout.
+- **Air can't address.** You can speak to a crowd, but you can't direct sound to one person across town. The medium has no routing.
+- **Air reveals everything nearby.** You can whisper, but anyone close enough will hear. The medium has no built-in privacy at distance.
+- Each of these limits is a physics problem. And each forces the invention of a corresponding solution:
+  - Dissipation → **writing** (persistence)
+  - Limited range → **carriers** (letters, runners, ships)
+  - No addressing → **addresses** (names on envelopes, postal codes)
+  - No selective privacy → **seals and encryption** (locked boxes, sealed envelopes)
+- You don't write a letter because writing is better than talking — you write because the person isn't in front of you. You don't sign a document because signatures are fun — you sign because the agreement needs to outlast the handshake. You don't use a computer because it's simpler — you use it because 10,000 people can't stand in the same room.
+- Every "technology" in this book is an answer to: "how do I have this conversation when the medium of air can no longer carry it?"
+- This is the pivot of the book. From here, every chapter shows how the human patterns from Act I are preserved — not replaced — by new mediums. The conversation stays the same. The physics of the medium changes. And the protocol features emerge from that change.
 
 ---
 
 ### ACT II: LETTERS
 
 #### Chapter 6: The Message Is Born
-- When you can't be present, you send a message
-- A message is the smallest unit that captures a dialogue turn: **who it's for** and **what it says**
-- The first "messages" were literal: clay tablets, papyrus scrolls, sealed letters carried by runners
-- What a message must carry to replace presence:
+- The medium changes from air to **physical objects**: clay, papyrus, paper, ink. And with the new medium comes a new physics.
+- A letter **persists** where sound dissipated. You can read it tomorrow, next year, in a century. The medium has memory.
+- A letter **travels** where sound could not. Give it to a runner, a ship, a postal system. The medium gains range.
+- But the new medium also introduces new problems that air didn't have:
+  - The letter can be **intercepted** in transit — a stranger can open it. Air only carried to those nearby; physical objects pass through many hands.
+  - The letter can be **forged** — anyone can write "From: Alice" on an envelope. In person, you see Alice's face. On paper, you need a seal, a signature, something hard to fake.
+  - The letter can be **copied** — transcribed, pinned to a board, sent to others. Sound dissipated; paper endures and duplicates.
+- So the message must carry more than just words. It must carry:
   - The **content** (what you would have said)
-  - The **address** (who you would have said it to)
-  - Optionally: **proof of identity** (your seal) and **secrecy** (a locked box)
-- In b3nd: a message is `[uri, data]` — address and content. That's it.
+  - The **address** (who you would have said it to — because the medium doesn't know where to go on its own)
+  - Optionally: **proof of identity** (your seal — because the medium can't show your face) and **secrecy** (a sealed envelope — because the medium passes through unintended hands)
+- In b3nd: a message is `[uri, data]` — address and content. That's it. The seal and the envelope are layers on top, applied when the conversation demands them — just as in physical mail.
 - This is not a simplification of a more complex reality. This IS the fundamental unit. Everything — every transaction, every authentication, every consensus — composes from this.
-- The profound simplicity: all of digital infrastructure is a conversation between parties exchanging `[address, content]` pairs. The sequence of these pairs creates meaning, just as the sequence of dialogue turns creates understanding.
+- The profound simplicity: all of digital infrastructure is a conversation between parties exchanging `[address, content]` pairs. The sequence of these pairs creates meaning, just as the sequence of dialogue turns creates understanding. The medium changed; the conversation didn't.
 
 #### Chapter 7: The Address and the Content
 - **The address** is where the message goes — and in b3nd, the address also encodes the *rules* of the destination
@@ -188,32 +217,34 @@ docs/book/
 - This maps to Chapter 3 (Who Is Speaking): signing is the written equivalent of standing in the room and being recognized
 
 #### Chapter 9: Secrets and Sealed Envelopes
-- Sometimes the conversation is private — not everyone should hear
-- In person: you whisper, or step into a private room
-- In writing: you seal the envelope, use invisible ink, or lock it in a box
-- In b3nd: client-side encryption — you encrypt before the message ever leaves your hands
-- The node stores an opaque blob — even if someone breaks into the post office, they get gibberish
-- Two kinds of secrets:
-  - **Shared secret** (like a password): "the word is swordfish" — anyone who knows the word can open the box
-  - **Public-key encryption** (like a mailbox with a slot): anyone can drop a letter in, only Bob can open it
-- This maps to Chapter 2 (The Setting Is the Trust): encryption creates a private room inside a public space. The address might be visible, but the content is for your eyes only.
+- In air, privacy was physical: close the door, whisper, step outside. The medium's range was your tool — limit how far the sound carries.
+- In letters, the medium betrays you: the paper passes through hands you don't control. The runner can read it. The postal clerk can open it. The medium's physics — physical objects traversing space through other people — makes privacy a problem that must be *engineered*, not just performed.
+- **The sealed envelope** is the first encryption: a physical barrier that says "this content is not for you." Break the seal and the recipient knows it was tampered with.
+- **Invisible ink**, **coded language**, **locked boxes** — each is a deeper layer of making the content opaque to everyone except the intended reader.
+- In b3nd: client-side encryption. You encrypt before the message ever leaves your hands. The node stores an opaque blob — even if someone breaks into the post office, they get gibberish. The medium (the network, the node, the storage) is treated as fundamentally untrustworthy, the same way you'd treat a letter carrier you've never met.
+- Two kinds of secrets, each from a different trust model:
+  - **Shared secret** (like a password): "the word is swordfish" — anyone who knows the word can open the box. Trust is pre-established between the parties.
+  - **Public-key encryption** (like a mailbox with a slot): anyone can drop a letter in, only Bob can open it. Trust is asymmetric — you don't need to have met Bob to send him something only he can read.
+- This maps to Chapter 2 (The Setting Is the Trust): encryption creates a private room inside a public medium. The address might be visible (everyone can see you sent a letter to Bob), but the content is for Bob's eyes only. You've built a closed door out of mathematics, because the medium no longer has physical doors.
 
 ---
 
 ### ACT III: DIGITAL
 
 #### Chapter 10: The Machine That Reads Mail
-- A computer is someone who checks their inbox — literally
-- A b3nd node accepts messages (`receive`), looks up messages (`read`), lists what's in a mailbox (`list`), and removes messages (`delete`)
-- Four verbs. That's the entire vocabulary of the machine.
-- The schema is the "house rules" — what kind of messages this node accepts
-- A Firecat node accepts messages to these addresses: `mutable://open`, `mutable://accounts`, `immutable://inbox`, `hash://sha256`, and a few more
-- Each program is a room with rules: who can enter, whether messages are permanent or rewritable, whether they're authenticated
+- The medium changes again: from physical carriers to **electromagnetic signals on networks**. New physics, new possibilities, new problems.
+- **Speed:** messages travel at the speed of light. A conversation that took weeks by letter happens in milliseconds. But this also means attacks, forgeries, and floods arrive just as fast. The medium is too fast for human gatekeeping — the machine must validate on its own.
+- **Perfect copying:** digital messages duplicate at zero cost. A letter had to be painstakingly transcribed; a digital message copies with a keystroke. This enables replication and broadcast — but also replay attacks and forgery. The medium makes counterfeiting trivial, so proof of origin (signatures) becomes essential, not optional.
+- **Global reach:** any address is reachable from anywhere, instantly. There is no "local" in the digital medium. Anyone on Earth can try to send a message to any address. Access control can't rely on physical proximity — the medium erased that boundary.
+- **Opacity:** the medium runs through machines whose internals are invisible. The conversation is hidden behind code, circuits, and abstractions. This is the problem b3nd specifically solves.
+- So what does the machine actually do? The same thing the post office does, the same thing the courtroom clerk does: **it receives messages, files them, and lets people look them up.**
+- A b3nd node has four verbs: `receive` (accept a message), `read` (look up a message), `list` (browse what's filed), `delete` (remove a message). That's the entire vocabulary.
+- The schema is the "house rules" — what kind of messages this machine accepts. Just like a courtroom won't hear a case outside its jurisdiction.
 - Show this with b3nd code — but always preceded by the plain-language conversation it represents:
   - "Alice posts a public note" → `receive(["mutable://open/notes/hello", { text: "hello world" }])`
   - "Bob reads Alice's note" → `read("mutable://open/notes/hello")`
   - "Carol checks what's on the board" → `list("mutable://open/notes/")`
-- The machine is not mysterious. It's a clerk at a counter, following the room's rules.
+- The machine is not mysterious. It's a clerk at a counter, following the room's rules. The medium changed; the role didn't.
 
 #### Chapter 11: Dialogue at the Speed of Light
 - The digital world didn't invent new patterns — it inherited every human dialogue pattern and runs them instantly, globally
@@ -317,7 +348,9 @@ Practical recipes, each introduced as a dialogue scenario first, then mapped to 
 
 6. **Layered depth.** A 10-year-old reads Act I and understands what protocols are. A teenager reads through Act III and understands consensus and deployment. A developer reads the cookbook and starts building.
 
-7. **Messages compress, not simplify.** A message can carry infinite facets — respect, threat, validation, and commentary all at once. The same is true of `[address, content]`: a single b3nd message can encode an entire business decision, a consensus step, a deployment command. We don't reduce complexity; we express it in a form that's dense AND readable, the way a few words of dialogue can carry the weight of an entire negotiation.
+7. **The medium's physics drives the protocol.** Air reverberates (so you whisper for privacy). Letters persist but can be intercepted (so you seal them). Digital copies perfectly (so you sign cryptographically). Every protocol feature is a response to the physics of the medium — never an arbitrary invention. Make this causal chain visible in every act.
+
+8. **Messages compress, not simplify.** A message can carry infinite facets — respect, threat, validation, and commentary all at once. The same is true of `[address, content]`: a single b3nd message can encode an entire business decision, a consensus step, a deployment command. We don't reduce complexity; we express it in a form that's dense AND readable, the way a few words of dialogue can carry the weight of an entire negotiation.
 
 8. **Exhaustive in scope.** The cookbook must prove the claim: ALL common digital patterns (auth, trading, consensus, deployment, rollback, parallel processing, replication) are just conversations — and b3nd makes them visible as such.
 
