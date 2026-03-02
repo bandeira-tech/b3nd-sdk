@@ -9,14 +9,35 @@ export interface LearnSection {
   children: LearnSection[];
 }
 
+/** Metadata for one chapter inside a multi-chapter book (no markdown). */
+export interface LearnChapterMeta {
+  key: string;
+  number: number;
+  title: string;
+  part: string;
+  sections: LearnSection[];
+  uri: string;
+}
+
+/** Full chapter content, loaded on demand. */
+export interface LearnChapter extends LearnChapterMeta {
+  markdown: string;
+}
+
 export interface LearnBook {
   key: string;
   title: string;
   label: string;
   description: string;
   tier: string;
-  markdown: string;
+
+  /** Full markdown — present for single-file books, absent for chapter-based. */
+  markdown?: string;
   sections: LearnSection[];
+
+  /** Chapter index — present for multi-chapter books. */
+  chapters?: LearnChapterMeta[];
+
   updatedAt: number;
 }
 
@@ -25,11 +46,16 @@ export interface LearnCatalog {
   generatedAt: number;
 }
 
+/** Type guard: does this book have chapters (multi-file)? */
+export function isChapterBook(book: LearnBook): book is LearnBook & { chapters: LearnChapterMeta[] } {
+  return Array.isArray(book.chapters) && book.chapters.length > 0;
+}
+
 // ---------------------------------------------------------------------------
 // Tier configuration
 // ---------------------------------------------------------------------------
 
-export type LearnTier = "documentation" | "cookbook" | "design" | "proposals";
+export type LearnTier = "guide" | "documentation" | "cookbook" | "design" | "proposals";
 
 export interface TierConfig {
   id: LearnTier;
@@ -37,6 +63,7 @@ export interface TierConfig {
 }
 
 export const TIER_ORDER: TierConfig[] = [
+  { id: "guide", label: "Guides" },
   { id: "documentation", label: "Documentation" },
   { id: "cookbook", label: "Cookbooks" },
   { id: "design", label: "Design" },

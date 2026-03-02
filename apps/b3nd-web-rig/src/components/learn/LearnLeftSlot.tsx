@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { ArrowLeft, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
-import { TIER_ORDER, booksByTier, findBook } from "./skillContent";
+import { TIER_ORDER, booksByTier, findBook, isChapterBook, type LearnChapterMeta } from "./skillContent";
 import { parseSkillSections, type SkillSection } from "./parseSkillSections";
 import { useLearnStore } from "./useLearnStore";
 
@@ -105,6 +105,17 @@ function TierGroup({
 
 function ReaderMode() {
   const activeBook = useLearnStore((s) => s.activeBook)!;
+  const catalog = useLearnStore((s) => s.catalog);
+  const book = useMemo(() => findBook(catalog?.books ?? [], activeBook), [catalog, activeBook]);
+
+  if (book && isChapterBook(book)) return <ChapterReaderMode />;
+  return <SingleFileReaderMode />;
+}
+
+/* -- Single-file Reader Mode --------------------------------------------- */
+
+function SingleFileReaderMode() {
+  const activeBook = useLearnStore((s) => s.activeBook)!;
   const closeBook = useLearnStore((s) => s.closeBook);
   const activeSectionId = useLearnStore((s) => s.activeSectionId);
   const catalog = useLearnStore((s) => s.catalog);
@@ -182,6 +193,175 @@ function ReaderMode() {
             activeIds={activeIds}
           />
         ))}
+      </div>
+    </>
+  );
+}
+
+/* -- Chapter-based Reader Mode ------------------------------------------- */
+
+function ChapterReaderMode() {
+  const activeBook = useLearnStore((s) => s.activeBook)!;
+  const activeChapter = useLearnStore((s) => s.activeChapter);
+  const closeBook = useLearnStore((s) => s.closeBook);
+  const closeChapter = useLearnStore((s) => s.closeChapter);
+  const openChapter = useLearnStore((s) => s.openChapter);
+  const activeSectionId = useLearnStore((s) => s.activeSectionId);
+  const chapterCache = useLearnStore((s) => s.chapterCache);
+  const catalog = useLearnStore((s) => s.catalog);
+
+  const book = useMemo(() => findBook(catalog?.books ?? [], activeBook), [catalog, activeBook]);
+  const chapters = (book && isChapterBook(book)) ? book.chapters : [];
+
+  // Group chapters by part for navigation
+  const parts = useMemo(() => {
+    const map = new Map<string, LearnChapterMeta[]>();
+    for (const ch of chapters) {
+      const list = map.get(ch.part) || [];
+      list.push(ch);
+      map.set(ch.part, list);
+    }
+    return Array.from(map.entries());
+  }, [chapters]);
+
+  // When a chapter is active, show its sections; otherwise show the chapter list
+  const chapterSections = useMemo(() => {
+    if (!activeChapter) return [];
+    const cacheKey = `${activeBook}/${activeChapter}`;
+    const cached = chapterCache[cacheKey];
+    if (!cached) return [];
+    return parseSkillSections(cached.markdown);
+  }, [activeBook, activeChapter, chapterCache]);
+
+  const [expandedParts, setExpandedParts] = useState<Set<string>>(
+    () => new Set(parts.map(([name]) => name)),
+  );
+
+  useEffect(() => {
+    setExpandedParts(new Set(parts.map(([name]) => name)));
+  }, [parts]);
+
+  const togglePart = (name: string) => {
+    setExpandedParts((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // Active section tracking for within-chapter scroll-spy
+  const activeIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!activeSectionId) return ids;
+    ids.add(activeSectionId);
+    for (const section of chapterSections) {
+      if (section.id === activeSectionId) {
+        ids.add(section.id);
+        break;
+      }
+      for (const child of section.children) {
+        if (child.id === activeSectionId) {
+          ids.add(section.id);
+          ids.add(child.id);
+          break;
+        }
+      }
+    }
+    return ids;
+  }, [activeSectionId, chapterSections]);
+
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setExpandedSections(new Set(chapterSections.map((s) => s.id)));
+  }, [chapterSections]);
+
+  const toggleSection = (id: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <>
+      {/* Header with back navigation */}
+      <div className="border-b border-border bg-card">
+        <button
+          onClick={activeChapter ? closeChapter : closeBook}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>{activeChapter ? book?.label ?? "Chapters" : "All Books"}</span>
+        </button>
+        <div className="px-3 pb-2">
+          <span className="text-sm font-medium text-foreground">
+            {activeChapter
+              ? chapters.find((c) => c.key === activeChapter)?.title ?? activeChapter
+              : book?.label ?? activeBook}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto custom-scrollbar">
+        {activeChapter ? (
+          /* Within-chapter section navigation */
+          <>
+            {chapterSections.map((section) => (
+              <SectionNavItem
+                key={section.id}
+                section={section}
+                expandedSections={expandedSections}
+                toggleSection={toggleSection}
+                scrollToSection={scrollToSection}
+                activeIds={activeIds}
+              />
+            ))}
+          </>
+        ) : (
+          /* Chapter list grouped by part */
+          <>
+            {parts.map(([partName, partChapters]) => (
+              <div key={partName}>
+                <button
+                  onClick={() => togglePart(partName)}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {expandedParts.has(partName) ? (
+                    <ChevronDown className="w-3 h-3 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3 shrink-0" />
+                  )}
+                  <span className="font-semibold">{partName}</span>
+                </button>
+                {expandedParts.has(partName) &&
+                  partChapters.map((ch) => (
+                    <button
+                      key={ch.key}
+                      onClick={() => openChapter(activeBook, ch.key)}
+                      className={cn(
+                        "w-full flex items-center gap-2 pl-6 pr-3 py-2 text-xs transition-colors",
+                        "hover:bg-accent/50 text-foreground",
+                        activeChapter === ch.key && "bg-accent/40 text-primary font-semibold",
+                      )}
+                    >
+                      <span className="text-muted-foreground/50 font-mono w-4 text-right shrink-0 text-[10px]">
+                        {ch.number}
+                      </span>
+                      <span className="truncate font-medium">{ch.title}</span>
+                    </button>
+                  ))}
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </>
   );
