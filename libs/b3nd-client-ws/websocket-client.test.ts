@@ -98,25 +98,6 @@ class MockWebSocket {
           },
         };
       },
-      write: () => {
-        // Store the data (legacy)
-        const ts = Date.now();
-        this.storage.set(request.payload.uri, {
-          data: request.payload.value,
-          ts,
-        });
-        return {
-          id: request.id,
-          success: true,
-          data: {
-            success: true,
-            record: {
-              ts,
-              data: request.payload.value,
-            },
-          },
-        };
-      },
       read: () => {
         const stored = this.storage.get(request.payload.uri);
         if (stored) {

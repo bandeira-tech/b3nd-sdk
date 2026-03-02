@@ -326,20 +326,6 @@ export class LocalStorageClient implements NodeProtocolInterface {
   }
 
   /**
-   * Check if a URI has children (is a directory)
-   */
-  private hasChildren(uri: string): boolean {
-    const prefix = this.getKey(uri) + "/";
-    for (let i = 0; i < this.storage.length; i++) {
-      const key = this.storage.key(i);
-      if (key && key.startsWith(prefix)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
    * Get stored data for a URI (for timestamp sorting)
    */
   private getStoredData(uri: string): PersistenceRecord | null {

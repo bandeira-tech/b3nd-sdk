@@ -76,11 +76,6 @@ export class MockHttpServer {
         return await this.handleReceive(req);
       }
 
-      // Write endpoint (legacy)
-      if (url.pathname.startsWith("/api/v1/write/")) {
-        return await this.handleWrite(req, url);
-      }
-
       // Read endpoint
       if (url.pathname.startsWith("/api/v1/read/")) {
         return this.handleRead(url);
@@ -182,53 +177,6 @@ export class MockHttpServer {
     this.storage.set(uri, record);
 
     return Response.json({ accepted: true });
-  }
-
-  private async handleWrite(req: Request, url: URL): Promise<Response> {
-    if (this.config.mode === "validationError") {
-      return new Response("Validation failed: Name is required", {
-        status: 400,
-      });
-    }
-
-    // Parse URI from path: /api/v1/write/{protocol}/{domain}{path}
-    const parts = url.pathname.split("/").slice(4); // Skip /api/v1/write/
-    const protocol = parts[0];
-    const domain = parts[1];
-    const path = "/" + parts.slice(2).join("/");
-    const uri = `${protocol}://${domain}${path}`;
-
-    // Check Content-Type to determine if binary
-    const contentType = req.headers.get("content-type") || "application/json";
-    const isBinary = contentType === "application/octet-stream" ||
-      contentType.startsWith("image/") ||
-      contentType.startsWith("audio/") ||
-      contentType.startsWith("video/") ||
-      contentType.startsWith("font/") ||
-      contentType === "application/wasm";
-
-    let value: unknown;
-    if (isBinary) {
-      // Read as raw binary
-      const buffer = await req.arrayBuffer();
-      value = new Uint8Array(buffer);
-    } else {
-      // Get value from request body (JSON)
-      const body: any = await req.json();
-      value = body.value;
-    }
-
-    const record: PersistenceRecord<unknown> = {
-      ts: Date.now(),
-      data: value,
-    };
-
-    this.storage.set(uri, record);
-
-    return Response.json({
-      success: true,
-      record,
-    });
   }
 
   private handleRead(url: URL): Response {

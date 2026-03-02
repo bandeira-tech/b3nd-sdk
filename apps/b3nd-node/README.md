@@ -71,7 +71,7 @@ providing `BACKEND_URL` plus any DB connection strings as environment variables.
 
 Same as other HTTP nodes:
 
-- `POST   /api/v1/write/:protocol/:domain/*`
+- `POST   /api/v1/receive`
 - `GET    /api/v1/read/:protocol/:domain/*`
 - `GET    /api/v1/list/:protocol/:domain/*`
 - `DELETE /api/v1/delete/:protocol/:domain/*`
