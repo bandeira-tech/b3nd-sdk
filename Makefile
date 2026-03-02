@@ -5,14 +5,14 @@
 # Default target
 .DEFAULT_GOAL := help
 
-# Run all tests (excludes browser-only tests)
+# Run all tests (excludes integration tests that need Postgres/Mongo)
 test:
 ifdef t
 	@echo "Running tests for: $(t)"
 	@deno test --allow-all $(t)
 else
 	@echo "Running all tests..."
-	@deno test --allow-all libs/
+	@deno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo libs/b3nd-*/
 endif
 
 # Run unit tests only (no external dependencies like Postgres/Mongo)

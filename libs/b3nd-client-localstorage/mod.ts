@@ -21,6 +21,28 @@ import type {
   ReceiveResult,
   Schema,
 } from "../b3nd-core/types.ts";
+import { decodeBase64, encodeBase64 } from "../b3nd-core/encoding.ts";
+
+/** Wrap Uint8Array as a JSON-safe marker object for localStorage round-tripping */
+function serializeData(data: unknown): unknown {
+  if (data instanceof Uint8Array) {
+    return { __b3nd_binary__: true, encoding: "base64", data: encodeBase64(data) };
+  }
+  return data;
+}
+
+/** Unwrap the binary marker back to Uint8Array on read */
+function deserializeData(data: unknown): unknown {
+  if (
+    data && typeof data === "object" &&
+    (data as Record<string, unknown>).__b3nd_binary__ === true &&
+    (data as Record<string, unknown>).encoding === "base64" &&
+    typeof (data as Record<string, unknown>).data === "string"
+  ) {
+    return decodeBase64((data as Record<string, unknown>).data as string);
+  }
+  return data;
+}
 
 export class LocalStorageClient implements NodeProtocolInterface {
   private config: {
@@ -131,9 +153,9 @@ export class LocalStorageClient implements NodeProtocolInterface {
       }
 
       const key = this.getKey(uri);
-      const record: PersistenceRecord<D> = {
+      const record: PersistenceRecord<unknown> = {
         ts: Date.now(),
-        data,
+        data: serializeData(data),
       };
 
       const serialized = this.serialize(record);
@@ -160,7 +182,11 @@ export class LocalStorageClient implements NodeProtocolInterface {
         };
       }
 
-      const record = this.deserialize(serialized) as PersistenceRecord<T>;
+      const raw = this.deserialize(serialized) as PersistenceRecord<unknown>;
+      const record: PersistenceRecord<T> = {
+        ts: raw.ts,
+        data: deserializeData(raw.data) as T,
+      };
       return {
         success: true,
         record,
@@ -202,7 +228,11 @@ export class LocalStorageClient implements NodeProtocolInterface {
         if (serialized === null) {
           results.push({ uri, success: false, error: "Not found" });
         } else {
-          const record = this.deserialize(serialized) as PersistenceRecord<T>;
+          const raw = this.deserialize(serialized) as PersistenceRecord<unknown>;
+          const record: PersistenceRecord<T> = {
+            ts: raw.ts,
+            data: deserializeData(raw.data) as T,
+          };
           results.push({ uri, success: true, record });
           succeeded++;
         }
