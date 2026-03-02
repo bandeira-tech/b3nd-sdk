@@ -1,17 +1,20 @@
-import { useMemo, useEffect, useRef, useCallback, type ComponentPropsWithoutRef } from "react";
+import { useEffect, useRef, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { BookOpen, ChefHat, Compass, Lightbulb, Loader2, Library, ChevronRight } from "lucide-react";
-import { TIER_ORDER, booksByTier, findBook, isChapterBook, type LearnBook, type LearnChapterMeta } from "./skillContent";
+import {
+  TIER_ORDER, booksByTier, findBook, isChapterBook,
+  type LearnBook, type LearnCatalog, type LearnChapterMeta,
+} from "./skillContent";
 import { useLearnStore } from "./useLearnStore";
+import { useRead } from "./useRead";
+
+const CATALOG_URI = "mutable://open/rig/learn/catalog";
 
 function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function stripFrontmatter(md: string): string {
@@ -26,18 +29,13 @@ const TIER_ICONS: Record<string, typeof BookOpen> = {
   proposals: Lightbulb,
 };
 
+/* -- Root --------------------------------------------------------------- */
+
 export function LearnLayoutSlot() {
   const activeBook = useLearnStore((s) => s.activeBook);
-  const loading = useLearnStore((s) => s.loading);
-  const error = useLearnStore((s) => s.error);
-  const catalog = useLearnStore((s) => s.catalog);
-  const loadCatalog = useLearnStore((s) => s.loadCatalog);
+  const { data: catalog, loading, error } = useRead<LearnCatalog>(CATALOG_URI);
 
-  useEffect(() => {
-    loadCatalog();
-  }, [loadCatalog]);
-
-  if (loading || (!catalog && !error)) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -46,28 +44,33 @@ export function LearnLayoutSlot() {
     );
   }
 
-  if (error) {
+  if (error || !catalog) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-destructive">{error ?? "No catalog found."}</p>
       </div>
     );
   }
 
-  if (activeBook === null) return <IndexView />;
+  if (!activeBook) return <IndexView catalog={catalog} />;
 
-  // Determine if the active book is a chapter-based book
-  const book = findBook(catalog?.books ?? [], activeBook);
-  if (book && isChapterBook(book)) return <ChapterBookView book={book} />;
-  return <ReaderView />;
+  const book = findBook(catalog.books, activeBook);
+  if (!book) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-sm text-muted-foreground">Book not found.</p>
+      </div>
+    );
+  }
+
+  if (isChapterBook(book)) return <ChapterBookView book={book} />;
+  return <SingleFileReaderView book={book} />;
 }
 
 /* -- Index View ---------------------------------------------------------- */
 
-function IndexView() {
+function IndexView({ catalog }: { catalog: LearnCatalog }) {
   const openBook = useLearnStore((s) => s.openBook);
-  const catalog = useLearnStore((s) => s.catalog);
-  const books = catalog?.books ?? [];
 
   return (
     <div className="max-w-4xl mx-auto px-8 py-10 h-full overflow-y-auto custom-scrollbar">
@@ -77,7 +80,7 @@ function IndexView() {
       </p>
 
       {TIER_ORDER.map((tier) => {
-        const tierBooks = booksByTier(books, tier.id);
+        const tierBooks = booksByTier(catalog.books, tier.id);
         if (tierBooks.length === 0) return null;
         const Icon = TIER_ICONS[tier.id] ?? BookOpen;
 
@@ -102,7 +105,6 @@ function IndexView() {
 }
 
 function BookCard({ book, onClick }: { book: LearnBook; onClick: () => void }) {
-  const isMultiChapter = isChapterBook(book);
   return (
     <button
       onClick={onClick}
@@ -112,9 +114,9 @@ function BookCard({ book, onClick }: { book: LearnBook; onClick: () => void }) {
         {book.label}
       </span>
       <p className="text-xs text-muted-foreground mt-1">{book.description}</p>
-      {isMultiChapter && (
+      {isChapterBook(book) && (
         <p className="text-[10px] text-muted-foreground/60 mt-2">
-          {book.chapters!.length} chapters
+          {book.chapters.length} chapters
         </p>
       )}
     </button>
@@ -122,28 +124,29 @@ function BookCard({ book, onClick }: { book: LearnBook; onClick: () => void }) {
 }
 
 /* -- Chapter Book View --------------------------------------------------- */
-/* Shows a table of contents or a single chapter's content. */
 
 function ChapterBookView({ book }: { book: LearnBook & { chapters: LearnChapterMeta[] } }) {
   const activeChapter = useLearnStore((s) => s.activeChapter);
 
-  if (activeChapter === null) return <ChapterIndexView book={book} />;
-  return <ChapterReaderView bookKey={book.key} chapterKey={activeChapter} />;
+  if (!activeChapter) return <ChapterIndexView book={book} />;
+
+  const chapterMeta = book.chapters.find((c) => c.key === activeChapter);
+  if (!chapterMeta) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-sm text-muted-foreground">Chapter not found.</p>
+      </div>
+    );
+  }
+
+  return <ChapterReaderView uri={chapterMeta.uri} />;
 }
 
 function ChapterIndexView({ book }: { book: LearnBook & { chapters: LearnChapterMeta[] } }) {
   const openChapter = useLearnStore((s) => s.openChapter);
 
   // Group chapters by part
-  const parts = useMemo(() => {
-    const map = new Map<string, LearnChapterMeta[]>();
-    for (const ch of book.chapters) {
-      const list = map.get(ch.part) || [];
-      list.push(ch);
-      map.set(ch.part, list);
-    }
-    return Array.from(map.entries());
-  }, [book.chapters]);
+  const parts = groupByPart(book.chapters);
 
   return (
     <div className="max-w-3xl mx-auto px-8 py-10 h-full overflow-y-auto custom-scrollbar">
@@ -159,7 +162,7 @@ function ChapterIndexView({ book }: { book: LearnBook & { chapters: LearnChapter
             {chapters.map((ch) => (
               <button
                 key={ch.key}
-                onClick={() => openChapter(book.key, ch.key)}
+                onClick={() => openChapter(ch.key)}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:border-primary/40 hover:bg-accent/30 transition-colors group text-left"
               >
                 <span className="text-xs text-muted-foreground/60 font-mono w-6 text-right shrink-0">
@@ -178,15 +181,21 @@ function ChapterIndexView({ book }: { book: LearnBook & { chapters: LearnChapter
   );
 }
 
-function ChapterReaderView({ bookKey, chapterKey }: { bookKey: string; chapterKey: string }) {
-  const chapterCache = useLearnStore((s) => s.chapterCache);
-  const chapterLoading = useLearnStore((s) => s.chapterLoading);
+/* -- Chapter Reader ------------------------------------------------------ */
+/* Reads chapter content from its URI on demand. */
+
+interface ChapterContent {
+  key: string;
+  title: string;
+  markdown: string;
+}
+
+function ChapterReaderView({ uri }: { uri: string }) {
+  const { data: chapter, loading } = useRead<ChapterContent>(uri);
   const setActiveSectionId = useLearnStore((s) => s.setActiveSectionId);
   const containerRef = useRef<HTMLElement>(null);
 
-  const cacheKey = `${bookKey}/${chapterKey}`;
-  const chapter = chapterCache[cacheKey];
-  const content = useMemo(() => (chapter ? stripFrontmatter(chapter.markdown) : ""), [chapter]);
+  const content = chapter ? stripFrontmatter(chapter.markdown) : "";
 
   // Scroll-spy
   useEffect(() => {
@@ -197,13 +206,9 @@ function ChapterReaderView({ bookKey, chapterKey }: { bookKey: string; chapterKe
       const headings = container.querySelectorAll<HTMLElement>("h2[id], h3[id]");
       const offset = container.getBoundingClientRect().top;
       let active: string | null = null;
-
       for (const h of headings) {
-        if (h.getBoundingClientRect().top - offset <= 40) {
-          active = h.id;
-        } else {
-          break;
-        }
+        if (h.getBoundingClientRect().top - offset <= 40) active = h.id;
+        else break;
       }
       setActiveSectionId(active);
     };
@@ -216,36 +221,11 @@ function ChapterReaderView({ bookKey, chapterKey }: { bookKey: string; chapterKe
     };
   }, [content, setActiveSectionId]);
 
-  // Scroll to top when chapter changes
   useEffect(() => {
     containerRef.current?.scrollTo(0, 0);
-  }, [chapterKey]);
+  }, [uri]);
 
-  const codeComponent = useCallback(
-    ({ className, children, ...rest }: ComponentPropsWithoutRef<"code"> & { className?: string }) => {
-      const match = className?.match(/language-(\w+)/);
-      if (match) {
-        return (
-          <SyntaxHighlighter
-            style={oneDark}
-            language={match[1]}
-            PreTag="div"
-            customStyle={{ margin: 0, borderRadius: "0.375rem", fontSize: "0.8125rem" }}
-          >
-            {String(children).replace(/\n$/, "")}
-          </SyntaxHighlighter>
-        );
-      }
-      return (
-        <code className="skill-inline-code" {...rest}>
-          {children}
-        </code>
-      );
-    },
-    [],
-  );
-
-  if (chapterLoading && !chapter) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -267,39 +247,17 @@ function ChapterReaderView({ bookKey, chapterKey }: { bookKey: string; chapterKe
       ref={containerRef}
       className="max-w-4xl mx-auto px-8 py-6 prose prose-sm dark:prose-invert overflow-y-auto h-full custom-scrollbar skill-prose"
     >
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          h1: (props: ComponentPropsWithoutRef<"h1">) => {
-            const text = extractText(props.children);
-            return <h1 id={slugify(text)} {...props} />;
-          },
-          h2: (props: ComponentPropsWithoutRef<"h2">) => {
-            const text = extractText(props.children);
-            return <h2 id={slugify(text)} {...props} />;
-          },
-          h3: (props: ComponentPropsWithoutRef<"h3">) => {
-            const text = extractText(props.children);
-            return <h3 id={slugify(text)} {...props} />;
-          },
-          code: codeComponent,
-        }}
-      >
-        {content}
-      </ReactMarkdown>
+      <MarkdownContent content={content} />
     </article>
   );
 }
 
-/* -- Single-file Reader View --------------------------------------------- */
+/* -- Single-file Reader -------------------------------------------------- */
 
-function ReaderView() {
-  const activeBook = useLearnStore((s) => s.activeBook)!;
-  const catalog = useLearnStore((s) => s.catalog);
-  const book = useMemo(() => findBook(catalog?.books ?? [], activeBook), [catalog, activeBook]);
-  const content = useMemo(() => stripFrontmatter(book?.markdown ?? ""), [book]);
-  const containerRef = useRef<HTMLElement>(null);
+function SingleFileReaderView({ book }: { book: LearnBook }) {
   const setActiveSectionId = useLearnStore((s) => s.setActiveSectionId);
+  const containerRef = useRef<HTMLElement>(null);
+  const content = stripFrontmatter(book.markdown ?? "");
 
   // Scroll-spy
   useEffect(() => {
@@ -310,13 +268,9 @@ function ReaderView() {
       const headings = container.querySelectorAll<HTMLElement>("h2[id], h3[id]");
       const offset = container.getBoundingClientRect().top;
       let active: string | null = null;
-
       for (const h of headings) {
-        if (h.getBoundingClientRect().top - offset <= 40) {
-          active = h.id;
-        } else {
-          break;
-        }
+        if (h.getBoundingClientRect().top - offset <= 40) active = h.id;
+        else break;
       }
       setActiveSectionId(active);
     };
@@ -329,70 +283,72 @@ function ReaderView() {
     };
   }, [content, setActiveSectionId]);
 
-  // Scroll to top when book changes
   useEffect(() => {
     containerRef.current?.scrollTo(0, 0);
-  }, [activeBook]);
-
-  const codeComponent = useCallback(
-    ({ className, children, ...rest }: ComponentPropsWithoutRef<"code"> & { className?: string }) => {
-      const match = className?.match(/language-(\w+)/);
-      if (match) {
-        return (
-          <SyntaxHighlighter
-            style={oneDark}
-            language={match[1]}
-            PreTag="div"
-            customStyle={{ margin: 0, borderRadius: "0.375rem", fontSize: "0.8125rem" }}
-          >
-            {String(children).replace(/\n$/, "")}
-          </SyntaxHighlighter>
-        );
-      }
-      return (
-        <code className="skill-inline-code" {...rest}>
-          {children}
-        </code>
-      );
-    },
-    [],
-  );
-
-  if (!book) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-sm text-muted-foreground">Book not found.</p>
-      </div>
-    );
-  }
+  }, [book.key]);
 
   return (
     <article
       ref={containerRef}
       className="max-w-4xl mx-auto px-8 py-6 prose prose-sm dark:prose-invert overflow-y-auto h-full custom-scrollbar skill-prose"
     >
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          h1: (props: ComponentPropsWithoutRef<"h1">) => {
-            const text = extractText(props.children);
-            return <h1 id={slugify(text)} {...props} />;
-          },
-          h2: (props: ComponentPropsWithoutRef<"h2">) => {
-            const text = extractText(props.children);
-            return <h2 id={slugify(text)} {...props} />;
-          },
-          h3: (props: ComponentPropsWithoutRef<"h3">) => {
-            const text = extractText(props.children);
-            return <h3 id={slugify(text)} {...props} />;
-          },
-          code: codeComponent,
-        }}
-      >
-        {content}
-      </ReactMarkdown>
+      <MarkdownContent content={content} />
     </article>
   );
+}
+
+/* -- Shared Markdown Renderer -------------------------------------------- */
+
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: (props: ComponentPropsWithoutRef<"h1">) => {
+          const text = extractText(props.children);
+          return <h1 id={slugify(text)} {...props} />;
+        },
+        h2: (props: ComponentPropsWithoutRef<"h2">) => {
+          const text = extractText(props.children);
+          return <h2 id={slugify(text)} {...props} />;
+        },
+        h3: (props: ComponentPropsWithoutRef<"h3">) => {
+          const text = extractText(props.children);
+          return <h3 id={slugify(text)} {...props} />;
+        },
+        code: ({ className, children, ...rest }: ComponentPropsWithoutRef<"code"> & { className?: string }) => {
+          const match = className?.match(/language-(\w+)/);
+          if (match) {
+            return (
+              <SyntaxHighlighter
+                style={oneDark}
+                language={match[1]}
+                PreTag="div"
+                customStyle={{ margin: 0, borderRadius: "0.375rem", fontSize: "0.8125rem" }}
+              >
+                {String(children).replace(/\n$/, "")}
+              </SyntaxHighlighter>
+            );
+          }
+          return <code className="skill-inline-code" {...rest}>{children}</code>;
+        },
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
+/* -- Helpers ------------------------------------------------------------- */
+
+function groupByPart(chapters: LearnChapterMeta[]): [string, LearnChapterMeta[]][] {
+  const map = new Map<string, LearnChapterMeta[]>();
+  for (const ch of chapters) {
+    const list = map.get(ch.part) || [];
+    list.push(ch);
+    map.set(ch.part, list);
+  }
+  return Array.from(map.entries());
 }
 
 function extractText(children: unknown): string {
