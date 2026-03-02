@@ -29,9 +29,6 @@ const items = await client.list("mutable://open/my-app/");
 await client.delete("mutable://open/my-app/greeting");
 ```
 
-URIs define behavior (mutable, immutable, encrypted), not meaning. The same
-protocol works for profiles, posts, configs, messages — any data.
-
 ## Packages
 
 | Package | Registry | Use Case |
