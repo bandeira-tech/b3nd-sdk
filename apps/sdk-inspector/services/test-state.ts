@@ -15,6 +15,7 @@ import {
   classifyTestTheme,
   type TestTheme,
 } from "../utils/test-parser.ts";
+import type { NodeProtocolInterface } from "../../../libs/b3nd-core/types.ts";
 
 export interface TestResultState {
   name: string;
@@ -71,6 +72,7 @@ export class TestState {
   private projectRoot: string;
   private b3ndUrl: string | null;
   private b3ndUri: string | null;
+  private b3ndClient: NodeProtocolInterface | null = null;
 
   constructor(opts?: { b3ndUrl?: string; b3ndUri?: string }) {
     this.b3ndUrl = opts?.b3ndUrl ?? null;
@@ -593,7 +595,38 @@ export class TestState {
   }
 
   /**
-   * Send a message to B3nd via HTTP API.
+   * Lazily create a B3nd client from the configured URL.
+   * Supports http://, https://, bluetooth://, and any registered transport.
+   */
+  private async getB3ndClient(): Promise<NodeProtocolInterface | null> {
+    if (this.b3ndClient) return this.b3ndClient;
+    if (!this.b3ndUrl) return null;
+
+    try {
+      if (this.b3ndUrl.startsWith("bluetooth://")) {
+        const { BluetoothClient } = await import(
+          "../../../libs/b3nd-client-bluetooth/mod.ts"
+        );
+        const { createBluetoothTransport } = await import(
+          "../../../libs/b3nd-client-bluetooth/connect.ts"
+        );
+        const transport = await createBluetoothTransport(this.b3ndUrl);
+        this.b3ndClient = new BluetoothClient({ transport });
+      } else {
+        const { HttpClient } = await import(
+          "../../../libs/b3nd-client-http/mod.ts"
+        );
+        this.b3ndClient = new HttpClient({ url: this.b3ndUrl });
+      }
+      return this.b3ndClient;
+    } catch (e) {
+      console.error(`[TestState] Failed to create B3nd client: ${e}`);
+      return null;
+    }
+  }
+
+  /**
+   * Send a message to B3nd via the configured client (HTTP, Bluetooth, etc.)
    */
   private async writeToB3nd(
     uri: string,
@@ -602,19 +635,10 @@ export class TestState {
     if (!this.b3ndUrl || !this.b3ndUri) return false;
 
     try {
-      const response = await fetch(`${this.b3ndUrl}/api/v1/receive`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tx: [uri, data] }),
-      });
+      const client = await this.getB3ndClient();
+      if (!client) return false;
 
-      if (!response.ok) {
-        const body = await response.text();
-        console.error(`[TestState] B3nd write failed (${response.status}): ${body}`);
-        return false;
-      }
-
-      const result = await response.json();
+      const result = await client.receive([uri, data]);
       return result.accepted === true;
     } catch (e) {
       console.error(`[TestState] B3nd write error: ${e}`);

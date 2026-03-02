@@ -64,6 +64,7 @@
     "libs/b3nd-client-mongo",
     "libs/b3nd-client-indexeddb",
     "libs/b3nd-client-localstorage",
+    "libs/b3nd-client-bluetooth",
     "libs/b3nd-combinators",
     "libs/b3nd-testing",
     "libs/b3nd-auth",

@@ -84,6 +84,10 @@ export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
 export { PostgresClient } from "../libs/b3nd-client-postgres/mod.ts";
 export { MongoClient } from "../libs/b3nd-client-mongo/mod.ts";
+export { BluetoothClient } from "../libs/b3nd-client-bluetooth/mod.ts";
+export type { BluetoothTransport, BluetoothClientConfig } from "../libs/b3nd-client-bluetooth/mod.ts";
+export { createBluetoothTransport, parseBluetoothUrl, registerBluetoothTransport } from "../libs/b3nd-client-bluetooth/connect.ts";
+export type { BluetoothConnectionSpec } from "../libs/b3nd-client-bluetooth/connect.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 
