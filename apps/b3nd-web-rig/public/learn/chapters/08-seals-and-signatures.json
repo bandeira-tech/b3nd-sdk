@@ -1,0 +1,37 @@
+{
+  "key": "08-seals-and-signatures",
+  "title": "8. Seals and Signatures",
+  "markdown": "# 8. Seals and Signatures\n\nIf I'm not in the room, how do you know the letter is really from me?\n\nThis is the problem that identity faces when the medium changes from air to paper. In speech, identity was free — your face is your credential, your voice is your authentication, your physical presence in the room means everyone knows who said what. The medium provided identity automatically.\n\nPaper strips that away. A letter arrives. It says \"From: Alice.\" But anyone could have written that. The medium of paper can carry messages from anyone to anywhere — which is its gift — but it carries no proof of who actually composed the message. The gift and the threat are the same property.\n\n## The History of Proving Identity at a Distance\n\nHumans have been solving this problem for as long as they've been writing.\n\n**Handwriting.** The oldest signature. If you know what Alice's writing looks like, you can recognize a letter from her. But handwriting can be studied and imitated. It's personal but not unforgeable.\n\n**Wax seals.** Press a unique ring or stamp into hot wax on the envelope. The seal serves two purposes: it identifies the sender (everyone knows Alice's seal pattern) and it proves the letter hasn't been opened (breaking the wax is visible). Identity and tamper-evidence in one physical gesture.\n\n**Signet rings.** A step more personal than generic seals. The ring is unique to one person. Losing your signet ring was serious — whoever held it could seal letters as you. The ring IS the authority. This is remarkably close to how digital keys work.\n\n**Handwritten signatures.** Formalized in law: your unique, consistent mark on a document says \"I wrote this\" or \"I approve this.\" Signatures can be forged, but forensic analysis can often detect forgery. The legal system gives signatures binding force.\n\n**Notary stamps.** A trusted third party verifies the signer's identity and then adds their own stamp. The notary's reputation backs the signature. This is witnessing (Chapter 4) applied to identity verification.\n\n**Official seals and stamps.** Governments, courts, corporations — institutional seals carry the weight of the institution. A court order bearing the court's seal has force not because of the seal itself, but because of the institution behind it.\n\n## The Principle\n\nAcross all of these, the principle is the same:\n\n**A good seal is easy for the owner to produce and hard for anyone else to fake.**\n\nAlice can stamp her ring into wax in seconds. For someone to forge her seal, they'd need to create a replica of her unique ring — expensive, time-consuming, and detectable by anyone who knows what the real seal looks like.\n\nThis asymmetry — easy to make, hard to fake — is what makes identity work in the medium of paper. And it's the same asymmetry that drives digital signatures.\n\n## Non-Repudiation\n\nThe seal doesn't just prove who sent the letter. It creates **non-repudiation**: Alice cannot later deny she sent it.\n\nIn speech, non-repudiation is \"everyone in the room heard you say it.\" It depends on witnesses and memory.\n\nIn paper, non-repudiation is \"your seal is on this letter.\" It's physical evidence. Alice's unique seal impression, on this specific envelope, is hard to explain away. The document itself is the proof.\n\nThis matters enormously for agreements. If Alice signs a contract and later claims \"I never agreed to that,\" the notarized contract with her signature is the counter-evidence. The seal transforms a piece of paper into a commitment.\n\n## Forward: Signatures in Digital\n\nThe medium changes again. In digital, the physics create a new problem: **perfect copying.** A physical seal is hard to reproduce because it requires craft skill and access to the original. A digital \"seal\" — a scanned image of a signature, a copied stamp — can be duplicated perfectly in milliseconds. The medium makes forgery trivially easy.\n\nSo the seal must evolve. In digital systems, identity requires something that is:\n- Easy for Alice to produce (she has the key)\n- Impossible for anyone else to produce (they don't have the key)\n- Verifiable by anyone (given Alice's public key, anyone can check the signature)\n- Bound to the specific message (signing a different message produces a different signature — you can't copy a signature from one document to another)\n\nIn b3nd, this is **Ed25519 digital signatures.** Alice has two keys:\n\n- A **private key** — her signet ring. Only she possesses it. She uses it to sign messages.\n- A **public key** — the pattern everyone recognizes as hers. Anyone can use it to verify that a signature was produced by Alice's private key.\n\nWhen Alice writes to `mutable://accounts/{alice-public-key}/profile`, the b3nd node checks: was this message signed with the private key matching the public key in the address? If yes, accept. If no, reject. The address itself specifies who can write — and the signature proves the writer is who they claim to be.\n\nThe seal is now mathematical. It can't be faked by craft or copied from another document. It's bound to the exact content of the message — change one byte and the signature breaks.\n\n## The Three-Layer View\n\n| | Speech (air) | Paper (carriers) | Digital (networks) |\n|---|---|---|---|\n| **Identity is** | Your face in the room | Your seal on the letter | Your signature in the data |\n| **What the medium provides** | Presence = automatic identity | Nothing — must be attached | Nothing — must be cryptographic |\n| **What forgery requires** | Impersonation (hard) | Faking a seal (craft skill) | Breaking a key (mathematics) |\n| **Non-repudiation** | \"Everyone heard you say it\" | \"Your seal is on this letter\" | \"Your signature is in this hash\" |\n| **Identity is bound to** | The moment (you were there) | The physical object (seal on wax) | The specific data (signature over content) |\n\nThe concept is unchanged across all three mediums. The speaker must be identifiable, and their identity must be hard to fake. What changes is the cost and method of proving identity — driven entirely by the physics of the medium.\n\nIn air, identity is free because presence is required. On paper, identity costs a seal because presence is lost. On a network, identity costs a cryptographic key because even seals can be perfectly copied.\n\nThe problem escalates. The solution escalates with it. But it's the same problem throughout: **who said this?**\n",
+  "sections": [
+    {
+      "id": "the-history-of-proving-identity-at-a-distance",
+      "title": "The History of Proving Identity at a Distance",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "the-principle",
+      "title": "The Principle",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "non-repudiation",
+      "title": "Non-Repudiation",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "forward-signatures-in-digital",
+      "title": "Forward: Signatures in Digital",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "the-three-layer-view",
+      "title": "The Three-Layer View",
+      "level": 2,
+      "children": []
+    }
+  ]
+}

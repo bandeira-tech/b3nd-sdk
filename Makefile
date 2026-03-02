@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node check help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node check build-learn help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -131,6 +131,11 @@ ifndef p
 	$(error Usage: make down p=<profile>  (profiles: dev, test))
 endif
 	@docker compose --profile $(p) down
+
+# Build learn catalog and chapter files for the web rig
+build-learn:
+	@echo "Building learn books..."
+	@DENO_NO_PACKAGE_JSON=1 deno run -A apps/b3nd-web-rig/scripts/build-learn-books.ts
 
 # Full dev environment: databases + node (postgres) + rig + inspector
 dev:

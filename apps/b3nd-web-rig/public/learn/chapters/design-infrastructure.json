@@ -1,0 +1,156 @@
+{
+  "key": "design-infrastructure",
+  "title": "Infrastructure & Deployment",
+  "markdown": "# Infrastructure & Deployment\n\nA B3nd node is a process that speaks the `NodeProtocolInterface` — it\ncan `receive()`, `read()`, `list()`, and `delete()` messages. Everything\nelse is a deployment choice. This document explores what nodes need to\nsupport handlers and listeners, how to deploy them, and how to scale.\n\n---\n\n## Node Requirements for Handler Support\n\nA Firecat node that supports handlers must provide the full protocol\ninterface. Handlers compose with these operations:\n\n```\n┌──────────────────────────────────────────────────────────┐\n│                  NodeProtocolInterface                    │\n│                                                          │\n│  receive(msg)    ── accept a [uri, data] message         │\n│  read(uri)       ── fetch a single record                │\n│  list(uri, opts) ── enumerate records under a prefix     │\n│  delete(uri)     ── remove a record                      │\n│  health()        ── report node status                   │\n│  getSchema()     ── list accepted programs               │\n│                                                          │\n└──────────────────────────────────────────────────────────┘\n```\n\nA handler uses these operations in a specific pattern:\n\n```\n┌──────────┐                    ┌────────────────────┐\n│  Client   │                    │       Node         │\n│           │   ① receive()      │                    │\n│           │───────────────────>│  inbox/handler/ts  │\n│           │                    │                    │\n│           │                    │   ② list()         │\n│           │                    │   ③ read()         │\n│           │                    │        │           │\n│           │                    │   ┌────▼────┐      │\n│           │                    │   │ Handler │      │\n│           │                    │   └────┬────┘      │\n│           │                    │        │           │\n│           │                    │   ④ receive()      │\n│           │   ⑤ read()         │   (response)       │\n│           │<───────────────────│  outbox/client/ts  │\n│           │                    │                    │\n│           │                    │   ⑥ delete()       │\n│           │                    │   (cleanup inbox)   │\n└──────────┘                    └────────────────────┘\n```\n\n**Step by step:**\n\n1. Client writes an encrypted request to the handler's inbox URI\n2. Handler (via `connect()`) calls `list()` to discover new inbox items\n3. Handler calls `read()` to fetch each request\n4. Handler processes the request and calls `receive()` to write the\n   encrypted response to the client's outbox\n5. Client calls `read()` to fetch the response\n6. Handler calls `delete()` to clean up the processed inbox item\n\nThe node must support all six operations. A read-only node or a\nwrite-only node cannot host handlers.\n\n---\n\n## Deployment Topologies\n\n### Single Node + Embedded Handler\n\nThe simplest deployment. The handler runs in the same process as the node.\n\n```\n┌─────────────────────────────────┐\n│           Process               │\n│                                 │\n│  ┌─────────┐    ┌───────────┐  │\n│  │  HTTP    │    │  Memory   │  │\n│  │  Server  │───>│  Client   │  │\n│  │  (Hono)  │    │           │  │\n│  └─────────┘    └─────┬─────┘  │\n│                       │        │\n│                  ┌────▼────┐   │\n│                  │ Handler │   │\n│                  │ (loop)  │   │\n│                  └─────────┘   │\n│                                 │\n└─────────────────────────────────┘\n```\n\n```typescript\nconst client = new MemoryClient({ schema });\nconst processor = respondTo(handler, { identity, client });\nconst conn = connect(client, { prefix: INBOX, processor });\nconn.start();\n\nconst app = new Hono();\nconst frontend = servers.httpServer(app);\ncreateServerNode({ frontend, client });\n```\n\n**Best for:** Development, prototypes, single-purpose services.\n\n**Characteristics:**\n- Zero network hops between handler and storage\n- Single process to monitor\n- Handler failure takes down the node\n- No horizontal scaling\n\n### Node + Remote Listener\n\nThe handler runs in a separate process and polls the node over HTTP.\n\n```\n┌──────────────┐            ┌──────────────┐\n│    Node      │            │   Listener   │\n│              │   HTTP     │              │\n│  ┌────────┐  │<───────────│  connect()   │\n│  │Postgres│  │   list()   │              │\n│  │        │  │   read()   │  respondTo() │\n│  │        │  │   receive()│              │\n│  │        │  │   delete() │  handler()   │\n│  └────────┘  │            │              │\n│              │            └──────────────┘\n│  ┌────────┐  │\n│  │  HTTP  │  │\n│  │ Server │  │\n│  └────────┘  │\n└──────────────┘\n```\n\n```typescript\n// listener process\nconst remote = new HttpClient({ url: \"https://node.example.com\" });\nconst processor = respondTo(handler, { identity, client: remote });\nconst conn = connect(remote, { prefix: INBOX, processor });\nconn.start();\n```\n\n**Best for:** Production deployments, the vault listener pattern.\n\n**Characteristics:**\n- Handler restarts don't affect the node\n- Handler can run on different hardware / region\n- Network latency on each poll cycle\n- Handler and node can scale independently\n\n### Node Cluster + Shared Listeners\n\nMultiple nodes share the same backend. Listeners connect to any node.\n\n```\n┌───────────┐  ┌───────────┐  ┌───────────┐\n│  Node A   │  │  Node B   │  │  Node C   │\n│  (HTTP)   │  │  (HTTP)   │  │  (HTTP)   │\n└─────┬─────┘  └─────┬─────┘  └─────┬─────┘\n      │              │              │\n      └──────────────┼──────────────┘\n                     │\n              ┌──────▼───────┐\n              │   Postgres   │\n              │   (shared)   │\n              └──────────────┘\n                     ▲\n                     │\n              ┌──────┴───────┐\n              │   Listener   │\n              │  (connects   │\n              │   to any     │\n              │   node)      │\n              └──────────────┘\n```\n\n**Best for:** High availability, load balancing, geographic distribution.\n\n**Characteristics:**\n- Any node can accept writes — they all share storage\n- Listener polls through one node but could failover\n- Load balancer distributes client traffic\n- Database becomes the bottleneck and single point of failure\n\n### Peer Replication + Local Handlers\n\nEach node has its own storage and replicates with peers. Handlers run\nlocally on each node.\n\n```\n┌──────────────┐            ┌──────────────┐\n│    Node A    │   sync     │    Node B    │\n│              │<──────────>│              │\n│  ┌────────┐  │            │  ┌────────┐  │\n│  │Storage │  │            │  │Storage │  │\n│  └────────┘  │            │  └────────┘  │\n│  ┌────────┐  │            │  ┌────────┐  │\n│  │Handler │  │            │  │Handler │  │\n│  └────────┘  │            │  └────────┘  │\n└──────────────┘            └──────────────┘\n        ▲                           ▲\n        │                           │\n   ┌────┴────┐                 ┌────┴────┐\n   │Client A │                 │Client B │\n   └─────────┘                 └─────────┘\n```\n\n**Best for:** Distributed networks, censorship resistance, edge\ndeployments.\n\n**Characteristics:**\n- No single point of failure\n- Eventual consistency between nodes\n- Handler logic runs at the edge\n- Conflict resolution needed for concurrent writes\n- Highest operational complexity\n\n---\n\n## Inbox / Outbox Convention\n\nHandlers use URI conventions to discover and route messages. These are\nnot protocol requirements — they're the pattern that `respondTo()` and\n`connect()` implement.\n\n### URI Patterns\n\n```\nInbox (client → handler):\n  immutable://inbox/{handlerPubkey}/{topic}/{timestamp}\n\nOutbox (handler → client):\n  immutable://inbox/{clientPubkey}/{topic}/{timestamp}\n```\n\nBoth directions use `immutable://inbox` — write-once delivery. The\nhandler's pubkey identifies its inbox. The client's pubkey identifies\nits outbox (from the handler's perspective).\n\n### Discovery Pattern\n\n```typescript\n// Handler discovers new messages by listing its inbox prefix\nconst items = await client.list(\n  `immutable://inbox/${handlerPubkey}/`,\n  { sortBy: \"timestamp\", sortOrder: \"asc\" }\n);\n\n// Process each message\nfor (const item of items.data) {\n  const msg = await client.read(item.uri);\n  await process(msg);\n  await client.delete(item.uri);  // cleanup\n}\n```\n\n### Cleanup Strategies\n\n| Strategy          | How                                    | When                          |\n| ----------------- | -------------------------------------- | ----------------------------- |\n| Immediate delete  | `delete()` after processing            | Default, saves storage        |\n| TTL-based         | Periodic sweep of old URIs             | When audit trail needed       |\n| Archive           | Move to `hash://` before deleting      | When responses need history   |\n| Never delete      | Leave inbox items forever              | Development / debugging       |\n\n### Topic Namespacing\n\nTopics let a single handler serve multiple concerns:\n\n```\nimmutable://inbox/{handler}/auth/{ts}      ← auth requests\nimmutable://inbox/{handler}/query/{ts}     ← data queries\nimmutable://inbox/{handler}/admin/{ts}     ← admin operations\n```\n\nThe handler's `connect()` prefix determines scope:\n\n```typescript\n// Listen to everything\nconnect(client, { prefix: `immutable://inbox/${key}/` });\n\n// Listen only to auth requests\nconnect(client, { prefix: `immutable://inbox/${key}/auth/` });\n```\n\n---\n\n## Scaling Considerations\n\n### Message Queuing via URI Space\n\nThe URI space is the queue. `list()` with pagination is the consumer.\n\n```\nimmutable://inbox/handler/topic/\n├── 1708700000000    ← oldest\n├── 1708700001000\n├── 1708700002000\n├── 1708700003000    ← newest\n```\n\n**Poll model (current):** Handler calls `list()` on an interval. Simple,\nresilient, high latency.\n\n```\n┌────────┐  list() every 5s  ┌──────────┐\n│Handler │──────────────────>│   Node   │\n│        │<──items[]─────────│          │\n│        │                   │          │\n│        │  read() per item  │          │\n│        │──────────────────>│          │\n└────────┘                   └──────────┘\n```\n\n**Push model (future):** Node notifies handler when new items arrive.\nLower latency, more complex.\n\n```\n┌────────┐  subscribe()      ┌──────────┐\n│Handler │──────────────────>│   Node   │\n│        │                   │          │\n│        │<──event: new item─│          │\n│        │                   │          │\n│        │  read(uri)        │          │\n│        │──────────────────>│          │\n└────────┘                   └──────────┘\n```\n\n### Backpressure\n\nWhen a handler can't keep up, the inbox grows. The `list()` pagination\nprovides natural backpressure:\n\n```typescript\n// Process one page at a time\nconst page = await client.list(prefix, { limit: 50, page: 1 });\nfor (const item of page.data) {\n  await process(item);\n}\n// Don't request page 2 until page 1 is done\n```\n\nIf the inbox grows beyond a threshold, the handler can:\n- Increase poll frequency\n- Process items in parallel (within a page)\n- Alert the operator\n- Drop items older than a TTL\n\n### Multiple Listeners Per Inbox\n\nMultiple listener instances can share an inbox if they coordinate:\n\n```\n┌────────────┐\n│ Listener 1 │──list(page=1)──>┌──────────┐\n└────────────┘                 │          │\n                               │   Node   │\n┌────────────┐                 │          │\n│ Listener 2 │──list(page=2)──>│          │\n└────────────┘                 └──────────┘\n```\n\nThis requires external coordination (lock service, partitioning) to\nprevent duplicate processing. Simpler: run one listener per inbox and\nscale by adding more inboxes (topic sharding).\n\n---\n\n## Operational Model\n\n### What Operators Need\n\nA production node deployment requires:\n\n```\n┌─────────────────────────────────────────────┐\n│                Deployment                    │\n│                                              │\n│  ┌────────────┐  Environment:               │\n│  │   Node     │  PORT=43100                  │\n│  │  Process   │  CORS_ORIGIN=*               │\n│  │            │  BACKEND_URL=postgres://...   │\n│  └─────┬──────┘                              │\n│        │                                     │\n│  ┌─────▼──────┐  Health:                     │\n│  │  Backend   │  GET /api/v1/health          │\n│  │ (Postgres) │  → { status, uptime, ... }   │\n│  └────────────┘                              │\n│                                              │\n│  ┌────────────┐  Monitoring:                 │\n│  │  Listener  │  Poll interval logs          │\n│  │  Process   │  Message count per cycle     │\n│  │            │  Error rate                   │\n│  └────────────┘  Processing latency          │\n│                                              │\n└─────────────────────────────────────────────┘\n```\n\n### Environment Variables\n\n| Variable           | Purpose                          | Example                         |\n| ------------------ | -------------------------------- | ------------------------------- |\n| `PORT`             | HTTP server port                 | `43100`                         |\n| `CORS_ORIGIN`      | Allowed origins                  | `*` or `https://app.example`    |\n| `BACKEND_URL`      | Storage backend connection       | `postgres://user:pass@host/db`  |\n| `VAULT_SECRET`     | Handler-specific secret          | `(random 256-bit hex)`          |\n| `VAULT_SEED`       | Deterministic identity seed      | `(random 256-bit hex)`          |\n| `POLL_INTERVAL_MS` | Listener poll frequency          | `5000`                          |\n| `FIRECAT_URL`      | Remote node URL (for listeners)  | `https://testnet.fire.cat`      |\n\n### Health Checks\n\nThe `/api/v1/health` endpoint returns:\n\n```json\n{\n  \"status\": \"healthy\",\n  \"uptime\": 86400,\n  \"schema\": [\"mutable://open\", \"mutable://accounts\", \"...\"]\n}\n```\n\nFor listeners, health is measured by poll success rate. A listener that\nfails to `list()` for N consecutive cycles should alert.\n\n### Graceful Shutdown\n\n```typescript\n// Node: stop accepting new connections, drain in-flight requests\nprocess.on(\"SIGTERM\", async () => {\n  await node.close();        // stop HTTP server\n  await client.cleanup();    // close DB connections\n});\n\n// Listener: finish current poll cycle, then stop\nconst stop = connection.start();\nprocess.on(\"SIGTERM\", () => {\n  stop();                    // stop polling loop\n});\n```\n\n### Monitoring Hooks\n\nKey metrics to track:\n\n```\nnode_receive_total          ← messages received\nnode_receive_errors         ← validation failures\nnode_read_total             ← read operations\nnode_list_total             ← list operations\nlistener_poll_total         ← poll cycles completed\nlistener_poll_items         ← items found per poll\nlistener_process_duration   ← time to process one message\nlistener_process_errors     ← handler failures\n```\n\n---\n\n## The Vault as Reference Architecture\n\nThe `apps/vault-listener/` is the canonical example of a deployed handler.\nIt demonstrates every pattern in this document.\n\n```\n┌─────────────────────────────────────────────────────────┐\n│                   Vault Listener                         │\n│                                                          │\n│  ┌─────────────────┐    ┌──────────────────────────┐    │\n│  │    connect()     │    │      respondTo()          │    │\n│  │                  │    │                            │    │\n│  │  polls inbox     │───>│  decrypt request           │    │\n│  │  prefix:         │    │  verify OAuth token        │    │\n│  │  inbox/{vault}/  │    │  derive HMAC secret        │    │\n│  │                  │    │  encrypt response           │    │\n│  │  pollInterval:   │    │  sign & write to outbox     │    │\n│  │  5000ms          │    │                            │    │\n│  └─────────────────┘    └──────────────────────────┘    │\n│                                                          │\n│  Identity: deterministic (from VAULT_SEED)               │\n│  Client: HttpClient → remote Firecat node                │\n│  Handler: vault.ts (pure function)                       │\n│                                                          │\n└─────────────────────────────────────────────────────────┘\n```\n\n### What it demonstrates\n\n| Pattern               | Implementation                                        |\n| --------------------- | ----------------------------------------------------- |\n| Remote listener       | `HttpClient` to remote node, `connect()` for polling  |\n| Encrypted boundary    | `respondTo()` wraps handler in encrypt/decrypt         |\n| Deterministic identity| `VAULT_SEED` env var → same keypair on restart        |\n| Stateless handler     | `vault.ts` is a pure function, no database needed     |\n| Inbox convention      | `immutable://inbox/{vaultPubkey}/...`                 |\n| Outbox convention     | Writes response to `immutable://inbox/{clientPubkey}/`|\n| Graceful lifecycle    | Signal handling, poll loop stop                       |\n\n### Deploying Your Own Handler\n\nFollow the vault pattern:\n\n1. **Write the handler** — A function `(req: T) => Promise<U>`\n2. **Wrap with `respondTo()`** — Adds crypto boundary\n3. **Connect with `connect()`** — Adds transport (poll or push)\n4. **Configure identity** — Deterministic (seed) or ephemeral (random)\n5. **Set environment** — Node URL, secrets, poll interval\n6. **Deploy** — Docker, Deno Deploy, bare metal — the handler doesn't care\n\n```typescript\n// minimal handler deployment\nimport { connect, respondTo } from \"@bandeira-tech/b3nd-sdk/listener\";\nimport { HttpClient } from \"@bandeira-tech/b3nd-sdk\";\nimport * as encrypt from \"@bandeira-tech/b3nd-sdk/encrypt\";\n\nconst client = new HttpClient({ url: Deno.env.get(\"FIRECAT_URL\")! });\nconst identity = await encrypt.generateSigningKeyPair();\n\nconst processor = respondTo(\n  async (req: { action: string }) => {\n    return { result: `processed: ${req.action}` };\n  },\n  { identity, client },\n);\n\nconst conn = connect(client, {\n  prefix: `immutable://inbox/${identity.publicKeyHex}/`,\n  processor,\n  pollIntervalMs: 5000,\n});\n\nconst stop = conn.start();\nconsole.log(`Listening as ${identity.publicKeyHex}`);\n\nDeno.addSignalListener(\"SIGTERM\", () => stop());\n```\n",
+  "sections": [
+    {
+      "id": "node-requirements-for-handler-support",
+      "title": "Node Requirements for Handler Support",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "deployment-topologies",
+      "title": "Deployment Topologies",
+      "level": 2,
+      "children": [
+        {
+          "id": "single-node-embedded-handler",
+          "title": "Single Node + Embedded Handler",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "node-remote-listener",
+          "title": "Node + Remote Listener",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "node-cluster-shared-listeners",
+          "title": "Node Cluster + Shared Listeners",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "peer-replication-local-handlers",
+          "title": "Peer Replication + Local Handlers",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "inbox-outbox-convention",
+      "title": "Inbox / Outbox Convention",
+      "level": 2,
+      "children": [
+        {
+          "id": "uri-patterns",
+          "title": "URI Patterns",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "discovery-pattern",
+          "title": "Discovery Pattern",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "cleanup-strategies",
+          "title": "Cleanup Strategies",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "topic-namespacing",
+          "title": "Topic Namespacing",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "scaling-considerations",
+      "title": "Scaling Considerations",
+      "level": 2,
+      "children": [
+        {
+          "id": "message-queuing-via-uri-space",
+          "title": "Message Queuing via URI Space",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "backpressure",
+          "title": "Backpressure",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "multiple-listeners-per-inbox",
+          "title": "Multiple Listeners Per Inbox",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "operational-model",
+      "title": "Operational Model",
+      "level": 2,
+      "children": [
+        {
+          "id": "what-operators-need",
+          "title": "What Operators Need",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "environment-variables",
+          "title": "Environment Variables",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "health-checks",
+          "title": "Health Checks",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "graceful-shutdown",
+          "title": "Graceful Shutdown",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "monitoring-hooks",
+          "title": "Monitoring Hooks",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "the-vault-as-reference-architecture",
+      "title": "The Vault as Reference Architecture",
+      "level": 2,
+      "children": [
+        {
+          "id": "what-it-demonstrates",
+          "title": "What it demonstrates",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "deploying-your-own-handler",
+          "title": "Deploying Your Own Handler",
+          "level": 3,
+          "children": []
+        }
+      ]
+    }
+  ]
+}

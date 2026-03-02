@@ -1,0 +1,43 @@
+{
+  "key": "05-the-limits-of-presence",
+  "title": "5. The Limits of Presence",
+  "markdown": "# 5. The Limits of Presence\n\nEverything in the first four chapters runs on air.\n\nAlice and Bob decide on dinner — face to face. The politician speaks at the podium — in a room full of listeners. The doctor prescribes medicine — patient sitting across the desk. Carol witnesses the handshake — standing right there.\n\nAir is a beautiful medium. It's immediate. It carries tone, emotion, nuance. It lets you see the speaker's face, read their body language, respond in real time. For thousands of years, it was the only medium humans had.\n\nBut air has physics. And those physics have limits.\n\n## Air Dissipates\n\nSound fades. What was said at dinner last Tuesday? You remember the gist, but the exact words are gone. Was the agreement \"I'll pay you back next week\" or \"I'll pay you back next month\"? Neither party can be certain. The medium erases itself.\n\nFor casual agreements, that's fine. For a business deal, a treaty, a promise that must hold for decades — it's fatal. The medium's ephemerality means that agreements degrade over time. Witnesses forget. Details blur. Disputes become irresolvable because nobody has the original words.\n\nThis is not a flaw. It's physics. Sound is a compression wave in air. It propagates, reflects, and dissipates. It does not persist. No amount of wanting it to persist will change this.\n\n## Air Doesn't Travel Far\n\nAlice is in Lisbon. Bob is in Tokyo. They need to make a deal.\n\nAir can't carry the message. The medium's range is a room. Maybe a hillside if you shout. Maybe a few miles if you use drums or horns. But the Atlantic Ocean is 5,500 kilometers, and air doesn't bridge it.\n\nEvery face-to-face protocol in Chapters 1 through 4 assumes the parties are in the same room. When they're not, the protocol breaks. You can't propose, counter-propose, and converge on an agreement if you can't hear each other.\n\n## Air Can't Address\n\nYou can speak to a crowd, but you can't direct your voice to one specific person across town. The medium has no routing. Sound goes outward from you in all directions. Everyone nearby hears it — whether they're the intended audience or not.\n\nIf you want to send a private message to one person who isn't in the room, air alone can't do it. You could shout their name, but that also announces to everyone else that you have a message for them. The medium has no concept of \"addressed delivery.\"\n\n## Air Reveals Everything Nearby\n\nYou can whisper, but anyone close enough will hear. You can close a door, but that only works if you have a room. If you're in an open space, a crowd, a marketplace — privacy requires physical distance from everyone you don't want to hear.\n\nThe medium has no built-in selective privacy. It doesn't have \"channels\" or \"addressed envelopes.\" Everything within earshot is public, and the boundary of earshot is fuzzy and unreliable.\n\n## The Physics Force the Invention\n\nEach of these limits is a physics problem. And each one forces the invention of a corresponding solution — not because someone clever designed it, but because communication must continue even when air fails.\n\n| Air's limit | The problem | The forced invention |\n|---|---|---|\n| **Dissipation** | Agreements degrade over time | **Writing** — mark the words on something that persists |\n| **Limited range** | Parties aren't in the same room | **Carriers** — give the message to something that travels: a runner, a horse, a ship |\n| **No addressing** | Can't direct a message to a specific person far away | **Addresses** — label the message with who it's for, so the carrier knows where to take it |\n| **No selective privacy** | Everyone nearby hears everything | **Seals and encryption** — make the content readable only by the intended recipient |\n\nThese inventions aren't technology for its own sake. They are the minimum viable answers to: \"how do I keep having this conversation when the person isn't in front of me?\"\n\nYou don't write a letter because writing is better than talking. You write because the person isn't in front of you.\n\nYou don't sign a document because signatures are fun. You sign because the agreement needs to outlast the handshake — and the medium of air won't preserve it.\n\nYou don't seal an envelope because you enjoy wax. You seal it because the medium of paper passes through hands you don't control, and you need the content to stay private.\n\nYou don't use a computer because it's simpler. You use it because 10,000 people can't stand in the same room, and you need the conversation to happen at global scale in real time.\n\nEvery \"technology\" in this book is an answer to the same question: **how do I have this conversation when the current medium can no longer carry it?**\n\n## The Pivot\n\nThis is the pivot of the book.\n\nIn Part I, we established the human foundations: agreement, trust, identity, witnesses, formality. All in spoken dialogue. All face to face.\n\nFrom here forward, every chapter walks the three-layer stack. Each concept starts in speech, moves to paper, and arrives at digital. The pattern repeats:\n\n1. Here's how it works when you're in the room (speech, air)\n2. Here's what changes when the message must travel (paper, physical carriers)\n3. Here's what changes again when the message must be instant and global (digital, networks)\n\nThe conversation stays the same. Alice and Bob still need to agree on dinner. Carol still needs to witness. The doctor still needs to prescribe. The politician still needs to commit.\n\nWhat changes is the medium. And from the medium's physics — its gifts and its limits — emerge every protocol feature you'll encounter in the rest of this book. Addresses, signatures, encryption, inboxes, consensus chains, validators, confirmers, nodes. Each one is a solution to a specific limit of a specific medium.\n\nNot arbitrary. Not invented. Forced.\n\nTurn the page. The medium changes. The message is born.\n",
+  "sections": [
+    {
+      "id": "air-dissipates",
+      "title": "Air Dissipates",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "air-doesn-t-travel-far",
+      "title": "Air Doesn't Travel Far",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "air-can-t-address",
+      "title": "Air Can't Address",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "air-reveals-everything-nearby",
+      "title": "Air Reveals Everything Nearby",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "the-physics-force-the-invention",
+      "title": "The Physics Force the Invention",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "the-pivot",
+      "title": "The Pivot",
+      "level": 2,
+      "children": []
+    }
+  ]
+}

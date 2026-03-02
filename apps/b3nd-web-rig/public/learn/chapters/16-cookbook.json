@@ -1,0 +1,97 @@
+{
+  "key": "16-cookbook",
+  "title": "16. Cookbook",
+  "markdown": "# 16. Cookbook\n\nEach recipe follows the three-layer scaffold one final time: first the speech version, then the paper version, then the b3nd code. By now, the pattern is familiar — and the code should feel like the natural last step.\n\n---\n\n## 1. The Public Bulletin Board\n\n**In speech:** Stand in the town square and say something for everyone to hear.\n\n**In paper:** Pin a note to the community board.\n\n**In b3nd:**\n\n```typescript\nimport { HttpClient } from \"@bandeira-tech/b3nd-sdk\";\n\nconst client = new HttpClient({ url: \"https://testnet-evergreen.fire.cat\" });\n\n// Post a public note\nawait client.receive([\n  \"mutable://open/my-app/announcements/hello\",\n  { text: \"Hello everyone!\", postedAt: Date.now() }\n]);\n\n// Anyone can read it\nconst result = await client.read(\"mutable://open/my-app/announcements/hello\");\nconsole.log(result.record?.data);\n// → { text: \"Hello everyone!\", postedAt: 1708700000000 }\n\n// Anyone can browse all announcements\nconst list = await client.list(\"mutable://open/my-app/announcements/\");\n```\n\nNo signature needed. No identity required. Open address, open content. Like a public chalkboard.\n\n---\n\n## 2. The Private Journal\n\n**In speech:** Think to yourself. The conversation is internal — no medium carries it anywhere.\n\n**In paper:** Write in a locked diary. Only you have the key.\n\n**In b3nd:**\n\n```typescript\nimport * as encrypt from \"@bandeira-tech/b3nd-sdk/encrypt\";\n\nconst me = await encrypt.generateSigningKeyPair();\n\n// Encrypt the content so only I can read it\nconst encrypted = await encrypt.encryptData(\n  { thoughts: \"Today was a good day.\", date: \"2025-03-01\" },\n  myEncryptionKey\n);\n\n// Sign it (proves I wrote it) and store at my address\nconst signed = await encrypt.createAuthenticatedMessageWithHex(\n  encrypted,\n  me.publicKeyHex,\n  me.privateKeyHex\n);\n\nawait client.receive([\n  `mutable://accounts/${me.publicKeyHex}/journal/2025-03-01`,\n  signed\n]);\n```\n\nSigned (proves authorship) and encrypted (only you can read it). The node stores an opaque blob. Even if someone reads the address, the content is gibberish without your key.\n\n---\n\n## 3. The Signed Announcement\n\n**In speech:** Stand at the podium, with cameras rolling, and make a statement. Your face is your credential. The recording is the proof.\n\n**In paper:** Publish a sealed proclamation bearing your official seal.\n\n**In b3nd:**\n\n```typescript\nconst announcement = {\n  title: \"New Policy\",\n  body: \"Starting today, all submissions require two endorsements.\",\n  effectiveDate: \"2025-04-01\"\n};\n\nconst signed = await encrypt.createAuthenticatedMessageWithHex(\n  announcement,\n  me.publicKeyHex,\n  me.privateKeyHex\n);\n\nawait client.receive([\n  `mutable://accounts/${me.publicKeyHex}/announcements/new-policy`,\n  signed\n]);\n```\n\nAnyone can read the announcement. Anyone can verify the signature — confirming that the holder of the private key matching `me.publicKeyHex` wrote it. Non-repudiation: the author can't deny they published it.\n\n---\n\n## 4. The Two-Party Handshake\n\n**In speech:** Alice asks a question. Bob answers. A complete exchange.\n\n**In paper:** Alice writes a letter to Bob. Bob writes a reply.\n\n**In b3nd:**\n\n```typescript\n// Alice sends a request to Bob's inbox\nconst request = await encrypt.createAuthenticatedMessageWithHex(\n  { question: \"Can you process order #42?\" },\n  alice.publicKeyHex,\n  alice.privateKeyHex\n);\n\nawait client.receive([\n  `immutable://inbox/${bob.publicKeyHex}/orders/${Date.now()}`,\n  request\n]);\n\n// Bob checks his inbox\nconst items = await client.list(`immutable://inbox/${bob.publicKeyHex}/orders/`);\n\n// Bob reads the request\nconst msg = await client.read(items.data[0].uri);\n\n// Bob sends a reply to Alice's inbox\nconst response = await encrypt.createAuthenticatedMessageWithHex(\n  { answer: \"Order #42 confirmed.\", orderId: 42 },\n  bob.publicKeyHex,\n  bob.privateKeyHex\n);\n\nawait client.receive([\n  `immutable://inbox/${alice.publicKeyHex}/confirmations/${Date.now()}`,\n  response\n]);\n\n// Cleanup\nawait client.delete(items.data[0].uri);\n```\n\nTwo messages. Two inboxes. A complete request-response dialogue.\n\n---\n\n## 5. The Inbox Service\n\n**In speech:** Hire a receptionist who sits at a desk, takes requests, and gives answers.\n\n**In paper:** Open a correspondence office with a mailing address and staff who read and reply to letters.\n\n**In b3nd:**\n\n```typescript\nimport { connect, respondTo } from \"@bandeira-tech/b3nd-sdk/listener\";\n\nconst serviceIdentity = await encrypt.generateSigningKeyPair();\n\n// The handler: a function that takes a request and returns a response\nconst processor = respondTo(\n  async (request: { action: string; data: unknown }) => {\n    switch (request.action) {\n      case \"lookup\":\n        return { found: true, record: \"some-data\" };\n      case \"status\":\n        return { status: \"operational\", uptime: process.uptime() };\n      default:\n        return { error: \"Unknown action\" };\n    }\n  },\n  { identity: serviceIdentity, client }\n);\n\n// Start checking the inbox every 5 seconds\nconst connection = connect(client, {\n  prefix: `immutable://inbox/${serviceIdentity.publicKeyHex}/`,\n  processor,\n  pollIntervalMs: 5000\n});\n\nconnection.start();\nconsole.log(`Service listening at: ${serviceIdentity.publicKeyHex}`);\n```\n\nThe service is a clerk. `connect()` means \"start checking the mailbox.\" `respondTo()` means \"when you get a letter, open it, do the work, seal the reply, and mail it back.\" The handler function is what the clerk actually does.\n\n---\n\n## 6. The Notarized Agreement\n\n**In speech:** Alice and Bob make a deal. Carol witnesses it.\n\n**In paper:** Alice and Bob sign a contract. A notary stamps it.\n\n**In b3nd:**\n\n```typescript\n// Alice signs a proposal\nconst proposal = await encrypt.createAuthenticatedMessageWithHex(\n  { type: \"trade\", offer: \"50 tokens\", wants: \"document-xyz\" },\n  alice.publicKeyHex,\n  alice.privateKeyHex\n);\n\n// Bob counter-signs (accepting the proposal)\nconst acceptance = await encrypt.createAuthenticatedMessageWithHex(\n  { type: \"acceptance\", proposal: proposal, accepted: true },\n  bob.publicKeyHex,\n  bob.privateKeyHex\n);\n\n// A validator (Carol) endorses the agreement\nconst endorsement = await encrypt.createAuthenticatedMessageWithHex(\n  { type: \"endorsement\", agreement: acceptance, valid: true },\n  carol.publicKeyHex,\n  carol.privateKeyHex\n);\n\n// File the endorsed agreement permanently\nconst hash = await computeSha256(JSON.stringify(endorsement));\nawait client.receive([`hash://sha256/${hash}`, endorsement]);\n```\n\nThree layers: proposal, acceptance, endorsement. Each wraps the previous. The hash address makes the final record permanent and self-verifying.\n\n---\n\n## 7. The Consensus Chain\n\n**In speech:** Town hall vote — propose, debate, vote, declare.\n\n**In paper:** Bill passes through committee, floor vote, executive signature.\n\n**In b3nd:**\n\n```typescript\n// Step 1: User submits a transaction\nconst submission = await encrypt.createAuthenticatedMessageWithHex(\n  { action: \"transfer\", from: alice.publicKeyHex, to: bob.publicKeyHex, amount: 100 },\n  alice.publicKeyHex,\n  alice.privateKeyHex\n);\n\nawait client.receive([\n  `immutable://inbox/${validatorKey}/submissions/${Date.now()}`,\n  submission\n]);\n\n// Step 2: Validator endorses (wraps the submission)\nconst endorsement = await encrypt.createAuthenticatedMessageWithHex(\n  { type: \"validation\", submission: submission, checks: \"passed\" },\n  validatorKey,\n  validatorPrivateKey\n);\n\nawait client.receive([\n  `immutable://inbox/${confirmerKey}/endorsements/${Date.now()}`,\n  endorsement\n]);\n\n// Step 3: Confirmer finalizes (wraps the endorsement)\nconst confirmation = await encrypt.createAuthenticatedMessageWithHex(\n  { type: \"confirmation\", endorsement: endorsement, finalized: true },\n  confirmerKey,\n  confirmerPrivateKey\n);\n\n// File permanently with hash chain reference\nconst hash = await computeSha256(JSON.stringify(confirmation));\nawait client.receive([`hash://sha256/${hash}`, confirmation]);\n\n// Update the chain head pointer\nawait client.receive([\n  `link://accounts/${confirmerKey}/chain/latest`,\n  { ref: `hash://sha256/${hash}` }\n]);\n```\n\nUser → validator → confirmer. Nested envelopes. Hash-addressed permanent record. Link pointer to the latest entry. A full consensus chain in a few message exchanges.\n\n---\n\n## 8. The Atomic Trade\n\n**In speech:** Simultaneous handshake exchange.\n\n**In paper:** Escrow contract.\n\n**In b3nd:**\n\n```typescript\nimport { send } from \"@bandeira-tech/b3nd-sdk\";\n\nawait send({\n  payload: {\n    inputs: [\n      `mutable://accounts/${alice.publicKeyHex}/tokens/50`,\n      `mutable://accounts/${bob.publicKeyHex}/documents/xyz`,\n    ],\n    outputs: [\n      [`mutable://accounts/${bob.publicKeyHex}/tokens/50`,\n        await encrypt.createAuthenticatedMessageWithHex(\n          { amount: 50 }, alice.publicKeyHex, alice.privateKeyHex\n        )],\n      [`mutable://accounts/${alice.publicKeyHex}/documents/xyz`,\n        await encrypt.createAuthenticatedMessageWithHex(\n          { document: \"xyz-content\" }, bob.publicKeyHex, bob.privateKeyHex\n        )],\n    ],\n  },\n}, client);\n```\n\nOne envelope. Both sides. Either both succeed or neither does. The node is the escrow — it validates the signatures, checks conservation, and executes atomically.\n\n---\n\n## 9. The Audit Trail\n\n**In speech:** \"Everyone heard the vote — we all remember.\"\n\n**In paper:** Paper trail in the archive.\n\n**In b3nd:**\n\n```typescript\n// Each event references the previous one\nlet previousHash = null;\n\nasync function recordEvent(event: Record<string, unknown>) {\n  const entry = {\n    ...event,\n    previous: previousHash,\n    timestamp: Date.now()\n  };\n\n  const hash = await computeSha256(JSON.stringify(entry));\n  await client.receive([`hash://sha256/${hash}`, entry]);\n\n  // Update the pointer\n  previousHash = hash;\n  await client.receive([\n    `link://accounts/${auditorKey}/trail/latest`,\n    { ref: `hash://sha256/${hash}` }\n  ]);\n\n  return hash;\n}\n\n// Usage\nawait recordEvent({ action: \"account-created\", user: \"alice\" });\nawait recordEvent({ action: \"deposit\", user: \"alice\", amount: 100 });\nawait recordEvent({ action: \"transfer\", from: \"alice\", to: \"bob\", amount: 50 });\n```\n\nEach event stores the hash of the previous event. Walk backward from \"latest\" to verify the entire chain. Alter any event and the hashes break.\n\n---\n\n## 10. Start a New Post Office\n\n**In speech:** Open a new office and hire a clerk.\n\n**In paper:** Commission a postal branch with sorting rooms and delivery routes.\n\n**In b3nd:**\n\n```typescript\nimport { createServerNode, MemoryClient, servers } from \"@bandeira-tech/b3nd-sdk\";\nimport { Hono } from \"hono\";\n\nconst schema = {\n  \"mutable://open\": { type: \"mutable\", access: \"open\" },\n  \"mutable://accounts\": { type: \"mutable\", access: \"accounts\" },\n  \"immutable://inbox\": { type: \"immutable\", access: \"inbox\" },\n  \"hash://sha256\": { type: \"hash\", access: \"open\" },\n};\n\nconst client = new MemoryClient({ schema });\nconst app = new Hono();\nconst frontend = servers.httpServer(app);\nconst node = createServerNode({ frontend, client });\n\nnode.listen(43100);\nconsole.log(\"Post office open on port 43100\");\n```\n\nA node is a post office. The schema is the house rules. `listen()` means \"open the doors.\" Thirteen lines of code.\n\n---\n\n## 11. Go Back in Time\n\n**In speech:** \"Let's start over from what we agreed on Tuesday.\"\n\n**In paper:** Re-read the minutes from a specific meeting and restart from there.\n\n**In b3nd:**\n\n```typescript\n// Find the last known good state\nconst trail = await client.read(`link://accounts/${auditorKey}/trail/latest`);\nlet cursor = trail.record?.data.ref;\n\n// Walk backward to find the checkpoint\nwhile (cursor) {\n  const entry = await client.read(cursor);\n  if (entry.record?.data.type === \"checkpoint\") {\n    console.log(\"Found checkpoint:\", entry.record.data);\n    break;\n  }\n  cursor = entry.record?.data.previous\n    ? `hash://sha256/${entry.record.data.previous}`\n    : null;\n}\n\n// Replay messages from the checkpoint forward\n// (Application-specific: re-process each event after the checkpoint)\n```\n\nThe message history IS the state. To rollback, walk the chain to the desired point and reprocess.\n\n---\n\n## 12. Ask Two Clerks the Same Question\n\n**In speech:** Ask two people the same question and compare answers.\n\n**In paper:** Send the same letter to two offices and compare replies.\n\n**In b3nd:**\n\n```typescript\nconst nodeA = new HttpClient({ url: \"https://node-a.example.com\" });\nconst nodeB = new HttpClient({ url: \"https://node-b.example.com\" });\n\n// Send the same message to both\nconst message = [\"mutable://open/test/consistency-check\", { value: 42 }];\nconst [resultA, resultB] = await Promise.all([\n  nodeA.receive(message),\n  nodeB.receive(message),\n]);\n\n// Read from both and compare\nconst [readA, readB] = await Promise.all([\n  nodeA.read(\"mutable://open/test/consistency-check\"),\n  nodeB.read(\"mutable://open/test/consistency-check\"),\n]);\n\nconsole.log(\"Consistent:\", JSON.stringify(readA.record?.data) === JSON.stringify(readB.record?.data));\n```\n\nSame input, two nodes. Compare outputs. If they disagree, investigate.\n\n---\n\n## 13. Forward All Mail\n\n**In speech:** \"Repeat everything I say to the person in the next room.\"\n\n**In paper:** CC every letter to a second address.\n\n**In b3nd:**\n\n```typescript\nimport { parallelBroadcast, firstMatchSequence, createValidatedClient } from \"@bandeira-tech/b3nd-sdk\";\n\nconst primary = new HttpClient({ url: \"https://primary.example.com\" });\nconst replica = new HttpClient({ url: \"https://replica.example.com\" });\n\n// Every write goes to both. Reads try primary first.\nconst client = createValidatedClient({\n  receive: parallelBroadcast([primary, replica]),\n  read: firstMatchSequence([primary, replica]),\n});\n\n// Use normally — replication is automatic\nawait client.receive([\"mutable://open/data/item1\", { value: \"hello\" }]);\n// Both nodes now have the message\n```\n\nEvery message is forwarded. If the primary goes down, the replica has the full conversation.\n\n---\n\n## 14. The Authentication Conversation\n\n**In speech:** \"Show your face.\" Guard recognizes you. Door opens.\n\n**In paper:** \"Show your letter of introduction.\" Guard inspects the seal. Door opens.\n\n**In b3nd:**\n\n```typescript\n// Step 1: Derive identity from credentials (client-side, no server)\nconst salt = `my-app-${username}`;\nconst seed = await encrypt.deriveKeyFromSeed(password, salt, 100000);\nconst signingKeys = await encrypt.deriveSigningKeyPairFromSeed(seed);\nconst encryptionKeys = await encrypt.deriveEncryptionKeyPairFromSeed(seed);\n\n// The public key IS the identity — same credentials always produce the same keys\nconsole.log(\"My identity:\", signingKeys.publicKeyHex);\n\n// Step 2: Write to your address (signed — proves you hold the key)\nconst profile = await encrypt.createAuthenticatedMessageWithHex(\n  { name: \"Alice\", bio: \"Hello!\" },\n  signingKeys.publicKeyHex,\n  signingKeys.privateKeyHex\n);\n\nawait client.receive([\n  `mutable://accounts/${signingKeys.publicKeyHex}/profile`,\n  profile\n]);\n\n// The node verifies: the signature matches the public key in the address.\n// Identity proven. No server, no database, no session. Just a key and a signature.\n```\n\nSame credentials → same key → same identity. Every time. No server stores your password. No database stores your keys. The key IS you. The signature IS your face in the digital room.\n\n---\n\n## The Pattern, One Last Time\n\nEvery recipe followed the same scaffold:\n\n1. Here's the conversation in speech — face to face, intuitive\n2. Here's the conversation in paper — traveling through carriers, sealed and signed\n3. Here's the conversation in b3nd — typed into code, but recognizable as the same dialogue\n\nThe code is not the point. The conversation is the point. The code is just how you type the conversation into a machine.\n\nIf you can read these recipes and follow the three-layer progression, you can build anything on b3nd. Because anything you build is just a conversation — and you've been having conversations your entire life.\n",
+  "sections": [
+    {
+      "id": "1-the-public-bulletin-board",
+      "title": "1. The Public Bulletin Board",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "2-the-private-journal",
+      "title": "2. The Private Journal",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "3-the-signed-announcement",
+      "title": "3. The Signed Announcement",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "4-the-two-party-handshake",
+      "title": "4. The Two-Party Handshake",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "5-the-inbox-service",
+      "title": "5. The Inbox Service",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "6-the-notarized-agreement",
+      "title": "6. The Notarized Agreement",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "7-the-consensus-chain",
+      "title": "7. The Consensus Chain",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "8-the-atomic-trade",
+      "title": "8. The Atomic Trade",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "9-the-audit-trail",
+      "title": "9. The Audit Trail",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "10-start-a-new-post-office",
+      "title": "10. Start a New Post Office",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "11-go-back-in-time",
+      "title": "11. Go Back in Time",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "12-ask-two-clerks-the-same-question",
+      "title": "12. Ask Two Clerks the Same Question",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "13-forward-all-mail",
+      "title": "13. Forward All Mail",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "14-the-authentication-conversation",
+      "title": "14. The Authentication Conversation",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "the-pattern-one-last-time",
+      "title": "The Pattern, One Last Time",
+      "level": 2,
+      "children": []
+    }
+  ]
+}
