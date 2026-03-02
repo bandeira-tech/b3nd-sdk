@@ -1,26 +1,32 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState } from "react";
 import { ArrowLeft, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
-import { TIER_ORDER, booksByTier, findBook } from "./skillContent";
-import { parseSkillSections, type SkillSection } from "./parseSkillSections";
+import {
+  TIER_ORDER, booksByTier, findBook,
+  type LearnCatalog, type LearnSection, type LearnChapterMeta,
+} from "./skillContent";
 import { useLearnStore } from "./useLearnStore";
+import { useRead } from "./useRead";
+
+const CATALOG_URI = "mutable://open/rig/learn/catalog";
 
 export function LearnLeftSlot() {
   const activeBook = useLearnStore((s) => s.activeBook);
+  const { data: catalog } = useRead<LearnCatalog>(CATALOG_URI);
 
-  return (
-    <div className="h-full flex flex-col">
-      {activeBook === null ? <IndexMode /> : <ReaderMode />}
-    </div>
-  );
+  if (!catalog) return null;
+  if (!activeBook) return <IndexMode catalog={catalog} />;
+
+  const book = findBook(catalog.books, activeBook);
+  if (!book) return null;
+
+  return <BookReaderMode book={book} />;
 }
 
 /* -- Index Mode ---------------------------------------------------------- */
 
-function IndexMode() {
+function IndexMode({ catalog }: { catalog: LearnCatalog }) {
   const openBook = useLearnStore((s) => s.openBook);
-  const catalog = useLearnStore((s) => s.catalog);
-  const books = catalog?.books ?? [];
 
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(
     () => new Set(TIER_ORDER.map((t) => t.label)),
@@ -36,7 +42,7 @@ function IndexMode() {
   };
 
   return (
-    <>
+    <div className="h-full flex flex-col">
       <div className="p-3 border-b border-border bg-card flex items-center gap-2">
         <BookOpen className="w-4 h-4 text-primary" />
         <span className="text-sm font-medium">Learn</span>
@@ -44,11 +50,11 @@ function IndexMode() {
 
       <div className="flex-1 overflow-auto custom-scrollbar py-1">
         {TIER_ORDER.map((tier) => {
-          const tierBooks = booksByTier(books, tier.id);
+          const tierBooks = booksByTier(catalog.books, tier.id);
           if (tierBooks.length === 0) return null;
 
           return (
-            <TierGroup
+            <CollapsibleGroup
               key={tier.id}
               label={tier.label}
               expanded={expandedTiers.has(tier.label)}
@@ -64,15 +70,130 @@ function IndexMode() {
                   <span className="text-[10px] text-muted-foreground truncate">{book.description}</span>
                 </button>
               ))}
-            </TierGroup>
+            </CollapsibleGroup>
           );
         })}
       </div>
-    </>
+    </div>
   );
 }
 
-function TierGroup({
+/* -- Book Reader Mode ---------------------------------------------------- */
+/* Unified: all books are chapter-based. Single-chapter books show sections directly. */
+
+function BookReaderMode({ book }: { book: { key: string; label: string; chapters: LearnChapterMeta[] } }) {
+  const activeChapter = useLearnStore((s) => s.activeChapter);
+  const closeBook = useLearnStore((s) => s.closeBook);
+  const closeChapter = useLearnStore((s) => s.closeChapter);
+  const openChapter = useLearnStore((s) => s.openChapter);
+  const activeSectionId = useLearnStore((s) => s.activeSectionId);
+
+  const isSingleChapter = book.chapters.length === 1;
+  const parts = groupByPart(book.chapters);
+
+  // When a chapter is active, use its sections from the catalog metadata
+  const chapterMeta = activeChapter ? book.chapters.find((c) => c.key === activeChapter) : null;
+  const chapterSections = chapterMeta?.sections ?? [];
+  const activeIds = resolveActiveIds(activeSectionId, chapterSections);
+
+  const [expandedParts, setExpandedParts] = useState<Set<string>>(
+    () => new Set(parts.map(([name]) => name)),
+  );
+
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    () => new Set(chapterSections.map((s) => s.id)),
+  );
+
+  const togglePart = (name: string) => {
+    setExpandedParts((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const toggleSection = (id: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Back button: single-chapter books always go to index; multi-chapter
+  // goes to chapter list if viewing a chapter, or index if at chapter list
+  const onBack = () => {
+    if (isSingleChapter || !activeChapter) closeBook();
+    else closeChapter();
+  };
+
+  const backLabel = (isSingleChapter || !activeChapter) ? "All Books" : book.label;
+  const heading = chapterMeta?.title ?? book.label;
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="border-b border-border bg-card">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>{backLabel}</span>
+        </button>
+        <div className="px-3 pb-2">
+          <span className="text-sm font-medium text-foreground">{heading}</span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto custom-scrollbar">
+        {activeChapter ? (
+          /* Section navigation within the active chapter */
+          chapterSections.map((section) => (
+            <SectionNavItem
+              key={section.id}
+              section={section}
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+              activeIds={activeIds}
+            />
+          ))
+        ) : (
+          /* Chapter list grouped by part */
+          parts.map(([partName, partChapters]) => (
+            <CollapsibleGroup
+              key={partName}
+              label={partName}
+              expanded={expandedParts.has(partName)}
+              onToggle={() => togglePart(partName)}
+            >
+              {partChapters.map((ch) => (
+                <button
+                  key={ch.key}
+                  onClick={() => openChapter(ch.key)}
+                  className={cn(
+                    "w-full flex items-center gap-2 pl-6 pr-3 py-2 text-xs transition-colors",
+                    "hover:bg-accent/50 text-foreground",
+                  )}
+                >
+                  <span className="text-muted-foreground/50 font-mono w-4 text-right shrink-0 text-[10px]">
+                    {ch.number}
+                  </span>
+                  <span className="truncate font-medium">{ch.title}</span>
+                </button>
+              ))}
+            </CollapsibleGroup>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* -- Shared Components --------------------------------------------------- */
+
+function CollapsibleGroup({
   label,
   expanded,
   onToggle,
@@ -101,110 +222,25 @@ function TierGroup({
   );
 }
 
-/* -- Reader Mode --------------------------------------------------------- */
-
-function ReaderMode() {
-  const activeBook = useLearnStore((s) => s.activeBook)!;
-  const closeBook = useLearnStore((s) => s.closeBook);
-  const activeSectionId = useLearnStore((s) => s.activeSectionId);
-  const catalog = useLearnStore((s) => s.catalog);
-
-  const book = useMemo(() => findBook(catalog?.books ?? [], activeBook), [catalog, activeBook]);
-  const sections = useMemo(() => parseSkillSections(book?.markdown ?? ""), [book]);
-
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    () => new Set(sections.map((s) => s.id)),
-  );
-
-  useEffect(() => {
-    setExpandedSections(new Set(sections.map((s) => s.id)));
-  }, [sections]);
-
-  const toggleSection = (id: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const scrollToSection = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const activeIds = useMemo(() => {
-    const ids = new Set<string>();
-    if (!activeSectionId) return ids;
-    ids.add(activeSectionId);
-    for (const section of sections) {
-      if (section.id === activeSectionId) {
-        ids.add(section.id);
-        break;
-      }
-      for (const child of section.children) {
-        if (child.id === activeSectionId) {
-          ids.add(section.id);
-          ids.add(child.id);
-          break;
-        }
-      }
-    }
-    return ids;
-  }, [activeSectionId, sections]);
-
-  return (
-    <>
-      {/* Back button + book title */}
-      <div className="border-b border-border bg-card">
-        <button
-          onClick={closeBook}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>All Books</span>
-        </button>
-        <div className="px-3 pb-2">
-          <span className="text-sm font-medium text-foreground">{book?.label ?? activeBook}</span>
-        </div>
-      </div>
-
-      {/* Section navigation tree */}
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        {sections.map((section) => (
-          <SectionNavItem
-            key={section.id}
-            section={section}
-            expandedSections={expandedSections}
-            toggleSection={toggleSection}
-            scrollToSection={scrollToSection}
-            activeIds={activeIds}
-          />
-        ))}
-      </div>
-    </>
-  );
-}
-
-/* -- Section Nav Item ---------------------------------------------------- */
-
 function SectionNavItem({
   section,
   expandedSections,
   toggleSection,
-  scrollToSection,
   activeIds,
 }: {
-  section: SkillSection;
+  section: LearnSection;
   expandedSections: Set<string>;
   toggleSection: (id: string) => void;
-  scrollToSection: (id: string) => void;
   activeIds: Set<string>;
 }) {
   const isExpanded = expandedSections.has(section.id);
   const hasChildren = section.children.length > 0;
   const isActive = activeIds.has(section.id);
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div>
@@ -233,24 +269,53 @@ function SectionNavItem({
 
       {hasChildren && isExpanded && (
         <div>
-          {section.children.map((child) => {
-            const childActive = activeIds.has(child.id);
-            return (
-              <button
-                key={child.id}
-                onClick={() => scrollToSection(child.id)}
-                className={cn(
-                  "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-xs transition-colors",
-                  "hover:bg-accent/50 text-foreground",
-                  childActive && "bg-accent/40 text-primary font-semibold",
-                )}
-              >
-                <span className="truncate">{child.title}</span>
-              </button>
-            );
-          })}
+          {section.children.map((child) => (
+            <button
+              key={child.id}
+              onClick={() => scrollToSection(child.id)}
+              className={cn(
+                "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-xs transition-colors",
+                "hover:bg-accent/50 text-foreground",
+                activeIds.has(child.id) && "bg-accent/40 text-primary font-semibold",
+              )}
+            >
+              <span className="truncate">{child.title}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
   );
+}
+
+/* -- Helpers ------------------------------------------------------------- */
+
+function groupByPart(chapters: LearnChapterMeta[]): [string, LearnChapterMeta[]][] {
+  const map = new Map<string, LearnChapterMeta[]>();
+  for (const ch of chapters) {
+    const list = map.get(ch.part) || [];
+    list.push(ch);
+    map.set(ch.part, list);
+  }
+  return Array.from(map.entries());
+}
+
+function resolveActiveIds(activeSectionId: string | null, sections: LearnSection[]): Set<string> {
+  const ids = new Set<string>();
+  if (!activeSectionId) return ids;
+  ids.add(activeSectionId);
+  for (const section of sections) {
+    if (section.id === activeSectionId) {
+      ids.add(section.id);
+      return ids;
+    }
+    for (const child of section.children) {
+      if (child.id === activeSectionId) {
+        ids.add(section.id);
+        ids.add(child.id);
+        return ids;
+      }
+    }
+  }
+  return ids;
 }

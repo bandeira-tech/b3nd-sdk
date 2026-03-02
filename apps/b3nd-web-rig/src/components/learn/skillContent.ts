@@ -9,14 +9,32 @@ export interface LearnSection {
   children: LearnSection[];
 }
 
+/** Metadata for one chapter inside a book (no markdown). */
+export interface LearnChapterMeta {
+  key: string;
+  number: number;
+  title: string;
+  part: string;
+  sections: LearnSection[];
+  uri: string;
+}
+
+/** Full chapter content, loaded on demand. */
+export interface LearnChapter extends LearnChapterMeta {
+  markdown: string;
+}
+
+/**
+ * A book is always a list of chapters. Single-file books have one chapter.
+ * Multi-file books have many. The data shape is the same.
+ */
 export interface LearnBook {
   key: string;
   title: string;
   label: string;
   description: string;
   tier: string;
-  markdown: string;
-  sections: LearnSection[];
+  chapters: LearnChapterMeta[];
   updatedAt: number;
 }
 
@@ -29,7 +47,7 @@ export interface LearnCatalog {
 // Tier configuration
 // ---------------------------------------------------------------------------
 
-export type LearnTier = "documentation" | "cookbook" | "design" | "proposals";
+export type LearnTier = "guide" | "documentation" | "cookbook" | "design" | "proposals";
 
 export interface TierConfig {
   id: LearnTier;
@@ -37,6 +55,7 @@ export interface TierConfig {
 }
 
 export const TIER_ORDER: TierConfig[] = [
+  { id: "guide", label: "Guides" },
   { id: "documentation", label: "Documentation" },
   { id: "cookbook", label: "Cookbooks" },
   { id: "design", label: "Design" },
