@@ -5,7 +5,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { BookOpen, ChefHat, Compass, Lightbulb, Loader2, Library, ChevronRight } from "lucide-react";
 import {
-  TIER_ORDER, booksByTier, findBook, isChapterBook,
+  TIER_ORDER, booksByTier, findBook,
   type LearnBook, type LearnCatalog, type LearnChapterMeta,
 } from "./skillContent";
 import { useLearnStore } from "./useLearnStore";
@@ -63,8 +63,7 @@ export function LearnLayoutSlot() {
     );
   }
 
-  if (isChapterBook(book)) return <ChapterBookView book={book} />;
-  return <SingleFileReaderView book={book} />;
+  return <BookView book={book} />;
 }
 
 /* -- Index View ---------------------------------------------------------- */
@@ -114,7 +113,7 @@ function BookCard({ book, onClick }: { book: LearnBook; onClick: () => void }) {
         {book.label}
       </span>
       <p className="text-xs text-muted-foreground mt-1">{book.description}</p>
-      {isChapterBook(book) && (
+      {book.chapters.length > 1 && (
         <p className="text-[10px] text-muted-foreground/60 mt-2">
           {book.chapters.length} chapters
         </p>
@@ -123,12 +122,26 @@ function BookCard({ book, onClick }: { book: LearnBook; onClick: () => void }) {
   );
 }
 
-/* -- Chapter Book View --------------------------------------------------- */
+/* -- Book View ----------------------------------------------------------- */
+/* All books are chapter-based. Single-chapter books auto-open their chapter. */
 
-function ChapterBookView({ book }: { book: LearnBook & { chapters: LearnChapterMeta[] } }) {
+function BookView({ book }: { book: LearnBook }) {
   const activeChapter = useLearnStore((s) => s.activeChapter);
+  const openChapter = useLearnStore((s) => s.openChapter);
 
-  if (!activeChapter) return <ChapterIndexView book={book} />;
+  // Single-chapter books: auto-open the only chapter
+  useEffect(() => {
+    if (book.chapters.length === 1 && !activeChapter) {
+      openChapter(book.chapters[0].key);
+    }
+  }, [book.chapters, activeChapter, openChapter]);
+
+  if (!activeChapter) {
+    // Multi-chapter: show chapter index
+    if (book.chapters.length > 1) return <ChapterIndexView book={book} />;
+    // Single-chapter: show loading while auto-open effect fires
+    return null;
+  }
 
   const chapterMeta = book.chapters.find((c) => c.key === activeChapter);
   if (!chapterMeta) {
@@ -142,10 +155,9 @@ function ChapterBookView({ book }: { book: LearnBook & { chapters: LearnChapterM
   return <ChapterReaderView uri={chapterMeta.uri} />;
 }
 
-function ChapterIndexView({ book }: { book: LearnBook & { chapters: LearnChapterMeta[] } }) {
+function ChapterIndexView({ book }: { book: LearnBook }) {
   const openChapter = useLearnStore((s) => s.openChapter);
 
-  // Group chapters by part
   const parts = groupByPart(book.chapters);
 
   return (
@@ -155,9 +167,11 @@ function ChapterIndexView({ book }: { book: LearnBook & { chapters: LearnChapter
 
       {parts.map(([partName, chapters]) => (
         <section key={partName} className="mb-8">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            {partName}
-          </h2>
+          {partName && (
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+              {partName}
+            </h2>
+          )}
           <div className="space-y-1">
             {chapters.map((ch) => (
               <button
@@ -182,7 +196,6 @@ function ChapterIndexView({ book }: { book: LearnBook & { chapters: LearnChapter
 }
 
 /* -- Chapter Reader ------------------------------------------------------ */
-/* Reads chapter content from its URI on demand. */
 
 interface ChapterContent {
   key: string;
@@ -241,51 +254,6 @@ function ChapterReaderView({ uri }: { uri: string }) {
       </div>
     );
   }
-
-  return (
-    <article
-      ref={containerRef}
-      className="max-w-4xl mx-auto px-8 py-6 prose prose-sm dark:prose-invert overflow-y-auto h-full custom-scrollbar skill-prose"
-    >
-      <MarkdownContent content={content} />
-    </article>
-  );
-}
-
-/* -- Single-file Reader -------------------------------------------------- */
-
-function SingleFileReaderView({ book }: { book: LearnBook }) {
-  const setActiveSectionId = useLearnStore((s) => s.setActiveSectionId);
-  const containerRef = useRef<HTMLElement>(null);
-  const content = stripFrontmatter(book.markdown ?? "");
-
-  // Scroll-spy
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const onScroll = () => {
-      const headings = container.querySelectorAll<HTMLElement>("h2[id], h3[id]");
-      const offset = container.getBoundingClientRect().top;
-      let active: string | null = null;
-      for (const h of headings) {
-        if (h.getBoundingClientRect().top - offset <= 40) active = h.id;
-        else break;
-      }
-      setActiveSectionId(active);
-    };
-
-    const timer = setTimeout(onScroll, 100);
-    container.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      clearTimeout(timer);
-      container.removeEventListener("scroll", onScroll);
-    };
-  }, [content, setActiveSectionId]);
-
-  useEffect(() => {
-    containerRef.current?.scrollTo(0, 0);
-  }, [book.key]);
 
   return (
     <article

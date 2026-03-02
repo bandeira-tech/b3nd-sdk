@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
 import {
-  TIER_ORDER, booksByTier, findBook, isChapterBook,
+  TIER_ORDER, booksByTier, findBook,
   type LearnCatalog, type LearnSection, type LearnChapterMeta,
 } from "./skillContent";
 import { useLearnStore } from "./useLearnStore";
@@ -20,8 +20,7 @@ export function LearnLeftSlot() {
   const book = findBook(catalog.books, activeBook);
   if (!book) return null;
 
-  if (isChapterBook(book)) return <ChapterReaderMode book={book} />;
-  return <SingleFileReaderMode book={book} />;
+  return <BookReaderMode book={book} />;
 }
 
 /* -- Index Mode ---------------------------------------------------------- */
@@ -79,67 +78,17 @@ function IndexMode({ catalog }: { catalog: LearnCatalog }) {
   );
 }
 
-/* -- Single-file Reader Mode --------------------------------------------- */
+/* -- Book Reader Mode ---------------------------------------------------- */
+/* Unified: all books are chapter-based. Single-chapter books show sections directly. */
 
-function SingleFileReaderMode({ book }: { book: { key: string; label: string; sections: LearnSection[] } }) {
-  const closeBook = useLearnStore((s) => s.closeBook);
-  const activeSectionId = useLearnStore((s) => s.activeSectionId);
-
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    () => new Set(book.sections.map((s) => s.id)),
-  );
-
-  const toggleSection = (id: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const activeIds = resolveActiveIds(activeSectionId, book.sections);
-
-  return (
-    <div className="h-full flex flex-col">
-      <div className="border-b border-border bg-card">
-        <button
-          onClick={closeBook}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>All Books</span>
-        </button>
-        <div className="px-3 pb-2">
-          <span className="text-sm font-medium text-foreground">{book.label}</span>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        {book.sections.map((section) => (
-          <SectionNavItem
-            key={section.id}
-            section={section}
-            expandedSections={expandedSections}
-            toggleSection={toggleSection}
-            activeIds={activeIds}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* -- Chapter-based Reader Mode ------------------------------------------- */
-
-function ChapterReaderMode({ book }: { book: { key: string; label: string; chapters: LearnChapterMeta[] } }) {
+function BookReaderMode({ book }: { book: { key: string; label: string; chapters: LearnChapterMeta[] } }) {
   const activeChapter = useLearnStore((s) => s.activeChapter);
   const closeBook = useLearnStore((s) => s.closeBook);
   const closeChapter = useLearnStore((s) => s.closeChapter);
   const openChapter = useLearnStore((s) => s.openChapter);
   const activeSectionId = useLearnStore((s) => s.activeSectionId);
 
-  // Group chapters by part
+  const isSingleChapter = book.chapters.length === 1;
   const parts = groupByPart(book.chapters);
 
   // When a chapter is active, use its sections from the catalog metadata
@@ -173,20 +122,28 @@ function ChapterReaderMode({ book }: { book: { key: string; label: string; chapt
     });
   };
 
+  // Back button: single-chapter books always go to index; multi-chapter
+  // goes to chapter list if viewing a chapter, or index if at chapter list
+  const onBack = () => {
+    if (isSingleChapter || !activeChapter) closeBook();
+    else closeChapter();
+  };
+
+  const backLabel = (isSingleChapter || !activeChapter) ? "All Books" : book.label;
+  const heading = chapterMeta?.title ?? book.label;
+
   return (
     <div className="h-full flex flex-col">
       <div className="border-b border-border bg-card">
         <button
-          onClick={activeChapter ? closeChapter : closeBook}
+          onClick={onBack}
           className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>{activeChapter ? book.label : "All Books"}</span>
+          <span>{backLabel}</span>
         </button>
         <div className="px-3 pb-2">
-          <span className="text-sm font-medium text-foreground">
-            {chapterMeta?.title ?? book.label}
-          </span>
+          <span className="text-sm font-medium text-foreground">{heading}</span>
         </div>
       </div>
 

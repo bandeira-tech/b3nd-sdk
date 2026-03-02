@@ -9,7 +9,7 @@ export interface LearnSection {
   children: LearnSection[];
 }
 
-/** Metadata for one chapter inside a multi-chapter book (no markdown). */
+/** Metadata for one chapter inside a book (no markdown). */
 export interface LearnChapterMeta {
   key: string;
   number: number;
@@ -24,31 +24,23 @@ export interface LearnChapter extends LearnChapterMeta {
   markdown: string;
 }
 
+/**
+ * A book is always a list of chapters. Single-file books have one chapter.
+ * Multi-file books have many. The data shape is the same.
+ */
 export interface LearnBook {
   key: string;
   title: string;
   label: string;
   description: string;
   tier: string;
-
-  /** Full markdown — present for single-file books, absent for chapter-based. */
-  markdown?: string;
-  sections: LearnSection[];
-
-  /** Chapter index — present for multi-chapter books. */
-  chapters?: LearnChapterMeta[];
-
+  chapters: LearnChapterMeta[];
   updatedAt: number;
 }
 
 export interface LearnCatalog {
   books: LearnBook[];
   generatedAt: number;
-}
-
-/** Type guard: does this book have chapters (multi-file)? */
-export function isChapterBook(book: LearnBook): book is LearnBook & { chapters: LearnChapterMeta[] } {
-  return Array.isArray(book.chapters) && book.chapters.length > 0;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,14 +1,12 @@
 /**
  * build-learn-books.ts
  *
- * Reads markdown files from skills/b3nd/, docs/proposals/, and docs/book/,
- * builds a LearnCatalog, writes it as static JSON, and optionally uploads
- * to a B3nd node.
+ * Reads markdown sources, builds a LearnCatalog of books where every book
+ * is a list of chapters. Single-file books become one-chapter books.
+ * Multi-file books (docs/book/) become many-chapter books. Same shape.
  *
- * Multi-chapter books (docs/book/) are split into individual chapter files:
- *   - The catalog index contains only chapter metadata (title, sections, URI)
- *   - Each chapter's markdown is written to its own static file and B3nd URI
- *   - The web app loads chapter content on demand
+ * Each chapter's content is stored at its own URI / static file.
+ * The catalog index contains only metadata — no markdown.
  *
  * Usage:
  *   deno run -A apps/b3nd-web-rig/scripts/build-learn-books.ts
@@ -45,15 +43,18 @@ interface ChapterContent {
   sections: Section[];
 }
 
+interface CollectedChapter {
+  meta: ChapterMeta;
+  content: ChapterContent;
+}
+
 interface LearnBook {
   key: string;
   title: string;
   label: string;
   description: string;
   tier: string;
-  markdown?: string;
-  sections: Section[];
-  chapters?: ChapterMeta[];
+  chapters: ChapterMeta[];
   updatedAt: number;
 }
 
@@ -94,7 +95,7 @@ const BOOK_META: Record<string, BookMeta> = {
   "firecat-economic-model.md": { key: "firecat-economic-model", label: "Firecat Economic Model", description: "Full economic vision: subsidies, ads, node operators, DePIN template", tier: "proposals" },
 };
 
-// Part assignments for book chapters (derived from the book structure)
+// Part assignments for multi-chapter book chapters
 const CHAPTER_PARTS: Record<string, string> = {
   "01": "The Conversation",
   "02": "The Conversation",
@@ -115,7 +116,7 @@ const CHAPTER_PARTS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Section parser (mirrors parseSkillSections.ts from the web rig)
+// Section parser
 // ---------------------------------------------------------------------------
 
 function slugify(text: string): string {
@@ -155,10 +156,10 @@ function extractTitle(markdown: string, filename: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Single-file book reading (existing behavior)
+// Single-file book reading — produces a one-chapter book
 // ---------------------------------------------------------------------------
 
-async function readBook(filePath: string, filename: string): Promise<LearnBook | null> {
+async function readSingleFileBook(filePath: string, filename: string): Promise<{ book: LearnBook; chapter: CollectedChapter } | null> {
   const meta = BOOK_META[filename];
   if (!meta) {
     console.warn(`  Skipping unknown file: ${filename}`);
@@ -169,33 +170,43 @@ async function readBook(filePath: string, filename: string): Promise<LearnBook |
   const stat = await Deno.stat(filePath);
   const title = extractTitle(markdown, filename);
   const sections = parseSections(markdown);
+  const uri = `mutable://open/rig/learn/chapters/${meta.key}/${meta.key}`;
 
-  return {
+  const chapterMeta: ChapterMeta = {
+    key: meta.key,
+    number: 1,
+    title,
+    part: "",
+    sections,
+    uri,
+  };
+
+  const book: LearnBook = {
     key: meta.key,
     title,
     label: meta.label,
     description: meta.description,
     tier: meta.tier,
-    markdown,
-    sections,
+    chapters: [chapterMeta],
     updatedAt: stat.mtime?.getTime() ?? Date.now(),
   };
+
+  const chapter: CollectedChapter = {
+    meta: chapterMeta,
+    content: { key: meta.key, title, markdown, sections },
+  };
+
+  return { book, chapter };
 }
 
 // ---------------------------------------------------------------------------
 // Multi-chapter book reading (docs/book/)
 // ---------------------------------------------------------------------------
 
-interface CollectedChapter {
-  meta: ChapterMeta;
-  content: ChapterContent;
-}
-
-async function readChapterBook(): Promise<{ book: LearnBook; chapters: CollectedChapter[] } | null> {
+async function readMultiChapterBook(): Promise<{ book: LearnBook; chapters: CollectedChapter[] } | null> {
   const bookKey = "message-guide";
   const uriBase = `mutable://open/rig/learn/chapters/${bookKey}`;
 
-  // Read README.md for the book-level description
   let readmeMarkdown = "";
   try {
     readmeMarkdown = await Deno.readTextFile(`${BOOK_DIR}/README.md`);
@@ -205,7 +216,6 @@ async function readChapterBook(): Promise<{ book: LearnBook; chapters: Collected
 
   const bookTitle = extractTitle(readmeMarkdown, "README.md") || "What's in a Message";
 
-  // Collect numbered chapter files
   const chapterFiles: string[] = [];
   try {
     for await (const entry of Deno.readDir(BOOK_DIR)) {
@@ -218,8 +228,6 @@ async function readChapterBook(): Promise<{ book: LearnBook; chapters: Collected
   }
 
   if (chapterFiles.length === 0) return null;
-
-  // Sort by filename (01-..., 02-..., etc.)
   chapterFiles.sort();
 
   const chapters: CollectedChapter[] = [];
@@ -233,44 +241,27 @@ async function readChapterBook(): Promise<{ book: LearnBook; chapters: Collected
       latestMtime = stat.mtime.getTime();
     }
 
-    // Extract chapter number from filename (e.g., "01-two-friends.md" → 1)
     const numMatch = filename.match(/^(\d+)/);
     const chapterNum = numMatch ? parseInt(numMatch[1], 10) : 0;
     const chapterKey = filename.replace(/\.md$/, "");
-
     const title = extractTitle(markdown, filename);
     const sections = parseSections(markdown);
     const partPrefix = numMatch ? numMatch[1] : "00";
     const part = CHAPTER_PARTS[partPrefix] ?? "Appendix";
-
     const uri = `${uriBase}/${chapterKey}`;
 
     chapters.push({
-      meta: {
-        key: chapterKey,
-        number: chapterNum,
-        title,
-        part,
-        sections,
-        uri,
-      },
-      content: {
-        key: chapterKey,
-        title,
-        markdown,
-        sections,
-      },
+      meta: { key: chapterKey, number: chapterNum, title, part, sections, uri },
+      content: { key: chapterKey, title, markdown, sections },
     });
   }
 
-  // Build the book entry with chapter index only (no inline markdown)
   const book: LearnBook = {
     key: bookKey,
     title: bookTitle,
     label: "What's in a Message",
     description: "A design guide teaching b3nd through dialogue, letters, and digital messages",
     tier: "guide",
-    sections: [],
     chapters: chapters.map((c) => c.meta),
     updatedAt: latestMtime || Date.now(),
   };
@@ -282,34 +273,40 @@ async function readChapterBook(): Promise<{ book: LearnBook; chapters: Collected
 // Collect all books
 // ---------------------------------------------------------------------------
 
-async function collectBooks(): Promise<{ books: LearnBook[]; chapterContents: CollectedChapter[] }> {
+async function collectBooks(): Promise<{ books: LearnBook[]; allChapters: CollectedChapter[] }> {
   const books: LearnBook[] = [];
-  let chapterContents: CollectedChapter[] = [];
+  const allChapters: CollectedChapter[] = [];
 
-  // Read multi-chapter book from docs/book/
+  // Multi-chapter book from docs/book/
   console.log(`Reading ${BOOK_DIR}/...`);
-  const chapterBook = await readChapterBook();
-  if (chapterBook) {
-    books.push(chapterBook.book);
-    chapterContents = chapterBook.chapters;
-    console.log(`  Found chapter book: "${chapterBook.book.label}" (${chapterContents.length} chapters)`);
+  const multiBook = await readMultiChapterBook();
+  if (multiBook) {
+    books.push(multiBook.book);
+    allChapters.push(...multiBook.chapters);
+    console.log(`  "${multiBook.book.label}" (${multiBook.chapters.length} chapters)`);
   }
 
-  // Read skills/b3nd/
+  // Single-file books from skills/b3nd/
   console.log(`Reading ${SKILLS_DIR}/...`);
   for await (const entry of Deno.readDir(SKILLS_DIR)) {
     if (!entry.isFile || !entry.name.endsWith(".md")) continue;
-    const book = await readBook(`${SKILLS_DIR}/${entry.name}`, entry.name);
-    if (book) books.push(book);
+    const result = await readSingleFileBook(`${SKILLS_DIR}/${entry.name}`, entry.name);
+    if (result) {
+      books.push(result.book);
+      allChapters.push(result.chapter);
+    }
   }
 
-  // Read docs/proposals/
+  // Single-file books from docs/proposals/
   console.log(`Reading ${PROPOSALS_DIR}/...`);
   try {
     for await (const entry of Deno.readDir(PROPOSALS_DIR)) {
       if (!entry.isFile || !entry.name.endsWith(".md")) continue;
-      const book = await readBook(`${PROPOSALS_DIR}/${entry.name}`, entry.name);
-      if (book) books.push(book);
+      const result = await readSingleFileBook(`${PROPOSALS_DIR}/${entry.name}`, entry.name);
+      if (result) {
+        books.push(result.book);
+        allChapters.push(result.chapter);
+      }
     }
   } catch (e) {
     console.warn(`  Could not read ${PROPOSALS_DIR}: ${e}`);
@@ -324,62 +321,40 @@ async function collectBooks(): Promise<{ books: LearnBook[]; chapterContents: Co
     return a.key.localeCompare(b.key);
   });
 
-  return { books, chapterContents };
+  return { books, allChapters };
 }
 
 // ---------------------------------------------------------------------------
 // B3nd upload
 // ---------------------------------------------------------------------------
 
-async function uploadToB3nd(
-  nodeUrl: string,
-  catalog: LearnCatalog,
-  chapterContents: CollectedChapter[],
-): Promise<boolean> {
-  console.log(`\nUploading catalog to B3nd at ${nodeUrl}...`);
+async function uploadToB3nd(nodeUrl: string, catalog: LearnCatalog, chapters: CollectedChapter[]): Promise<boolean> {
+  console.log(`\nUploading to B3nd at ${nodeUrl}...`);
 
   try {
-    // Upload catalog index (lightweight — no chapter markdown)
+    // Catalog index
     const catalogRes = await fetch(`${nodeUrl}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tx: ["mutable://open/rig/learn/catalog", catalog] }),
     });
-
     if (!catalogRes.ok) {
-      console.warn(`  Catalog upload failed: ${catalogRes.status} ${catalogRes.statusText}`);
+      console.warn(`  Catalog upload failed: ${catalogRes.status}`);
       return false;
     }
     console.log("  Catalog uploaded.");
 
-    // Upload individual single-file books
-    for (const book of catalog.books) {
-      if (book.chapters) continue; // chapter-based books are uploaded per-chapter
-      const bookRes = await fetch(`${nodeUrl}/api/v1/receive`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tx: [`mutable://open/rig/learn/books/${book.key}`, book] }),
-      });
-
-      if (bookRes.ok) {
-        console.log(`  Book "${book.key}" uploaded.`);
-      } else {
-        console.warn(`  Book "${book.key}" upload failed: ${bookRes.status}`);
-      }
-    }
-
-    // Upload individual chapters to their own URIs
-    for (const chapter of chapterContents) {
-      const chapterRes = await fetch(`${nodeUrl}/api/v1/receive`, {
+    // All chapters (both single-file and multi-chapter)
+    for (const chapter of chapters) {
+      const res = await fetch(`${nodeUrl}/api/v1/receive`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tx: [chapter.meta.uri, chapter.content] }),
       });
-
-      if (chapterRes.ok) {
-        console.log(`  Chapter "${chapter.meta.key}" uploaded to ${chapter.meta.uri}`);
+      if (res.ok) {
+        console.log(`  Chapter "${chapter.meta.key}" → ${chapter.meta.uri}`);
       } else {
-        console.warn(`  Chapter "${chapter.meta.key}" upload failed: ${chapterRes.status}`);
+        console.warn(`  Chapter "${chapter.meta.key}" upload failed: ${res.status}`);
       }
     }
 
@@ -395,39 +370,25 @@ async function uploadToB3nd(
 // ---------------------------------------------------------------------------
 
 async function ensureDir(dir: string): Promise<void> {
-  try {
-    await Deno.mkdir(dir, { recursive: true });
-  } catch {
-    // already exists
-  }
+  try { await Deno.mkdir(dir, { recursive: true }); } catch { /* exists */ }
 }
 
-async function writeStaticFiles(
-  outputPath: string,
-  catalog: LearnCatalog,
-  chapterContents: CollectedChapter[],
-): Promise<void> {
+async function writeStaticFiles(outputPath: string, catalog: LearnCatalog, chapters: CollectedChapter[]): Promise<void> {
   const dir = outputPath.substring(0, outputPath.lastIndexOf("/"));
   await ensureDir(dir);
 
-  // Write catalog index (lightweight)
   const json = JSON.stringify(catalog, null, 2);
   await Deno.writeTextFile(outputPath, json);
   console.log(`\nStatic catalog written to ${outputPath} (${(json.length / 1024).toFixed(1)} KB)`);
 
-  // Write individual chapter files as static JSON
-  if (chapterContents.length > 0) {
-    const chaptersDir = `${dir}/chapters`;
-    await ensureDir(chaptersDir);
-
-    for (const chapter of chapterContents) {
-      const chapterPath = `${chaptersDir}/${chapter.meta.key}.json`;
-      const chapterJson = JSON.stringify(chapter.content, null, 2);
-      await Deno.writeTextFile(chapterPath, chapterJson);
-    }
-
-    console.log(`  ${chapterContents.length} chapter files written to ${chaptersDir}/`);
+  // All chapter content as individual static files
+  const chaptersDir = `${dir}/chapters`;
+  await ensureDir(chaptersDir);
+  for (const chapter of chapters) {
+    const chapterPath = `${chaptersDir}/${chapter.meta.key}.json`;
+    await Deno.writeTextFile(chapterPath, JSON.stringify(chapter.content, null, 2));
   }
+  console.log(`  ${chapters.length} chapter files written to ${chaptersDir}/`);
 }
 
 // ---------------------------------------------------------------------------
@@ -437,25 +398,19 @@ async function writeStaticFiles(
 async function main() {
   console.log("=== B3nd Learn Book Builder ===\n");
 
-  const { books, chapterContents } = await collectBooks();
-  console.log(`\nCollected ${books.length} books:`);
+  const { books, allChapters } = await collectBooks();
+  console.log(`\nCollected ${books.length} books, ${allChapters.length} total chapters:`);
   for (const b of books) {
-    const extra = b.chapters ? ` (${b.chapters.length} chapters)` : ` (${b.sections.length} sections)`;
-    console.log(`  [${b.tier}] ${b.key} — "${b.label}"${extra}`);
+    console.log(`  [${b.tier}] ${b.key} — "${b.label}" (${b.chapters.length} ch)`);
   }
 
-  const catalog: LearnCatalog = {
-    books,
-    generatedAt: Date.now(),
-  };
+  const catalog: LearnCatalog = { books, generatedAt: Date.now() };
 
-  // Always write static files
   const staticPath = Deno.env.get("LEARN_OUTPUT_STATIC") ?? "apps/b3nd-web-rig/public/learn/catalog.json";
-  await writeStaticFiles(staticPath, catalog, chapterContents);
+  await writeStaticFiles(staticPath, catalog, allChapters);
 
-  // Optionally upload to B3nd
   const nodeUrl = Deno.env.get("B3ND_NODE_URL") ?? "http://localhost:9942";
-  await uploadToB3nd(nodeUrl, catalog, chapterContents);
+  await uploadToB3nd(nodeUrl, catalog, allChapters);
 
   console.log("\nDone.");
 }
