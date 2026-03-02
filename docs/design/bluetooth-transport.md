@@ -21,6 +21,140 @@ B3nd is transport-agnostic. The `BluetoothClient` brings the full `NodeProtocolI
 
 The key insight: **the transport is injectable**. `BluetoothClient` doesn't know or care whether it's talking over Web Bluetooth in a browser, native RFCOMM in Deno/Node, or a mock in tests. It only needs something that implements `BluetoothTransport`.
 
+## bluetooth:// URL Scheme
+
+Bluetooth backends are specified with the `bluetooth://` URL scheme. All connection complexity (pairing, discovery, GATT negotiation) is **frontloaded** by `createBluetoothTransport()` before the client is instantiated.
+
+### URL Format
+
+```
+bluetooth://<address>[:<channel>][?option=value&...]
+```
+
+### Examples
+
+| URL | What happens |
+|-----|-------------|
+| `bluetooth://mock` | In-memory mock transport (testing/dev) |
+| `bluetooth://AA:BB:CC:DD:EE:FF` | Connect to paired device (auto-detect transport) |
+| `bluetooth://AA:BB:CC:DD:EE:FF:3` | RFCOMM channel 3 on paired device |
+| `bluetooth://web` | Web Bluetooth (browser, triggers device picker) |
+| `bluetooth://web?service=b3nd0001&name=MyNode` | Web Bluetooth with service/name filters |
+| `bluetooth://AA:BB:CC:DD:EE:FF?transport=ble&timeout=60000` | Force BLE transport, 60s timeout |
+
+### Query Parameters
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `timeout` | `30000` | Connection timeout in milliseconds |
+| `service` | — | BLE service UUID filter (Web Bluetooth) |
+| `name` | — | Device name filter (Web Bluetooth) |
+| `transport` | auto | Force transport: `rfcomm`, `ble`, `web`, `mock` |
+
+## Using bluetooth:// in B3nd Apps
+
+### App Server Node (BACKEND_URL)
+
+```bash
+# Bluetooth backend (testing)
+BACKEND_URL=bluetooth://mock PORT=9942 CORS_ORIGIN=* deno run --allow-all apps/b3nd-node/mod.ts
+
+# Mixed: write to Postgres + replicate to Bluetooth peer
+BACKEND_URL=postgresql://localhost/b3nd,bluetooth://AA:BB:CC:DD:EE:FF:3 \
+  PORT=9942 CORS_ORIGIN=* deno run --allow-all apps/b3nd-node/mod.ts
+```
+
+### CLI (bnd conf node)
+
+```bash
+# Configure CLI to talk to a Bluetooth node
+bnd conf node bluetooth://AA:BB:CC:DD:EE:FF:3
+
+# Or for local testing
+bnd conf node bluetooth://mock
+
+# Then use normally — all commands go over Bluetooth
+bnd write mutable://open/hello '{"msg": "from bluetooth"}'
+bnd read mutable://open/hello
+```
+
+### SDK Inspector (B3ND_URL)
+
+```bash
+# Persist test results to a Bluetooth node
+B3ND_URL=bluetooth://mock B3ND_URI=mutable://open/inspector \
+  deno run --allow-all apps/sdk-inspector/mod.ts
+```
+
+### Managed Node Config
+
+```json
+{
+  "configVersion": 1,
+  "name": "edge-node",
+  "backends": [
+    { "type": "memory", "url": "memory://" },
+    { "type": "bluetooth", "url": "bluetooth://AA:BB:CC:DD:EE:FF:3", "options": { "timeout": 60000 } }
+  ]
+}
+```
+
+## Transport Factory System
+
+Real Bluetooth connections require platform-specific code (Web Bluetooth API, noble, bleno, etc). The transport factory registry lets you plug in your platform's implementation.
+
+### Registering a Transport Factory
+
+```typescript
+import { registerBluetoothTransport } from "@bandeira-tech/b3nd-sdk";
+
+// Register before creating clients
+registerBluetoothTransport("rfcomm", async (spec) => {
+  // spec.address = "AA:BB:CC:DD:EE:FF"
+  // spec.channel = 3
+  // spec.timeout = 30000
+
+  const socket = await myNativeBtLib.connect(spec.address, spec.channel);
+  const transport = new MyRfcommTransport(socket);
+  await transport.connect();
+  return transport;
+});
+
+// Now bluetooth:// URLs with MAC addresses will use your factory
+const transport = await createBluetoothTransport("bluetooth://AA:BB:CC:DD:EE:FF:3");
+```
+
+### Built-in Factories
+
+| Type | When Used | What It Does |
+|------|-----------|-------------|
+| `mock` | `bluetooth://mock` | In-memory B3nd node, always available, no real Bluetooth |
+
+### Registering Web Bluetooth (Browser)
+
+```typescript
+import { registerBluetoothTransport } from "@bandeira-tech/b3nd-sdk";
+
+registerBluetoothTransport("web", async (spec) => {
+  const device = await navigator.bluetooth.requestDevice({
+    filters: spec.serviceUuid
+      ? [{ services: [spec.serviceUuid] }]
+      : spec.nameFilter
+        ? [{ name: spec.nameFilter }]
+        : [{ services: ["b3nd0001-0000-1000-8000-00805f9b34fb"] }],
+  });
+
+  const server = await device.gatt!.connect();
+  const service = await server.getPrimaryService("b3nd0001-0000-1000-8000-00805f9b34fb");
+  const char = await service.getCharacteristic("b3nd0002-0000-1000-8000-00805f9b34fb");
+  await char.startNotifications();
+
+  // Build a transport wrapping the GATT characteristic...
+  const transport = new WebBluetoothGattTransport(device, char);
+  return transport;
+});
+```
+
 ## BluetoothTransport Interface
 
 ```typescript
@@ -59,147 +193,35 @@ Same as the WebSocket client — JSON request/response with correlation IDs:
 
 All 7 operation types are supported: `receive`, `read`, `readMulti`, `list`, `delete`, `health`, `getSchema`.
 
-## Usage
-
-### Basic usage with mock (for development/testing)
-
-```typescript
-import { BluetoothClient, MockBluetoothTransport } from "@bandeira-tech/b3nd-client-bluetooth";
-
-const transport = new MockBluetoothTransport();
-const client = new BluetoothClient({ transport });
-
-await client.receive(["store://users/alice/profile", { name: "Alice" }]);
-const result = await client.read("store://users/alice/profile");
-// result.record.data === { name: "Alice" }
-
-await client.cleanup();
-```
-
-### Web Bluetooth (browser)
-
-```typescript
-import { BluetoothClient, type BluetoothTransport } from "@bandeira-tech/b3nd-client-bluetooth";
-
-// B3nd service UUID — nodes advertise this
-const B3ND_SERVICE_UUID = "b3nd0001-0000-1000-8000-00805f9b34fb";
-const B3ND_CHAR_UUID    = "b3nd0002-0000-1000-8000-00805f9b34fb";
-
-class WebBluetoothTransport implements BluetoothTransport {
-  private device: BluetoothDevice | null = null;
-  private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private msgHandler: ((data: string) => void) | null = null;
-  private errHandler: ((error: Error) => void) | null = null;
-  private dcHandler: (() => void) | null = null;
-  connected = false;
-
-  async connect() {
-    this.device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [B3ND_SERVICE_UUID] }],
-    });
-
-    this.device.addEventListener("gattserverdisconnected", () => {
-      this.connected = false;
-      this.dcHandler?.();
-    });
-
-    const server = await this.device.gatt!.connect();
-    const service = await server.getPrimaryService(B3ND_SERVICE_UUID);
-    this.characteristic = await service.getCharacteristic(B3ND_CHAR_UUID);
-
-    // Subscribe to notifications for responses
-    await this.characteristic.startNotifications();
-    this.characteristic.addEventListener("characteristicvaluechanged", (e) => {
-      const value = (e.target as BluetoothRemoteGATTCharacteristic).value!;
-      const text = new TextDecoder().decode(value);
-      this.msgHandler?.(text);
-    });
-
-    this.connected = true;
-  }
-
-  async send(data: string) {
-    const encoded = new TextEncoder().encode(data);
-    await this.characteristic!.writeValueWithResponse(encoded);
-  }
-
-  onMessage(handler: (data: string) => void) { this.msgHandler = handler; }
-  onError(handler: (error: Error) => void) { this.errHandler = handler; }
-  onDisconnect(handler: () => void) { this.dcHandler = handler; }
-
-  async disconnect() {
-    this.device?.gatt?.disconnect();
-    this.connected = false;
-  }
-}
-
-// Usage
-const transport = new WebBluetoothTransport();
-const client = new BluetoothClient({ transport });
-// Now use client.receive(), client.read(), etc. — same as HTTP or WS
-```
-
-### Native Bluetooth (Deno/Node with noble or similar)
-
-```typescript
-import { BluetoothClient, type BluetoothTransport } from "@bandeira-tech/b3nd-client-bluetooth";
-
-class RfcommTransport implements BluetoothTransport {
-  private socket: any; // noble/bleno socket
-  private msgHandler: ((data: string) => void) | null = null;
-  connected = false;
-
-  constructor(private address: string, private channel: number) {}
-
-  async connect() {
-    // Use your preferred native BT library
-    // Example with hypothetical RFCOMM:
-    this.socket = await nativeBluetooth.connect(this.address, this.channel);
-    this.socket.on("data", (buf: Buffer) => {
-      this.msgHandler?.(buf.toString("utf-8"));
-    });
-    this.connected = true;
-  }
-
-  async send(data: string) {
-    this.socket.write(Buffer.from(data, "utf-8"));
-  }
-
-  onMessage(h: (data: string) => void) { this.msgHandler = h; }
-  onError(h: (error: Error) => void) { this.socket?.on("error", h); }
-  onDisconnect(h: () => void) { this.socket?.on("close", h); }
-
-  async disconnect() {
-    this.socket?.destroy();
-    this.connected = false;
-  }
-}
-```
-
-## Configuration
-
-```typescript
-interface BluetoothClientConfig {
-  transport: BluetoothTransport;   // Required — inject your transport
-  timeout?: number;                // Default: 30000ms (BT can be slow)
-  reconnect?: {
-    enabled: boolean;              // Default: true
-    maxAttempts?: number;          // Default: 5
-    interval?: number;             // Default: 1000ms
-    backoff?: "linear" | "exponential";  // Default: exponential
-  };
-}
-```
-
 ## Testing
 
-The `MockBluetoothTransport` runs an in-memory B3nd node. It passes the full shared test suite (30+ tests covering CRUD, pagination, binary data, batch reads, validation errors, and connection errors).
+### Automated Tests
 
 ```bash
+# All Bluetooth tests (client + connector + URL parsing)
 deno test --allow-all libs/b3nd-client-bluetooth/
+
+# Just the client (shared protocol suite)
+deno test --allow-all libs/b3nd-client-bluetooth/bluetooth-client.test.ts
+
+# Just the connector (URL parsing, factory registry, end-to-end)
+deno test --allow-all libs/b3nd-client-bluetooth/connect.test.ts
 ```
 
-Three mock transports are provided:
+### Test Coverage
+
+**bluetooth-client.test.ts** — 35 tests:
+- Full shared NodeProtocolInterface suite (CRUD, scalars, binary, pagination, batch reads)
+- Validation error handling
+- Connection error handling
+- Transport injection, health reporting, reconnection config, cleanup
+
+**connect.test.ts** — 12 tests:
+- URL parsing (mock, web, MAC address, channels, query params, edge cases)
+- Transport connector (mock round-trip, factory registration, error handling)
+- End-to-end: URL string → connected transport → client → full CRUD cycle
+
+### Mock Transports
 
 | Transport | Behavior |
 |-----------|----------|
@@ -207,17 +229,38 @@ Three mock transports are provided:
 | `FailingBluetoothTransport` | Always fails to connect |
 | `ValidationFailingBluetoothTransport` | Rejects writes missing a `name` field |
 
+### Testing a Real Device
+
+To test with actual Bluetooth hardware:
+
+1. Register your transport factory (rfcomm/ble)
+2. Pair the device at the OS level
+3. Run with a real `bluetooth://` URL
+
+```typescript
+// In your test setup:
+registerBluetoothTransport("rfcomm", myRfcommFactory);
+
+// Then any test using bluetooth://AA:BB:CC:DD:EE:FF will hit real hardware
+const transport = await createBluetoothTransport("bluetooth://AA:BB:CC:DD:EE:FF:3");
+const client = new BluetoothClient({ transport });
+
+// The shared test suite works with any client:
+runSharedSuite("BluetoothClient (real device)", {
+  happy: () => client,
+});
+```
+
 ## Composability
 
 Because `BluetoothClient` implements `NodeProtocolInterface`, it composes with everything in the SDK:
 
 ```typescript
-import { BluetoothClient, MockBluetoothTransport } from "@bandeira-tech/b3nd-client-bluetooth";
-import { parallelBroadcast } from "@bandeira-tech/b3nd-combinators";
-import { HttpClient } from "@bandeira-tech/b3nd-client-http";
+import { BluetoothClient, parallelBroadcast, HttpClient, createBluetoothTransport } from "@bandeira-tech/b3nd-sdk";
 
 // Write to both a Bluetooth peer AND an HTTP server
-const btClient = new BluetoothClient({ transport: new WebBluetoothTransport() });
+const btTransport = await createBluetoothTransport("bluetooth://AA:BB:CC:DD:EE:FF:3");
+const btClient = new BluetoothClient({ transport: btTransport });
 const httpClient = new HttpClient({ url: "https://node.fire.cat" });
 const combined = parallelBroadcast([btClient, httpClient]);
 
@@ -227,14 +270,20 @@ await combined.receive(["store://users/alice/profile", { name: "Alice" }]);
 
 ## FIPS Integration Path
 
-The `BluetoothTransport` interface is the exact seam where FIPS mesh networking could plug in. A `FipsTransport` would implement the same interface, routing B3nd messages through the FIPS mesh instead of direct Bluetooth:
+The `BluetoothTransport` interface is the exact seam where FIPS mesh networking plugs in. A `FipsTransport` implements the same interface, routing B3nd messages through the FIPS mesh instead of direct Bluetooth:
 
 ```typescript
-class FipsTransport implements BluetoothTransport {
-  // Route messages through FIPS mesh to a remote B3nd node
-  // FIPS handles peer discovery, encryption, and multi-hop routing
-  // B3nd handles data semantics, schema validation, and persistence
-}
+registerBluetoothTransport("fips", async (spec) => {
+  // spec.address = FIPS node_addr or fd00::/8 IPv6
+  const fipsMesh = await connectToFipsMesh();
+  const transport = new FipsMeshTransport(fipsMesh, spec.address);
+  await transport.connect();
+  return transport;
+});
+
+// Now works via FIPS mesh:
+const transport = await createBluetoothTransport("bluetooth://fips-node-addr?transport=fips");
+const client = new BluetoothClient({ transport });
 ```
 
 This is the transport-agnostic design in action: swap the transport, keep the protocol.

@@ -1,12 +1,31 @@
 import { HttpClient } from "@b3nd/sdk/http";
 import type { NodeProtocolInterface } from "@b3nd/sdk/types";
+import { BluetoothClient } from "../../../libs/b3nd-client-bluetooth/mod.ts";
+import { createBluetoothTransport } from "../../../libs/b3nd-client-bluetooth/connect.ts";
 import { loadConfig } from "./config.ts";
 import { Logger } from "./logger.ts";
 
 let cachedClient: NodeProtocolInterface | null = null;
 
 /**
- * Initialize and get the HTTP client for the configured node
+ * Create a client from a node URL.
+ * Supports http://, https://, ws://, wss://, and bluetooth:// schemes.
+ */
+async function createClientFromUrl(
+  url: string,
+  timeout: number,
+): Promise<NodeProtocolInterface> {
+  if (url.startsWith("bluetooth://")) {
+    const transport = await createBluetoothTransport(url);
+    return new BluetoothClient({ transport, timeout });
+  }
+
+  // Default: HTTP client (handles http:// and https://)
+  return new HttpClient({ url, timeout });
+}
+
+/**
+ * Initialize and get the client for the configured node
  */
 export async function getClient(
   logger?: Logger,
@@ -18,27 +37,24 @@ export async function getClient(
   if (!config.node) {
     throw new Error(
       "No node configured. Run: bnd conf node <url>\n" +
-        "Example: bnd conf node https://testnet-evergreen.fire.cat",
+        "Example: bnd conf node https://testnet-evergreen.fire.cat\n" +
+        "         bnd conf node bluetooth://mock",
     );
   }
 
   try {
     logger?.info(`Connecting to ${config.node}`);
 
-    cachedClient = new HttpClient({
-      url: config.node,
-      timeout: 30000,
-    });
+    cachedClient = await createClientFromUrl(config.node, 30000);
 
     // Test connection
-    logger?.http("GET", `${config.node}/api/v1/health`);
     const health = await cachedClient!.health();
 
     if (health.status === "unhealthy") {
-      console.warn("⚠ Warning: Node health is unhealthy");
+      console.warn("Warning: Node health is unhealthy");
       console.warn(`  Status: ${health.message}`);
     } else {
-      logger?.info(`✓ Connected (${health.status})`);
+      logger?.info(`Connected (${health.status})`);
     }
 
     return cachedClient!;

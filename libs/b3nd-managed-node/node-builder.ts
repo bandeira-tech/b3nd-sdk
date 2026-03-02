@@ -88,6 +88,19 @@ export async function buildClientsFromSpec(
         break;
       }
 
+      case "bluetooth": {
+        // Dynamic import to avoid hard dependency on bluetooth transport
+        const { BluetoothClient } = await import("../../libs/b3nd-client-bluetooth/mod.ts");
+        const { createBluetoothTransport } = await import("../../libs/b3nd-client-bluetooth/connect.ts");
+        const transport = await createBluetoothTransport(spec.url);
+        const btClient = new BluetoothClient({
+          transport,
+          timeout: (spec.options?.timeout as number) ?? 30000,
+        });
+        clients.push(btClient);
+        break;
+      }
+
       default:
         throw new Error(`Unsupported backend type: ${(spec as any).type}`);
     }

@@ -12,6 +12,8 @@ import {
   servers,
 } from "@bandeira-tech/b3nd-sdk";
 import type { NodeProtocolInterface, Schema } from "@bandeira-tech/b3nd-sdk";
+import { BluetoothClient } from "../../libs/b3nd-client-bluetooth/mod.ts";
+import { createBluetoothTransport } from "../../libs/b3nd-client-bluetooth/connect.ts";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
 import { Hono } from "hono";
@@ -139,6 +141,12 @@ for (const spec of backendSpecs) {
       url: spec,
     });
     clients.push(httpClient);
+    continue;
+  }
+
+  if (spec.startsWith("bluetooth://")) {
+    const transport = await createBluetoothTransport(spec);
+    clients.push(new BluetoothClient({ transport }));
     continue;
   }
 
