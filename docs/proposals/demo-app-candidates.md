@@ -303,41 +303,130 @@ hash://sha256/{hash}          -- content-addressed claim for verification
 
 ---
 
-## The Recommendation: Build the Signed Document Vault + Encrypted Share Together
+## Revised Recommendation: Cross-App Portability + Document Vault
 
-**Primary demo: Signed Document Vault.** This is the app you show NLnet, put in the grant application, and record the 2-minute video for. It demonstrates every B3nd strength, avoids every gap, and tells a story that NLnet reviewers will immediately understand: "user-owned, encrypted, tamper-evident document storage on an open protocol."
+After additional research into NLnet's funded portfolio, the local-first ecosystem, and EU regulatory trends, the recommendation has been refined. The original vault recommendation was strong, but it overlaps with CryptPad (NLnet's most heavily funded application — 6+ grants). B3nd's most unique and fundable capability is something no NLnet-funded project demonstrates: **the same user-owned data, accessed by different applications, via URI addressing.**
 
-**Secondary demo (or feature within the vault): Encrypted Share.** This is the "try it right now" tool. A 30-second experience that anyone can use today. It serves as the top-of-funnel: someone uses the encrypted share tool, sees "powered by B3nd," clicks through, discovers the protocol.
+### The Strategy: Two Apps, One Protocol
 
-**Deferred: Book Reader.** Build this as the documentation experience after the primary demo. It's the "learn more" destination after someone's eyes light up from the vault demo.
+Build a **document vault** (App A) and a **simple second app** (App B) that reads the same B3nd URIs. The demo shows data portability *between apps* — not just between devices or servers.
 
-**Deferred to Phase 2 grant: Credential Wallet.** This is a separate NLnet application under NGI Zero Commons Fund with an eIDAS 2.0 angle. Apply for it after the first grant is landed and the vault demo proves the protocol works.
+**App A: Selo (the vault).** A personal document vault where files are signed, encrypted, and stored at user-owned URIs. This is the "useful standalone app" that someone would actually use.
+
+**App B: A lightweight viewer/dashboard.** A separate web app — different codebase, different UI — that reads the same URIs and displays the same data in a different format. Could be a "document timeline," a "proof verifier," or a "data export tool."
+
+**The killer demo (2 minutes):**
+- 0:00 — Create an identity in Selo (one click, no email)
+- 0:15 — Upload a document, watch it get encrypted and signed
+- 0:30 — Share it with someone via a password link
+- 0:45 — Open App B — a completely different application
+- 0:55 — The same document appears. Same URI, same data, different app.
+- 1:10 — "Alice's data belongs to Alice, not to any app."
+- 1:20 — Export everything with one click (list URIs + download)
+- 1:35 — Point the vault at a different B3nd node — same data, new provider
+- 1:45 — "This is what the EU Data Act mandates. B3nd makes it trivial."
+
+### Why This Wins Over a Standalone Vault
+
+| Factor | Standalone Vault | Vault + Second App |
+|---|---|---|
+| **Unique to B3nd** | No — CryptPad, Tresorit, Proton do this | **Yes** — no other project demos cross-app portability |
+| **NLnet differentiation** | Overlaps with CryptPad (6+ grants) | **Novel** — fills a gap in NLnet's portfolio |
+| **EU policy alignment** | GDPR portability | **EU Data Act interoperability** (entered force Sep 2025) |
+| **Developer "aha moment"** | "Nice encryption" | **"Wait, two different apps reading the same data?"** |
+| **Protocol demo power** | Shows one app on B3nd | **Shows B3nd as a platform** |
+| **Build cost** | 4-6 weeks | 5-7 weeks (vault + small second app) |
+
+### The Competitive Positioning
+
+Research into NLnet's funded portfolio reveals the closest comparables:
+
+| Funded Project | What It Does | What B3nd Adds |
+|---|---|---|
+| **CryptPad** | Encrypted collaboration within one app | Data portable *across apps* via URIs |
+| **NextGraph** (2 NLnet grants) | P2P CRDTs + E2EE + local-first | Simpler model (4 verbs), no RDF/SPARQL |
+| **Earthstar/Willow** (3 NLnet grants) | Syncable data stores | URI-based addressing with behavior encoded in the address |
+| **Solid** (5+ NLnet-funded projects) | RDF-based personal data stores | Dramatically simpler API, Solid's main repo now archived |
+| **ActivityPods** | ActivityPub + Solid pods | No RDF dependency, cross-app via URIs not federation |
+
+**The grant narrative:** *"B3nd is to cross-app data portability what ActivityPub is to decentralized social networking — a protocol that makes it possible, with the document vault as the first reference application and the viewer as proof that any app can participate."*
+
+### EU Regulatory Alignment (The Timing Is Perfect)
+
+Three EU regulations create legal mandates for exactly what B3nd does:
+
+1. **EU Data Act** (entered application September 2025): Requires data portability between services in structured, interoperable formats. B3nd URIs + JSON = portability by design.
+
+2. **eIDAS 2.0** (wallets mandatory by December 2026): Cryptographic identity wallets with selective disclosure. B3nd's Ed25519 identity model aligns directly.
+
+3. **GDPR Article 20** (data portability): Right to receive data in structured format and transmit to another controller. B3nd's `list()` + `read()` = export is a protocol primitive.
+
+The NLnet application should explicitly cite these regulations. The demo should show Data Act-compliant portability in action.
 
 ### Naming
 
-The vault app needs a name that is not "B3nd Vault" or "Firecat Documents." It should have its own brand — a standalone app that happens to be built on B3nd, the way Signal is built on the Signal Protocol.
+**Selo** — Portuguese for "seal" (as in a wax seal on a letter). Short, memorable, signals authenticity and ownership. Fits the "What's in a Message" metaphor perfectly. The vault is "Selo" — the viewer can be "Selo Verify" or simply unnamed ("any B3nd-compatible app").
 
-**Name candidates:**
+Other candidates:
+- **Cofre** — Portuguese for "safe" or "vault." Direct, clear.
+- **Carimbo** — Portuguese for "stamp." More specific to the proof angle.
 
-- **Selo** — Portuguese for "seal" (as in a wax seal on a letter). Short, memorable, signals authenticity and ownership. Fits the "What's in a Message" metaphor perfectly.
-- **Carimbo** — Portuguese for "stamp" (as in a notary stamp). More specific to the proof/timestamp angle.
-- **Cofre** — Portuguese for "safe" or "vault." Direct, clear, but generic.
-- **Marca** — Portuguese for "mark" or "brand." Suggests leaving your mark on a document.
+### The NLnet Application (Deadline: April 1, 2026)
 
-### The NLnet Application Angle
+For the NGI Zero Commons Fund application, the grant should fund the full stack:
 
-For the NLnet NGI Zero Commons Fund application (deadline April 1, 2026), the demo app is not the entire grant proposal — it's the proof that the protocol works. The grant itself should fund:
+1. **Selo (the vault app)** — reference application demonstrating encrypted, signed, portable documents (4-6 weeks)
+2. **Selo Verify (the second app)** — proof that any app can read B3nd URIs, demonstrating cross-app portability (1-2 weeks)
+3. **SDK improvements from PRD** — content queries, key management, conditional writes (ongoing)
+4. **"What's in a Message" book** — published as open educational content
+5. **Security audit** — provided free by NLnet via Radically Open Security
 
-1. **The demo app (vault)** — as a reference implementation and user-facing showcase
-2. **SDK improvements identified by the PRD** — content queries, key management, conditional writes
-3. **The book** — published as open educational content
-4. **Security audit** — NLnet provides this for free via Radically Open Security
+**Budget request:** €30,000-€50,000 for 6-12 month deliverable plan.
 
-This framing — "fund the protocol and its first real application" — matches exactly what NLnet funds: not just apps, not just libraries, but the full stack from protocol to user experience.
+This framing — "fund the protocol, its first real application, and a cross-app portability demo that proves the EU Data Act vision" — maps directly onto NLnet's heaviest scoring weight (40%: relevance/impact/strategic potential) and fills a genuine gap in their portfolio.
+
+### What the Research Found About PDS Projects
+
+A critical finding from the landscape research: **general-purpose personal data stores consistently fail.** The pattern:
+
+1. Grand vision ("users own all their data")
+2. Build general-purpose PDS
+3. Discover nobody migrates voluntarily
+4. Narrow to a specific vertical (healthcare, government, community)
+5. Find a regulatory driver or institutional buyer
+6. Survive at small scale in that niche
+
+This happened to Solid (main repo archived Sep 2025, inrupt.net shut down March 2025), Dataswyft (pivoted to community badges), Digi.me (pivoted to Dutch healthcare PGO), and Mydex (survived on UK public sector contracts).
+
+**B3nd's escape from this pattern:** Don't position the demo as "a general personal data store." Position it as "a protocol that makes cross-app data portability trivial, demonstrated with a document vault." The vault is the app; the portability is the protocol innovation.
 
 ---
 
-## Appendix A: NLnet Funding Patterns (What They Actually Fund)
+## Appendix A: Local-First Landscape (2024-2026)
+
+The local-first movement is large and growing, with dedicated conferences (Local-First Conf Berlin, FOSDEM track), 3,000+ developers in community, and "comparable to React in 2013."
+
+### Apps with traction
+- **Linear** — local-first issue tracker, 0ms search via IndexedDB, the poster child
+- **Excalidraw** — whiteboard, integrated by Google Cloud, Meta, Notion, Replit
+- **Obsidian** — local markdown notes, massive plugin ecosystem, paid sync
+- **Anytype** — P2P Notion alternative with E2EE, object-based data model
+- **Actual Budget** — open-source envelope budgeting, loyal GitHub community
+- **CryptPad** — E2EE Google Docs alternative, 6+ NLnet grants
+
+### Infrastructure layer
+- **Automerge/Yjs** — CRDT libraries (mature)
+- **Jazz** — local-first framework with built-in collaboration, sync, E2EE
+- **ElectricSQL** — Postgres-to-SQLite sync (Google, Supabase using it)
+- **PowerSync** — backend DB to SQLite sync
+- **Loro** — Rust CRDT library (emerging)
+
+### B3nd's position
+The local-first space is crowded with **sync engines and CRDTs**. B3nd addresses a different layer: "where does data live and who owns it" via URI-based addressing. This is complementary but distinct. The demo must make this distinction visceral — B3nd is not a sync engine, it's an addressing protocol for user-owned data.
+
+---
+
+## Appendix B: NLnet Funding Patterns (What They Actually Fund)
 
 Research into NLnet's 1,000+ funded projects reveals clear patterns relevant to demo app selection:
 
@@ -382,7 +471,7 @@ The strongest grant narrative: **"B3nd is to user-owned data what ActivityPub is
 
 ---
 
-## Appendix B: What Protocol-Level Projects Got Right with Their Demos
+## Appendix C: What Protocol-Level Projects Got Right with Their Demos
 
 | Protocol | Killer Demo | Why It Worked |
 |---|---|---|
@@ -395,4 +484,14 @@ The strongest grant narrative: **"B3nd is to user-owned data what ActivityPub is
 
 **Pattern:** The protocols that succeeded built a **familiar UX on unfamiliar infrastructure**. The demo shouldn't feel alien — it should feel like a tool people already know, except when you look under the hood, everything is better (owned, encrypted, portable, open).
 
-The Signed Document Vault follows this pattern: it looks like Google Drive or Dropbox, but when you look under the hood, every file is signed, encrypted, content-addressed, and portable across providers.
+The document vault follows this pattern: it looks like Google Drive or Dropbox, but when you look under the hood, every file is signed, encrypted, content-addressed, and portable across providers. The second app (the viewer) is the "aha moment" — "wait, a completely different app can read the same data? That's not how software works." Yes it is. That's how B3nd works.
+
+### The Cautionary Tales
+
+| Protocol | What Went Wrong |
+|---|---|
+| **Solid** | Had the vision but never built a compelling app. Main repo archived Sep 2025. RDF/SPARQL learning curve killed developer adoption. |
+| **IPFS** | No consumer-facing killer app. Most users accessed via centralized gateways, undermining the thesis. Infrastructure enthusiasts ≠ users. |
+| **Nostr** | Protocol simplicity drove developer adoption, but primarily popular with Bitcoin/crypto users — limited mainstream appeal. Key management UX is poor. |
+
+**The lesson is unanimous:** the protocol that builds one compelling, user-facing application wins. The protocol that stays at the library/SDK level stagnates.
