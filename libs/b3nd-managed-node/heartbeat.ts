@@ -9,8 +9,8 @@
  */
 
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
-import { createSignedEncryptedMessage, encrypt, sign } from "@b3nd/encrypt";
-import type { SignedEncryptedMessage } from "@b3nd/encrypt";
+import { createSignedEncryptedMessage, encrypt, sign } from "@bandeira-tech/b3nd-sdk/encrypt";
+import type { SignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { BackendStatus, NodeMetrics, NodeStatus } from "./types.ts";
 import { nodeStatusUri } from "./types.ts";
 
@@ -63,7 +63,7 @@ export function createHeartbeatWriter(opts: HeartbeatWriterOptions): HeartbeatWr
         );
       } else {
         // Fallback: signed but not encrypted (for tests / local dev)
-        const { createAuthenticatedMessage } = await import("@b3nd/encrypt");
+        const { createAuthenticatedMessage } = await import("@bandeira-tech/b3nd-sdk/encrypt");
         message = await createAuthenticatedMessage(status, [opts.signer]);
       }
 

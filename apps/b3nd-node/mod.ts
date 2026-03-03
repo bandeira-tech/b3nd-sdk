@@ -208,7 +208,7 @@ if (CONFIG_URL) {
   if (!NODE_PRIVATE_KEY_PEM) throw new Error("NODE_PRIVATE_KEY_PEM env var required when CONFIG_URL is set");
 
   // Dynamic imports — no cost when managed mode is not activated
-  const { pemToCryptoKey } = await import("@b3nd/encrypt");
+  const { pemToCryptoKey } = await import("@bandeira-tech/b3nd-sdk/encrypt");
   const {
     bestEffortClient,
     buildClientsFromSpec,

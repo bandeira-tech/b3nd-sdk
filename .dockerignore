@@ -15,7 +15,3 @@ tests
 AGENTS.md
 BROWSER_USER_MANUAL.md
 README.md
-
-# Re-include workspace member configs excluded above
-!tests/deno.json
-!.claude-plugin/mcp-server/deno.json

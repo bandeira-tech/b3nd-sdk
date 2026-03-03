@@ -98,7 +98,8 @@ endif
 	@echo "Bumping version to $(v)..."
 	@jq '.version = "$(v)"' deno.json > deno.json.tmp && mv deno.json.tmp deno.json
 	@npm version $(v) --no-git-tag-version
-	@git add deno.json package.json package-lock.json
+	@jq '(.version = "$(v)") | (.imports |= with_entries(if .value | test("b3nd-sdk@") then .value |= sub("b3nd-sdk@[^/\"]+"; "b3nd-sdk@$(v)") else . end))' apps/b3nd-node/deno.docker.json > apps/b3nd-node/deno.docker.json.tmp && mv apps/b3nd-node/deno.docker.json.tmp apps/b3nd-node/deno.docker.json
+	@git add deno.json package.json package-lock.json apps/b3nd-node/deno.docker.json
 	@git commit -m "chore(sdk): bump version to $(v)"
 	@git tag -a "v$(v)" -m "Release v$(v)"
 	@echo "Version $(v) tagged. Run 'make publish' to publish, then 'git push origin v$(v)'"

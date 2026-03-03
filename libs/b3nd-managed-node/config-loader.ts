@@ -9,8 +9,8 @@
  */
 
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
-import { verify } from "@b3nd/encrypt";
-import type { EncryptedPayload, SignedEncryptedMessage } from "@b3nd/encrypt";
+import { verify } from "@bandeira-tech/b3nd-sdk/encrypt";
+import type { EncryptedPayload, SignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { ManagedNodeConfig } from "./types.ts";
 import { nodeConfigUri } from "./types.ts";
 import { validateConfig } from "./validators.ts";
@@ -94,7 +94,7 @@ export async function loadConfig(
     }
 
     // Decrypt
-    const { decrypt } = await import("@b3nd/encrypt");
+    const { decrypt } = await import("@bandeira-tech/b3nd-sdk/encrypt");
     config = (await decrypt(
       message.payload as EncryptedPayload,
       options.nodeEncryptionPrivateKey,

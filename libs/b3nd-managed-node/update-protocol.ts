@@ -6,8 +6,8 @@
  */
 
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
-import { verify } from "@b3nd/encrypt";
-import type { EncryptedPayload } from "@b3nd/encrypt";
+import { verify } from "@bandeira-tech/b3nd-sdk/encrypt";
+import type { EncryptedPayload } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { ModuleUpdate } from "./types.ts";
 import { nodeUpdateUri } from "./types.ts";
 
@@ -73,7 +73,7 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
           if (!verified) return { available: false };
 
           // Decrypt
-          const { decrypt } = await import("@b3nd/encrypt");
+          const { decrypt } = await import("@bandeira-tech/b3nd-sdk/encrypt");
           payload = await decrypt(
             data.payload as EncryptedPayload,
             opts.nodeEncryptionPrivateKey,

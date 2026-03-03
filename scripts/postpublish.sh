@@ -6,9 +6,11 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "Cleaning up after publish..."
 
-# Restore mod.ts imports: ../_vendor/b3nd-X/ → ../libs/b3nd-X/
-sed 's|"\.\.\/_vendor\/b3nd-|"../libs/b3nd-|g' "$ROOT_DIR/src/mod.ts" > "$ROOT_DIR/src/mod.ts.bak"
-mv "$ROOT_DIR/src/mod.ts.bak" "$ROOT_DIR/src/mod.ts"
+# Restore all src/*.ts imports: ../_vendor/b3nd-X/ → ../libs/b3nd-X/
+for f in "$ROOT_DIR"/src/*.ts; do
+  sed 's|"\.\.\/_vendor\/b3nd-|"../libs/b3nd-|g' "$f" > "$f.bak"
+  mv "$f.bak" "$f"
+done
 
 # Remove vendor directory
 rm -rf "$ROOT_DIR/_vendor"

@@ -28,9 +28,11 @@ done
 # No need to rewrite vendored file imports — ../b3nd-X/ paths are already
 # correct since _vendor/ preserves the sibling directory structure.
 
-# Rewrite mod.ts imports: ../libs/b3nd-X/ → ../_vendor/b3nd-X/
-# (mod.ts is in src/, _vendor/ is at root)
-sed -i '' 's|"\.\./libs/b3nd-|"../_vendor/b3nd-|g' "$ROOT_DIR/src/mod.ts"
+# Rewrite all src/*.ts imports: ../libs/b3nd-X/ → ../_vendor/b3nd-X/
+# (src/ files reference ../libs/, _vendor/ is at root)
+for f in "$ROOT_DIR"/src/*.ts; do
+  sed -i '' 's|"\.\./libs/b3nd-|"../_vendor/b3nd-|g' "$f"
+done
 
 echo "Vendored $(find "$VENDOR" -name '*.ts' | wc -l | tr -d ' ') files into _vendor/"
 echo "Ready to publish. Run: cd $ROOT_DIR && deno publish"

@@ -7,8 +7,8 @@
  */
 
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
-import { createSignedEncryptedMessage } from "@b3nd/encrypt";
-import type { SignedEncryptedMessage } from "@b3nd/encrypt";
+import { createSignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
+import type { SignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { NodeMetrics } from "./types.ts";
 import { nodeMetricsUri } from "./types.ts";
 
@@ -84,7 +84,7 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
           opts.operatorEncryptionPubKeyHex,
         );
       } else {
-        const { createAuthenticatedMessage } = await import("@b3nd/encrypt");
+        const { createAuthenticatedMessage } = await import("@bandeira-tech/b3nd-sdk/encrypt");
         message = await createAuthenticatedMessage(metrics, [opts.signer]);
       }
 

@@ -11,7 +11,7 @@ import {
   createAuthenticatedMessage,
   exportPrivateKeyPem,
   generateSigningKeyPair,
-} from "@b3nd/encrypt";
+} from "@bandeira-tech/b3nd-sdk/encrypt";
 import { nodeConfigUri } from "@b3nd/managed-node/types";
 import type { ManagedNodeConfig } from "@b3nd/managed-node/types";
 
