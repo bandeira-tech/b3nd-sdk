@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node check build-learn help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node run-node check build-learn help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -161,6 +161,14 @@ node:
 	BACKEND_URL=memory:// SCHEMA_MODULE=./example-schema.ts PORT=9942 CORS_ORIGIN="*" \
 	deno run --watch -A mod.ts
 
+# Run a Docker image with freshly generated keys (managed mode)
+# Usage: make run-node image=ghcr.io/bandeira-tech/b3nd/b3nd-node:latest
+run-node:
+ifndef image
+	$(error Usage: make run-node image=<docker-image>)
+endif
+	@deno run -A scripts/run-fresh-node.ts $(image)
+
 # Web rig + inspector only (node must be running separately)
 rig:
 	@trap 'kill 0' INT TERM; \
@@ -225,6 +233,7 @@ help:
 	@echo "  make up p=<profile>    - Start a compose profile (dev, test)"
 	@echo "  make down p=<profile>  - Stop a compose profile"
 	@echo "  make node              - Start B3nd node (:9942, memory backend)"
+	@echo "  make run-node image=.. - Run Docker image with fresh keys (managed mode)"
 	@echo "  make rig               - Start web rig (:5555) + inspector (:5556)"
 	@echo "  make check             - Health check all services"
 	@echo ""

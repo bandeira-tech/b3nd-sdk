@@ -1,6 +1,5 @@
 .git
 .github
-.claude
 .env
 .env.*
 node_modules
@@ -9,9 +8,14 @@ build
 coverage
 skills
 scripts
-tests
 *.test.ts
 *.log
 AGENTS.md
 BROWSER_USER_MANUAL.md
 README.md
+
+# Exclude these dirs but keep deno.json stubs for workspace resolution
+.claude
+!.claude-plugin/mcp-server/deno.json
+tests
+!tests/deno.json
