@@ -1,9 +1,22 @@
+/**
+ * @firecat/protocol — Firecat consensus protocol schema and utilities.
+ *
+ * Default export is the full Firecat schema for use with B3nd nodes.
+ * Named exports provide validators, helpers, and constants.
+ */
+
 import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
 import {
   authValidation,
   createPubkeyBasedAccess,
 } from "@bandeira-tech/b3nd-sdk/auth";
-import { hashValidator, validateLinkValue } from "./validators.ts";
+import { hashValidator, validateLinkValue } from "@bandeira-tech/b3nd-sdk/hash";
+import {
+  balanceValidator,
+  consumedValidator,
+  genesisValidator,
+  consensusRecordValidator,
+} from "./validators.ts";
 
 const schema: Schema = {
   "mutable://open": () => Promise.resolve({ valid: true }),
@@ -14,7 +27,8 @@ const schema: Schema = {
     try {
       const getAccess = createPubkeyBasedAccess();
       const validator = authValidation(getAccess);
-      const isValid = await validator({ uri, value });
+      // deno-lint-ignore no-explicit-any
+      const isValid = await validator({ uri, value } as any);
 
       return {
         valid: isValid,
@@ -37,7 +51,8 @@ const schema: Schema = {
     try {
       const getAccess = createPubkeyBasedAccess();
       const validator = authValidation(getAccess);
-      const isValid = await validator({ uri, value });
+      // deno-lint-ignore no-explicit-any
+      const isValid = await validator({ uri, value } as any);
 
       if (isValid) {
         const result = await read(uri);
@@ -63,13 +78,20 @@ const schema: Schema = {
   // Content-addressed storage — hash enforcement via hashValidator()
   "hash://sha256": hashValidator(),
 
+  // Immutable balance UTXO, consumed, genesis, and consensus programs
+  "immutable://balance": balanceValidator,
+  "immutable://consumed": consumedValidator,
+  "immutable://genesis": genesisValidator,
+  "consensus://record": consensusRecordValidator,
+
   // Authenticated links (value is auth-wrapped URI)
   "link://accounts": async ({ uri, value }) => {
     try {
       // 1. Verify signature
       const getAccess = createPubkeyBasedAccess();
       const validator = authValidation(getAccess);
-      const isValid = await validator({ uri, value });
+      // deno-lint-ignore no-explicit-any
+      const isValid = await validator({ uri, value } as any);
 
       if (!isValid) {
         return { valid: false, error: "Signature verification failed" };
@@ -102,3 +124,8 @@ const schema: Schema = {
 };
 
 export default schema;
+
+// Re-export all named exports
+export * from "./validators.ts";
+export * from "./helpers.ts";
+export * from "./constants.ts";

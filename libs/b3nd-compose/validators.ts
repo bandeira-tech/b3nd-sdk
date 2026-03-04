@@ -205,7 +205,7 @@ export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
       return { valid: false, error: `Unknown program: ${envelopeProgram}` };
     }
 
-    const envelopeResult = await envelopeValidator({ uri, value: data, read });
+    const envelopeResult = await envelopeValidator({ uri, value: data, read, message: data });
     if (!envelopeResult.valid) {
       return {
         valid: false,
@@ -240,6 +240,7 @@ export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
         uri: outputUri,
         value: outputValue,
         read,
+        message: data,
       });
       if (!result.valid) {
         return {

@@ -148,7 +148,7 @@ dev:
 	@trap 'kill 0; docker compose --profile dev down' INT TERM; \
 	(cd apps/b3nd-node && \
 	  BACKEND_URL=postgresql://b3nd:b3nd@localhost:5432/b3nd \
-	  SCHEMA_MODULE=./example-schema.ts PORT=9942 CORS_ORIGIN="*" \
+	  PORT=9942 CORS_ORIGIN="*" \
 	  deno run --watch -A mod.ts) & \
 	(cd apps/b3nd-web-rig && npm run dev) & \
 	(cd apps/sdk-inspector && deno task dev) & \
@@ -158,7 +158,7 @@ dev:
 # B3nd node on :9942 with memory backend (standalone)
 node:
 	@cd apps/b3nd-node && \
-	BACKEND_URL=memory:// SCHEMA_MODULE=./example-schema.ts PORT=9942 CORS_ORIGIN="*" \
+	BACKEND_URL=memory:// PORT=9942 CORS_ORIGIN="*" \
 	deno run --watch -A mod.ts
 
 # Run a Docker image with freshly generated keys (managed mode)

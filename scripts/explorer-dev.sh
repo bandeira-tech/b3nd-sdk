@@ -67,7 +67,7 @@ fi
 HTTP_ENV=$(mktemp)
 cat > "$HTTP_ENV" << EOF
 BACKEND_URL=$BACKEND_URL
-SCHEMA_MODULE=./example-schema.ts
+
 PORT=9942
 CORS_ORIGIN=*
 EOF
@@ -92,7 +92,6 @@ echo -e "${GREEN}▶ Starting HTTP API Server (port 9942)...${NC}"
 echo -e "  Backend: $BACKEND_URL"
 (cd "$ROOT_DIR/apps/b3nd-node" && \
   BACKEND_URL="$BACKEND_URL" \
-  SCHEMA_MODULE=./example-schema.ts \
   PORT=9942 \
   CORS_ORIGIN="*" \
   deno run --watch -A mod.ts 2>&1 | sed 's/^/  [http] /') &

@@ -97,6 +97,7 @@ function target(
 export class MemoryClient implements NodeProtocolInterface {
   protected storage: MemoryClientStorage;
   protected schema: Schema;
+  private _messageContext: unknown = undefined;
 
   /**
    * Create a new MemoryClient
@@ -150,6 +151,7 @@ export class MemoryClient implements NodeProtocolInterface {
       uri,
       value: data,
       read: this.read.bind(this),
+      ...(this._messageContext ? { message: this._messageContext } : {}),
     });
     if (!validation.valid) {
       return {
@@ -180,14 +182,20 @@ export class MemoryClient implements NodeProtocolInterface {
 
     // If MessageData, also store each output at its own URI
     if (isMessageData(data)) {
-      for (const [outputUri, outputValue] of data.payload.outputs) {
-        const outputResult = await this.receive([outputUri, outputValue]);
-        if (!outputResult.accepted) {
-          return {
-            accepted: false,
-            error: outputResult.error || `Failed to store output: ${outputUri}`,
-          };
+      const prevContext = this._messageContext;
+      this._messageContext = data;
+      try {
+        for (const [outputUri, outputValue] of data.payload.outputs) {
+          const outputResult = await this.receive([outputUri, outputValue]);
+          if (!outputResult.accepted) {
+            return {
+              accepted: false,
+              error: outputResult.error || `Failed to store output: ${outputUri}`,
+            };
+          }
         }
+      } finally {
+        this._messageContext = prevContext;
       }
     }
 

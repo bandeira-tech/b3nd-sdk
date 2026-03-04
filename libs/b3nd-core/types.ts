@@ -113,6 +113,7 @@ export type ValidationFn = (write: {
   uri: string;
   value: unknown;
   read: <T = unknown>(uri: string) => Promise<ReadResult<T>>;
+  message?: unknown;
 }) => Promise<{ valid: boolean; error?: string }>;
 
 /**

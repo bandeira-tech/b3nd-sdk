@@ -12,6 +12,7 @@ import {
   servers,
 } from "@bandeira-tech/b3nd-sdk";
 import type { NodeProtocolInterface, Schema } from "@bandeira-tech/b3nd-sdk";
+import firecatSchema from "@firecat/protocol";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
 import { Hono } from "hono";
@@ -39,7 +40,7 @@ if (!Number.isFinite(PORT)) {
   throw new Error("PORT env var must be a valid number");
 }
 
-// Schema: load from module if provided, otherwise accept all
+// Schema: load from module if provided, otherwise use Firecat protocol
 let schema: Schema;
 if (SCHEMA_MODULE) {
   const imported = await import(SCHEMA_MODULE);
@@ -48,21 +49,7 @@ if (SCHEMA_MODULE) {
     throw new Error("SCHEMA_MODULE must export default Schema object");
   }
 } else {
-  // Permissive schema — accepts any URI pattern
-  schema = new Proxy({} as Schema, {
-    get: (_target, prop) => {
-      if (typeof prop === "string") {
-        return async () => ({ valid: true });
-      }
-      return undefined;
-    },
-    has: () => true,
-    ownKeys: () => [],
-    getOwnPropertyDescriptor: () => ({
-      configurable: true,
-      enumerable: true,
-    }),
-  });
+  schema = firecatSchema;
 }
 
 // Parse BACKEND_URL into individual backend descriptors
