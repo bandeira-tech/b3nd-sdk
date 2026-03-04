@@ -73,7 +73,7 @@ export async function proxyWrite(
     if (request.encrypt) {
       // Sign and encrypt
       signedMessage = await createSignedEncryptedMessage(
-        request.data,
+        new TextEncoder().encode(JSON.stringify(request.data)),
         [signer],
         encryptionKey.publicKeyHex,
       );
@@ -176,10 +176,11 @@ export async function proxyRead(
               nonce: payload.nonce as string,
               ephemeralPublicKey: payload.ephemeralPublicKey as string,
             };
-            const decrypted = await decrypt(
+            const decryptedBytes = await decrypt(
               encryptedPayload,
               privateKey,
             );
+            const decrypted = JSON.parse(new TextDecoder().decode(decryptedBytes));
             return {
               ...response,
               decrypted,
@@ -298,7 +299,8 @@ export async function proxyReadMulti(
                     nonce: payload.nonce as string,
                     ephemeralPublicKey: payload.ephemeralPublicKey as string,
                   };
-                  const decrypted = await decrypt(encryptedPayload, privateKey);
+                  const decryptedBytes = await decrypt(encryptedPayload, privateKey);
+                  const decrypted = JSON.parse(new TextDecoder().decode(decryptedBytes));
                   return { ...result, decrypted };
                 }
               }

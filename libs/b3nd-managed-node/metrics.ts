@@ -79,7 +79,7 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
 
       if (opts.operatorEncryptionPubKeyHex) {
         message = await createSignedEncryptedMessage(
-          metrics,
+          new TextEncoder().encode(JSON.stringify(metrics)),
           [opts.signer],
           opts.operatorEncryptionPubKeyHex,
         );

@@ -131,7 +131,7 @@ export class PublicEncryptionKey {
     };
   }
 
-  async encrypt(data: unknown): Promise<EncryptedPayload> {
+  async encrypt(data: Uint8Array): Promise<EncryptedPayload> {
     return await encrypt(data, this.publicKeyHex);
   }
 
@@ -160,11 +160,11 @@ export class SecretEncryptionKey {
     return new SecretEncryptionKey(keyHex);
   }
 
-  async encrypt(data: unknown): Promise<EncryptedPayload> {
+  async encrypt(data: Uint8Array): Promise<EncryptedPayload> {
     return await encryptSymmetric(data, this.keyHex);
   }
 
-  async decrypt(payload: EncryptedPayload): Promise<unknown> {
+  async decrypt(payload: EncryptedPayload): Promise<Uint8Array> {
     return await decryptSymmetric(payload, this.keyHex);
   }
 }
@@ -219,7 +219,7 @@ export class PrivateEncryptionKey {
     return new PublicEncryptionKey(this.publicKeyHex, null);
   }
 
-  async decrypt(payload: EncryptedPayload): Promise<unknown> {
+  async decrypt(payload: EncryptedPayload): Promise<Uint8Array> {
     return await decrypt(payload, this.privateKey);
   }
 
@@ -407,7 +407,7 @@ export async function verify<T>(
  * Uses ephemeral keypair for forward secrecy
  */
 export async function encrypt(
-  data: unknown,
+  data: Uint8Array,
   recipientPublicKeyHex: string,
 ): Promise<EncryptedPayload> {
   // Generate ephemeral keypair for ECDH
@@ -452,16 +452,13 @@ export async function encrypt(
   const nonce = crypto.getRandomValues(new Uint8Array(12));
 
   // Encrypt data
-  const encoder = new TextEncoder();
-  const plaintext = encoder.encode(JSON.stringify(data));
-
   const ciphertext = await crypto.subtle.encrypt(
     {
       name: "AES-GCM",
       iv: nonce,
     },
     aesKey,
-    plaintext,
+    data as BufferSource,
   );
 
   return {
@@ -477,7 +474,7 @@ export async function encrypt(
 export async function decrypt(
   encryptedPayload: EncryptedPayload,
   recipientPrivateKey: CryptoKey,
-): Promise<unknown> {
+): Promise<Uint8Array> {
   if (!encryptedPayload.ephemeralPublicKey) {
     throw new Error("Missing ephemeral public key");
   }
@@ -532,9 +529,7 @@ export async function decrypt(
     ciphertext,
   );
 
-  const decoder = new TextDecoder();
-  const json = decoder.decode(plaintext);
-  return JSON.parse(json);
+  return new Uint8Array(plaintext);
 }
 
 /**
@@ -543,7 +538,7 @@ export async function decrypt(
 export async function decryptWithHex(
   encryptedPayload: EncryptedPayload,
   recipientPrivateKeyHex: string,
-): Promise<unknown> {
+): Promise<Uint8Array> {
   const privateKeyBytes = decodeHex(recipientPrivateKeyHex).buffer;
   const privateKey = await crypto.subtle.importKey(
     "raw",
@@ -683,33 +678,34 @@ export async function verifyPayload(
 
 export async function createSignedEncryptedMessage(
   params: {
-    data: unknown;
+    data: Uint8Array;
     identity: IdentityKey;
     encryptionKey: SecretEncryptionKey | PublicEncryptionKey;
   },
 ): Promise<SignedEncryptedMessage>;
 export async function createSignedEncryptedMessage(
-  data: unknown,
+  data: Uint8Array,
   signers: Array<{ privateKey: CryptoKey; publicKeyHex: string }>,
   recipientPublicKeyHex: string,
 ): Promise<SignedEncryptedMessage>;
 export async function createSignedEncryptedMessage(
   paramsOrData:
     | {
-      data: unknown;
+      data: Uint8Array;
       identity: IdentityKey;
       encryptionKey: SecretEncryptionKey | PublicEncryptionKey;
     }
-    | unknown,
+    | Uint8Array,
   signers?: Array<{ privateKey: CryptoKey; publicKeyHex: string }>,
   recipientPublicKeyHex?: string,
 ): Promise<SignedEncryptedMessage> {
   if (
     typeof paramsOrData === "object" && paramsOrData !== null &&
+    !(paramsOrData instanceof Uint8Array) &&
     "encryptionKey" in paramsOrData
   ) {
     const { data, identity, encryptionKey } = paramsOrData as {
-      data: unknown;
+      data: Uint8Array;
       identity: IdentityKey;
       encryptionKey: SecretEncryptionKey | PublicEncryptionKey;
     };
@@ -724,7 +720,7 @@ export async function createSignedEncryptedMessage(
     );
   }
 
-  const encrypted = await encrypt(paramsOrData, recipientPublicKeyHex);
+  const encrypted = await encrypt(paramsOrData as Uint8Array, recipientPublicKeyHex);
   const auth = await Promise.all(
     signers.map(async (signer) => {
       const signature = await sign(signer.privateKey, encrypted);
@@ -739,7 +735,7 @@ export async function verifyAndDecryptMessage(
     message: SignedEncryptedMessage;
     encryptionKey: SecretEncryptionKey | PrivateEncryptionKey;
   },
-): Promise<{ data: unknown; verified: boolean; signers: string[] }> {
+): Promise<{ data: Uint8Array; verified: boolean; signers: string[] }> {
   const { message, encryptionKey } = params;
   const { verified, signers } = await verifyPayload({
     payload: message.payload,
@@ -755,7 +751,7 @@ export async function verifyAndDecryptMessage(
  * Encrypt data using a symmetric key (AES-GCM) provided as hex
  */
 export async function encryptSymmetric(
-  data: unknown,
+  data: Uint8Array,
   keyHex: string,
 ): Promise<EncryptedPayload> {
   const keyBytes = decodeHex(keyHex).buffer;
@@ -768,11 +764,10 @@ export async function encryptSymmetric(
   );
 
   const nonce = generateNonce();
-  const encoder = new TextEncoder();
   const ciphertext = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv: nonce as BufferSource },
     aesKey,
-    encoder.encode(JSON.stringify(data)),
+    data as BufferSource,
   );
 
   return {
@@ -787,7 +782,7 @@ export async function encryptSymmetric(
 export async function decryptSymmetric(
   payload: EncryptedPayload,
   keyHex: string,
-): Promise<unknown> {
+): Promise<Uint8Array> {
   const keyBytes = decodeHex(keyHex).buffer;
   const aesKey = await crypto.subtle.importKey(
     "raw",
@@ -805,15 +800,14 @@ export async function decryptSymmetric(
     ciphertext,
   );
 
-  const decoder = new TextDecoder();
-  return JSON.parse(decoder.decode(plaintext));
+  return new Uint8Array(plaintext);
 }
 
 /**
  * Create a signed symmetric message (signs encrypted payload)
  */
 export async function createSignedSymmetricMessage(
-  data: unknown,
+  data: Uint8Array,
   signers: Array<{ privateKey: CryptoKey; publicKeyHex: string }>,
   keyHex: string,
 ): Promise<SignedSymmetricMessage> {

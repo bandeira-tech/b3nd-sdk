@@ -140,7 +140,7 @@ export async function createSignedEncryptedPayload(
   );
 
   return await createSignedEncryptedMessage(
-    data,
+    new TextEncoder().encode(JSON.stringify(data)),
     [{
       privateKey: identityPrivateKey,
       publicKeyHex: serverIdentityPublicKeyHex,
@@ -168,7 +168,8 @@ export async function decryptSignedEncryptedPayload(
   });
 
   // Decrypt the payload
-  const data = await decryptData(signedMessage.payload, encryptionPrivateKey);
+  const decryptedBytes = await decryptData(signedMessage.payload, encryptionPrivateKey);
+  const data = JSON.parse(new TextDecoder().decode(decryptedBytes));
 
   return { data, verified, signers };
 }
@@ -181,7 +182,10 @@ export async function encryptForBackend(
   data: unknown,
   serverEncryptionPublicKeyHex: string,
 ): Promise<EncryptedPayload> {
-  return await encryptData(data, serverEncryptionPublicKeyHex);
+  return await encryptData(
+    new TextEncoder().encode(JSON.stringify(data)),
+    serverEncryptionPublicKeyHex,
+  );
 }
 
 /**
@@ -196,7 +200,8 @@ export async function decryptFromBackend(
     serverEncryptionPrivateKeyPem,
     "X25519",
   );
-  return await decryptData(encryptedPayload, privateKey);
+  const decryptedBytes = await decryptData(encryptedPayload, privateKey);
+  return JSON.parse(new TextDecoder().decode(decryptedBytes));
 }
 
 /**

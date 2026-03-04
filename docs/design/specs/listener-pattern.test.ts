@@ -60,7 +60,10 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
     clientPublicKeyHex: clientEncKP.publicKeyHex,
   };
 
-  const encryptedRequest = await encrypt(request, listenerEncKP.publicKeyHex);
+  const encryptedRequest = await encrypt(
+    new TextEncoder().encode(JSON.stringify(request)),
+    listenerEncKP.publicKeyHex,
+  );
   const signedRequest = await createAuthenticatedMessageWithHex(
     encryptedRequest,
     clientSigningKP.publicKeyHex,
@@ -86,9 +89,10 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
     assertEquals(sigValid, true);
 
     // Decrypt the request
-    const decryptedRequest = await decrypt(
-      storedMessage.payload,
-      listenerEncKP.privateKey,
+    const decryptedRequest = JSON.parse(
+      new TextDecoder().decode(
+        await decrypt(storedMessage.payload, listenerEncKP.privateKey),
+      ),
     ) as typeof request;
     assertEquals(decryptedRequest.type, "echo");
     assertEquals(decryptedRequest.data.message, "Hello listener!");
@@ -100,7 +104,7 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
     };
 
     const encryptedResponse = await encrypt(
-      response,
+      new TextEncoder().encode(JSON.stringify(response)),
       decryptedRequest.clientPublicKeyHex,
     );
     const signedResponse = await createAuthenticatedMessageWithHex(
@@ -135,9 +139,10 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
     assertEquals(sigValid, true);
 
     // Decrypt the response
-    const decryptedResponse = await decrypt(
-      storedResponse.payload,
-      clientEncKP.privateKey,
+    const decryptedResponse = JSON.parse(
+      new TextDecoder().decode(
+        await decrypt(storedResponse.payload, clientEncKP.privateKey),
+      ),
     ) as { type: string; data: { echo: string; processed: boolean } };
     assertEquals(decryptedResponse.type, "echo-response");
     assertEquals(decryptedResponse.data.echo, "Hello listener!");
@@ -298,7 +303,10 @@ Deno.test("end-to-end: oauth auth request → HMAC response → identity derivat
     replyTo: outboxUri,
   };
 
-  const encryptedRequest = await encrypt(authRequest, listenerEncKP.publicKeyHex);
+  const encryptedRequest = await encrypt(
+    new TextEncoder().encode(JSON.stringify(authRequest)),
+    listenerEncKP.publicKeyHex,
+  );
   await client.receive([inboxUri, encryptedRequest]);
 
   // Step 2: Listener reads, decrypts, processes
@@ -307,14 +315,21 @@ Deno.test("end-to-end: oauth auth request → HMAC response → identity derivat
 
   if (reqRead.success) {
     const storedReq = reqRead.record!.data as typeof encryptedRequest;
-    const decryptedReq = await decrypt(storedReq, listenerEncKP.privateKey) as typeof authRequest;
+    const decryptedReq = JSON.parse(
+      new TextDecoder().decode(
+        await decrypt(storedReq, listenerEncKP.privateKey),
+      ),
+    ) as typeof authRequest;
 
     // Listener derives deterministic secret
     const derivedSecret = await hmac(nodeSecret, decryptedReq.sub);
 
     // Listener encrypts secret to client
     const response = { type: "oauth-auth-response", secret: derivedSecret };
-    const encryptedResponse = await encrypt(response, decryptedReq.clientPublicKeyHex);
+    const encryptedResponse = await encrypt(
+      new TextEncoder().encode(JSON.stringify(response)),
+      decryptedReq.clientPublicKeyHex,
+    );
     const signedResponse = await createAuthenticatedMessageWithHex(
       encryptedResponse,
       listenerSigningKP.publicKeyHex,
@@ -344,9 +359,10 @@ Deno.test("end-to-end: oauth auth request → HMAC response → identity derivat
     assertEquals(storedResp.auth[0].pubkey, listenerSigningKP.publicKeyHex);
 
     // Decrypt response
-    const decryptedResp = await decrypt(
-      storedResp.payload,
-      clientEncKP.privateKey,
+    const decryptedResp = JSON.parse(
+      new TextDecoder().decode(
+        await decrypt(storedResp.payload, clientEncKP.privateKey),
+      ),
     ) as { type: string; secret: string };
 
     assertEquals(decryptedResp.type, "oauth-auth-response");

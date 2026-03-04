@@ -95,10 +95,11 @@ export async function loadConfig(
 
     // Decrypt
     const { decrypt } = await import("@bandeira-tech/b3nd-sdk/encrypt");
-    config = (await decrypt(
+    const decryptedBytes = await decrypt(
       message.payload as EncryptedPayload,
       options.nodeEncryptionPrivateKey,
-    )) as ManagedNodeConfig;
+    );
+    config = JSON.parse(new TextDecoder().decode(decryptedBytes)) as ManagedNodeConfig;
   } else {
     // Legacy plaintext AuthenticatedMessage — verify signature over payload
     let verified = false;

@@ -139,21 +139,25 @@ Deno.test("pkce + oauth: SPA flow with custom node — end to end", async () => 
     clientPublicKeyHex: clientEncKP.publicKeyHex,
   };
 
-  const encryptedAuth = await encrypt(authPayload, nodeEncKP.publicKeyHex);
+  const encryptedAuth = await encrypt(
+    new TextEncoder().encode(JSON.stringify(authPayload)),
+    nodeEncKP.publicKeyHex,
+  );
   await client.receive([authUri, encryptedAuth]);
 
   // Step 4: Node processes (simulate)
   const reqRead = await client.read(authUri);
   assertEquals(reqRead.success, true);
 
-  const decryptedAuth = await decrypt(
-    reqRead.record!.data as any,
-    nodeEncKP.privateKey,
+  const decryptedAuth = JSON.parse(
+    new TextDecoder().decode(
+      await decrypt(reqRead.record!.data as any, nodeEncKP.privateKey),
+    ),
   ) as typeof authPayload;
 
   const derivedSecret = await hmac(nodeSecret, decryptedAuth.sub);
   const encryptedResponse = await encrypt(
-    { secret: derivedSecret },
+    new TextEncoder().encode(JSON.stringify({ secret: derivedSecret })),
     decryptedAuth.clientPublicKeyHex,
   );
 
@@ -164,9 +168,10 @@ Deno.test("pkce + oauth: SPA flow with custom node — end to end", async () => 
   const respRead = await client.read(responseUri);
   assertEquals(respRead.success, true);
 
-  const decryptedResp = await decrypt(
-    respRead.record!.data as any,
-    clientEncKP.privateKey,
+  const decryptedResp = JSON.parse(
+    new TextDecoder().decode(
+      await decrypt(respRead.record!.data as any, clientEncKP.privateKey),
+    ),
   ) as { secret: string };
 
   const signingKP = await deriveSigningKeyPairFromSeed(decryptedResp.secret);
@@ -318,14 +323,15 @@ Deno.test("oauth: simulated listener flow — encrypted secret exchange", async 
 
   // Step 3: Listener encrypts the secret to the client's public key
   const encryptedSecret = await encrypt(
-    { secret: derivedSecret },
+    new TextEncoder().encode(JSON.stringify({ secret: derivedSecret })),
     clientEncKeypair.publicKeyHex,
   );
 
   // Step 4: Client decrypts the secret
-  const decryptedResponse = await decrypt(
-    encryptedSecret,
-    clientEncKeypair.privateKey,
+  const decryptedResponse = JSON.parse(
+    new TextDecoder().decode(
+      await decrypt(encryptedSecret, clientEncKeypair.privateKey),
+    ),
   ) as { secret: string };
 
   assertEquals(decryptedResponse.secret, derivedSecret);

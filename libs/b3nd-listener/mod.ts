@@ -167,9 +167,13 @@ export function respondTo<TReq = unknown, TRes = unknown>(
     }
 
     // 2. Decrypt
-    const decrypted = await decrypt(
-      encryptedPayload,
-      identity.encryptionKeyPair.privateKey,
+    const decrypted = JSON.parse(
+      new TextDecoder().decode(
+        await decrypt(
+          encryptedPayload,
+          identity.encryptionKeyPair.privateKey,
+        ),
+      ),
     ) as InboxRequestPayload<TReq>;
 
     if (!decrypted.clientPublicKeyHex || !decrypted.replyTo) {
@@ -189,7 +193,10 @@ export function respondTo<TReq = unknown, TRes = unknown>(
     const response = await handler(request);
 
     // 5. Encrypt response to client
-    const encryptedResponse = await encrypt(response, decrypted.clientPublicKeyHex);
+    const encryptedResponse = await encrypt(
+      new TextEncoder().encode(JSON.stringify(response)),
+      decrypted.clientPublicKeyHex,
+    );
 
     // 6. Sign
     const signedResponse = await createAuthenticatedMessageWithHex(
@@ -311,7 +318,10 @@ export async function writeRequest<T>(params: {
     replyTo: replyToUri,
   };
 
-  const encrypted = await encrypt(requestPayload, listenerEncryptionPublicKeyHex);
+  const encrypted = await encrypt(
+    new TextEncoder().encode(JSON.stringify(requestPayload)),
+    listenerEncryptionPublicKeyHex,
+  );
 
   if (signingKeyPair) {
     const signed = await createAuthenticatedMessageWithHex(
@@ -355,12 +365,20 @@ export async function readResponse<T>(params: {
       verified = verified && signed.auth[0].pubkey === listenerPublicKeyHex;
     }
 
-    const data = await decrypt(signed.payload, clientEncryptionPrivateKey) as T;
+    const data = JSON.parse(
+      new TextDecoder().decode(
+        await decrypt(signed.payload, clientEncryptionPrivateKey),
+      ),
+    ) as T;
     return { data, verified };
   }
 
   if (isEncryptedPayload(raw)) {
-    const data = await decrypt(raw as EncryptedPayload, clientEncryptionPrivateKey) as T;
+    const data = JSON.parse(
+      new TextDecoder().decode(
+        await decrypt(raw as EncryptedPayload, clientEncryptionPrivateKey),
+      ),
+    ) as T;
     return { data, verified: false };
   }
 

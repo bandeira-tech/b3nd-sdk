@@ -57,7 +57,7 @@ export function createHeartbeatWriter(opts: HeartbeatWriterOptions): HeartbeatWr
 
       if (opts.operatorEncryptionPubKeyHex) {
         message = await createSignedEncryptedMessage(
-          status,
+          new TextEncoder().encode(JSON.stringify(status)),
           [opts.signer],
           opts.operatorEncryptionPubKeyHex,
         );

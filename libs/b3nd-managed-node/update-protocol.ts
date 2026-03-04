@@ -74,10 +74,11 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
 
           // Decrypt
           const { decrypt } = await import("@bandeira-tech/b3nd-sdk/encrypt");
-          payload = await decrypt(
+          const decryptedBytes = await decrypt(
             data.payload as EncryptedPayload,
             opts.nodeEncryptionPrivateKey,
           );
+          payload = JSON.parse(new TextDecoder().decode(decryptedBytes));
         } else {
           // Plaintext signed message
           let verified = false;

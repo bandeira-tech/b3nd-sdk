@@ -287,7 +287,7 @@ export async function write(args: string[], verbose = false): Promise<void> {
           try {
             const encryptionKey = await loadEncryptionKey();
             const encryptedPayload = await encrypt(
-              data,
+              new TextEncoder().encode(JSON.stringify(data)),
               encryptionKey.publicKeyHex,
             );
             logger?.info(`Encrypted payload`);
@@ -392,7 +392,11 @@ export async function read(uri: string, verbose = false): Promise<void> {
                 encryptionKey.privateKeyPem,
                 "X25519",
               );
-              const decryptedData = await decrypt(encryptedPayload, privateKey);
+              const decryptedData = JSON.parse(
+                new TextDecoder().decode(
+                  await decrypt(encryptedPayload, privateKey),
+                ),
+              );
 
               // Show decrypted value separately
               console.log(

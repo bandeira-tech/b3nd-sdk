@@ -59,7 +59,7 @@ const signAndEncryptPayload = async (
   ensureValue(encryptionPublicKeyHex, "Encryption public key");
   const privateKey = await loadSigningKey(accountPrivateKeyPem);
   const message = await encrypt.createSignedEncryptedMessage(
-    payload,
+    new TextEncoder().encode(JSON.stringify(payload)),
     [
       {
         privateKey,
@@ -544,7 +544,10 @@ export const uploadHash = async (params: {
       size: file.size,
       data: dataUrl,
     };
-    const encrypted = await encrypt.encrypt(payload, encryptToPublicKey);
+    const encrypted = await encrypt.encrypt(
+      new TextEncoder().encode(JSON.stringify(payload)),
+      encryptToPublicKey,
+    );
     contentData = encrypted;
   } else {
     // Store as plain data with base64 encoding

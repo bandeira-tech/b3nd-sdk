@@ -39,7 +39,7 @@ export async function saveAppConfig(
 
   const path = `apps/${config.appKey}`;
   const signed = await createSignedEncryptedMessage(
-    payload,
+    new TextEncoder().encode(JSON.stringify(payload)),
     [{
       privateKey: await pemToCryptoKey(serverIdentityPrivateKeyPem, "Ed25519"),
       publicKeyHex: serverIdentityPublicKeyHex,
@@ -69,11 +69,11 @@ export async function loadAppConfig(
     };
   }
 
-  const data = await decrypt(
+  const decryptedBytes = await decrypt(
     result.record.data.payload,
     await pemToCryptoKey(serverEncryptionPrivateKeyPem, "X25519"),
   );
-  const obj = data as any;
+  const obj = JSON.parse(new TextDecoder().decode(decryptedBytes)) as any;
   return {
     appKey: obj.appKey,
     allowedOrigins: obj.allowedOrigins || ["*"],

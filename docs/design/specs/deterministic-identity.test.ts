@@ -107,8 +107,9 @@ Deno.test("deriveEncryptionKeyPairFromSeed: encrypt and decrypt round-trip", asy
   const keypair = await deriveEncryptionKeyPairFromSeed(seed);
 
   const plaintext = { secret: "deterministic encryption works", count: 42 };
-  const encrypted = await encrypt(plaintext, keypair.publicKeyHex);
-  const decrypted = await decrypt(encrypted, keypair.privateKey);
+  const encoder = new TextEncoder();
+  const encrypted = await encrypt(encoder.encode(JSON.stringify(plaintext)), keypair.publicKeyHex);
+  const decrypted = JSON.parse(new TextDecoder().decode(await decrypt(encrypted, keypair.privateKey)));
 
   assertEquals(decrypted, plaintext);
 });
@@ -180,8 +181,8 @@ Deno.test("full flow: password credentials → deterministic identity → sign �
 
   // Step 6: Encrypt something to ourselves
   const secret = { ingredients: ["guanciale", "pecorino", "eggs"] };
-  const encrypted = await encrypt(secret, encryptionKeypair.publicKeyHex);
-  const decrypted = await decrypt(encrypted, encryptionKeypair.privateKey);
+  const encrypted = await encrypt(new TextEncoder().encode(JSON.stringify(secret)), encryptionKeypair.publicKeyHex);
+  const decrypted = JSON.parse(new TextDecoder().decode(await decrypt(encrypted, encryptionKeypair.privateKey)));
   assertEquals(decrypted, secret);
 
   // Step 7: Re-derive on "new device" — same identity
