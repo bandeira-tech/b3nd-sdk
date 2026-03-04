@@ -21,6 +21,17 @@ export interface SearchResult {
 
 export type ExplorerSection = "index" | "account";
 
+// Query result types (mirrors b3nd-core QueryResult/QueryRecord)
+export interface QueryRecord {
+  uri: string;
+  data: unknown;
+  ts: number;
+}
+
+export type QueryResult =
+  | { success: true; records: QueryRecord[]; total?: number }
+  | { success: false; error: string };
+
 export interface SearchFilters {
   protocol?: string;
   domain?: string;
@@ -59,6 +70,9 @@ export interface BackendAdapter {
     options?: { page?: number; limit?: number },
   ): Promise<PaginatedResponse<SearchResult>>;
 
+  // Query — advanced data querying (native passthrough, portable DSL, stored queries)
+  query(options: Record<string, unknown>): Promise<QueryResult>;
+
   // Metadata
   getSchema(): Promise<Record<string, string[]>>; // Schemas keyed by backend (single entry)
   healthCheck(): Promise<boolean>;
@@ -79,7 +93,7 @@ export interface EndpointConfig {
 }
 
 // Application state types
-export type AppMode = "filesystem" | "search" | "watched";
+export type AppMode = "filesystem" | "search" | "watched" | "query";
 export type AppExperience = "explorer" | "editor" | "writer" | "dashboard" | "nodes" | "learn";
 export type WriterSection =
   | "backend"
@@ -225,6 +239,12 @@ export interface AppState {
   // Watched paths
   watchedPaths: string[];
 
+  // Query
+  queryInput: string; // Raw JSON input for the query
+  queryResults: QueryResult | null;
+  queryLoading: boolean;
+  queryHistory: string[]; // Recent query inputs
+
   // Logs
   logs: AppLogEntry[];
 }
@@ -294,6 +314,12 @@ export interface AppActions {
   // Watched paths actions
   addWatchedPath: (path: string) => void;
   removeWatchedPath: (path: string) => void;
+
+  // Query actions
+  setQueryInput: (input: string) => void;
+  executeQuery: () => Promise<void>;
+  clearQueryResults: () => void;
+  addToQueryHistory: (input: string) => void;
 
   // Logs
   addLogEntry: (entry: Omit<AppLogEntry, "timestamp"> & { timestamp?: number }) => void;

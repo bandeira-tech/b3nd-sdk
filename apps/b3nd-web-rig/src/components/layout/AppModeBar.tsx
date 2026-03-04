@@ -1,6 +1,6 @@
 // React import not needed with react-jsx runtime
 import { useAppStore } from '../../stores/appStore';
-import { FolderTree, Search, Eye, PanelLeftOpen, PanelBottomOpen, PanelRightOpen } from 'lucide-react';
+import { FolderTree, Search, Eye, Database, PanelLeftOpen, PanelBottomOpen, PanelRightOpen } from 'lucide-react';
 import { cn } from '../../utils';
 import type { AppMode } from '../../types';
 import type { ReactNode } from 'react';
@@ -31,6 +31,11 @@ export function AppModeBar() {
       key: 'watched',
       label: 'Watched',
       icon: <Eye className="h-4 w-4" />,
+    },
+    {
+      key: 'query',
+      label: 'Query',
+      icon: <Database className="h-4 w-4" />,
     },
   ];
 

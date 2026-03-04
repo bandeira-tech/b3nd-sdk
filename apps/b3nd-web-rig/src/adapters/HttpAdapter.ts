@@ -3,6 +3,7 @@ import type {
   NavigationNode,
   PaginatedResponse,
   PersistenceRecord,
+  QueryResult,
   SearchFilters,
   SearchResult,
 } from "../types";
@@ -91,6 +92,11 @@ export class HttpAdapter implements BackendAdapter {
         limit: options?.limit || 20,
       },
     };
+  }
+
+  async query(options: Record<string, unknown>): Promise<QueryResult> {
+    const result = await this.client.query(options as any);
+    return result as QueryResult;
   }
 
   async getSchema(): Promise<Record<string, string[]>> {

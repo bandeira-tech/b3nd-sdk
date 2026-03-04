@@ -10,6 +10,7 @@ import type {
   EndpointConfig,
   ManagedAccount,
   PanelState,
+  QueryResult,
   ThemeMode,
   WriterSection,
   WriterUserSession,
@@ -177,6 +178,10 @@ const initialState: Omit<AppState, "backendsReady"> = {
   searchHistory: [],
   searchResults: [],
   watchedPaths: [],
+  queryInput: "",
+  queryResults: null,
+  queryLoading: false,
+  queryHistory: [],
   logs: [],
 };
 
@@ -887,6 +892,56 @@ export const useAppStore = create<AppStore>()(
           }));
         },
 
+        setQueryInput: (input: string) => {
+          set({ queryInput: input });
+        },
+
+        executeQuery: async () => {
+          const state = get();
+          const backend = state.backends.find((b) => b.id === state.activeBackendId);
+          if (!backend) {
+            set({ queryResults: { success: false, error: "No active backend" } as QueryResult, queryLoading: false });
+            return;
+          }
+
+          let parsed: Record<string, unknown>;
+          try {
+            parsed = JSON.parse(state.queryInput);
+          } catch {
+            set({ queryResults: { success: false, error: "Invalid JSON input" } as QueryResult, queryLoading: false });
+            return;
+          }
+
+          set({ queryLoading: true, queryResults: null });
+
+          try {
+            const result = await backend.adapter.query(parsed);
+            set({ queryResults: result, queryLoading: false });
+
+            // Add to history on success
+            const input = state.queryInput.trim();
+            if (input) {
+              const history = [input, ...state.queryHistory.filter((h) => h !== input)].slice(0, 20);
+              set({ queryHistory: history });
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            set({ queryResults: { success: false, error: message } as QueryResult, queryLoading: false });
+          }
+        },
+
+        clearQueryResults: () => {
+          set({ queryResults: null });
+        },
+
+        addToQueryHistory: (input: string) => {
+          if (!input.trim()) return;
+          set((state) => {
+            const history = [input, ...state.queryHistory.filter((h) => h !== input)].slice(0, 20);
+            return { queryHistory: history };
+          });
+        },
+
         addLogEntry: (entry) => {
           set((state) => {
             const timestamp = entry.timestamp ?? Date.now();
@@ -941,6 +996,7 @@ export const useAppStore = create<AppStore>()(
           theme: state.theme,
           searchHistory: state.searchHistory,
           watchedPaths: state.watchedPaths,
+          queryHistory: state.queryHistory,
           userBackends, // Add user backends to persisted state
         };
       },
@@ -996,6 +1052,10 @@ export const useAppStore = create<AppStore>()(
           state.formState = state.formState || {};
           state.searchQuery = "";
           state.searchResults = [];
+          state.queryInput = "";
+          state.queryResults = null;
+          state.queryLoading = false;
+          state.queryHistory = state.queryHistory || [];
           state.mode = "filesystem";
           state.activeApp = state.activeApp || "explorer";
           // Migrate old "app" section to "configuration"

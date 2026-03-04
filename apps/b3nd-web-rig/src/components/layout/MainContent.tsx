@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppStore, useActiveBackend } from "../../stores/appStore";
 import { RIG_EXPLORER_BASE_PATH, cn, routeForExplorerPath, sanitizePath, joinPath } from "../../utils";
 import { ContentViewer } from "./ContentViewer";
+import { QueryView } from "../explorer/QueryView";
 import { FileText, User, Database, ChevronRight, KeyRound } from "lucide-react";
 import type { NavigationNode } from "../../types";
 
@@ -27,6 +28,8 @@ export function ExplorerMainContent() {
         return <SearchView />;
       case "watched":
         return <WatchedPathsView />;
+      case "query":
+        return <QueryView />;
       default:
         return <ContentViewer path={normalizedIndexPath} />;
     }
@@ -73,6 +76,8 @@ export function ExplorerMainContent() {
         return <SearchView />;
       case "watched":
         return <WatchedPathsView />;
+      case "query":
+        return <QueryView />;
       default:
         return (
           <ContentViewer
