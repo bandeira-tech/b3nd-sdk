@@ -192,23 +192,19 @@ console.log(
   `B3nd Node :${PORT} (backends=${BACKEND_URL})`,
 );
 
-// ── Phase 2: Managed mode (conditional on CONFIG_URL) ────────────────
+// ── Phase 2: Managed mode (conditional on OPERATOR_KEY) ──────────────
 
-const CONFIG_URL = Deno.env.get("CONFIG_URL");
+const OPERATOR_KEY = Deno.env.get("OPERATOR_KEY");
 
-if (CONFIG_URL) {
-  const OPERATOR_KEY = Deno.env.get("OPERATOR_KEY");
-  const NODE_ID = Deno.env.get("NODE_ID");
+if (OPERATOR_KEY) {
   const NODE_PRIVATE_KEY_PEM = Deno.env.get("NODE_PRIVATE_KEY_PEM");
   const NODE_ENCRYPTION_PRIVATE_KEY_HEX = Deno.env.get("NODE_ENCRYPTION_PRIVATE_KEY_HEX");
   const OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX = Deno.env.get("OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX");
 
-  if (!OPERATOR_KEY) throw new Error("OPERATOR_KEY env var required when CONFIG_URL is set");
-  if (!NODE_ID) throw new Error("NODE_ID env var required when CONFIG_URL is set");
-  if (!NODE_PRIVATE_KEY_PEM) throw new Error("NODE_PRIVATE_KEY_PEM env var required when CONFIG_URL is set");
+  if (!NODE_PRIVATE_KEY_PEM) throw new Error("NODE_PRIVATE_KEY_PEM env var required when OPERATOR_KEY is set");
 
   // Dynamic imports — no cost when managed mode is not activated
-  const { pemToCryptoKey } = await import("@bandeira-tech/b3nd-sdk/encrypt");
+  const { extractPublicKeyHex, pemToCryptoKey } = await import("@bandeira-tech/b3nd-sdk/encrypt");
   const {
     bestEffortClient,
     buildClientsFromSpec,
@@ -222,8 +218,9 @@ if (CONFIG_URL) {
     loadSchemaModule,
   } = await import("@b3nd/managed-node");
 
-  const privateKey = await pemToCryptoKey(NODE_PRIVATE_KEY_PEM, "Ed25519");
-  const signer = { privateKey, publicKeyHex: NODE_ID };
+  const privateKey = await pemToCryptoKey(NODE_PRIVATE_KEY_PEM, "Ed25519", true);
+  const nodeId = await extractPublicKeyHex(privateKey);
+  const signer = { privateKey, publicKeyHex: nodeId };
 
   // Load encryption key if provided
   let nodeEncryptionPrivateKey: CryptoKey | undefined;
@@ -238,20 +235,19 @@ if (CONFIG_URL) {
     );
   }
 
-  console.log(`[managed] Node ID: ${NODE_ID}`);
+  console.log(`[managed] Node ID: ${nodeId} (derived from PEM)`);
   console.log(`[managed] Operator: ${OPERATOR_KEY}`);
-  console.log(`[managed] Config URL: ${CONFIG_URL}`);
 
   // Config client: use the Phase 1 client directly — the node reads config
   // from a b3nd backend, and the simplest path is through its own client.
-  // For self-hosting (CONFIG_URL points at this node), this avoids HTTP
-  // round-trips. For remote config, add an HttpClient to BACKEND_URL.
+  // For self-hosting, this avoids HTTP round-trips.
+  // For remote config, add an HttpClient to BACKEND_URL.
   const configClient = client;
 
   // Load initial config — graceful degradation for bootstrap scenarios
   let currentConfig: import("@b3nd/managed-node/types").ManagedNodeConfig | undefined;
   try {
-    const loaded = await loadConfig(configClient, OPERATOR_KEY, NODE_ID, {
+    const loaded = await loadConfig(configClient, OPERATOR_KEY, nodeId, {
       nodeEncryptionPrivateKey,
     });
     currentConfig = loaded.config;
@@ -305,7 +301,7 @@ if (CONFIG_URL) {
   // Metrics collector
   const metrics = createMetricsCollector({
     metricsClient: configClient,
-    nodeId: NODE_ID,
+    nodeId: nodeId,
     intervalMs: 30_000,
     signer,
     operatorEncryptionPubKeyHex: OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX,
@@ -314,8 +310,8 @@ if (CONFIG_URL) {
   // Heartbeat writer
   const heartbeat = createHeartbeatWriter({
     statusClient: configClient,
-    nodeId: NODE_ID,
-    name: currentConfig?.name ?? NODE_ID,
+    nodeId: nodeId,
+    name: currentConfig?.name ?? nodeId,
     port: PORT,
     intervalMs: currentConfig?.monitoring.heartbeatIntervalMs ?? 60_000,
     signer,
@@ -357,7 +353,7 @@ if (CONFIG_URL) {
   const configWatcher = createConfigWatcher({
     configClient,
     operatorPubKeyHex: OPERATOR_KEY,
-    nodeId: NODE_ID,
+    nodeId: nodeId,
     intervalMs: currentConfig?.monitoring.configPollIntervalMs ?? 30_000,
     async onConfigChange(newConfig: import("@b3nd/managed-node/types").ManagedNodeConfig) {
       console.log(`[managed] Config change detected, applying...`);
@@ -386,7 +382,7 @@ if (CONFIG_URL) {
   const updateChecker = createUpdateChecker({
     client: configClient,
     operatorPubKeyHex: OPERATOR_KEY,
-    nodeId: NODE_ID,
+    nodeId: nodeId,
     intervalMs: currentConfig?.monitoring.configPollIntervalMs ?? 60_000,
     async onUpdateAvailable(update) {
       console.log(`[managed] Update available: v${update.version} at ${update.moduleUrl}`);

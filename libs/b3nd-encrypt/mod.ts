@@ -234,6 +234,7 @@ export class PrivateEncryptionKey {
 export async function pemToCryptoKey(
   pem: string,
   algorithm: "Ed25519" | "X25519",
+  extractable = false,
 ): Promise<CryptoKey> {
   const lines = pem
     .split("\n")
@@ -258,7 +259,7 @@ export async function pemToCryptoKey(
       "pkcs8",
       buffer,
       { name: "Ed25519", namedCurve: "Ed25519" },
-      false,
+      extractable,
       ["sign"],
     );
   }
@@ -267,7 +268,7 @@ export async function pemToCryptoKey(
     "pkcs8",
     buffer,
     { name: "X25519", namedCurve: "X25519" },
-    false,
+    extractable,
     ["deriveBits"],
   );
 }
@@ -996,6 +997,25 @@ export async function deriveEncryptionKeyPairFromSeed(
     privateKey,
     publicKeyHex: encodeHex(new Uint8Array(publicKeyBytes)),
   };
+}
+
+/**
+ * Extract the Ed25519 public key hex from an Ed25519 private CryptoKey.
+ * Useful for deriving a node ID from a PEM-imported private key.
+ */
+export async function extractPublicKeyHex(
+  privateKey: CryptoKey,
+): Promise<string> {
+  const jwk = await crypto.subtle.exportKey("jwk", privateKey);
+  const pub = await crypto.subtle.importKey(
+    "jwk",
+    { kty: jwk.kty, crv: jwk.crv, x: jwk.x },
+    { name: "Ed25519", namedCurve: "Ed25519" },
+    true,
+    ["verify"],
+  );
+  const raw = await crypto.subtle.exportKey("raw", pub);
+  return encodeHex(new Uint8Array(raw));
 }
 
 /**

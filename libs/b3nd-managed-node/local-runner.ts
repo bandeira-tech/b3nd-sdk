@@ -13,8 +13,6 @@ export interface LocalRunnerOptions {
   entryPoint: string;
   /** Operator's public key hex */
   operatorPubKeyHex: string;
-  /** Config server URL (must already be running) */
-  configServerUrl: string;
   /** Map of nodeId -> private key PEM */
   nodeKeys: Record<string, string>;
   /** Additional Deno flags */
@@ -55,10 +53,8 @@ export async function startLocalNetwork(
       CORS_ORIGIN: node.config.server.corsOrigin,
       BACKEND_URL: "memory://",
       // Phase 2: managed mode
-      NODE_ID: node.nodeId,
       NODE_PRIVATE_KEY_PEM: privateKeyPem,
       OPERATOR_KEY: options.operatorPubKeyHex,
-      CONFIG_URL: options.configServerUrl,
     };
 
     const flags = options.denoFlags ?? ["-A"];

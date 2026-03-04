@@ -75,9 +75,7 @@ Deno.test("compose: environment vars include required keys", () => {
   const manifest = createTestManifest(1);
   const yaml = generateCompose(manifest, { operatorPubKeyHex: OPERATOR_KEY });
 
-  assertEquals(yaml.includes("NODE_ID"), true);
   assertEquals(yaml.includes("OPERATOR_KEY"), true);
-  assertEquals(yaml.includes("CONFIG_URL"), true);
   assertEquals(yaml.includes(OPERATOR_KEY), true);
 });
 
@@ -160,11 +158,10 @@ Deno.test("compose: node with postgres backend depends on postgres", () => {
   assertEquals(yaml.includes("postgres"), true);
 });
 
-Deno.test("compose: NODE_ID uses node.publicKey", () => {
+Deno.test("compose: NODE_PRIVATE_KEY_PEM uses service-name-based env var", () => {
   const manifest = createTestManifest(1);
-  manifest.nodes[0].publicKey = "deadbeef1234";
 
   const yaml = generateCompose(manifest, { operatorPubKeyHex: OPERATOR_KEY });
 
-  assertEquals(yaml.includes("deadbeef1234"), true);
+  assertEquals(yaml.includes("NODE_PRIVATE_KEY_PEM"), true);
 });

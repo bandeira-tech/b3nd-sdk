@@ -127,10 +127,8 @@ export function generateCompose(
         CORS_ORIGIN: node.config.server.corsOrigin,
         BACKEND_URL: "memory://",
         // Phase 2: managed mode
-        NODE_ID: node.publicKey,
         NODE_PRIVATE_KEY_PEM: `\${${serviceName.toUpperCase().replace(/-/g, "_")}_PRIVATE_KEY_PEM}`,
         OPERATOR_KEY: options.operatorPubKeyHex,
-        CONFIG_URL: "http://config-server:9900",
         NODE_ENCRYPTION_PUBLIC_KEY_HEX: node.encryptionPublicKey ?? "",
         OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX: `\${OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX}`,
       },

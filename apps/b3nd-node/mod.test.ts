@@ -346,50 +346,14 @@ Deno.test("phase1: schema endpoint returns array", async () => {
 
 // ── Phase 2: Env var validation ──────────────────────────────────────
 
-Deno.test("phase2: CONFIG_URL without OPERATOR_KEY exits with error", async () => {
+Deno.test("phase2: OPERATOR_KEY without NODE_PRIVATE_KEY_PEM exits with error", async () => {
   const port = randomPort();
-  const keypair = await generateSigningKeyPair();
-  const pem = await exportPrivateKeyPem(keypair.privateKey, "PRIVATE KEY");
 
   const stderr = await startNodeExpectingError({
     PORT: String(port),
     BACKEND_URL: "memory://",
     CORS_ORIGIN: "*",
-    CONFIG_URL: "http://localhost:9900",
-    NODE_ID: keypair.publicKeyHex,
-    NODE_PRIVATE_KEY_PEM: pem,
-    // OPERATOR_KEY intentionally missing
-  });
-  assertEquals(stderr.includes("OPERATOR_KEY"), true, `stderr: ${stderr}`);
-});
-
-Deno.test("phase2: CONFIG_URL without NODE_ID exits with error", async () => {
-  const port = randomPort();
-  const keypair = await generateSigningKeyPair();
-  const pem = await exportPrivateKeyPem(keypair.privateKey, "PRIVATE KEY");
-
-  const stderr = await startNodeExpectingError({
-    PORT: String(port),
-    BACKEND_URL: "memory://",
-    CORS_ORIGIN: "*",
-    CONFIG_URL: "http://localhost:9900",
     OPERATOR_KEY: "aabbccdd",
-    NODE_PRIVATE_KEY_PEM: pem,
-    // NODE_ID intentionally missing
-  });
-  assertEquals(stderr.includes("NODE_ID"), true, `stderr: ${stderr}`);
-});
-
-Deno.test("phase2: CONFIG_URL without NODE_PRIVATE_KEY_PEM exits with error", async () => {
-  const port = randomPort();
-
-  const stderr = await startNodeExpectingError({
-    PORT: String(port),
-    BACKEND_URL: "memory://",
-    CORS_ORIGIN: "*",
-    CONFIG_URL: "http://localhost:9900",
-    OPERATOR_KEY: "aabbccdd",
-    NODE_ID: "11223344",
     // NODE_PRIVATE_KEY_PEM intentionally missing
   });
   assertEquals(stderr.includes("NODE_PRIVATE_KEY_PEM"), true, `stderr: ${stderr}`);
@@ -407,9 +371,7 @@ Deno.test("phase2: config not available, node boots with Phase 1 backends", asyn
     PORT: String(port),
     BACKEND_URL: "memory://",
     CORS_ORIGIN: "*",
-    CONFIG_URL: "http://localhost:9900",
     OPERATOR_KEY: operatorKeypair.publicKeyHex,
-    NODE_ID: nodeKeypair.publicKeyHex,
     NODE_PRIVATE_KEY_PEM: pem,
   });
 
@@ -613,9 +575,7 @@ Deno.test("phase2: self-hosting — managed node loads config from its own backe
     PORT: String(port),
     BACKEND_URL: "memory://",
     CORS_ORIGIN: "*",
-    CONFIG_URL: `http://127.0.0.1:${port}`,
     OPERATOR_KEY: operatorKeypair.publicKeyHex,
-    NODE_ID: nodeKeypair.publicKeyHex,
     NODE_PRIVATE_KEY_PEM: pem,
   });
 
