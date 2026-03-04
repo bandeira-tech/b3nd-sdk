@@ -222,11 +222,11 @@ async function seedUsers(client: MemoryClient) {
   }]);
 }
 
-Deno.test("MemoryClient.query - basic query returns all records under prefix", async () => {
+Deno.test("MemoryClient.query - basic query returns all records under uri", async () => {
   const client = createTestClient();
   await seedUsers(client);
 
-  const result = await client.query({ prefix: "store://users" });
+  const result = await client.query({ uri: "store://users" });
 
   assertEquals(result.success, true);
   if (result.success) {
@@ -241,7 +241,7 @@ Deno.test("MemoryClient.query - where eq filter", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: { field: "role", op: "eq", value: "admin" },
   });
 
@@ -259,7 +259,7 @@ Deno.test("MemoryClient.query - where range filter", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: { field: "age", op: "gte", value: 30 },
   });
 
@@ -277,7 +277,7 @@ Deno.test("MemoryClient.query - where AND compound filter", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: {
       and: [
         { field: "active", op: "eq", value: true },
@@ -300,7 +300,7 @@ Deno.test("MemoryClient.query - where OR filter", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: {
       or: [
         { field: "role", op: "eq", value: "admin" },
@@ -321,7 +321,7 @@ Deno.test("MemoryClient.query - where NOT filter", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: {
       not: { field: "active", op: "eq", value: true },
     },
@@ -340,7 +340,7 @@ Deno.test("MemoryClient.query - where IN filter", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: { field: "role", op: "in", value: ["admin", "moderator"] },
   });
 
@@ -356,7 +356,7 @@ Deno.test("MemoryClient.query - where nested field filter", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: { field: "address.country", op: "eq", value: "US" },
   });
 
@@ -373,7 +373,7 @@ Deno.test("MemoryClient.query - where contains string filter", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: { field: "name", op: "contains", value: "li" },
   });
 
@@ -391,7 +391,7 @@ Deno.test("MemoryClient.query - orderBy ascending", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     orderBy: [{ field: "age", direction: "asc" }],
   });
 
@@ -408,7 +408,7 @@ Deno.test("MemoryClient.query - orderBy descending", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     orderBy: [{ field: "age", direction: "desc" }],
   });
 
@@ -425,7 +425,7 @@ Deno.test("MemoryClient.query - orderBy string field", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     orderBy: [{ field: "name", direction: "asc" }],
   });
 
@@ -442,7 +442,7 @@ Deno.test("MemoryClient.query - limit and offset", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     orderBy: [{ field: "name", direction: "asc" }],
     limit: 2,
     offset: 1,
@@ -463,7 +463,7 @@ Deno.test("MemoryClient.query - select projection", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: { field: "name", op: "eq", value: "Alice" },
     select: ["name", "age"],
   });
@@ -481,7 +481,7 @@ Deno.test("MemoryClient.query - combined filter + sort + limit + select", async 
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: { field: "active", op: "eq", value: true },
     orderBy: [{ field: "age", direction: "desc" }],
     limit: 2,
@@ -503,7 +503,7 @@ Deno.test("MemoryClient.query - empty results", async () => {
   await seedUsers(client);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: { field: "age", op: "gt", value: 100 },
   });
 
@@ -515,13 +515,13 @@ Deno.test("MemoryClient.query - empty results", async () => {
   await client.cleanup();
 });
 
-Deno.test("MemoryClient.query - invalid prefix returns empty", async () => {
+Deno.test("MemoryClient.query - invalid uri returns empty", async () => {
   const client = createTestClient();
   await seedUsers(client);
 
-  const result = await client.query({ prefix: "store://nonexistent" });
+  const result = await client.query({ uri: "store://nonexistent" });
 
-  // Should return success: true with empty results (prefix exists in schema but no data)
+  // Should return success: true with empty results (uri exists in schema but no data)
   // or success: false if the program key doesn't match
   if (result.success) {
     assertEquals(result.records.length, 0);
@@ -533,7 +533,7 @@ Deno.test("MemoryClient.query - each record has uri and ts", async () => {
   const client = createTestClient();
   await seedUsers(client);
 
-  const result = await client.query({ prefix: "store://users" });
+  const result = await client.query({ uri: "store://users" });
 
   assertEquals(result.success, true);
   if (result.success) {
@@ -547,13 +547,13 @@ Deno.test("MemoryClient.query - each record has uri and ts", async () => {
   await client.cleanup();
 });
 
-Deno.test("MemoryClient.query - scoped to prefix only", async () => {
+Deno.test("MemoryClient.query - scoped to uri only", async () => {
   const client = createTestClient();
   await seedUsers(client);
   // Also seed products to verify prefix scoping
   await client.receive(["store://products/widget/info", { name: "Widget", price: 10 }]);
 
-  const result = await client.query({ prefix: "store://users" });
+  const result = await client.query({ uri: "store://users" });
 
   assertEquals(result.success, true);
   if (result.success) {
@@ -571,7 +571,7 @@ Deno.test("MemoryClient.query - exists operator", async () => {
   await client.receive(["store://users/no-bio/profile", { name: "NoBio" }]);
 
   const result = await client.query({
-    prefix: "store://users",
+    uri: "store://users",
     where: { field: "bio", op: "exists", value: true },
   });
 
@@ -586,14 +586,14 @@ Deno.test("MemoryClient.query - exists operator", async () => {
 // ─── Type guard tests ──────────────────────────────────────
 
 Deno.test("isPortableQuery - recognizes portable query", () => {
-  const q: PortableQueryOptions = { prefix: "store://users", where: { field: "age", op: "gt", value: 10 } };
+  const q: PortableQueryOptions = { uri: "store://users", where: { field: "age", op: "gt", value: 10 } };
   assertEquals(isPortableQuery(q), true);
   assertEquals(isNativeQuery(q), false);
   assertEquals(isStoredQuery(q), false);
 });
 
 Deno.test("isNativeQuery - recognizes native query", () => {
-  const q: NativeQueryOptions = { prefix: "store://users", native: { filter: { age: { $gt: 10 } } } };
+  const q: NativeQueryOptions = { native: { filter: { age: { $gt: 10 } } } };
   assertEquals(isNativeQuery(q), true);
   assertEquals(isPortableQuery(q), false);
   assertEquals(isStoredQuery(q), false);
@@ -660,7 +660,6 @@ Deno.test("substituteParams - preserves non-string primitives", () => {
 Deno.test("MemoryClient.query - native mode returns error", async () => {
   const client = createTestClient();
   const result = await client.query({
-    prefix: "store://users",
     native: { filter: { age: { $gt: 10 } } },
   });
 
@@ -686,21 +685,21 @@ Deno.test("MemoryClient.query - stored query resolves and executes", async () =>
   await client.receive(["store://users/bob/profile", { name: "Bob", age: 25, city: "London" }]);
   await client.receive(["store://users/charlie/profile", { name: "Charlie", age: 35, city: "NYC" }]);
 
-  // Store a query definition (it's just a b3nd record)
+  // Store a query definition (it's just a b3nd record).
+  // The native template carries all addressing — no prefix/uri field needed.
   await client.receive(["mutable://queries/users-by-city", {
     description: "Find users in a given city",
-    prefix: "store://users",
-    // For MemoryClient, stored queries that resolve to portable DSL work
-    // by including where/orderBy fields that we detect as portable
-    native: null, // Will be resolved without native — we use the prefix + in-memory
+    native: {
+      filter: { "city": "$city" },
+    },
+    params: {
+      city: { type: "string", required: true },
+    },
   }]);
 
-  // When native is null after resolution, MemoryClient will reject it.
-  // Stored queries that target MemoryClient should use the portable DSL
-  // stored as a template. Let's test a different approach:
-  // The stored query resolution always produces NativeQueryOptions.
+  // The stored query resolution produces NativeQueryOptions.
   // For MemoryClient, we return an error for native mode.
-  // So stored queries on MemoryClient that use native will fail gracefully.
+  // Stored queries are designed for database-backed nodes.
 
   const result = await client.query({
     ref: "mutable://queries/users-by-city",

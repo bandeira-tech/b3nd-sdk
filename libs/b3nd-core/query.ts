@@ -98,10 +98,10 @@ export async function resolveStoredQuery(
 
   const def = readResult.record.data;
 
-  if (!def.prefix || !def.native) {
+  if (!def.native) {
     return {
       success: false,
-      error: `Invalid stored query at ${opts.ref}: missing prefix or native`,
+      error: `Invalid stored query at ${opts.ref}: missing native`,
     };
   }
 
@@ -126,7 +126,6 @@ export async function resolveStoredQuery(
   const resolvedNative = substituteParams(def.native, args);
 
   return {
-    prefix: def.prefix,
     native: resolvedNative,
   };
 }

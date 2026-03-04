@@ -330,12 +330,13 @@ export function httpServer(
       }
     })();
 
-    // Either prefix (modes 1 & 2) or ref (mode 3) must be present
-    const hasPrefix = body.prefix && typeof body.prefix === "string";
+    // Validate query mode: uri (mode 1), native (mode 2), or ref (mode 3)
+    const hasUri = body.uri && typeof body.uri === "string";
+    const hasNative = body.native !== undefined;
     const hasRef = body.ref && typeof body.ref === "string";
-    if (!hasPrefix && !hasRef) {
+    if (!hasUri && !hasNative && !hasRef) {
       return c.json(
-        { success: false, error: "prefix or ref is required" },
+        { success: false, error: "uri, native, or ref is required" },
         400,
       );
     }

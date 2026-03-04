@@ -445,8 +445,8 @@ export type WhereClause =
  * Mode 1 — Portable DSL query: filter/sort/project using the structured descriptor.
  */
 export interface PortableQueryOptions {
-  /** URI prefix to scope the query (required) */
-  prefix: string;
+  /** Complete URI address to query from (e.g., "store://users") */
+  uri: string;
 
   /** Filter records by data field values */
   where?: WhereClause;
@@ -467,14 +467,15 @@ export interface PortableQueryOptions {
 /**
  * Mode 2 — Native passthrough: send the backend's own query language directly.
  *
- * The node enforces `prefix` scoping but otherwise passes `native` through as-is.
+ * The `native` blob is passed through to the backend as-is.
+ * The developer has full control over addressing and scoping within the
+ * native query — no automatic prefix enforcement is added.
  *
  * @example MongoDB native query
  * ```typescript
  * await client.query({
- *   prefix: "store://users",
  *   native: {
- *     filter: { age: { $gte: 18 }, "address.city": "NYC" },
+ *     filter: { uri: /^store:\/\/users\//, age: { $gte: 18 } },
  *     sort: { age: -1 },
  *     projection: { name: 1, email: 1 },
  *     limit: 10,
@@ -485,10 +486,9 @@ export interface PortableQueryOptions {
  * @example PostgreSQL native query (WHERE-clause fragment)
  * ```typescript
  * await client.query({
- *   prefix: "store://users",
  *   native: {
- *     sql: "data->>'role' = $1 AND (data->>'age')::int > $2",
- *     params: ["admin", 25],
+ *     sql: "uri LIKE $1 AND data->>'role' = $2 AND (data->>'age')::int > $3",
+ *     params: ["store://users/%", "admin", 25],
  *     orderBy: "data->>'name' ASC",
  *     limit: 10,
  *   },
@@ -496,9 +496,6 @@ export interface PortableQueryOptions {
  * ```
  */
 export interface NativeQueryOptions {
-  /** URI prefix to scope the query (required) */
-  prefix: string;
-
   /** Backend-specific query descriptor, passed through as-is */
   native: unknown;
 }
@@ -530,13 +527,14 @@ export interface StoredQueryOptions {
 
 /**
  * Stored query definition — the shape of the b3nd record at the `ref` URI.
+ *
+ * The native template carries all addressing context. Any URI scoping
+ * is expressed within the native query itself (e.g., a MongoDB filter
+ * with `uri: /^store:\/\/users\//` or a SQL WHERE with `uri LIKE ...`).
  */
 export interface StoredQueryDefinition {
   /** Human-readable description */
   description?: string;
-
-  /** URI prefix for scoping (can be overridden by args) */
-  prefix: string;
 
   /** The native query template with $paramName placeholders */
   native: unknown;
@@ -551,7 +549,7 @@ export interface StoredQueryDefinition {
 
 /**
  * Union of all query modes.
- * Discriminated by the presence of `native`, `ref`, or `where`/plain prefix.
+ * Discriminated by the presence of `native`, `ref`, or `uri`.
  */
 export type QueryOptions =
   | PortableQueryOptions

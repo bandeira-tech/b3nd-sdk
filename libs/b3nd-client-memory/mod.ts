@@ -410,7 +410,7 @@ export class MemoryClient implements NodeProtocolInterface {
   }
 
   private queryPortable<T = unknown>(options: PortableQueryOptions): Promise<QueryResult<T>> {
-    const uri = options.prefix;
+    const uri = options.uri;
     const result = target(uri, this.schema, this.storage);
     if (!result.success) {
       return Promise.resolve(result);

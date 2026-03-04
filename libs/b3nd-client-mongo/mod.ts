@@ -389,18 +389,14 @@ export class MongoClient implements NodeProtocolInterface {
   /**
    * Mode 2 — Native MongoDB passthrough.
    *
-   * The `native` object is passed straight to findMany with prefix scoping added.
+   * The `native` object is passed straight to findMany as-is.
+   * No automatic URI scoping is added — the developer has full control.
    * Shape: { filter?, sort?, projection?, limit?, skip? }
    */
   private async queryNative<T = unknown>(
     options: NativeQueryOptions,
   ): Promise<QueryResult<T>> {
     try {
-      const prefixBase = options.prefix.endsWith("/")
-        ? options.prefix
-        : `${options.prefix}/`;
-      const prefixRegex = new RegExp(`^${this.escapeRegex(prefixBase)}`);
-
       const native = (options.native ?? {}) as {
         filter?: Record<string, unknown>;
         sort?: Record<string, 1 | -1>;
@@ -409,11 +405,7 @@ export class MongoClient implements NodeProtocolInterface {
         skip?: number;
       };
 
-      // Merge prefix scoping with user's filter
-      const filter: Record<string, unknown> = {
-        uri: prefixRegex,
-        ...(native.filter ?? {}),
-      };
+      const filter: Record<string, unknown> = native.filter ?? {};
 
       const limit = native.limit ?? 50;
       const skip = native.skip ?? 0;
@@ -456,10 +448,10 @@ export class MongoClient implements NodeProtocolInterface {
     options: PortableQueryOptions,
   ): Promise<QueryResult<T>> {
     try {
-      const prefixBase = options.prefix.endsWith("/")
-        ? options.prefix
-        : `${options.prefix}/`;
-      const prefixRegex = new RegExp(`^${this.escapeRegex(prefixBase)}`);
+      const uriBase = options.uri.endsWith("/")
+        ? options.uri
+        : `${options.uri}/`;
+      const prefixRegex = new RegExp(`^${this.escapeRegex(uriBase)}`);
 
       // Build Mongo filter from query descriptor
       const filter: Record<string, unknown> = { uri: prefixRegex };

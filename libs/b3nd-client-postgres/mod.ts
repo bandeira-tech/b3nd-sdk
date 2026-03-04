@@ -383,17 +383,15 @@ export class PostgresClient implements NodeProtocolInterface {
    * { sql: string, params?: unknown[], orderBy?: string, limit?: number, offset?: number }
    * ```
    *
-   * `sql` is a WHERE-clause fragment. The node wraps it with prefix scoping
-   * and SELECT ... FROM ... to prevent destructive statements.
+   * `sql` is a WHERE-clause fragment. The node wraps it in a SELECT ... FROM ... WHERE (...)
+   * to prevent destructive statements, but does NOT add automatic URI scoping.
+   * The developer has full control over addressing within their WHERE clause.
    */
   private async queryNative<T = unknown>(
     options: NativeQueryOptions,
   ): Promise<QueryResult<T>> {
     try {
       const table = `${this.tablePrefix}_data`;
-      const prefix = options.prefix.endsWith("/")
-        ? options.prefix
-        : `${options.prefix}/`;
 
       const native = options.native as {
         sql?: string;
@@ -410,23 +408,8 @@ export class PostgresClient implements NodeProtocolInterface {
         };
       }
 
-      // The developer's params use $1, $2, etc.
-      // We need to reserve $1 for the prefix and shift their params.
       const userParams = native.params ?? [];
-      const allParams: unknown[] = [prefix];
-
-      // Rewrite $1, $2, ... in the user SQL to $2, $3, ...
-      const shiftedSQL = native.sql.replace(
-        /\$(\d+)/g,
-        (_match, num) => `$${parseInt(num, 10) + 1}`,
-      );
-      allParams.push(...userParams);
-
-      const whereParts = [`uri LIKE $1 || '%'`];
-      if (shiftedSQL.trim()) {
-        whereParts.push(`(${shiftedSQL})`);
-      }
-      const whereSQL = whereParts.join(" AND ");
+      const whereSQL = native.sql.trim() || "TRUE";
 
       const orderBySQL = native.orderBy
         ? ` ORDER BY ${native.orderBy}`
@@ -437,14 +420,14 @@ export class PostgresClient implements NodeProtocolInterface {
       // Count
       const countRes = await this.executor.query(
         `SELECT COUNT(*) as cnt FROM ${table} WHERE ${whereSQL}`,
-        allParams,
+        userParams,
       );
       const total = Number((countRes.rows[0] as any)?.cnt ?? 0);
 
       // Data
       const dataRes = await this.executor.query(
         `SELECT uri, data, timestamp as ts FROM ${table} WHERE ${whereSQL}${orderBySQL} LIMIT ${limit} OFFSET ${offset}`,
-        allParams,
+        userParams,
       );
 
       const records: QueryRecord<T>[] = (dataRes.rows || []).map(
@@ -472,11 +455,11 @@ export class PostgresClient implements NodeProtocolInterface {
   ): Promise<QueryResult<T>> {
     try {
       const table = `${this.tablePrefix}_data`;
-      const prefix = options.prefix.endsWith("/")
-        ? options.prefix
-        : `${options.prefix}/`;
+      const uriBase = options.uri.endsWith("/")
+        ? options.uri
+        : `${options.uri}/`;
 
-      const params: unknown[] = [prefix];
+      const params: unknown[] = [uriBase];
       let paramIndex = 2;
 
       // Build WHERE clause from query descriptor

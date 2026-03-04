@@ -6,7 +6,7 @@ The current `NodeProtocolReadInterface` supports:
 
 - `read(uri)` — exact lookup by URI
 - `readMulti(uris)` — batch exact lookup
-- `list(uri, options)` — prefix scan with basic URI pattern matching and pagination
+- `list(uri, options)` — scan with basic URI pattern matching and pagination
 
 This is insufficient for app developers who sponsor nodes backed by databases like
 PostgreSQL or MongoDB. These backends have rich native query capabilities (field
@@ -17,21 +17,19 @@ forcing the app to `list` every URI and then `readMulti` to filter client-side.
 
 ## Design
 
-Add a `query()` method as an optional extension to the read interface. The method
-accepts a portable, JSON-serializable query descriptor that each backend translates
-into its native form:
+Add a `query()` method as an optional extension to the read interface. Three modes
+are supported:
 
-- **PostgresClient** — translates to parameterized SQL over the JSONB `data` column
-- **MongoClient** — translates to native Mongo query operators over the `data` field
-- **MemoryClient** — evaluates in-memory with JS filter/sort/project
-- **HttpClient / WebSocketClient** — forwards the descriptor to the server
+1. **Portable DSL** — structured filter/sort/project descriptor
+2. **Native passthrough** — backend's own query language, passed through as-is
+3. **Stored queries** — pre-defined query templates stored as b3nd records
 
-### Query Descriptor
+### Mode 1: Portable DSL
 
 ```typescript
-interface QueryOptions {
-  // URI prefix to scope the query (same as list)
-  prefix: string;
+interface PortableQueryOptions {
+  // Complete URI address to query from
+  uri: string;
 
   // Filter by data field values
   where?: WhereClause;
@@ -47,6 +45,38 @@ interface QueryOptions {
   offset?: number;
 }
 ```
+
+Each backend translates the descriptor into its native form:
+
+- **PostgresClient** — translates to parameterized SQL over the JSONB `data` column
+- **MongoClient** — translates to native Mongo query operators over the `data` field
+- **MemoryClient** — evaluates in-memory with JS filter/sort/project
+- **HttpClient / WebSocketClient** — forwards the descriptor to the server
+
+### Mode 2: Native Passthrough
+
+```typescript
+interface NativeQueryOptions {
+  // Backend-specific query descriptor, passed through as-is
+  native: unknown;
+}
+```
+
+The developer has full control — no automatic URI scoping is added. The native
+blob is passed to the backend's executor. See `native-query-passthrough.md` for
+details.
+
+### Mode 3: Stored Queries
+
+```typescript
+interface StoredQueryOptions {
+  ref: string;        // URI of the stored query definition
+  args?: Record<string, unknown>;  // Parameters to substitute
+}
+```
+
+Pre-defined query templates stored as b3nd records. See `native-query-passthrough.md`
+for details.
 
 ### Where Clause (recursive)
 
@@ -83,7 +113,7 @@ type QueryResult<T = unknown> =
     };
 ```
 
-### Backend Translation
+### Backend Translation (Portable DSL)
 
 | Where op     | Postgres (JSONB)                            | MongoDB                               | Memory (JS)                |
 |-------------|---------------------------------------------|---------------------------------------|----------------------------|
@@ -111,7 +141,7 @@ This preserves backward compatibility — no existing code breaks.
 
 ### Transport
 
-- **HTTP**: `POST /api/v1/query` with JSON body `{ prefix, where, select, orderBy, limit, offset }`
+- **HTTP**: `POST /api/v1/query` with JSON body (any of the three mode shapes)
 - **WebSocket**: message type `"query"` with the same payload
 
 ### Combinators
@@ -121,7 +151,7 @@ This preserves backward compatibility — no existing code breaks.
 
 ### Safety
 
-- No raw SQL or raw Mongo queries are accepted — only the structured descriptor
-- All values are parameterized (no string interpolation in SQL)
-- `prefix` is required to scope the query to a URI namespace
+- Portable DSL: all values are parameterized (no string interpolation in SQL)
+- Native passthrough: WHERE-clause fragments only (Postgres), full filter control (Mongo)
+- `uri` (portable mode) scopes the query to a URI address space
 - The query only reads data; it cannot modify state
