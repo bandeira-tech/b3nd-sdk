@@ -1526,7 +1526,7 @@
       },
       "libs/b3nd-managed-node": {
         "dependencies": [
-          "jsr:@bandeira-tech/b3nd-sdk@0.8",
+          "jsr:@bandeira-tech/b3nd-sdk@~0.8.1",
           "jsr:@std/assert@1"
         ]
       },
