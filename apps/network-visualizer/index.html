@@ -1,0 +1,1721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>b3nd Network Visualizer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0e17;
+  --panel: #111827;
+  --panel-border: #1e293b;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --danger: #ef4444;
+  --success: #22c55e;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.topbar h1 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.topbar h1 span { color: var(--accent); }
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Layout */
+.layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Side Panel */
+.side-panel {
+  width: 320px;
+  min-width: 320px;
+  background: var(--panel);
+  border-right: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.panel-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.panel-section h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Canvas */
+.canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Buttons */
+.btn {
+  padding: 5px 10px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn:hover { background: #1e293b; border-color: var(--accent); }
+
+.btn-sm { padding: 3px 8px; font-size: 11px; }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.btn-primary:hover { background: var(--accent-hover); }
+
+.btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-danger:hover { background: var(--danger); color: white; }
+
+/* Form Elements */
+input, select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+}
+
+input:focus, select:focus { border-color: var(--accent); }
+
+label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.form-row {
+  margin-bottom: 8px;
+}
+
+.form-row-inline {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.form-row-inline > * { flex: 1; }
+
+/* Tags / Chips */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  margin: 2px;
+  cursor: default;
+}
+
+.chip .remove {
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.chip .remove:hover { opacity: 1; }
+
+/* Message type list */
+.msg-type-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  cursor: grab;
+  user-select: none;
+  transition: outline 0.15s;
+  outline: 1px solid transparent;
+}
+
+.msg-type-item:hover { outline-color: var(--panel-border); }
+
+.msg-type-item .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.msg-type-item .name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.msg-type-item .actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.msg-type-item:hover .actions { opacity: 1; }
+
+/* Node list */
+.node-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  outline: 1px solid transparent;
+  transition: outline 0.15s;
+}
+
+.node-item:hover { outline-color: var(--panel-border); }
+
+.node-item.selected { outline-color: var(--accent); }
+
+.node-item .node-icon {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.node-item .name {
+  flex: 1;
+  font-size: 12px;
+}
+
+.node-item .badges {
+  display: flex;
+  gap: 3px;
+}
+
+.badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+}
+
+.badge-storage { background: #1e3a5f; color: #60a5fa; }
+.badge-relay { background: #1a3330; color: #34d399; }
+.badge-validator { background: #3b1d47; color: #c084fc; }
+
+/* Rule items */
+.rule-item {
+  padding: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  line-height: 1.6;
+  position: relative;
+}
+
+.rule-item .rule-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  cursor: pointer;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.rule-item:hover .rule-delete { opacity: 1; }
+
+.rule-arrow { color: var(--accent); font-weight: bold; }
+.rule-node { color: var(--success); font-weight: 500; }
+.rule-msg { font-weight: 500; }
+
+/* Scenario controls */
+.scenario-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--panel-border);
+  flex-shrink: 0;
+}
+
+.scenario-bar .speed-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.scenario-bar .speed-control label { margin: 0; }
+
+.scenario-bar input[type="range"] {
+  width: 100px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+/* Tooltip / Node detail popup */
+.node-popup {
+  position: absolute;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 12px;
+  z-index: 200;
+  min-width: 220px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  display: none;
+}
+
+.node-popup h4 {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+/* Message log */
+.log-panel {
+  width: 280px;
+  min-width: 280px;
+  background: var(--panel);
+  border-left: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.log-panel h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  padding: 12px 12px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.log-entries {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px 12px;
+}
+
+.log-entry {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.log-entry .log-time {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-family: monospace;
+}
+
+/* Drag overlay */
+.drag-overlay {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  display: none;
+}
+
+.drag-overlay .chip {
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
+
+/* Color picker wrapper */
+.color-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-input-wrap input[type="color"] {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Tabs inside panel */
+.panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.panel-tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.panel-tab:hover { color: var(--text); }
+.panel-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Info text */
+.info-text {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  padding: 8px;
+  background: rgba(59, 130, 246, 0.06);
+  border-radius: 4px;
+  border-left: 2px solid var(--accent);
+}
+
+/* Canvas instructions overlay */
+.canvas-instructions {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: var(--text-dim);
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.canvas-instructions h2 {
+  font-size: 18px;
+  font-weight: 300;
+  margin-bottom: 8px;
+}
+
+.canvas-instructions p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Presets dropdown */
+.presets-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 4px;
+  min-width: 200px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  z-index: 300;
+  display: none;
+}
+
+.presets-menu.open { display: block; }
+
+.preset-option {
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.preset-option:hover { background: var(--bg); }
+
+.preset-option .preset-desc {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <h1><span>b3nd</span> Network Visualizer</h1>
+  <div class="topbar-actions" style="position:relative;">
+    <button class="btn btn-sm" onclick="clearAll()">Clear All</button>
+    <button class="btn btn-sm btn-primary" id="presetsBtn" onclick="togglePresets()">Load Preset</button>
+    <div class="presets-menu" id="presetsMenu">
+      <div class="preset-option" onclick="loadPreset('basic')">
+        <div>Basic Message Relay</div>
+        <div class="preset-desc">3 nodes, simple message passing</div>
+      </div>
+      <div class="preset-option" onclick="loadPreset('replication')">
+        <div>Storage Replication</div>
+        <div class="preset-desc">Write node replicates to 3 storage nodes</div>
+      </div>
+      <div class="preset-option" onclick="loadPreset('validation')">
+        <div>Validation Pipeline</div>
+        <div class="preset-desc">Validator checks then routes to storage</div>
+      </div>
+      <div class="preset-option" onclick="loadPreset('mesh')">
+        <div>Mesh Network</div>
+        <div class="preset-desc">6-node mesh with cross-replication</div>
+      </div>
+      <div class="preset-option" onclick="loadPreset('listener')">
+        <div>Request / Response</div>
+        <div class="preset-desc">Client sends request, listener responds</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Layout -->
+<div class="layout">
+
+  <!-- Left Panel -->
+  <div class="side-panel">
+    <div class="panel-tabs">
+      <div class="panel-tab active" onclick="switchTab('messages')">Messages</div>
+      <div class="panel-tab" onclick="switchTab('nodes')">Nodes</div>
+      <div class="panel-tab" onclick="switchTab('rules')">Rules</div>
+    </div>
+
+    <!-- Messages Tab -->
+    <div class="tab-content active" id="tab-messages">
+      <div class="panel-section">
+        <h3>Message Types <button class="btn btn-sm" onclick="showAddMessage()">+ Add</button></h3>
+        <div id="addMessageForm" style="display:none; margin-bottom: 10px;">
+          <div class="form-row-inline">
+            <div>
+              <label>Name</label>
+              <input id="msgName" placeholder="e.g. write-A" />
+            </div>
+            <div>
+              <label>Color</label>
+              <div class="color-input-wrap">
+                <input type="color" id="msgColor" value="#f59e0b" />
+                <input id="msgColorHex" value="#f59e0b" style="width:80px;" oninput="document.getElementById('msgColor').value=this.value" />
+              </div>
+            </div>
+          </div>
+          <div class="form-row-inline">
+            <div>
+              <label>URI scheme</label>
+              <select id="msgScheme">
+                <option value="mutable">mutable://</option>
+                <option value="immutable">immutable://</option>
+                <option value="hash">hash://</option>
+                <option value="link">link://</option>
+              </select>
+            </div>
+            <div>
+              <label>Size</label>
+              <select id="msgSize">
+                <option value="small">Small</option>
+                <option value="medium" selected>Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-sm btn-primary" onclick="addMessageType()">Add</button>
+            <button class="btn btn-sm" onclick="hideAddMessage()">Cancel</button>
+          </div>
+        </div>
+        <div id="messageTypeList"></div>
+        <div class="info-text" style="margin-top: 8px;">
+          Drag a message type onto a node on the canvas to inject it.
+        </div>
+      </div>
+    </div>
+
+    <!-- Nodes Tab -->
+    <div class="tab-content" id="tab-nodes">
+      <div class="panel-section">
+        <h3>Network Nodes <button class="btn btn-sm" onclick="showAddNode()">+ Add</button></h3>
+        <div id="addNodeForm" style="display:none; margin-bottom: 10px;">
+          <div class="form-row">
+            <label>Name</label>
+            <input id="nodeName" placeholder="e.g. node-1" />
+          </div>
+          <div class="form-row">
+            <label>Type</label>
+            <select id="nodeType">
+              <option value="storage">Storage Node</option>
+              <option value="relay">Relay Node</option>
+              <option value="validator">Validator Node</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-sm btn-primary" onclick="addNode()">Add</button>
+            <button class="btn btn-sm" onclick="hideAddNode()">Cancel</button>
+          </div>
+        </div>
+        <div id="nodeList"></div>
+        <div class="info-text" style="margin-top: 8px;">
+          Double-click the canvas to quick-add a node at that position. Drag nodes to rearrange.
+        </div>
+      </div>
+    </div>
+
+    <!-- Rules Tab -->
+    <div class="tab-content" id="tab-rules">
+      <div class="panel-section">
+        <h3>Connections <button class="btn btn-sm" onclick="showAddConnection()">+ Add</button></h3>
+        <div id="addConnectionForm" style="display:none; margin-bottom: 10px;">
+          <div class="form-row">
+            <label>From Node</label>
+            <select id="connFrom"></select>
+          </div>
+          <div class="form-row">
+            <label>To Node</label>
+            <select id="connTo"></select>
+          </div>
+          <div class="form-row">
+            <label>Direction</label>
+            <select id="connDir">
+              <option value="push">Push (one-way)</option>
+              <option value="bidirectional">Bidirectional</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-sm btn-primary" onclick="addConnection()">Add</button>
+            <button class="btn btn-sm" onclick="hideAddConnection()">Cancel</button>
+          </div>
+        </div>
+        <div id="connectionList"></div>
+      </div>
+
+      <div class="panel-section">
+        <h3>Behaviors <button class="btn btn-sm" onclick="showAddBehavior()">+ Add</button></h3>
+        <div id="addBehaviorForm" style="display:none; margin-bottom: 10px;">
+          <div class="form-row">
+            <label>When node</label>
+            <select id="behNode"></select>
+          </div>
+          <div class="form-row">
+            <label>Receives message</label>
+            <select id="behTrigger"></select>
+          </div>
+          <div class="form-row">
+            <label>Action</label>
+            <select id="behAction">
+              <option value="create">Creates new message</option>
+              <option value="store">Stores message</option>
+              <option value="drop">Drops message</option>
+              <option value="transform">Transforms into message</option>
+            </select>
+          </div>
+          <div class="form-row" id="behCreateMsgRow">
+            <label>New message type</label>
+            <select id="behCreateMsg"></select>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-sm btn-primary" onclick="addBehavior()">Add</button>
+            <button class="btn btn-sm" onclick="hideAddBehavior()">Cancel</button>
+          </div>
+        </div>
+        <div id="behaviorList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-container" id="canvasContainer">
+    <canvas id="canvas"></canvas>
+    <div class="canvas-instructions" id="canvasInstructions">
+      <h2>b3nd Network Visualizer</h2>
+      <p>Double-click to add a node<br/>
+      Drag message types from the left panel onto nodes<br/>
+      Use the Rules tab to define connections and behaviors</p>
+    </div>
+    <div class="node-popup" id="nodePopup"></div>
+  </div>
+
+  <!-- Right Panel: Log -->
+  <div class="log-panel">
+    <h3>Event Log <button class="btn btn-sm" onclick="clearLog()">Clear</button></h3>
+    <div class="log-entries" id="logEntries"></div>
+  </div>
+</div>
+
+<!-- Bottom Scenario Bar -->
+<div class="scenario-bar">
+  <button class="btn btn-sm" id="playBtn" onclick="togglePlay()">&#9654; Play</button>
+  <button class="btn btn-sm" onclick="stepOnce()">Step</button>
+  <button class="btn btn-sm" onclick="resetSimulation()">Reset</button>
+  <span style="font-size: 11px; color: var(--text-dim);" id="simStatus">Idle</span>
+  <div class="speed-control">
+    <label>Speed</label>
+    <input type="range" id="speedSlider" min="1" max="10" value="5" />
+    <span style="font-size:11px;" id="speedLabel">5x</span>
+  </div>
+</div>
+
+<!-- Drag overlay for message types -->
+<div class="drag-overlay" id="dragOverlay"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  messageTypes: [],
+  nodes: [],
+  connections: [],
+  behaviors: [],
+  // runtime
+  flyingMessages: [],
+  storedMessages: {},   // nodeId -> [msgType, ...]
+  selectedNode: null,
+  playing: false,
+  speed: 5,
+  stepQueue: [],        // pending message deliveries
+  nextId: 1,
+};
+
+function genId() { return 'id_' + (state.nextId++); }
+
+// ── Canvas Setup ───────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, dpr;
+let dragNode = null, dragOffX = 0, dragOffY = 0;
+let dragMsgType = null, dragMsgX = 0, dragMsgY = 0;
+
+function resizeCanvas() {
+  const container = document.getElementById('canvasContainer');
+  dpr = window.devicePixelRatio || 1;
+  W = container.clientWidth;
+  H = container.clientHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ── Rendering ──────────────────────────────────────────────────────────────
+const NODE_RADIUS = 32;
+const MSG_RADIUS_MAP = { small: 5, medium: 7, large: 10 };
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#141b2a';
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+  for (let x = gridSize; x < W; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = gridSize; y < H; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Connections
+  for (const conn of state.connections) {
+    const from = state.nodes.find(n => n.id === conn.from);
+    const to = state.nodes.find(n => n.id === conn.to);
+    if (!from || !to) continue;
+    drawConnection(from, to, conn.direction);
+  }
+
+  // Nodes
+  for (const node of state.nodes) {
+    drawNode(node);
+  }
+
+  // Flying messages
+  for (const fm of state.flyingMessages) {
+    drawFlyingMessage(fm);
+  }
+
+  // Hide instructions when we have nodes
+  const instr = document.getElementById('canvasInstructions');
+  instr.style.display = state.nodes.length === 0 ? 'block' : 'none';
+
+  requestAnimationFrame(draw);
+}
+
+function drawConnection(from, to, direction) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist === 0) return;
+  const nx = dx / dist;
+  const ny = dy / dist;
+
+  const startX = from.x + nx * NODE_RADIUS;
+  const startY = from.y + ny * NODE_RADIUS;
+  const endX = to.x - nx * NODE_RADIUS;
+  const endY = to.y - ny * NODE_RADIUS;
+
+  ctx.strokeStyle = '#2d3a52';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Arrow
+  const arrowSize = 8;
+  const angle = Math.atan2(endY - startY, endX - startX);
+  ctx.fillStyle = '#2d3a52';
+  ctx.beginPath();
+  ctx.moveTo(endX, endY);
+  ctx.lineTo(endX - arrowSize * Math.cos(angle - 0.4), endY - arrowSize * Math.sin(angle - 0.4));
+  ctx.lineTo(endX - arrowSize * Math.cos(angle + 0.4), endY - arrowSize * Math.sin(angle + 0.4));
+  ctx.fill();
+
+  if (direction === 'bidirectional') {
+    const angle2 = Math.atan2(startY - endY, startX - endX);
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(startX - arrowSize * Math.cos(angle2 - 0.4), startY - arrowSize * Math.sin(angle2 - 0.4));
+    ctx.lineTo(startX - arrowSize * Math.cos(angle2 + 0.4), startY - arrowSize * Math.sin(angle2 + 0.4));
+    ctx.fill();
+  }
+}
+
+function drawNode(node) {
+  const isSelected = state.selectedNode === node.id;
+  const stored = state.storedMessages[node.id] || [];
+
+  // Glow for selected
+  if (isSelected) {
+    ctx.shadowColor = '#3b82f6';
+    ctx.shadowBlur = 20;
+  }
+
+  // Outer ring
+  ctx.beginPath();
+  ctx.arc(node.x, node.y, NODE_RADIUS, 0, Math.PI * 2);
+  const typeColors = { storage: '#1e3a5f', relay: '#1a3330', validator: '#3b1d47' };
+  const typeBorders = { storage: '#3b82f6', relay: '#34d399', validator: '#c084fc' };
+  ctx.fillStyle = typeColors[node.type] || '#1e293b';
+  ctx.fill();
+  ctx.strokeStyle = isSelected ? '#60a5fa' : (typeBorders[node.type] || '#475569');
+  ctx.lineWidth = isSelected ? 2.5 : 1.5;
+  ctx.stroke();
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+
+  // Type icon
+  ctx.fillStyle = typeBorders[node.type] || '#94a3b8';
+  ctx.font = '16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const icons = { storage: '\u25A0', relay: '\u2B23', validator: '\u2714' };
+  ctx.fillText(icons[node.type] || '?', node.x, node.y - 3);
+
+  // Name
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 10px Inter, sans-serif';
+  ctx.fillText(node.name, node.x, node.y + NODE_RADIUS + 14);
+
+  // Type label
+  ctx.fillStyle = '#64748b';
+  ctx.font = '9px Inter, sans-serif';
+  ctx.fillText(node.type, node.x, node.y + NODE_RADIUS + 26);
+
+  // Stored messages indicator
+  if (stored.length > 0) {
+    const arcPerMsg = (Math.PI * 2) / Math.max(stored.length, 1);
+    stored.forEach((msgTypeId, i) => {
+      const mt = state.messageTypes.find(m => m.id === msgTypeId);
+      if (!mt) return;
+      const angle = -Math.PI / 2 + i * arcPerMsg;
+      const sx = node.x + (NODE_RADIUS + 6) * Math.cos(angle);
+      const sy = node.y + (NODE_RADIUS + 6) * Math.sin(angle);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = mt.color;
+      ctx.fill();
+    });
+  }
+
+  // Pulse animation when receiving
+  if (node._pulse) {
+    const alpha = 1 - node._pulse;
+    const r = NODE_RADIUS + node._pulse * 30;
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(59, 130, 246, ${alpha * 0.6})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    node._pulse += 0.03;
+    if (node._pulse >= 1) node._pulse = 0;
+  }
+}
+
+function drawFlyingMessage(fm) {
+  const mt = state.messageTypes.find(m => m.id === fm.msgTypeId);
+  if (!mt) return;
+  const from = state.nodes.find(n => n.id === fm.from);
+  const to = state.nodes.find(n => n.id === fm.to);
+  if (!from || !to) return;
+
+  const t = fm.progress;
+  const x = from.x + (to.x - from.x) * t;
+  const y = from.y + (to.y - from.y) * t;
+
+  // Trail
+  const trailLen = 5;
+  for (let i = trailLen; i >= 0; i--) {
+    const tt = Math.max(0, t - i * 0.015);
+    const tx = from.x + (to.x - from.x) * tt;
+    const ty = from.y + (to.y - from.y) * tt;
+    const alpha = (1 - i / trailLen) * 0.4;
+    ctx.beginPath();
+    ctx.arc(tx, ty, MSG_RADIUS_MAP[mt.size] * (1 - i * 0.1), 0, Math.PI * 2);
+    ctx.fillStyle = mt.color + Math.round(alpha * 255).toString(16).padStart(2, '0');
+    ctx.fill();
+  }
+
+  // Main dot
+  const radius = MSG_RADIUS_MAP[mt.size];
+  ctx.shadowColor = mt.color;
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = mt.color;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+
+  // Label
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = '9px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(mt.name, x, y - radius - 5);
+}
+
+// ── Simulation ─────────────────────────────────────────────────────────────
+let lastTime = 0;
+
+function tick(time) {
+  if (!lastTime) lastTime = time;
+  const dt = (time - lastTime) / 1000;
+  lastTime = time;
+
+  if (!state.playing && state.stepQueue.length === 0) {
+    requestAnimationFrame(tick);
+    return;
+  }
+
+  const speed = state.speed * 0.4;
+
+  // Update flying messages
+  const toRemove = [];
+  for (const fm of state.flyingMessages) {
+    fm.progress += dt * speed;
+    if (fm.progress >= 1) {
+      toRemove.push(fm);
+      deliverMessage(fm);
+    }
+  }
+
+  for (const fm of toRemove) {
+    state.flyingMessages.splice(state.flyingMessages.indexOf(fm), 1);
+  }
+
+  // Process step queue
+  while (state.stepQueue.length > 0 && state.flyingMessages.length < 20) {
+    const step = state.stepQueue.shift();
+    launchMessage(step.fromNodeId, step.toNodeId, step.msgTypeId);
+  }
+
+  updateSimStatus();
+  requestAnimationFrame(tick);
+}
+
+requestAnimationFrame(tick);
+
+function deliverMessage(fm) {
+  const node = state.nodes.find(n => n.id === fm.to);
+  const mt = state.messageTypes.find(m => m.id === fm.msgTypeId);
+  if (!node || !mt) return;
+
+  node._pulse = 0.01;
+  addLog(`<span style="color:${mt.color}">${mt.name}</span> arrived at <span class="rule-node">${node.name}</span>`);
+
+  // Check behaviors
+  const behaviors = state.behaviors.filter(b => b.nodeId === node.id && b.triggerId === fm.msgTypeId);
+
+  let handled = false;
+  for (const beh of behaviors) {
+    if (beh.action === 'store') {
+      if (!state.storedMessages[node.id]) state.storedMessages[node.id] = [];
+      state.storedMessages[node.id].push(fm.msgTypeId);
+      addLog(`<span class="rule-node">${node.name}</span> stored <span style="color:${mt.color}">${mt.name}</span>`);
+      handled = true;
+    } else if (beh.action === 'drop') {
+      addLog(`<span class="rule-node">${node.name}</span> dropped <span style="color:${mt.color}">${mt.name}</span>`);
+      handled = true;
+    } else if (beh.action === 'create' || beh.action === 'transform') {
+      const newMt = state.messageTypes.find(m => m.id === beh.createMsgId);
+      if (newMt) {
+        addLog(`<span class="rule-node">${node.name}</span> ${beh.action === 'create' ? 'creates' : 'transforms into'} <span style="color:${newMt.color}">${newMt.name}</span>`);
+        propagateFromNode(node.id, beh.createMsgId);
+      }
+      handled = true;
+    }
+  }
+
+  // Default: storage nodes store, others propagate
+  if (!handled) {
+    if (node.type === 'storage') {
+      if (!state.storedMessages[node.id]) state.storedMessages[node.id] = [];
+      state.storedMessages[node.id].push(fm.msgTypeId);
+      addLog(`<span class="rule-node">${node.name}</span> stored <span style="color:${mt.color}">${mt.name}</span> (default)`);
+    }
+    // Always propagate to connected peers
+    propagateFromNode(node.id, fm.msgTypeId);
+  }
+}
+
+function propagateFromNode(nodeId, msgTypeId) {
+  const outConns = state.connections.filter(c => c.from === nodeId || (c.direction === 'bidirectional' && c.to === nodeId));
+  for (const conn of outConns) {
+    const targetId = conn.from === nodeId ? conn.to : conn.from;
+    // Avoid loops: don't send back to source if already in-flight
+    const alreadyInFlight = state.flyingMessages.some(fm => fm.msgTypeId === msgTypeId && fm.to === targetId);
+    if (!alreadyInFlight) {
+      state.stepQueue.push({ fromNodeId: nodeId, toNodeId: targetId, msgTypeId });
+    }
+  }
+}
+
+function launchMessage(fromNodeId, toNodeId, msgTypeId) {
+  state.flyingMessages.push({
+    id: genId(),
+    from: fromNodeId,
+    to: toNodeId,
+    msgTypeId,
+    progress: 0,
+  });
+  const mt = state.messageTypes.find(m => m.id === msgTypeId);
+  const from = state.nodes.find(n => n.id === fromNodeId);
+  const to = state.nodes.find(n => n.id === toNodeId);
+  if (mt && from && to) {
+    addLog(`<span style="color:${mt.color}">${mt.name}</span> <span class="rule-arrow">\u2192</span> <span class="rule-node">${from.name}</span> to <span class="rule-node">${to.name}</span>`);
+  }
+}
+
+function injectMessage(nodeId, msgTypeId) {
+  const node = state.nodes.find(n => n.id === nodeId);
+  const mt = state.messageTypes.find(m => m.id === msgTypeId);
+  if (!node || !mt) return;
+
+  node._pulse = 0.01;
+  addLog(`Injected <span style="color:${mt.color}">${mt.name}</span> into <span class="rule-node">${node.name}</span>`);
+
+  // Check behaviors first
+  const behaviors = state.behaviors.filter(b => b.nodeId === node.id && b.triggerId === msgTypeId);
+  let handled = false;
+  for (const beh of behaviors) {
+    if (beh.action === 'store') {
+      if (!state.storedMessages[node.id]) state.storedMessages[node.id] = [];
+      state.storedMessages[node.id].push(msgTypeId);
+      addLog(`<span class="rule-node">${node.name}</span> stored <span style="color:${mt.color}">${mt.name}</span>`);
+      handled = true;
+    } else if (beh.action === 'drop') {
+      addLog(`<span class="rule-node">${node.name}</span> dropped <span style="color:${mt.color}">${mt.name}</span>`);
+      return;
+    } else if (beh.action === 'create' || beh.action === 'transform') {
+      const newMt = state.messageTypes.find(m => m.id === beh.createMsgId);
+      if (newMt) {
+        addLog(`<span class="rule-node">${node.name}</span> ${beh.action === 'create' ? 'creates' : 'transforms into'} <span style="color:${newMt.color}">${newMt.name}</span>`);
+        propagateFromNode(node.id, beh.createMsgId);
+      }
+      handled = true;
+    }
+  }
+
+  if (!handled) {
+    if (node.type === 'storage') {
+      if (!state.storedMessages[node.id]) state.storedMessages[node.id] = [];
+      state.storedMessages[node.id].push(msgTypeId);
+    }
+  }
+
+  propagateFromNode(nodeId, msgTypeId);
+
+  if (!state.playing) {
+    state.playing = true;
+    updatePlayButton();
+    // Auto-pause after queue drains
+    const checkDone = setInterval(() => {
+      if (state.flyingMessages.length === 0 && state.stepQueue.length === 0) {
+        state.playing = false;
+        updatePlayButton();
+        clearInterval(checkDone);
+      }
+    }, 200);
+  }
+}
+
+// ── UI Actions ─────────────────────────────────────────────────────────────
+
+// Message Types
+function showAddMessage() { document.getElementById('addMessageForm').style.display = 'block'; }
+function hideAddMessage() { document.getElementById('addMessageForm').style.display = 'none'; }
+
+function addMessageType() {
+  const name = document.getElementById('msgName').value.trim();
+  if (!name) return;
+  const mt = {
+    id: genId(),
+    name,
+    color: document.getElementById('msgColor').value,
+    scheme: document.getElementById('msgScheme').value,
+    size: document.getElementById('msgSize').value,
+  };
+  state.messageTypes.push(mt);
+  document.getElementById('msgName').value = '';
+  hideAddMessage();
+  renderMessageTypes();
+  renderBehaviorSelects();
+}
+
+function removeMessageType(id) {
+  state.messageTypes = state.messageTypes.filter(m => m.id !== id);
+  state.behaviors = state.behaviors.filter(b => b.triggerId !== id && b.createMsgId !== id);
+  renderMessageTypes();
+  renderBehaviors();
+  renderBehaviorSelects();
+}
+
+function renderMessageTypes() {
+  const list = document.getElementById('messageTypeList');
+  list.innerHTML = state.messageTypes.map(mt => `
+    <div class="msg-type-item" draggable="true" data-msg-id="${mt.id}"
+         onmousedown="startMsgDrag(event, '${mt.id}')">
+      <div class="dot" style="background:${mt.color}"></div>
+      <span class="name">${mt.name}</span>
+      <span style="font-size:9px; color:var(--text-dim)">${mt.scheme}://</span>
+      <div class="actions">
+        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); removeMessageType('${mt.id}')">\u2715</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Drag message onto canvas
+let isDraggingMsg = false;
+
+function startMsgDrag(e, msgId) {
+  isDraggingMsg = true;
+  dragMsgType = msgId;
+  const mt = state.messageTypes.find(m => m.id === msgId);
+  const overlay = document.getElementById('dragOverlay');
+  overlay.innerHTML = `<div class="chip" style="background:${mt.color}33; color:${mt.color}; border:1px solid ${mt.color}">${mt.name}</div>`;
+  overlay.style.display = 'block';
+  overlay.style.left = e.clientX + 'px';
+  overlay.style.top = e.clientY + 'px';
+  e.preventDefault();
+}
+
+document.addEventListener('mousemove', (e) => {
+  if (isDraggingMsg) {
+    const overlay = document.getElementById('dragOverlay');
+    overlay.style.left = (e.clientX + 10) + 'px';
+    overlay.style.top = (e.clientY + 10) + 'px';
+  }
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (isDraggingMsg && dragMsgType) {
+    const overlay = document.getElementById('dragOverlay');
+    overlay.style.display = 'none';
+    isDraggingMsg = false;
+
+    // Check if dropped on a node
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const node = findNodeAt(x, y);
+    if (node) {
+      injectMessage(node.id, dragMsgType);
+    }
+    dragMsgType = null;
+  }
+});
+
+// Nodes
+function showAddNode() { document.getElementById('addNodeForm').style.display = 'block'; }
+function hideAddNode() { document.getElementById('addNodeForm').style.display = 'none'; }
+
+function addNode(name, type, x, y) {
+  if (!name) {
+    name = document.getElementById('nodeName').value.trim();
+    type = document.getElementById('nodeType').value;
+  }
+  if (!name) return;
+  const node = {
+    id: genId(),
+    name,
+    type: type || 'storage',
+    x: x || 100 + Math.random() * (W - 200),
+    y: y || 100 + Math.random() * (H - 200),
+    _pulse: 0,
+  };
+  state.nodes.push(node);
+  document.getElementById('nodeName').value = '';
+  hideAddNode();
+  renderNodes();
+  renderConnectionSelects();
+  renderBehaviorSelects();
+  return node;
+}
+
+function removeNode(id) {
+  state.nodes = state.nodes.filter(n => n.id !== id);
+  state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
+  state.behaviors = state.behaviors.filter(b => b.nodeId !== id);
+  delete state.storedMessages[id];
+  if (state.selectedNode === id) state.selectedNode = null;
+  renderNodes();
+  renderConnections();
+  renderBehaviors();
+  renderConnectionSelects();
+  renderBehaviorSelects();
+}
+
+function renderNodes() {
+  const list = document.getElementById('nodeList');
+  const badgeMap = {
+    storage: '<span class="badge badge-storage">storage</span>',
+    relay: '<span class="badge badge-relay">relay</span>',
+    validator: '<span class="badge badge-validator">validator</span>',
+  };
+  list.innerHTML = state.nodes.map(n => `
+    <div class="node-item ${state.selectedNode === n.id ? 'selected' : ''}" onclick="selectNode('${n.id}')">
+      <div class="node-icon" style="background:${
+        n.type === 'storage' ? '#3b82f6' : n.type === 'relay' ? '#34d399' : '#c084fc'
+      }"></div>
+      <span class="name">${n.name}</span>
+      <div class="badges">${badgeMap[n.type] || ''}</div>
+      <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); removeNode('${n.id}')" style="padding:1px 5px;">\u2715</button>
+    </div>
+  `).join('');
+}
+
+function selectNode(id) {
+  state.selectedNode = state.selectedNode === id ? null : id;
+  renderNodes();
+}
+
+// Connections
+function showAddConnection() {
+  renderConnectionSelects();
+  document.getElementById('addConnectionForm').style.display = 'block';
+}
+function hideAddConnection() { document.getElementById('addConnectionForm').style.display = 'none'; }
+
+function renderConnectionSelects() {
+  const opts = state.nodes.map(n => `<option value="${n.id}">${n.name}</option>`).join('');
+  document.getElementById('connFrom').innerHTML = opts;
+  document.getElementById('connTo').innerHTML = opts;
+}
+
+function addConnection(fromId, toId, dir) {
+  if (!fromId) {
+    fromId = document.getElementById('connFrom').value;
+    toId = document.getElementById('connTo').value;
+    dir = document.getElementById('connDir').value;
+  }
+  if (!fromId || !toId || fromId === toId) return;
+  // Avoid duplicates
+  if (state.connections.some(c => c.from === fromId && c.to === toId)) return;
+  state.connections.push({ id: genId(), from: fromId, to: toId, direction: dir || 'push' });
+  hideAddConnection();
+  renderConnections();
+}
+
+function removeConnection(id) {
+  state.connections = state.connections.filter(c => c.id !== id);
+  renderConnections();
+}
+
+function renderConnections() {
+  const list = document.getElementById('connectionList');
+  list.innerHTML = state.connections.map(c => {
+    const from = state.nodes.find(n => n.id === c.from);
+    const to = state.nodes.find(n => n.id === c.to);
+    const arrow = c.direction === 'bidirectional' ? '\u2194' : '\u2192';
+    return `
+      <div class="rule-item">
+        <span class="rule-node">${from?.name || '?'}</span>
+        <span class="rule-arrow"> ${arrow} </span>
+        <span class="rule-node">${to?.name || '?'}</span>
+        <span style="color:var(--text-dim); font-size:10px;"> (${c.direction})</span>
+        <span class="rule-delete" onclick="removeConnection('${c.id}')">\u2715</span>
+      </div>`;
+  }).join('');
+}
+
+// Behaviors
+function showAddBehavior() {
+  renderBehaviorSelects();
+  document.getElementById('addBehaviorForm').style.display = 'block';
+}
+function hideAddBehavior() { document.getElementById('addBehaviorForm').style.display = 'none'; }
+
+function renderBehaviorSelects() {
+  const nodeOpts = state.nodes.map(n => `<option value="${n.id}">${n.name}</option>`).join('');
+  const msgOpts = state.messageTypes.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+  const el = (id) => document.getElementById(id);
+  if (el('behNode')) el('behNode').innerHTML = nodeOpts;
+  if (el('behTrigger')) el('behTrigger').innerHTML = msgOpts;
+  if (el('behCreateMsg')) el('behCreateMsg').innerHTML = msgOpts;
+}
+
+document.getElementById('behAction')?.addEventListener('change', function() {
+  const row = document.getElementById('behCreateMsgRow');
+  row.style.display = (this.value === 'create' || this.value === 'transform') ? 'block' : 'none';
+});
+
+function addBehavior(nodeId, triggerId, action, createMsgId) {
+  if (!nodeId) {
+    nodeId = document.getElementById('behNode').value;
+    triggerId = document.getElementById('behTrigger').value;
+    action = document.getElementById('behAction').value;
+    createMsgId = document.getElementById('behCreateMsg').value;
+  }
+  if (!nodeId || !triggerId) return;
+  state.behaviors.push({ id: genId(), nodeId, triggerId, action, createMsgId });
+  hideAddBehavior();
+  renderBehaviors();
+}
+
+function removeBehavior(id) {
+  state.behaviors = state.behaviors.filter(b => b.id !== id);
+  renderBehaviors();
+}
+
+function renderBehaviors() {
+  const list = document.getElementById('behaviorList');
+  list.innerHTML = state.behaviors.map(b => {
+    const node = state.nodes.find(n => n.id === b.nodeId);
+    const trigger = state.messageTypes.find(m => m.id === b.triggerId);
+    const created = state.messageTypes.find(m => m.id === b.createMsgId);
+    let desc = '';
+    if (b.action === 'store') {
+      desc = `<span class="rule-node">${node?.name}</span> receives <span class="rule-msg" style="color:${trigger?.color}">${trigger?.name}</span> <span class="rule-arrow">\u2192</span> stores it`;
+    } else if (b.action === 'drop') {
+      desc = `<span class="rule-node">${node?.name}</span> receives <span class="rule-msg" style="color:${trigger?.color}">${trigger?.name}</span> <span class="rule-arrow">\u2192</span> <span style="color:var(--danger)">drops it</span>`;
+    } else if (b.action === 'create') {
+      desc = `<span class="rule-node">${node?.name}</span> receives <span class="rule-msg" style="color:${trigger?.color}">${trigger?.name}</span> <span class="rule-arrow">\u2192</span> creates <span class="rule-msg" style="color:${created?.color}">${created?.name}</span>`;
+    } else if (b.action === 'transform') {
+      desc = `<span class="rule-node">${node?.name}</span> receives <span class="rule-msg" style="color:${trigger?.color}">${trigger?.name}</span> <span class="rule-arrow">\u2192</span> transforms to <span class="rule-msg" style="color:${created?.color}">${created?.name}</span>`;
+    }
+    return `
+      <div class="rule-item">
+        ${desc}
+        <span class="rule-delete" onclick="removeBehavior('${b.id}')">\u2715</span>
+      </div>`;
+  }).join('');
+}
+
+// Playback controls
+function togglePlay() {
+  state.playing = !state.playing;
+  updatePlayButton();
+}
+
+function updatePlayButton() {
+  const btn = document.getElementById('playBtn');
+  btn.innerHTML = state.playing ? '&#9646;&#9646; Pause' : '&#9654; Play';
+}
+
+function stepOnce() {
+  // If nothing in flight, do nothing
+  if (state.flyingMessages.length === 0 && state.stepQueue.length === 0) return;
+  // Process one step
+  if (state.stepQueue.length > 0) {
+    const step = state.stepQueue.shift();
+    launchMessage(step.fromNodeId, step.toNodeId, step.msgTypeId);
+  }
+}
+
+function resetSimulation() {
+  state.flyingMessages = [];
+  state.stepQueue = [];
+  state.storedMessages = {};
+  state.playing = false;
+  state.nodes.forEach(n => n._pulse = 0);
+  updatePlayButton();
+  addLog('<span style="color:var(--text-dim)">Simulation reset</span>');
+}
+
+function updateSimStatus() {
+  const el = document.getElementById('simStatus');
+  const inFlight = state.flyingMessages.length;
+  const queued = state.stepQueue.length;
+  if (inFlight === 0 && queued === 0) {
+    el.textContent = 'Idle';
+  } else {
+    el.textContent = `${inFlight} in-flight, ${queued} queued`;
+  }
+}
+
+document.getElementById('speedSlider').addEventListener('input', function() {
+  state.speed = parseInt(this.value);
+  document.getElementById('speedLabel').textContent = this.value + 'x';
+});
+
+// Log
+function addLog(html) {
+  const entries = document.getElementById('logEntries');
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour12: false }) + '.' + String(now.getMilliseconds()).padStart(3, '0');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-time">${time}</span> ${html}`;
+  entries.prepend(entry);
+  // Keep max 200 entries
+  while (entries.children.length > 200) entries.removeChild(entries.lastChild);
+}
+
+function clearLog() {
+  document.getElementById('logEntries').innerHTML = '';
+}
+
+// Tabs
+function switchTab(name) {
+  document.querySelectorAll('.panel-tab').forEach((t, i) => {
+    t.classList.toggle('active', ['messages', 'nodes', 'rules'][i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// Canvas interactions
+function findNodeAt(x, y) {
+  for (let i = state.nodes.length - 1; i >= 0; i--) {
+    const n = state.nodes[i];
+    const dx = n.x - x, dy = n.y - y;
+    if (dx * dx + dy * dy <= NODE_RADIUS * NODE_RADIUS) return n;
+  }
+  return null;
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  if (isDraggingMsg) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const node = findNodeAt(x, y);
+  if (node) {
+    dragNode = node;
+    dragOffX = x - node.x;
+    dragOffY = y - node.y;
+    state.selectedNode = node.id;
+    renderNodes();
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (dragNode) {
+    const rect = canvas.getBoundingClientRect();
+    dragNode.x = e.clientX - rect.left - dragOffX;
+    dragNode.y = e.clientY - rect.top - dragOffY;
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  dragNode = null;
+});
+
+canvas.addEventListener('dblclick', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if (findNodeAt(x, y)) return;
+  const count = state.nodes.length + 1;
+  const types = ['storage', 'relay', 'validator'];
+  const type = types[count % 3];
+  addNode(`node-${count}`, type, x, y);
+});
+
+// Clear all
+function clearAll() {
+  state.messageTypes = [];
+  state.nodes = [];
+  state.connections = [];
+  state.behaviors = [];
+  state.flyingMessages = [];
+  state.storedMessages = {};
+  state.stepQueue = [];
+  state.selectedNode = null;
+  state.playing = false;
+  updatePlayButton();
+  renderMessageTypes();
+  renderNodes();
+  renderConnections();
+  renderBehaviors();
+  clearLog();
+}
+
+// Presets
+function togglePresets() {
+  document.getElementById('presetsMenu').classList.toggle('open');
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#presetsBtn') && !e.target.closest('#presetsMenu')) {
+    document.getElementById('presetsMenu').classList.remove('open');
+  }
+});
+
+function loadPreset(name) {
+  clearAll();
+  document.getElementById('presetsMenu').classList.remove('open');
+
+  if (name === 'basic') {
+    // Message types
+    const m1 = { id: genId(), name: 'write-A', color: '#f59e0b', scheme: 'mutable', size: 'medium' };
+    state.messageTypes.push(m1);
+
+    // Nodes
+    const cx = W / 2, cy = H / 2;
+    const n1 = { id: genId(), name: 'client', type: 'relay', x: cx - 200, y: cy, _pulse: 0 };
+    const n2 = { id: genId(), name: 'relay-1', type: 'relay', x: cx, y: cy - 100, _pulse: 0 };
+    const n3 = { id: genId(), name: 'storage-1', type: 'storage', x: cx + 200, y: cy, _pulse: 0 };
+    state.nodes.push(n1, n2, n3);
+
+    // Connections
+    state.connections.push({ id: genId(), from: n1.id, to: n2.id, direction: 'push' });
+    state.connections.push({ id: genId(), from: n2.id, to: n3.id, direction: 'push' });
+
+    addLog('Loaded preset: <strong>Basic Message Relay</strong>');
+
+  } else if (name === 'replication') {
+    const m1 = { id: genId(), name: 'write-data', color: '#3b82f6', scheme: 'mutable', size: 'medium' };
+    const m2 = { id: genId(), name: 'ack', color: '#22c55e', scheme: 'mutable', size: 'small' };
+    state.messageTypes.push(m1, m2);
+
+    const cx = W / 2, cy = H / 2;
+    const writer = { id: genId(), name: 'writer', type: 'relay', x: cx - 250, y: cy, _pulse: 0 };
+    const hub = { id: genId(), name: 'hub', type: 'relay', x: cx - 50, y: cy, _pulse: 0 };
+    const s1 = { id: genId(), name: 'store-A', type: 'storage', x: cx + 180, y: cy - 140, _pulse: 0 };
+    const s2 = { id: genId(), name: 'store-B', type: 'storage', x: cx + 220, y: cy, _pulse: 0 };
+    const s3 = { id: genId(), name: 'store-C', type: 'storage', x: cx + 180, y: cy + 140, _pulse: 0 };
+    state.nodes.push(writer, hub, s1, s2, s3);
+
+    state.connections.push(
+      { id: genId(), from: writer.id, to: hub.id, direction: 'push' },
+      { id: genId(), from: hub.id, to: s1.id, direction: 'push' },
+      { id: genId(), from: hub.id, to: s2.id, direction: 'push' },
+      { id: genId(), from: hub.id, to: s3.id, direction: 'push' },
+    );
+
+    // Behaviors: storage nodes store, then create ack
+    state.behaviors.push(
+      { id: genId(), nodeId: s1.id, triggerId: m1.id, action: 'store', createMsgId: null },
+      { id: genId(), nodeId: s2.id, triggerId: m1.id, action: 'store', createMsgId: null },
+      { id: genId(), nodeId: s3.id, triggerId: m1.id, action: 'store', createMsgId: null },
+    );
+
+    addLog('Loaded preset: <strong>Storage Replication</strong>');
+
+  } else if (name === 'validation') {
+    const m1 = { id: genId(), name: 'raw-msg', color: '#f59e0b', scheme: 'mutable', size: 'medium' };
+    const m2 = { id: genId(), name: 'valid-msg', color: '#22c55e', scheme: 'mutable', size: 'medium' };
+    const m3 = { id: genId(), name: 'invalid-msg', color: '#ef4444', scheme: 'mutable', size: 'small' };
+    state.messageTypes.push(m1, m2, m3);
+
+    const cx = W / 2, cy = H / 2;
+    const client = { id: genId(), name: 'client', type: 'relay', x: cx - 280, y: cy, _pulse: 0 };
+    const validator = { id: genId(), name: 'validator', type: 'validator', x: cx - 60, y: cy, _pulse: 0 };
+    const store = { id: genId(), name: 'storage', type: 'storage', x: cx + 180, y: cy - 80, _pulse: 0 };
+    const reject = { id: genId(), name: 'reject-log', type: 'storage', x: cx + 180, y: cy + 80, _pulse: 0 };
+    state.nodes.push(client, validator, store, reject);
+
+    state.connections.push(
+      { id: genId(), from: client.id, to: validator.id, direction: 'push' },
+      { id: genId(), from: validator.id, to: store.id, direction: 'push' },
+      { id: genId(), from: validator.id, to: reject.id, direction: 'push' },
+    );
+
+    // Validator transforms raw to valid, propagates to storage
+    state.behaviors.push(
+      { id: genId(), nodeId: validator.id, triggerId: m1.id, action: 'create', createMsgId: m2.id },
+    );
+    // Storage stores valid
+    state.behaviors.push(
+      { id: genId(), nodeId: store.id, triggerId: m2.id, action: 'store', createMsgId: null },
+    );
+    // Reject stores invalid
+    state.behaviors.push(
+      { id: genId(), nodeId: reject.id, triggerId: m2.id, action: 'drop', createMsgId: null },
+    );
+
+    addLog('Loaded preset: <strong>Validation Pipeline</strong>');
+
+  } else if (name === 'mesh') {
+    const m1 = { id: genId(), name: 'sync-A', color: '#3b82f6', scheme: 'mutable', size: 'medium' };
+    const m2 = { id: genId(), name: 'sync-B', color: '#f59e0b', scheme: 'mutable', size: 'medium' };
+    state.messageTypes.push(m1, m2);
+
+    const cx = W / 2, cy = H / 2;
+    const radius = 160;
+    const nodes = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+      const types = ['storage', 'relay', 'storage', 'relay', 'storage', 'validator'];
+      const n = {
+        id: genId(),
+        name: `node-${i + 1}`,
+        type: types[i],
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius,
+        _pulse: 0,
+      };
+      nodes.push(n);
+      state.nodes.push(n);
+    }
+
+    // Ring connections
+    for (let i = 0; i < 6; i++) {
+      state.connections.push({
+        id: genId(),
+        from: nodes[i].id,
+        to: nodes[(i + 1) % 6].id,
+        direction: 'bidirectional',
+      });
+    }
+    // Cross connections
+    state.connections.push({ id: genId(), from: nodes[0].id, to: nodes[3].id, direction: 'bidirectional' });
+    state.connections.push({ id: genId(), from: nodes[1].id, to: nodes[4].id, direction: 'bidirectional' });
+
+    addLog('Loaded preset: <strong>Mesh Network</strong>');
+
+  } else if (name === 'listener') {
+    const m1 = { id: genId(), name: 'request', color: '#3b82f6', scheme: 'immutable', size: 'medium' };
+    const m2 = { id: genId(), name: 'response', color: '#22c55e', scheme: 'immutable', size: 'medium' };
+    const m3 = { id: genId(), name: 'encrypted-req', color: '#8b5cf6', scheme: 'hash', size: 'large' };
+    state.messageTypes.push(m1, m2, m3);
+
+    const cx = W / 2, cy = H / 2;
+    const client = { id: genId(), name: 'client', type: 'relay', x: cx - 280, y: cy, _pulse: 0 };
+    const inbox = { id: genId(), name: 'inbox-node', type: 'storage', x: cx - 60, y: cy, _pulse: 0 };
+    const listener = { id: genId(), name: 'listener', type: 'validator', x: cx + 160, y: cy - 80, _pulse: 0 };
+    const outbox = { id: genId(), name: 'outbox', type: 'storage', x: cx + 160, y: cy + 80, _pulse: 0 };
+    state.nodes.push(client, inbox, listener, outbox);
+
+    state.connections.push(
+      { id: genId(), from: client.id, to: inbox.id, direction: 'push' },
+      { id: genId(), from: inbox.id, to: listener.id, direction: 'push' },
+      { id: genId(), from: listener.id, to: outbox.id, direction: 'push' },
+      { id: genId(), from: outbox.id, to: client.id, direction: 'push' },
+    );
+
+    // Listener processes request, creates response
+    state.behaviors.push(
+      { id: genId(), nodeId: inbox.id, triggerId: m1.id, action: 'store', createMsgId: null },
+      { id: genId(), nodeId: listener.id, triggerId: m1.id, action: 'create', createMsgId: m2.id },
+    );
+
+    addLog('Loaded preset: <strong>Request / Response</strong>');
+  }
+
+  renderMessageTypes();
+  renderNodes();
+  renderConnections();
+  renderBehaviors();
+  renderBehaviorSelects();
+  switchTab('messages');
+}
+
+// ── Initialize ─────────────────────────────────────────────────────────────
+draw();
+addLog('b3nd Network Visualizer ready');
+</script>
+</body>
+</html>
