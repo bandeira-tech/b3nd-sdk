@@ -74,86 +74,88 @@ nodes. The framework treats them identically. Storage durability, replication,
 and retention are infrastructure concerns that B3nd intentionally leaves to the
 people who run the infrastructure.
 
-### What are the record size limits per backend?
+### What are the record size limits?
 
-The B3nd SDK does not enforce a single global record size limit. Limits depend
-on the backend client and, for HTTP transport, the web server framework:
+`receive()` accepts a message — it does not promise persistence. Whether a node
+stores, caches, forwards, or discards what it receives is an operator decision.
+There is no protocol-level record size limit because the protocol does not
+define storage.
 
-| Backend          | Limiting Factor                       | Practical Limit                |
-| ---------------- | ------------------------------------- | ------------------------------ |
-| **MemoryClient** | JavaScript heap memory                | No explicit limit; bounded by available process memory. Individual records can be arbitrarily large until the process runs out of heap. |
-| **PostgresClient** | PostgreSQL `JSONB` column type      | ~255 MB per value (PostgreSQL JSONB internal limit). The `uri` column is `VARCHAR(2048)`, capping URI length at 2048 characters. Data is stored as `JSONB`, which PostgreSQL compresses via TOAST for values over ~2 KB. |
-| **MongoClient**  | MongoDB BSON document size limit      | 16 MB per document (MongoDB hard limit). Each record is one document containing `uri`, `data`, `timestamp`, and metadata fields, so the usable data size is slightly under 16 MB. |
-| **HttpClient**   | HTTP request body / framework config  | Depends on the server framework (e.g., Hono, Deno.serve). The SDK's HTTP server (`libs/b3nd-servers/http.ts`) does not configure an explicit body size limit -- it relies on the underlying framework defaults. Deno.serve has no built-in request body limit. Hono does not impose one by default. Reverse proxies (nginx, Cloudflare) may impose their own limits (commonly 1 MB to 100 MB). |
+When an operator **does** choose to persist data, the size limits they encounter
+are infrastructure constraints, not protocol constraints:
 
-**Recommendations:**
+| Infrastructure       | Limiting Factor                       | Typical Limit                  |
+| -------------------- | ------------------------------------- | ------------------------------ |
+| **MemoryClient**     | JavaScript heap memory                | Bounded by available process memory. |
+| **PostgresClient**   | PostgreSQL `JSONB` column type        | ~255 MB per value (PostgreSQL internal limit). URI column is `VARCHAR(2048)`. |
+| **MongoClient**      | MongoDB BSON document size limit      | 16 MB per document (MongoDB hard limit). |
+| **HTTP transport**   | Server framework / reverse proxy      | Varies. Deno.serve and Hono impose no default body limit. Reverse proxies (nginx, Cloudflare) commonly cap at 1–100 MB. |
 
-- For JSON data, keep individual records under **1 MB** for reliable
-  cross-backend compatibility and reasonable HTTP transfer times.
-- For binary data (images, files), use `hash://sha256` content-addressed
-  storage and keep blobs under **10 MB**. For larger files, store them
-  externally and write a reference URI.
-- If you need to store data larger than 16 MB, MemoryClient and PostgresClient
-  can handle it, but MongoClient cannot. Design for the smallest common
-  denominator if your app may run on multiple backends.
+These are details about specific infrastructure choices, not about B3nd itself.
+A node operator running a custom client with S3-backed storage would have
+entirely different constraints. An operator running a relay that never persists
+would have none.
+
+**Practical guidance for app developers:**
+
+- Keep individual payloads under **1 MB** if your app may run against common
+  deployments (Postgres, MongoDB) and you want broad compatibility.
+- For binary data, use `hash://sha256` content-addressed storage and keep blobs
+  under **10 MB**. For larger files, store them externally and write a reference
+  URI.
+- If you control the infrastructure end-to-end, your limits are whatever your
+  operator's storage supports. If you do not, design for the smallest common
+  denominator.
 
 ### Is `send()` atomic?
 
-**No. `send()` is not atomic.** Outputs are written sequentially, and a failure
-partway through leaves earlier outputs written while later outputs are not.
+**No.** `send()` builds and dispatches an envelope. It does not guarantee that
+all outputs are persisted as an atomic unit — because persistence is not a
+protocol concern.
 
-Here is what happens when you call `send()`:
+Here is what `send()` does:
 
 1. `send()` calls `message()` to build a content-addressed envelope: it
    serializes the `MessageData` (inputs + outputs), computes its SHA-256 hash,
    and produces a `[hash://sha256/{hex}, data]` tuple.
 
-2. `send()` calls `client.receive([hash_uri, envelope])` -- a single write of
-   the entire envelope to its hash URI.
+2. `send()` dispatches the envelope to the node via `client.receive()`. This
+   is a request for the node to accept the message — not a guarantee of
+   storage.
 
-3. Inside `receive()`, after storing the envelope itself, the client detects
-   that the data matches the `MessageData` shape (via `isMessageData()`). It
-   then iterates over `payload.outputs` and calls `this.receive()` **for each
-   output individually, in sequence**:
+3. Inside the SDK's built-in clients, `receive()` processes the envelope by
+   iterating over `payload.outputs` and calling `this.receive()` for each
+   output individually, in sequence. If any output is rejected (by a schema
+   validator), the loop stops and returns `{ accepted: false }`. Outputs
+   already dispatched before the rejection are not rolled back.
 
-   ```
-   for (const [outputUri, outputValue] of data.payload.outputs) {
-     const outputResult = await this.receive([outputUri, outputValue]);
-     if (!outputResult.accepted) {
-       return { accepted: false, error: ... };
-     }
-   }
-   ```
-
-4. If any individual output write fails (validation rejection, database error),
-   the loop stops and returns `{ accepted: false }`. **Outputs that were
-   already written before the failure remain written.** There is no rollback.
-
-This behavior is identical across all backend clients (MemoryClient,
-PostgresClient, MongoClient). None of them wrap the output writes in a
-database transaction.
+What happens beyond dispatch depends on the node. A node backed by
+`MemoryClient` stores in-process. A node backed by `PostgresClient` writes to
+Postgres. A relay node might forward without storing. A node with custom
+validators might reject outputs the built-in clients would accept. The
+framework does not prescribe what nodes do with accepted messages.
 
 **What this means for developers:**
 
-- **Idempotent writes are safe.** If all your outputs are simple key-value
-  upserts (the common case), a partial failure means some data was written
-  and some was not. Retrying the entire `send()` will overwrite the
-  already-written outputs and write the missing ones, converging to the
-  correct state.
+- **Idempotent outputs are safe.** If all your outputs are simple key-value
+  upserts (the common case), a partial rejection means some outputs were
+  dispatched and some were not. Retrying the entire `send()` will re-dispatch
+  everything, converging to the correct state on nodes that persist.
 
 - **Non-idempotent operations need caution.** If your schema validators have
   side effects or your outputs depend on ordering (e.g., spend-once semantics
-  for `immutable://` URIs), a partial failure can leave inconsistent state.
-  Design your validators to handle retries gracefully.
+  for `immutable://` URIs), a partial rejection can leave inconsistent state
+  on nodes that persist. Design your validators to handle retries gracefully.
 
-- **The envelope itself is always written first.** The `hash://sha256/{hex}`
-  record is stored before any outputs are processed. This means you can
-  always verify what was *intended* even if not all outputs were applied.
+- **The envelope is always dispatched first.** The `hash://sha256/{hex}`
+  record is sent before individual outputs are processed. On nodes that
+  persist, this means you can always verify what was *intended* even if not
+  all outputs were applied.
 
-- **For true atomicity**, you would need a custom client that wraps the
-  output loop in a database transaction. The SDK does not provide this
-  out of the box because MemoryClient has no transaction concept and the
-  framework is designed to be backend-agnostic.
+- **Atomicity is an operator concern.** A custom client could wrap the output
+  loop in a database transaction. The SDK does not provide this out of the box
+  because the framework is backend-agnostic and not all backends have a
+  transaction concept.
 
 ## How
 
