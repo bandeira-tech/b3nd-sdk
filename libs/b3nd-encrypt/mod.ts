@@ -1,3 +1,55 @@
+/**
+ * @module b3nd-encrypt
+ *
+ * Cryptographic primitives for B3nd: Ed25519 signing, X25519 encryption,
+ * AES-GCM symmetric encryption, and PBKDF2/HKDF key derivation.
+ *
+ * ## Privacy Model — Two Tiers
+ *
+ * This module supports two distinct privacy tiers. Understanding the difference
+ * is security-critical:
+ *
+ * ### Tier 1: Obscured URIs (deterministic key derivation)
+ *
+ * `deriveKeyFromSeed()` produces a deterministic key from a seed string and
+ * salt via PBKDF2. When the Firecat protocol uses "private" visibility, it
+ * derives the encryption key as `SALT:uri:ownerPubkey`. This means:
+ *
+ * - **The key is computable by anyone who knows the inputs.** If an attacker
+ *   knows the URI, the owner's public key, and the salt, they can derive
+ *   the same key and decrypt the data.
+ * - **This is security through obscurity, NOT confidentiality.** The data is
+ *   opaque to casual observers but not cryptographically protected from a
+ *   determined adversary who can guess or enumerate the inputs.
+ * - **Appropriate for:** low-sensitivity user preferences, app settings, data
+ *   that benefits from being non-obvious but does not require true secrecy.
+ *
+ * ### Tier 2: Asymmetric encryption (X25519 + AES-GCM)
+ *
+ * `encrypt()` and `createSignedEncryptedMessage()` use X25519 ECDH with
+ * ephemeral keypairs to derive a shared secret, then encrypt with AES-GCM.
+ * Only the holder of the recipient's X25519 private key can decrypt.
+ *
+ * - **True confidentiality.** The data cannot be decrypted without the
+ *   recipient's private key, regardless of what an attacker knows about
+ *   the URI or public keys.
+ * - **Forward secrecy.** Each encryption uses an ephemeral keypair, so
+ *   compromising the recipient's long-term key does not reveal past messages.
+ * - **Appropriate for:** sensitive user data, private messages, financial
+ *   records, medical data, or anything requiring real confidentiality.
+ *
+ * ### Which to use
+ *
+ * If your threat model includes adversaries who know the URI structure and
+ * participant public keys, use `encrypt()` / `PublicEncryptionKey.encrypt()`
+ * or `createSignedEncryptedMessage()` with X25519 keys. Do NOT rely on
+ * `deriveKeyFromSeed()` with guessable inputs for confidentiality.
+ *
+ * See also:
+ * - `FIRECAT.md` > Resource Visibility — protocol-level visibility model
+ * - `APP_COOKBOOK.md` > Privacy Patterns — code examples for each tier
+ */
+
 import {
   decodeBase64,
   decodeHex,

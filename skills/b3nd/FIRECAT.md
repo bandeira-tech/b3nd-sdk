@@ -183,11 +183,24 @@ confirm reads after writes or use redundant nodes.
 
 Visibility is achieved through client-side encryption, not server access control.
 
-| Level         | Key Derivation         | Access                  |
-| ------------- | ---------------------- | ----------------------- |
-| **Private**   | `SALT:uri:ownerPubkey` | Owner only              |
-| **Protected** | `SALT:uri:password`    | Anyone with password    |
-| **Public**    | `SALT:uri:""`          | Anyone (empty password) |
+> **SECURITY WARNING — "Private" is obscurity, not confidentiality.**
+> The "private" level derives its encryption key deterministically from
+> `SALT:uri:ownerPubkey` via PBKDF2. Anyone who knows the URI, the owner's
+> public key, and the application salt can compute the same key and decrypt
+> the data. This provides obscurity against casual enumeration, but NOT
+> cryptographic confidentiality against a determined adversary.
+>
+> For true confidentiality, encrypt data with `encrypt()` or
+> `createSignedEncryptedMessage()` using X25519 keys before writing.
+> See [APP_COOKBOOK.md > Privacy Patterns](./APP_COOKBOOK.md#privacy-patterns)
+> for code examples, and `libs/b3nd-encrypt/mod.ts` for the full privacy
+> model documentation.
+
+| Level         | Key Derivation         | Access                  | Security Guarantee        |
+| ------------- | ---------------------- | ----------------------- | ------------------------- |
+| **Private**   | `SALT:uri:ownerPubkey` | Owner only (if inputs not guessed) | Obscurity only   |
+| **Protected** | `SALT:uri:password`    | Anyone with password    | Password strength         |
+| **Public**    | `SALT:uri:""`          | Anyone (empty password) | None (intentionally open) |
 
 ### Deterministic Key Derivation
 

@@ -385,13 +385,32 @@ const client = new FunctionalClient({
 URI paths work like filesystem directories. Data at a leaf URI is a resource.
 Prefix listing (`client.list("prefix/")`) enumerates children.
 
-### Privacy Levels
+### Privacy Model
 
-| Level     | Encryption Key                | Access               |
-| --------- | ----------------------------- | -------------------- |
-| Public    | None                          | Anyone can read      |
-| Protected | Password-derived (PBKDF2)     | Anyone with password |
-| Private   | Recipient's X25519 public key | Only recipient       |
+B3nd provides cryptographic primitives for two distinct privacy tiers.
+**Protocols choose which tier to use for each visibility level.** The choice
+has significant security implications.
+
+> **Important:** Firecat's "private" visibility uses deterministic key
+> derivation (PBKDF2 with `SALT:uri:ownerPubkey`), which provides obscurity
+> but NOT cryptographic confidentiality. For true confidentiality, use the
+> X25519 asymmetric encryption primitives in the encrypt module.
+>
+> See [FIRECAT.md > Resource Visibility](./FIRECAT.md#resource-visibility)
+> for the protocol-level model, and
+> [APP_COOKBOOK.md > Privacy Patterns](./APP_COOKBOOK.md#privacy-patterns)
+> for code examples of both tiers.
+
+| Level     | Framework Primitive                       | Security Guarantee       |
+| --------- | ----------------------------------------- | ------------------------ |
+| Public    | None                                      | None (intentionally open)|
+| Protected | `deriveKeyFromSeed()` with password+salt  | Password strength        |
+| Private   | `encrypt()` / X25519 + AES-GCM           | Cryptographic confidentiality |
+| Obscured  | `deriveKeyFromSeed()` with deterministic inputs | Obscurity only    |
+
+The framework provides all these primitives. Protocols decide which to apply
+at each visibility level. The `b3nd-encrypt` module JSDoc documents the full
+privacy model and when to use each primitive.
 
 ### Framework Design Principles
 
