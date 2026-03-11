@@ -109,53 +109,32 @@ would have none.
 
 ### Is `send()` atomic?
 
-**No.** `send()` builds and dispatches an envelope. It does not guarantee that
-all outputs are persisted as an atomic unit — because persistence is not a
-protocol concern.
+**Yes, via validation.** `send()` builds a content-addressed envelope and
+dispatches it to the node. The node validates every output against its schema.
+If any validator rejects, the entire send fails — no outputs are applied.
 
-Here is what `send()` does:
+Here is what happens:
 
 1. `send()` calls `message()` to build a content-addressed envelope: it
    serializes the `MessageData` (inputs + outputs), computes its SHA-256 hash,
    and produces a `[hash://sha256/{hex}, data]` tuple.
 
-2. `send()` dispatches the envelope to the node via `client.receive()`. This
-   is a request for the node to accept the message — not a guarantee of
-   storage.
+2. `send()` dispatches the envelope to the node via `client.receive()`.
 
-3. Inside the SDK's built-in clients, `receive()` processes the envelope by
-   iterating over `payload.outputs` and calling `this.receive()` for each
-   output individually, in sequence. If any output is rejected (by a schema
-   validator), the loop stops and returns `{ accepted: false }`. Outputs
-   already dispatched before the rejection are not rolled back.
+3. The node validates each output against its program schema. Validators
+   receive the full envelope context (`message.payload.inputs`,
+   `message.payload.outputs`), so they can enforce cross-output consistency
+   checks — for example, verifying that a debit and credit balance.
 
-What happens beyond dispatch depends on the node. A node backed by
-`MemoryClient` stores in-process. A node backed by `PostgresClient` writes to
-Postgres. A relay node might forward without storing. A node with custom
-validators might reject outputs the built-in clients would accept. The
-framework does not prescribe what nodes do with accepted messages.
+4. If any validator rejects, the send returns `{ accepted: false }`. The
+   design intent is all-or-nothing: validation is the atomic gate.
 
-**What this means for developers:**
-
-- **Idempotent outputs are safe.** If all your outputs are simple key-value
-  upserts (the common case), a partial rejection means some outputs were
-  dispatched and some were not. Retrying the entire `send()` will re-dispatch
-  everything, converging to the correct state on nodes that persist.
-
-- **Non-idempotent operations need caution.** If your schema validators have
-  side effects or your outputs depend on ordering (e.g., spend-once semantics
-  for `immutable://` URIs), a partial rejection can leave inconsistent state
-  on nodes that persist. Design your validators to handle retries gracefully.
-
-- **The envelope is always dispatched first.** The `hash://sha256/{hex}`
-  record is sent before individual outputs are processed. On nodes that
-  persist, this means you can always verify what was *intended* even if not
-  all outputs were applied.
-
-- **Atomicity is an operator concern.** A custom client could wrap the output
-  loop in a database transaction. The SDK does not provide this out of the box
-  because the framework is backend-agnostic and not all backends have a
-  transaction concept.
+**Implementation note:** In the current SDK client implementations
+(MemoryClient, PostgresClient, MongoClient), outputs are validated and stored
+sequentially. If output N fails validation after outputs 1..N-1 were already
+stored, the earlier outputs are not rolled back. If you encounter this in
+practice, report it as a bug — partial writes on validation failure are not
+intended behavior.
 
 ## How
 
