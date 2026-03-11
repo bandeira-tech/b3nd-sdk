@@ -16,6 +16,9 @@ import {
   consumedValidator,
   genesisValidator,
   consensusRecordValidator,
+  pendingValidator,
+  attestationValidator,
+  rejectionValidator,
 } from "./validators.ts";
 
 const schema: Schema = {
@@ -83,6 +86,11 @@ const schema: Schema = {
   "immutable://consumed": consumedValidator,
   "immutable://genesis": genesisValidator,
   "consensus://record": consensusRecordValidator,
+
+  // Pre-confirmation validators
+  "immutable://pending": pendingValidator,
+  "immutable://attestation": attestationValidator,
+  "immutable://rejection": rejectionValidator,
 
   // Authenticated links (value is auth-wrapped URI)
   "link://accounts": async ({ uri, value }) => {
