@@ -12,6 +12,8 @@
 
 import { assertEquals } from "jsr:@std/assert";
 import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+import { computeSha256, generateHashUri } from "../b3nd-hash/mod.ts";
+import type { MessageData } from "../b3nd-msg/data/types.ts";
 
 /**
  * Test client factory functions for different scenarios
@@ -29,6 +31,14 @@ export interface TestClientFactories {
   validationError?: () =>
     | NodeProtocolInterface
     | Promise<NodeProtocolInterface>;
+
+  /**
+   * Factory for atomicity tests. Must return a client with schema:
+   *  - "store://ok" accepts anything
+   *  - "store://fail" rejects everything
+   *  - "hash://sha256" accepts (content-addressed envelopes)
+   */
+  atomicity?: () => NodeProtocolInterface | Promise<NodeProtocolInterface>;
 
   /** Whether the client supports binary (Uint8Array) data. Defaults to true. */
   supportsBinary?: boolean;
@@ -709,5 +719,123 @@ export function runSharedSuite(
 
       await client.cleanup();
     });
+  }
+
+  // --- Atomicity tests (if atomicity factory provided) ---
+  // Tests that when a message envelope has multiple outputs and one fails
+  // validation, NO outputs from that envelope are readable.
+  if (factories.atomicity) {
+    Deno.test(
+      `${suiteName} - envelope with failed output leaves no readable outputs`,
+      async () => {
+        const client = await Promise.resolve(factories.atomicity!());
+
+        // Envelope: output 1 passes, output 2 passes, output 3 FAILS
+        const envelope: MessageData = {
+          payload: {
+            inputs: [],
+            outputs: [
+              ["store://ok/first", { value: 1 }],
+              ["store://ok/second", { value: 2 }],
+              ["store://fail/third", { value: 3 }],
+            ],
+          },
+        };
+
+        const hash = await computeSha256(envelope);
+        const envelopeUri = generateHashUri(hash);
+
+        const result = await client.receive([envelopeUri, envelope]);
+        assertEquals(result.accepted, false, "Envelope should be rejected");
+
+        // Outputs 1 and 2 must NOT be readable
+        const read1 = await client.read("store://ok/first");
+        assertEquals(
+          read1.success,
+          false,
+          "Output 1 should NOT be readable after failed envelope",
+        );
+
+        const read2 = await client.read("store://ok/second");
+        assertEquals(
+          read2.success,
+          false,
+          "Output 2 should NOT be readable after failed envelope",
+        );
+
+        // The envelope itself should not be readable
+        const readEnvelope = await client.read(envelopeUri);
+        assertEquals(
+          readEnvelope.success,
+          false,
+          "Envelope should NOT be readable after failed output",
+        );
+
+        await client.cleanup();
+      },
+    );
+
+    Deno.test(
+      `${suiteName} - successful envelope stores all outputs`,
+      async () => {
+        const client = await Promise.resolve(factories.atomicity!());
+
+        const envelope: MessageData = {
+          payload: {
+            inputs: [],
+            outputs: [
+              ["store://ok/alpha", { value: "a" }],
+              ["store://ok/beta", { value: "b" }],
+            ],
+          },
+        };
+
+        const hash = await computeSha256(envelope);
+        const envelopeUri = generateHashUri(hash);
+
+        const result = await client.receive([envelopeUri, envelope]);
+        assertEquals(result.accepted, true, `Should succeed: ${result.error}`);
+
+        const read1 = await client.read("store://ok/alpha");
+        assertEquals(read1.success, true, "Output 1 should be readable");
+
+        const read2 = await client.read("store://ok/beta");
+        assertEquals(read2.success, true, "Output 2 should be readable");
+
+        await client.cleanup();
+      },
+    );
+
+    Deno.test(
+      `${suiteName} - failure at second output rolls back first`,
+      async () => {
+        const client = await Promise.resolve(factories.atomicity!());
+
+        const envelope: MessageData = {
+          payload: {
+            inputs: [],
+            outputs: [
+              ["store://ok/survives-not", { value: "should be rolled back" }],
+              ["store://fail/blocks-all", { value: "fails" }],
+            ],
+          },
+        };
+
+        const hash = await computeSha256(envelope);
+        const envelopeUri = generateHashUri(hash);
+
+        const result = await client.receive([envelopeUri, envelope]);
+        assertEquals(result.accepted, false, "Envelope should be rejected");
+
+        const read1 = await client.read("store://ok/survives-not");
+        assertEquals(
+          read1.success,
+          false,
+          "First output should NOT survive when second output fails",
+        );
+
+        await client.cleanup();
+      },
+    );
   }
 }
