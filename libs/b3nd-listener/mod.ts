@@ -167,17 +167,25 @@ export function respondTo<TReq = unknown, TRes = unknown>(
     }
 
     // 2. Decrypt
-    const decrypted = JSON.parse(
-      new TextDecoder().decode(
-        await decrypt(
-          encryptedPayload,
-          identity.encryptionKeyPair.privateKey,
+    let decrypted: InboxRequestPayload<TReq>;
+    try {
+      decrypted = JSON.parse(
+        new TextDecoder().decode(
+          await decrypt(
+            encryptedPayload,
+            identity.encryptionKeyPair.privateKey,
+          ),
         ),
-      ),
-    ) as InboxRequestPayload<TReq>;
+      ) as InboxRequestPayload<TReq>;
+    } catch (err) {
+      return { success: false, error: `Decryption failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
 
-    if (!decrypted.clientPublicKeyHex || !decrypted.replyTo) {
-      return { success: false, error: "Missing clientPublicKeyHex or replyTo" };
+    if (!decrypted.clientPublicKeyHex) {
+      return { success: false, error: "Missing clientPublicKeyHex in request payload" };
+    }
+    if (!decrypted.replyTo) {
+      return { success: false, error: "Missing replyTo in request payload" };
     }
 
     // 3. Build handler request (no envelope concerns)
@@ -190,23 +198,30 @@ export function respondTo<TReq = unknown, TRes = unknown>(
     };
 
     // 4. Call handler
-    const response = await handler(request);
+    let response: TRes;
+    try {
+      response = await handler(request);
+    } catch (err) {
+      return { success: false, error: `Handler error: ${err instanceof Error ? err.message : String(err)}` };
+    }
 
-    // 5. Encrypt response to client
-    const encryptedResponse = await encrypt(
-      new TextEncoder().encode(JSON.stringify(response)),
-      decrypted.clientPublicKeyHex,
-    );
+    // 5. Encrypt response to client, sign, and write to replyTo
+    try {
+      const encryptedResponse = await encrypt(
+        new TextEncoder().encode(JSON.stringify(response)),
+        decrypted.clientPublicKeyHex,
+      );
 
-    // 6. Sign
-    const signedResponse = await createAuthenticatedMessageWithHex(
-      encryptedResponse,
-      identity.signingKeyPair.publicKeyHex,
-      identity.signingKeyPair.privateKeyHex,
-    );
+      const signedResponse = await createAuthenticatedMessageWithHex(
+        encryptedResponse,
+        identity.signingKeyPair.publicKeyHex,
+        identity.signingKeyPair.privateKeyHex,
+      );
 
-    // 7. Write to replyTo
-    await client.receive([decrypted.replyTo, signedResponse]);
+      await client.receive([decrypted.replyTo, signedResponse]);
+    } catch (err) {
+      return { success: false, error: `Response delivery failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
 
     return { success: true };
   };
