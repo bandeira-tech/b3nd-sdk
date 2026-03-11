@@ -226,6 +226,131 @@ await send({
 
 ---
 
+## Privacy Patterns
+
+Firecat provides two distinct privacy tiers. Choosing the wrong one is a
+security mistake. Read this section carefully before storing user data.
+
+> **Key distinction:** "private" visibility in Firecat uses deterministic key
+> derivation (obscured URIs). It is NOT encrypted in a way that prevents a
+> determined adversary from reading the data. For true confidentiality, you
+> must use asymmetric or shared-secret encryption explicitly.
+
+See also: `libs/b3nd-encrypt/mod.ts` module-level JSDoc for the full privacy
+model, and [FIRECAT.md > Resource Visibility](./FIRECAT.md#resource-visibility)
+for the protocol-level visibility table.
+
+### Pattern 1: Obscured URI (when obscurity suffices)
+
+Use this when the data is low-sensitivity and you just want to prevent casual
+enumeration. Examples: user preferences, app theme settings, non-sensitive
+configuration.
+
+The key is derived from `SALT:uri:ownerPubkey` via PBKDF2. Anyone who can
+reconstruct the seed can derive the same key and decrypt the data.
+
+```typescript
+import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+import { HttpClient } from "@bandeira-tech/b3nd-web";
+
+const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+const APP_SALT = "my-app-v1";
+
+// Derive a deterministic encryption key from the URI and owner pubkey
+const uri = `mutable://accounts/${userPubkey}/my-app/preferences`;
+const seed = `${APP_SALT}:${uri}:${userPubkey}`;
+const keyHex = await encrypt.deriveKeyFromSeed(seed, APP_SALT, 100000);
+
+// Encrypt and write
+const secretKey = encrypt.SecretEncryptionKey.fromHex(keyHex);
+const plaintext = new TextEncoder().encode(JSON.stringify({ theme: "dark" }));
+const encrypted = await secretKey.encrypt(plaintext);
+
+const signed = await encrypt.createAuthenticatedMessageWithHex(
+  encrypted,
+  userPubkey,
+  userPrivateKeyHex,
+);
+await client.receive([uri, signed]);
+
+// Read and decrypt (anyone who knows the inputs can do this)
+const result = await client.read(uri);
+const payload = result.record?.data?.payload ?? result.record?.data;
+const decrypted = await secretKey.decrypt(payload);
+const preferences = JSON.parse(new TextDecoder().decode(decrypted));
+```
+
+**Threat model:** A node operator, network observer, or any party who knows
+your app salt, the URI pattern, and the user's public key can derive the same
+key and read this data. The public key is visible in the URI itself.
+
+### Pattern 2: Encrypted at rest (when confidentiality is required)
+
+Use this when the data must be unreadable without the recipient's private key.
+Examples: private messages, financial records, medical data, API keys.
+
+```typescript
+import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
+import { HttpClient } from "@bandeira-tech/b3nd-web";
+
+const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+
+// Generate an X25519 encryption keypair (do once, store securely)
+const { privateKey: encPrivKey, publicKey: encPubKey } =
+  await encrypt.PrivateEncryptionKey.generatePair();
+
+// Generate a signing keypair (for auth)
+const signingKeys = await encrypt.generateSigningKeyPair();
+
+// Encrypt data to the recipient's public key (X25519 + AES-GCM)
+const plaintext = new TextEncoder().encode(JSON.stringify({
+  accountNumber: "1234-5678",
+  balance: 42000,
+}));
+
+const message = await encrypt.createSignedEncryptedMessage({
+  data: plaintext,
+  identity: await encrypt.IdentityKey.fromHex({
+    privateKeyHex: signingKeys.privateKeyHex,
+    publicKeyHex: signingKeys.publicKeyHex,
+  }),
+  encryptionKey: encPubKey,
+});
+
+// Write the signed+encrypted message
+const uri = `mutable://accounts/${signingKeys.publicKeyHex}/my-app/financial`;
+await client.receive([uri, message]);
+
+// Read and decrypt (only the private key holder can do this)
+const result = await client.read(uri);
+const { data, verified, signers } = await encrypt.verifyAndDecryptMessage({
+  message: result.record?.data,
+  encryptionKey: encPrivKey,
+});
+const financialData = JSON.parse(new TextDecoder().decode(data));
+console.log(financialData); // { accountNumber: "1234-5678", balance: 42000 }
+console.log(verified);      // true
+```
+
+**Threat model:** The data is encrypted with X25519 ECDH + AES-GCM using an
+ephemeral keypair. Even the node operator cannot decrypt it. Only the holder
+of the X25519 private key can recover the plaintext. Each encryption uses a
+fresh ephemeral key, providing forward secrecy.
+
+### When to use which
+
+| Scenario                        | Pattern               | Why                                         |
+| ------------------------------- | --------------------- | ------------------------------------------- |
+| User theme / UI preferences     | Obscured URI          | Low sensitivity, convenience over security  |
+| App settings (non-secret)       | Obscured URI          | Prevents casual browsing, not a secret      |
+| Private messages                | Encrypted at rest     | Confidentiality required                    |
+| Financial / medical records     | Encrypted at rest     | Regulatory and ethical obligation            |
+| API keys or credentials         | Encrypted at rest     | Compromise = account takeover               |
+| Shared secret (team data)       | `SecretEncryptionKey` | Share the symmetric key with authorized users |
+| Public data                     | No encryption         | Intentionally open                          |
+
+---
+
 ## Recipe: Content App (Pages + Posts + Users)
 
 A complete data model for a content app with public pages, user-authored
