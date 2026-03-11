@@ -299,3 +299,233 @@ Deno.test("genesis: envelopes mint tokens without conservation", async () => {
   assertEquals(utxoResult.success, true);
   assertEquals(utxoResult.record?.data, GENESIS_AMOUNT);
 });
+
+// ── Pending validator ─────────────────────────────────────────────────
+
+Deno.test("pending: accepts valid pending write", async () => {
+  const client = createClient();
+
+  // Store content to create the envelope at hash://sha256/{hash}
+  const contentHash = await storeContent(client, { data: "test content" });
+  const hashUri = `hash://sha256/${contentHash}`;
+  const nodeKey = "node_abc123";
+
+  const result = await client.receive([
+    `immutable://pending/${contentHash}/${nodeKey}`,
+    hashUri,
+  ]);
+  assertEquals(result.accepted, true, `Pending write failed: ${result.error}`);
+
+  // Verify the value was stored
+  const readResult = await client.read<string>(`immutable://pending/${contentHash}/${nodeKey}`);
+  assertEquals(readResult.success, true);
+  assertEquals(readResult.record?.data, hashUri);
+});
+
+Deno.test("pending: rejects duplicate (write-once)", async () => {
+  const client = createClient();
+  const contentHash = await storeContent(client, { data: "dup test" });
+  const hashUri = `hash://sha256/${contentHash}`;
+  const nodeKey = "node_abc123";
+
+  // First write succeeds
+  const result1 = await client.receive([
+    `immutable://pending/${contentHash}/${nodeKey}`,
+    hashUri,
+  ]);
+  assertEquals(result1.accepted, true, `First pending write failed: ${result1.error}`);
+
+  // Duplicate write rejected
+  const result2 = await client.receive([
+    `immutable://pending/${contentHash}/${nodeKey}`,
+    hashUri,
+  ]);
+  assertEquals(result2.accepted, false);
+});
+
+Deno.test("pending: rejects wrong value type", async () => {
+  const client = createClient();
+  const contentHash = await storeContent(client, { data: "wrong type" });
+
+  // Value is a number, not a hash URI string
+  const result1 = await client.receive([
+    `immutable://pending/${contentHash}/node1`,
+    42,
+  ]);
+  assertEquals(result1.accepted, false);
+
+  // Value is a string but doesn't start with hash://sha256/
+  const result2 = await client.receive([
+    `immutable://pending/${contentHash}/node2`,
+    "not-a-hash-uri",
+  ]);
+  assertEquals(result2.accepted, false);
+});
+
+Deno.test("pending: rejects missing referenced envelope", async () => {
+  const client = createClient();
+  const fakeHash = "0000000000000000000000000000000000000000000000000000000000000000";
+
+  const result = await client.receive([
+    `immutable://pending/${fakeHash}/node1`,
+    `hash://sha256/${fakeHash}`,
+  ]);
+  assertEquals(result.accepted, false);
+});
+
+// ── Attestation validator ─────────────────────────────────────────────
+
+Deno.test("attestation: accepts valid attestation write", async () => {
+  const client = createClient();
+  const contentHash = await storeContent(client, { data: "attest test" });
+  const nodeKey = "validator_001";
+
+  const result = await client.receive([
+    `immutable://attestation/${contentHash}/${nodeKey}`,
+    true,
+  ]);
+  assertEquals(result.accepted, true, `Attestation write failed: ${result.error}`);
+
+  // Verify the value was stored
+  const readResult = await client.read<boolean>(`immutable://attestation/${contentHash}/${nodeKey}`);
+  assertEquals(readResult.success, true);
+  assertEquals(readResult.record?.data, true);
+});
+
+Deno.test("attestation: rejects duplicate (write-once / equivocation)", async () => {
+  const client = createClient();
+  const contentHash = await storeContent(client, { data: "equivocate test" });
+  const nodeKey = "validator_001";
+
+  // First write succeeds
+  const result1 = await client.receive([
+    `immutable://attestation/${contentHash}/${nodeKey}`,
+    true,
+  ]);
+  assertEquals(result1.accepted, true, `First attestation failed: ${result1.error}`);
+
+  // Duplicate rejected (equivocation prevention)
+  const result2 = await client.receive([
+    `immutable://attestation/${contentHash}/${nodeKey}`,
+    true,
+  ]);
+  assertEquals(result2.accepted, false);
+});
+
+Deno.test("attestation: rejects non-true value", async () => {
+  const client = createClient();
+  const contentHash = await storeContent(client, { data: "bad value" });
+
+  // Value is false
+  const result1 = await client.receive([
+    `immutable://attestation/${contentHash}/val1`,
+    false,
+  ]);
+  assertEquals(result1.accepted, false);
+
+  // Value is a string
+  const result2 = await client.receive([
+    `immutable://attestation/${contentHash}/val2`,
+    "true",
+  ]);
+  assertEquals(result2.accepted, false);
+
+  // Value is a number
+  const result3 = await client.receive([
+    `immutable://attestation/${contentHash}/val3`,
+    1,
+  ]);
+  assertEquals(result3.accepted, false);
+});
+
+Deno.test("attestation: rejects missing referenced envelope", async () => {
+  const client = createClient();
+  const fakeHash = "0000000000000000000000000000000000000000000000000000000000000000";
+
+  const result = await client.receive([
+    `immutable://attestation/${fakeHash}/validator1`,
+    true,
+  ]);
+  assertEquals(result.accepted, false);
+});
+
+// ── Rejection validator ───────────────────────────────────────────────
+
+Deno.test("rejection: accepts valid rejection write", async () => {
+  const client = createClient();
+  const contentHash = await storeContent(client, { data: "reject test" });
+  const nodeKey = "validator_001";
+  const reason = "Invalid balance conservation";
+
+  const result = await client.receive([
+    `immutable://rejection/${contentHash}/${nodeKey}`,
+    reason,
+  ]);
+  assertEquals(result.accepted, true, `Rejection write failed: ${result.error}`);
+
+  // Verify the value was stored
+  const readResult = await client.read<string>(`immutable://rejection/${contentHash}/${nodeKey}`);
+  assertEquals(readResult.success, true);
+  assertEquals(readResult.record?.data, reason);
+});
+
+Deno.test("rejection: rejects duplicate (write-once)", async () => {
+  const client = createClient();
+  const contentHash = await storeContent(client, { data: "dup reject test" });
+  const nodeKey = "validator_001";
+
+  // First write succeeds
+  const result1 = await client.receive([
+    `immutable://rejection/${contentHash}/${nodeKey}`,
+    "First reason",
+  ]);
+  assertEquals(result1.accepted, true, `First rejection failed: ${result1.error}`);
+
+  // Duplicate rejected
+  const result2 = await client.receive([
+    `immutable://rejection/${contentHash}/${nodeKey}`,
+    "Second reason",
+  ]);
+  assertEquals(result2.accepted, false);
+});
+
+Deno.test("rejection: rejects empty string value", async () => {
+  const client = createClient();
+  const contentHash = await storeContent(client, { data: "empty reject" });
+
+  const result = await client.receive([
+    `immutable://rejection/${contentHash}/val1`,
+    "",
+  ]);
+  assertEquals(result.accepted, false);
+});
+
+Deno.test("rejection: rejects non-string value", async () => {
+  const client = createClient();
+  const contentHash = await storeContent(client, { data: "wrong type reject" });
+
+  // Value is a boolean
+  const result1 = await client.receive([
+    `immutable://rejection/${contentHash}/val1`,
+    true,
+  ]);
+  assertEquals(result1.accepted, false);
+
+  // Value is a number
+  const result2 = await client.receive([
+    `immutable://rejection/${contentHash}/val2`,
+    42,
+  ]);
+  assertEquals(result2.accepted, false);
+});
+
+Deno.test("rejection: rejects missing referenced envelope", async () => {
+  const client = createClient();
+  const fakeHash = "0000000000000000000000000000000000000000000000000000000000000000";
+
+  const result = await client.receive([
+    `immutable://rejection/${fakeHash}/validator1`,
+    "Bad content",
+  ]);
+  assertEquals(result.accepted, false);
+});

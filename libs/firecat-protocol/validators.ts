@@ -31,6 +31,14 @@ function isGenesisEnvelope(msg: MessageData): boolean {
   );
 }
 
+/** Extract the Nth path segment from a URI: scheme://program/seg0/seg1/... */
+function extractUriSegment(uri: string, index: number): string | null {
+  const match = uri.match(/^[a-z]+:\/\/[^/]+\/(.+)$/);
+  if (!match) return null;
+  const segments = match[1].split("/");
+  return segments[index] ?? null;
+}
+
 // ── Per-output validators ────────────────────────────────────────────
 
 /**
@@ -212,6 +220,108 @@ export const consensusRecordValidator: ValidationFn = async ({ uri, value, read 
   const feeResult = await read<number>(feeUri);
   if (!feeResult.success || typeof feeResult.record?.data !== "number" || feeResult.record.data < CONSENSUS_FEE) {
     return { valid: false, error: `Gas fee not paid: expected ${CONSENSUS_FEE} at ${feeUri}` };
+  }
+
+  return { valid: true };
+};
+
+// ── Pre-confirmation validators ──────────────────────────────────────
+
+/**
+ * Validator for immutable://pending program.
+ *
+ * URI pattern: immutable://pending/{contentHash}/{submitterNodeKey}
+ *
+ * - Write-once: reject if URI already exists
+ * - Value must be a string starting with "hash://sha256/"
+ * - Referenced envelope must exist (read the hash URI)
+ */
+export const pendingValidator: ValidationFn = async ({ uri, value, read }) => {
+  // Write-once
+  const existing = await read(uri);
+  if (existing.success) {
+    return { valid: false, error: "Already pending (write-once)" };
+  }
+
+  // Value must be a string starting with hash://sha256/
+  if (typeof value !== "string" || !value.startsWith("hash://sha256/")) {
+    return { valid: false, error: "Value must be a hash URI (hash://sha256/...)" };
+  }
+
+  // Referenced envelope must exist
+  const envelope = await read(value);
+  if (!envelope.success) {
+    return { valid: false, error: `Referenced envelope not found: ${value}` };
+  }
+
+  return { valid: true };
+};
+
+/**
+ * Validator for immutable://attestation program.
+ *
+ * URI pattern: immutable://attestation/{envelopeHash}/{nodeKey}
+ *
+ * - Write-once: reject if URI already exists (prevents equivocation)
+ * - Value must be exactly true
+ * - Extract envelopeHash from URI segment 0, verify hash://sha256/{envelopeHash} exists
+ */
+export const attestationValidator: ValidationFn = async ({ uri, value, read }) => {
+  // Write-once
+  const existing = await read(uri);
+  if (existing.success) {
+    return { valid: false, error: "Already attested (write-once)" };
+  }
+
+  // Value must be exactly true
+  if (value !== true) {
+    return { valid: false, error: "Attestation value must be true" };
+  }
+
+  // Extract envelopeHash from URI segment 0 and verify envelope exists
+  const envelopeHash = extractUriSegment(uri, 0);
+  if (!envelopeHash) {
+    return { valid: false, error: "Cannot extract envelope hash from URI" };
+  }
+
+  const envelope = await read(`hash://sha256/${envelopeHash}`);
+  if (!envelope.success) {
+    return { valid: false, error: `Referenced envelope not found: hash://sha256/${envelopeHash}` };
+  }
+
+  return { valid: true };
+};
+
+/**
+ * Validator for immutable://rejection program.
+ *
+ * URI pattern: immutable://rejection/{envelopeHash}/{nodeKey}
+ *
+ * - Write-once: reject if URI already exists
+ * - Value must be a non-empty string (the rejection reason)
+ * - Extract envelopeHash from URI segment 0, verify hash://sha256/{envelopeHash} exists
+ */
+export const rejectionValidator: ValidationFn = async ({ uri, value, read }) => {
+  // Write-once
+  const existing = await read(uri);
+  if (existing.success) {
+    return { valid: false, error: "Already rejected (write-once)" };
+  }
+
+  // Value must be a non-empty string
+  if (typeof value !== "string" || value.length === 0) {
+    return { valid: false, error: "Rejection value must be a non-empty string (reason)" };
+  }
+
+  // Extract envelopeHash from URI segment 0 and verify envelope exists
+  const envelopeHash = extractUriSegment(uri, 0);
+  if (!envelopeHash) {
+    return { valid: false, error: "Cannot extract envelope hash from URI" };
+  }
+
+  const envelope = await read(`hash://sha256/${envelopeHash}`);
+  if (!envelope.success) {
+    return { valid: false, error: `Referenced envelope not found: hash://sha256/${envelopeHash}` };
   }
 
   return { valid: true };
