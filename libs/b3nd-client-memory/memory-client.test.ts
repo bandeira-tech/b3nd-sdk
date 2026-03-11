@@ -36,6 +36,18 @@ runSharedSuite("MemoryClient", {
       },
     }),
 
+  atomicity: () =>
+    new MemoryClient({
+      schema: {
+        "store://ok": async () => ({ valid: true }),
+        "store://fail": async () => ({
+          valid: false,
+          error: "Intentional rejection",
+        }),
+        "hash://sha256": async () => ({ valid: true }),
+      },
+    }),
+
   // MemoryClient doesn't have HTTP-level binary Content-Type handling
   supportsBinary: false,
 });

@@ -74,6 +74,68 @@ nodes. The framework treats them identically. Storage durability, replication,
 and retention are infrastructure concerns that B3nd intentionally leaves to the
 people who run the infrastructure.
 
+### What are the record size limits?
+
+`receive()` accepts a message — it does not promise persistence. Whether a node
+stores, caches, forwards, or discards what it receives is an operator decision.
+There is no protocol-level record size limit because the protocol does not
+define storage.
+
+When an operator **does** choose to persist data, the size limits they encounter
+are infrastructure constraints, not protocol constraints:
+
+| Infrastructure       | Limiting Factor                       | Typical Limit                  |
+| -------------------- | ------------------------------------- | ------------------------------ |
+| **MemoryClient**     | JavaScript heap memory                | Bounded by available process memory. |
+| **PostgresClient**   | PostgreSQL `JSONB` column type        | ~255 MB per value (PostgreSQL internal limit). URI column is `VARCHAR(2048)`. |
+| **MongoClient**      | MongoDB BSON document size limit      | 16 MB per document (MongoDB hard limit). |
+| **HTTP transport**   | Server framework / reverse proxy      | Varies. Deno.serve and Hono impose no default body limit. Reverse proxies (nginx, Cloudflare) commonly cap at 1–100 MB. |
+
+These are details about specific infrastructure choices, not about B3nd itself.
+A node operator running a custom client with S3-backed storage would have
+entirely different constraints. An operator running a relay that never persists
+would have none.
+
+**Practical guidance for app developers:**
+
+- Keep individual payloads under **1 MB** if your app may run against common
+  deployments (Postgres, MongoDB) and you want broad compatibility.
+- For binary data, use `hash://sha256` content-addressed storage and keep blobs
+  under **10 MB**. For larger files, store them externally and write a reference
+  URI.
+- If you control the infrastructure end-to-end, your limits are whatever your
+  operator's storage supports. If you do not, design for the smallest common
+  denominator.
+
+### Is `send()` atomic?
+
+**Yes, via validation.** `send()` builds a content-addressed envelope and
+dispatches it to the node. The node validates every output against its schema.
+If any validator rejects, the entire send fails — no outputs are applied.
+
+Here is what happens:
+
+1. `send()` calls `message()` to build a content-addressed envelope: it
+   serializes the `MessageData` (inputs + outputs), computes its SHA-256 hash,
+   and produces a `[hash://sha256/{hex}, data]` tuple.
+
+2. `send()` dispatches the envelope to the node via `client.receive()`.
+
+3. The node validates each output against its program schema. Validators
+   receive the full envelope context (`message.payload.inputs`,
+   `message.payload.outputs`), so they can enforce cross-output consistency
+   checks — for example, verifying that a debit and credit balance.
+
+4. If any validator rejects, the send returns `{ accepted: false }`. The
+   design intent is all-or-nothing: validation is the atomic gate.
+
+**Implementation note:** In the current SDK client implementations
+(MemoryClient, PostgresClient, MongoClient), outputs are validated and stored
+sequentially. If output N fails validation after outputs 1..N-1 were already
+stored, the earlier outputs are not rolled back. If you encounter this in
+practice, report it as a bug — partial writes on validation failure are not
+intended behavior.
+
 ## How
 
 ### How do I hide sensitive path segments?

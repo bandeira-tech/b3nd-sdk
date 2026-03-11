@@ -189,6 +189,41 @@ Visibility is achieved through client-side encryption, not server access control
 | **Protected** | `SALT:uri:password`    | Anyone with password    |
 | **Public**    | `SALT:uri:""`          | Anyone (empty password) |
 
+> **Warning: "Private" visibility is not encryption.** The "private" level
+> derives a deterministic key from `SALT:uri:ownerPubkey` using PBKDF2. This
+> makes the URI and its encryption key **computable by anyone who knows the
+> SALT, the URI, and the owner's public key** -- all of which may be public
+> information. This is URI obscurity, not confidential encryption. The data is
+> encrypted with a symmetric key derived from public inputs, so it provides
+> protection only against casual browsing, not against a determined observer
+> who knows the scheme.
+>
+> **For truly private data**, encrypt with `encryptData()` or
+> `createSignedEncryptedMessage()` using the recipient's X25519 public key
+> before writing, and write to an authenticated URI. This provides real
+> confidentiality because only the holder of the corresponding X25519 private
+> key can decrypt the data.
+>
+> ```typescript
+> import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
+>
+> // Generate or import an encryption keypair (X25519)
+> const encKeys = await encrypt.generateEncryptionKeyPair();
+>
+> // Encrypt data to the recipient's public key
+> const plaintext = new TextEncoder().encode(JSON.stringify(sensitiveData));
+> const encrypted = await encrypt.encrypt(plaintext, encKeys.publicKeyHex);
+>
+> // Sign and write the encrypted payload
+> const signed = await encrypt.createAuthenticatedMessageWithHex(
+>   encrypted, signingKeys.publicKeyHex, signingKeys.privateKeyHex,
+> );
+> await client.receive([
+>   `mutable://accounts/${signingKeys.publicKeyHex}/my-app/secret`,
+>   signed,
+> ]);
+> ```
+
 ### Deterministic Key Derivation
 
 ```typescript
@@ -357,7 +392,9 @@ await client.delete(
 
 ### Batch Writes with Envelopes
 
-Use `send()` to write multiple resources atomically:
+Use `send()` to batch multiple resource writes into a single envelope (see
+FAQ for atomicity details -- outputs are written sequentially, not in a
+database transaction):
 
 ```typescript
 await send({

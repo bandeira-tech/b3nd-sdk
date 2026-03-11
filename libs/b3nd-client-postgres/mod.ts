@@ -134,17 +134,26 @@ export class PostgresClient implements NodeProtocolInterface {
         [uri, JSON.stringify(record.data), record.ts],
       );
 
-      // If MessageData, also store each output at its own URI
+      // If MessageData, also store each output at its own URI.
+      // Atomic: if any output fails, roll back all previously stored outputs
+      // and the envelope itself.
       if (isMessageData(data)) {
+        const storedOutputUris: string[] = [];
         for (const [outputUri, outputValue] of data.payload.outputs) {
           const outputResult = await this.receive([outputUri, outputValue]);
           if (!outputResult.accepted) {
+            // Roll back: delete all outputs stored so far + the envelope
+            for (const storedUri of storedOutputUris) {
+              await this.delete(storedUri);
+            }
+            await this.delete(uri);
             return {
               accepted: false,
               error: outputResult.error ||
                 `Failed to store output: ${outputUri}`,
             };
           }
+          storedOutputUris.push(outputUri);
         }
       }
 
