@@ -80,6 +80,7 @@
     "libs/b3nd-wallet-server",
     "libs/b3nd-apps",
     "libs/b3nd-managed-node",
+    "libs/b3nd-indexer",
     "libs/firecat-protocol",
     "apps/apps-node",
     "apps/b3nd-cli",
