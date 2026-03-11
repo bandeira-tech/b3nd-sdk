@@ -298,6 +298,52 @@ const pendingValidator: ValidationFn = async ({ uri, value, read, message }) => 
 
 ---
 
+## FAQ: Reviewed Questions
+
+These questions emerged from adversarial review of this design. Each was examined, and either resolved or identified as a client-concern mismatch. They are documented here so the reasoning doesn't need to be repeated.
+
+### Isn't this just BFT with extra steps?
+
+Yes, structurally. The validation pipeline (pending → attestation → confirmation → slot) is isomorphic to BFT multi-phase commit (propose → prevote → precommit → commit). The difference is not in the pipeline shape but in **where the protocol boundary sits**. Tendermint mandates gossip behavior, timeout rules, and locking mechanics at the protocol level. B3nd enforces only validation rules — write-once, signature verification, threshold, conservation, stage ordering. Everything else (discovery, propagation, storage, selection strategy, timing) is a client decision. The protocol validates outputs; clients decide how to produce them.
+
+### What about equivocation across distributed nodes?
+
+Write-once is enforced per-node at validation time. During a network partition, two nodes could independently accept conflicting writes to the same URI before replication converges. This is not a protocol bug — it's the same situation as two Bitcoin miners finding blocks at the same height. Bitcoin resolves it via longest-chain rule; B3nd resolves it via write-once-first-wins-per-node + eventual convergence through replication.
+
+Guaranteeing cross-node write consistency during partitions would require synchronous consensus, which is the opposite of this design's goals. Storage and replication are client concerns.
+
+### Where are the liveness guarantees?
+
+There are none at the protocol level, and there shouldn't be. No blockchain guarantees liveness at the protocol layer. Bitcoin doesn't guarantee your transaction gets mined. Ethereum doesn't guarantee block inclusion. Nodes can refuse any work for any reason — law enforcement, operator policy, inscription filtering, or simply not having received it. The protocol guarantees: *if* something passes validation, it followed the rules. Whether valid work eventually gets processed is a social, infrastructure, and economic outcome. Demanding liveness proofs from a consensus protocol is demanding something no system delivers at this layer.
+
+### Why doesn't the protocol specify confirmer selection strategy?
+
+Because it's a client concern. The protocol enforces "confirmation requires N valid attestations from distinct authorized validators." *Which* attestations the confirmer picks is their business — exactly like a Bitcoin miner choosing which transactions to include in a block. Different strategies (fastest, highest reputation, random, auction) create different emergent behavior, but the protocol doesn't need to mandate one. This is intentional: it allows market competition between confirmers without protocol-level rigidity.
+
+### How does block timing work without clock synchronization?
+
+Block timing is declarative. The producer declares "this work goes in block 42" by writing to `consensus/{era}/{block}/{slot}/{hash}`. The `consensusSlotValidator` extracts the block number from the URI path and checks whether the declaration is legitimate given the inputs (shift ID staleness, confirmation validity). No node needs to agree on "what time it is" or "what block we're on." The block number is data in the URI, validated for consistency — not a synchronized global counter.
+
+### How do validators access "current block" without global state?
+
+They don't need to. Block awareness is only relevant at slot assignment, where the block number is declared in the URI itself. The `consensusSlotValidator` extracts it from the URI path (`consensus/{era}/{block}/{slot}/{hash}`) and validates shift staleness relative to that declared block. Earlier-stage validators (pending, attestation, confirmation) don't need block numbers at all. This fits cleanly within B3nd's `ValidationFn` interface (`{ uri, value, read, message }`) with no context extensions.
+
+### How does this relate to CONFIRMATION.md?
+
+CONFIRMATION.md specifies the confirmation process: how pending records get attested, reach threshold, and finalize. It's a concrete design for one layer of the pipeline.
+
+This document extends that into the *work lifecycle* layer: how work gets discovered (roster), how workers prove provenance (shift IDs), how confirmed work gets temporal coordinates (era/block/slot), and how rewards distribute to participants. It's the layer above confirmation — the part that enables stake constraints, reward economics, and sybil resistance. They are complementary documents at different layers.
+
+### What does the protocol actually guarantee?
+
+**Safety:** Once a record is written to an immutable URI and passes validation, no subsequent valid message can revert it. Write-once + validation rules = irreversibility.
+
+**Fault tolerance:** Valid confirmations require `CONFIRMATION_THRESHOLD` attestations from distinct authorized validators. Below threshold, work accumulates in pending/attestation state but nothing invalid gets confirmed. Malicious validators cannot produce false confirmations because each attestation is individually verified.
+
+**What it does not guarantee:** Liveness, availability, data existence, censorship resistance, or cross-node consistency during partitions. These are infrastructure and social properties — real and important, but not protocol invariants.
+
+---
+
 ## Related Documentation
 
 - `libs/firecat-protocol/CONFIRMATION.md` — Confirmation protocol design (concrete validators, trust model, migration path). More specified than this outline for the confirmation stage specifically.
