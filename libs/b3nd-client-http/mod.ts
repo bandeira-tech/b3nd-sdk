@@ -115,7 +115,7 @@ export class HttpClient implements NodeProtocolInterface {
       const serializedMsg = [uri, serializeMsgData(data)];
       const response = await this.request("/api/v1/receive", {
         method: "POST",
-        body: JSON.stringify({ tx: serializedMsg }),
+        body: JSON.stringify(serializedMsg),
       });
 
       const result = await response.json();

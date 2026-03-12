@@ -252,7 +252,7 @@ export class WebSocketClient implements NodeProtocolInterface {
 
   /**
    * Receive a message (unified interface)
-   * Sends "receive" message type with { tx } payload
+   * Sends "receive" message type with [uri, data] payload
    * @param msg - Message tuple [uri, data]
    * @returns ReceiveResult indicating acceptance
    */
@@ -267,9 +267,9 @@ export class WebSocketClient implements NodeProtocolInterface {
     try {
       // Encode binary data for JSON transport
       const encodedMsg: Message = [uri, encodeBinaryForJson(msg[1])];
-      const result = await this.sendRequest<ReceiveResult>("receive", {
-        tx: encodedMsg,
-      });
+      const result = await this.sendRequest<ReceiveResult>("receive",
+        encodedMsg,
+      );
       return result;
     } catch (error) {
       return {

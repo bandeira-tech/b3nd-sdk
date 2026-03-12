@@ -53,7 +53,7 @@ export class ApiClient {
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tx: [uri, value] }),
+        body: JSON.stringify([uri, value]),
       });
 
       if (!response.ok) {

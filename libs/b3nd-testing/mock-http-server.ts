@@ -143,15 +143,14 @@ export class MockHttpServer {
       );
     }
 
-    // Parse message from request body
-    const body: any = await req.json();
-    const msg = body.tx;
+    // Parse message from request body — body IS the message: [uri, data]
+    const msg: unknown = await req.json();
 
     if (!msg || !Array.isArray(msg) || msg.length < 2) {
       return Response.json(
         {
           accepted: false,
-          error: "Invalid message format: expected { tx: [uri, data] }",
+          error: "Invalid message format: expected [uri, data]",
         },
         { status: 400 },
       );

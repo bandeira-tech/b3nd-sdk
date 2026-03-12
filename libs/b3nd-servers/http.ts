@@ -188,20 +188,19 @@ export function httpServer(
 
   // Unified receive endpoint (new Node interface)
   app.post("/api/v1/receive", async (c: MinimalContext) => {
-    // Parse request body to get message
-    const body = await (async () => {
+    // Parse request body — the body IS the message: [uri, data]
+    const msg = await (async () => {
       try {
-        return await (c as any).req.json?.() ?? {};
+        return await (c as any).req.json?.() ?? null;
       } catch {
-        return {};
+        return null;
       }
-    })();
+    })() as Message | null;
 
-    const msg = (body as { tx?: Message }).tx;
     if (!msg || !Array.isArray(msg) || msg.length < 2) {
       return c.json({
         accepted: false,
-        error: "Invalid message format: expected { tx: [uri, data] }",
+        error: "Invalid message format: expected [uri, data]",
       }, 400);
     }
 

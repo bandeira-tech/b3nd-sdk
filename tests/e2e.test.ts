@@ -48,7 +48,7 @@ async function receive(uri: string, data: unknown) {
   return fetchJson(`${BASE_URL}/api/v1/receive`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tx: [uri, data] }),
+    body: JSON.stringify([uri, data]),
   });
 }
 
@@ -154,11 +154,11 @@ Deno.test({
         assertEquals(Array.isArray(res.data.schema), true);
       });
 
-      await t.step("receive invalid transaction returns error", async () => {
+      await t.step("receive invalid message returns error", async () => {
         const res = await fetchJson(`${BASE_URL}/api/v1/receive`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tx: ["invalid"] }),
+          body: JSON.stringify(["invalid"]),
         });
         assertEquals(res.data.accepted, false);
       });

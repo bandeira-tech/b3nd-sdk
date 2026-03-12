@@ -250,14 +250,14 @@ const TOOLS = [
   {
     name: "b3nd_receive",
     description:
-      "Receive a transaction to store data at a B3nd URI. This is the unified interface for all state changes. Accepts a transaction tuple [uri, data].",
+      "Receive a message to store data at a B3nd URI. This is the unified interface for all state changes. Accepts a message tuple [uri, data].",
     inputSchema: {
       type: "object" as const,
       properties: {
-        tx: {
+        message: {
           type: "array",
           description:
-            "The transaction tuple [uri, data] - first element is URI string, second is data object",
+            "The message tuple [uri, data] - first element is URI string, second is data object",
           minItems: 2,
           maxItems: 2,
         },
@@ -267,7 +267,7 @@ const TOOLS = [
             "Optional: specific backend to use (defaults to active backend)",
         },
       },
-      required: ["tx"],
+      required: ["message"],
     },
   },
   {
@@ -674,12 +674,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "b3nd_receive": {
-        const { tx, backend: backendName } = args as {
-          tx: [string, unknown];
+        const { message, backend: backendName } = args as {
+          message: [string, unknown];
           backend?: string;
         };
         const { client, config } = getClient(backendName);
-        const result = await client.receive(tx);
+        const result = await client.receive(message);
         return {
           content: [
             {
@@ -688,7 +688,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 {
                   accepted: result.accepted,
                   backend: config.name,
-                  uri: tx[0],
+                  uri: message[0],
                   error: result.error,
                 },
                 null,

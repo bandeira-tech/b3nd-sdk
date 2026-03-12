@@ -86,8 +86,8 @@ class MockWebSocket {
   protected generateResponse(request: any): any {
     const responses = {
       receive: () => {
-        // Handle receive message: { tx: [uri, data] }
-        const [uri, data] = request.payload.tx;
+        // Handle receive message: payload is [uri, data]
+        const [uri, data] = request.payload;
         const ts = Date.now();
         this.storage.set(uri, { data, ts });
         return {
@@ -293,7 +293,7 @@ const factories: TestClientFactories = {
     class ValidationFailingMockWebSocket extends MockWebSocket {
       protected override generateResponse(request: any): any {
         if (request.type === "receive") {
-          const [, data] = request.payload.tx;
+          const [, data] = request.payload;
           if (!data?.name) {
             return {
               id: request.id,

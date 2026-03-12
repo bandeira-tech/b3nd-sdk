@@ -52,7 +52,7 @@ export interface FunctionalClientConfig {
  * @example
  * ```typescript
  * const client = new FunctionalClient({
- *   receive: async (tx) => backend.receive(tx),
+ *   receive: async (msg) => backend.receive(msg),
  *   read: async (uri) => backend.read(uri),
  * });
  * ```
