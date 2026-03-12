@@ -1,4 +1,5 @@
 import type {
+  ConditionalWriteOptions,
   DeleteResult,
   ListOptions,
   ListResult,
@@ -23,6 +24,19 @@ export function firstMatchSequence(
       let lastError: string | undefined;
       for (const c of clients) {
         const res = await c.receive<D>(msg);
+        if (res.accepted) return res;
+        lastError = res.error;
+      }
+      return {
+        accepted: false,
+        error: lastError || "No client accepted message",
+      };
+    },
+
+    async receiveIf<D>(msg: Message<D>, options: ConditionalWriteOptions): Promise<ReceiveResult> {
+      let lastError: string | undefined;
+      for (const c of clients) {
+        const res = await c.receiveIf<D>(msg, options);
         if (res.accepted) return res;
         lastError = res.error;
       }

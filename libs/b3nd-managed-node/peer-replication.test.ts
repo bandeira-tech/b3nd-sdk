@@ -16,6 +16,11 @@ function createStubClient(opts?: {
       if (opts?.receiveError) throw new Error("peer down");
       return { accepted: true };
     },
+    async receiveIf(msg, _options) {
+      calls.push(`receiveIf:${msg[0]}`);
+      if (opts?.receiveError) throw new Error("peer down");
+      return { accepted: true };
+    },
     async read(uri) {
       calls.push(`read:${uri}`);
       return { success: true, record: { ts: Date.now(), data: { stub: true } } } as any;

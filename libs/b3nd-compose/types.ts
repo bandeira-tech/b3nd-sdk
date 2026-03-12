@@ -39,6 +39,7 @@ export type Transaction<D = unknown> = Message<D>;
 export interface ReceiveResult {
   accepted: boolean;
   error?: string;
+  version?: number;
 }
 
 /**

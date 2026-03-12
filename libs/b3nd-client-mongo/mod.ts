@@ -6,6 +6,7 @@
  */
 
 import type {
+  ConditionalWriteOptions,
   DeleteResult,
   HealthStatus,
   ListItem,
@@ -160,6 +161,13 @@ export class MongoClient implements NodeProtocolInterface {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  async receiveIf<D = unknown>(
+    _msg: Message<D>,
+    _options: ConditionalWriteOptions,
+  ): Promise<ReceiveResult> {
+    return { accepted: false, error: "receiveIf not implemented for MongoClient" };
   }
 
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {

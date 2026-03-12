@@ -1,4 +1,5 @@
 import type {
+  ConditionalWriteOptions,
   DeleteResult,
   HealthStatus,
   ListItem,
@@ -98,6 +99,7 @@ export class MemoryClient implements NodeProtocolInterface {
   protected storage: MemoryClientStorage;
   protected schema: Schema;
   private _messageContext: unknown = undefined;
+  private _versions: Map<string, number> = new Map();
 
   /**
    * Create a new MemoryClient
@@ -132,6 +134,24 @@ export class MemoryClient implements NodeProtocolInterface {
   public async receive<D = unknown>(
     msg: Message<D>,
   ): Promise<ReceiveResult> {
+    return this._receive(msg);
+  }
+
+  /**
+   * Conditional receive - write only if expectedVersion matches current version.
+   * If expectedVersion is not provided, behaves like unconditional receive().
+   */
+  public async receiveIf<D = unknown>(
+    msg: Message<D>,
+    options: ConditionalWriteOptions,
+  ): Promise<ReceiveResult> {
+    return this._receive(msg, options);
+  }
+
+  private async _receive<D = unknown>(
+    msg: Message<D>,
+    options?: ConditionalWriteOptions,
+  ): Promise<ReceiveResult> {
     const [uri, data] = msg;
 
     // Basic URI validation
@@ -144,6 +164,18 @@ export class MemoryClient implements NodeProtocolInterface {
       return { accepted: false, error: result.error };
     }
     const { program, node, parts } = result;
+
+    // Version check (optimistic locking)
+    if (options?.expectedVersion !== undefined) {
+      const currentVersion = this._versions.get(uri) ?? 0;
+      if (currentVersion !== options.expectedVersion) {
+        return {
+          accepted: false,
+          error: "version_conflict",
+          version: currentVersion,
+        };
+      }
+    }
 
     // Validate the write against the schema
     const validator = this.schema[program];
@@ -160,10 +192,16 @@ export class MemoryClient implements NodeProtocolInterface {
       };
     }
 
+    // Increment version
+    const currentVersion = this._versions.get(uri) ?? 0;
+    const newVersion = currentVersion + 1;
+    this._versions.set(uri, newVersion);
+
     // Store the data at this URI
-    const record = {
+    const record: PersistenceRecord<D> = {
       ts: Date.now(),
       data,
+      version: newVersion,
     };
 
     let prev = node;
@@ -199,7 +237,7 @@ export class MemoryClient implements NodeProtocolInterface {
       }
     }
 
-    return { accepted: true };
+    return { accepted: true, version: newVersion };
   }
   public read<T>(uri: string): Promise<ReadResult<T>> {
     const result = target(uri, this.schema, this.storage);

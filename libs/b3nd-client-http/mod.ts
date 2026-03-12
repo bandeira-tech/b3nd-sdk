@@ -6,6 +6,7 @@
  */
 
 import type {
+  ConditionalWriteOptions,
   DeleteResult,
   HealthStatus,
   HttpClientConfig,
@@ -137,6 +138,13 @@ export class HttpClient implements NodeProtocolInterface {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  async receiveIf<D = unknown>(
+    _msg: Message<D>,
+    _options: ConditionalWriteOptions,
+  ): Promise<ReceiveResult> {
+    return { accepted: false, error: "receiveIf not implemented for HttpClient" };
   }
 
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {

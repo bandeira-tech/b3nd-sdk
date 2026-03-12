@@ -6,6 +6,7 @@
  */
 
 import type {
+  ConditionalWriteOptions,
   DeleteResult,
   HealthStatus,
   ListOptions,
@@ -277,6 +278,13 @@ export class WebSocketClient implements NodeProtocolInterface {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  async receiveIf<D = unknown>(
+    _msg: Message<D>,
+    _options: ConditionalWriteOptions,
+  ): Promise<ReceiveResult> {
+    return { accepted: false, error: "receiveIf not implemented for WebSocketClient" };
   }
 
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {

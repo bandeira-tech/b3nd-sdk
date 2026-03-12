@@ -55,6 +55,16 @@ export function bestEffortClient(
         return { accepted: true };
       }
     },
+    async receiveIf(msg, options) {
+      try {
+        return await client.receiveIf(msg, options);
+      } catch (err) {
+        console.warn(
+          `[peer] Best-effort push failed: ${(err as Error).message}`,
+        );
+        return { accepted: true };
+      }
+    },
     read: (uri) => client.read(uri),
     readMulti: (uris) => client.readMulti(uris),
     list: (uri, options) => client.list(uri, options),
