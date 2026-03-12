@@ -9,7 +9,11 @@ import {
   FunctionalClient,
   type FunctionalClientConfig,
 } from "../b3nd-core/functional-client.ts";
-import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
+import type {
+  ConditionalWriteOptions,
+  NodeProtocolInterface,
+  ReadResult,
+} from "../b3nd-core/types.ts";
 import type { Validator } from "./types.ts";
 
 /**
@@ -68,6 +72,44 @@ export function createValidatedClient(config: {
       // Forward to write backend
       try {
         return await write.receive(msg);
+      } catch (error) {
+        return {
+          accepted: false,
+          error: `Processing error: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        };
+      }
+    },
+
+    async receiveIf(msg, options: ConditionalWriteOptions) {
+      const [uri] = msg;
+
+      if (!uri || typeof uri !== "string") {
+        return { accepted: false, error: "Message URI is required" };
+      }
+
+      try {
+        const readFn = <T = unknown>(uri: string): Promise<ReadResult<T>> =>
+          read.read<T>(uri);
+        const validationResult = await validate(msg, readFn);
+        if (!validationResult.valid) {
+          return {
+            accepted: false,
+            error: validationResult.error || "Validation failed",
+          };
+        }
+      } catch (error) {
+        return {
+          accepted: false,
+          error: `Validation error: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        };
+      }
+
+      try {
+        return await write.receiveIf(msg, options);
       } catch (error) {
         return {
           accepted: false,

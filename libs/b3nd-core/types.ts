@@ -9,6 +9,7 @@
 export interface PersistenceRecord<T = unknown> {
   ts: number;
   data: T;
+  version?: number;
 }
 
 /**
@@ -127,6 +128,14 @@ export type Schema = Record<string, ValidationFn>;
 export interface ReceiveResult {
   accepted: boolean;
   error?: string;
+  version?: number;
+}
+
+/**
+ * Options for conditional writes (optimistic locking)
+ */
+export interface ConditionalWriteOptions {
+  expectedVersion?: number;
 }
 
 /**
@@ -146,6 +155,11 @@ export type Transaction<D = unknown> = Message<D>;
 export interface NodeProtocolWriteInterface {
   /** Receive a message - the unified entry point for all state changes */
   receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
+  /** Conditional receive - write only if expectedVersion matches current version */
+  receiveIf<D = unknown>(
+    msg: Message<D>,
+    options: ConditionalWriteOptions,
+  ): Promise<ReceiveResult>;
   /** Delete data at a URI */
   delete(uri: string): Promise<DeleteResult>;
   /** Health status */

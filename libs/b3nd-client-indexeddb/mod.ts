@@ -8,6 +8,7 @@
 /// <reference lib="dom" />
 
 import type {
+  ConditionalWriteOptions,
   DeleteResult,
   HealthStatus,
   IndexedDBClientConfig,
@@ -277,6 +278,13 @@ export class IndexedDBClient implements NodeProtocolInterface {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  async receiveIf<D = unknown>(
+    _msg: Message<D>,
+    _options: ConditionalWriteOptions,
+  ): Promise<ReceiveResult> {
+    return { accepted: false, error: "receiveIf not implemented for IndexedDBClient" };
   }
 
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {

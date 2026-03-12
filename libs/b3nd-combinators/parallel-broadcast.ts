@@ -1,4 +1,5 @@
 import type {
+  ConditionalWriteOptions,
   DeleteResult,
   ListOptions,
   ListResult,
@@ -44,6 +45,32 @@ export function parallelBroadcast(
         return { accepted: false, error: err };
       }
       return { accepted: true };
+    },
+
+    async receiveIf<D>(msg: Message<D>, options: ConditionalWriteOptions): Promise<ReceiveResult> {
+      const results = await Promise.allSettled(
+        clients.map((c) => c.receiveIf(msg, options)),
+      );
+      const [uri] = msg;
+      const rejected = results.find((r) => r.status === "rejected") as
+        | PromiseRejectedResult
+        | undefined;
+      if (rejected) {
+        const err = rejected.reason instanceof Error
+          ? rejected.reason.message
+          : String(rejected.reason);
+        console.warn(`[broadcast] Client threw on receiveIf ${uri}: ${err}`);
+        return { accepted: false, error: err };
+      }
+      const failures = results.filter((r: any) =>
+        r.status === "fulfilled" && r.value?.accepted === false
+      ) as PromiseFulfilledResult<ReceiveResult>[];
+      if (failures.length) {
+        const err = failures[0].value.error || "Broadcast receiveIf failed";
+        return { accepted: false, error: err, version: failures[0].value.version };
+      }
+      const success = (results[0] as PromiseFulfilledResult<ReceiveResult>).value;
+      return { accepted: true, version: success.version };
     },
 
     async read<T>(uri: string): Promise<ReadResult<T>> {
