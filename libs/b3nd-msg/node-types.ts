@@ -26,9 +26,6 @@ import type {
  */
 export type Message<D = unknown> = [uri: string, data: D];
 
-/** @deprecated Use `Message` instead */
-export type Transaction<D = unknown> = Message<D>;
-
 /**
  * Result of a message submission
  */
@@ -68,9 +65,6 @@ export type MessageValidator<D = unknown> = (
   msg: Message<D>,
   read: <T>(uri: string) => Promise<ReadResult<T>>,
 ) => Promise<{ valid: boolean; error?: string }>;
-
-/** @deprecated Use `MessageValidator` instead */
-export type TransactionValidator<D = unknown> = MessageValidator<D>;
 
 /**
  * Configuration for creating a message node
@@ -114,9 +108,6 @@ export interface MessageNodeConfig<D = unknown> {
   peers: NodeProtocolInterface[];
 }
 
-/** @deprecated Use `MessageNodeConfig` instead */
-export type TransactionNodeConfig<D = unknown> = MessageNodeConfig<D>;
-
 /**
  * Message node interface
  *
@@ -151,5 +142,3 @@ export interface MessageNode<D = unknown> {
   cleanup(): Promise<void>;
 }
 
-/** @deprecated Use `MessageNode` instead */
-export type TransactionNode<D = unknown> = MessageNode<D>;

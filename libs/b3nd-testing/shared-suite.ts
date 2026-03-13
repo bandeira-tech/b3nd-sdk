@@ -43,7 +43,7 @@ export function runSharedSuite(
 ) {
   // Happy path tests
   Deno.test({
-    name: `${suiteName} - receive transaction and read`,
+    name: `${suiteName} - receive message and read`,
     sanitizeOps: false, // Mock servers run in background
     sanitizeResources: false,
     fn: async () => {
@@ -68,7 +68,7 @@ export function runSharedSuite(
     },
   });
 
-  Deno.test(`${suiteName} - receive transaction creates timestamp`, async () => {
+  Deno.test(`${suiteName} - receive message creates timestamp`, async () => {
     const client = await Promise.resolve(factories.happy());
 
     const before = Date.now();
@@ -434,7 +434,7 @@ export function runSharedSuite(
         assertEquals(
           result.accepted,
           true,
-          "Binary transaction should be accepted",
+          "Binary message should be accepted",
         );
 
         const readResult = await client.read<Uint8Array>(
@@ -490,7 +490,7 @@ export function runSharedSuite(
         assertEquals(
           result.accepted,
           true,
-          "Large binary transaction should be accepted",
+          "Large binary message should be accepted",
         );
 
         const readResult = await client.read<Uint8Array>(
@@ -678,7 +678,7 @@ export function runSharedSuite(
 
   // Validation error tests (if validationError factory provided)
   if (factories.validationError) {
-    Deno.test(`${suiteName} - validation error on transaction`, async () => {
+    Deno.test(`${suiteName} - validation error on receive`, async () => {
       const client = await Promise.resolve(factories.validationError!());
 
       const result = await client.receive(["store://users/invalid/data", {

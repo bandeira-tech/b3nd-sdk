@@ -120,6 +120,3 @@ export function createMessageNode<D = unknown>(
     },
   };
 }
-
-/** @deprecated Use `createMessageNode` instead */
-export const createTransactionNode = createMessageNode;

@@ -153,7 +153,7 @@ Deno.test({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         filter: {
-          pattern: "MemoryClient - receive transaction and read",
+          pattern: "MemoryClient - receive message and read",
         },
       }),
     });

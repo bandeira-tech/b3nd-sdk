@@ -51,16 +51,10 @@ export interface MessageData<V = unknown> {
   };
 }
 
-/** @deprecated Use `MessageData` instead */
-export type TransactionData<V = unknown> = MessageData<V>;
-
 /**
  * A message with the inputs/outputs data convention
  */
 export type StateMessage<V = unknown> = Message<MessageData<V>>;
-
-/** @deprecated Use `StateMessage` instead */
-export type StateTransaction<V = unknown> = StateMessage<V>;
 
 /**
  * Extended validation context for messages using the inputs/outputs convention
@@ -94,12 +88,6 @@ export interface MessageValidationContext<V = unknown> {
     uri: string,
   ) => Promise<{ success: boolean; record?: { data: T }; error?: string }>;
 }
-
-/** @deprecated Use `MessageValidationContext` instead */
-export type TransactionValidationContext<V = unknown> =
-  MessageValidationContext<
-    V
-  >;
 
 /**
  * Program validator for outputs in messages using the inputs/outputs convention

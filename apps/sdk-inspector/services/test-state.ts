@@ -483,7 +483,7 @@ export class TestState {
           }
         }
 
-        // For shared suite tests like "MemoryClient - receive transaction and read",
+        // For shared suite tests like "MemoryClient - receive message and read",
         // the literal name doesn't appear in source. Try the suffix after " - ".
         if (matchLine === -1 && result.name.includes(" - ")) {
           const suffix = result.name.split(" - ").slice(1).join(" - ");

@@ -3,7 +3,7 @@
  * B3nd MCP Server
  *
  * Model Context Protocol server for B3nd SDK.
- * Provides tools to read, receive transactions, list, and manage data in B3nd backends.
+ * Provides tools to read, receive messages, list, and manage data in B3nd backends.
  * Supports multiple backends with dynamic switching.
  * Node management: keygen, sign, config push/get, status.
  */

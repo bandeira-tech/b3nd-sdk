@@ -58,10 +58,10 @@ export function runNodeSuite(
     },
   });
 
-  Deno.test(`${suiteName} [Node] - receive multiple transactions`, async () => {
+  Deno.test(`${suiteName} [Node] - receive multiple messages`, async () => {
     const node = await Promise.resolve(factory.happy());
 
-    // Receive multiple transactions
+    // Receive multiple messages
     const result1 = await node.receive([
       "store://users/alice/profile",
       { name: "Alice" },
@@ -165,7 +165,7 @@ export function runNodeSuite(
   Deno.test(`${suiteName} [Node] - readMulti after receive`, async () => {
     const node = await Promise.resolve(factory.happy());
 
-    // Receive transactions
+    // Receive messages
     await node.receive(["store://users/alice/profile", { name: "Alice" }]);
     await node.receive(["store://users/bob/profile", { name: "Bob" }]);
 

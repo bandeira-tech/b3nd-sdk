@@ -1,4 +1,4 @@
-// Message node (Level 1) — new names
+// Message node (Level 1)
 export type {
   Message,
   MessageNode,
@@ -8,16 +8,7 @@ export type {
 } from "./node-mod.ts";
 export { createMessageNode } from "./node-mod.ts";
 
-// Deprecated aliases
-export type {
-  Transaction,
-  TransactionNode,
-  TransactionNodeConfig,
-  TransactionValidator,
-} from "./node-mod.ts";
-export { createTransactionNode } from "./node-mod.ts";
-
-// Message data convention (Level 2) — new names
+// Message data convention (Level 2)
 export type {
   MessageData,
   MessageValidationContext,
@@ -26,14 +17,6 @@ export type {
   StateMessage,
 } from "./data/mod.ts";
 export { isMessageData } from "./data/mod.ts";
-
-// Deprecated aliases
-export type {
-  StateTransaction,
-  TransactionData,
-  TransactionValidationContext,
-} from "./data/mod.ts";
-export { isTransactionData } from "./data/mod.ts";
 
 // Validators
 export {

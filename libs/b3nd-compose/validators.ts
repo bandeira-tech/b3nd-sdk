@@ -254,9 +254,6 @@ export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
   };
 }
 
-/** @deprecated Use `msgSchema` instead */
-export const txnSchema = msgSchema;
-
 /**
  * Reject validator
  * Always rejects the message with an optional message

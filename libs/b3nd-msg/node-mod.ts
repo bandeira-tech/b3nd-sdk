@@ -59,7 +59,7 @@
  * ```
  */
 
-// Types (new names)
+// Types
 export type {
   Message,
   MessageNode,
@@ -68,13 +68,5 @@ export type {
   SubmitResult,
 } from "./node-types.ts";
 
-// Deprecated type aliases
-export type {
-  Transaction,
-  TransactionNode,
-  TransactionNodeConfig,
-  TransactionValidator,
-} from "./node-types.ts";
-
-// Node implementation (new name + deprecated alias)
-export { createMessageNode, createTransactionNode } from "./node.ts";
+// Node implementation
+export { createMessageNode } from "./node.ts";

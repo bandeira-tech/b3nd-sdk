@@ -134,9 +134,6 @@ export interface ReceiveResult {
  */
 export type Message<D = unknown> = [uri: string, data: D];
 
-/** @deprecated Use `Message` instead */
-export type Transaction<D = unknown> = Message<D>;
-
 /**
  * NodeProtocolInterface - The universal interface implemented by all clients
  *

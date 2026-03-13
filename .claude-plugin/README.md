@@ -38,7 +38,7 @@ Tools for interacting with B3nd backends directly from Claude:
 
 | Tool                   | Description                                                |
 | ---------------------- | ---------------------------------------------------------- |
-| `b3nd_receive`         | Submit transaction `[uri, data]` (primary write interface) |
+| `b3nd_receive`         | Receive message `[uri, data]` (primary write interface)    |
 | `b3nd_read`            | Read data from URI                                         |
 | `b3nd_list`            | List items matching URI prefix (flat, full URIs)           |
 | `b3nd_delete`          | Delete data                                                |

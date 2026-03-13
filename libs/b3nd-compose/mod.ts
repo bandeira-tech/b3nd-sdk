@@ -47,8 +47,6 @@ export type {
   /** @deprecated Use NodeProtocolReadInterface from core instead */
   ReadInterface,
   ReceiveResult,
-  /** @deprecated Use `Message` instead */
-  Transaction,
   Validator,
 } from "./types.ts";
 
@@ -73,7 +71,6 @@ export {
   reject,
   requireFields,
   schema,
-  txnSchema,
   uriPattern,
 } from "./validators.ts";
 

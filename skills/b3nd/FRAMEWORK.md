@@ -109,7 +109,7 @@ message arrives: [uri, data]
               return accepted
 ```
 
-That's it. There is no queue, no consensus engine, no transaction manager
+That's it. There is no queue, no consensus engine, no message manager
 inside the framework. A node receives a message, dispatches to a validator,
 and accepts or rejects. Everything else — consensus, fees, multi-step
 workflows — is built by protocols on top of this loop using the same message
@@ -949,7 +949,7 @@ consumption (UTXO-style) use links as the consumable layer:
 
 ```
 1. Link points to current state: link://utxo/{id} → hash://sha256/{state1}
-2. Transaction consumes link (overwrites): link://utxo/{id} → hash://sha256/{state2}
+2. Message consumes link (overwrites): link://utxo/{id} → hash://sha256/{state2}
 3. Old state still exists at hash://, but the link now points to new state
 ```
 
