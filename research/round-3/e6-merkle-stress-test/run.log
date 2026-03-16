@@ -18,3 +18,22 @@ Phase 1: Binary tree (N x K) sweep
   N=500,000 K=100 fanout=2 (~10282ms/run)
   N=500,000 K=1,000 fanout=2 (~9804ms/run)
   N=500,000 K=10,000 fanout=2 (~9265ms/run)
+  N=1,000,000 K=1 fanout=2 (~22411ms/run)
+  N=1,000,000 K=10 fanout=2 (~24258ms/run)
+  N=1,000,000 K=100 fanout=2 (~19958ms/run)
+  N=1,000,000 K=1,000 fanout=2 (~21553ms/run)
+  N=1,000,000 K=10,000 fanout=2 (~23243ms/run)
+
+Phase 2: Fan-out comparison at N=100K
+  N=100,000 K=1 fanout=2
+  N=100,000 K=10 fanout=2
+  N=100,000 K=100 fanout=2
+  N=100,000 K=1000 fanout=2
+  N=100,000 K=10000 fanout=2
+  N=100,000 K=1 fanout=16
+  N=100,000 K=10 fanout=16
+  N=100,000 K=100 fanout=16
+  N=100,000 K=1000 fanout=16
+  N=100,000 K=10000 fanout=16
+  N=100,000 K=1 fanout=256
+  N=100,000 K=10 fanout=256
