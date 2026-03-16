@@ -74,3 +74,5 @@
 {"N":500000,"K":100,"fanout":2,"roundTrips":20,"bytesTransferred":188312,"naiveBytes":147000000,"speedup":780.6,"syncTimeMs":2.87,"buildTimeMs":6720.09,"run":4,"diffsFound":100}
 {"N":500000,"K":100,"fanout":2,"roundTrips":20,"bytesTransferred":187416,"naiveBytes":147000000,"speedup":784.4,"syncTimeMs":2.95,"buildTimeMs":6775.96,"run":5,"diffsFound":100}
 {"N":500000,"K":1000,"fanout":2,"roundTrips":20,"bytesTransferred":1459248,"naiveBytes":147000000,"speedup":100.7,"syncTimeMs":37.86,"buildTimeMs":6998.36,"run":1,"diffsFound":1000}
+{"N":500000,"K":1000,"fanout":2,"roundTrips":20,"bytesTransferred":1467440,"naiveBytes":147000000,"speedup":100.2,"syncTimeMs":23.53,"buildTimeMs":6883.5,"run":2,"diffsFound":1000}
+{"N":500000,"K":1000,"fanout":2,"roundTrips":20,"bytesTransferred":1465904,"naiveBytes":147000000,"speedup":100.3,"syncTimeMs":22.46,"buildTimeMs":5163.08,"run":3,"diffsFound":1000}
