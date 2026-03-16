@@ -180,4 +180,3 @@ export type {
   SendResult,
   StateMessage,
 } from "../libs/b3nd-msg/data/mod.ts";
-

@@ -225,7 +225,7 @@ export class PrivateEncryptionKey {
   }
 
   async decrypt(payload: EncryptedPayload): Promise<Uint8Array> {
-    return await decrypt(payload, this.privateKey);
+    return await decrypt(payload, this.privateKey, this.publicKeyHex);
   }
 
   toHex(): string {
@@ -343,7 +343,9 @@ export async function sign<T>(
   const encoder = new TextEncoder();
   const canonical = canonicalize(payload);
   if (canonical === undefined) {
-    throw new Error("Payload is not canonicalizable (contains non-JSON-serializable values)");
+    throw new Error(
+      "Payload is not canonicalizable (contains non-JSON-serializable values)",
+    );
   }
   const data = encoder.encode(canonical);
 
@@ -533,25 +535,29 @@ export async function encrypt(
 export async function decrypt(
   encryptedPayload: EncryptedPayload,
   recipientPrivateKey: CryptoKey,
+  recipientPublicKeyHex?: string,
 ): Promise<Uint8Array> {
   if (!encryptedPayload.ephemeralPublicKey) {
     throw new Error("Missing ephemeral public key");
   }
 
   // We need the recipient's public key hex for HKDF salt.
-  // Extract it from the private key via JWK round-trip.
-  const jwk = await crypto.subtle.exportKey("jwk", recipientPrivateKey);
-  const recipientPub = await crypto.subtle.importKey(
-    "jwk",
-    { kty: jwk.kty, crv: jwk.crv, x: jwk.x, key_ops: [] },
-    { name: "X25519", namedCurve: "X25519" },
-    true,
-    [],
-  );
-  const recipientPubBytes = new Uint8Array(
-    await crypto.subtle.exportKey("raw", recipientPub),
-  );
-  const recipientPublicKeyHex = encodeHex(recipientPubBytes);
+  // If caller provided it, use it directly; otherwise extract via JWK round-trip
+  // (requires the key to have been imported with extractable: true).
+  if (!recipientPublicKeyHex) {
+    const jwk = await crypto.subtle.exportKey("jwk", recipientPrivateKey);
+    const recipientPub = await crypto.subtle.importKey(
+      "jwk",
+      { kty: jwk.kty, crv: jwk.crv, x: jwk.x, key_ops: [] },
+      { name: "X25519", namedCurve: "X25519" },
+      true,
+      [],
+    );
+    const recipientPubBytes = new Uint8Array(
+      await crypto.subtle.exportKey("raw", recipientPub),
+    );
+    recipientPublicKeyHex = encodeHex(recipientPubBytes);
+  }
 
   // Import ephemeral public key
   const ephemeralPublicKeyBytes = decodeHex(
@@ -790,7 +796,10 @@ export async function createSignedEncryptedMessage(
     );
   }
 
-  const encrypted = await encrypt(paramsOrData as Uint8Array, recipientPublicKeyHex);
+  const encrypted = await encrypt(
+    paramsOrData as Uint8Array,
+    recipientPublicKeyHex,
+  );
   const auth = await Promise.all(
     signers.map(async (signer) => {
       const signature = await sign(signer.privateKey, encrypted);
@@ -959,8 +968,22 @@ export async function deriveSigningKeyPairFromSeed(
 
   // Ed25519 PKCS8 wrapper: ASN.1 prefix for a 32-byte Ed25519 private key
   const pkcs8Prefix = new Uint8Array([
-    0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
-    0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+    0x30,
+    0x2e,
+    0x02,
+    0x01,
+    0x00,
+    0x30,
+    0x05,
+    0x06,
+    0x03,
+    0x2b,
+    0x65,
+    0x70,
+    0x04,
+    0x22,
+    0x04,
+    0x20,
   ]);
   const pkcs8Key = new Uint8Array(pkcs8Prefix.length + privateKeyBytes.length);
   pkcs8Key.set(pkcs8Prefix);
@@ -1034,8 +1057,22 @@ export async function deriveEncryptionKeyPairFromSeed(
 
   // X25519 PKCS8 wrapper: ASN.1 prefix for a 32-byte X25519 private key
   const pkcs8Prefix = new Uint8Array([
-    0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
-    0x03, 0x2b, 0x65, 0x6e, 0x04, 0x22, 0x04, 0x20,
+    0x30,
+    0x2e,
+    0x02,
+    0x01,
+    0x00,
+    0x30,
+    0x05,
+    0x06,
+    0x03,
+    0x2b,
+    0x65,
+    0x6e,
+    0x04,
+    0x22,
+    0x04,
+    0x20,
   ]);
   const pkcs8Key = new Uint8Array(pkcs8Prefix.length + privateKeyBytes.length);
   pkcs8Key.set(pkcs8Prefix);
