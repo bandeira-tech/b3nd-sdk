@@ -82,3 +82,4 @@
 {"N":500000,"K":10000,"fanout":2,"roundTrips":20,"bytesTransferred":10426016,"naiveBytes":147000000,"speedup":14.1,"syncTimeMs":174.94,"buildTimeMs":6985.75,"run":2,"diffsFound":10000}
 {"N":500000,"K":10000,"fanout":2,"roundTrips":20,"bytesTransferred":10425632,"naiveBytes":147000000,"speedup":14.1,"syncTimeMs":168.96,"buildTimeMs":7139.86,"run":3,"diffsFound":10000}
 {"N":500000,"K":10000,"fanout":2,"roundTrips":20,"bytesTransferred":10414368,"naiveBytes":147000000,"speedup":14.1,"syncTimeMs":177.26,"buildTimeMs":7283.06,"run":4,"diffsFound":10000}
+{"N":500000,"K":10000,"fanout":2,"roundTrips":20,"bytesTransferred":10407712,"naiveBytes":147000000,"speedup":14.1,"syncTimeMs":173.87,"buildTimeMs":7738.97,"run":5,"diffsFound":10000}
