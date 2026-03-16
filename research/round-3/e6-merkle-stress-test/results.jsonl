@@ -76,3 +76,9 @@
 {"N":500000,"K":1000,"fanout":2,"roundTrips":20,"bytesTransferred":1459248,"naiveBytes":147000000,"speedup":100.7,"syncTimeMs":37.86,"buildTimeMs":6998.36,"run":1,"diffsFound":1000}
 {"N":500000,"K":1000,"fanout":2,"roundTrips":20,"bytesTransferred":1467440,"naiveBytes":147000000,"speedup":100.2,"syncTimeMs":23.53,"buildTimeMs":6883.5,"run":2,"diffsFound":1000}
 {"N":500000,"K":1000,"fanout":2,"roundTrips":20,"bytesTransferred":1465904,"naiveBytes":147000000,"speedup":100.3,"syncTimeMs":22.46,"buildTimeMs":5163.08,"run":3,"diffsFound":1000}
+{"N":500000,"K":1000,"fanout":2,"roundTrips":20,"bytesTransferred":1460016,"naiveBytes":147000000,"speedup":100.7,"syncTimeMs":21.82,"buildTimeMs":8420.73,"run":4,"diffsFound":1000}
+{"N":500000,"K":1000,"fanout":2,"roundTrips":20,"bytesTransferred":1464880,"naiveBytes":147000000,"speedup":100.3,"syncTimeMs":22.71,"buildTimeMs":5213.91,"run":5,"diffsFound":1000}
+{"N":500000,"K":10000,"fanout":2,"roundTrips":20,"bytesTransferred":10391840,"naiveBytes":147000000,"speedup":14.1,"syncTimeMs":161.07,"buildTimeMs":6149.37,"run":1,"diffsFound":10000}
+{"N":500000,"K":10000,"fanout":2,"roundTrips":20,"bytesTransferred":10426016,"naiveBytes":147000000,"speedup":14.1,"syncTimeMs":174.94,"buildTimeMs":6985.75,"run":2,"diffsFound":10000}
+{"N":500000,"K":10000,"fanout":2,"roundTrips":20,"bytesTransferred":10425632,"naiveBytes":147000000,"speedup":14.1,"syncTimeMs":168.96,"buildTimeMs":7139.86,"run":3,"diffsFound":10000}
+{"N":500000,"K":10000,"fanout":2,"roundTrips":20,"bytesTransferred":10414368,"naiveBytes":147000000,"speedup":14.1,"syncTimeMs":177.26,"buildTimeMs":7283.06,"run":4,"diffsFound":10000}
