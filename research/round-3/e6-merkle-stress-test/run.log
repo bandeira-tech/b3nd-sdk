@@ -37,3 +37,8 @@ Phase 2: Fan-out comparison at N=100K
   N=100,000 K=10000 fanout=16
   N=100,000 K=1 fanout=256
   N=100,000 K=10 fanout=256
+  N=100,000 K=100 fanout=256
+  N=100,000 K=1000 fanout=256
+  N=100,000 K=10000 fanout=256
+
+Done. 160 results emitted. Skipped: 0
