@@ -5,21 +5,22 @@
  * Uses connection pooling for performance and supports SSL connections.
  */
 
-import type {
-  DeleteResult,
-  HealthStatus,
-  ListItem,
-  ListOptions,
-  ListResult,
-  Message,
-  NodeProtocolInterface,
-  PersistenceRecord,
-  PostgresClientConfig,
-  ReadMultiResult,
-  ReadMultiResultItem,
-  ReadResult,
-  ReceiveResult,
-  Schema,
+import {
+  Errors,
+  type DeleteResult,
+  type HealthStatus,
+  type ListItem,
+  type ListOptions,
+  type ListResult,
+  type Message,
+  type NodeProtocolInterface,
+  type PersistenceRecord,
+  type PostgresClientConfig,
+  type ReadMultiResult,
+  type ReadMultiResultItem,
+  type ReadResult,
+  type ReceiveResult,
+  type Schema,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -36,6 +37,7 @@ export interface SqlExecutorResult {
 
 export interface SqlExecutor {
   query: (sql: string, args?: unknown[]) => Promise<SqlExecutorResult>;
+  transaction: <T>(fn: (tx: SqlExecutor) => Promise<T>) => Promise<T>;
   cleanup?: () => Promise<void>;
 }
 
@@ -83,11 +85,22 @@ export class PostgresClient implements NodeProtocolInterface {
    * @returns ReceiveResult indicating acceptance
    */
   async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
+    return this.receiveWithExecutor(msg, this.executor);
+  }
+
+  private async receiveWithExecutor<D = unknown>(
+    msg: Message<D>,
+    executor: SqlExecutor,
+  ): Promise<ReceiveResult> {
     const [uri, data] = msg;
 
     // Basic URI validation
     if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Message URI is required" };
+      return {
+        accepted: false,
+        error: "Message URI is required",
+        errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
+      };
     }
 
     try {
@@ -98,23 +111,30 @@ export class PostgresClient implements NodeProtocolInterface {
       const validator = this.schema[programKey];
 
       if (!validator) {
+        const msg = `No schema defined for program key: ${programKey}`;
         return {
           accepted: false,
-          error: `No schema defined for program key: ${programKey}`,
+          error: msg,
+          errorDetail: Errors.invalidSchema(uri, msg),
         };
       }
 
-      // Validate the write
+      // Validate the write — use the provided executor so reads within
+      // a transaction see the in-flight state, not the committed state.
+      const readFn = <T = unknown>(readUri: string): Promise<ReadResult<T>> =>
+        this.readWithExecutor<T>(readUri, executor);
       const validation = await validator({
         uri,
         value: data,
-        read: this.read.bind(this),
+        read: readFn,
       });
 
       if (!validation.valid) {
+        const msg = validation.error || "Validation failed";
         return {
           accepted: false,
-          error: validation.error || "Validation failed",
+          error: msg,
+          errorDetail: Errors.invalidSchema(uri, msg),
         };
       }
 
@@ -126,46 +146,71 @@ export class PostgresClient implements NodeProtocolInterface {
         data: encodedData,
       };
 
-      // Upsert into table directly to avoid dependency on DB function
       const table = `${this.tablePrefix}_data`;
-      await this.executor.query(
-        `INSERT INTO ${table} (uri, data, timestamp) VALUES ($1, $2::jsonb, $3)
-         ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, timestamp = EXCLUDED.timestamp, updated_at = CURRENT_TIMESTAMP`,
-        [uri, JSON.stringify(record.data), record.ts],
-      );
 
-      // If MessageData, also store each output at its own URI
+      // If MessageData with multiple outputs, wrap in a transaction for atomicity
       if (isMessageData(data)) {
-        for (const [outputUri, outputValue] of data.payload.outputs) {
-          const outputResult = await this.receive([outputUri, outputValue]);
-          if (!outputResult.accepted) {
-            return {
-              accepted: false,
-              error: outputResult.error ||
-                `Failed to store output: ${outputUri}`,
-            };
+        await executor.transaction(async (tx) => {
+          // Store the envelope itself
+          await tx.query(
+            `INSERT INTO ${table} (uri, data, timestamp) VALUES ($1, $2::jsonb, $3)
+             ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, timestamp = EXCLUDED.timestamp, updated_at = CURRENT_TIMESTAMP`,
+            [uri, JSON.stringify(record.data), record.ts],
+          );
+
+          // Store each output within the same transaction
+          for (const [outputUri, outputValue] of data.payload.outputs) {
+            const outputResult = await this.receiveWithExecutor(
+              [outputUri, outputValue],
+              tx,
+            );
+            if (!outputResult.accepted) {
+              throw new Error(
+                outputResult.error || `Failed to store output: ${outputUri}`,
+              );
+            }
           }
-        }
+        });
+      } else {
+        // Single write — no transaction needed
+        await executor.query(
+          `INSERT INTO ${table} (uri, data, timestamp) VALUES ($1, $2::jsonb, $3)
+           ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, timestamp = EXCLUDED.timestamp, updated_at = CURRENT_TIMESTAMP`,
+          [uri, JSON.stringify(record.data), record.ts],
+        );
       }
 
       return { accepted: true };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       return {
         accepted: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: msg,
+        errorDetail: Errors.storageError(msg, uri),
       };
     }
   }
 
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+    return this.readWithExecutor<T>(uri, this.executor);
+  }
+
+  private async readWithExecutor<T = unknown>(
+    uri: string,
+    executor: SqlExecutor,
+  ): Promise<ReadResult<T>> {
     try {
       const table = `${this.tablePrefix}_data`;
-      const res = await this.executor.query(
+      const res = await executor.query(
         `SELECT data, timestamp as ts FROM ${table} WHERE uri = $1`,
         [uri],
       );
       if (!res.rows || res.rows.length === 0) {
-        return { success: false, error: `Not found: ${uri}` };
+        return {
+          success: false,
+          error: `Not found: ${uri}`,
+          errorDetail: Errors.notFound(uri),
+        };
       }
       const row: any = res.rows[0];
       // pg driver auto-parses jsonb — row.data is already a native JS value.
@@ -179,9 +224,11 @@ export class PostgresClient implements NodeProtocolInterface {
       };
       return { success: true, record };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: msg,
+        errorDetail: Errors.storageError(msg, uri),
       };
     }
   }
@@ -278,66 +325,52 @@ export class PostgresClient implements NodeProtocolInterface {
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
     try {
       const table = `${this.tablePrefix}_data`;
-
       const prefix = uri.endsWith("/") ? uri : `${uri}/`;
-
-      const rowsRes = await this.executor.query(
-        `SELECT uri, timestamp FROM ${table} WHERE uri LIKE $1 || '%'`,
-        [prefix],
-      );
-
-      type ItemWithTs = { uri: string; ts: number };
-
-      let items: ItemWithTs[] = [];
-
-      for (const raw of rowsRes.rows || []) {
-        const row = raw as { uri?: unknown; timestamp?: unknown };
-        if (typeof row.uri !== "string") continue;
-
-        const fullUri = row.uri;
-        if (!fullUri.startsWith(prefix)) continue;
-
-        const ts = typeof row.timestamp === "number"
-          ? row.timestamp
-          : row.timestamp != null
-          ? Number(row.timestamp)
-          : 0;
-
-        items.push({ uri: fullUri, ts });
-      }
-
-      if (options?.pattern) {
-        const regex = new RegExp(options.pattern);
-        items = items.filter((item) => regex.test(item.uri));
-      }
-
-      if (options?.sortBy === "name") {
-        items.sort((a, b) => a.uri.localeCompare(b.uri));
-      } else if (options?.sortBy === "timestamp") {
-        items.sort((a, b) => a.ts - b.ts);
-      }
-
-      if (options?.sortOrder === "desc") {
-        items.reverse();
-      }
-
       const page = options?.page ?? 1;
       const limit = options?.limit ?? 50;
       const offset = (page - 1) * limit;
-      const paginated = items.slice(offset, offset + limit);
 
-      const data: ListItem[] = paginated.map((item) => ({
-        uri: item.uri,
-      }));
+      const args: unknown[] = [prefix];
+      let patternClause = "";
+
+      if (options?.pattern) {
+        patternClause = ` AND uri ~ $2`;
+        args.push(options.pattern);
+      }
+
+      // Count total matching rows for pagination
+      const countRes = await this.executor.query(
+        `SELECT COUNT(*) as cnt FROM ${table} WHERE uri LIKE $1 || '%'${patternClause}`,
+        args,
+      );
+      const total = Number((countRes.rows[0] as { cnt: unknown })?.cnt ?? 0);
+
+      // Determine ORDER BY column (whitelist to prevent SQL injection)
+      const orderCol = options?.sortBy === "timestamp" ? "timestamp" : "uri";
+      const orderDir = options?.sortOrder === "desc" ? "DESC" : "ASC";
+
+      // Build parameterized query with sort/limit/offset pushed to SQL
+      const dataArgs = [...args, limit, offset];
+      const limitIdx = args.length + 1;
+      const offsetIdx = args.length + 2;
+
+      const rowsRes = await this.executor.query(
+        `SELECT uri FROM ${table} WHERE uri LIKE $1 || '%'${patternClause} ORDER BY ${orderCol} ${orderDir} LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        dataArgs,
+      );
+
+      const data: ListItem[] = [];
+      for (const raw of rowsRes.rows || []) {
+        const row = raw as { uri?: unknown };
+        if (typeof row.uri === "string") {
+          data.push({ uri: row.uri });
+        }
+      }
 
       return {
         success: true,
         data,
-        pagination: {
-          page,
-          limit,
-          total: items.length,
-        },
+        pagination: { page, limit, total },
       };
     } catch (error) {
       return {
@@ -356,13 +389,19 @@ export class PostgresClient implements NodeProtocolInterface {
       );
       const affected = typeof res.rowCount === "number" ? res.rowCount : 0;
       if (affected === 0) {
-        return { success: false, error: "Not found" };
+        return {
+          success: false,
+          error: "Not found",
+          errorDetail: Errors.notFound(uri),
+        };
       }
       return { success: true };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: msg,
+        errorDetail: Errors.storageError(msg, uri),
       };
     }
   }

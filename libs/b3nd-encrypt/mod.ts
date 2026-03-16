@@ -4,6 +4,11 @@ import {
   encodeBase64,
   encodeHex,
 } from "../b3nd-core/encoding.ts";
+import _canonicalize from "canonicalize";
+// CJS/ESM interop: cast to callable
+const canonicalize = _canonicalize as unknown as (
+  input: unknown,
+) => string | undefined;
 
 // Types
 export interface KeyPair {
@@ -151,7 +156,7 @@ export class SecretEncryptionKey {
     const keyHex = await deriveKeyFromSeed(
       params.secret,
       params.salt,
-      params.iterations ?? 100000,
+      params.iterations ?? 600000,
     );
     return new SecretEncryptionKey(keyHex);
   }
@@ -185,7 +190,7 @@ export class PrivateEncryptionKey {
       "pkcs8",
       privateKeyBytes,
       { name: "X25519", namedCurve: "X25519" },
-      false,
+      true, // extractable — needed for HKDF salt derivation in decrypt()
       ["deriveBits"],
     );
 
@@ -336,7 +341,11 @@ export async function sign<T>(
   payload: T,
 ): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(JSON.stringify(payload));
+  const canonical = canonicalize(payload);
+  if (canonical === undefined) {
+    throw new Error("Payload is not canonicalizable (contains non-JSON-serializable values)");
+  }
+  const data = encoder.encode(canonical);
 
   const signature = await crypto.subtle.sign("Ed25519", privateKey, data);
 
@@ -388,7 +397,11 @@ export async function verify<T>(
     );
 
     const encoder = new TextEncoder();
-    const data = encoder.encode(JSON.stringify(payload));
+    const canonical = canonicalize(payload);
+    if (canonical === undefined) {
+      return false;
+    }
+    const data = encoder.encode(canonical);
     const signatureBytes = decodeHex(signatureHex).buffer;
 
     return await crypto.subtle.verify(
@@ -404,8 +417,57 @@ export async function verify<T>(
 }
 
 /**
- * Encrypt data using X25519 ECDH + AES-GCM
- * Uses ephemeral keypair for forward secrecy
+ * Derive an AES-GCM key from ECDH shared secret using HKDF-SHA256 (RFC 5869).
+ * Provides domain separation and defense-in-depth per NIST SP 800-56C.
+ *
+ * @param sharedSecret - Raw ECDH shared secret (ArrayBuffer)
+ * @param pubkey1Hex - First public key hex (sorted deterministically for salt)
+ * @param pubkey2Hex - Second public key hex
+ * @param usage - "encrypt" or "decrypt"
+ */
+async function deriveAesKeyFromEcdh(
+  sharedSecret: ArrayBuffer,
+  pubkey1Hex: string,
+  pubkey2Hex: string,
+  usage: "encrypt" | "decrypt",
+): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+
+  // Deterministic salt from sorted public keys, hashed to 32 bytes
+  // (raw concatenation exceeds HKDF salt length limits in some implementations)
+  const [sortedA, sortedB] = [pubkey1Hex, pubkey2Hex].sort();
+  const saltInput = encoder.encode(sortedA + sortedB);
+  const salt = new Uint8Array(await crypto.subtle.digest("SHA-256", saltInput));
+  const info = encoder.encode("b3nd-aes-gcm-key-v1");
+
+  // Import shared secret as HKDF key material
+  const hkdfKey = await crypto.subtle.importKey(
+    "raw",
+    sharedSecret,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+
+  // Derive AES-256-GCM key via HKDF-SHA256
+  return await crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt,
+      info,
+    },
+    hkdfKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    [usage],
+  );
+}
+
+/**
+ * Encrypt data using X25519 ECDH + HKDF + AES-GCM
+ * Uses ephemeral keypair for forward secrecy.
+ * HKDF provides domain separation per NIST SP 800-56C / RFC 5869.
  */
 export async function encrypt(
   data: Uint8Array,
@@ -437,16 +499,12 @@ export async function encrypt(
     256,
   );
 
-  // Import shared secret as AES-GCM key
-  const aesKey = await crypto.subtle.importKey(
-    "raw",
+  // Derive AES key via HKDF (not raw ECDH output)
+  const aesKey = await deriveAesKeyFromEcdh(
     sharedSecret,
-    {
-      name: "AES-GCM",
-      length: 256,
-    },
-    false,
-    ["encrypt"],
+    ephemeralKeyPair.publicKeyHex,
+    recipientPublicKeyHex,
+    "encrypt",
   );
 
   // Generate nonce
@@ -470,7 +528,7 @@ export async function encrypt(
 }
 
 /**
- * Decrypt data using X25519 ECDH + AES-GCM
+ * Decrypt data using X25519 ECDH + HKDF + AES-GCM
  */
 export async function decrypt(
   encryptedPayload: EncryptedPayload,
@@ -479,6 +537,21 @@ export async function decrypt(
   if (!encryptedPayload.ephemeralPublicKey) {
     throw new Error("Missing ephemeral public key");
   }
+
+  // We need the recipient's public key hex for HKDF salt.
+  // Extract it from the private key via JWK round-trip.
+  const jwk = await crypto.subtle.exportKey("jwk", recipientPrivateKey);
+  const recipientPub = await crypto.subtle.importKey(
+    "jwk",
+    { kty: jwk.kty, crv: jwk.crv, x: jwk.x, key_ops: [] },
+    { name: "X25519", namedCurve: "X25519" },
+    true,
+    [],
+  );
+  const recipientPubBytes = new Uint8Array(
+    await crypto.subtle.exportKey("raw", recipientPub),
+  );
+  const recipientPublicKeyHex = encodeHex(recipientPubBytes);
 
   // Import ephemeral public key
   const ephemeralPublicKeyBytes = decodeHex(
@@ -505,16 +578,12 @@ export async function decrypt(
     256,
   );
 
-  // Import shared secret as AES-GCM key
-  const aesKey = await crypto.subtle.importKey(
-    "raw",
+  // Derive AES key via HKDF (not raw ECDH output)
+  const aesKey = await deriveAesKeyFromEcdh(
     sharedSecret,
-    {
-      name: "AES-GCM",
-      length: 256,
-    },
-    false,
-    ["decrypt"],
+    encryptedPayload.ephemeralPublicKey,
+    recipientPublicKeyHex,
+    "decrypt",
   );
 
   // Decrypt data
@@ -542,13 +611,13 @@ export async function decryptWithHex(
 ): Promise<Uint8Array> {
   const privateKeyBytes = decodeHex(recipientPrivateKeyHex).buffer;
   const privateKey = await crypto.subtle.importKey(
-    "raw",
+    "pkcs8",
     privateKeyBytes,
     {
       name: "X25519",
       namedCurve: "X25519",
     },
-    false,
+    true, // extractable — needed for HKDF salt derivation in decrypt()
     ["deriveBits"],
   );
 
@@ -600,7 +669,7 @@ export async function createAuthenticatedMessageWithHex<T>(
 export async function deriveKeyFromSeed(
   seed: string,
   salt: string,
-  iterations: number = 100000,
+  iterations: number = 600000,
 ): Promise<string> {
   const encoder = new TextEncoder();
 

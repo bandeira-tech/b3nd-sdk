@@ -40,6 +40,31 @@ class RealSqlExecutor implements SqlExecutor {
     };
   }
 
+  async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
+    await this.ensureConnected();
+    await this.client.query("BEGIN");
+    try {
+      const txExecutor: SqlExecutor = {
+        query: async (sql, args = []) => {
+          const result = await this.client.query(sql, args as unknown[]);
+          return {
+            rows: result.rows as unknown[],
+            rowCount: (result as any).rowCount as number | undefined,
+          };
+        },
+        transaction: () => {
+          throw new Error("Nested transactions not supported");
+        },
+      };
+      const result = await fn(txExecutor);
+      await this.client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await this.client.query("ROLLBACK");
+      throw error;
+    }
+  }
+
   async cleanup(): Promise<void> {
     if (this.connected) {
       await this.client.end();

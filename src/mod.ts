@@ -51,6 +51,7 @@
 
 // Core types
 export type {
+  B3ndError,
   ClientError,
   DeleteResult,
   HealthStatus,
@@ -77,6 +78,7 @@ export type {
   WebSocketResponse,
   WriteResult,
 } from "../libs/b3nd-core/types.ts";
+export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 
 // Client implementations
 export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
