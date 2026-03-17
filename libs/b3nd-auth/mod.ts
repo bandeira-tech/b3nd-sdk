@@ -1,4 +1,9 @@
 import { decodeHex } from "../b3nd-core/encoding.ts";
+import _canonicalize from "canonicalize";
+// CJS/ESM interop: cast to callable
+const canonicalize = _canonicalize as unknown as (
+  input: unknown,
+) => string | undefined;
 
 type AuthMessage<T> = {
   auth: { pubkey: string; signature: string }[];
@@ -35,7 +40,11 @@ async function verifySignature<T>(
     );
 
     const encoder = new TextEncoder();
-    const data = encoder.encode(JSON.stringify(payload));
+    const canonical = canonicalize(payload);
+    if (canonical === undefined) {
+      return false;
+    }
+    const data = encoder.encode(canonical);
 
     const signatureBytes = decodeHex(signatureHex);
 

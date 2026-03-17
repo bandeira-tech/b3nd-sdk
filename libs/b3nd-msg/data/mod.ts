@@ -65,20 +65,13 @@
  * ```
  */
 
-// Types (new names)
+// Types
 export type {
   MessageData,
   MessageValidationContext,
   ProgramSchema,
   ProgramValidator,
   StateMessage,
-} from "./types.ts";
-
-// Deprecated type aliases
-export type {
-  StateTransaction,
-  TransactionData,
-  TransactionValidationContext,
 } from "./types.ts";
 
 // Validators
@@ -88,8 +81,8 @@ export {
   extractProgram,
 } from "./validators.ts";
 
-// Detection (new name + deprecated alias)
-export { isMessageData, isTransactionData } from "./detect.ts";
+// Detection
+export { isMessageData } from "./detect.ts";
 
 // Content-addressed message constructor + sender
 export { message } from "./message.ts";

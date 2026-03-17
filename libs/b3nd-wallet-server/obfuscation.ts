@@ -118,7 +118,7 @@ export async function pemToCryptoKey(
       "pkcs8",
       buffer,
       { name: "X25519", namedCurve: "X25519" },
-      false,
+      true, // extractable — needed for HKDF salt derivation in decrypt()
       ["deriveBits"],
     );
   }
@@ -168,7 +168,10 @@ export async function decryptSignedEncryptedPayload(
   });
 
   // Decrypt the payload
-  const decryptedBytes = await decryptData(signedMessage.payload, encryptionPrivateKey);
+  const decryptedBytes = await decryptData(
+    signedMessage.payload,
+    encryptionPrivateKey,
+  );
   const data = JSON.parse(new TextDecoder().decode(decryptedBytes));
 
   return { data, verified, signers };

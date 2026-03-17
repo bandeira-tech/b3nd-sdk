@@ -71,7 +71,7 @@ Deno.test("Integration: parse actual deno test output", async () => {
     args: [
       "test",
       "-A",
-      "--filter=MemoryClient - receive transaction and read",
+      "--filter=MemoryClient - receive message and read",
       "clients/memory/memory-client.test.ts",
     ],
     cwd: new URL("../../..", import.meta.url).pathname,

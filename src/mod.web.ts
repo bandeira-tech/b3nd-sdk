@@ -6,6 +6,7 @@
  */
 
 export type {
+  B3ndError,
   ClientError,
   DeleteResult,
   HealthStatus,
@@ -17,6 +18,7 @@ export type {
   NodeProtocolInterface,
   PersistenceRecord,
   ReadResult,
+  ReceiveResult,
   Schema,
   ValidationFn,
   WebSocketClientConfig,
@@ -24,6 +26,7 @@ export type {
   WebSocketResponse,
   WriteResult,
 } from "../libs/b3nd-core/types.ts";
+export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";

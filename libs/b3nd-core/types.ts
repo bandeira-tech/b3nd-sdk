@@ -27,6 +27,7 @@ export interface ReadResult<T> {
   success: boolean;
   record?: PersistenceRecord<T>;
   error?: string;
+  errorDetail?: B3ndError;
 }
 
 /**
@@ -58,6 +59,7 @@ export interface ReadMultiResult<T = unknown> {
 export interface DeleteResult {
   success: boolean;
   error?: string;
+  errorDetail?: B3ndError;
 }
 
 /**
@@ -122,20 +124,20 @@ export type ValidationFn = (write: {
 export type Schema = Record<string, ValidationFn>;
 
 /**
- * Result of a receive operation
+ * Result of a receive operation.
+ * `error` remains a string for backward compatibility.
+ * `errorDetail` provides structured error info for programmatic handling.
  */
 export interface ReceiveResult {
   accepted: boolean;
   error?: string;
+  errorDetail?: B3ndError;
 }
 
 /**
  * Message type — the minimal primitive: [uri, data]
  */
 export type Message<D = unknown> = [uri: string, data: D];
-
-/** @deprecated Use `Message` instead */
-export type Transaction<D = unknown> = Message<D>;
 
 /**
  * NodeProtocolInterface - The universal interface implemented by all clients
@@ -371,6 +373,88 @@ export interface MongoClientConfig {
    */
   collectionName: string;
 }
+
+/**
+ * Structured error codes for programmatic error handling.
+ * Callers can switch on `error.code` without string parsing.
+ */
+export enum ErrorCode {
+  // Auth errors
+  UNAUTHORIZED = "UNAUTHORIZED",
+  FORBIDDEN = "FORBIDDEN",
+  // Validation errors
+  INVALID_URI = "INVALID_URI",
+  INVALID_SCHEMA = "INVALID_SCHEMA",
+  INVALID_SEQUENCE = "INVALID_SEQUENCE",
+  // State errors
+  NOT_FOUND = "NOT_FOUND",
+  CONFLICT = "CONFLICT",
+  // Internal errors
+  STORAGE_ERROR = "STORAGE_ERROR",
+  INTERNAL_ERROR = "INTERNAL_ERROR",
+}
+
+/**
+ * Structured error returned by protocol operations.
+ */
+export interface B3ndError {
+  code: ErrorCode;
+  message: string;
+  uri?: string;
+  details?: unknown;
+}
+
+/**
+ * Convenience constructors for B3ndError
+ */
+export const Errors = {
+  unauthorized: (uri: string, msg?: string): B3ndError => ({
+    code: ErrorCode.UNAUTHORIZED,
+    message: msg ?? "Unauthorized",
+    uri,
+  }),
+  forbidden: (uri: string, msg?: string): B3ndError => ({
+    code: ErrorCode.FORBIDDEN,
+    message: msg ?? "Forbidden",
+    uri,
+  }),
+  invalidUri: (uri: string, msg?: string): B3ndError => ({
+    code: ErrorCode.INVALID_URI,
+    message: msg ?? "Invalid URI",
+    uri,
+  }),
+  invalidSchema: (uri: string, details?: unknown): B3ndError => ({
+    code: ErrorCode.INVALID_SCHEMA,
+    message: "Schema validation failed",
+    uri,
+    details,
+  }),
+  invalidSequence: (uri: string, msg?: string): B3ndError => ({
+    code: ErrorCode.INVALID_SEQUENCE,
+    message: msg ?? "Invalid sequence number",
+    uri,
+  }),
+  notFound: (uri: string): B3ndError => ({
+    code: ErrorCode.NOT_FOUND,
+    message: `Not found: ${uri}`,
+    uri,
+  }),
+  conflict: (uri: string, msg?: string): B3ndError => ({
+    code: ErrorCode.CONFLICT,
+    message: msg ?? "Conflict",
+    uri,
+  }),
+  storageError: (msg: string, uri?: string): B3ndError => ({
+    code: ErrorCode.STORAGE_ERROR,
+    message: msg,
+    uri,
+  }),
+  internal: (msg: string, uri?: string): B3ndError => ({
+    code: ErrorCode.INTERNAL_ERROR,
+    message: msg,
+    uri,
+  }),
+};
 
 /**
  * Error class for client operations

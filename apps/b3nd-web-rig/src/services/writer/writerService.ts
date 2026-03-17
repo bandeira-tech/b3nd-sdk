@@ -564,7 +564,7 @@ export const uploadHash = async (params: {
   const hash = await computeSha256(contentData);
   const hashUri = generateHashUri(hash);
 
-  // Write to backend via receive transaction
+  // Write to backend via receive
   const response = await backendClient.receive([hashUri, contentData]);
 
   return {

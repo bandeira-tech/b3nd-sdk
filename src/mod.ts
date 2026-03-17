@@ -51,6 +51,7 @@
 
 // Core types
 export type {
+  B3ndError,
   ClientError,
   DeleteResult,
   HealthStatus,
@@ -77,6 +78,7 @@ export type {
   WebSocketResponse,
   WriteResult,
 } from "../libs/b3nd-core/types.ts";
+export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 
 // Client implementations
 export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
@@ -126,8 +128,6 @@ export type {
   Processor,
   ReadInterface,
   ReceiveResult,
-  /** @deprecated Use `Message` instead */
-  Transaction,
   Validator,
 } from "../libs/b3nd-compose/mod.ts";
 export {
@@ -150,8 +150,6 @@ export {
   requireFields,
   schema as schemaValidator,
   seq,
-  /** @deprecated Use `msgSchema` instead */
-  txnSchema,
   uriPattern,
   when,
 } from "../libs/b3nd-compose/mod.ts";
@@ -165,16 +163,7 @@ export type {
   SubmitResult,
 } from "../libs/b3nd-msg/node-mod.ts";
 
-// Legacy message layer (deprecated aliases)
-export { createTransactionNode } from "../libs/b3nd-msg/node-mod.ts";
-export type {
-  Transaction as LegacyTransaction,
-  TransactionNode,
-  TransactionNodeConfig,
-  TransactionValidator,
-} from "../libs/b3nd-msg/node-mod.ts";
-
-// Message data convention (Level 2) — new names
+// Message data convention (Level 2)
 export {
   combineValidators,
   createOutputValidator,
@@ -190,12 +179,4 @@ export type {
   ProgramValidator,
   SendResult,
   StateMessage,
-} from "../libs/b3nd-msg/data/mod.ts";
-
-// Deprecated aliases
-export { isTransactionData } from "../libs/b3nd-msg/data/mod.ts";
-export type {
-  StateTransaction,
-  TransactionData,
-  TransactionValidationContext,
 } from "../libs/b3nd-msg/data/mod.ts";
