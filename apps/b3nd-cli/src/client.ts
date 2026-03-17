@@ -1,17 +1,20 @@
-import { HttpClient } from "@b3nd/sdk/http";
-import type { NodeProtocolInterface } from "@b3nd/sdk/types";
+import { Rig, Identity } from "@b3nd/rig";
 import { loadConfig } from "./config.ts";
+import { loadAccountKey, loadEncryptionKey } from "./keys.ts";
 import { Logger } from "./logger.ts";
 
-let cachedClient: NodeProtocolInterface | null = null;
+let cachedRig: Rig | null = null;
 
 /**
- * Initialize and get the HTTP client for the configured node
+ * Initialize and get a Rig instance from the CLI config.
+ *
+ * Lazily loads identity from the configured account key file.
+ * The rig connects to the configured node URL.
  */
-export async function getClient(
+export async function getRig(
   logger?: Logger,
-): Promise<NodeProtocolInterface> {
-  if (cachedClient) return cachedClient;
+): Promise<Rig> {
+  if (cachedRig) return cachedRig;
 
   const config = await loadConfig();
 
@@ -25,14 +28,33 @@ export async function getClient(
   try {
     logger?.info(`Connecting to ${config.node}`);
 
-    cachedClient = new HttpClient({
-      url: config.node,
-      timeout: 30000,
+    // Build identity from account key if configured
+    let identity: Identity | undefined;
+    if (config.account) {
+      try {
+        const accountKey = await loadAccountKey();
+        const encKey = config.encrypt ? await loadEncryptionKey() : undefined;
+
+        identity = await Identity.fromPem(
+          accountKey.privateKeyPem,
+          accountKey.publicKeyHex,
+          encKey?.encryptionPrivateKeyHex || encKey?.privateKeyPem,
+          encKey?.encryptionPublicKeyHex || encKey?.publicKeyHex,
+        );
+        logger?.info(`Identity loaded: ${identity.pubkey.substring(0, 16)}...`);
+      } catch (err) {
+        logger?.info(`No identity loaded: ${(err as Error).message}`);
+      }
+    }
+
+    cachedRig = await Rig.init({
+      identity,
+      use: config.node,
     });
 
     // Test connection
     logger?.http("GET", `${config.node}/api/v1/health`);
-    const health = await cachedClient!.health();
+    const health = await cachedRig.health();
 
     if (health.status === "unhealthy") {
       console.warn("⚠ Warning: Node health is unhealthy");
@@ -41,7 +63,7 @@ export async function getClient(
       logger?.info(`✓ Connected (${health.status})`);
     }
 
-    return cachedClient!;
+    return cachedRig;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger?.error(`Failed to connect to ${config.node}: ${message}`);
@@ -53,11 +75,25 @@ export async function getClient(
 }
 
 /**
- * Close the cached client connection
+ * Close the cached rig connection
  */
-export async function closeClient(logger?: Logger): Promise<void> {
-  if (cachedClient) {
-    await cachedClient.cleanup();
-    cachedClient = null;
+export async function closeRig(logger?: Logger): Promise<void> {
+  if (cachedRig) {
+    await cachedRig.cleanup();
+    cachedRig = null;
   }
 }
+
+/**
+ * Get the underlying NodeProtocolInterface client.
+ * Use this for commands that need raw receive/read/list.
+ */
+export async function getClient(logger?: Logger) {
+  const rig = await getRig(logger);
+  return rig.client;
+}
+
+/**
+ * Close the cached client connection (alias for closeRig)
+ */
+export const closeClient = closeRig;

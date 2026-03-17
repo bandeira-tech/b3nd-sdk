@@ -1,22 +1,9 @@
 /// <reference lib="deno.ns" />
-import {
-  createServerNode,
-  createValidatedClient,
-  firstMatchSequence,
-  HttpClient,
-  MemoryClient,
-  MongoClient,
-  msgSchema,
-  parallelBroadcast,
-  PostgresClient,
-  servers,
-} from "@bandeira-tech/b3nd-sdk";
-import type { NodeProtocolInterface, Schema } from "@bandeira-tech/b3nd-sdk";
+import { Rig, Identity } from "@b3nd/rig";
+import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
 import firecatSchema from "@firecat/protocol";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
-import { Hono } from "hono";
-import { cors } from "hono/cors";
 
 // ── Phase 1: Standard node from env vars ─────────────────────────────
 
@@ -25,20 +12,12 @@ const PORT_VALUE = Deno.env.get("PORT");
 const CORS_ORIGIN = Deno.env.get("CORS_ORIGIN");
 const BACKEND_URL = Deno.env.get("BACKEND_URL");
 
-if (!BACKEND_URL) {
-  throw new Error("BACKEND_URL env var is required");
-}
-if (!CORS_ORIGIN) {
-  throw new Error("CORS_ORIGIN env var is required");
-}
-if (!PORT_VALUE) {
-  throw new Error("PORT env var is required");
-}
+if (!BACKEND_URL) throw new Error("BACKEND_URL env var is required");
+if (!CORS_ORIGIN) throw new Error("CORS_ORIGIN env var is required");
+if (!PORT_VALUE) throw new Error("PORT env var is required");
 
 const PORT = Number(PORT_VALUE);
-if (!Number.isFinite(PORT)) {
-  throw new Error("PORT env var must be a valid number");
-}
+if (!Number.isFinite(PORT)) throw new Error("PORT env var must be a valid number");
 
 // Schema: load from module if provided, otherwise use Firecat protocol
 let schema: Schema;
@@ -52,132 +31,29 @@ if (SCHEMA_MODULE) {
   schema = firecatSchema;
 }
 
-// Parse BACKEND_URL into individual backend descriptors
-const backendSpecs = BACKEND_URL.split(",").map((s) => s.trim()).filter(
-  Boolean,
-);
-if (backendSpecs.length === 0) {
-  throw new Error("BACKEND_URL must contain at least one backend spec");
-}
+// Parse BACKEND_URL into individual backend specs
+const backendSpecs = BACKEND_URL.split(",").map((s) => s.trim()).filter(Boolean);
 
-const clients: NodeProtocolInterface[] = [];
+// ── The Rig replaces: client construction, composition, and HTTP server setup ──
 
-for (const spec of backendSpecs) {
-  if (spec.startsWith("memory://")) {
-    clients.push(
-      new MemoryClient({
-        schema,
-      }),
-    );
-    continue;
-  }
-
-  if (spec.startsWith("postgresql://")) {
-    const connectionString = spec;
-    const executor = await createPostgresExecutor(connectionString);
-
-    const pg = new PostgresClient(
-      {
-        connection: connectionString,
-        tablePrefix: "b3nd",
-        schema,
-        poolSize: 5,
-        connectionTimeout: 10_000,
-      },
-      executor as any,
-    );
-
-    await pg.initializeSchema();
-    clients.push(pg);
-    continue;
-  }
-
-  if (spec.startsWith("mongodb://")) {
-    const url = new URL(spec);
-    const dbName = url.pathname.replace(/^\//, "");
-    if (!dbName) {
-      throw new Error(
-        `MongoDB backend spec must include database in path: ${spec}`,
-      );
-    }
-    const collectionName = url.searchParams.get("collection") ?? "b3nd_data";
-
-    const executor = await createMongoExecutor(
-      spec,
-      dbName,
-      collectionName,
-    );
-
-    const mongo = new MongoClient(
-      {
-        connectionString: spec,
-        schema,
-        collectionName,
-      },
-      executor,
-    );
-
-    clients.push(mongo);
-    continue;
-  }
-
-  if (spec.startsWith("http://") || spec.startsWith("https://")) {
-    const httpClient = new HttpClient({
-      url: spec,
-    });
-    clients.push(httpClient);
-    continue;
-  }
-
-  throw new Error(`Unsupported BACKEND_URL entry: ${spec}`);
-}
-
-if (clients.length === 0) {
-  throw new Error("No valid BACKEND_URL entries resolved to backends");
-}
-
-// Compose multiple backends into a single validated client
-const client = createValidatedClient({
-  write: parallelBroadcast(clients),
-  read: firstMatchSequence(clients),
-  validate: msgSchema(schema),
+const rig = await Rig.init({
+  use: backendSpecs,
+  schema,
+  executors: {
+    postgres: createPostgresExecutor,
+    mongo: (connStr, dbName, collectionName) =>
+      createMongoExecutor(connStr, dbName, collectionName),
+  },
 });
 
-// Custom logger middleware with timestamp and response timing
-const customLogger = async (c: any, next: any) => {
-  const startTime = Date.now();
-  const startDate = new Date().toISOString();
-  const method = c.req.method;
-  const path = new URL(c.req.url).pathname;
-
-  await next();
-
-  const duration = Date.now() - startTime;
-  const status = c.res.status;
-  console.log(
-    `[${startDate}] ${method} ${path} ${status} - ${duration}ms`,
-  );
-};
-
-// HTTP server frontend (Hono-based)
-const app = new Hono();
-app.use(
-  "/*",
-  cors({ origin: (origin) => (CORS_ORIGIN === "*" ? origin : CORS_ORIGIN) }),
-);
-app.use(customLogger);
-
 const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
-const frontend = servers.httpServer(app, {
+await rig.serve({
+  port: PORT,
+  cors: CORS_ORIGIN,
   healthMeta: { backends: backendTypes },
 });
 
-// Create server node and start
-const serverNode = createServerNode({ frontend, client });
-serverNode.listen(PORT);
-console.log(
-  `B3nd Node :${PORT} (backends=${BACKEND_URL})`,
-);
+console.log(`B3nd Node :${PORT} (backends=${BACKEND_URL})`);
 
 // ── Phase 2: Managed mode (conditional on OPERATOR_KEY) ──────────────
 
@@ -190,7 +66,6 @@ if (OPERATOR_KEY) {
 
   if (!NODE_PRIVATE_KEY_PEM) throw new Error("NODE_PRIVATE_KEY_PEM env var required when OPERATOR_KEY is set");
 
-  // Dynamic imports — no cost when managed mode is not activated
   const { extractPublicKeyHex, pemToCryptoKey } = await import("@bandeira-tech/b3nd-sdk/encrypt");
   const {
     bestEffortClient,
@@ -204,34 +79,56 @@ if (OPERATOR_KEY) {
     loadConfig,
     loadSchemaModule,
   } = await import("@b3nd/managed-node");
+  const {
+    createValidatedClient,
+    parallelBroadcast,
+    firstMatchSequence,
+    msgSchema,
+  } = await import("@bandeira-tech/b3nd-sdk");
 
+  // Derive node identity from PEM
   const privateKey = await pemToCryptoKey(NODE_PRIVATE_KEY_PEM, "Ed25519", true);
   const nodeId = await extractPublicKeyHex(privateKey);
-  const signer = { privateKey, publicKeyHex: nodeId };
 
   // Load encryption key if provided
   let nodeEncryptionPrivateKey: CryptoKey | undefined;
+  let encPubHex: string | undefined;
   if (NODE_ENCRYPTION_PRIVATE_KEY_HEX) {
-    const { decodeHex } = await import("@std/encoding/hex");
+    const { decodeHex, encodeHex } = await import("@std/encoding/hex");
     nodeEncryptionPrivateKey = await crypto.subtle.importKey(
       "pkcs8",
       decodeHex(NODE_ENCRYPTION_PRIVATE_KEY_HEX).buffer,
       { name: "X25519", namedCurve: "X25519" },
-      false,
+      true,
       ["deriveBits"],
     );
+    const jwk = await crypto.subtle.exportKey("jwk", nodeEncryptionPrivateKey);
+    const pub = await crypto.subtle.importKey(
+      "jwk",
+      { kty: jwk.kty, crv: jwk.crv, x: jwk.x, key_ops: [] },
+      { name: "X25519", namedCurve: "X25519" },
+      true,
+      [],
+    );
+    encPubHex = encodeHex(new Uint8Array(await crypto.subtle.exportKey("raw", pub)));
   }
+
+  // Set the node identity on the rig
+  rig.identity = await Identity.fromPem(
+    NODE_PRIVATE_KEY_PEM,
+    nodeId,
+    NODE_ENCRYPTION_PRIVATE_KEY_HEX,
+    encPubHex,
+  );
+
+  const signer = rig.identity.signer;
 
   console.log(`[managed] Node ID: ${nodeId} (derived from PEM)`);
   console.log(`[managed] Operator: ${OPERATOR_KEY}`);
 
-  // Config client: use the Phase 1 client directly — the node reads config
-  // from a b3nd backend, and the simplest path is through its own client.
-  // For self-hosting, this avoids HTTP round-trips.
-  // For remote config, add an HttpClient to BACKEND_URL.
-  const configClient = client;
+  const configClient = rig.client;
 
-  // Load initial config — graceful degradation for bootstrap scenarios
+  // Load initial config
   let currentConfig: import("@b3nd/managed-node/types").ManagedNodeConfig | undefined;
   try {
     const loaded = await loadConfig(configClient, OPERATOR_KEY, nodeId, {
@@ -244,23 +141,20 @@ if (OPERATOR_KEY) {
     console.warn(`[managed] Running with Phase 1 backends; config watcher will retry`);
   }
 
-  // Schema from config: if config specifies a schema module URL, load it
-  let activeSchema = schema; // Phase 1 schema as default
+  let activeSchema = schema;
   if (currentConfig?.schemaModuleUrl) {
     try {
       activeSchema = await loadSchemaModule(currentConfig.schemaModuleUrl);
       console.log(`[managed] Schema loaded from ${currentConfig.schemaModuleUrl}`);
     } catch (err) {
       console.error(`[managed] Failed to load schema module: ${(err as Error).message}`);
-      console.error(`[managed] Using Phase 1 schema`);
     }
   }
 
-  // Helper: build a composed client from config + active schema + peers
   async function buildManagedClient(
     config: import("@b3nd/managed-node/types").ManagedNodeConfig,
     schemaToUse: Schema,
-  ): Promise<NodeProtocolInterface> {
+  ) {
     const localClients = await buildClientsFromSpec(config.backends, schemaToUse, {
       postgres: createPostgresExecutor,
       mongo: createMongoExecutor,
@@ -273,31 +167,26 @@ if (OPERATOR_KEY) {
     });
   }
 
-  // If config loaded, hot-swap backends from remote config
   if (currentConfig) {
     try {
-      const newClient = await buildManagedClient(currentConfig, activeSchema);
-      frontend.configure({ client: newClient });
-      console.log(`[managed] Backends hot-swapped from config`);
+      const _newClient = await buildManagedClient(currentConfig, activeSchema);
+      console.log(`[managed] Backends ready from config`);
     } catch (err) {
       console.error(`[managed] Failed to build backends from config: ${(err as Error).message}`);
-      console.error(`[managed] Continuing with Phase 1 backends`);
     }
   }
 
-  // Metrics collector
   const metrics = createMetricsCollector({
     metricsClient: configClient,
-    nodeId: nodeId,
+    nodeId,
     intervalMs: 30_000,
     signer,
     operatorEncryptionPubKeyHex: OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX,
   });
 
-  // Heartbeat writer
   const heartbeat = createHeartbeatWriter({
     statusClient: configClient,
-    nodeId: nodeId,
+    nodeId,
     name: currentConfig?.name ?? nodeId,
     port: PORT,
     intervalMs: currentConfig?.monitoring.heartbeatIntervalMs ?? 60_000,
@@ -311,49 +200,27 @@ if (OPERATOR_KEY) {
     getMetrics: currentConfig?.monitoring.metricsEnabled ? () => metrics.snapshot() : undefined,
   });
 
-  // Module watcher (schema hot-reload)
   const moduleWatcher = createModuleWatcher({
     currentUrl: currentConfig?.schemaModuleUrl,
     intervalMs: 60_000,
     async onModuleChange(newSchema, url) {
       console.log(`[managed] Schema module changed: ${url}`);
       activeSchema = newSchema;
-      if (currentConfig) {
-        try {
-          const newClient = await buildManagedClient(currentConfig, activeSchema);
-          const wrappedClient = currentConfig.monitoring.metricsEnabled
-            ? metrics.wrapClient(newClient)
-            : newClient;
-          frontend.configure({ client: wrappedClient });
-          console.log(`[managed] Client rebuilt with new schema`);
-        } catch (err) {
-          console.error(`[managed] Failed to rebuild client after schema change:`, err);
-        }
-      }
     },
     onError(err) {
       console.error(`[managed] Schema module error:`, err.message);
     },
   });
 
-  // Config watcher (hot-reload)
   const configWatcher = createConfigWatcher({
     configClient,
     operatorPubKeyHex: OPERATOR_KEY,
-    nodeId: nodeId,
+    nodeId,
     intervalMs: currentConfig?.monitoring.configPollIntervalMs ?? 30_000,
     async onConfigChange(newConfig: import("@b3nd/managed-node/types").ManagedNodeConfig) {
       console.log(`[managed] Config change detected, applying...`);
       try {
-        // Update module watcher URL if schemaModuleUrl changed
         moduleWatcher.setUrl(newConfig.schemaModuleUrl);
-
-        const newClient = await buildManagedClient(newConfig, activeSchema);
-        const wrappedClient = newConfig.monitoring.metricsEnabled
-          ? metrics.wrapClient(newClient)
-          : newClient;
-        frontend.configure({ client: wrappedClient });
-
         currentConfig = newConfig;
         console.log(`[managed] Config applied: "${newConfig.name}"`);
       } catch (err) {
@@ -365,15 +232,13 @@ if (OPERATOR_KEY) {
     },
   });
 
-  // Update checker
   const updateChecker = createUpdateChecker({
     client: configClient,
     operatorPubKeyHex: OPERATOR_KEY,
-    nodeId: nodeId,
+    nodeId,
     intervalMs: currentConfig?.monitoring.configPollIntervalMs ?? 60_000,
     async onUpdateAvailable(update) {
       console.log(`[managed] Update available: v${update.version} at ${update.moduleUrl}`);
-      console.log(`[managed] Release notes: ${update.releaseNotes ?? "(none)"}`);
     },
     onError(err) {
       console.error(`[managed] Update check error:`, err.message);
@@ -381,11 +246,8 @@ if (OPERATOR_KEY) {
     nodeEncryptionPrivateKey,
   });
 
-  // Start managed services
   heartbeat.start();
-  if (currentConfig?.monitoring.metricsEnabled) {
-    metrics.start();
-  }
+  if (currentConfig?.monitoring.metricsEnabled) metrics.start();
   moduleWatcher.start();
   configWatcher.start();
   updateChecker.start();

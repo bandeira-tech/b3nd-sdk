@@ -80,6 +80,7 @@
     "libs/b3nd-wallet-server",
     "libs/b3nd-apps",
     "libs/b3nd-managed-node",
+    "libs/b3nd-rig",
     "libs/firecat-protocol",
     "apps/apps-node",
     "apps/b3nd-cli",
@@ -87,6 +88,7 @@
     "apps/sdk-inspector",
     "apps/vault-listener",
     "apps/wallet-node",
+    "apps/firecat-host",
     "tests",
     ".claude-plugin/mcp-server"
   ]

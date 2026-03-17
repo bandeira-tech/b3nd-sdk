@@ -9,6 +9,7 @@
     "lint": "deno lint src/"
   },
   "imports": {
+    "@b3nd/rig": "../../libs/b3nd-rig/mod.ts",
     "@b3nd/sdk": "../../src/mod.ts",
     "@b3nd/sdk/http": "../../libs/b3nd-client-http/mod.ts",
     "@b3nd/sdk/types": "../../libs/b3nd-core/types.ts",

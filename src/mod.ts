@@ -180,3 +180,12 @@ export type {
   SendResult,
   StateMessage,
 } from "../libs/b3nd-msg/data/mod.ts";
+
+// Rig — the universal harness
+export { Rig, Identity } from "../libs/b3nd-rig/mod.ts";
+export type {
+  RigConfig,
+  ServeOptions,
+  PostgresExecutor,
+  MongoExecutor,
+} from "../libs/b3nd-rig/mod.ts";
