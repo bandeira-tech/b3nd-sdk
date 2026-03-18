@@ -8,12 +8,15 @@ import type { Schema, NodeProtocolInterface } from "../b3nd-core/types.ts";
 /**
  * Factory function for creating a PostgreSQL executor from a connection string.
  */
+export type PostgresExecutor = {
+  query: (sql: string, args?: unknown[]) => Promise<{ rows: unknown[]; rowCount?: number }>;
+  transaction: <T>(fn: (tx: PostgresExecutor) => Promise<T>) => Promise<T>;
+  cleanup?: () => Promise<void>;
+};
+
 export type PostgresExecutorFactory = (
   connectionString: string,
-) => Promise<{
-  query: (sql: string, args?: unknown[]) => Promise<{ rows: unknown[]; rowCount?: number }>;
-  cleanup?: () => Promise<void>;
-}>;
+) => Promise<PostgresExecutor>;
 
 /**
  * Factory function for creating a MongoDB executor from connection params.
