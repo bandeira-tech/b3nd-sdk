@@ -185,3 +185,61 @@ But the five launch blockers from S6 should likely be addressed *before* Round 5
 | D7 | PQ timeline | Phase 0+1 in v1.0 | **FROST required for hybrid** | High |
 
 **Round 4 raised confidence on D2 and D3** by providing concrete parameters. It added a new dependency on D7: FROST threshold signatures are essential, not optional, for hybrid PQ committee confirmations.
+
+---
+
+## Addendum: Architectural Revision — Three-Phase Message Lifecycle (2026-03-18)
+
+Following founder review of Round 4 outputs, the protocol architecture has been revised to a three-phase message lifecycle that supersedes S1's flat validator model:
+
+### The Three Phases
+
+```
+Client → [Gateway] → [Attestation Workers] → [Finality Committee] → Block
+          staked       specialized, parallel     staked, BFT
+          fast entry   async validation          final confirmation
+```
+
+1. **Entry (Gateway)** — Staked nodes accept content writes. Fast, low-latency, big-player role. Stake protects against spam and injection. Earns entry fees (25%).
+
+2. **Attestation (Workers)** — Specialized validators verify messages against program rules. Parallel, async, namespace-specialized. Retail-accessible on consumer hardware. Workers choose namespaces they care about and optimize for them. Earns attestation fees (35%).
+
+3. **Finality (Committee)** — BFT committee (K=21/T=11) confirms attested messages into blocks. Staked, VRF lottery selection. Earns confirmation fees (25%).
+
+### Key Principles
+
+- **Rewards come from action, not passive holding.** There is no "Storer" role. Storage is a side effect of validation — you store what you need to validate and serve.
+- **Fast entry, deep validation.** Gateways accept writes immediately (cloud-like latency). Attestation workers validate deeply but asynchronously. This decoupling is essential for the content backbone use case.
+- **Scalability through namespace specialization.** The attestation layer scales horizontally. New namespaces attract new workers. No cross-namespace coordination needed.
+- **Retail participation via attestation.** Retail participants pick a namespace, run a worker on consumer hardware, earn per-attestation. Big players run gateways and finality nodes.
+
+### Impact on Prior Research
+
+| Artifact | Impact |
+|----------|--------|
+| S1 (architecture) | **Revised.** 6-layer model split into infrastructure layers + 3 economic phases |
+| S2 (committee) | Applies to **finality phase only**. K=21/T=11 for the finality committee |
+| S3 (traffic shaping) | Applies primarily at **gateway phase** (entry point traffic patterns) |
+| S4 (view-change) | Applies to **finality phase** — backup proposers in the finality committee |
+| S5 (wire format) | Unchanged — applies across all phases |
+| S6 (threat model) | **Needs revision.** Threats should be categorized by phase, not just by front |
+| Mechanism games | **Reframed.** Hash-roster teams apply to attestation layer; VRF lottery to finality |
+
+### What This Adds to the Open Items
+
+6. **Attestation threshold design** — how many attestations before finality eligibility?
+7. **Gateway authorization mechanism** — stake threshold? SLA requirements?
+8. **Namespace economics** — can namespaces set fee premiums to attract workers?
+9. **Three-phase pipeline simulation** — end-to-end latency, throughput, economic viability (see M3, M5 in mechanism games)
+
+### Updated Decision Card
+
+| # | Decision | Round 3 Answer | Round 4 Update | Confidence |
+|---|----------|---------------|----------------|------------|
+| D1 | Trust model | Open + stake-based | **Content backbone, data layer is crown jewel** | High |
+| D2 | Committee | K=7 majority | **Three-phase pipeline: gateway → attestation → finality. VRF + roster teams.** | Medium |
+| D3 | Privacy | Path obfuscation + padding | **C=0.5 msg/sec constant-rate** | High |
+| D4 | Fee split | 25/35/25/15 @ $0.002 | **Now mapped: entry/attestation/confirmation/treasury** | High |
+| D5 | Cold-start | Partners + tapering | No change | Medium |
+| D6 | KDF | Argon2id 46MiB | No change | High |
+| D7 | PQ timeline | Phase 0+1 in v1.0 | **FROST required for hybrid** | High |

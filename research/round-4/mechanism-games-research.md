@@ -165,24 +165,28 @@ For each validator v with pubkey pk:
 
 **Mitigation:** Cap pool size at X% of total stake (similar to anti-whale cap). Use on-chain reward distribution (smart contract equivalent) so pool operators can't withhold.
 
-### 3.3 Role-Differentiated Participation
+### 3.3 Three-Phase Role Architecture (REVISED)
 
-**Concept:** Instead of one type of validator, define multiple roles with different hardware/stake requirements and different reward profiles:
+> **Note (2026-03-18):** This section replaces the earlier "Role-Differentiated Participation" model that included a "Storer" and "Relay" role. Per founder clarification: rewards come from action, not passive holding. Storage is a side effect of doing useful work. There is no Storer role.
 
-| Role | Stake Required | Hardware | Duties | Reward Share |
-|------|---------------|----------|--------|-------------|
-| **Proposer** | High | High bandwidth | Propose blocks, aggregate attestations | Highest per-block |
-| **Attester** | Medium | Medium | Vote on proposals, relay data | Steady per-epoch |
-| **Storer** | Low | Disk space | Hold content, serve reads, provide redundancy | Per-GB-month |
-| **Relay** | Minimal | Good connectivity | Forward messages, support local network | Per-message relayed |
+**Concept:** Three distinct economic phases with different stake/hardware requirements:
 
-**Why this helps:**
-- Retail participants can be Storers or Relays with minimal stake and consumer hardware
-- Big players naturally gravitate to Proposer role
-- Everyone earns, but through different mechanisms
-- Creates a division of labor that matches real infrastructure capabilities
+| Phase | Role | Stake | Hardware | Duties | Fee Share |
+|-------|------|-------|----------|--------|-----------|
+| **Entry** | Gateway | High | High bandwidth, low latency | Accept client writes, initial validation, spam filtering | 25% (entry) |
+| **Validation** | Attestation Worker | Low-Medium | Consumer OK, namespace-specialized | Deep validation against program rules, parallel & async | 35% (attestation) |
+| **Confirmation** | Finality Committee | High | Medium-High | BFT confirmation into block, VRF lottery selection | 25% (confirmation) |
 
-**This maps to the D4 fee split:** Storage 25% → Storers. Validation 35% → Attesters. Confirmation 25% → Proposers. Treasury 15%.
+**Why this is better than the original 4-role model:**
+- **No passive roles** — everyone earns through verifiable action
+- **Retail participants are attestation workers** — they specialize in namespaces, run on consumer hardware, earn per-attestation
+- **Big players run gateways and finality nodes** — they provide fast entry points and security liquidity
+- **Storage follows function** — gateways store what they serve, workers store what they validate. No separate storage market
+- **Scalability through specialization** — the attestation layer scales horizontally by namespace without coordination overhead
+
+**This maps to the D4 fee split:** Entry 25% → Gateways. Validation 35% → Attestation Workers. Confirmation 25% → Finality Committee. Treasury 15%.
+
+**Key insight for mechanism design:** The hash-roster "team" concept applies most naturally to the **attestation layer**, where workers for a given namespace form cooperative teams per-block. The finality layer uses the standard VRF lottery + BFT committee from D2.
 
 ### 3.4 Slot Auction with Redistribution
 
@@ -238,13 +242,14 @@ Reputation modulates stake weight for committee selection: `effective_weight = s
 
 **Recommended combination for firecat:**
 
-**VRF Lottery (base) + Hash-Roster Teams + Role Differentiation + Reputation Modifier**
+**Three-Phase Architecture + VRF Lottery (finality) + Hash-Roster Teams (attestation) + Reputation Modifier**
 
 This gives you:
-1. VRF lottery for slot eligibility (spam resistance, grind resistance)
-2. Hash-roster for team formation (cooperative dynamics, retail uplift)
-3. Role differentiation for retail accessibility (storers, relays on consumer hardware)
-4. Reputation as a multiplier (rewards quality, not just capital)
+1. Three-phase pipeline (entry → attestation → finality) for natural role separation
+2. VRF lottery for finality committee selection (spam resistance, grind resistance)
+3. Hash-roster for attestation worker team formation per namespace (cooperative dynamics, retail uplift)
+4. Reputation as a multiplier across all phases (rewards quality, not just capital)
+5. Namespace specialization for horizontal scalability
 
 ---
 
@@ -264,10 +269,10 @@ To validate the combined mechanism, we need simulation experiments:
 - **Metrics:** Retail validator count at equilibrium, Gini coefficient of rewards, total network stake
 - **Estimated effort:** 1-2 weeks
 
-### Experiment M3: Role Differentiation Economics
-- **Question:** Can a multi-role system sustain itself economically? Do retail Storers/Relays earn enough to cover costs?
-- **Method:** Economic simulation extending E4, with role-specific cost models and revenue streams
-- **Metrics:** Break-even thresholds per role, minimum network size for viability, participation equilibrium
+### Experiment M3: Three-Phase Pipeline Economics
+- **Question:** Can the gateway → attestation → finality pipeline sustain all three roles economically? At what message volume do attestation workers for a given namespace break even?
+- **Method:** Economic simulation extending E4, with phase-specific cost models (gateway bandwidth, worker compute/storage, committee coordination) and the D4 fee split (25/35/25/15)
+- **Metrics:** Break-even thresholds per phase, minimum namespace traffic for worker viability, gateway SLA economics, participation equilibrium by role
 - **Estimated effort:** 1-2 weeks
 
 ### Experiment M4: Reputation System Design
@@ -276,10 +281,10 @@ To validate the combined mechanism, we need simulation experiments:
 - **Metrics:** Reputation accuracy (correlation with actual quality), gaming success rate, convergence time
 - **Estimated effort:** 2-3 weeks
 
-### Experiment M5: Combined Mechanism End-to-End
-- **Question:** Does the full combined mechanism (VRF + Roster + Roles + Reputation) produce the desired equilibrium?
-- **Method:** Full agent-based simulation with heterogeneous actors (whales, retail, adversaries)
-- **Metrics:** Security (BFT safety violations), economics (all roles profitable), decentralization (stake distribution, Nakamoto coefficient)
+### Experiment M5: Combined Three-Phase End-to-End
+- **Question:** Does the full three-phase pipeline (gateway + attestation workers + finality committee) with VRF lottery, hash-roster teams, and reputation produce the desired equilibrium?
+- **Method:** Full agent-based simulation with heterogeneous actors: whale gateways, retail attestation workers, finality committee members, adversaries at each phase
+- **Metrics:** Security (BFT safety violations), economics (all phases profitable), decentralization (stake distribution, Nakamoto coefficient), namespace coverage (do all active namespaces have sufficient workers?), write latency (entry to finality time)
 - **Estimated effort:** 2-3 weeks
 
 **Total estimated research effort: 7-11 weeks**
