@@ -182,10 +182,10 @@ export type {
 } from "../libs/b3nd-msg/data/mod.ts";
 
 // Rig — the universal harness
-export { Rig, Identity } from "../libs/b3nd-rig/mod.ts";
+export { Identity, Rig } from "../libs/b3nd-rig/mod.ts";
 export type {
+  MongoExecutor,
+  PostgresExecutor,
   RigConfig,
   ServeOptions,
-  PostgresExecutor,
-  MongoExecutor,
 } from "../libs/b3nd-rig/mod.ts";
