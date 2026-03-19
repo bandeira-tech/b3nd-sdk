@@ -63,6 +63,7 @@ export type {
   LocalStorageClientConfig,
   MemoryClientConfig,
   MongoClientConfig,
+  SqliteClientConfig,
   NodeProtocolInterface,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
@@ -86,6 +87,7 @@ export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
 export { PostgresClient } from "../libs/b3nd-client-postgres/mod.ts";
 export { MongoClient } from "../libs/b3nd-client-mongo/mod.ts";
+export { SqliteClient } from "../libs/b3nd-client-sqlite/mod.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 
@@ -96,6 +98,9 @@ export {
   generatePostgresSchema,
   type SchemaInitOptions,
 } from "../libs/b3nd-client-postgres/schema.ts";
+
+// SQLite schema utilities
+export { generateSqliteSchema } from "../libs/b3nd-client-sqlite/schema.ts";
 
 // Combinators
 export {

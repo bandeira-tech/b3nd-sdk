@@ -5,21 +5,22 @@
  * Uses an injected executor so the SDK does not depend on a specific driver.
  */
 
-import type {
-  DeleteResult,
-  HealthStatus,
-  ListItem,
-  ListOptions,
-  ListResult,
-  Message,
-  MongoClientConfig,
-  NodeProtocolInterface,
-  PersistenceRecord,
-  ReadMultiResult,
-  ReadMultiResultItem,
-  ReadResult,
-  ReceiveResult,
-  Schema,
+import {
+  Errors,
+  type DeleteResult,
+  type HealthStatus,
+  type ListItem,
+  type ListOptions,
+  type ListResult,
+  type Message,
+  type MongoClientConfig,
+  type NodeProtocolInterface,
+  type PersistenceRecord,
+  type ReadMultiResult,
+  type ReadMultiResultItem,
+  type ReadResult,
+  type ReceiveResult,
+  type Schema,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -39,11 +40,29 @@ export interface MongoExecutor {
   findOne(
     filter: Record<string, unknown>,
   ): Promise<Record<string, unknown> | null>;
-  findMany(filter: Record<string, unknown>): Promise<Record<string, unknown>[]>;
+  findMany(
+    filter: Record<string, unknown>,
+    options?: {
+      sort?: Record<string, 1 | -1>;
+      skip?: number;
+      limit?: number;
+    },
+  ): Promise<Record<string, unknown>[]>;
   deleteOne(
     filter: Record<string, unknown>,
   ): Promise<{ deletedCount?: number }>;
+  /**
+   * Count documents matching the filter.
+   * When not provided, list() falls back to a findMany count.
+   */
+  countDocuments?: (filter: Record<string, unknown>) => Promise<number>;
   ping(): Promise<boolean>;
+  /**
+   * Run multiple operations atomically within a MongoDB session/transaction.
+   * When provided, MessageData envelopes and their outputs are stored together.
+   * If not implemented, outputs are stored sequentially without rollback guarantees.
+   */
+  transaction?: <T>(fn: (executor: MongoExecutor) => Promise<T>) => Promise<T>;
   cleanup?: () => Promise<void>;
 }
 
@@ -84,11 +103,22 @@ export class MongoClient implements NodeProtocolInterface {
    * @returns ReceiveResult indicating acceptance
    */
   async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
+    return this.receiveWithExecutor(msg, this.executor);
+  }
+
+  private async receiveWithExecutor<D = unknown>(
+    msg: Message<D>,
+    executor: MongoExecutor,
+  ): Promise<ReceiveResult> {
     const [uri, data] = msg;
 
     // Basic URI validation
     if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Message URI is required" };
+      return {
+        accepted: false,
+        error: "Message URI is required",
+        errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
+      };
     }
 
     try {
@@ -96,9 +126,11 @@ export class MongoClient implements NodeProtocolInterface {
       const validator = this.schema[programKey];
 
       if (!validator) {
+        const msg = `No schema defined for program key: ${programKey}`;
         return {
           accepted: false,
-          error: `No schema defined for program key: ${programKey}`,
+          error: msg,
+          errorDetail: Errors.invalidSchema(uri, msg),
         };
       }
 
@@ -109,9 +141,11 @@ export class MongoClient implements NodeProtocolInterface {
       });
 
       if (!validation.valid) {
+        const msg = validation.error || "Validation failed";
         return {
           accepted: false,
-          error: validation.error || "Validation failed",
+          error: msg,
+          errorDetail: Errors.invalidSchema(uri, msg),
         };
       }
 
@@ -122,42 +156,84 @@ export class MongoClient implements NodeProtocolInterface {
         data: encodedData,
       };
 
-      await this.executor.updateOne(
-        { uri },
-        {
-          $set: {
-            uri,
-            data: record.data as unknown,
-            timestamp: record.ts,
-            updatedAt: new Date(),
-            collection: this.collectionName,
-          },
-          $setOnInsert: {
-            createdAt: new Date(),
-          },
-        } as unknown as Record<string, unknown>,
-        { upsert: true },
-      );
+      // If MessageData with outputs, wrap in a transaction for atomicity
+      if (isMessageData(data) && executor.transaction) {
+        await executor.transaction(async (tx) => {
+          // Store the envelope itself
+          await tx.updateOne(
+            { uri },
+            {
+              $set: {
+                uri,
+                data: record.data as unknown,
+                timestamp: record.ts,
+                updatedAt: new Date(),
+                collection: this.collectionName,
+              },
+              $setOnInsert: {
+                createdAt: new Date(),
+              },
+            } as unknown as Record<string, unknown>,
+            { upsert: true },
+          );
 
-      // If MessageData, also store each output at its own URI
-      if (isMessageData(data)) {
-        for (const [outputUri, outputValue] of data.payload.outputs) {
-          const outputResult = await this.receive([outputUri, outputValue]);
-          if (!outputResult.accepted) {
-            return {
-              accepted: false,
-              error: outputResult.error ||
-                `Failed to store output: ${outputUri}`,
-            };
+          // Store each output within the same transaction
+          for (const [outputUri, outputValue] of data.payload.outputs) {
+            const outputResult = await this.receiveWithExecutor(
+              [outputUri, outputValue],
+              tx,
+            );
+            if (!outputResult.accepted) {
+              throw new Error(
+                outputResult.error || `Failed to store output: ${outputUri}`,
+              );
+            }
+          }
+        });
+      } else {
+        // Single write or no transaction support — store envelope
+        await executor.updateOne(
+          { uri },
+          {
+            $set: {
+              uri,
+              data: record.data as unknown,
+              timestamp: record.ts,
+              updatedAt: new Date(),
+              collection: this.collectionName,
+            },
+            $setOnInsert: {
+              createdAt: new Date(),
+            },
+          } as unknown as Record<string, unknown>,
+          { upsert: true },
+        );
+
+        // Store outputs sequentially (no atomicity guarantees without transaction)
+        if (isMessageData(data)) {
+          for (const [outputUri, outputValue] of data.payload.outputs) {
+            const outputResult = await this.receiveWithExecutor(
+              [outputUri, outputValue],
+              executor,
+            );
+            if (!outputResult.accepted) {
+              return {
+                accepted: false,
+                error: outputResult.error ||
+                  `Failed to store output: ${outputUri}`,
+              };
+            }
           }
         }
       }
 
       return { accepted: true };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       return {
         accepted: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: msg,
+        errorDetail: Errors.storageError(msg, uri),
       };
     }
   }
@@ -169,6 +245,7 @@ export class MongoClient implements NodeProtocolInterface {
         return {
           success: false,
           error: `Not found: ${uri}`,
+          errorDetail: Errors.notFound(uri),
         };
       }
 
@@ -187,9 +264,11 @@ export class MongoClient implements NodeProtocolInterface {
         record,
       };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: msg,
+        errorDetail: Errors.storageError(msg, uri),
       };
     }
   }
@@ -286,58 +365,47 @@ export class MongoClient implements NodeProtocolInterface {
       const prefixBase = uri.endsWith("/") ? uri : `${uri}/`;
       const prefixRegex = new RegExp(`^${this.escapeRegex(prefixBase)}`);
 
-      const docs = await this.executor.findMany({ uri: prefixRegex });
-
-      type ItemWithTs = { uri: string; ts: number };
-
-      let items: ItemWithTs[] = [];
-
-      for (const doc of docs) {
-        const fullUri = typeof doc.uri === "string" ? doc.uri : undefined;
-        if (!fullUri || !fullUri.startsWith(prefixBase)) continue;
-
-        const tsValue = doc.timestamp;
-        const ts = typeof tsValue === "number"
-          ? tsValue
-          : tsValue != null
-          ? Number(tsValue)
-          : 0;
-
-        items.push({ uri: fullUri, ts });
-      }
-
-      if (options?.pattern) {
-        const regex = new RegExp(options.pattern);
-        items = items.filter((item) => regex.test(item.uri));
-      }
-
-      if (options?.sortBy === "name") {
-        items.sort((a, b) => a.uri.localeCompare(b.uri));
-      } else if (options?.sortBy === "timestamp") {
-        items.sort((a, b) => a.ts - b.ts);
-      }
-
-      if (options?.sortOrder === "desc") {
-        items.reverse();
-      }
-
       const page = options?.page ?? 1;
       const limit = options?.limit ?? 50;
       const offset = (page - 1) * limit;
-      const paginated = items.slice(offset, offset + limit);
 
-      const data: ListItem[] = paginated.map((item) => ({
-        uri: item.uri,
-      }));
+      // Build filter — combine prefix regex with optional pattern filter
+      const filter: Record<string, unknown> = options?.pattern
+        ? {
+          $and: [
+            { uri: prefixRegex },
+            { uri: new RegExp(options.pattern) },
+          ],
+        }
+        : { uri: prefixRegex };
+
+      // Determine sort — push to MongoDB for server-side ordering
+      const sortField = options?.sortBy === "timestamp" ? "timestamp" : "uri";
+      const sortDir: 1 | -1 = options?.sortOrder === "desc" ? -1 : 1;
+
+      // Count total for pagination — prefer countDocuments, fall back to findMany length
+      const total = this.executor.countDocuments
+        ? await this.executor.countDocuments(filter)
+        : (await this.executor.findMany(filter)).length;
+
+      // Fetch paginated results with server-side sort/skip/limit
+      const docs = await this.executor.findMany(filter, {
+        sort: { [sortField]: sortDir },
+        skip: offset,
+        limit,
+      });
+
+      const data: ListItem[] = [];
+      for (const doc of docs) {
+        if (typeof doc.uri === "string") {
+          data.push({ uri: doc.uri });
+        }
+      }
 
       return {
         success: true,
         data,
-        pagination: {
-          page,
-          limit,
-          total: items.length,
-        },
+        pagination: { page, limit, total },
       };
     } catch (error) {
       return {
@@ -357,13 +425,16 @@ export class MongoClient implements NodeProtocolInterface {
         return {
           success: false,
           error: "Not found",
+          errorDetail: Errors.notFound(uri),
         };
       }
       return { success: true };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: msg,
+        errorDetail: Errors.storageError(msg, uri),
       };
     }
   }
