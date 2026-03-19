@@ -1,0 +1,123 @@
+{
+  "key": "option_e_walkthrough",
+  "title": "Option E Walkthrough: Roster Discovery + Inputs as Consumption",
+  "markdown": "# Option E Walkthrough: Roster Discovery + Inputs as Consumption\n\n> No shift IDs. Inputs mean consumption. The roster is a phone book.\n\n---\n\n## Core Rules\n\n1. **Inputs = consumption.** If a URI appears as an input, it's being spent. Not referenced, not acknowledged — consumed. References to other resources go in output values (URI pointers) or URI paths.\n\n2. **The roster is the phone book.** A well-known mutable directory at `mutable://roster/{role}/{key}`. Anyone can list it to discover active workers. The operator manages who's on it.\n\n3. **Work lives in account spaces.** Each worker writes consensus artifacts to their own account under `/consensus/`. Pubkey auth means only the worker can write there. Write-once means they can't change their mind.\n\n4. **Discovery = list roster, then watch accounts.** A validator lists `mutable://roster/gateway/` to find gateways, then watches each gateway's `immutable://accounts/{gatewayKey}/consensus/pending/` for new work.\n\n---\n\n## The Roster\n\nThe roster is a flat, well-known, mutable directory. No operator key needed to read it — just `list()`.\n\n```\nmutable://roster/gateway/{gatewayKey}      → true\nmutable://roster/validator/{validatorKey}  → true\nmutable://roster/confirmer/{confirmerKey}  → true\nmutable://roster/producer/{producerKey}    → true\n```\n\n**Discovery:**\n```typescript\n// \"Who are all the gateways right now?\"\nconst gateways = await client.list(\"mutable://roster/gateway/\");\n// → [\"mutable://roster/gateway/abc1\", \"mutable://roster/gateway/def2\", ...]\n```\n\n**Who writes to it:** The operator. The roster validator enforces that only the operator can add/remove entries. But reading and listing is open to everyone.\n\n**Why mutable:** Workers come and go. The operator adds a gateway, removes a validator, replaces a confirmer. The roster is a living directory, not a ledger.\n\n**Why flat:** No eras, no scoping. The roster tells you who's active *right now*. Reward eligibility and era-scoping are separate concerns tracked elsewhere.\n\n---\n\n## Full Message Flow\n\n### Stage 0: User Submits Content\n\nAlice publishes content with a fee payment. She doesn't know or care about consensus — she just writes content and pays.\n\n```\nhash://sha256/aaa111 → {\n  auth: [{ pubkey: \"alice\", signature: \"...\" }],\n  payload: {\n    inputs: [\"immutable://balance/alice/utxo1\"],\n    outputs: [\n      [\"immutable://balance/alice/utxo2\", 949],\n      [\"immutable://balance/ROOT_KEY/aaa111\", 1],\n      [\"hash://sha256/content_abc\", { title: \"Hello\", body: \"World\" }]\n    ]\n  }\n}\n```\n\nInputs consume alice's balance. Outputs create change, pay the fee, and store content. No `immutable://consumed/` marker — the input declaration IS the consumption. No `consensus://record/` — that's the protocol's job, not the user's.\n\nThe gateway receives this, validates locally (balance exists, conservation holds, auth checks out), and stores it.\n\n### Stage 1: Gateway Creates Pending\n\nThe gateway signals \"this content is ready for validation\" by writing to its own account space under `/consensus/pending/`.\n\n```\nhash://sha256/pend_msg → {\n  auth: [{ pubkey: \"gateway_01\", signature: \"...\" }],\n  payload: {\n    inputs: [],\n    outputs: [\n      [\"immutable://accounts/gateway_01/consensus/pending/content_abc\", \"hash://sha256/aaa111\"]\n    ]\n  }\n}\n```\n\n**Written:** `immutable://accounts/gateway_01/consensus/pending/content_abc` → `hash://sha256/aaa111`\n\nNo inputs — the gateway isn't consuming anything. It's publishing a fact: \"I received content `content_abc` and it's at `hash://sha256/aaa111`.\"\n\nThe pending lives in the gateway's account space (`immutable://accounts/gateway_01/...`). The `immutable://accounts` validator already enforces that only `gateway_01` can write there (pubkey auth). Write-once is enforced by `immutable://`.\n\n**Discovery:** Other nodes know to watch `gateway_01` because the roster lists it:\n```typescript\nconst gateways = await client.list(\"mutable://roster/gateway/\");\nfor (const gw of gateways) {\n  const gwKey = extractLastSegment(gw);\n  const pending = await client.list(\n    `immutable://accounts/${gwKey}/consensus/pending/`\n  );\n  // → new work items\n}\n```\n\n### Stage 2: Validators Attest\n\nValidators discover pending items by watching gateway accounts listed on the roster. They read the envelope, replay validation, and write attestations to their own accounts.\n\n**Validator 1:**\n```\nhash://sha256/att_v1 → {\n  auth: [{ pubkey: \"validator_01\", signature: \"...\" }],\n  payload: {\n    inputs: [],\n    outputs: [\n      [\"immutable://accounts/validator_01/consensus/attestation/content_abc\", \"hash://sha256/aaa111\"]\n    ]\n  }\n}\n```\n\n**Validator 2:**\n```\nhash://sha256/att_v2 → {\n  auth: [{ pubkey: \"validator_02\", signature: \"...\" }],\n  payload: {\n    inputs: [],\n    outputs: [\n      [\"immutable://accounts/validator_02/consensus/attestation/content_abc\", \"hash://sha256/aaa111\"]\n    ]\n  }\n}\n```\n\n**Written:**\n```\nimmutable://accounts/validator_01/consensus/attestation/content_abc → hash://sha256/aaa111\nimmutable://accounts/validator_02/consensus/attestation/content_abc → hash://sha256/aaa111\n```\n\nNo inputs — nothing consumed. The attestation is a fact published by the validator. Pubkey auth ensures only `validator_01` can write to `immutable://accounts/validator_01/...`. Write-once ensures they can't change their mind.\n\n**Discovery:** Confirmers know to watch validators because:\n```typescript\nconst validators = await client.list(\"mutable://roster/validator/\");\nfor (const v of validators) {\n  const vKey = extractLastSegment(v);\n  const attestations = await client.list(\n    `immutable://accounts/${vKey}/consensus/attestation/`\n  );\n  // → attestations to bundle\n}\n```\n\n### Stage 3: Confirmer Bundles\n\nThe confirmer sees enough attestations for `content_abc`. It selects which validators to credit and writes a confirmation. **This is where inputs-as-consumption first matters** in the consensus flow:\n\n```\nhash://sha256/conf_msg → {\n  auth: [{ pubkey: \"confirmer_01\", signature: \"...\" }],\n  payload: {\n    inputs: [\n      \"immutable://accounts/validator_01/consensus/attestation/content_abc\",\n      \"immutable://accounts/validator_02/consensus/attestation/content_abc\",\n      \"immutable://accounts/validator_07/consensus/attestation/content_abc\"\n    ],\n    outputs: [\n      [\"immutable://accounts/confirmer_01/consensus/confirmation/content_abc\", \"hash://sha256/aaa111\"]\n    ]\n  }\n}\n```\n\n**Written:** `immutable://accounts/confirmer_01/consensus/confirmation/content_abc` → `hash://sha256/aaa111`\n\n**The inputs consume the attestations.** Those three attestations are now spent — they can't be included in another confirmation. The other 97 attestations (from validators who weren't selected) remain unconsumed. This is the thin market: the confirmer's selection determines which validators get credit.\n\nAn attestation that's consumed = that validator's work counted. An attestation that's never consumed = that validator's work was wasted. This creates the economic signal without any reward distribution logic — consumption IS the crediting mechanism.\n\n### Stage 4: Producer Creates Consensus Slot\n\nThe producer bundles confirmed content into temporal coordinates. It consumes confirmations:\n\n```\nhash://sha256/block_msg → {\n  auth: [{ pubkey: \"producer_01\", signature: \"...\" }],\n  payload: {\n    inputs: [\n      \"immutable://accounts/confirmer_01/consensus/confirmation/content_abc\",\n      \"immutable://accounts/confirmer_01/consensus/confirmation/content_def\",\n      \"immutable://accounts/confirmer_02/consensus/confirmation/content_ghi\"\n    ],\n    outputs: [\n      [\"immutable://consensus/0/42/0/content_abc\", \"hash://sha256/aaa111\"],\n      [\"immutable://consensus/0/42/1/content_def\", \"hash://sha256/ddd444\"],\n      [\"immutable://consensus/0/42/2/content_ghi\", \"hash://sha256/ggg777\"]\n    ]\n  }\n}\n```\n\n**Written:**\n```\nimmutable://consensus/0/42/0/content_abc → hash://sha256/aaa111\nimmutable://consensus/0/42/1/content_def → hash://sha256/ddd444\nimmutable://consensus/0/42/2/content_ghi → hash://sha256/ggg777\n```\n\nInputs consume the confirmations — each confirmation can only be placed in one block. Era 0, block 42, slots 0-2.\n\n---\n\n## Discovery Pattern\n\n```\n   ┌────────────────────────────────────────────┐\n   │              ROSTER                         │\n   │  mutable://roster/{role}/{key} → true       │\n   │  (well-known, anyone can list)              │\n   └──────────────────┬─────────────────────────┘\n                      │\n     ┌────────────────┼────────────────┐\n     ▼                ▼                ▼\n  list(roster/     list(roster/     list(roster/\n  gateway/)        validator/)      confirmer/)\n     │                │                │\n     ▼                ▼                ▼\n  ┌──────────┐   ┌──────────┐   ┌──────────┐\n  │gateway_01│   │validator_│   │confirmer_│\n  │  /consensus  │  01/consensus │  01/consensus\n  │  /pending/│   │/attestation/ │/confirmation/│\n  └────┬─────┘   └────┬─────┘   └────┬─────┘\n       │               │               │\n  watch for new   watch for new   watch for new\n  content         attestations    confirmations\n```\n\nEach role watches the previous role's accounts for new outputs:\n- Validators list `mutable://roster/gateway/` → watch each gateway's `.../consensus/pending/`\n- Confirmers list `mutable://roster/validator/` → watch each validator's `.../consensus/attestation/`\n- Producers list `mutable://roster/confirmer/` → watch each confirmer's `.../consensus/confirmation/`\n\nThe roster tells you WHOSE accounts to watch. No polling across the whole namespace — you list specific accounts.\n\n---\n\n## Validators\n\n### Roster Check (shared pattern)\n\nAll consensus validators need to verify the writer is on the roster. The roster is a `mutable://` read:\n\n```typescript\nasync function isOnRoster(\n  read: ReadFn,\n  role: string,\n  key: string\n): Promise<boolean> {\n  const roster = await read(`mutable://roster/${role}/${key}`);\n  return roster.success;\n}\n```\n\n### Pending (under `immutable://accounts`)\n\nThe existing `immutable://accounts` validator handles pubkey auth + write-once. The pending-specific check is: the value must be a valid `hash://` reference and the referenced envelope must exist.\n\n```typescript\n// Additional check layered on immutable://accounts for /consensus/pending/ paths:\nif (uri.includes(\"/consensus/pending/\")) {\n  if (typeof value !== \"string\" || !value.startsWith(\"hash://sha256/\"))\n    return { valid: false, error: \"Pending value must be envelope hash URI\" };\n\n  const envelope = await read(value);\n  if (!envelope.success)\n    return { valid: false, error: \"Referenced envelope not found\" };\n\n  // Gateway must be on roster\n  const gatewayKey = extractAccountKey(uri);\n  if (!await isOnRoster(read, \"gateway\", gatewayKey))\n    return { valid: false, error: \"Gateway not on roster\" };\n}\n```\n\n### Attestation (under `immutable://accounts`)\n\n```typescript\nif (uri.includes(\"/consensus/attestation/\")) {\n  if (typeof value !== \"string\" || !value.startsWith(\"hash://sha256/\"))\n    return { valid: false, error: \"Attestation value must be envelope hash URI\" };\n\n  // Validator must be on roster\n  const validatorKey = extractAccountKey(uri);\n  if (!await isOnRoster(read, \"validator\", validatorKey))\n    return { valid: false, error: \"Validator not on roster\" };\n\n  // Content must be pending at some gateway\n  // (The value points to the envelope — validator already replayed validation before writing)\n}\n```\n\n### Confirmation (under `immutable://accounts`)\n\n```typescript\nif (uri.includes(\"/consensus/confirmation/\")) {\n  if (typeof value !== \"string\" || !value.startsWith(\"hash://sha256/\"))\n    return { valid: false, error: \"Confirmation value must be envelope hash URI\" };\n\n  // Confirmer must be on roster\n  const confirmerKey = extractAccountKey(uri);\n  if (!await isOnRoster(read, \"confirmer\", confirmerKey))\n    return { valid: false, error: \"Confirmer not on roster\" };\n\n  // Message must consume CONFIRMATION_THRESHOLD attestations as inputs\n  const msg = message as MessageData;\n  const contentHash = extractContentHash(uri);\n  const attInputs = msg.payload.inputs.filter(i =>\n    i.includes(\"/consensus/attestation/\" + contentHash)\n  );\n\n  if (attInputs.length < CONFIRMATION_THRESHOLD)\n    return {\n      valid: false,\n      error: `Need ${CONFIRMATION_THRESHOLD} attestation inputs, got ${attInputs.length}`,\n    };\n\n  // Each attestation input must exist (not already consumed)\n  for (const attUri of attInputs) {\n    const att = await read(attUri);\n    if (!att.success)\n      return { valid: false, error: `Attestation not found or already consumed: ${attUri}` };\n  }\n}\n```\n\n### Consensus Slot\n\n```typescript\nexport const consensusSlotValidator: ValidationFn = async ({ uri, value, read, message }) => {\n  if ((await read(uri)).success)\n    return { valid: false, error: \"Slot already filled\" };\n\n  if (typeof value !== \"string\" || !value.startsWith(\"hash://sha256/\"))\n    return { valid: false, error: \"Value must be envelope hash URI\" };\n\n  const msg = message as MessageData;\n  const producerKey = msg.auth?.[0]?.pubkey;\n  if (!producerKey)\n    return { valid: false, error: \"Must be signed\" };\n\n  // Producer on roster\n  if (!await isOnRoster(read, \"producer\", producerKey))\n    return { valid: false, error: \"Producer not on roster\" };\n\n  // Must consume confirmation as input\n  const contentHash = extractSegment(uri, 4); // consensus/{era}/{block}/{slot}/{contentHash}\n  const confInputs = msg.payload.inputs.filter(i =>\n    i.includes(\"/consensus/confirmation/\" + contentHash)\n  );\n  if (confInputs.length === 0)\n    return { valid: false, error: \"Must consume a confirmation as input\" };\n\n  const conf = await read(confInputs[0]);\n  if (!conf.success)\n    return { valid: false, error: \"Confirmation not found or already consumed\" };\n\n  return { valid: true };\n};\n```\n\n---\n\n## What the Roster Replaces\n\n| Old concept | Replaced by |\n|-------------|------------|\n| Shift ID | Not needed — roster membership + pubkey auth is sufficient |\n| Recency proof | Not needed for now (see Open questions) |\n| `VALIDATOR_SET` constant | Roster entries (operator-managed, queryable) |\n| `getCurrentBlock()` | Block number declared in consensus slot URI |\n\n---\n\n## Consumption Chain\n\nEvery stage consumes the previous stage's outputs:\n\n```\nUser's balance (input)\n  └→ content + fee (outputs)\n\nGateway writes pending (no consumption — just publishes)\n\nValidators write attestations (no consumption — just publishes)\n\nConfirmer consumes attestations (inputs)\n  └→ confirmation (output)\n\nProducer consumes confirmations (inputs)\n  └→ consensus slots (outputs)\n```\n\nPending and attestation are publication — free to write (gated by roster, not by consumption). Confirmation and slot assignment are consumption — each input can only be spent once.\n\n---\n\n## What's NOT Here\n\n- **Proof-of-work** — gone. Roster membership is the anti-spam layer.\n- **Shift IDs** — gone. Roster + pubkey auth covers identity and authorization.\n- **`immutable://consumed/`** — gone. Inputs = consumption.\n- **`consensus://record/`** in user envelope — gone. Consensus is the protocol's concern.\n- **`list()` in validators** — not needed. Confirmers declare attestation inputs. Validators `read()` each one.\n- **Block chaining** — the producer declares block numbers in the URI. Slot validator checks the confirmation exists.\n- **Operator key for discovery** — not needed. Roster is at well-known `mutable://roster/` URIs.\n\n---\n\n## Open After This\n\n- **Reward mechanism.** The roster is a phone book, not a ticket. How do workers claim rewards? Options: (a) consuming an era-scoped immutable resource, (b) the consumption chain itself tracks credit (your attestation was consumed = you're credited), (c) the producer's block message includes reward outputs. This is the next design question.\n\n- **How does `inputs = consumption` work at the framework level?** Today MemoryClient doesn't enforce consumption semantics — it would need to mark consumed URIs as spent and reject reads/re-consumption. This is a framework change.\n\n- **Sub-path dispatch in validators.** `immutable://accounts` currently has one validator. Pending, attestation, and confirmation need sub-path-specific validation logic. Either the accounts validator gains a dispatch table, or these become separate programs.\n\n- **Roster access control.** Who can write to `mutable://roster/`? The operator — but how is \"the operator\" defined? Is there a `mutable://roster/operator` entry that bootstraps the whole thing? Or is it hardcoded in the roster validator?\n\n- **Era transitions and temporal scoping.** The roster itself is era-less, but consensus slots are era-scoped (`consensus/{era}/{block}/{slot}`). How does the network know which era it's in?\n",
+  "sections": [
+    {
+      "id": "core-rules",
+      "title": "Core Rules",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "the-roster",
+      "title": "The Roster",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "full-message-flow",
+      "title": "Full Message Flow",
+      "level": 2,
+      "children": [
+        {
+          "id": "stage-0-user-submits-content",
+          "title": "Stage 0: User Submits Content",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "stage-1-gateway-creates-pending",
+          "title": "Stage 1: Gateway Creates Pending",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "stage-2-validators-attest",
+          "title": "Stage 2: Validators Attest",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "stage-3-confirmer-bundles",
+          "title": "Stage 3: Confirmer Bundles",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "stage-4-producer-creates-consensus-slot",
+          "title": "Stage 4: Producer Creates Consensus Slot",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "discovery-pattern",
+      "title": "Discovery Pattern",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "validators",
+      "title": "Validators",
+      "level": 2,
+      "children": [
+        {
+          "id": "roster-check-shared-pattern",
+          "title": "Roster Check (shared pattern)",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "pending-under-immutable-accounts",
+          "title": "Pending (under `immutable://accounts`)",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "attestation-under-immutable-accounts",
+          "title": "Attestation (under `immutable://accounts`)",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "confirmation-under-immutable-accounts",
+          "title": "Confirmation (under `immutable://accounts`)",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "consensus-slot",
+          "title": "Consensus Slot",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "what-the-roster-replaces",
+      "title": "What the Roster Replaces",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "consumption-chain",
+      "title": "Consumption Chain",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "what-s-not-here",
+      "title": "What's NOT Here",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "open-after-this",
+      "title": "Open After This",
+      "level": 2,
+      "children": []
+    }
+  ]
+}

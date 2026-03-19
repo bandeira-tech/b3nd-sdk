@@ -1,0 +1,32 @@
+{
+  "id": "G2-E1-04",
+  "title": "Set up multi-node staging environment with Docker Compose",
+  "group": "nodes-talk",
+  "category": "multi-node-ops",
+  "section": "E1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docker-compose.staging.yml",
+    "scripts/staging-setup.sh",
+    "apps/b3nd-node/Dockerfile"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-E1-04",
+  "markdown": "\n## Goal\n\nCreate a Docker Compose configuration that spins up 3 b3nd-nodes with peer replication configured, allowing the confirmation protocol to be tested in a realistic network environment. This validates that the multi-node protocol works with actual HTTP transport between containers, not just in-memory MemoryClient simulation.\n\n## Background\n\nThe current development environment runs a single node via `make dev` (PostgreSQL backend) or `make node` (memory backend). There is no multi-node setup for testing replication or consensus.\n\nThe existing infrastructure:\n- `apps/b3nd-node/mod.ts` supports configuration via environment variables\n- `BACKEND_URL` can include `http://` entries (pointing to other nodes)\n- Peer replication is configured via managed-node config\n- The managed-node library supports Docker Compose generation via `generateCompose()` in `libs/b3nd-managed-node/compose-generator.ts`\n\nWhat's needed:\n1. A Docker Compose file that creates 3 node containers\n2. Each node has its own memory backend\n3. Each node is configured with the other two as bidirectional peers\n4. A shared network so containers can reach each other\n5. A setup script that configures the validator set and threshold\n6. Health check endpoints to verify all nodes are running\n\n## Acceptance Criteria\n\n- [ ] `docker-compose.staging.yml` defines 3 node services (node-a, node-b, node-c)\n- [ ] Each node has a unique port (8081, 8082, 8083)\n- [ ] Each node's `BACKEND_URL` includes `memory://` and the other two nodes' HTTP URLs\n- [ ] Nodes can discover each other (health checks pass after startup)\n- [ ] A setup script writes to node-a and verifies data appears on node-b and node-c\n- [ ] The setup script tests a basic consensus flow (submit -> pending -> attest -> confirm)\n- [ ] Teardown is clean (`docker compose down` removes everything)\n- [ ] Documentation in the script explains how to use the staging environment\n\n## Implementation Guide\n\n1. Check if `libs/b3nd-managed-node/compose-generator.ts` can be used to generate the compose file, or write it manually.\n\n2. Create `docker-compose.staging.yml`:\n   ```yaml\n   version: \"3.8\"\n   services:\n     node-a:\n       build:\n         context: .\n         dockerfile: apps/b3nd-node/Dockerfile\n       ports:\n         - \"8081:8080\"\n       environment:\n         PORT: \"8080\"\n         BACKEND_URL: \"memory://,http://node-b:8080,http://node-c:8080\"\n         CORS_ORIGIN: \"*\"\n       networks:\n         - b3nd-staging\n\n     node-b:\n       build:\n         context: .\n         dockerfile: apps/b3nd-node/Dockerfile\n       ports:\n         - \"8082:8080\"\n       environment:\n         PORT: \"8080\"\n         BACKEND_URL: \"memory://,http://node-a:8080,http://node-c:8080\"\n         CORS_ORIGIN: \"*\"\n       networks:\n         - b3nd-staging\n\n     node-c:\n       build:\n         context: .\n         dockerfile: apps/b3nd-node/Dockerfile\n       ports:\n         - \"8083:8080\"\n       environment:\n         PORT: \"8080\"\n         BACKEND_URL: \"memory://,http://node-a:8080,http://node-b:8080\"\n         CORS_ORIGIN: \"*\"\n       networks:\n         - b3nd-staging\n\n   networks:\n     b3nd-staging:\n       driver: bridge\n   ```\n\n3. Check if `apps/b3nd-node/Dockerfile` exists. If not, create it:\n   ```dockerfile\n   FROM denoland/deno:latest\n   WORKDIR /app\n   COPY . .\n   RUN deno cache apps/b3nd-node/mod.ts\n   CMD [\"deno\", \"run\", \"-A\", \"apps/b3nd-node/mod.ts\"]\n   ```\n\n4. Create `scripts/staging-setup.sh`:\n   ```bash\n   #!/bin/bash\n   # Wait for all nodes to be healthy\n   # Write test data to node-a\n   # Verify it appears on node-b and node-c\n   # Run a consensus flow test\n   ```\n\n5. The setup script should use `curl` to interact with the nodes via their HTTP API.\n\n## Files to Create/Modify\n\n- `docker-compose.staging.yml` -- Multi-node Docker Compose configuration.\n- `scripts/staging-setup.sh` -- Setup and verification script.\n- `apps/b3nd-node/Dockerfile` -- Node Docker image (create if not exists).\n\n## Testing\n\n```bash\ndocker compose -f docker-compose.staging.yml up -d\nbash scripts/staging-setup.sh\ndocker compose -f docker-compose.staging.yml down\n```\n\n## Dependencies\n\nDepends on G2-E1-01 (peer replication), G2-E1-02 (confirmation testing), G2-E1-03 (managed-node integration). This is the capstone story for Group 2 -- it validates everything works in a real environment.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Test and harden peer replication across multiple b3nd-nodes\n- [ ] Test confirmation protocol across 3+ nodes\n- [ ] Implement managed-node improvements (node builder, config watcher, heartbeat — libs exist but integration unclear)\n- [ ] Set up multi-node staging environment"
+}

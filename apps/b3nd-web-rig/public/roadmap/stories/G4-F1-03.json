@@ -1,0 +1,36 @@
+{
+  "id": "G4-F1-03",
+  "title": "Review and update cookbook chapter (Ch 16) against current SDK API",
+  "group": "tell-the-story",
+  "category": "book",
+  "section": "F1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/16-cookbook.md",
+    "skills/b3nd/APP_COOKBOOK.md",
+    "skills/b3nd/FIRECAT.md",
+    "skills/b3nd/FRAMEWORK.md",
+    "libs/b3nd-core/types.ts",
+    "libs/b3nd-msg/data/send.ts",
+    "libs/b3nd-auth/mod.ts",
+    "libs/b3nd-encrypt/mod.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G4-F1-03",
+  "markdown": "\n## Goal\n\nEnsure every code recipe in the cookbook chapter (Ch 16) compiles and runs against the current SDK API. The cookbook is the most practical chapter in the book -- readers will copy-paste these examples directly. Any mismatch between the cookbook code and the actual SDK will destroy trust in the entire book.\n\n## Background\n\nChapter 16 provides worked recipes following the three-layer scaffold (speech -> paper -> B3nd code). The recipes cover: public bulletin board, private journal, shared/protected data, authenticated profiles, content-addressed posts, batch writes with `send()`, and likely more.\n\nThe SDK has evolved since the cookbook was written. Key areas to check:\n- Import paths: `@bandeira-tech/b3nd-sdk` (Deno/JSR) vs `@bandeira-tech/b3nd-web` (NPM/browser)\n- `send()` function signature and payload structure (inputs/outputs)\n- Encryption API: `encrypt.generateSigningKeyPair()`, `encrypt.encryptData()`, `encrypt.createAuthenticatedMessageWithHex()`, `encrypt.createSignedEncryptedMessage()`\n- `HttpClient` constructor: `{ url: \"...\" }`\n- URI patterns: `mutable://open`, `mutable://accounts/{pubkey}`, `immutable://open`, `hash://sha256/{fingerprint}`\n- The `APP_COOKBOOK.md` skill file contains the most current app recipes -- the book cookbook should be consistent with it\n\nAdditionally, the skill files (`APP_COOKBOOK.md`, `PROTOCOL_COOKBOOK.md`) may have more current patterns than the book. The book cookbook should be aligned with these while maintaining its three-layer narrative style.\n\n## Acceptance Criteria\n\n- [ ] Every code snippet in Ch 16 uses correct import paths for the current SDK version\n- [ ] Every code snippet uses correct function signatures (parameter types, return types)\n- [ ] URI patterns in code match current Firecat canonical programs\n- [ ] The `send()` usage matches current `libs/b3nd-msg/data/send.ts` API\n- [ ] Encryption examples match current `libs/b3nd-encrypt/mod.ts` and `libs/b3nd-auth/mod.ts` APIs\n- [ ] Each recipe maintains the three-layer scaffold (speech -> paper -> B3nd code)\n- [ ] Code snippets are tested mentally against the actual type signatures (read the source types)\n- [ ] No recipe references features that do not yet exist in the SDK\n- [ ] Recipes are consistent with `skills/b3nd/APP_COOKBOOK.md` patterns\n- [ ] Any missing common recipes (identified by comparing with APP_COOKBOOK.md) are added\n\n## Implementation Guide\n\n1. Read the full `docs/book/16-cookbook.md`\n2. Read `skills/b3nd/APP_COOKBOOK.md` to understand the current canonical app recipes\n3. Read `skills/b3nd/FIRECAT.md` for current schema, authentication, and URI patterns\n4. For each code recipe in Ch 16:\n   a. Read the relevant SDK source files to verify API correctness:\n      - `libs/b3nd-core/types.ts` for type definitions\n      - `libs/b3nd-msg/data/send.ts` for `send()` signature\n      - `libs/b3nd-auth/mod.ts` for authentication helpers\n      - `libs/b3nd-encrypt/mod.ts` for encryption helpers\n   b. Compare import paths with current `src/mod.ts` exports\n   c. Fix any incorrect function calls, parameter structures, or return value handling\n5. Compare the recipe list in Ch 16 against `APP_COOKBOOK.md`:\n   - Are there recipes in APP_COOKBOOK.md that should be in the book? (e.g., React hooks, batch writes, content-addressed patterns)\n   - Add any critical missing recipes, maintaining the three-layer scaffold style\n6. Ensure the cookbook flows well as a chapter -- recipes should build on each other\n\n## Files to Create/Modify\n\n- `docs/book/16-cookbook.md` -- update all code snippets to current API, add missing recipes, fix any scaffold gaps\n\n## Dependencies\n\n- **Depends on**: G4-F1-01, G4-F1-02 (Part I/II and Part III reviews should complete first so terminology is settled)\n- **Blocks**: G4-F1-04 (publishing plan needs a finalized cookbook)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Review all 16 chapters for completeness and consistency with current protocol state\n- [ ] Ensure three-layer scaffold is used consistently in every chapter from Part II onward\n- [ ] Review cookbook chapter (Ch 16) against actual current SDK API\n- [ ] Publish/distribute (web reader in rig? PDF? separate site?)"
+}

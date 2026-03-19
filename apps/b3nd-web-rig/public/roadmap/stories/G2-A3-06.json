@@ -1,0 +1,30 @@
+{
+  "id": "G2-A3-06",
+  "title": "Design spam prevention for consensus process",
+  "group": "nodes-talk",
+  "category": "temporal-consensus",
+  "section": "A3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/README.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A3-06",
+  "markdown": "\n## Goal\n\nDesign the spam prevention mechanisms for the consensus process, covering rate limiting on pending submissions, attestations, and confirmations. This prevents malicious or misconfigured nodes from flooding the network with unnecessary consensus traffic.\n\n## Background\n\nThe consensus process involves several write operations that could be spammed:\n1. **Pending submissions**: A node could submit thousands of pending markers\n2. **Attestations**: A node could write attestations for non-existent envelopes\n3. **Confirmations**: A node could attempt finalization repeatedly\n\nCurrent defenses:\n- Write-once semantics prevent duplicate writes to the same URI\n- Validator set authorization (G2-A2-04) restricts who can attest\n- Pending validator requires the envelope to exist\n- Gas fees provide economic cost for consensus records\n\nMissing:\n- Rate limiting on pending submissions per node (a node could submit many different pending records)\n- Rate limiting on attestation throughput\n- Proof-of-work or stake requirement for consensus participation\n- Size limits on pending backlog\n\n## Acceptance Criteria\n\n- [ ] Design document covers spam vectors for each consensus stage\n- [ ] Design document covers rate limiting mechanisms (protocol-level vs node-level)\n- [ ] Design document covers the role of gas fees as spam prevention\n- [ ] Design document covers proof-of-work options (shift ID nonce as lightweight PoW)\n- [ ] Design document covers stake requirements (minimum balance to participate)\n- [ ] Design document distinguishes protocol-enforced limits from node-policy limits\n- [ ] Design is compatible with existing validator infrastructure\n- [ ] No code changes -- design only\n\n## Implementation Guide\n\n1. Analyze each consensus stage for spam vectors:\n\n   **Pending Submissions**:\n   - Vector: Node submits thousands of pending markers for different content\n   - Defense: Gas fee per consensus record (already exists)\n   - Additional: Rate limit per submitter key per time window\n\n   **Attestations**:\n   - Vector: Node floods attestations for non-existent or invalid envelopes\n   - Defense: Validator set authorization + envelope existence check\n   - Additional: Nonce in shift ID provides lightweight PoW\n\n   **Confirmations**:\n   - Vector: Node attempts finalization for every pending record\n   - Defense: Threshold check (need real attestations)\n   - Additional: Jitter + cooldown between finalization attempts\n\n2. Distinguish protocol-level vs node-level defenses:\n   - Protocol: Validation rules (write-once, gas fees, threshold)\n   - Node: HTTP rate limiting, IP filtering, connection limits\n   - Per CONFIRMATION.md: \"Whether valid work gets processed is a social/infrastructure/economic outcome\"\n\n3. Document the design in a new file.\n\n## Files to Create/Modify\n\n- `docs/book/consensus/SPAM_PREVENTION.md` -- New design document.\n\n## Testing\n\nNo code changes. Design review only.\n\n## Dependencies\n\nDepends on G2-A2-04 (validator set) and G2-A3-02 (shift ID design for PoW component). Blocks nothing directly.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+}

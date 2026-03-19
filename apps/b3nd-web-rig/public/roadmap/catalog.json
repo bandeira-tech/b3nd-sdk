@@ -1,0 +1,3693 @@
+{
+  "groups": [
+    {
+      "id": "apps-possible",
+      "name": "Make Apps Possible",
+      "stories": [
+        "G1-A4-01",
+        "G1-A4-02",
+        "G1-A4-03",
+        "G1-A5-01",
+        "G1-A5-02",
+        "G1-A5-03",
+        "G1-A6-01",
+        "G1-A6-02",
+        "G1-A6-03",
+        "G1-A6-04",
+        "G1-A6-05",
+        "G1-A6-06",
+        "G1-A6-07",
+        "G1-A6-08",
+        "G1-A6-09",
+        "G1-A6-10",
+        "G1-A6-11",
+        "G1-A6-12",
+        "G1-A7-01",
+        "G1-A7-02",
+        "G1-A7-03",
+        "G1-A7-04",
+        "G1-A7-05",
+        "G1-A8-01",
+        "G1-D1-01",
+        "G1-D1-02",
+        "G1-D1-03",
+        "G1-D2-01",
+        "G1-D2-02",
+        "G1-D2-03"
+      ],
+      "progress": {
+        "total": 30,
+        "done": 0,
+        "inProgress": 2,
+        "review": 0
+      },
+      "criticalPath": [
+        "G1-A4-01"
+      ],
+      "nextUnblocked": [
+        "G1-A4-01",
+        "G1-A4-02",
+        "G1-A4-03",
+        "G1-A5-01",
+        "G1-A5-02",
+        "G1-A5-03",
+        "G1-A6-02",
+        "G1-A6-03",
+        "G1-A6-04",
+        "G1-A6-05",
+        "G1-A6-06",
+        "G1-A6-07",
+        "G1-A6-08",
+        "G1-A6-09",
+        "G1-A6-10",
+        "G1-A6-11",
+        "G1-A6-12",
+        "G1-A7-02",
+        "G1-A7-03",
+        "G1-A7-04",
+        "G1-A7-05",
+        "G1-A8-01",
+        "G1-D1-01",
+        "G1-D1-02",
+        "G1-D1-03",
+        "G1-D2-01",
+        "G1-D2-02",
+        "G1-D2-03"
+      ]
+    },
+    {
+      "id": "nodes-talk",
+      "name": "Nodes Talk",
+      "stories": [
+        "G2-A1-01",
+        "G2-A1-02",
+        "G2-A1-03",
+        "G2-A1-04",
+        "G2-A2-01",
+        "G2-A2-02",
+        "G2-A2-03",
+        "G2-A2-04",
+        "G2-A2-05",
+        "G2-A2-06",
+        "G2-A2-07",
+        "G2-A2-08",
+        "G2-A2-09",
+        "G2-A3-01",
+        "G2-A3-02",
+        "G2-A3-03",
+        "G2-A3-04",
+        "G2-A3-05",
+        "G2-A3-06",
+        "G2-E1-01",
+        "G2-E1-02",
+        "G2-E1-03",
+        "G2-E1-04"
+      ],
+      "progress": {
+        "total": 23,
+        "done": 0,
+        "inProgress": 2,
+        "review": 0
+      },
+      "criticalPath": [
+        "G2-A1-01"
+      ],
+      "nextUnblocked": [
+        "G2-A1-02",
+        "G2-A1-03",
+        "G2-A1-04",
+        "G2-A2-02",
+        "G2-A2-03",
+        "G2-A2-04",
+        "G2-A2-05",
+        "G2-A2-06",
+        "G2-A2-07",
+        "G2-A2-08",
+        "G2-A2-09",
+        "G2-A3-01",
+        "G2-A3-02",
+        "G2-A3-03",
+        "G2-A3-04",
+        "G2-A3-05",
+        "G2-A3-06",
+        "G2-E1-01",
+        "G2-E1-02",
+        "G2-E1-03",
+        "G2-E1-04"
+      ]
+    },
+    {
+      "id": "make-it-pay",
+      "name": "Make It Pay",
+      "stories": [
+        "G3-B1-01",
+        "G3-B1-02",
+        "G3-B1-03",
+        "G3-B1-04",
+        "G3-B2-01",
+        "G3-B2-02",
+        "G3-B2-03",
+        "G3-B2-04",
+        "G3-B2-05",
+        "G3-B3-01",
+        "G3-B3-02",
+        "G3-B3-03",
+        "G3-B3-04",
+        "G3-B3-05",
+        "G3-B4-01",
+        "G3-B5-01",
+        "G3-B5-02",
+        "G3-B5-03",
+        "G3-C1-01",
+        "G3-C2-01",
+        "G3-C3-01",
+        "G3-C3-02",
+        "G3-C4-01",
+        "G3-C4-02",
+        "G3-G1-01",
+        "G3-G1-02",
+        "G3-G2-01"
+      ],
+      "progress": {
+        "total": 27,
+        "done": 0,
+        "inProgress": 1,
+        "review": 0
+      },
+      "criticalPath": [
+        "G3-B1-01"
+      ],
+      "nextUnblocked": [
+        "G3-B1-02",
+        "G3-B1-03",
+        "G3-B1-04",
+        "G3-B2-01",
+        "G3-B2-02",
+        "G3-B2-03",
+        "G3-B2-04",
+        "G3-B2-05",
+        "G3-B3-01",
+        "G3-B3-02",
+        "G3-B3-03",
+        "G3-B3-04",
+        "G3-B3-05",
+        "G3-B4-01",
+        "G3-B5-01",
+        "G3-B5-02",
+        "G3-B5-03",
+        "G3-C1-01",
+        "G3-C2-01",
+        "G3-C3-01",
+        "G3-C3-02",
+        "G3-C4-01",
+        "G3-C4-02",
+        "G3-G1-01",
+        "G3-G1-02",
+        "G3-G2-01"
+      ]
+    },
+    {
+      "id": "platform-features",
+      "name": "Platform Features",
+      "stories": [
+        "G5-A9-01",
+        "G5-A9-02",
+        "G5-A9-03",
+        "G5-A9-04",
+        "G5-D3-01",
+        "G5-D3-02",
+        "G5-D3-03",
+        "G5-D3-04",
+        "G5-E2-01",
+        "G5-E2-02",
+        "G5-E2-03"
+      ],
+      "progress": {
+        "total": 11,
+        "done": 0,
+        "inProgress": 0,
+        "review": 0
+      },
+      "criticalPath": [
+        "G5-A9-01"
+      ],
+      "nextUnblocked": [
+        "G5-A9-01",
+        "G5-A9-02",
+        "G5-A9-03",
+        "G5-A9-04",
+        "G5-D3-01",
+        "G5-D3-02",
+        "G5-D3-03",
+        "G5-D3-04",
+        "G5-E2-01",
+        "G5-E2-02",
+        "G5-E2-03"
+      ]
+    },
+    {
+      "id": "tell-the-story",
+      "name": "Tell the Story",
+      "stories": [
+        "G4-D1-01",
+        "G4-D1-02",
+        "G4-D1-03",
+        "G4-D1-04",
+        "G4-F1-01",
+        "G4-F1-02",
+        "G4-F1-03",
+        "G4-F1-04",
+        "G4-F2-01",
+        "G4-F2-02",
+        "G4-F3-01",
+        "G4-G3-01"
+      ],
+      "progress": {
+        "total": 12,
+        "done": 0,
+        "inProgress": 1,
+        "review": 0
+      },
+      "criticalPath": [
+        "G4-D1-01"
+      ],
+      "nextUnblocked": [
+        "G4-D1-02",
+        "G4-D1-03",
+        "G4-D1-04",
+        "G4-F1-01",
+        "G4-F1-02",
+        "G4-F1-03",
+        "G4-F1-04",
+        "G4-F2-01",
+        "G4-F2-02",
+        "G4-F3-01",
+        "G4-G3-01"
+      ]
+    }
+  ],
+  "stories": [
+    {
+      "id": "G1-A4-01",
+      "title": "Design conditional writes with optimistic locking (receiveIf)",
+      "group": "apps-possible",
+      "category": "concurrency",
+      "section": "A4",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "design+implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-core/types.ts",
+        "libs/b3nd-compose/types.ts",
+        "libs/b3nd-compose/validated-client.ts",
+        "libs/b3nd-client-memory/mod.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A4-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design `receiveIf(uri, data, { expectedVersion })` — conditional writes with optimistic locking\n- [ ] Add version tracking to records (or use content hash as version)\n- [ ] Update all client implementations to support conditional writes\n- [ ] Document concurrency model and recommended patterns"
+    },
+    {
+      "id": "G1-A4-02",
+      "title": "Implement receiveIf across all client backends",
+      "group": "apps-possible",
+      "category": "concurrency",
+      "section": "A4",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-client-postgres/mod.ts",
+        "libs/b3nd-client-mongo/mod.ts",
+        "libs/b3nd-client-http/mod.ts",
+        "libs/b3nd-client-ws/mod.ts",
+        "libs/b3nd-client-indexeddb/mod.ts",
+        "libs/b3nd-client-localstorage/mod.ts",
+        "libs/b3nd-servers/http.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A4-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design `receiveIf(uri, data, { expectedVersion })` — conditional writes with optimistic locking\n- [ ] Add version tracking to records (or use content hash as version)\n- [ ] Update all client implementations to support conditional writes\n- [ ] Document concurrency model and recommended patterns"
+    },
+    {
+      "id": "G1-A4-03",
+      "title": "Document concurrency model and recommended patterns",
+      "group": "apps-possible",
+      "category": "concurrency",
+      "section": "A4",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "skills/b3nd/APP_COOKBOOK.md",
+        "skills/b3nd/FRAMEWORK.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A4-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design `receiveIf(uri, data, { expectedVersion })` — conditional writes with optimistic locking\n- [ ] Add version tracking to records (or use content hash as version)\n- [ ] Update all client implementations to support conditional writes\n- [ ] Document concurrency model and recommended patterns"
+    },
+    {
+      "id": "G1-A5-01",
+      "title": "Design WebSocket subscription protocol for real-time push",
+      "group": "apps-possible",
+      "category": "subscriptions",
+      "section": "A5",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "design+implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-core/types.ts",
+        "libs/b3nd-servers/ws.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A5-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design WebSocket subscription protocol (server-push for URI prefix changes)\n- [ ] Implement server-side: node tracks subscriptions, pushes matching messages\n- [ ] Implement `WebSocketClient` subscribe mode (beyond current request/response)\n- [ ] Add React hooks for subscriptions (`useSubscription(prefix)`)"
+    },
+    {
+      "id": "G1-A5-02",
+      "title": "Implement WebSocketClient subscribe mode",
+      "group": "apps-possible",
+      "category": "subscriptions",
+      "section": "A5",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-client-ws/mod.ts",
+        "libs/b3nd-core/types.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A5-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design WebSocket subscription protocol (server-push for URI prefix changes)\n- [ ] Implement server-side: node tracks subscriptions, pushes matching messages\n- [ ] Implement `WebSocketClient` subscribe mode (beyond current request/response)\n- [ ] Add React hooks for subscriptions (`useSubscription(prefix)`)"
+    },
+    {
+      "id": "G1-A5-03",
+      "title": "Add React hooks for real-time subscriptions",
+      "group": "apps-possible",
+      "category": "subscriptions",
+      "section": "A5",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "apps/b3nd-web-rig/src/hooks/useSubscription.ts",
+        "apps/b3nd-web-rig/src/hooks/useB3ndClient.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A5-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design WebSocket subscription protocol (server-push for URI prefix changes)\n- [ ] Implement server-side: node tracks subscriptions, pushes matching messages\n- [ ] Implement `WebSocketClient` subscribe mode (beyond current request/response)\n- [ ] Add React hooks for subscriptions (`useSubscription(prefix)`)"
+    },
+    {
+      "id": "G1-A6-01",
+      "title": "Define IndexerDefinition, IndexerBackend, and IndexQuery core types",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "critical",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/types.ts",
+        "libs/b3nd-indexer/mod.ts",
+        "libs/b3nd-indexer/deno.json"
+      ],
+      "tags": [],
+      "status": "in-progress",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "pr": {
+        "number": 18,
+        "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/18",
+        "state": "OPEN",
+        "title": "feat(indexer): define core types for indexer system"
+      },
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-02",
+      "title": "Implement Postgres IndexerBackend",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "critical",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/backends/postgres.ts",
+        "libs/b3nd-indexer/backends/postgres_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-03",
+      "title": "Implement createIndexerProcessor for compose integration",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "critical",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/processor.ts",
+        "libs/b3nd-indexer/processor_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-04",
+      "title": "Implement message feed and cursor-based event stream",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/feed.ts",
+        "libs/b3nd-indexer/cursor.ts",
+        "libs/b3nd-indexer/feed_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-05",
+      "title": "Implement indexer backfill mechanism",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/backfill.ts",
+        "libs/b3nd-indexer/backfill_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-05",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-06",
+      "title": "Implement IndexQuery filter, search, sort, and pagination",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/backends/postgres.ts",
+        "libs/b3nd-indexer/query_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-06",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-07",
+      "title": "Implement AggregationStage pipeline",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/backends/postgres.ts",
+        "libs/b3nd-indexer/aggregation_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-07",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-08",
+      "title": "Implement view key derivation and rotation for encrypted data indexing",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/viewkeys.ts",
+        "libs/b3nd-indexer/viewkeys_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-08",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-09",
+      "title": "Implement HTTP endpoints, mountIndexerRoutes, and HttpIndexerClient",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/http.ts",
+        "libs/b3nd-indexer/client.ts",
+        "libs/b3nd-indexer/http_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-09",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-10",
+      "title": "Implement React hooks for indexer queries",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "apps/b3nd-web-rig/src/hooks/useIndexedQuery.ts",
+        "apps/b3nd-web-rig/src/hooks/useIndexedSearch.ts",
+        "apps/b3nd-web-rig/src/hooks/useAggregation.ts",
+        "apps/b3nd-web-rig/src/hooks/useIndexerHealth.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-10",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-11",
+      "title": "Implement schema evolution and smart routing",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/evolution.ts",
+        "libs/b3nd-indexer/routing.ts",
+        "libs/b3nd-indexer/evolution_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-11",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A6-12",
+      "title": "Implement verifyIndexerResult for spot-check verification",
+      "group": "apps-possible",
+      "category": "indexer",
+      "section": "A6",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-indexer/verify.ts",
+        "libs/b3nd-indexer/verify_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A6-12",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+    },
+    {
+      "id": "G1-A7-01",
+      "title": "Fix private visibility warning and document privacy model",
+      "group": "apps-possible",
+      "category": "encryption",
+      "section": "A7",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "critical",
+      "scope": "documentation+implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-encrypt/mod.ts",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/FRAMEWORK.md",
+        "skills/b3nd/APP_COOKBOOK.md"
+      ],
+      "tags": [],
+      "status": "in-progress",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A7-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "pr": {
+        "number": 19,
+        "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/19",
+        "state": "OPEN",
+        "title": "docs(security): document privacy model and encryption patterns"
+      },
+      "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+    },
+    {
+      "id": "G1-A7-02",
+      "title": "Design and implement KeyBundle abstraction",
+      "group": "apps-possible",
+      "category": "encryption",
+      "section": "A7",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "design+implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-encrypt/keybundle.ts",
+        "libs/b3nd-encrypt/keybundle_test.ts",
+        "libs/b3nd-encrypt/mod.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A7-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+    },
+    {
+      "id": "G1-A7-03",
+      "title": "Design multi-device key sync mechanism",
+      "group": "apps-possible",
+      "category": "encryption",
+      "section": "A7",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design+implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-encrypt/sync.ts",
+        "libs/b3nd-encrypt/sync_test.ts",
+        "skills/b3nd/APP_COOKBOOK.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A7-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+    },
+    {
+      "id": "G1-A7-04",
+      "title": "Implement client.receiveEncrypted() helper",
+      "group": "apps-possible",
+      "category": "encryption",
+      "section": "A7",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-encrypt/helpers.ts",
+        "libs/b3nd-encrypt/helpers_test.ts",
+        "libs/b3nd-encrypt/mod.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A7-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+    },
+    {
+      "id": "G1-A7-05",
+      "title": "Design key rotation mechanism",
+      "group": "apps-possible",
+      "category": "encryption",
+      "section": "A7",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design+documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-encrypt/rotation.ts",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/APP_COOKBOOK.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A7-05",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+    },
+    {
+      "id": "G1-A8-01",
+      "title": "Document record size limits, send() atomicity, and verified namespace",
+      "group": "apps-possible",
+      "category": "documentation",
+      "section": "A8",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "documentation+investigation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "skills/b3nd/FRAMEWORK.md",
+        "skills/b3nd/APP_COOKBOOK.md",
+        "skills/b3nd/FIRECAT.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-A8-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Document maximum record sizes per node/backend type\n- [ ] Document `send()` atomicity guarantees (or lack thereof — are failed outputs after success rolled back?)\n- [ ] Document recommended pattern for building discovery indexes (including security tradeoffs of `mutable://open`)\n- [ ] Design integrity-protected public namespace (`mutable://verified` where writes require content-author signatures)"
+    },
+    {
+      "id": "G1-D1-01",
+      "title": "Create developer quickstart for building a Firecat app",
+      "group": "apps-possible",
+      "category": "documentation",
+      "section": "D1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "skills/b3nd/APP_COOKBOOK.md",
+        "skills/b3nd/FIRECAT.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-D1-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+    },
+    {
+      "id": "G1-D1-02",
+      "title": "Write discovery index patterns guide",
+      "group": "apps-possible",
+      "category": "documentation",
+      "section": "D1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "skills/b3nd/APP_COOKBOOK.md",
+        "skills/b3nd/FIRECAT.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-D1-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+    },
+    {
+      "id": "G1-D1-03",
+      "title": "Write standard encrypted write pattern and KeyBundle recipe documentation",
+      "group": "apps-possible",
+      "category": "documentation",
+      "section": "D1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "skills/b3nd/APP_COOKBOOK.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-D1-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+    },
+    {
+      "id": "G1-D2-01",
+      "title": "Build reference app: Recipe Book with indexer integration",
+      "group": "apps-possible",
+      "category": "reference-apps",
+      "section": "D2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "apps/reference-recipe-book/README.md",
+        "apps/reference-recipe-book/server.ts",
+        "apps/reference-recipe-book/schema.ts",
+        "apps/reference-recipe-book/indexer.ts",
+        "apps/reference-recipe-book/web/src/App.tsx"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-D2-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Build at least one complete reference app demonstrating Firecat capabilities (once indexer exists)\n- [ ] The PRD's three app designs (recipe book, encrypted journal, invoicing) are ready as reference implementations"
+    },
+    {
+      "id": "G1-D2-02",
+      "title": "Build reference app: Encrypted Journal",
+      "group": "apps-possible",
+      "category": "reference-apps",
+      "section": "D2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "apps/reference-encrypted-journal/README.md",
+        "apps/reference-encrypted-journal/server.ts",
+        "apps/reference-encrypted-journal/schema.ts",
+        "apps/reference-encrypted-journal/web/src/App.tsx"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-D2-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Build at least one complete reference app demonstrating Firecat capabilities (once indexer exists)\n- [ ] The PRD's three app designs (recipe book, encrypted journal, invoicing) are ready as reference implementations"
+    },
+    {
+      "id": "G1-D2-03",
+      "title": "Build reference app: Invoicing with message envelopes",
+      "group": "apps-possible",
+      "category": "reference-apps",
+      "section": "D2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "apps/reference-invoicing/README.md",
+        "apps/reference-invoicing/server.ts",
+        "apps/reference-invoicing/schema.ts",
+        "apps/reference-invoicing/indexer.ts",
+        "apps/reference-invoicing/web/src/App.tsx"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G1-D2-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Build at least one complete reference app demonstrating Firecat capabilities (once indexer exists)\n- [ ] The PRD's three app designs (recipe book, encrypted journal, invoicing) are ready as reference implementations"
+    },
+    {
+      "id": "G2-A1-01",
+      "title": "Harden respondTo() with error recovery and edge case handling",
+      "group": "nodes-talk",
+      "category": "compose-primitives",
+      "section": "A1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-listener/mod.ts",
+        "libs/b3nd-listener/listener.test.ts"
+      ],
+      "tags": [],
+      "status": "in-progress",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A1-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "pr": {
+        "number": 15,
+        "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/15",
+        "state": "OPEN",
+        "title": "feat(listener): harden respondTo() error handling"
+      },
+      "tasksExcerpt": "- [ ] Implement `respondTo(handler, opts)` — wrap a handler as a compose `Processor` (decrypt → call → encrypt → route)\n- [ ] Implement `connect(remote, opts)` — bridge a handler to a remote node (polling transport, cursor tracking, dedup)\n- [ ] Rebuild `b3nd-listener` on top of `respondTo()` + `connect()` instead of parallel custom system\n- [ ] Define `subscribe(remote, opts)` interface for future WebSocket transport (deferred, but interface should be reserved)"
+    },
+    {
+      "id": "G2-A1-02",
+      "title": "Add cursor-based tracking and bounded memory to connect()",
+      "group": "nodes-talk",
+      "category": "compose-primitives",
+      "section": "A1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-listener/mod.ts",
+        "libs/b3nd-listener/listener.test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A1-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `respondTo(handler, opts)` — wrap a handler as a compose `Processor` (decrypt → call → encrypt → route)\n- [ ] Implement `connect(remote, opts)` — bridge a handler to a remote node (polling transport, cursor tracking, dedup)\n- [ ] Rebuild `b3nd-listener` on top of `respondTo()` + `connect()` instead of parallel custom system\n- [ ] Define `subscribe(remote, opts)` interface for future WebSocket transport (deferred, but interface should be reserved)"
+    },
+    {
+      "id": "G2-A1-03",
+      "title": "Rebuild b3nd-listener module exports on respondTo + connect",
+      "group": "nodes-talk",
+      "category": "compose-primitives",
+      "section": "A1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-listener/mod.ts",
+        "libs/b3nd-listener/listener.test.ts",
+        "apps/vault-listener/mod.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A1-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `respondTo(handler, opts)` — wrap a handler as a compose `Processor` (decrypt → call → encrypt → route)\n- [ ] Implement `connect(remote, opts)` — bridge a handler to a remote node (polling transport, cursor tracking, dedup)\n- [ ] Rebuild `b3nd-listener` on top of `respondTo()` + `connect()` instead of parallel custom system\n- [ ] Define `subscribe(remote, opts)` interface for future WebSocket transport (deferred, but interface should be reserved)"
+    },
+    {
+      "id": "G2-A1-04",
+      "title": "Define subscribe() interface for future WebSocket transport",
+      "group": "nodes-talk",
+      "category": "compose-primitives",
+      "section": "A1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-listener/mod.ts",
+        "libs/b3nd-compose/types.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A1-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `respondTo(handler, opts)` — wrap a handler as a compose `Processor` (decrypt → call → encrypt → route)\n- [ ] Implement `connect(remote, opts)` — bridge a handler to a remote node (polling transport, cursor tracking, dedup)\n- [ ] Rebuild `b3nd-listener` on top of `respondTo()` + `connect()` instead of parallel custom system\n- [ ] Define `subscribe(remote, opts)` interface for future WebSocket transport (deferred, but interface should be reserved)"
+    },
+    {
+      "id": "G2-A2-01",
+      "title": "Implement pendingValidator, attestationValidator, rejectionValidator",
+      "group": "nodes-talk",
+      "category": "confirmation-protocol",
+      "section": "A2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/validators.ts",
+        "libs/firecat-protocol/validators_test.ts",
+        "libs/firecat-protocol/constants.ts",
+        "libs/firecat-protocol/mod.ts"
+      ],
+      "tags": [],
+      "status": "in-progress",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A2-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "pr": {
+        "number": 20,
+        "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/20",
+        "state": "OPEN",
+        "title": "feat(firecat): implement confirmation protocol validators"
+      },
+      "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+    },
+    {
+      "id": "G2-A2-02",
+      "title": "Implement confirmationValidator with threshold counting and configurable threshold",
+      "group": "nodes-talk",
+      "category": "confirmation-protocol",
+      "section": "A2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/validators.ts",
+        "libs/firecat-protocol/validators_test.ts",
+        "libs/firecat-protocol/constants.ts",
+        "libs/firecat-protocol/mod.ts",
+        "libs/b3nd-core/types.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A2-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+    },
+    {
+      "id": "G2-A2-03",
+      "title": "Wire pending marker into node receive pipeline for consensus messages",
+      "group": "nodes-talk",
+      "category": "confirmation-protocol",
+      "section": "A2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/mod.ts",
+        "libs/firecat-protocol/helpers.ts",
+        "libs/firecat-protocol/validators.ts",
+        "libs/firecat-protocol/confirmation.ts",
+        "libs/firecat-protocol/confirmation_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A2-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+    },
+    {
+      "id": "G2-A2-04",
+      "title": "Define static validator set mechanism and attestation authorization",
+      "group": "nodes-talk",
+      "category": "confirmation-protocol",
+      "section": "A2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/constants.ts",
+        "libs/firecat-protocol/validators.ts",
+        "libs/firecat-protocol/validators_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A2-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+    },
+    {
+      "id": "G2-A2-05",
+      "title": "Implement node discovery loop and attestation/rejection writer",
+      "group": "nodes-talk",
+      "category": "confirmation-protocol",
+      "section": "A2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/confirmation.ts",
+        "libs/firecat-protocol/confirmation_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A2-05",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+    },
+    {
+      "id": "G2-A2-06",
+      "title": "Implement replayValidation() for envelope re-validation",
+      "group": "nodes-talk",
+      "category": "confirmation-protocol",
+      "section": "A2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/confirmation.ts",
+        "libs/firecat-protocol/confirmation_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A2-06",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+    },
+    {
+      "id": "G2-A2-07",
+      "title": "Implement finalization race handling and confirmation writer",
+      "group": "nodes-talk",
+      "category": "confirmation-protocol",
+      "section": "A2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/confirmation.ts",
+        "libs/firecat-protocol/confirmation_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A2-07",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+    },
+    {
+      "id": "G2-A2-08",
+      "title": "Implement waitForConfirmation() client helper",
+      "group": "nodes-talk",
+      "category": "confirmation-protocol",
+      "section": "A2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/helpers.ts",
+        "libs/firecat-protocol/helpers_test.ts",
+        "libs/firecat-protocol/mod.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A2-08",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+    },
+    {
+      "id": "G2-A2-09",
+      "title": "Design dynamic validator registry at mutable://accounts/{operatorKey}/validators/",
+      "group": "nodes-talk",
+      "category": "confirmation-protocol",
+      "section": "A2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/CONFIRMATION.md",
+        "libs/firecat-protocol/constants.ts",
+        "libs/firecat-protocol/validators.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A2-09",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+    },
+    {
+      "id": "G2-A3-01",
+      "title": "Implement consensusSlotValidator for era/block/slot timing validation",
+      "group": "nodes-talk",
+      "category": "temporal-consensus",
+      "section": "A3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/validators.ts",
+        "libs/firecat-protocol/validators_test.ts",
+        "libs/firecat-protocol/constants.ts",
+        "libs/firecat-protocol/mod.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A3-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+    },
+    {
+      "id": "G2-A3-02",
+      "title": "Design node identity, registration resources, and shift ID mechanism",
+      "group": "nodes-talk",
+      "category": "temporal-consensus",
+      "section": "A3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/README.md",
+        "libs/firecat-protocol/CONFIRMATION.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A3-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+    },
+    {
+      "id": "G2-A3-03",
+      "title": "Design timing and liveness rules for era/block/slot enforcement",
+      "group": "nodes-talk",
+      "category": "temporal-consensus",
+      "section": "A3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/README.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A3-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+    },
+    {
+      "id": "G2-A3-04",
+      "title": "Design reward distribution mechanism for validators, confirmers, and producers",
+      "group": "nodes-talk",
+      "category": "temporal-consensus",
+      "section": "A3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/README.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A3-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+    },
+    {
+      "id": "G2-A3-05",
+      "title": "Design reorg and finality rules for the temporal consensus layer",
+      "group": "nodes-talk",
+      "category": "temporal-consensus",
+      "section": "A3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/README.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A3-05",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+    },
+    {
+      "id": "G2-A3-06",
+      "title": "Design spam prevention for consensus process",
+      "group": "nodes-talk",
+      "category": "temporal-consensus",
+      "section": "A3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/README.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-A3-06",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+    },
+    {
+      "id": "G2-E1-01",
+      "title": "Test and harden peer replication across multiple b3nd-nodes",
+      "group": "nodes-talk",
+      "category": "multi-node-ops",
+      "section": "E1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-managed-node/peer-replication.ts",
+        "libs/b3nd-managed-node/peer-replication.test.ts",
+        "libs/b3nd-compose/composition.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-E1-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Test and harden peer replication across multiple b3nd-nodes\n- [ ] Test confirmation protocol across 3+ nodes\n- [ ] Implement managed-node improvements (node builder, config watcher, heartbeat — libs exist but integration unclear)\n- [ ] Set up multi-node staging environment"
+    },
+    {
+      "id": "G2-E1-02",
+      "title": "Test confirmation protocol across 3+ simulated nodes",
+      "group": "nodes-talk",
+      "category": "multi-node-ops",
+      "section": "E1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/confirmation_test.ts",
+        "libs/firecat-protocol/confirmation.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-E1-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Test and harden peer replication across multiple b3nd-nodes\n- [ ] Test confirmation protocol across 3+ nodes\n- [ ] Implement managed-node improvements (node builder, config watcher, heartbeat — libs exist but integration unclear)\n- [ ] Set up multi-node staging environment"
+    },
+    {
+      "id": "G2-E1-03",
+      "title": "Integrate managed-node components: builder, config watcher, heartbeat",
+      "group": "nodes-talk",
+      "category": "multi-node-ops",
+      "section": "E1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-managed-node/mod.ts",
+        "apps/b3nd-node/mod.ts",
+        "libs/b3nd-managed-node/node-builder.ts",
+        "libs/b3nd-managed-node/config-watcher.ts",
+        "libs/b3nd-managed-node/heartbeat.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-E1-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Test and harden peer replication across multiple b3nd-nodes\n- [ ] Test confirmation protocol across 3+ nodes\n- [ ] Implement managed-node improvements (node builder, config watcher, heartbeat — libs exist but integration unclear)\n- [ ] Set up multi-node staging environment"
+    },
+    {
+      "id": "G2-E1-04",
+      "title": "Set up multi-node staging environment with Docker Compose",
+      "group": "nodes-talk",
+      "category": "multi-node-ops",
+      "section": "E1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docker-compose.staging.yml",
+        "scripts/staging-setup.sh",
+        "apps/b3nd-node/Dockerfile"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G2-E1-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Test and harden peer replication across multiple b3nd-nodes\n- [ ] Test confirmation protocol across 3+ nodes\n- [ ] Implement managed-node improvements (node builder, config watcher, heartbeat — libs exist but integration unclear)\n- [ ] Set up multi-node staging environment"
+    },
+    {
+      "id": "G3-B1-01",
+      "title": "Implement gas://utxo program validators",
+      "group": "make-it-pay",
+      "category": "gas-schema",
+      "section": "B1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-validators.ts",
+        "libs/firecat-protocol/gas-constants.ts",
+        "libs/firecat-protocol/gas-helpers.ts",
+        "libs/firecat-protocol/gas-validators_test.ts"
+      ],
+      "tags": [],
+      "status": "in-progress",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B1-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "pr": {
+        "number": 17,
+        "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/17",
+        "state": "OPEN",
+        "title": "feat(firecat): implement gas://utxo program validators"
+      },
+      "tasksExcerpt": "- [ ] Implement `gas://utxo` program validators (creation, consumption, ownership verification)\n- [ ] Implement UTXO existence and unspent checks\n- [ ] Implement fee output validation (amount conservation: input amounts ≥ output amounts)\n- [ ] Implement `gas://rates` program (static fee rates per program key)\n- [ ] Implement `gas://faucet` program (one-time claim with PoW verification)\n- [ ] Define `confirmation://checkpoints` schema and convention\n- [ ] Create test token minting mechanism (self"
+    },
+    {
+      "id": "G3-B1-02",
+      "title": "Implement fee output validation and amount conservation",
+      "group": "make-it-pay",
+      "category": "gas-schema",
+      "section": "B1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-validators.ts",
+        "libs/firecat-protocol/gas-helpers.ts",
+        "libs/firecat-protocol/gas-constants.ts",
+        "libs/firecat-protocol/gas-validators_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B1-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `gas://utxo` program validators (creation, consumption, ownership verification)\n- [ ] Implement UTXO existence and unspent checks\n- [ ] Implement fee output validation (amount conservation: input amounts ≥ output amounts)\n- [ ] Implement `gas://rates` program (static fee rates per program key)\n- [ ] Implement `gas://faucet` program (one-time claim with PoW verification)\n- [ ] Define `confirmation://checkpoints` schema and convention\n- [ ] Create test token minting mechanism (self"
+    },
+    {
+      "id": "G3-B1-03",
+      "title": "Implement gas://faucet and gas://rates programs",
+      "group": "make-it-pay",
+      "category": "gas-schema",
+      "section": "B1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-validators.ts",
+        "libs/firecat-protocol/gas-constants.ts",
+        "libs/firecat-protocol/gas-helpers.ts",
+        "libs/firecat-protocol/gas-validators_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B1-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `gas://utxo` program validators (creation, consumption, ownership verification)\n- [ ] Implement UTXO existence and unspent checks\n- [ ] Implement fee output validation (amount conservation: input amounts ≥ output amounts)\n- [ ] Implement `gas://rates` program (static fee rates per program key)\n- [ ] Implement `gas://faucet` program (one-time claim with PoW verification)\n- [ ] Define `confirmation://checkpoints` schema and convention\n- [ ] Create test token minting mechanism (self"
+    },
+    {
+      "id": "G3-B1-04",
+      "title": "Compose gas validators with Firecat schema and define checkpoint convention",
+      "group": "make-it-pay",
+      "category": "gas-schema",
+      "section": "B1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/mod.ts",
+        "libs/firecat-protocol/gas-validators.ts",
+        "libs/firecat-protocol/gas-schema_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B1-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `gas://utxo` program validators (creation, consumption, ownership verification)\n- [ ] Implement UTXO existence and unspent checks\n- [ ] Implement fee output validation (amount conservation: input amounts ≥ output amounts)\n- [ ] Implement `gas://rates` program (static fee rates per program key)\n- [ ] Implement `gas://faucet` program (one-time claim with PoW verification)\n- [ ] Define `confirmation://checkpoints` schema and convention\n- [ ] Create test token minting mechanism (self"
+    },
+    {
+      "id": "G3-B2-01",
+      "title": "Implement UTXO tracking with unspent set maintenance",
+      "group": "make-it-pay",
+      "category": "gas-runtime",
+      "section": "B2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-tracker.ts",
+        "libs/firecat-protocol/gas-tracker_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B2-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement UTXO tracking (unspent set maintenance, consumption detection)\n- [ ] Implement fee calculation engine (base_fee per program + size_fee per KB)\n- [ ] Implement checkpoint hash chain (single validator producing `confirmation://checkpoints/{validatorKey}/{sequence}`)\n- [ ] Implement sponsor assembly flow (partial messages without gas → sponsor attaches UTXO → validator confirms)\n- [ ] Implement adaptive fee rates (congestion-based adjustment at epoch boundaries)\n- [ ] Implement free"
+    },
+    {
+      "id": "G3-B2-02",
+      "title": "Implement fee calculation engine with program-based rates",
+      "group": "make-it-pay",
+      "category": "gas-runtime",
+      "section": "B2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-fee-engine.ts",
+        "libs/firecat-protocol/gas-fee-engine_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B2-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement UTXO tracking (unspent set maintenance, consumption detection)\n- [ ] Implement fee calculation engine (base_fee per program + size_fee per KB)\n- [ ] Implement checkpoint hash chain (single validator producing `confirmation://checkpoints/{validatorKey}/{sequence}`)\n- [ ] Implement sponsor assembly flow (partial messages without gas → sponsor attaches UTXO → validator confirms)\n- [ ] Implement adaptive fee rates (congestion-based adjustment at epoch boundaries)\n- [ ] Implement free"
+    },
+    {
+      "id": "G3-B2-03",
+      "title": "Implement checkpoint hash chain for single-validator",
+      "group": "make-it-pay",
+      "category": "gas-runtime",
+      "section": "B2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-checkpoint.ts",
+        "libs/firecat-protocol/gas-checkpoint_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B2-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement UTXO tracking (unspent set maintenance, consumption detection)\n- [ ] Implement fee calculation engine (base_fee per program + size_fee per KB)\n- [ ] Implement checkpoint hash chain (single validator producing `confirmation://checkpoints/{validatorKey}/{sequence}`)\n- [ ] Implement sponsor assembly flow (partial messages without gas → sponsor attaches UTXO → validator confirms)\n- [ ] Implement adaptive fee rates (congestion-based adjustment at epoch boundaries)\n- [ ] Implement free"
+    },
+    {
+      "id": "G3-B2-04",
+      "title": "Implement sponsor assembly flow and PoW faucet runtime",
+      "group": "make-it-pay",
+      "category": "gas-runtime",
+      "section": "B2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-sponsor.ts",
+        "libs/firecat-protocol/gas-sponsor_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B2-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement UTXO tracking (unspent set maintenance, consumption detection)\n- [ ] Implement fee calculation engine (base_fee per program + size_fee per KB)\n- [ ] Implement checkpoint hash chain (single validator producing `confirmation://checkpoints/{validatorKey}/{sequence}`)\n- [ ] Implement sponsor assembly flow (partial messages without gas → sponsor attaches UTXO → validator confirms)\n- [ ] Implement adaptive fee rates (congestion-based adjustment at epoch boundaries)\n- [ ] Implement free"
+    },
+    {
+      "id": "G3-B2-05",
+      "title": "Implement adaptive fee rates with congestion-based adjustment",
+      "group": "make-it-pay",
+      "category": "gas-runtime",
+      "section": "B2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-fee-engine.ts",
+        "libs/firecat-protocol/gas-adaptive-rates.ts",
+        "libs/firecat-protocol/gas-adaptive-rates_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B2-05",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement UTXO tracking (unspent set maintenance, consumption detection)\n- [ ] Implement fee calculation engine (base_fee per program + size_fee per KB)\n- [ ] Implement checkpoint hash chain (single validator producing `confirmation://checkpoints/{validatorKey}/{sequence}`)\n- [ ] Implement sponsor assembly flow (partial messages without gas → sponsor attaches UTXO → validator confirms)\n- [ ] Implement adaptive fee rates (congestion-based adjustment at epoch boundaries)\n- [ ] Implement free"
+    },
+    {
+      "id": "G3-B3-01",
+      "title": "Replicate gas UTXOs and checkpoints across peers",
+      "group": "make-it-pay",
+      "category": "gas-multinode",
+      "section": "B3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "design+implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-replication.ts",
+        "libs/firecat-protocol/gas-replication_test.ts",
+        "docs/book/consensus/gas-replication.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B3-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+    },
+    {
+      "id": "G3-B3-02",
+      "title": "Implement cross-node UTXO consumption detection and double-spend resolution",
+      "group": "make-it-pay",
+      "category": "gas-multinode",
+      "section": "B3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "design+implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-double-spend.ts",
+        "libs/firecat-protocol/gas-double-spend_test.ts",
+        "docs/book/consensus/double-spend-resolution.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B3-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+    },
+    {
+      "id": "G3-B3-03",
+      "title": "Implement relay proof recording and relay acknowledgments",
+      "group": "make-it-pay",
+      "category": "gas-multinode",
+      "section": "B3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-relay.ts",
+        "libs/firecat-protocol/gas-relay_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B3-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+    },
+    {
+      "id": "G3-B3-04",
+      "title": "Implement operator staking and stratified validation",
+      "group": "make-it-pay",
+      "category": "gas-multinode",
+      "section": "B3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design+implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-staking.ts",
+        "libs/firecat-protocol/gas-staking_test.ts",
+        "docs/book/consensus/staking-design.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B3-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+    },
+    {
+      "id": "G3-B3-05",
+      "title": "Implement withdraw programs with validation proof",
+      "group": "make-it-pay",
+      "category": "gas-multinode",
+      "section": "B3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/gas-withdraw.ts",
+        "libs/firecat-protocol/gas-withdraw_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B3-05",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+    },
+    {
+      "id": "G3-B4-01",
+      "title": "Resolve economic design decisions: fee structure, consolidation, consensus model",
+      "group": "make-it-pay",
+      "category": "economic-design",
+      "section": "B4",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/economic-design-decisions.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B4-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Decide: encryption surcharge yes/no (recommendation in doc: bundle into base fee)\n- [ ] Design UTXO consolidation mechanism (merge many small UTXOs into one)\n- [ ] Decide: who sets fee rates initially (recommendation: protocol-fixed, move to algorithmic)\n- [ ] Design relay reward anti-gaming (make relay rewards bonus on validation, not standalone)\n- [ ] Decide: consensus model for gas partition (single validator vs multi-validator quorum vs path-range)\n- [ ] Design token distribution plan "
+    },
+    {
+      "id": "G3-B5-01",
+      "title": "Design ad campaign matching algorithm and settlement epoch mechanism",
+      "group": "make-it-pay",
+      "category": "ad-revenue",
+      "section": "B5",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/ad-campaign-matching.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B5-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design ad campaign matching algorithm (how listener nodes match campaigns to user sessions)\n- [ ] Design settlement epoch mechanism (how epochs trigger, how distribution is calculated and verified)\n- [ ] Design reputation system formula (score calculation, decay, flagging)\n- [ ] Design attestation ecosystem (who runs verification services, how users collect attestations, cost structure)\n- [ ] Define token withdrawal mechanics parameters (cliff, minimum threshold, gradual disbursement — cur"
+    },
+    {
+      "id": "G3-B5-02",
+      "title": "Design reputation system formula and attestation ecosystem",
+      "group": "make-it-pay",
+      "category": "ad-revenue",
+      "section": "B5",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/reputation-attestation.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B5-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design ad campaign matching algorithm (how listener nodes match campaigns to user sessions)\n- [ ] Design settlement epoch mechanism (how epochs trigger, how distribution is calculated and verified)\n- [ ] Design reputation system formula (score calculation, decay, flagging)\n- [ ] Design attestation ecosystem (who runs verification services, how users collect attestations, cost structure)\n- [ ] Define token withdrawal mechanics parameters (cliff, minimum threshold, gradual disbursement — cur"
+    },
+    {
+      "id": "G3-B5-03",
+      "title": "Define withdrawal mechanics parameters and gas price adaptation formula",
+      "group": "make-it-pay",
+      "category": "ad-revenue",
+      "section": "B5",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/withdrawal-and-gas-adaptation.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-B5-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design ad campaign matching algorithm (how listener nodes match campaigns to user sessions)\n- [ ] Design settlement epoch mechanism (how epochs trigger, how distribution is calculated and verified)\n- [ ] Design reputation system formula (score calculation, decay, flagging)\n- [ ] Design attestation ecosystem (who runs verification services, how users collect attestations, cost structure)\n- [ ] Define token withdrawal mechanics parameters (cliff, minimum threshold, gradual disbursement — cur"
+    },
+    {
+      "id": "G3-C1-01",
+      "title": "Design external chain token structure: FCAT, xFCAT supply ratios and bridge AMM",
+      "group": "make-it-pay",
+      "category": "token-bridge",
+      "section": "C1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/external-chain-design.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-C1-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Finalize FCAT / xFCAT supply ratios (1:1:2 vs 1:1:1 vs other)\n- [ ] Design bridge AMM parameters (pool type, fee rate, fee destination, protocol-owned vs external LPs)\n- [ ] Design Solana deposit program (simple lockbox vs complex vault, what happens to locked FCAT)\n- [ ] Decide xFCAT initial distribution (liquidity pools vs foundation vs community vs market makers)"
+    },
+    {
+      "id": "G3-C2-01",
+      "title": "Design B3nd native economy: supply distribution, protocol locks, and network fund",
+      "group": "make-it-pay",
+      "category": "native-economy",
+      "section": "C2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/native-economy-design.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-C2-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Finalize B3ND preminted supply and distribution across pools (bridge escrow, reward, foundation, community)\n- [ ] Design protocol lock conditions for earned UTXOs (ad revenue locks, relay locks, reputation-gated locks)\n- [ ] Design Network Fund rules (% of gas fees to fund, dynamic rate based on fund fullness, maximum balance)\n- [ ] Design fund lifecycle transitions (genesis → growth → mature)\n- [ ] Design withdraw program conditions (time delay, work proof requirements)"
+    },
+    {
+      "id": "G3-C3-01",
+      "title": "Implement solana://tx validator and deposit verification flow",
+      "group": "make-it-pay",
+      "category": "bridge-implementation",
+      "section": "C3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/firecat-protocol/bridge-validators.ts",
+        "libs/firecat-protocol/bridge-helpers.ts",
+        "libs/firecat-protocol/bridge-validators_test.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-C3-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `solana://tx/{signature}` URI program and validator\n- [ ] Implement deposit verification flow (read Solana RPC, confirm transaction, issue B3ND UTXO)\n- [ ] Implement double-deposit prevention (URI uniqueness on transaction signature)\n- [ ] Design withdrawal market messaging protocol (how users find providers, negotiate, settle)\n- [ ] Design multi-token settlement patterns (xFCAT, FCAT, USDC, SOL paths)"
+    },
+    {
+      "id": "G3-C3-02",
+      "title": "Design withdrawal market protocol and multi-token settlement patterns",
+      "group": "make-it-pay",
+      "category": "bridge-implementation",
+      "section": "C3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/withdrawal-market-design.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-C3-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Implement `solana://tx/{signature}` URI program and validator\n- [ ] Implement deposit verification flow (read Solana RPC, confirm transaction, issue B3ND UTXO)\n- [ ] Implement double-deposit prevention (URI uniqueness on transaction signature)\n- [ ] Design withdrawal market messaging protocol (how users find providers, negotiate, settle)\n- [ ] Design multi-token settlement patterns (xFCAT, FCAT, USDC, SOL paths)"
+    },
+    {
+      "id": "G3-C4-01",
+      "title": "Model token supply dynamics and adversarial scenarios for TGE",
+      "group": "make-it-pay",
+      "category": "tge-planning",
+      "section": "C4",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/tge-supply-modeling.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-C4-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Model supply dynamics across three pools (FCAT on Solana, xFCAT on Solana, B3ND on B3nd)\n- [ ] Model equilibrium dynamics (bridge AMM peg, protocol locks vs circulating, fund refill, withdrawal pricing)\n- [ ] Perform adversarial analysis validation (test deposit drain, xFCAT corner, recycling grinder, scorched earth scenarios with real numbers)\n- [ ] Design mintability rules if adopted (verifiable conditions tied to network activity)\n\n---\n\n## D. Product & Apps"
+    },
+    {
+      "id": "G3-C4-02",
+      "title": "Design mintability rules tied to network activity",
+      "group": "make-it-pay",
+      "category": "tge-planning",
+      "section": "C4",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/mintability-rules.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-C4-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Model supply dynamics across three pools (FCAT on Solana, xFCAT on Solana, B3ND on B3nd)\n- [ ] Model equilibrium dynamics (bridge AMM peg, protocol locks vs circulating, fund refill, withdrawal pricing)\n- [ ] Perform adversarial analysis validation (test deposit drain, xFCAT corner, recycling grinder, scorched earth scenarios with real numbers)\n- [ ] Design mintability rules if adopted (verifiable conditions tied to network activity)\n\n---\n\n## D. Product & Apps"
+    },
+    {
+      "id": "G3-G1-01",
+      "title": "Validate economic model assumptions and model operator break-even",
+      "group": "make-it-pay",
+      "category": "economic-validation",
+      "section": "G1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/economic-model-validation.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-G1-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Validate advertiser willingness assumptions (CPM targeting feasibility, engagement measurement)\n- [ ] Model foundation subsidy runway (how long can foundation sustain network at various user counts)\n- [ ] Define decision points (at what user count / revenue level do we transition from subsidy to self-sustaining?)\n- [ ] Model operator break-even (document says operators lose money below 10K users at $0.25 CPM)\n- [ ] Design cold-start strategy details (which apps first, how to incentivize bu"
+    },
+    {
+      "id": "G3-G1-02",
+      "title": "Design detailed cold-start strategy and builder incentive program",
+      "group": "make-it-pay",
+      "category": "economic-validation",
+      "section": "G1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/cold-start-strategy.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-G1-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Validate advertiser willingness assumptions (CPM targeting feasibility, engagement measurement)\n- [ ] Model foundation subsidy runway (how long can foundation sustain network at various user counts)\n- [ ] Define decision points (at what user count / revenue level do we transition from subsidy to self-sustaining?)\n- [ ] Model operator break-even (document says operators lose money below 10K users at $0.25 CPM)\n- [ ] Design cold-start strategy details (which apps first, how to incentivize bu"
+    },
+    {
+      "id": "G3-G2-01",
+      "title": "Token launch strategy: legal, distribution, liquidity, and exchange listing",
+      "group": "make-it-pay",
+      "category": "token-launch",
+      "section": "G2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/consensus/token-launch-strategy.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G3-G2-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Legal/compliance review for token issuance\n- [ ] Token distribution plan\n- [ ] Market maker / liquidity strategy\n- [ ] Exchange listing strategy"
+    },
+    {
+      "id": "G4-D1-01",
+      "title": "Write privacy warning, record size limits, and send() atomicity documentation",
+      "group": "tell-the-story",
+      "category": "dev-docs",
+      "section": "D1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/FRAMEWORK.md",
+        "skills/b3nd/FAQ.md",
+        "docs/guides/encryption-and-privacy.md",
+        "libs/b3nd-encrypt/mod.ts",
+        "libs/b3nd-msg/data/send.ts",
+        "libs/b3nd-servers/http.ts"
+      ],
+      "tags": [],
+      "status": "in-progress",
+      "uri": "mutable://open/rig/roadmap/stories/G4-D1-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "pr": {
+        "number": 16,
+        "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/16",
+        "state": "OPEN",
+        "title": "docs: add privacy warning, record size limits, and send() atomicity docs"
+      },
+      "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+    },
+    {
+      "id": "G4-D1-02",
+      "title": "Write KeyBundle recipe and standard encrypted write pattern documentation",
+      "group": "tell-the-story",
+      "category": "dev-docs",
+      "section": "D1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "skills/b3nd/APP_COOKBOOK.md",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/FRAMEWORK.md",
+        "libs/b3nd-auth/mod.ts",
+        "libs/b3nd-encrypt/mod.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-D1-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+    },
+    {
+      "id": "G4-D1-03",
+      "title": "Write discovery index patterns guide with mutable://open security tradeoffs",
+      "group": "tell-the-story",
+      "category": "dev-docs",
+      "section": "D1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "skills/b3nd/APP_COOKBOOK.md",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/FAQ.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-D1-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+    },
+    {
+      "id": "G4-D1-04",
+      "title": "Create end-to-end developer quickstart: from key creation to deployed Firecat app",
+      "group": "tell-the-story",
+      "category": "dev-docs",
+      "section": "D1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/guides/quickstart-firecat-app.md",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/APP_COOKBOOK.md",
+        "apps/b3nd-web-rig/"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-D1-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+    },
+    {
+      "id": "G4-F1-01",
+      "title": "Review book chapters 1-9 (Parts I & II) for completeness and three-layer scaffold",
+      "group": "tell-the-story",
+      "category": "book",
+      "section": "F1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/README.md",
+        "docs/book/01-two-friends.md",
+        "docs/book/02-the-setting-is-the-trust.md",
+        "docs/book/03-who-is-speaking.md",
+        "docs/book/04-witnesses-and-formality.md",
+        "docs/book/05-the-limits-of-presence.md",
+        "docs/book/06-the-message-is-born.md",
+        "docs/book/07-the-address-and-the-content.md",
+        "docs/book/08-seals-and-signatures.md",
+        "docs/book/09-secrets-and-sealed-envelopes.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-F1-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Review all 16 chapters for completeness and consistency with current protocol state\n- [ ] Ensure three-layer scaffold is used consistently in every chapter from Part II onward\n- [ ] Review cookbook chapter (Ch 16) against actual current SDK API\n- [ ] Publish/distribute (web reader in rig? PDF? separate site?)"
+    },
+    {
+      "id": "G4-F1-02",
+      "title": "Review book chapters 10-15 (Part III) for protocol consistency and scaffold usage",
+      "group": "tell-the-story",
+      "category": "book",
+      "section": "F1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/10-the-machine-that-reads-mail.md",
+        "docs/book/11-dialogue-at-the-speed-of-light.md",
+        "docs/book/12-making-deals.md",
+        "docs/book/13-building-consensus.md",
+        "docs/book/14-bending-the-machine.md",
+        "docs/book/15-everything-is-a-message.md",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/FRAMEWORK.md",
+        "libs/firecat-protocol/"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-F1-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Review all 16 chapters for completeness and consistency with current protocol state\n- [ ] Ensure three-layer scaffold is used consistently in every chapter from Part II onward\n- [ ] Review cookbook chapter (Ch 16) against actual current SDK API\n- [ ] Publish/distribute (web reader in rig? PDF? separate site?)"
+    },
+    {
+      "id": "G4-F1-03",
+      "title": "Review and update cookbook chapter (Ch 16) against current SDK API",
+      "group": "tell-the-story",
+      "category": "book",
+      "section": "F1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/16-cookbook.md",
+        "skills/b3nd/APP_COOKBOOK.md",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/FRAMEWORK.md",
+        "libs/b3nd-core/types.ts",
+        "libs/b3nd-msg/data/send.ts",
+        "libs/b3nd-auth/mod.ts",
+        "libs/b3nd-encrypt/mod.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-F1-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Review all 16 chapters for completeness and consistency with current protocol state\n- [ ] Ensure three-layer scaffold is used consistently in every chapter from Part II onward\n- [ ] Review cookbook chapter (Ch 16) against actual current SDK API\n- [ ] Publish/distribute (web reader in rig? PDF? separate site?)"
+    },
+    {
+      "id": "G4-F1-04",
+      "title": "Design and document book publishing/distribution plan",
+      "group": "tell-the-story",
+      "category": "book",
+      "section": "F1",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/book/README.md",
+        "apps/b3nd-web-rig/"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-F1-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Review all 16 chapters for completeness and consistency with current protocol state\n- [ ] Ensure three-layer scaffold is used consistently in every chapter from Part II onward\n- [ ] Review cookbook chapter (Ch 16) against actual current SDK API\n- [ ] Publish/distribute (web reader in rig? PDF? separate site?)"
+    },
+    {
+      "id": "G4-F2-01",
+      "title": "Review b3nd.dev and fire.cat websites against current SDK and protocol state",
+      "group": "tell-the-story",
+      "category": "websites",
+      "section": "F2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "apps/website/index.html",
+        "apps/website/COPY_STUDY.md",
+        "apps/website/DESIGN_GUIDANCE.md",
+        "apps/firecat-website/index.html",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/FRAMEWORK.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-F2-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Review b3nd.dev content against current SDK state\n- [ ] Review fire.cat content against current protocol state\n- [ ] Write developer-facing documentation pages\n- [ ] Create getting-started guides"
+    },
+    {
+      "id": "G4-F2-02",
+      "title": "Write developer-facing documentation pages and getting-started guides",
+      "group": "tell-the-story",
+      "category": "websites",
+      "section": "F2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "high",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/guides/getting-started.md",
+        "docs/guides/building-your-first-app.md",
+        "docs/guides/authentication.md",
+        "docs/guides/encryption-and-privacy.md",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/APP_COOKBOOK.md",
+        "skills/b3nd/FRAMEWORK.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-F2-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Review b3nd.dev content against current SDK state\n- [ ] Review fire.cat content against current protocol state\n- [ ] Write developer-facing documentation pages\n- [ ] Create getting-started guides"
+    },
+    {
+      "id": "G4-F3-01",
+      "title": "Write validator/operator recruitment materials and app builder pitch",
+      "group": "tell-the-story",
+      "category": "community",
+      "section": "F3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/community/operator-guide.md",
+        "docs/community/builder-pitch.md",
+        "skills/b3nd/OPERATORS.md",
+        "skills/b3nd/NODE_COOKBOOK.md",
+        "docs/proposals/firecat-economic-model.md",
+        "docs/proposals/tokenization-gas-semantics.md",
+        "apps/firecat-website/index.html"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-F3-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Write validator/operator recruitment materials (what it takes to run a node, what you earn)\n- [ ] Write app builder pitch (why build on Firecat vs alternatives)\n\n---\n\n## G. Business & Strategy"
+    },
+    {
+      "id": "G4-G3-01",
+      "title": "Document competitive positioning vs Nostr, Holochain, Filecoin, Ethereum",
+      "group": "tell-the-story",
+      "category": "positioning",
+      "section": "G3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "documentation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/strategy/competitive-positioning.md",
+        "docs/proposals/tokenization-gas-semantics.md",
+        "docs/proposals/firecat-economic-model.md",
+        "skills/b3nd/FRAMEWORK.md",
+        "skills/b3nd/FIRECAT.md",
+        "skills/b3nd/FAQ.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G4-G3-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Document comparison with Nostr, Holochain, Filecoin, Ethereum (partially done in gas semantics doc)\n- [ ] Prepare for incumbent competitive response (identified as risk in economic model)\n\n---\n\n## Emerging Groupings\n\nLooking at the tasks above, several natural clusters emerge that cut across the front labels:\n\n### Group 1: \"Make Apps Possible\" — The Developer Platform\n**What it is**: Everything a third-party developer needs to build a real app on Firecat today.\n\nTasks: A6 (Indexer), A4 (Co"
+    },
+    {
+      "id": "G5-A9-01",
+      "title": "Implement email-based password reset and user profile management",
+      "group": "platform-features",
+      "category": "wallet",
+      "section": "A9",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-wallet-server/auth.ts",
+        "libs/b3nd-wallet-server/core.ts",
+        "libs/b3nd-wallet-server/types.ts",
+        "libs/b3nd-wallet-server/interfaces.ts",
+        "libs/b3nd-wallet/types.ts",
+        "libs/b3nd-wallet/client.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-A9-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Email-based password reset\n- [ ] User profile management (display name, avatar)\n- [ ] API key authentication (server-to-server)\n- [ ] Rate limiting\n- [ ] Audit logging\n- [ ] Key rotation support\n- [ ] Multi-factor authentication\n- [ ] WebAuthn/passkey support\n\n---\n\n## B. Economic Layer (Gas & Tokenization)"
+    },
+    {
+      "id": "G5-A9-02",
+      "title": "Implement API key authentication and wallet-level rate limiting",
+      "group": "platform-features",
+      "category": "wallet",
+      "section": "A9",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-wallet-server/core.ts",
+        "libs/b3nd-wallet-server/auth.ts",
+        "libs/b3nd-wallet-server/types.ts",
+        "libs/b3nd-wallet-server/credentials.ts",
+        "libs/b3nd-wallet/types.ts",
+        "libs/b3nd-wallet/client.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-A9-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Email-based password reset\n- [ ] User profile management (display name, avatar)\n- [ ] API key authentication (server-to-server)\n- [ ] Rate limiting\n- [ ] Audit logging\n- [ ] Key rotation support\n- [ ] Multi-factor authentication\n- [ ] WebAuthn/passkey support\n\n---\n\n## B. Economic Layer (Gas & Tokenization)"
+    },
+    {
+      "id": "G5-A9-03",
+      "title": "Implement audit logging and key rotation support for wallet server",
+      "group": "platform-features",
+      "category": "wallet",
+      "section": "A9",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-wallet-server/core.ts",
+        "libs/b3nd-wallet-server/auth.ts",
+        "libs/b3nd-wallet-server/keys.ts",
+        "libs/b3nd-wallet-server/types.ts",
+        "libs/b3nd-wallet-server/interfaces.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-A9-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "audit-logging",
+        "key-rotation",
+        "implementation-guide",
+        "audit-logging",
+        "key-rotation",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Email-based password reset\n- [ ] User profile management (display name, avatar)\n- [ ] API key authentication (server-to-server)\n- [ ] Rate limiting\n- [ ] Audit logging\n- [ ] Key rotation support\n- [ ] Multi-factor authentication\n- [ ] WebAuthn/passkey support\n\n---\n\n## B. Economic Layer (Gas & Tokenization)"
+    },
+    {
+      "id": "G5-A9-04",
+      "title": "Implement multi-factor authentication and WebAuthn/passkey support",
+      "group": "platform-features",
+      "category": "wallet",
+      "section": "A9",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-wallet-server/core.ts",
+        "libs/b3nd-wallet-server/auth.ts",
+        "libs/b3nd-wallet-server/credentials.ts",
+        "libs/b3nd-wallet-server/types.ts",
+        "libs/b3nd-wallet/types.ts",
+        "libs/b3nd-wallet/client.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-A9-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "mfa-totp",
+        "webauthn-passkey",
+        "shared",
+        "implementation-guide",
+        "totp-implementation",
+        "webauthn-implementation",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Email-based password reset\n- [ ] User profile management (display name, avatar)\n- [ ] API key authentication (server-to-server)\n- [ ] Rate limiting\n- [ ] Audit logging\n- [ ] Key rotation support\n- [ ] Multi-factor authentication\n- [ ] WebAuthn/passkey support\n\n---\n\n## B. Economic Layer (Gas & Tokenization)"
+    },
+    {
+      "id": "G5-D3-01",
+      "title": "Design webhook/trigger support for external service integration",
+      "group": "platform-features",
+      "category": "platform",
+      "section": "D3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/design/webhooks.md",
+        "libs/b3nd-core/types.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-D3-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design webhook/trigger support for external service integration\n- [ ] Design \"durable\" storage tier or SLA mechanism for compliance-sensitive use cases\n- [ ] Design multi-user access control beyond shared keypairs (role-based access to a namespace)\n- [ ] Design offline-first sync framework (local client ↔ remote client reconciliation)\n\n---\n\n## E. Infrastructure & DevOps"
+    },
+    {
+      "id": "G5-D3-02",
+      "title": "Design durable storage tier and SLA mechanism for compliance-sensitive use cases",
+      "group": "platform-features",
+      "category": "platform",
+      "section": "D3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/design/durable-storage.md",
+        "libs/b3nd-core/types.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-D3-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design webhook/trigger support for external service integration\n- [ ] Design \"durable\" storage tier or SLA mechanism for compliance-sensitive use cases\n- [ ] Design multi-user access control beyond shared keypairs (role-based access to a namespace)\n- [ ] Design offline-first sync framework (local client ↔ remote client reconciliation)\n\n---\n\n## E. Infrastructure & DevOps"
+    },
+    {
+      "id": "G5-D3-03",
+      "title": "Design multi-user access control with role-based namespace permissions",
+      "group": "platform-features",
+      "category": "platform",
+      "section": "D3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/design/access-control.md",
+        "libs/b3nd-core/types.ts",
+        "libs/b3nd-wallet-server/types.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-D3-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design webhook/trigger support for external service integration\n- [ ] Design \"durable\" storage tier or SLA mechanism for compliance-sensitive use cases\n- [ ] Design multi-user access control beyond shared keypairs (role-based access to a namespace)\n- [ ] Design offline-first sync framework (local client ↔ remote client reconciliation)\n\n---\n\n## E. Infrastructure & DevOps"
+    },
+    {
+      "id": "G5-D3-04",
+      "title": "Design offline-first sync framework for local-remote client reconciliation",
+      "group": "platform-features",
+      "category": "platform",
+      "section": "D3",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "low",
+      "scope": "design",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "docs/design/offline-sync.md",
+        "libs/b3nd-core/types.ts",
+        "libs/b3nd-client-localstorage/mod.ts",
+        "libs/b3nd-client-indexeddb/mod.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-D3-04",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Design webhook/trigger support for external service integration\n- [ ] Design \"durable\" storage tier or SLA mechanism for compliance-sensitive use cases\n- [ ] Design multi-user access control beyond shared keypairs (role-based access to a namespace)\n- [ ] Design offline-first sync framework (local client ↔ remote client reconciliation)\n\n---\n\n## E. Infrastructure & DevOps"
+    },
+    {
+      "id": "G5-E2-01",
+      "title": "Add monitoring and observability with metrics, structured logging, and alerting",
+      "group": "platform-features",
+      "category": "infrastructure",
+      "section": "E2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-servers/http.ts",
+        "libs/b3nd-wallet-server/core.ts",
+        "libs/b3nd-wallet-server/interfaces.ts",
+        "libs/b3nd-core/types.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-E2-01",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "structured-logging",
+        "metrics",
+        "enhanced-health",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Add monitoring/observability (health endpoints exist, need metrics, logging, alerting)\n- [ ] Harden Docker images for production\n- [ ] Document production deployment guide\n- [ ] Implement rate limiting at HTTP layer (DoS prevention, separate from protocol-level gas)\n\n---\n\n## F. Content & Marketing"
+    },
+    {
+      "id": "G5-E2-02",
+      "title": "Harden Docker images and create production deployment guide",
+      "group": "platform-features",
+      "category": "infrastructure",
+      "section": "E2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "apps/b3nd-node/Dockerfile",
+        "apps/wallet-node/Dockerfile",
+        "apps/b3nd-web-rig/Dockerfile",
+        "docker-compose.yml",
+        "docs/deployment/production.md"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-E2-02",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "docker-hardening",
+        "docker-compose-production-profile",
+        "deployment-guide",
+        "implementation-guide",
+        "docker-hardening",
+        "deployment-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Add monitoring/observability (health endpoints exist, need metrics, logging, alerting)\n- [ ] Harden Docker images for production\n- [ ] Document production deployment guide\n- [ ] Implement rate limiting at HTTP layer (DoS prevention, separate from protocol-level gas)\n\n---\n\n## F. Content & Marketing"
+    },
+    {
+      "id": "G5-E2-03",
+      "title": "Implement HTTP-layer rate limiting for DoS prevention on b3nd-node",
+      "group": "platform-features",
+      "category": "infrastructure",
+      "section": "E2",
+      "dependsOn": [],
+      "blocks": [],
+      "priority": "medium",
+      "scope": "implementation",
+      "estimatedPrs": 1,
+      "filesInvolved": [
+        "libs/b3nd-servers/http.ts",
+        "libs/b3nd-servers/mod.ts",
+        "libs/b3nd-core/types.ts"
+      ],
+      "tags": [],
+      "status": "pending",
+      "uri": "mutable://open/rig/roadmap/stories/G5-E2-03",
+      "wave": 0,
+      "keywords": [
+        "goal",
+        "background",
+        "acceptance-criteria",
+        "implementation-guide",
+        "files-to-create-modify",
+        "testing",
+        "dependencies"
+      ],
+      "tasksExcerpt": "- [ ] Add monitoring/observability (health endpoints exist, need metrics, logging, alerting)\n- [ ] Harden Docker images for production\n- [ ] Document production deployment guide\n- [ ] Implement rate limiting at HTTP layer (DoS prevention, separate from protocol-level gas)\n\n---\n\n## F. Content & Marketing"
+    }
+  ],
+  "generatedAt": 1773332446120,
+  "stats": {
+    "total": 103,
+    "byPriority": {
+      "high": 39,
+      "medium": 45,
+      "critical": 4,
+      "low": 15
+    },
+    "byScope": {
+      "design+implementation": 7,
+      "implementation": 54,
+      "documentation": 16,
+      "documentation+implementation": 1,
+      "design+documentation": 1,
+      "documentation+investigation": 1,
+      "design": 23
+    },
+    "byStatus": {
+      "pending": 97,
+      "in-progress": 6
+    }
+  },
+  "waves": [
+    {
+      "wave": 0,
+      "total": 103,
+      "done": 0
+    }
+  ],
+  "sharedConcerns": [
+    {
+      "tag": "validator-pattern",
+      "storyIds": [
+        "G2-A2-01",
+        "G2-A2-02",
+        "G2-A2-03",
+        "G2-A2-04",
+        "G2-A2-05",
+        "G2-A2-06",
+        "G2-A2-07",
+        "G3-B1-01",
+        "G3-B1-02",
+        "G3-B1-03",
+        "G3-B1-04",
+        "G3-C3-01"
+      ],
+      "groups": [
+        "nodes-talk",
+        "make-it-pay"
+      ]
+    },
+    {
+      "tag": "compose-system",
+      "storyIds": [
+        "G1-A6-03",
+        "G2-A1-01",
+        "G2-A1-02",
+        "G2-A1-03",
+        "G2-A1-04",
+        "G2-A2-03",
+        "G3-B2-03"
+      ],
+      "groups": [
+        "apps-possible",
+        "nodes-talk",
+        "make-it-pay"
+      ]
+    },
+    {
+      "tag": "websocket",
+      "storyIds": [
+        "G1-A5-01",
+        "G1-A5-02",
+        "G1-A5-03",
+        "G2-A1-04"
+      ],
+      "groups": [
+        "apps-possible",
+        "nodes-talk"
+      ]
+    },
+    {
+      "tag": "utxo",
+      "storyIds": [
+        "G3-B1-01",
+        "G3-B1-02",
+        "G3-B1-03",
+        "G3-B1-04",
+        "G3-B2-01",
+        "G3-B2-02",
+        "G3-B2-03",
+        "G3-B2-04",
+        "G3-B2-05",
+        "G3-B3-01",
+        "G3-B3-02",
+        "G3-B3-03",
+        "G3-B3-04",
+        "G3-B3-05"
+      ],
+      "groups": [
+        "make-it-pay"
+      ]
+    },
+    {
+      "tag": "rate-limiting",
+      "storyIds": [
+        "G5-A9-02",
+        "G5-E2-03"
+      ],
+      "groups": [
+        "platform-features"
+      ]
+    },
+    {
+      "tag": "key-management",
+      "storyIds": [
+        "G1-A7-02",
+        "G1-A7-03",
+        "G1-A7-04",
+        "G1-A7-05",
+        "G5-A9-03",
+        "G5-A9-04"
+      ],
+      "groups": [
+        "apps-possible",
+        "platform-features"
+      ]
+    },
+    {
+      "tag": "docs-overlap",
+      "storyIds": [
+        "G1-A7-01",
+        "G1-A8-01",
+        "G1-D1-01",
+        "G1-D1-02",
+        "G1-D1-03",
+        "G4-D1-01",
+        "G4-D1-02",
+        "G4-D1-03",
+        "G4-D1-04"
+      ],
+      "groups": [
+        "apps-possible",
+        "tell-the-story"
+      ]
+    }
+  ],
+  "landscapeSections": {
+    "apps-possible": "**Protocol & Core Engineering**\n- Confirmation protocol implementation (validators exist, node behavior not wired)\n- Temporal consensus implementation\n- `respondTo()` and `connect()` compose primitives\n- Rebuild `b3nd-listener` on compose layer\n- Concurrency control (`receiveIf` / conditional writes)\n- Real-time subscriptions (WebSocket push)\n- Indexer system implementation\n- Fix \"private\" visibility (either change derivation or add prominent warning)\n- KeyBundle abstraction for key lifecycle",
+    "nodes-talk": "**Protocol & Core Engineering**\n- Confirmation protocol implementation (validators exist, node behavior not wired)\n- Temporal consensus implementation\n- `respondTo()` and `connect()` compose primitives\n- Rebuild `b3nd-listener` on compose layer\n- Concurrency control (`receiveIf` / conditional writes)\n- Real-time subscriptions (WebSocket push)\n- Indexer system implementation\n- Fix \"private\" visibility (either change derivation or add prominent warning)\n- KeyBundle abstraction for key lifecycle",
+    "platform-features": "**Protocol & Core Engineering**\n- Confirmation protocol implementation (validators exist, node behavior not wired)\n- Temporal consensus implementation\n- `respondTo()` and `connect()` compose primitives\n- Rebuild `b3nd-listener` on compose layer\n- Concurrency control (`receiveIf` / conditional writes)\n- Real-time subscriptions (WebSocket push)\n- Indexer system implementation\n- Fix \"private\" visibility (either change derivation or add prominent warning)\n- KeyBundle abstraction for key lifecycle",
+    "make-it-pay": "**Economic Layer**\n- Gas/token schema validators (Phase 0)\n- UTXO tracking and consumption\n- Checkpoint hash chains\n- Sponsor assembly flow\n- Fee calculation and adaptive rates\n- Staking with sqrt-weighted rewards\n- Relay proof and reward system\n- Resolve open questions (consensus for gas partition, fee rate governance, etc.)",
+    "tell-the-story": "**Content & Marketing**\n- Book completion/polish\n- b3nd.dev website content\n- fire.cat website content\n- Developer onboarding materials"
+  }
+}

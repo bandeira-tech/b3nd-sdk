@@ -1,0 +1,32 @@
+{
+  "id": "G2-A2-09",
+  "title": "Design dynamic validator registry at mutable://accounts/{operatorKey}/validators/",
+  "group": "nodes-talk",
+  "category": "confirmation-protocol",
+  "section": "A2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/CONFIRMATION.md",
+    "libs/firecat-protocol/constants.ts",
+    "libs/firecat-protocol/validators.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A2-09",
+  "markdown": "\n## Goal\n\nDesign the dynamic validator registry mechanism where operators can add/remove authorized validators at runtime by writing to `mutable://accounts/{operatorKey}/validators/{nodeKey}`. This is the next step beyond the static validator set (G2-A2-04) and enables operational flexibility without code changes.\n\n## Background\n\nCONFIRMATION.md section 6 (Trust Model, Option B) describes a registry-based approach:\n\n```\nmutable://accounts/{operatorKey}/validators/{nodeKey}  ->  true\n```\n\nThe attestation validator would read this URI to check if a node is authorized. Operators add validators by writing `true` to the URI and remove them by deleting or writing `false`.\n\nThis is a design story. The output is a written design document that covers:\n1. URI patterns for the registry\n2. How validators read the registry during validation\n3. How the registry interacts with `CONFIRMATION_THRESHOLD` (what if the registry has fewer entries than the threshold?)\n4. Cache invalidation (validators shouldn't read the registry on every attestation check)\n5. Migration path from static to dynamic\n6. Security: who can modify the registry (only the operator's signing key)\n\n## Acceptance Criteria\n\n- [ ] Design document written as a new section in `libs/firecat-protocol/CONFIRMATION.md`\n- [ ] URI patterns defined for add/remove/list validators\n- [ ] Interaction with threshold documented (threshold vs registry size)\n- [ ] Cache strategy documented (how often to refresh the validator set)\n- [ ] Security model documented (who can write to the registry)\n- [ ] Migration path documented (how to switch from static to dynamic)\n- [ ] No code changes -- this is a design-only story\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/CONFIRMATION.md` section 6 (Trust Model) for the existing description.\n\n2. Write a new section \"Dynamic Validator Registry\" with:\n   - **URI Pattern**: `mutable://accounts/{operatorKey}/validators/{nodeKey} -> true`\n   - **Reading**: `attestationValidator` reads the marker on each validation. Since validators run synchronously within a single receive call, this adds one read per attestation check.\n   - **Caching**: For performance, the discovery loop can cache the validator set on startup and refresh periodically (e.g., every 60 seconds) rather than reading on every validation.\n   - **Threshold interaction**: `CONFIRMATION_THRESHOLD` must be <= the number of registered validators. If the registry has fewer validators than the threshold, confirmations are impossible (this is the desired behavior -- it means the network is underprovisioned).\n   - **Security**: The registry lives under `mutable://accounts/{operatorKey}/`, which is protected by the operator's Ed25519 signature (existing `authValidation` in the schema).\n   - **Migration**: Support both modes simultaneously. If `VALIDATOR_SET` constant is non-empty, use it. If empty, fall back to dynamic registry. This allows gradual migration.\n\n3. Sketch the validator factory function (pseudocode, not implementation):\n   ```typescript\n   function createDynamicAttestationValidator(\n     operatorKey: string,\n   ): ValidationFn {\n     return async ({ uri, value, read }) => {\n       const nodeKey = extractSegment(uri, 2);\n       // Check dynamic registry\n       const registered = await read(\n         `mutable://accounts/${operatorKey}/validators/${nodeKey}`\n       );\n       if (!registered.success) {\n         return { valid: false, error: \"Node not in dynamic validator registry\" };\n       }\n       // ... rest of validation\n     };\n   }\n   ```\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/CONFIRMATION.md` -- Add \"Dynamic Validator Registry\" section.\n\n## Testing\n\nNo code changes, so no tests. The design should be reviewed before implementation.\n\n## Dependencies\n\nDepends on G2-A2-04 (static validator set must work first as the baseline). Blocks nothing directly -- this is a future design that will be implemented when operational needs require it.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+}

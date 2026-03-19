@@ -1,0 +1,39 @@
+{
+  "id": "G3-B1-01",
+  "title": "Implement gas://utxo program validators",
+  "group": "make-it-pay",
+  "category": "gas-schema",
+  "section": "B1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-validators.ts",
+    "libs/firecat-protocol/gas-constants.ts",
+    "libs/firecat-protocol/gas-helpers.ts",
+    "libs/firecat-protocol/gas-validators_test.ts"
+  ],
+  "tags": [],
+  "status": "in-progress",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B1-01",
+  "markdown": "\n## Goal\n\nIntroduce a dedicated gas UTXO system (`gas://utxo`, `gas://consumed`) that is structurally parallel to the existing `immutable://balance` system but reserved exclusively for gas fee payment. This separates application-level token balances from protocol-level gas, enabling independent fee logic, future fee rate changes, and clear accounting boundaries.\n\n## Background\n\nToday, consensus fees are paid via `immutable://balance/{ROOT_KEY}/{contentHash}` -- the same UTXO program used for user balances. This coupling means gas logic is embedded inside the balance validator and cannot evolve independently. The existing validators in `libs/firecat-protocol/validators.ts` demonstrate the pattern:\n\n- `balanceValidator` -- checks value > 0, write-once, conservation, auth\n- `consumedValidator` -- checks write-once, references a balance URI, verifies input membership\n- `genesisValidator` -- checks write-once, value === true\n\nThe gas UTXO system replicates this pattern under the `gas://` scheme with gas-specific rules:\n\n- `gas://utxo/{owner}/{utxoId}` -- gas token balance (number > 0, write-once, conservation, auth)\n- `gas://consumed/{owner}/{utxoId}` -- consumed gas marker (write-once, references gas://utxo URI)\n\nThe validators follow the same `ValidationFn` signature: `({ uri, value, read, message }) => Promise<{ valid, error? }>`.\n\n## Acceptance Criteria\n\n- [ ] `gas://utxo` validator enforces: value is number > 0, write-once (URI must not exist), conservation (sum inputs >= sum outputs for gas UTXOs), ownership auth (input account pubkey must have matching signature in message.auth)\n- [ ] `gas://consumed` validator enforces: write-once, value must be a `gas://utxo/{owner}/{utxoId}` URI reference, referenced UTXO must exist with value > 0, referenced UTXO must appear in message.payload.inputs\n- [ ] Conservation check scans only `gas://utxo` outputs (not `immutable://balance` outputs)\n- [ ] Genesis envelopes (containing `gas://genesis/` outputs) skip conservation for gas UTXOs\n- [ ] Constants file defines `GAS_GENESIS_AMOUNT` (e.g., 10000) and `GAS_ROOT_KEY`\n- [ ] Helper functions: `buildGasGenesisEnvelope(pubkey, amount)` and `generateGasUtxoId()`\n- [ ] All validators exported as named exports from `gas-validators.ts`\n- [ ] Test file covers: gas genesis claim, gas UTXO read-back, double-spend rejection, conservation violation rejection, wrong-signer rejection\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/validators.ts` to understand the existing balance/consumed validator pattern\n2. Read `libs/firecat-protocol/constants.ts` and `libs/firecat-protocol/helpers.ts` for pattern reference\n3. Create `libs/firecat-protocol/gas-constants.ts`:\n   ```typescript\n   export const GAS_ROOT_KEY = \"0000000000000000000000000000000000000000000000000000000000000002\";\n   export const GAS_GENESIS_AMOUNT = 10000;\n   ```\n4. Create `libs/firecat-protocol/gas-helpers.ts` with `generateGasUtxoId()` and `buildGasGenesisEnvelope(pubkey, amount)` -- mirror the existing helpers but use `gas://utxo` and `gas://genesis` URIs\n5. Create `libs/firecat-protocol/gas-validators.ts`:\n   - `gasUtxoValidator: ValidationFn` -- mirror `balanceValidator` but match `gas://utxo/{account}/` URIs and sum only `gas://utxo` outputs for conservation\n   - `gasConsumedValidator: ValidationFn` -- mirror `consumedValidator` but match `gas://consumed/{account}/{utxoId}` and reference `gas://utxo` URIs\n   - `gasGenesisValidator: ValidationFn` -- mirror `genesisValidator` for `gas://genesis/{pubkey}` (value must be true, write-once)\n6. Create `libs/firecat-protocol/gas-validators_test.ts` -- model after `validators_test.ts`:\n   - Test gas genesis claim creates gas UTXO\n   - Test double gas genesis claim rejected\n   - Test gas UTXO read returns number\n   - Test gas double-spend rejected\n   - Test gas conservation violation rejected\n   - Test gas wrong-signer rejected\n7. DO NOT register these validators in `mod.ts` yet -- that happens in G3-B1-04\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/gas-constants.ts` -- new file: GAS_ROOT_KEY, GAS_GENESIS_AMOUNT\n- `libs/firecat-protocol/gas-helpers.ts` -- new file: buildGasGenesisEnvelope, generateGasUtxoId\n- `libs/firecat-protocol/gas-validators.ts` -- new file: gasUtxoValidator, gasConsumedValidator, gasGenesisValidator\n- `libs/firecat-protocol/gas-validators_test.ts` -- new file: test suite for gas validators\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-validators_test.ts\n```\n\nAlso verify existing tests still pass:\n```bash\ndeno test --allow-all libs/firecat-protocol/validators_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: Nothing -- uses existing `ValidationFn` type and `verify` from b3nd-sdk\n- **Blocks**: G3-B1-02 (fee validation), G3-B1-03 (faucet + rates), G3-B1-04 (schema composition)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "pr": {
+    "number": 17,
+    "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/17",
+    "state": "OPEN",
+    "title": "feat(firecat): implement gas://utxo program validators"
+  },
+  "tasksExcerpt": "- [ ] Implement `gas://utxo` program validators (creation, consumption, ownership verification)\n- [ ] Implement UTXO existence and unspent checks\n- [ ] Implement fee output validation (amount conservation: input amounts ≥ output amounts)\n- [ ] Implement `gas://rates` program (static fee rates per program key)\n- [ ] Implement `gas://faucet` program (one-time claim with PoW verification)\n- [ ] Define `confirmation://checkpoints` schema and convention\n- [ ] Create test token minting mechanism (self"
+}

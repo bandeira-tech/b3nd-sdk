@@ -1,0 +1,33 @@
+{
+  "id": "G3-B1-03",
+  "title": "Implement gas://faucet and gas://rates programs",
+  "group": "make-it-pay",
+  "category": "gas-schema",
+  "section": "B1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-validators.ts",
+    "libs/firecat-protocol/gas-constants.ts",
+    "libs/firecat-protocol/gas-helpers.ts",
+    "libs/firecat-protocol/gas-validators_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B1-03",
+  "markdown": "\n## Goal\n\nImplement two supporting gas programs: `gas://rates` for static fee rate configuration, and `gas://faucet` for one-time gas token claims with proof-of-work verification. Together these provide the bootstrapping mechanism: anyone can get test gas tokens by doing PoW, and fee rates per program are published on-chain for clients to read.\n\n## Background\n\n**Faucet**: The gas system needs a way for new users to obtain gas tokens without buying them. Following the Nostr NIP-13 pattern, users compute a PoW hash that meets a difficulty target and submit it as a faucet claim. The claim mints gas UTXOs. Each pubkey can only claim once (write-once on `gas://faucet/{pubkey}`).\n\nNIP-13 PoW: the user finds a nonce such that `SHA-256(pubkey + nonce)` has at least N leading zero bits. The validator verifies this hash meets the difficulty target.\n\n**Rates**: `gas://rates/{programKey}` stores the fee rate for a given program (e.g., `gas://rates/mutable%3A%2F%2Fopen` -> `{ base_fee: 1, size_fee_per_kb: 0 }`). In Phase 0, rates are written once by a bootstrap process. The fee validation logic (G3-B1-02) can read these rates to determine required fees.\n\n**Test token minting**: For development, a `gas://genesis/{pubkey}` (already in G3-B1-01) allows self-minted UTXOs. The faucet provides a PoW-gated alternative for testnet use.\n\n## Acceptance Criteria\n\n- [ ] `gas://faucet/{pubkey}` validator: value must be `{ nonce: string, difficulty: number }`, write-once, PoW verification passes (SHA-256 of pubkey+nonce has >= FAUCET_DIFFICULTY leading zero bits)\n- [ ] Faucet claim produces gas UTXO outputs (minting new tokens without conservation check, similar to genesis)\n- [ ] Double faucet claim rejected (write-once on `gas://faucet/{pubkey}`)\n- [ ] `FAUCET_DIFFICULTY` constant (e.g., 16 leading zero bits) and `FAUCET_AMOUNT` constant defined\n- [ ] `gas://rates/{encodedProgramKey}` validator: value must be `{ base_fee: number, size_fee_per_kb?: number }`, write-once\n- [ ] Helper: `buildFaucetClaimEnvelope(pubkey, nonce)` constructs faucet claim with gas UTXO output\n- [ ] Helper: `computeFaucetPoW(pubkey, difficulty)` finds a valid nonce (for test/dev use)\n- [ ] Test: valid faucet claim with correct PoW accepted\n- [ ] Test: faucet claim with insufficient PoW rejected\n- [ ] Test: double faucet claim rejected\n- [ ] Test: gas://rates write and read-back\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/gas-validators.ts` and `libs/firecat-protocol/gas-constants.ts`\n2. Read `libs/b3nd-hash/mod.ts` to understand existing SHA-256 utilities\n3. Add constants to `gas-constants.ts`:\n   ```typescript\n   export const FAUCET_DIFFICULTY = 16; // leading zero bits required\n   export const FAUCET_AMOUNT = 5000;   // gas tokens per faucet claim\n   ```\n4. Implement `gasFaucetValidator` in `gas-validators.ts`:\n   - Extract pubkey from URI: `gas://faucet/{pubkey}`\n   - Validate value shape: `{ nonce: string, difficulty: number }`\n   - Write-once check: `read(uri)` must not exist\n   - PoW verification: compute `SHA-256(pubkey + nonce)` and check leading zero bits >= FAUCET_DIFFICULTY\n   - Leading zero bit check: convert hash to bytes, count leading zero bits\n5. Implement `gasRatesValidator` in `gas-validators.ts`:\n   - Validate value shape: `{ base_fee: number, size_fee_per_kb?: number }`\n   - base_fee must be > 0\n   - Write-once check\n6. Add helpers to `gas-helpers.ts`:\n   - `computeFaucetPoW(pubkey: string, difficulty: number): Promise<string>` -- brute-force nonce search\n   - `countLeadingZeroBits(hash: Uint8Array): number` -- utility for PoW verification\n   - `buildFaucetClaimEnvelope(pubkey: string, nonce: string): MessageData` -- envelope with faucet marker + gas UTXO\n7. Add tests in `gas-validators_test.ts`:\n   - Test faucet claim with valid PoW -> accepted, gas UTXO created\n   - Test faucet claim with invalid PoW (random nonce) -> rejected\n   - Test double faucet claim -> rejected\n   - Test gas://rates write -> accepted, read-back correct\n   - Test gas://rates double-write -> rejected\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/gas-constants.ts` -- add FAUCET_DIFFICULTY, FAUCET_AMOUNT\n- `libs/firecat-protocol/gas-validators.ts` -- add gasFaucetValidator, gasRatesValidator\n- `libs/firecat-protocol/gas-helpers.ts` -- add computeFaucetPoW, countLeadingZeroBits, buildFaucetClaimEnvelope\n- `libs/firecat-protocol/gas-validators_test.ts` -- add faucet and rates tests\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-validators_test.ts\n```\n\nNote: `computeFaucetPoW` with difficulty 16 should complete in under 1 second on modern hardware. For tests, use a low difficulty (e.g., 8) to keep test runtime fast.\n\n## Dependencies\n\n- **Depends on**: G3-B1-01 (gas UTXO system must exist for faucet to mint into)\n- **Blocks**: G3-B1-04 (schema composition), G3-B2-04 (faucet with PoW in Phase 1)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `gas://utxo` program validators (creation, consumption, ownership verification)\n- [ ] Implement UTXO existence and unspent checks\n- [ ] Implement fee output validation (amount conservation: input amounts ≥ output amounts)\n- [ ] Implement `gas://rates` program (static fee rates per program key)\n- [ ] Implement `gas://faucet` program (one-time claim with PoW verification)\n- [ ] Define `confirmation://checkpoints` schema and convention\n- [ ] Create test token minting mechanism (self"
+}

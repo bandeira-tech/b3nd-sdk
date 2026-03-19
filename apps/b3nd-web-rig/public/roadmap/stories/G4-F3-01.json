@@ -1,0 +1,35 @@
+{
+  "id": "G4-F3-01",
+  "title": "Write validator/operator recruitment materials and app builder pitch",
+  "group": "tell-the-story",
+  "category": "community",
+  "section": "F3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/community/operator-guide.md",
+    "docs/community/builder-pitch.md",
+    "skills/b3nd/OPERATORS.md",
+    "skills/b3nd/NODE_COOKBOOK.md",
+    "docs/proposals/firecat-economic-model.md",
+    "docs/proposals/tokenization-gas-semantics.md",
+    "apps/firecat-website/index.html"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G4-F3-01",
+  "markdown": "\n## Goal\n\nCreate two community-facing documents: (1) a validator/operator recruitment guide that explains what it takes to run a Firecat node and what the economic incentives are, and (2) an app builder pitch that makes the case for why a developer should build on Firecat rather than alternatives. These materials serve the community growth strategy and can be used on websites, in Discord/community channels, and as standalone handouts.\n\n## Background\n\nThe Firecat website already has operator and developer sections, but they are marketing summaries. What is missing:\n- A **detailed operator guide** that answers practical questions: What hardware do I need? How much does it cost to run? What do I stake? What are the realistic earnings? What are the risks? How do I get started?\n- A **builder pitch** that goes beyond \"we have encryption\" to make a strategic argument: Why Firecat over Nostr? Over a traditional backend? Over Ethereum/IPFS? What can you build that you cannot build elsewhere?\n\nSource material exists but is scattered:\n- `skills/b3nd/OPERATORS.md` -- technical node operations reference\n- `skills/b3nd/NODE_COOKBOOK.md` -- infrastructure how-tos\n- `docs/proposals/firecat-economic-model.md` -- economic model with operator break-even analysis\n- `docs/proposals/tokenization-gas-semantics.md` -- gas semantics, staking, relay rewards\n- The fire.cat website -- marketing-level operator and developer sections\n\nThe operator guide should be honest about current status: the testnet is live, the economic model is designed but not yet implemented, and realistic earnings depend on network growth. The builder pitch should be honest about what works today (SDK, testnet, basic CRUD) and what is coming (indexer, subscriptions, concurrency control).\n\n## Acceptance Criteria\n\n- [ ] `docs/community/operator-guide.md` exists and covers:\n  - [ ] What a Firecat node is and what it does\n  - [ ] Hardware/infrastructure requirements (based on actual node implementation)\n  - [ ] How to set up and run a node (referencing NODE_COOKBOOK.md for details)\n  - [ ] Staking requirements and mechanism (sqrt-weighted rewards)\n  - [ ] Revenue streams (validation fees, relay rewards, community pool)\n  - [ ] Realistic cost/reward analysis at different network sizes (from economic model)\n  - [ ] Risks and honest disclaimers (testnet stage, economics not yet live)\n  - [ ] Clear call to action (join testnet, run a node)\n- [ ] `docs/community/builder-pitch.md` exists and covers:\n  - [ ] The core value proposition (data ownership, no vendor lock-in, client-side encryption)\n  - [ ] What you can build today (with current SDK capabilities)\n  - [ ] What is coming soon (indexer, subscriptions, concurrency)\n  - [ ] Comparison with alternatives (Nostr, traditional backends, Ethereum/IPFS) at a high level\n  - [ ] Getting started path (link to getting-started guide)\n  - [ ] Honest assessment of current limitations\n- [ ] Both documents are written for a non-technical-but-informed audience (operators may not be developers; builders are developers but not protocol experts)\n- [ ] Both documents maintain the Firecat brand voice (direct, honest, no hype)\n\n## Implementation Guide\n\n1. Read `skills/b3nd/OPERATORS.md` for current node operations reference\n2. Read `skills/b3nd/NODE_COOKBOOK.md` for infrastructure patterns and requirements\n3. Read `docs/proposals/firecat-economic-model.md` for the economic model, especially:\n   - Operator break-even analysis (the doc mentions operators lose money below 10K users at $0.25 CPM)\n   - Revenue streams and fee splits (70% validator, 20% relay, 10% community)\n   - Staking mechanics (sqrt-weighted)\n4. Read `docs/proposals/tokenization-gas-semantics.md` for gas costs, staking details, and relay rewards\n5. Read `apps/firecat-website/index.html` to understand the current marketing pitch for operators and developers\n6. Create `docs/community/` directory if it does not exist\n7. Write `docs/community/operator-guide.md`:\n   - Start with the \"why run a node\" narrative\n   - Cover practical requirements (hardware: the node runs on a $5/mo VPS based on current implementation)\n   - Walk through setup (reference NODE_COOKBOOK.md, don't duplicate)\n   - Cover economics honestly with numbers from the proposals\n   - Include a \"current status\" section (testnet, no real tokens yet)\n8. Write `docs/community/builder-pitch.md`:\n   - Start with the problem (data hostage, vendor lock-in, privacy theater)\n   - Make the case for B3nd/Firecat's approach\n   - Show what works today with a brief code example\n   - Acknowledge current gaps (no querying without indexer, no subscriptions yet)\n   - Compare briefly to alternatives (keep it factual, not combative)\n   - End with the on-ramp (getting-started guide link, testnet URL)\n\n## Files to Create/Modify\n\n- `docs/community/operator-guide.md` -- new file\n- `docs/community/builder-pitch.md` -- new file\n\n## Dependencies\n\n- **Depends on**: Nothing directly, though the operator guide benefits from having the economic model finalized (Group 3 work). Write based on current proposal state.\n- **Blocks**: Nothing directly -- these are standalone materials\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Write validator/operator recruitment materials (what it takes to run a node, what you earn)\n- [ ] Write app builder pitch (why build on Firecat vs alternatives)\n\n---\n\n## G. Business & Strategy"
+}

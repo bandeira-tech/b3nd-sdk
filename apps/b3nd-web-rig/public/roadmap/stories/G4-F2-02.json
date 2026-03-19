@@ -1,0 +1,35 @@
+{
+  "id": "G4-F2-02",
+  "title": "Write developer-facing documentation pages and getting-started guides",
+  "group": "tell-the-story",
+  "category": "websites",
+  "section": "F2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/guides/getting-started.md",
+    "docs/guides/building-your-first-app.md",
+    "docs/guides/authentication.md",
+    "docs/guides/encryption-and-privacy.md",
+    "skills/b3nd/FIRECAT.md",
+    "skills/b3nd/APP_COOKBOOK.md",
+    "skills/b3nd/FRAMEWORK.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G4-F2-02",
+  "markdown": "\n## Goal\n\nCreate a set of developer-facing documentation pages that can serve as the content for both the websites and the GitHub repository. These guides bridge the gap between the marketing sites (\"here's what B3nd does\") and the skill files (\"here's the full reference\"). A developer landing on b3nd.dev or fire.cat should be able to follow a clear path from \"what is this?\" to \"I have a working app.\"\n\n## Background\n\nCurrently, developer documentation is split across:\n- **Skill files** (`skills/b3nd/*.md`) -- comprehensive reference material written for Claude Code agents, not humans. Dense, complete, but not beginner-friendly.\n- **Website code examples** -- minimal snippets on the marketing pages. Show the \"wow\" but not the \"how.\"\n- **Book cookbook** (`docs/book/16-cookbook.md`) -- recipes in three-layer scaffold format. Good for understanding but not a quickstart.\n- **README** (repository root) -- basic setup instructions.\n\nWhat is missing:\n- A **getting-started guide** that walks a developer from zero to a working read/write in under 5 minutes\n- A **building-your-first-app guide** that covers the full app development loop (setup, write, read, list, auth, encrypt, deploy)\n- **Authentication guide** explaining the three auth models (password/deterministic, OAuth/PKCE, custodial wallet)\n- **Encryption and privacy guide** explaining visibility levels, when to encrypt, and the \"private\" visibility caveat\n\nThese should be written in a developer-friendly style (second person, practical, code-heavy) and stored in `docs/guides/` so they can be referenced from websites and README alike.\n\n## Acceptance Criteria\n\n- [ ] `docs/guides/getting-started.md` exists and walks through: install SDK, create client, write data, read data (both NPM and JSR paths)\n- [ ] `docs/guides/building-your-first-app.md` exists and covers: project setup, URI design for your app, CRUD operations, authenticated writes, listing/browsing data, and basic error handling\n- [ ] `docs/guides/authentication.md` exists and covers: password-based auth (PBKDF2 key derivation), OAuth/PKCE flow, custodial wallet setup, when to use each approach\n- [ ] `docs/guides/encryption-and-privacy.md` exists and covers: visibility levels (public/protected/private), how to encrypt data, the \"private\" visibility caveat (SALT-based obscurity vs real encryption), recommended patterns for truly private data\n- [ ] All code examples in guides compile against current SDK API\n- [ ] Each guide has a clear prerequisite section (\"you need: Node.js 18+, or Deno 1.40+\")\n- [ ] Each guide includes a \"next steps\" section pointing to further reading\n- [ ] Guides use consistent terminology with the websites and book\n\n## Implementation Guide\n\n1. Read `skills/b3nd/FIRECAT.md` in full for the canonical quick start, schema, auth model, and visibility rules\n2. Read `skills/b3nd/APP_COOKBOOK.md` for the current recommended app patterns\n3. Read `skills/b3nd/FRAMEWORK.md` for SDK architecture (useful for the auth guide)\n4. Create `docs/guides/` directory if it does not exist\n5. Write `docs/guides/getting-started.md`:\n   - Two paths: NPM (browser/React) and JSR (Deno)\n   - Install command, import, create `HttpClient`, `receive()`, `read()`, `list()`\n   - Use testnet URL `https://testnet-evergreen.fire.cat`\n   - Keep it under 100 lines of prose + code\n6. Write `docs/guides/building-your-first-app.md`:\n   - Choose a simple app concept (e.g., a public notes app)\n   - Walk through: URI design, public writes, authenticated writes, reading, listing\n   - Show `send()` for batch operations\n   - Show error handling patterns\n   - End with \"deploy\" (just pointing to the node/testnet)\n7. Write `docs/guides/authentication.md`:\n   - Explain the three models with use cases for each\n   - Show code for password-based key derivation\n   - Show code for authenticated message creation (`createAuthenticatedMessageWithHex`)\n   - Reference wallet-node and vault-listener for OAuth flows\n8. Write `docs/guides/encryption-and-privacy.md`:\n   - Explain public, protected, private visibility\n   - Show encryption code (`encryptData`, `createSignedEncryptedMessage`)\n   - Include the \"private\" visibility warning prominently\n   - Show the recommended pattern for truly private data (X25519 encryption + authenticated write)\n9. Review all four guides for consistency with each other and with the websites\n\n## Files to Create/Modify\n\n- `docs/guides/getting-started.md` -- new file\n- `docs/guides/building-your-first-app.md` -- new file\n- `docs/guides/authentication.md` -- new file\n- `docs/guides/encryption-and-privacy.md` -- new file\n\n## Dependencies\n\n- **Depends on**: G4-F2-01 (website review should be done first so terminology and accuracy are established)\n- **Blocks**: Nothing directly, but these guides will be linked from websites and README in follow-up work\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Review b3nd.dev content against current SDK state\n- [ ] Review fire.cat content against current protocol state\n- [ ] Write developer-facing documentation pages\n- [ ] Create getting-started guides"
+}

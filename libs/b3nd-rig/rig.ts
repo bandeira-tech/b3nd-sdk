@@ -26,7 +26,7 @@ import { createValidatedClient } from "../b3nd-compose/validated-client.ts";
 import { msgSchema } from "../b3nd-compose/validators.ts";
 import { createClientFromUrl } from "./backend-factory.ts";
 import type { Identity } from "./identity.ts";
-import type { RigConfig, ServeOptions } from "./types.ts";
+import type { RigConfig } from "./types.ts";
 
 /**
  * Rig — the single import for working with b3nd.
@@ -54,7 +54,10 @@ export class Rig {
   /** The current identity. Swappable at any time. */
   identity: Identity | null;
 
-  private constructor(client: NodeProtocolInterface, identity: Identity | null) {
+  private constructor(
+    client: NodeProtocolInterface,
+    identity: Identity | null,
+  ) {
     this.client = client;
     this.identity = identity;
   }
@@ -147,7 +150,9 @@ export class Rig {
     data: { inputs: string[]; outputs: [uri: string, value: V][] },
   ): Promise<SendResult> {
     if (!this.identity) {
-      throw new Error("Rig.send: no identity set — cannot sign. Set rig.identity first.");
+      throw new Error(
+        "Rig.send: no identity set — cannot sign. Set rig.identity first.",
+      );
     }
 
     const payload = { inputs: data.inputs, outputs: data.outputs };
@@ -158,25 +163,15 @@ export class Rig {
   }
 
   /**
-   * Raw write — no MessageData wrapping, no signing.
-   * Calls client.receive([uri, data]) directly.
-   */
-  async write<D = unknown>(uri: string, data: D): Promise<ReceiveResult> {
-    return this.client.receive([uri, data]);
-  }
-
-  /**
-   * Write with signing — wraps data in an AuthenticatedMessage.
+   * Receive — the inbound path.
    *
-   * @throws If no identity is set.
+   * Accepts a [uri, data] tuple and passes it through validation
+   * (if a schema was configured) then stores it in all backends.
+   * This is the counterpart to `send()`: send is outbound (sign → hash → broadcast),
+   * receive is inbound (validate → store).
    */
-  async writeSigned<D = unknown>(uri: string, data: D): Promise<ReceiveResult> {
-    if (!this.identity) {
-      throw new Error("Rig.writeSigned: no identity set — cannot sign.");
-    }
-
-    const msg = await this.identity.signMessage(data);
-    return this.client.receive([uri, msg]);
+  async receive<D = unknown>(uri: string, data: D): Promise<ReceiveResult> {
+    return this.client.receive([uri, data]);
   }
 
   // ── Read operations ──
@@ -216,31 +211,5 @@ export class Rig {
   /** Clean up all backend resources. */
   cleanup(): Promise<void> {
     return this.client.cleanup();
-  }
-
-  // ── Serve ──
-
-  /**
-   * Start an HTTP server exposing this rig's client via the b3nd API.
-   *
-   * Dynamically imports Hono and the b3nd HTTP server module.
-   * Only available in Deno.
-   */
-  async serve(options: ServeOptions): Promise<void> {
-    const { Hono } = await import("npm:hono");
-    const { cors } = await import("npm:hono/cors");
-    const { httpServer } = await import("../b3nd-servers/http.ts");
-
-    const app = new Hono();
-    if (options.cors) {
-      app.use("*", cors({ origin: options.cors }));
-    }
-
-    const frontend = httpServer(app as any, {
-      healthMeta: options.healthMeta,
-    });
-
-    frontend.configure({ client: this.client });
-    frontend.listen(options.port);
   }
 }

@@ -1,0 +1,31 @@
+{
+  "id": "G2-A1-02",
+  "title": "Add cursor-based tracking and bounded memory to connect()",
+  "group": "nodes-talk",
+  "category": "compose-primitives",
+  "section": "A1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-listener/mod.ts",
+    "libs/b3nd-listener/listener.test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A1-02",
+  "markdown": "\n## Goal\n\nReplace the unbounded `Set<string>` dedup mechanism in `connect()` with cursor-based tracking that uses timestamps from `PersistenceRecord.ts` and has bounded memory. The current implementation stores every processed URI in memory forever, which leaks memory over time and cannot resume after a restart.\n\n## Background\n\nThe current `connect()` function (lines 236-288 of `libs/b3nd-listener/mod.ts`) uses `const processed = new Set<string>()` to track which URIs have been handled. This has three problems:\n\n1. **Unbounded memory**: The set grows forever. A long-running listener accumulates all processed URIs in memory.\n2. **No resume**: If the process restarts, all state is lost. Every message in the inbox gets reprocessed.\n3. **No ordering guarantee**: `list()` returns items without guaranteed ordering, so there is no \"cursor\" to advance past.\n\nThe fix is to track the highest timestamp seen from `PersistenceRecord.ts` and use it as a cursor. On each poll, only process items with timestamps newer than the cursor. For dedup within a single poll cycle, use a small bounded set that gets cleared after each poll.\n\nNote: The `ListResult` type currently returns `ListItem[]` with only `uri: string`. The cursor approach requires reading each item to get its timestamp, which `connect()` already does. The cursor tracks `PersistenceRecord.ts` for items successfully processed.\n\n## Acceptance Criteria\n\n- [ ] `connect()` accepts an optional `cursor` parameter (timestamp number, default 0) for resumable polling\n- [ ] After processing a message, the internal cursor advances to `max(cursor, record.ts)`\n- [ ] A `getCursor()` method is exposed on the `Connection` interface so callers can persist it\n- [ ] The in-memory dedup set is bounded (configurable `maxDedup`, default 1000) and uses LRU eviction or rolling window\n- [ ] `connect()` skips items whose `record.ts <= cursor` without reading full data\n- [ ] Existing tests pass without modification\n- [ ] New tests verify cursor advancement and bounded memory behavior\n\n## Implementation Guide\n\n1. Read `libs/b3nd-listener/mod.ts` lines 236-288 to understand the current `connect()`.\n\n2. Extend the `Connection` interface to expose cursor state:\n   ```typescript\n   export interface Connection {\n     poll(): Promise<number>;\n     start(): () => void;\n     getCursor(): number;\n   }\n   ```\n\n3. Add config options to `connect()`:\n   ```typescript\n   config: {\n     prefix: string;\n     processor: ...;\n     pollIntervalMs?: number;\n     onError?: ...;\n     cursor?: number;        // Resume from this timestamp\n     maxDedup?: number;       // Max dedup set size (default 1000)\n   }\n   ```\n\n4. Replace the `Set<string>` with a cursor + bounded dedup set:\n   ```typescript\n   let cursor = config.cursor ?? 0;\n   const recentlyProcessed = new Set<string>();\n   const maxDedup = config.maxDedup ?? 1000;\n   ```\n\n5. In the poll loop, after reading each item, check `record.ts`:\n   - If `record.ts <= cursor` and URI not in dedup set, skip (already processed in a prior session)\n   - If URI is in dedup set, skip (already processed this session)\n   - After successful processing, add to dedup set and advance cursor\n   - If dedup set exceeds `maxDedup`, clear it (the cursor protects against reprocessing)\n\n6. Add tests:\n   - Test that `getCursor()` returns 0 initially and advances after processing\n   - Test that providing an initial `cursor` skips older messages\n   - Test that the dedup set prevents double processing within a single poll\n   - Test that restarting with a saved cursor resumes correctly\n\n## Files to Create/Modify\n\n- `libs/b3nd-listener/mod.ts` -- Refactor `connect()` to use cursor-based tracking with bounded dedup.\n- `libs/b3nd-listener/listener.test.ts` -- Add tests for cursor behavior, resume, and bounded memory.\n\n## Testing\n\n```bash\ndeno test libs/b3nd-listener/listener.test.ts\n```\n\n## Dependencies\n\nDepends on G2-A1-01 (respondTo hardening) since both modify the same file. Unblocks G2-A1-03 (rebuild listener) and G2-A2-05 (node discovery loop) which need reliable cursor-tracked polling.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `respondTo(handler, opts)` — wrap a handler as a compose `Processor` (decrypt → call → encrypt → route)\n- [ ] Implement `connect(remote, opts)` — bridge a handler to a remote node (polling transport, cursor tracking, dedup)\n- [ ] Rebuild `b3nd-listener` on top of `respondTo()` + `connect()` instead of parallel custom system\n- [ ] Define `subscribe(remote, opts)` interface for future WebSocket transport (deferred, but interface should be reserved)"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "G1-A6-04",
+  "title": "Implement message feed and cursor-based event stream",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/feed.ts",
+    "libs/b3nd-indexer/cursor.ts",
+    "libs/b3nd-indexer/feed_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-04",
+  "markdown": "\n## Goal\n\nImplement a pull-based message feed with cursor tracking. External consumers (indexers, replicators, analytics) can request \"give me all messages since cursor X\" to process a reliable, ordered stream of changes.\n\n## Background\n\nThe indexer needs to know which messages it has already processed. The feed provides a monotonic sequence of received messages with cursors. A cursor is an opaque string (timestamp-based or sequence-based) that marks a position in the stream.\n\nThe cursor store uses a B3nd node itself as storage: cursors are written to `mutable://indexer/{indexerName}/cursor`.\n\n## Acceptance Criteria\n\n- [ ] `MessageFeedEntry` type: `{ cursor: string; uri: string; data: unknown; timestamp: number }`\n- [ ] `MessageFeed` interface:\n  - `append(uri: string, data: unknown): Promise<string>` -- append entry, return cursor\n  - `read(options: { since?: string; limit?: number }): Promise<{ entries: MessageFeedEntry[]; nextCursor: string }>`\n  - `latest(): Promise<string>` -- latest cursor\n- [ ] `createMessageFeed(storage: NodeProtocolInterface)` factory that stores feed entries\n- [ ] Feed entries stored at `mutable://feed/{timestamp}-{sequence}` URIs\n- [ ] `CursorStore` class:\n  - `get(indexerName: string): Promise<string | null>` -- get last processed cursor\n  - `set(indexerName: string, cursor: string): Promise<void>` -- save cursor position\n  - Uses a B3nd client to store at `mutable://indexer/{indexerName}/cursor`\n- [ ] Feed processor: `createFeedProcessor(feed: MessageFeed)` that appends every received message to the feed\n- [ ] Tests: append messages, read since cursor, read with limit, cursor store get/set, feed processor integration\n\n## Implementation Guide\n\n1. Create `libs/b3nd-indexer/feed.ts`:\n   - `MessageFeedEntry` type\n   - `MessageFeed` interface\n   - In-memory implementation: sorted array of entries, cursor = `{timestamp}-{index}`\n   - `read(since)`: binary search for cursor position, return slice\n   - Persistence-backed implementation: stores entries as B3nd records\n2. Create `libs/b3nd-indexer/cursor.ts`:\n   - `CursorStore` that reads/writes cursor positions to a B3nd client\n   - URI format: `mutable://indexer/{name}/cursor`\n   - Data format: `{ cursor: string, updatedAt: number }`\n3. Create `createFeedProcessor()` in `libs/b3nd-indexer/feed.ts`:\n   - Returns a Processor that calls `feed.append(uri, data)` for every message\n4. Create `libs/b3nd-indexer/feed_test.ts`\n5. Export from `libs/b3nd-indexer/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/feed.ts` -- new: MessageFeed implementation and feed processor\n- `libs/b3nd-indexer/cursor.ts` -- new: CursorStore implementation\n- `libs/b3nd-indexer/feed_test.ts` -- new: tests\n- `libs/b3nd-indexer/mod.ts` -- add exports\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-indexer/feed_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-03 (processor pattern)\n- **Blocks**: G1-A6-05 (backfill reads from feed / source node using cursors)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

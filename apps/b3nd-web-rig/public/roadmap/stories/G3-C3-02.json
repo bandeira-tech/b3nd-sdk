@@ -1,0 +1,30 @@
+{
+  "id": "G3-C3-02",
+  "title": "Design withdrawal market protocol and multi-token settlement patterns",
+  "group": "make-it-pay",
+  "category": "bridge-implementation",
+  "section": "C3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/withdrawal-market-design.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-C3-02",
+  "markdown": "\n## Goal\n\nDesign the withdrawal market messaging protocol (how users find withdrawal providers, negotiate terms, and settle) and multi-token settlement patterns (paths for xFCAT, FCAT, USDC, SOL). Deposits (FCAT -> B3ND) are protocol-mediated, but withdrawals (B3ND -> FCAT) may use a peer-to-peer market where providers offer liquidity.\n\n## Background\n\n**Why a withdrawal market?** Deposits are simple: lock FCAT, mint B3ND. Withdrawals are harder because they require unlocking FCAT on Solana, which needs a funded Solana account to execute the unlock transaction. Options:\n\n1. **Protocol-mediated**: The bridge contract holds FCAT and unlocks on verified B3ND burn. Requires the protocol to operate a Solana signer.\n2. **Peer-to-peer market**: Withdrawal providers (market makers) accept B3ND, burn it, and send FCAT from their own wallets on Solana. Providers compete on rates.\n3. **Hybrid**: Protocol-mediated for standard withdrawals, P2P for fast/custom withdrawals.\n\n**Multi-token settlement**: Users may want to exit to different tokens:\n- B3ND -> FCAT (via bridge unlock)\n- B3ND -> xFCAT (via bridge unlock + FCAT lock for xFCAT)\n- B3ND -> USDC (via FCAT + DEX swap)\n- B3ND -> SOL (via FCAT + DEX swap)\n\nEach path has different fees, speeds, and complexity.\n\n## Acceptance Criteria\n\n- [ ] Withdrawal market protocol designed: message types, negotiation flow, settlement verification\n- [ ] Provider registration: how providers signal availability and rates\n- [ ] Order matching: how users find the best provider\n- [ ] Settlement verification: how to ensure the provider actually sent FCAT after burning B3ND\n- [ ] Dispute resolution: what happens if provider takes B3ND but doesn't send FCAT\n- [ ] Multi-token paths documented: B3ND -> FCAT, B3ND -> xFCAT, B3ND -> USDC, B3ND -> SOL\n- [ ] Fee analysis per path: bridge fee + DEX fee + gas costs\n- [ ] URI schema for withdrawal market: `bridge://withdraw-requests/{id}`, `bridge://withdraw-offers/{id}`, `bridge://withdraw-settlements/{id}`\n- [ ] Security analysis: provider front-running, MEV on Solana side, griefing attacks\n- [ ] Comparison with existing bridge withdrawal designs (Across Protocol, Hop, Stargate)\n\n## Implementation Guide\n\n1. Read `docs/book/consensus/external-chain-design.md` (from G3-C1-01)\n2. Research existing bridge withdrawal patterns (Across uses competitive relayers, Hop uses Bonders)\n3. Create `docs/book/consensus/withdrawal-market-design.md`:\n   - Section 1: Withdrawal Architecture Options\n     - Option A: Protocol-mediated (simple, requires protocol Solana signer, single point of failure)\n     - Option B: P2P market (decentralized, requires provider liquidity, more complex)\n     - Option C: Hybrid (protocol for standard, P2P for fast)\n     - Recommendation with analysis\n   - Section 2: P2P Market Protocol\n     - Step 1: User creates `bridge://withdraw-requests/{id}` with `{ amount, destination_chain, destination_token, max_fee }`\n     - Step 2: Providers read requests, create `bridge://withdraw-offers/{id}` with `{ request_id, fee, estimated_time, provider_pubkey }`\n     - Step 3: User accepts offer by burning B3ND and referencing the offer\n     - Step 4: Provider sends FCAT on Solana, submits proof: `bridge://withdraw-settlements/{id}` with Solana tx signature\n     - Step 5: Settlement verified via Solana RPC (reusing solana://tx validator pattern)\n   - Section 3: Provider Registration\n     - Providers stake gas tokens as collateral\n     - Provider rates published at `bridge://provider-rates/{pubkey}`\n     - Reputation score based on settlement history\n   - Section 4: Multi-Token Paths\n     - B3ND -> FCAT: direct bridge, lowest fee\n     - B3ND -> xFCAT: bridge + auto-lock, medium fee\n     - B3ND -> USDC: bridge + Solana DEX (Jupiter), higher fee\n     - B3ND -> SOL: bridge + Solana DEX, higher fee\n     - Fee breakdown for each path\n   - Section 5: Security Analysis\n     - Provider griefing: burns B3ND but doesn't send FCAT. Mitigation: staked collateral slashed.\n     - User griefing: creates request but doesn't accept. Mitigation: no penalty, requests expire.\n     - Front-running: provider sees profitable withdrawal and front-runs. Mitigation: commitment scheme.\n\n## Files to Create/Modify\n\n- `docs/book/consensus/withdrawal-market-design.md` -- new design document\n\n## Testing\n\nNo code tests. Design review.\n\n## Dependencies\n\n- **Depends on**: G3-C3-01 (Solana tx validator provides settlement verification mechanism)\n- **Blocks**: Nothing directly -- enables future implementation of the withdrawal market\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `solana://tx/{signature}` URI program and validator\n- [ ] Implement deposit verification flow (read Solana RPC, confirm transaction, issue B3ND UTXO)\n- [ ] Implement double-deposit prevention (URI uniqueness on transaction signature)\n- [ ] Design withdrawal market messaging protocol (how users find providers, negotiate, settle)\n- [ ] Design multi-token settlement patterns (xFCAT, FCAT, USDC, SOL paths)"
+}

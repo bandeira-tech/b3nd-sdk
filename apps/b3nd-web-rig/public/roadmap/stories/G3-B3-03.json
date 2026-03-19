@@ -1,0 +1,31 @@
+{
+  "id": "G3-B3-03",
+  "title": "Implement relay proof recording and relay acknowledgments",
+  "group": "make-it-pay",
+  "category": "gas-multinode",
+  "section": "B3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-relay.ts",
+    "libs/firecat-protocol/gas-relay_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B3-03",
+  "markdown": "\n## Goal\n\nImplement relay proof recording (`gas://relay-proofs/{hash}`) and relay acknowledgment (`gas://relay-acks/{hash}`) URI programs. Relay proofs are evidence that a validator relayed a message to peers. Relay acknowledgments are confirmations from receiving peers. Together these create an auditable record of relay activity, which feeds into operator reward calculations.\n\n## Background\n\nIn the multi-node gas system, validators earn rewards not just for validating messages but also for relaying them to other nodes. To prevent gaming (claiming relay credit without actually relaying), the system uses a proof-and-ack pattern:\n\n1. **Relay proof**: When validator A relays a message to validator B, A records a relay proof at `gas://relay-proofs/{messageHash}`. The proof contains: `{ relayer: pubkeyA, recipient: pubkeyB, message_hash: string, timestamp: number }`.\n\n2. **Relay acknowledgment**: When validator B receives and validates the relayed message, B writes an ack at `gas://relay-acks/{messageHash}/{ackId}`. The ack contains: `{ acknowledger: pubkeyB, relayer: pubkeyA, message_hash: string, timestamp: number }`.\n\n3. **Reward eligibility**: A relay proof is only eligible for reward if it has a corresponding ack from the claimed recipient. This prevents nodes from claiming relay credit for messages they never actually sent.\n\nThe validators enforce:\n- Relay proofs: signed by the relayer, message hash must exist, write-once per relayer+recipient pair\n- Relay acks: signed by the acknowledger, referenced relay proof must exist, write-once\n\n## Acceptance Criteria\n\n- [ ] `gas://relay-proofs/{messageHash}` validator: value must be `{ relayer, recipient, message_hash, timestamp }`, signed by relayer, referenced message must exist (via hash), write-once\n- [ ] `gas://relay-acks/{messageHash}/{ackId}` validator: value must be `{ acknowledger, relayer, message_hash, timestamp }`, signed by acknowledger, referenced relay proof must exist, write-once\n- [ ] `buildRelayProofEnvelope(relayerPubKey, relayerPrivKey, recipientPubKey, messageHash)` helper\n- [ ] `buildRelayAckEnvelope(acknowledgerPubKey, acknowledgerPrivKey, relayerPubKey, messageHash)` helper\n- [ ] `getRelayProofsForMessage(reader, messageHash)` query helper -- reads relay proof for a given message\n- [ ] `getRelayAcksForMessage(reader, messageHash)` query helper -- lists acks for a given message\n- [ ] Test: valid relay proof accepted\n- [ ] Test: relay proof for non-existent message rejected\n- [ ] Test: valid relay ack accepted\n- [ ] Test: relay ack without corresponding proof rejected\n- [ ] Test: double relay proof rejected (write-once)\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/gas-validators.ts` for validator pattern\n2. Read `libs/b3nd-encrypt/mod.ts` for signature verification\n3. Create `libs/firecat-protocol/gas-relay.ts`:\n   ```typescript\n   import type { ValidationFn } from \"@bandeira-tech/b3nd-sdk/types\";\n   import type { MessageData } from \"@bandeira-tech/b3nd-sdk\";\n   import { verify } from \"@bandeira-tech/b3nd-sdk/encrypt\";\n\n   export const relayProofValidator: ValidationFn = async ({ uri, value, read, message }) => {\n     // Parse URI: gas://relay-proofs/{messageHash}\n     // Validate value shape: { relayer, recipient, message_hash, timestamp }\n     // Verify: message_hash matches URI path\n     // Verify: relayer signature in message.auth\n     // Verify: referenced content exists (hash://sha256/{messageHash})\n     // Write-once check\n   };\n\n   export const relayAckValidator: ValidationFn = async ({ uri, value, read, message }) => {\n     // Parse URI: gas://relay-acks/{messageHash}/{ackId}\n     // Validate value shape: { acknowledger, relayer, message_hash, timestamp }\n     // Verify: acknowledger signature in message.auth\n     // Verify: relay proof exists at gas://relay-proofs/{messageHash}\n     // Write-once check\n   };\n   ```\n4. Add helper functions for building envelopes and querying\n5. Register validators in `mod.ts` schema (or note for G3-B1-04 follow-up)\n6. Create `libs/firecat-protocol/gas-relay_test.ts`\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/gas-relay.ts` -- new file: relayProofValidator, relayAckValidator, helpers\n- `libs/firecat-protocol/gas-relay_test.ts` -- new file: test suite\n- `libs/firecat-protocol/mod.ts` -- register relay validators in schema\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-relay_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G3-B3-01 (gas replication must exist for relay to make sense)\n- **Blocks**: G3-B3-04 (staking rewards reference relay activity)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+}

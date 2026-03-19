@@ -1,0 +1,34 @@
+{
+  "id": "G1-D2-03",
+  "title": "Build reference app: Invoicing with message envelopes",
+  "group": "apps-possible",
+  "category": "reference-apps",
+  "section": "D2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "apps/reference-invoicing/README.md",
+    "apps/reference-invoicing/server.ts",
+    "apps/reference-invoicing/schema.ts",
+    "apps/reference-invoicing/indexer.ts",
+    "apps/reference-invoicing/web/src/App.tsx"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-D2-03",
+  "markdown": "\n## Goal\n\nBuild a complete Invoicing application that demonstrates message envelopes (`send()` with inputs/outputs), concurrency control (`receiveIf` for status transitions), the indexer (query invoices by status, date, amount), and encrypted communication between parties.\n\n## Background\n\nThe invoicing app is the most complex reference app, demonstrating:\n1. **Message envelopes**: Creating an invoice is a `send()` with outputs to both the sender's and recipient's namespaces\n2. **Concurrency control**: Invoice status transitions (draft -> sent -> paid) use `receiveIf` to prevent race conditions\n3. **Indexer**: Query invoices by status, date range, customer, amount\n4. **Encryption**: Invoice data encrypted for both parties (sender and recipient each have access)\n5. **Content addressing**: Immutable invoice snapshots stored at `hash://` URIs\n\n## Acceptance Criteria\n\n- [ ] Complete application in `apps/reference-invoicing/` with:\n  - **Server**: B3nd node with schema, indexer, concurrency support, HTTP server\n  - **Web client**: React app with invoice CRUD, status management, search\n- [ ] Schema covers:\n  - `mutable://data/{pubkey}/invoices/{id}` -- mutable invoice state (status, metadata)\n  - `mutable://data/{pubkey}/invoices/{id}/status` -- current status (uses receiveIf)\n  - `hash://sha256/{...}` -- immutable invoice snapshot (line items, totals)\n  - `mutable://open/invoices/directory/{id}` -- public invoice directory for discovery\n- [ ] Features demonstrated:\n  - **Create invoice**: Message envelope with outputs to sender + recipient namespaces\n  - **Status transitions**: draft -> sent -> viewed -> paid -> archived (using receiveIf)\n  - **Search**: Query invoices by status, date range, customer name, amount range\n  - **Aggregation**: Total revenue by month, outstanding balance, average invoice amount\n  - **Encrypted delivery**: Invoice data encrypted for recipient\n  - **Immutable record**: Invoice snapshot at hash:// URI as proof of original terms\n- [ ] README with setup instructions, data model diagram, and walkthrough\n- [ ] Demonstrates the `send()` function with multi-output message envelopes\n\n## Implementation Guide\n\n1. Create `apps/reference-invoicing/` directory structure\n2. **Schema** (`schema.ts`):\n   - Validators for each URI pattern\n   - Status transition validator: reads current status, validates allowed transitions\n3. **Indexer** (`indexer.ts`):\n   - Fields: `customer (string, searchable)`, `status (string)`, `amount (number)`, `dueDate (date)`, `createdAt (date)`\n4. **Server** (`server.ts`):\n   - `PostgresClient` or `MemoryClient` with concurrency support\n   - Indexer processor in parallel\n   - HTTP server with indexer routes\n5. **Web** (`web/`):\n   - InvoiceList with filters (status, date range, amount range)\n   - InvoiceForm (create/edit)\n   - InvoiceDetail (view + status actions)\n   - Dashboard (aggregation charts)\n6. Add to workspace in root `deno.json`\n\n## Files to Create/Modify\n\n- `apps/reference-invoicing/` -- new: entire application directory\n- `deno.json` -- add workspace member\n\n## Testing\n\n```bash\ncd apps/reference-invoicing && deno task start\n```\n\n## Dependencies\n\n- **Depends on**: G1-A4-01 (concurrency control), G1-A6-09 (indexer HTTP), G1-A7-04 (encryption helpers), G1-D1-01 (quickstart patterns)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Build at least one complete reference app demonstrating Firecat capabilities (once indexer exists)\n- [ ] The PRD's three app designs (recipe book, encrypted journal, invoicing) are ready as reference implementations"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "G2-E1-02",
+  "title": "Test confirmation protocol across 3+ simulated nodes",
+  "group": "nodes-talk",
+  "category": "multi-node-ops",
+  "section": "E1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/confirmation_test.ts",
+    "libs/firecat-protocol/confirmation.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-E1-02",
+  "markdown": "\n## Goal\n\nCreate a comprehensive integration test suite that simulates 3 nodes running the full confirmation protocol: submission, pending marker, discovery, attestation, threshold check, and finalization. This validates that the entire confirmation lifecycle works end-to-end with realistic node interactions.\n\n## Background\n\nIndividual components of the confirmation protocol are tested in their respective stories (G2-A2-01 through G2-A2-08). This story creates the integration test that wires them all together:\n\n1. Three MemoryClient instances represent three nodes (Node A, B, C)\n2. Peer replication is configured so writes propagate between them\n3. A client submits a consensus envelope to Node A\n4. Node A writes the pending marker\n5. Node B and Node C discover the pending marker (via replicated data)\n6. Each node replays validation and writes attestations\n7. When threshold (2) is met, one node writes the confirmation\n8. The client's `waitForConfirmation()` succeeds\n\nThis test validates the correctness of the distributed consensus flow without requiring actual network infrastructure.\n\n## Acceptance Criteria\n\n- [ ] Integration test creates 3 simulated nodes with peer replication\n- [ ] Test configures `VALIDATOR_SET` with the 3 node keys and `CONFIRMATION_THRESHOLD = 2`\n- [ ] Test submits a valid consensus envelope (genesis + balance + fee + consensus record)\n- [ ] Test verifies pending marker is created and replicated\n- [ ] Test runs discovery loops on all 3 nodes\n- [ ] Test verifies at least 2 attestations are written\n- [ ] Test verifies confirmation is written after threshold is met\n- [ ] Test verifies `consensus://record` is written after confirmation\n- [ ] Test verifies `waitForConfirmation()` returns true\n- [ ] Test verifies the finalization race (only one confirmation write succeeds)\n- [ ] Test runs in under 10 seconds (no real network, no real delays)\n- [ ] Negative test: submission with invalid conservation is rejected by all nodes\n\n## Implementation Guide\n\n1. Create the test infrastructure:\n   ```typescript\n   // Three nodes with shared schema\n   const schema = firecatSchema; // With confirmation validators registered\n\n   const nodeAStorage = new MemoryClient({ schema });\n   const nodeBStorage = new MemoryClient({ schema });\n   const nodeCStorage = new MemoryClient({ schema });\n\n   // Each node pushes to the other two\n   const nodeA = createValidatedClient({\n     write: parallelBroadcast([nodeAStorage, bestEffortClient(nodeBStorage), bestEffortClient(nodeCStorage)]),\n     read: firstMatchSequence([nodeAStorage]),\n     validate: msgSchema(schema),\n   });\n   // Similar for nodeB, nodeC\n   ```\n\n2. Generate three node identities (signing key pairs).\n\n3. Configure the validator set:\n   ```typescript\n   // Temporarily set VALIDATOR_SET for this test\n   VALIDATOR_SET.push(nodeAKey, nodeBKey, nodeCKey);\n   ```\n\n4. Build and submit a genesis + consensus envelope:\n   ```typescript\n   // Genesis claim for test account\n   const genesisEnvelope = buildGenesisEnvelope(testPubKey, 1000);\n   await nodeA.receive([\"hash://sha256/\" + envelopeHash, genesisEnvelope]);\n   // ... then build consensus envelope with gas payment\n   ```\n\n5. Run the pending processor on Node A.\n\n6. Manually trigger discovery loop polls on each node.\n\n7. Verify attestation count reaches threshold.\n\n8. Trigger finalization.\n\n9. Verify end state: confirmation exists, consensus record exists.\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/confirmation_test.ts` -- Add multi-node integration test.\n- `libs/firecat-protocol/confirmation.ts` -- Fix any issues discovered during integration testing.\n\n## Testing\n\n```bash\ndeno test libs/firecat-protocol/confirmation_test.ts\n```\n\nThe test should be self-contained with no external dependencies.\n\n## Dependencies\n\nDepends on G2-A2-07 (finalization), G2-A2-08 (waitForConfirmation), G2-E1-01 (peer replication hardening). Blocks G2-E1-04 (staging environment is the real-world version of this test).\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Test and harden peer replication across multiple b3nd-nodes\n- [ ] Test confirmation protocol across 3+ nodes\n- [ ] Implement managed-node improvements (node builder, config watcher, heartbeat — libs exist but integration unclear)\n- [ ] Set up multi-node staging environment"
+}

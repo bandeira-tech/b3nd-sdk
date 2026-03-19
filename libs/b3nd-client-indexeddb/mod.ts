@@ -23,6 +23,7 @@ import type {
   ReceiveResult,
   Schema,
 } from "../b3nd-core/types.ts";
+import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 // Type definitions for IndexedDB (simplified for cross-platform compatibility)
 interface IDBDatabase {
@@ -193,21 +194,32 @@ export class IndexedDBClient implements NodeProtocolInterface {
   }
 
   /**
+   * Extract program key from URI (protocol://hostname)
+   * Matches MemoryClient/PostgresClient/MongoClient behavior.
+   */
+  private extractProgramKey(uri: string): string {
+    try {
+      const url = new URL(uri);
+      return `${url.protocol}//${url.hostname}`;
+    } catch {
+      // Fall back to prefix match for non-URL URIs
+      for (const programKey of Object.keys(this.schema)) {
+        if (uri.startsWith(programKey)) {
+          return programKey;
+        }
+      }
+      return uri;
+    }
+  }
+
+  /**
    * Find matching program key for URI
    */
   private findMatchingProgram(uri: string): string | null {
-    // Look for exact matches first
-    if (this.schema[uri]) {
-      return uri;
+    const programKey = this.extractProgramKey(uri);
+    if (this.schema[programKey]) {
+      return programKey;
     }
-
-    // Look for prefix matches (e.g., "users://" matches "users://alice/profile")
-    for (const programKey of Object.keys(this.schema)) {
-      if (uri.startsWith(programKey)) {
-        return programKey;
-      }
-    }
-
     return null;
   }
 
@@ -257,7 +269,7 @@ export class IndexedDBClient implements NodeProtocolInterface {
         ts: record.ts,
       };
 
-      return new Promise<ReceiveResult>((resolve) => {
+      const putResult = await new Promise<ReceiveResult>((resolve) => {
         const request = store.put(storedRecord);
 
         request.onsuccess = () => {
@@ -271,6 +283,26 @@ export class IndexedDBClient implements NodeProtocolInterface {
           });
         };
       });
+
+      if (!putResult.accepted) {
+        return putResult;
+      }
+
+      // If MessageData, also store each output at its own URI
+      if (isMessageData(data)) {
+        for (const [outputUri, outputValue] of data.payload.outputs) {
+          const outputResult = await this.receive([outputUri, outputValue]);
+          if (!outputResult.accepted) {
+            return {
+              accepted: false,
+              error: outputResult.error ||
+                `Failed to store output: ${outputUri}`,
+            };
+          }
+        }
+      }
+
+      return { accepted: true };
     } catch (error) {
       return {
         accepted: false,
@@ -430,9 +462,10 @@ export class IndexedDBClient implements NodeProtocolInterface {
             const record = cursor.value as StoredRecord;
 
             // Check if this record matches our URI criteria
-            if (record.uri.startsWith(uri)) {
-              // Apply pattern filter if specified
-              if (!pattern || record.uri.includes(pattern)) {
+            // Must match exact URI or be a child path (with "/")
+            if (record.uri === uri || record.uri.startsWith(uri + "/")) {
+              // Apply pattern filter if specified (regex, consistent with other clients)
+              if (!pattern || new RegExp(pattern).test(record.uri)) {
                 items.push({
                   uri: record.uri,
                 });
@@ -679,9 +712,10 @@ export class IndexedDBClient implements NodeProtocolInterface {
       // Ignore cleanup errors
     }
 
-    // Wait for any pending operations to complete
-    // fake-indexeddb uses setTimeout internally, so we need to wait a few ticks
-    // to ensure all queued operations have had a chance to execute
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Close the database connection to release resources
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+    }
   }
 }

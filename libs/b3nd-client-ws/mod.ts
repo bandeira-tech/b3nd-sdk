@@ -267,7 +267,8 @@ export class WebSocketClient implements NodeProtocolInterface {
     try {
       // Encode binary data for JSON transport
       const encodedMsg: Message = [uri, encodeBinaryForJson(msg[1])];
-      const result = await this.sendRequest<ReceiveResult>("receive",
+      const result = await this.sendRequest<ReceiveResult>(
+        "receive",
         encodedMsg,
       );
       return result;
@@ -352,12 +353,8 @@ export class WebSocketClient implements NodeProtocolInterface {
       return result;
     } catch (error) {
       return {
-        success: true,
-        data: [],
-        pagination: {
-          page: options?.page || 1,
-          limit: options?.limit || 50,
-        },
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }

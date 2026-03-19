@@ -1,0 +1,32 @@
+{
+  "id": "G2-E1-01",
+  "title": "Test and harden peer replication across multiple b3nd-nodes",
+  "group": "nodes-talk",
+  "category": "multi-node-ops",
+  "section": "E1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-managed-node/peer-replication.ts",
+    "libs/b3nd-managed-node/peer-replication.test.ts",
+    "libs/b3nd-compose/composition.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-E1-01",
+  "markdown": "\n## Goal\n\nTest and harden the existing peer replication system in `libs/b3nd-managed-node/peer-replication.ts` to ensure reliable write propagation between nodes. The existing `createPeerClients()` and `bestEffortClient()` functions work in isolation but have not been tested in a realistic multi-node scenario with concurrent writes, network failures, and data consistency verification.\n\n## Background\n\nThe current peer replication system works as follows:\n1. `createPeerClients(peers)` splits `PeerSpec[]` into push and pull client sets\n2. Push clients receive writes via `parallelBroadcast()` in the compose pipeline\n3. `bestEffortClient()` wraps push clients so receive failures are non-fatal\n4. Pull clients serve as read fallbacks via `firstMatchSequence()`\n\nWhat's missing:\n- **Integration tests**: No test verifies that data written to Node A actually appears on Node B\n- **Failure recovery**: When a push fails (network error), the data is silently lost on the peer. There's no retry or catch-up mechanism.\n- **Consistency verification**: No way to check if peers are in sync\n- **Conflict handling**: If the same URI is written to two peers simultaneously (before replication), the behavior is undefined\n\nThis story focuses on testing the existing code with realistic scenarios and adding a consistency check utility.\n\n## Acceptance Criteria\n\n- [ ] Integration tests verify data written to one MemoryClient appears on another via push replication\n- [ ] Integration tests verify `bestEffortClient` behavior when the peer is unreachable (returns accepted, logs warning)\n- [ ] Integration tests verify pull fallback behavior (read from peer when local read fails)\n- [ ] `checkPeerConsistency()` utility function that reads a set of URIs from all peers and reports mismatches\n- [ ] Tests verify concurrent writes to the same URI on different peers (document the behavior)\n- [ ] Error scenarios tested: peer timeout, peer returns 500, peer rejects the write\n- [ ] Existing peer-replication.test.ts tests pass\n\n## Implementation Guide\n\n1. Read `libs/b3nd-managed-node/peer-replication.ts` to understand the current implementation.\n\n2. Read `libs/b3nd-managed-node/peer-replication.test.ts` to understand existing test coverage.\n\n3. Read how peers are composed in `apps/b3nd-node/mod.ts` lines 260-273 (the `buildManagedClient` function):\n   ```typescript\n   const { pushClients, pullClients } = createPeerClients(config.peers ?? []);\n   return createValidatedClient({\n     write: parallelBroadcast([...localClients, ...pushClients.map(bestEffortClient)]),\n     read: firstMatchSequence([...localClients, ...pullClients]),\n     validate: msgSchema(schemaToUse),\n   });\n   ```\n\n4. Write integration tests using `MemoryClient` as stand-ins for real peers:\n   ```typescript\n   // Create two \"nodes\" with in-memory backends\n   const nodeA = new MemoryClient({ schema: firecatSchema });\n   const nodeB = new MemoryClient({ schema: firecatSchema });\n\n   // Node A pushes to Node B\n   const composedA = createValidatedClient({\n     write: parallelBroadcast([nodeA, bestEffortClient(nodeB)]),\n     read: firstMatchSequence([nodeA, nodeB]),\n     validate: msgSchema(firecatSchema),\n   });\n\n   // Write via Node A\n   await composedA.receive([\"mutable://open/test\", \"hello\"]);\n\n   // Verify it appears on Node B\n   const result = await nodeB.read(\"mutable://open/test\");\n   assertEquals(result.success, true);\n   assertEquals(result.record?.data, \"hello\");\n   ```\n\n5. Implement `checkPeerConsistency()`:\n   ```typescript\n   export async function checkPeerConsistency(\n     clients: NodeProtocolInterface[],\n     uris: string[],\n   ): Promise<{ consistent: boolean; mismatches: Array<{ uri: string; details: string }> }> {\n     // For each URI, read from all clients and compare\n   }\n   ```\n\n6. Add failure scenario tests using a mock client that throws or rejects.\n\n## Files to Create/Modify\n\n- `libs/b3nd-managed-node/peer-replication.ts` -- Add `checkPeerConsistency()`.\n- `libs/b3nd-managed-node/peer-replication.test.ts` -- Add integration and failure tests.\n\n## Testing\n\n```bash\ndeno test libs/b3nd-managed-node/peer-replication.test.ts\n```\n\n## Dependencies\n\nDepends on G2-A2-03 (confirmation pipeline, since confirmation messages need to replicate). Blocks G2-E1-02 (multi-node confirmation testing) and G2-E1-04 (staging environment).\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Test and harden peer replication across multiple b3nd-nodes\n- [ ] Test confirmation protocol across 3+ nodes\n- [ ] Implement managed-node improvements (node builder, config watcher, heartbeat — libs exist but integration unclear)\n- [ ] Set up multi-node staging environment"
+}

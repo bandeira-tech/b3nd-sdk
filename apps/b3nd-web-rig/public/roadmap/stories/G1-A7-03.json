@@ -1,0 +1,32 @@
+{
+  "id": "G1-A7-03",
+  "title": "Design multi-device key sync mechanism",
+  "group": "apps-possible",
+  "category": "encryption",
+  "section": "A7",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "design+implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-encrypt/sync.ts",
+    "libs/b3nd-encrypt/sync_test.ts",
+    "skills/b3nd/APP_COOKBOOK.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A7-03",
+  "markdown": "\n## Goal\n\nDesign and implement a multi-device key synchronization mechanism. Users need to access their B3nd identity from multiple devices (phone, laptop, tablet) without compromising key security.\n\n## Background\n\nB3nd identities are keypairs. Unlike centralized systems where a server stores credentials, there is no password reset or account recovery. If keys are lost, data is lost. Users need:\n\n1. **Password-based recovery**: Derive the same KeyBundle from a memorable password (deterministic derivation)\n2. **QR transfer**: Display key material as a QR code on one device, scan on another\n3. **Encrypted backup**: Export KeyBundle to a file/cloud, importable with password\n\nThe `KeyBundle.fromPassword()` and `KeyBundle.export()` from G1-A7-02 provide the foundation. This story adds the sync protocol and documentation.\n\n## Acceptance Criteria\n\n- [ ] `KeySyncPayload` type: `{ version: 1; exportedBundle: string; checksum: string }` -- what gets transferred between devices\n- [ ] `createSyncPayload(bundle: KeyBundle, password: string): Promise<KeySyncPayload>` -- creates transferable payload\n- [ ] `importSyncPayload(payload: KeySyncPayload, password: string): Promise<KeyBundle>` -- reconstructs bundle from payload\n- [ ] `createSyncQRData(bundle: KeyBundle, password: string): Promise<string>` -- creates compact string for QR encoding\n- [ ] `importSyncQRData(qrData: string, password: string): Promise<KeyBundle>` -- reconstructs from QR data\n- [ ] Checksum verification: imported payload verified against checksum to detect corruption\n- [ ] `skills/b3nd/APP_COOKBOOK.md` has a \"Multi-Device Setup\" section with:\n  - Pattern: password-based (same password on both devices)\n  - Pattern: QR transfer (display on device A, scan on device B)\n  - Pattern: encrypted file backup (export, store in cloud/USB, import)\n  - Prominent warning: \"Key loss = permanent data loss\"\n- [ ] Tests: sync payload round-trip, QR data round-trip, checksum validation, wrong password rejection\n\n## Implementation Guide\n\n1. Read `libs/b3nd-encrypt/keybundle.ts` for export/import methods\n2. Create `libs/b3nd-encrypt/sync.ts`:\n   - `createSyncPayload`: call `bundle.export(password)`, compute SHA-256 checksum of exported string\n   - `importSyncPayload`: verify checksum, call `KeyBundle.fromExport(payload.exportedBundle, password)`\n   - `createSyncQRData`: create compact base64 representation suitable for QR codes (max ~2KB for reliable scanning)\n   - `importSyncQRData`: decode and import\n3. Create `libs/b3nd-encrypt/sync_test.ts`\n4. Update `skills/b3nd/APP_COOKBOOK.md` with multi-device documentation\n5. Export from `libs/b3nd-encrypt/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-encrypt/sync.ts` -- new: sync utilities\n- `libs/b3nd-encrypt/sync_test.ts` -- new: tests\n- `libs/b3nd-encrypt/mod.ts` -- add exports\n- `skills/b3nd/APP_COOKBOOK.md` -- add Multi-Device Setup section\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-encrypt/\n```\n\n## Dependencies\n\n- **Depends on**: G1-A7-02 (KeyBundle export/import)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+}

@@ -1,0 +1,30 @@
+{
+  "id": "G2-A3-04",
+  "title": "Design reward distribution mechanism for validators, confirmers, and producers",
+  "group": "nodes-talk",
+  "category": "temporal-consensus",
+  "section": "A3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/README.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A3-04",
+  "markdown": "\n## Goal\n\nDesign how validators, confirmers, and producers claim rewards for their work in the consensus process. The mechanism must use the existing UTXO balance system (`immutable://balance/`) and be enforceable through validators.\n\n## Background\n\nThe consensus book outline Chapter 13 covers reward distribution. The key design constraints:\n\n1. Rewards are allocated to shift IDs (which prove work provenance)\n2. Claiming requires proving work was done (attestation/confirmation/slot assignment exists)\n3. Anti-gaming: rewards should not be claimable without actual validated work\n4. Rewards are funded from gas fees (the `CONSENSUS_FEE` from `constants.ts`)\n5. Rewards are paid as UTXO balance entries (same as regular balances)\n\nThe reward flow:\n- Gas fees accumulate at `immutable://balance/{ROOT_KEY}/{contentHash}`\n- After a block is produced, a reward distribution envelope allocates fees to workers\n- Each worker claims their share by referencing the block and their attestation/confirmation\n\n## Acceptance Criteria\n\n- [ ] Design document covers reward URI patterns (e.g., `immutable://reward/{blockHash}/{nodeKey}`)\n- [ ] Design document covers reward calculation formula (how fees are split among roles)\n- [ ] Design document covers reward claiming mechanism (how a node claims its reward)\n- [ ] Design document covers anti-gaming rules (what prevents fake claims)\n- [ ] Design document covers relationship to UTXO balance system\n- [ ] Design document covers epoch-based vs per-block reward distribution\n- [ ] All reward rules expressible as `ValidationFn` checks\n- [ ] No code changes -- design only\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/constants.ts` for `ROOT_KEY` and `CONSENSUS_FEE`.\n2. Read the existing balance/consumed validator patterns for how UTXO rewards would work.\n3. Write a design covering:\n\n   **Reward Pool**:\n   - Gas fees from `consensus://record` writes accumulate at ROOT_KEY\n   - Per-block reward = sum of fees for records in that block\n\n   **Distribution Formula**:\n   - Validators get X% (they did the validation work)\n   - Confirmers get Y% (they bundled attestations)\n   - Producers get Z% (they created the block)\n   - Rationale for the split\n\n   **Claiming Mechanism**:\n   - Node submits a reward claim envelope referencing their attestation/confirmation and the block\n   - Validator checks: the referenced attestation/confirmation exists AND is in the referenced block\n   - Reward is written as a new UTXO balance to the node's account\n\n   **Anti-Gaming**:\n   - Claim must reference real attestation at `immutable://attestation/{h}/{nodeKey}`\n   - Double-claim prevention via write-once rewards\n   - Shift ID freshness prevents claiming for work done long ago\n\n## Files to Create/Modify\n\n- `docs/book/consensus/REWARD_DISTRIBUTION.md` -- New design document.\n\n## Testing\n\nNo code changes. Design review only.\n\n## Dependencies\n\nDepends on G2-A3-03 (timing rules define when rewards are earned). Blocks nothing directly -- rewards are a future implementation.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+}

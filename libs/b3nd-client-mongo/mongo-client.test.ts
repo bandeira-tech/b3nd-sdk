@@ -65,10 +65,26 @@ class RealMongoExecutor implements MongoExecutor {
     return (doc ?? null) as Record<string, unknown> | null;
   }
 
-  async findMany(filter: Record<string, unknown>) {
+  async findMany(
+    filter: Record<string, unknown>,
+    options?: {
+      sort?: Record<string, 1 | -1>;
+      skip?: number;
+      limit?: number;
+    },
+  ) {
     const col = await this.collection();
-    const docs = await col.find(filter).toArray();
+    let cursor = col.find(filter);
+    if (options?.sort) cursor = cursor.sort(options.sort);
+    if (options?.skip) cursor = cursor.skip(options.skip);
+    if (options?.limit) cursor = cursor.limit(options.limit);
+    const docs = await cursor.toArray();
     return docs as Record<string, unknown>[];
+  }
+
+  async countDocuments(filter: Record<string, unknown>) {
+    const col = await this.collection();
+    return await col.countDocuments(filter);
   }
 
   async deleteOne(filter: Record<string, unknown>) {

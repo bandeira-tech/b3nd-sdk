@@ -1,0 +1,30 @@
+{
+  "id": "G3-C1-01",
+  "title": "Design external chain token structure: FCAT, xFCAT supply ratios and bridge AMM",
+  "group": "make-it-pay",
+  "category": "token-bridge",
+  "section": "C1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/external-chain-design.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-C1-01",
+  "markdown": "\n## Goal\n\nFinalize the external chain token design: FCAT / xFCAT supply ratios, bridge AMM parameters, Solana deposit program design, and xFCAT initial distribution strategy. This is the foundational design for how B3nd's internal gas token (B3ND) connects to external markets via Solana-based tokens.\n\n## Background\n\nThe three-token model:\n- **FCAT** (Firecat Token): SPL token on Solana. Publicly tradeable. Represents protocol value.\n- **xFCAT** (Extended Firecat Token): SPL token on Solana. Governance + staking derivative. Earned by locking FCAT.\n- **B3ND**: Internal gas token on B3nd network. Used for gas fees, staking, rewards. Bridgeable to/from FCAT.\n\nKey decisions:\n1. **Supply ratios**: How much of each token exists? Options: 1:1:2 (equal FCAT:xFCAT, double B3ND), 1:1:1, or asymmetric.\n2. **Bridge AMM**: How does the FCAT <-> B3ND bridge work? A constant-product AMM, a fixed-rate bridge, or a bonding curve?\n3. **Solana deposit program**: When users lock FCAT to get B3ND, what happens to the locked FCAT? Simple lockbox vs complex vault with yield.\n4. **xFCAT distribution**: How is xFCAT initially allocated? Liquidity pools, foundation, community rewards, market makers?\n\n## Acceptance Criteria\n\n- [ ] Supply ratio decision with analysis: total supply per token, conversion ratios, reasoning\n- [ ] Bridge AMM design: pool type (constant-product, stable-swap, bonding curve), fee rate, fee destination\n- [ ] Protocol-owned vs external liquidity: recommendation with tradeoff analysis\n- [ ] Solana deposit program: architecture (lockbox vs vault), what happens to locked tokens, security model\n- [ ] xFCAT distribution: allocation percentages, vesting, liquidity bootstrapping strategy\n- [ ] Diagram showing token flows between Solana (FCAT, xFCAT) and B3nd (B3ND)\n- [ ] Attack analysis: bridge drain, supply manipulation, oracle attacks\n- [ ] Comparison with existing bridge designs (Wormhole, LayerZero, native bridges)\n\n## Implementation Guide\n\n1. Read existing TASKS.md section C1 for the questions to answer\n2. Research comparable bridge designs for reference\n3. Create `docs/book/consensus/external-chain-design.md`:\n   - Section 1: Token Supply Architecture\n     - Total FCAT supply: e.g., 1 billion\n     - Total xFCAT supply: derived from FCAT locking (not preminted)\n     - Total B3ND supply: preminted at genesis, e.g., 2 billion\n     - Ratio analysis: why these numbers? What drives the ratio?\n     - Inflation/deflation model: is B3ND inflationary (new tokens from validation rewards) or fixed supply with redistribution?\n   - Section 2: Bridge AMM Design\n     - Option A: Constant-product (Uniswap-style) -- simple, well-understood, slippage on large trades\n     - Option B: Stable-swap (Curve-style) -- low slippage near peg, complex\n     - Option C: Fixed-rate with fee -- simplest, no slippage, but doesn't respond to supply/demand\n     - Recommendation with analysis\n     - Fee: e.g., 0.3% per bridge transaction, 50% to protocol fund, 50% to LPs\n   - Section 3: Solana Deposit Program\n     - Architecture: Solana program (smart contract) that locks FCAT and emits a deposit event\n     - B3nd bridge validator reads the deposit event and mints B3ND\n     - Security: deposit confirmation delay, minimum confirmations, rate limiting\n     - What happens to locked FCAT: held in program account, unlockable via B3ND burn + withdrawal proof\n   - Section 4: xFCAT Design\n     - Earned by: locking FCAT for a minimum period (e.g., 30 days)\n     - Exchange rate: time-weighted (longer lock = more xFCAT per FCAT)\n     - Governance rights: xFCAT holders vote on protocol parameters\n     - Distribution: no premint, entirely earned through locking\n   - Section 5: Attack Analysis\n     - Bridge drain: rate limiting, maximum bridge volume per epoch\n     - Supply manipulation: AMM design prevents single-actor price manipulation\n     - Oracle attacks: B3nd doesn't use external oracles for the bridge (deposit is verified directly)\n\n## Files to Create/Modify\n\n- `docs/book/consensus/external-chain-design.md` -- new design document\n\n## Testing\n\nNo code tests. Design review for completeness, consistency, and attack resistance.\n\n## Dependencies\n\n- **Depends on**: Nothing -- this is a foundational design\n- **Blocks**: G3-C3-01 (bridge implementation), G3-C4-01 (TGE modeling)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Finalize FCAT / xFCAT supply ratios (1:1:2 vs 1:1:1 vs other)\n- [ ] Design bridge AMM parameters (pool type, fee rate, fee destination, protocol-owned vs external LPs)\n- [ ] Design Solana deposit program (simple lockbox vs complex vault, what happens to locked FCAT)\n- [ ] Decide xFCAT initial distribution (liquidity pools vs foundation vs community vs market makers)"
+}

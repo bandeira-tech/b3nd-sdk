@@ -10,6 +10,8 @@ import { NodesLeftSlot } from "../nodes/NodesLeftSlot";
 import { NodesLayoutSlot } from "../nodes/NodesLayoutSlot";
 import { LearnLeftSlot } from "../learn/LearnLeftSlot";
 import { LearnLayoutSlot } from "../learn/LearnLayoutSlot";
+import { RoadmapLeftSlot } from "../roadmap/RoadmapLeftSlot";
+import { RoadmapLayoutSlot } from "../roadmap/RoadmapLayoutSlot";
 import { EditorLeftSlotConnected } from "../editor/EditorLayoutSlot";
 import { EditorMainSlotConnected } from "../editor/EditorLayoutSlot";
 import { SettingsLayoutSlot } from "./slots/SettingsLayoutSlot";
@@ -17,7 +19,7 @@ import { AccountsLayoutSlot } from "./slots/AccountsLayoutSlot";
 import { SimpleLeftSlot } from "./slots/SimpleLeftSlot";
 import type { AppMode } from "../../types";
 
-type LayoutSlotKey = "settings" | "accounts" | "editor" | "writer" | "explorer" | "dashboard" | "nodes" | "learn";
+type LayoutSlotKey = "settings" | "accounts" | "editor" | "writer" | "explorer" | "dashboard" | "nodes" | "learn" | "roadmap";
 
 type LayoutSlot = {
   Left: ComponentType;
@@ -66,6 +68,11 @@ const layoutSlots: Record<LayoutSlotKey, LayoutSlot> = {
     Main: LearnLayoutSlot,
     rightPanelToggleVisible: () => false,
   },
+  roadmap: {
+    Left: RoadmapLeftSlot,
+    Main: RoadmapLayoutSlot,
+    rightPanelToggleVisible: () => true,
+  },
 };
 
 export function useLayoutSlots() {
@@ -76,6 +83,7 @@ export function useLayoutSlots() {
   const slotKey: LayoutSlotKey = (() => {
     if (mainView === "settings") return "settings";
     if (mainView === "accounts") return "accounts";
+    if (activeApp === "roadmap") return "roadmap";
     if (activeApp === "learn") return "learn";
     if (activeApp === "nodes") return "nodes";
     if (activeApp === "dashboard") return "dashboard";

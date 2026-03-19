@@ -1,0 +1,32 @@
+{
+  "id": "G3-B3-02",
+  "title": "Implement cross-node UTXO consumption detection and double-spend resolution",
+  "group": "make-it-pay",
+  "category": "gas-multinode",
+  "section": "B3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "design+implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-double-spend.ts",
+    "libs/firecat-protocol/gas-double-spend_test.ts",
+    "docs/book/consensus/double-spend-resolution.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B3-02",
+  "markdown": "\n## Goal\n\nImplement cross-node UTXO consumption detection (discovering that the same UTXO was spent on different nodes) and a resolution mechanism for double-spend conflicts. This is the hardest problem in the multi-node gas system: without a single sequencer, two nodes can independently accept conflicting spends. This story designs and implements the resolution strategy.\n\n## Background\n\nIn a single-node system, double-spend is impossible: the consumed marker is write-once, so the second spend is rejected. In a multi-node system, two nodes can race:\n\n- Node A validates: spend UTXO X -> outputs A1, A2\n- Node B validates: spend UTXO X -> outputs B1, B2\n- Both succeed locally because neither has seen the other's consumed marker yet\n\nDetection happens during checkpoint comparison (G3-B3-01): when nodes exchange checkpoints, they discover that their UTXO sets have diverged.\n\nResolution options (to be decided in design doc and implemented):\n1. **Timestamp-first**: The spend with the earlier timestamp wins. Simple but trusts node clocks.\n2. **Checkpoint-first**: The spend included in the earlier checkpoint wins. Requires checkpoint ordering.\n3. **Stake-weighted**: The spend on the node with more stake wins. Requires staking (G3-B3-04).\n4. **Deterministic**: Hash the conflicting transactions, lower hash wins. Fair but arbitrary.\n\nThe design document should evaluate these options and recommend one. The implementation should be pluggable so the strategy can change.\n\n## Acceptance Criteria\n\n- [ ] Design document: `docs/book/consensus/double-spend-resolution.md` evaluating resolution strategies with pros/cons\n- [ ] `DoubleSpendDetector` class: `detectConflicts(localCheckpoint, peerCheckpoint, localState, peerState)` returns list of conflicting UTXO spends\n- [ ] `DoubleSpendResolver` interface: `resolve(conflict) => { winner: \"local\" | \"peer\", reason: string }`\n- [ ] At least one concrete resolver implemented (recommended: checkpoint-first)\n- [ ] `resolveConflict(conflict, resolver, localNode)` applies resolution: rolls back the loser's outputs and replays the winner's outputs\n- [ ] Rollback mechanism: mark loser's outputs as invalidated (write invalidation record), re-credit the UTXO\n- [ ] Test: detect double-spend between two nodes\n- [ ] Test: resolve in favor of earlier checkpoint\n- [ ] Test: rollback applies correctly (loser's outputs invalidated, UTXO re-credited)\n- [ ] Test: no false positives (different UTXOs spent on different nodes is fine)\n\n## Implementation Guide\n\n1. Write design document first: `docs/book/consensus/double-spend-resolution.md`\n   - Evaluate timestamp-first, checkpoint-first, stake-weighted, deterministic approaches\n   - Consider: what happens to transactions that depend on the loser's outputs?\n   - Recommend cascading invalidation: if tx B spent a UTXO created by loser tx A, tx B is also invalidated\n2. Create `libs/firecat-protocol/gas-double-spend.ts`:\n   ```typescript\n   interface SpendConflict {\n     utxoUri: string;\n     localSpend: { consumedUri: string; timestamp: number; checkpointSequence: number };\n     peerSpend: { consumedUri: string; timestamp: number; checkpointSequence: number };\n   }\n\n   export class DoubleSpendDetector {\n     detectConflicts(\n       localCheckpoint: CheckpointData,\n       peerCheckpoint: CheckpointData,\n       localReader: ReadInterface,\n       peerReader: ReadInterface,\n     ): Promise<SpendConflict[]> { ... }\n   }\n\n   export interface DoubleSpendResolver {\n     resolve(conflict: SpendConflict): { winner: \"local\" | \"peer\"; reason: string };\n   }\n\n   export class CheckpointFirstResolver implements DoubleSpendResolver {\n     resolve(conflict: SpendConflict): { winner: \"local\" | \"peer\"; reason: string } {\n       // Lower checkpoint sequence wins\n     }\n   }\n   ```\n3. For rollback: write `gas://invalidated/{conflictHash}` records that mark outputs as void\n4. The GasTracker should respect invalidation records when computing balances\n5. Create test suite with two independent MemoryClient \"nodes\"\n\n## Files to Create/Modify\n\n- `docs/book/consensus/double-spend-resolution.md` -- new design document\n- `libs/firecat-protocol/gas-double-spend.ts` -- new file: detector, resolver, rollback\n- `libs/firecat-protocol/gas-double-spend_test.ts` -- new file: test suite\n- `libs/firecat-protocol/gas-tracker.ts` -- update to respect invalidation records\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-double-spend_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G3-B3-01 (replication and checkpoint comparison)\n- **Blocks**: Nothing directly -- this is the resolution layer that makes multi-node gas safe\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "G1-A6-03",
+  "title": "Implement createIndexerProcessor for compose integration",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "critical",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/processor.ts",
+    "libs/b3nd-indexer/processor_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-03",
+  "markdown": "\n## Goal\n\nCreate `createIndexerProcessor()` -- a compose `Processor` that intercepts validated messages and pipes them to the indexer. This is how the indexer integrates into a node's receive pipeline: it sits alongside the storage backend in a `parallel()` composition.\n\n## Background\n\nThe B3nd compose system uses `Processor` functions: `(msg: Message) => Promise<{ success, error? }>`. The `parallel()` combinator runs multiple processors on the same message. By creating an indexer processor, the indexer can run alongside the primary storage:\n\n```typescript\nconst node = createValidatedClient({\n  write: parallel(storageClient, createIndexerProcessor(indexer)),\n  read: storageClient,\n  validate: msgSchema(schema),\n});\n```\n\nThe processor must:\n1. Check if the message URI matches any of the indexer's URI patterns\n2. Extract fields using the indexer's `extract()` function\n3. Write to the `IndexerBackend`\n4. Handle MessageData envelopes (extract and index each output)\n\n## Acceptance Criteria\n\n- [ ] `createIndexerProcessor(backend: IndexerBackend, definition: IndexerDefinition)` returns a `Processor`\n- [ ] Processor checks `uri` against `definition.uriPatterns` using prefix matching\n- [ ] For matching plain messages: calls `definition.extract(uri, data)`, then `backend.index(uri, fields)`\n- [ ] For matching MessageData envelopes: iterates `payload.outputs`, extracts and indexes each matching output\n- [ ] Non-matching URIs are silently skipped (returns `{ success: true }`)\n- [ ] Extraction returning `null` skips indexing for that message (not an error)\n- [ ] Extraction errors are caught and logged but don't fail the processor (indexer errors should not block writes)\n- [ ] Tests: plain message indexed, envelope outputs indexed, non-matching URI skipped, extract returning null skipped, extract throwing error handled gracefully\n\n## Implementation Guide\n\n1. Read `libs/b3nd-compose/processors.ts` to understand Processor pattern\n2. Read `libs/b3nd-compose/types.ts` for `Processor` and `Message` types\n3. Read `libs/b3nd-msg/data/detect.ts` for `isMessageData()` function\n4. Create `libs/b3nd-indexer/processor.ts`:\n   ```typescript\n   export function createIndexerProcessor(\n     backend: IndexerBackend,\n     definition: IndexerDefinition,\n   ): Processor {\n     return async (msg) => {\n       const [uri, data] = msg;\n       // Check URI patterns, extract, index\n       // Handle MessageData envelopes\n     };\n   }\n   ```\n5. URI pattern matching: `definition.uriPatterns.some(p => uri.startsWith(p))`\n6. For MessageData: check `isMessageData(data)`, iterate `data.payload.outputs`\n7. Wrap extraction and indexing in try/catch -- log errors but return `{ success: true }`\n8. Create `libs/b3nd-indexer/processor_test.ts` using `MemoryClient` and a mock `IndexerBackend`\n9. Export from `libs/b3nd-indexer/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/processor.ts` -- new: createIndexerProcessor implementation\n- `libs/b3nd-indexer/processor_test.ts` -- new: tests\n- `libs/b3nd-indexer/mod.ts` -- add export\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-indexer/processor_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-01 (types), G1-A6-02 (backend to write to)\n- **Blocks**: G1-A6-04 (feed needs to track what was indexed), G1-A6-05 (backfill uses the processor)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

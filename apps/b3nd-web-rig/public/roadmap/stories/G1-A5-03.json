@@ -1,0 +1,31 @@
+{
+  "id": "G1-A5-03",
+  "title": "Add React hooks for real-time subscriptions",
+  "group": "apps-possible",
+  "category": "subscriptions",
+  "section": "A5",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "apps/b3nd-web-rig/src/hooks/useSubscription.ts",
+    "apps/b3nd-web-rig/src/hooks/useB3ndClient.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A5-03",
+  "markdown": "\n## Goal\n\nCreate React hooks that wrap the WebSocketClient subscription API, giving React developers a declarative way to subscribe to real-time updates from a B3nd node.\n\n## Background\n\nG1-A5-02 added `subscribe()` to `WebSocketClient`. React apps need hooks that manage subscription lifecycle (subscribe on mount, unsubscribe on unmount, handle reconnection, provide loading/error states).\n\n## Acceptance Criteria\n\n- [ ] `useSubscription(prefix: string, options?)` hook:\n  - Subscribes to the given URI prefix on mount\n  - Unsubscribes on unmount or when prefix changes\n  - Returns `{ data: T | null, uri: string | null, loading: boolean, error: string | null }`\n  - Updates `data` and `uri` on each notification\n  - Options include: `enabled?: boolean`, `onUpdate?: (uri, data) => void`\n- [ ] `useSubscriptionList(prefix: string, options?)` hook:\n  - Like `useSubscription` but accumulates notifications into a list\n  - Returns `{ items: Array<{ uri: string, data: T }>, loading: boolean, error: string | null, clear: () => void }`\n  - Options include: `maxItems?: number`, `enabled?: boolean`\n- [ ] Hooks handle client not being available (loading state until client connects)\n- [ ] Hooks clean up subscriptions properly on unmount (no memory leaks)\n- [ ] Example usage documented in hook file comments\n\n## Implementation Guide\n\n1. Read `apps/b3nd-web-rig/src/hooks/` to understand existing hook patterns\n2. Check if there is an existing B3nd client context/provider in the web rig (search for WebSocketClient usage)\n3. Create `apps/b3nd-web-rig/src/hooks/useSubscription.ts`:\n   - Use `useEffect` to subscribe on mount / prefix change\n   - Use `useState` for data, uri, loading, error\n   - Use `useRef` for subscription handle to avoid stale closures\n   - Call `subscription.unsubscribe()` in cleanup\n4. Create `apps/b3nd-web-rig/src/hooks/useSubscriptionList.ts`:\n   - Similar to useSubscription but accumulates items in state array\n   - Provide `maxItems` cap to prevent unbounded memory growth\n   - Provide `clear()` to reset the list\n5. If no client context exists, create `apps/b3nd-web-rig/src/hooks/useB3ndClient.ts` that provides a React context for the WebSocketClient instance\n\n## Files to Create/Modify\n\n- `apps/b3nd-web-rig/src/hooks/useSubscription.ts` -- new file: single-value subscription hook\n- `apps/b3nd-web-rig/src/hooks/useSubscriptionList.ts` -- new file: list-accumulating subscription hook\n- `apps/b3nd-web-rig/src/hooks/useB3ndClient.ts` -- new file (if needed): client context provider\n\n## Testing\n\nManual testing in the web rig:\n```bash\ncd apps/b3nd-web-rig && npm run dev\n```\n\nUse the SDK inspector or a test component that subscribes to a prefix and displays incoming notifications.\n\n## Dependencies\n\n- **Depends on**: G1-A5-02 (WebSocketClient subscribe API)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design WebSocket subscription protocol (server-push for URI prefix changes)\n- [ ] Implement server-side: node tracks subscriptions, pushes matching messages\n- [ ] Implement `WebSocketClient` subscribe mode (beyond current request/response)\n- [ ] Add React hooks for subscriptions (`useSubscription(prefix)`)"
+}

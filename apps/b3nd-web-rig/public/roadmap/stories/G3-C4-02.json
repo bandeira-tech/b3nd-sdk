@@ -1,0 +1,30 @@
+{
+  "id": "G3-C4-02",
+  "title": "Design mintability rules tied to network activity",
+  "group": "make-it-pay",
+  "category": "tge-planning",
+  "section": "C4",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/mintability-rules.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-C4-02",
+  "markdown": "\n## Goal\n\nDesign the rules under which new B3ND tokens can be minted (if mintability is adopted), including verifiable conditions tied to network activity, maximum inflation rates, and governance controls. This is a contingency design -- the base case is fixed supply, but mintability may be needed if the reward pool depletes before the network is self-sustaining.\n\n## Background\n\nFixed supply is simpler and more predictable, but it has a failure mode: if the reward pool runs out before gas fees generate enough revenue, validators have no incentive to continue operating. Mintability provides a safety valve.\n\nKey questions:\n- Under what conditions is minting triggered? (Low fund balance? High network activity? Governance vote?)\n- How much can be minted? (Maximum annual inflation? Per-epoch cap?)\n- Who authorizes minting? (Algorithmic? Governance? Multi-sig?)\n- Where do minted tokens go? (Directly to reward pool? Distributed pro-rata to stakers?)\n- How is minting verified? (On-chain proof of network activity metrics)\n\n## Acceptance Criteria\n\n- [ ] Minting trigger conditions defined: specific, measurable, on-chain verifiable\n- [ ] Maximum inflation rate: annual cap (e.g., 5% of total supply per year)\n- [ ] Per-epoch minting cap: maximum tokens mintable per epoch\n- [ ] Authorization mechanism: algorithmic (auto-triggered by conditions) vs governance (requires vote)\n- [ ] Destination of minted tokens: reward pool, stakers, or mixed\n- [ ] Verification: how validators verify that minting conditions are met (read on-chain metrics)\n- [ ] Sunset clause: conditions under which mintability is disabled permanently\n- [ ] Impact analysis: effect of minting on existing token holders, bridge AMM, circulating supply\n- [ ] Comparison with other inflationary token models (Ethereum post-merge, Cosmos, Polkadot)\n\n## Implementation Guide\n\n1. Read `docs/book/consensus/tge-supply-modeling.md` (G3-C4-01) for sustainability analysis\n2. Create `docs/book/consensus/mintability-rules.md`:\n   - Section 1: Rationale\n     - Why consider mintability: reward pool depletion risk\n     - Why fixed supply is preferred: predictability, no dilution\n     - Decision framework: mint only if reward pool < X% and network activity > Y threshold\n   - Section 2: Trigger Conditions\n     - Condition A: Reward pool balance < 5% of initial allocation\n     - Condition B: Network activity (transactions per epoch) above sustainability threshold\n     - Both conditions must be met (ensures minting only when needed AND network is active)\n   - Section 3: Minting Parameters\n     - Annual cap: 2% of total supply\n     - Per-epoch cap: annual cap / (365 * epochs_per_day)\n     - Destination: 80% to reward pool, 20% to network fund\n   - Section 4: Authorization\n     - Initially: algorithmic (auto-triggered when conditions met)\n     - Future: governance vote required to enable/disable mintability\n     - Emergency: multi-sig can pause minting\n   - Section 5: Sunset Clause\n     - If the fund has been self-sustaining (fee revenue > rewards) for 12 consecutive months, mintability is permanently disabled\n     - This ensures minting is a temporary bootstrap mechanism, not a permanent feature\n   - Section 6: Impact Analysis\n     - Dilution effect on existing holders\n     - Effect on bridge AMM (more B3ND supply -> potential peg pressure)\n     - Mitigation: minted tokens go to locked pools (reward, fund) not circulating supply\n\n## Files to Create/Modify\n\n- `docs/book/consensus/mintability-rules.md` -- new design document\n\n## Testing\n\nNo code tests. Design review.\n\n## Dependencies\n\n- **Depends on**: G3-C4-01 (supply modeling shows whether mintability is needed)\n- **Blocks**: Nothing -- this is a contingency design\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Model supply dynamics across three pools (FCAT on Solana, xFCAT on Solana, B3ND on B3nd)\n- [ ] Model equilibrium dynamics (bridge AMM peg, protocol locks vs circulating, fund refill, withdrawal pricing)\n- [ ] Perform adversarial analysis validation (test deposit drain, xFCAT corner, recycling grinder, scorched earth scenarios with real numbers)\n- [ ] Design mintability rules if adopted (verifiable conditions tied to network activity)\n\n---\n\n## D. Product & Apps"
+}

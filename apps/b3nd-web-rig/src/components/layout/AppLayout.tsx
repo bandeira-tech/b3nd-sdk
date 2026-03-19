@@ -74,6 +74,11 @@ export function AppLayout() {
       if (mainView !== "content") setMainView("content");
       return;
     }
+    if (relativePath.startsWith("/roadmap")) {
+      if (activeApp !== "roadmap") setActiveApp("roadmap");
+      if (mainView !== "content") setMainView("content");
+      return;
+    }
     if (relativePath.startsWith("/nodes")) {
       if (activeApp !== "nodes") setActiveApp("nodes");
       if (mainView !== "content") setMainView("content");

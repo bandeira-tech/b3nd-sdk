@@ -1,0 +1,32 @@
+{
+  "id": "G3-C3-01",
+  "title": "Implement solana://tx validator and deposit verification flow",
+  "group": "make-it-pay",
+  "category": "bridge-implementation",
+  "section": "C3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/bridge-validators.ts",
+    "libs/firecat-protocol/bridge-helpers.ts",
+    "libs/firecat-protocol/bridge-validators_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-C3-01",
+  "markdown": "\n## Goal\n\nImplement the `solana://tx/{signature}` URI program and validator that verifies Solana deposit transactions. When a user locks FCAT on Solana, the bridge validator reads the Solana transaction via RPC, confirms it matches the expected deposit program, and issues a corresponding B3ND gas UTXO. This includes double-deposit prevention (URI uniqueness on transaction signature).\n\n## Background\n\nThe bridge flow:\n1. User sends FCAT to the Solana lockbox program, receiving a transaction signature\n2. User submits a deposit claim on B3nd: `solana://tx/{signature}` with value `{ amount, depositor_pubkey, solana_tx_signature }`\n3. Bridge validator reads the Solana RPC to verify: transaction exists, confirmed (finalized), sent to the correct program, amount matches\n4. If valid, bridge validator issues `gas://utxo/{depositor_pubkey}/{utxoId}` with the deposited amount (converted at bridge rate)\n5. The deposit claim is write-once per signature: prevents double-deposit\n\nImplementation considerations:\n- The validator needs access to a Solana RPC endpoint (configurable)\n- Verification should wait for finalized status (not just confirmed)\n- Amount conversion uses the bridge rate (initially fixed, later AMM-based)\n- The Solana deposit program address must be known/configured\n\nFor testing: mock the Solana RPC to avoid network dependency.\n\n## Acceptance Criteria\n\n- [ ] `solana://tx/{signature}` validator: verifies Solana transaction via RPC, checks amount, checks deposit program address, write-once\n- [ ] Deposit claim value shape: `{ amount: number, depositor_pubkey: string, solana_tx_signature: string, solana_program: string }`\n- [ ] Validator calls Solana RPC: `getTransaction(signature)` and verifies: status finalized, recipient is deposit program, amount matches\n- [ ] Double-deposit prevention: write-once on `solana://tx/{signature}` URI\n- [ ] On valid deposit: issues B3ND gas UTXO to depositor (via the envelope's outputs)\n- [ ] `buildDepositClaimEnvelope(solanaSignature, amount, depositorPubKey)` helper\n- [ ] `SolanaRpcClient` interface for mocking in tests: `getTransaction(signature)`, `getTransactionStatus(signature)`\n- [ ] Configurable: Solana RPC URL, deposit program address, bridge rate\n- [ ] Test: valid deposit claim with mocked RPC -> accepted, gas UTXO issued\n- [ ] Test: double deposit claim -> rejected\n- [ ] Test: unconfirmed transaction -> rejected\n- [ ] Test: wrong deposit program -> rejected\n- [ ] Test: amount mismatch -> rejected\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/gas-validators.ts` for validator pattern\n2. Read `libs/firecat-protocol/gas-helpers.ts` for envelope builder pattern\n3. Read Solana web3.js documentation for `getTransaction` RPC call format\n4. Create `libs/firecat-protocol/bridge-validators.ts`:\n   ```typescript\n   import type { ValidationFn } from \"@bandeira-tech/b3nd-sdk/types\";\n\n   interface SolanaRpcClient {\n     getTransaction(signature: string): Promise<SolanaTransaction | null>;\n   }\n\n   interface SolanaTransaction {\n     meta: { err: null | unknown };\n     transaction: {\n       message: {\n         accountKeys: string[];\n         instructions: { programId: string; data: string }[];\n       };\n     };\n     slot: number;\n     blockTime: number;\n   }\n\n   interface BridgeConfig {\n     solanaRpcUrl: string;\n     depositProgramAddress: string;\n     bridgeRate: number; // FCAT per B3ND, e.g., 1.0 for 1:1\n   }\n\n   export function createSolanaDepositValidator(\n     rpcClient: SolanaRpcClient,\n     config: BridgeConfig,\n   ): ValidationFn {\n     return async ({ uri, value, read }) => {\n       // Extract signature from URI\n       // Write-once check\n       // Call rpcClient.getTransaction(signature)\n       // Verify: transaction exists, no error, finalized\n       // Verify: destination is deposit program\n       // Verify: amount matches claimed amount\n       // Return valid\n     };\n   }\n   ```\n5. Create `libs/firecat-protocol/bridge-helpers.ts`:\n   - `buildDepositClaimEnvelope` -- creates envelope with solana://tx claim + gas://utxo output\n   - `createMockSolanaRpcClient` -- for testing\n6. Create `libs/firecat-protocol/bridge-validators_test.ts` with mock RPC\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/bridge-validators.ts` -- new file: createSolanaDepositValidator\n- `libs/firecat-protocol/bridge-helpers.ts` -- new file: envelope builders, mock RPC\n- `libs/firecat-protocol/bridge-validators_test.ts` -- new file: test suite\n- `libs/firecat-protocol/mod.ts` -- register solana://tx validator (with configurable RPC)\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/bridge-validators_test.ts\n```\n\nAll tests use mocked Solana RPC -- no network calls.\n\n## Dependencies\n\n- **Depends on**: G3-C1-01 (external chain design must define deposit program and bridge rate)\n- **Blocks**: G3-C3-02 (withdrawal design builds on deposit verification)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `solana://tx/{signature}` URI program and validator\n- [ ] Implement deposit verification flow (read Solana RPC, confirm transaction, issue B3ND UTXO)\n- [ ] Implement double-deposit prevention (URI uniqueness on transaction signature)\n- [ ] Design withdrawal market messaging protocol (how users find providers, negotiate, settle)\n- [ ] Design multi-token settlement patterns (xFCAT, FCAT, USDC, SOL paths)"
+}

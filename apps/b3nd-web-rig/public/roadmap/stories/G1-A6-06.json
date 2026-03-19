@@ -1,0 +1,31 @@
+{
+  "id": "G1-A6-06",
+  "title": "Implement IndexQuery filter, search, sort, and pagination",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/backends/postgres.ts",
+    "libs/b3nd-indexer/query_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-06",
+  "markdown": "\n## Goal\n\nThoroughly implement and test the `IndexQuery` interface in the Postgres backend: all filter operators, full-text search, field selection, multi-column sort, and cursor/offset pagination.\n\n## Background\n\nG1-A6-02 creates the Postgres backend with basic query support. This story focuses on comprehensive implementation and testing of every query capability: all 10 filter operators (`$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$contains`, `$startsWith`), full-text search with ranking, multi-field sort, and pagination that returns accurate totals.\n\n## Acceptance Criteria\n\n- [ ] All filter operators translate correctly to SQL:\n  - `$eq` -> `= $1`, `$ne` -> `!= $1`\n  - `$gt` -> `> $1`, `$gte` -> `>= $1`, `$lt` -> `< $1`, `$lte` -> `<= $1`\n  - `$in` -> `= ANY($1)`, `$nin` -> `!= ALL($1)`\n  - `$contains` -> `ILIKE '%' || $1 || '%'`\n  - `$startsWith` -> `ILIKE $1 || '%'`\n- [ ] Multiple filters on different fields combine with AND\n- [ ] Multiple filters on the same field combine with AND (e.g., `{ price: { $gte: 10, $lte: 50 } }`)\n- [ ] `select` limits returned fields (SQL SELECT list)\n- [ ] `sort` supports multiple fields with independent asc/desc\n- [ ] `limit` and `offset` work correctly\n- [ ] `total` in result reflects total matching records (not just page size)\n- [ ] `hasMore` is true when there are more results beyond the current page\n- [ ] `search(text)` uses PostgreSQL `to_tsquery` with `ts_rank` for relevance ordering\n- [ ] `search` with `fields` option limits search to specific tsvector columns\n- [ ] Tests for every filter operator, compound filters, search, sort, pagination\n\n## Implementation Guide\n\n1. Read `libs/b3nd-indexer/backends/postgres.ts` for current query implementation\n2. Build a SQL query builder helper that:\n   - Translates `IndexQuery.filter` to parameterized WHERE clauses\n   - Handles type coercion (dates as TIMESTAMPTZ, numbers as NUMERIC)\n   - Builds ORDER BY from `sort`\n   - Adds LIMIT/OFFSET\n   - Runs a COUNT(*) query for `total` (or uses window function)\n3. Implement `search()`:\n   - Combine searchable field tsvectors\n   - Use `plainto_tsquery('english', $1)` for user input\n   - Order by `ts_rank(tsvector, query)` DESC\n4. Create `libs/b3nd-indexer/query_test.ts` (integration test with Postgres):\n   - Seed 100+ records with varied data\n   - Test each filter operator individually\n   - Test compound filters\n   - Test sort + pagination\n   - Test full-text search with ranking\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/backends/postgres.ts` -- enhance query/search implementation\n- `libs/b3nd-indexer/query_test.ts` -- new: comprehensive query tests\n\n## Testing\n\n```bash\n# Requires running PostgreSQL\ndeno test --allow-all libs/b3nd-indexer/query_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-01 (types), G1-A6-02 (Postgres backend)\n- **Blocks**: G1-A6-09 (HTTP endpoints expose query API)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

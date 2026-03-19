@@ -1,0 +1,37 @@
+{
+  "id": "G4-F1-02",
+  "title": "Review book chapters 10-15 (Part III) for protocol consistency and scaffold usage",
+  "group": "tell-the-story",
+  "category": "book",
+  "section": "F1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/10-the-machine-that-reads-mail.md",
+    "docs/book/11-dialogue-at-the-speed-of-light.md",
+    "docs/book/12-making-deals.md",
+    "docs/book/13-building-consensus.md",
+    "docs/book/14-bending-the-machine.md",
+    "docs/book/15-everything-is-a-message.md",
+    "skills/b3nd/FIRECAT.md",
+    "skills/b3nd/FRAMEWORK.md",
+    "libs/firecat-protocol/"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G4-F1-02",
+  "markdown": "\n## Goal\n\nReview chapters 10 through 15 of \"What's in a Message\" (Part III: The Network) for consistency with the current B3nd/Firecat protocol state. This is the most technically dense part of the book and the most likely to have drifted from the codebase. Ensure the three-layer scaffold (speech -> paper -> digital/B3nd) is used consistently in every chapter.\n\n## Background\n\nPart III is where the book transitions from paper-based metaphors to actual B3nd protocol concepts. Chapters cover: the node (Ch 10), real-time communication (Ch 11), agreements/transactions (Ch 12), consensus (Ch 13), extensibility (Ch 14), and the \"everything is a message\" unifying idea (Ch 15).\n\nSeveral protocol changes have occurred since the book was written:\n- The confirmation protocol was designed and validators partially implemented (`libs/firecat-protocol/CONFIRMATION.md`)\n- Temporal consensus was designed with era/block/slot coordinates\n- Gas semantics and UTXO model were proposed (tokenization-gas-semantics.md)\n- The economic model was drafted with three revenue streams\n- `respondTo()` and `connect()` compose primitives were designed but not yet built\n\nThe book should accurately reflect what exists and what is designed, without overstating implementation status. Any description of consensus, economics, or multi-node behavior must align with the current design documents.\n\n## Acceptance Criteria\n\n- [ ] Each chapter 10-15 uses the three-layer scaffold consistently (speech -> paper -> B3nd for each major concept)\n- [ ] Protocol terminology matches current usage in `skills/b3nd/FIRECAT.md` and `skills/b3nd/FRAMEWORK.md`\n- [ ] URI scheme names, operation names (`receive`, `read`, `list`, `delete`, `send`), and program names match current SDK\n- [ ] The consensus chapter (Ch 13) is consistent with `libs/firecat-protocol/CONFIRMATION.md` and `docs/book/consensus/` materials\n- [ ] No chapter claims features are implemented that are still proposals/designs\n- [ ] The \"everything is a message\" chapter (Ch 15) correctly describes the current message-as-universal-primitive philosophy\n- [ ] Any code snippets in Part III use current SDK API (import paths, function signatures)\n- [ ] Corrections are applied directly to the chapter files\n\n## Implementation Guide\n\n1. Read `skills/b3nd/FIRECAT.md` (full file) to refresh current canonical schema, programs, and URI patterns\n2. Read `skills/b3nd/FRAMEWORK.md` to refresh current SDK primitives, types, and composition patterns\n3. Read `libs/firecat-protocol/CONFIRMATION.md` for current confirmation protocol design\n4. Read `docs/book/consensus/README.md` and related consensus docs for context on what the book says about consensus\n5. Read chapters 10-15 sequentially. For each chapter:\n   - Verify the three-layer scaffold is present and consistent\n   - Check all protocol terminology against current source of truth\n   - Check any code snippets against actual SDK API (import paths like `@bandeira-tech/b3nd-sdk`, function names, type names)\n   - Verify claims about what the protocol does/provides match reality\n   - Note any sections that reference features not yet implemented -- these should use future tense or be clearly marked as design goals\n6. Cross-reference chapter 13 (consensus) with `libs/firecat-protocol/CONFIRMATION.md` for accuracy\n7. Cross-reference chapter 14 (bending the machine) with the compose layer (`libs/b3nd-compose/`) for accuracy\n8. Fix all issues directly in the chapter files\n9. Document significant changes in the PR description\n\n## Files to Create/Modify\n\n- `docs/book/10-the-machine-that-reads-mail.md` through `docs/book/15-everything-is-a-message.md` -- fix protocol inconsistencies, stale terminology, incorrect code snippets, scaffold gaps\n- `docs/book/consensus/README.md` -- update if it has drifted from the confirmation protocol design\n\n## Dependencies\n\n- **Depends on**: Nothing -- this review can proceed independently\n- **Blocks**: G4-F1-03 (publish plan depends on the book being review-complete)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Review all 16 chapters for completeness and consistency with current protocol state\n- [ ] Ensure three-layer scaffold is used consistently in every chapter from Part II onward\n- [ ] Review cookbook chapter (Ch 16) against actual current SDK API\n- [ ] Publish/distribute (web reader in rig? PDF? separate site?)"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "G1-A7-04",
+  "title": "Implement client.receiveEncrypted() helper",
+  "group": "apps-possible",
+  "category": "encryption",
+  "section": "A7",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-encrypt/helpers.ts",
+    "libs/b3nd-encrypt/helpers_test.ts",
+    "libs/b3nd-encrypt/mod.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A7-04",
+  "markdown": "\n## Goal\n\nImplement a standard `receiveEncrypted()` helper that composes encrypt + sign + receive into a single call. Today, writing encrypted data requires 4+ steps that developers must orchestrate manually. This helper reduces it to one call.\n\n## Background\n\nWriting encrypted data today requires:\n1. Serialize data to bytes\n2. Encrypt with recipient's public key or a symmetric key\n3. Sign the encrypted payload with identity key\n4. Call `client.receive()` with the signed+encrypted message\n\nThis is error-prone and verbose. A standard helper makes the common path easy:\n\n```typescript\nawait receiveEncrypted({\n  client,\n  uri: \"mutable://data/{pubkey}/secrets/diary\",\n  data: { entry: \"Dear diary...\" },\n  bundle: myKeyBundle,\n});\n```\n\n## Acceptance Criteria\n\n- [ ] `receiveEncrypted(options)` function:\n  - `client: NodeProtocolInterface`\n  - `uri: string`\n  - `data: unknown` -- the plaintext data to store\n  - `bundle: KeyBundle` -- the user's key bundle (for signing and encryption)\n  - `recipientPublicKeyHex?: string` -- if encrypting for someone else (default: self-encrypt using own encryption key)\n  - Returns `Promise<ReceiveResult>`\n- [ ] Self-encryption path: encrypts data with own X25519 public key, signs with Ed25519, calls `receive()`\n- [ ] Recipient encryption path: encrypts data with recipient's X25519 public key, signs with own Ed25519\n- [ ] `readEncrypted<T>(options)` function:\n  - `client: NodeProtocolInterface`\n  - `uri: string`\n  - `bundle: KeyBundle` -- the user's key bundle (for decryption)\n  - `senderPublicKeyHex?: string` -- if verifying sender signature\n  - Returns `Promise<{ data: T; verified: boolean } | null>`\n- [ ] `readEncrypted` reads the record, detects signed/encrypted format, decrypts, optionally verifies signature\n- [ ] Tests: self-encrypt round-trip, recipient-encrypt round-trip, read with verification, read without verification\n\n## Implementation Guide\n\n1. Read `libs/b3nd-encrypt/mod.ts` for `createSignedEncryptedMessage`, `verifyAndDecryptMessage`, `encrypt`, `sign`\n2. Read `libs/b3nd-listener/mod.ts` for the existing `writeRequest`/`readResponse` pattern (similar but for request/response, not storage)\n3. Create `libs/b3nd-encrypt/helpers.ts`:\n   - `receiveEncrypted()`:\n     - Serialize `data` to JSON bytes\n     - Call `bundle.encrypt(bytes, recipientPublicKeyHex)` (or self-encrypt)\n     - Create authenticated message with `createSignedEncryptedMessage`\n     - Call `client.receive([uri, signedEncryptedMessage])`\n   - `readEncrypted()`:\n     - Call `client.read(uri)`\n     - Detect signed message format (has `auth` + `payload`)\n     - Decrypt with `bundle.decrypt()`\n     - Verify signature if `senderPublicKeyHex` provided\n     - Parse JSON bytes back to object\n4. Create `libs/b3nd-encrypt/helpers_test.ts` using MemoryClient\n5. Export from `libs/b3nd-encrypt/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-encrypt/helpers.ts` -- new: receiveEncrypted, readEncrypted\n- `libs/b3nd-encrypt/helpers_test.ts` -- new: tests\n- `libs/b3nd-encrypt/mod.ts` -- add exports\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-encrypt/\n```\n\n## Dependencies\n\n- **Depends on**: G1-A7-02 (KeyBundle for unified key access)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+}

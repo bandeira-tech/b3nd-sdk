@@ -4,9 +4,16 @@ import { useAppStore, useActiveBackend } from '../../stores/appStore';
 import { Settings, Database, Plus, Trash2, CheckCircle, Info, X } from 'lucide-react';
 import { cn } from '../../utils';
 import { HttpAdapter } from '../../adapters/HttpAdapter';
+import { RoadmapRightPanel } from '../roadmap/RoadmapRightPanel';
 
 export function RightPanel() {
   const { togglePanel } = useAppStore();
+  const activeApp = useAppStore((s) => s.activeApp);
+
+  // Roadmap has its own right panel
+  if (activeApp === "roadmap") {
+    return <RoadmapRightPanel />;
+  }
 
   return (
     <div className="h-full flex flex-col">

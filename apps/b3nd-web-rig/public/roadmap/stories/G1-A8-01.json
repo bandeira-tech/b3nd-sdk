@@ -1,0 +1,32 @@
+{
+  "id": "G1-A8-01",
+  "title": "Document record size limits, send() atomicity, and verified namespace",
+  "group": "apps-possible",
+  "category": "documentation",
+  "section": "A8",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "documentation+investigation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "skills/b3nd/FRAMEWORK.md",
+    "skills/b3nd/APP_COOKBOOK.md",
+    "skills/b3nd/FIRECAT.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A8-01",
+  "markdown": "\n## Goal\n\nFill critical SDK documentation gaps identified in the PRD: maximum record sizes per backend, `send()` atomicity guarantees, and the design for an integrity-protected public namespace (`mutable://verified`).\n\n## Background\n\nThree key areas where the SDK documentation is missing or misleading:\n\n1. **Record size limits**: Each backend has different limits (Postgres JSONB: ~255MB, HTTP: limited by request body size, Memory: limited by heap). Developers need to know these to design their data models.\n\n2. **`send()` atomicity**: The `send()` function builds a message envelope and calls `client.receive()`. But for `MessageData` with multiple outputs, if the first output succeeds and the second fails, is the first rolled back? The answer depends on the backend (Postgres: no, outputs are written individually; Memory: no, same). This non-atomicity must be documented.\n\n3. **`mutable://verified` namespace**: A proposed integrity-protected public namespace where writes require content-author signatures. This is a design proposal that needs specification before implementation.\n\n## Acceptance Criteria\n\n- [ ] `skills/b3nd/FRAMEWORK.md` has a \"Record Size Limits\" section:\n  - MemoryClient: limited by JavaScript heap (~1.7GB per V8 isolate, practical per-record: ~100MB)\n  - PostgresClient: JSONB ~255MB per value, practical per-record: recommended <1MB for performance\n  - MongoClient: 16MB BSON document limit\n  - HttpClient: limited by server body size limit (configurable, typically 1-10MB)\n  - WebSocketClient: limited by WebSocket frame size (configurable, typically 1-16MB)\n  - IndexedDB: limited by quota (~50% of disk for origin in most browsers)\n  - LocalStorage: ~5MB per origin total\n- [ ] `skills/b3nd/FRAMEWORK.md` has a \"Message Atomicity\" section:\n  - `receive([uri, data])` for a single record: atomic in all backends\n  - `send()` with MessageData containing multiple outputs: NOT atomic -- partial writes possible\n  - Recommendation: if atomicity is needed, use a single output or design for idempotent replay\n  - Document what happens on partial failure in each backend\n- [ ] `skills/b3nd/FIRECAT.md` has a \"Verified Namespace\" design section:\n  - Proposal: `mutable://verified/{pubkey}/...` where the validator requires `auth[].pubkey` to match the `{pubkey}` in the URI\n  - This ensures only the key owner can write to their verified namespace\n  - Unlike `mutable://open`, writes cannot be spoofed\n  - Design sketch with validator code example\n\n## Implementation Guide\n\n1. Read `libs/b3nd-client-postgres/mod.ts` -- check if receive() uses a transaction for MessageData outputs\n2. Read `libs/b3nd-client-memory/mod.ts` -- same check\n3. Read `libs/b3nd-msg/data/send.ts` and `libs/b3nd-msg/data/message.ts` -- understand MessageData flow\n4. Read `libs/b3nd-servers/http.ts` -- check request body size handling\n5. Document findings in the skills files\n6. For the verified namespace: write a design sketch showing the validator that enforces pubkey matching\n\n## Files to Create/Modify\n\n- `skills/b3nd/FRAMEWORK.md` -- add Record Size Limits and Message Atomicity sections\n- `skills/b3nd/FIRECAT.md` -- add Verified Namespace design section\n- `skills/b3nd/APP_COOKBOOK.md` -- add \"Working with Large Data\" tips if relevant\n\n## Testing\n\nDocumentation review. Verify claims about atomicity by reading source code.\n\n## Dependencies\n\n- **Depends on**: Nothing\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Document maximum record sizes per node/backend type\n- [ ] Document `send()` atomicity guarantees (or lack thereof — are failed outputs after success rolled back?)\n- [ ] Document recommended pattern for building discovery indexes (including security tradeoffs of `mutable://open`)\n- [ ] Design integrity-protected public namespace (`mutable://verified` where writes require content-author signatures)"
+}

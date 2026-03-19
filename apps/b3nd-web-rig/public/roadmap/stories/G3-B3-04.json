@@ -1,0 +1,32 @@
+{
+  "id": "G3-B3-04",
+  "title": "Implement operator staking and stratified validation",
+  "group": "make-it-pay",
+  "category": "gas-multinode",
+  "section": "B3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "design+implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-staking.ts",
+    "libs/firecat-protocol/gas-staking_test.ts",
+    "docs/book/consensus/staking-design.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B3-04",
+  "markdown": "\n## Goal\n\nImplement operator staking (`gas://staking/{pubkey}`) where validators lock gas tokens to participate in validation and earn rewards. Implement stratified validation where staked validators declare URI path ranges they will validate, enabling horizontal scaling. Staking weight uses sqrt-weighted rewards to prevent concentration.\n\n## Background\n\n**Staking**: Operators lock gas UTXOs into a staking record. The staked amount determines their reward share. To prevent whale dominance, rewards are proportional to `sqrt(staked_amount)` rather than linearly proportional.\n\nStaking record at `gas://staking/{pubkey}`:\n```json\n{\n  \"staked_utxos\": [\"gas://utxo/{pubkey}/{id1}\", \"gas://utxo/{pubkey}/{id2}\"],\n  \"total_staked\": 5000,\n  \"uri_ranges\": [\"mutable://open/*\", \"hash://sha256/*\"],\n  \"registered_at\": 1700000000,\n  \"last_active\": 1700001000\n}\n```\n\n**Stratified validation**: Instead of every validator validating every message, validators declare which URI path ranges they handle. For example, validator A handles `mutable://open/*` and validator B handles `consensus://record/*`. This allows the network to scale horizontally -- more validators means more capacity, not more redundancy.\n\n**Withdraw**: Staked tokens can be withdrawn after a cooldown period. The withdraw program (`gas://withdraw/{pubkey}/{withdrawId}`) requires: proof of staking duration, cooldown period elapsed, no pending slashing conditions.\n\n## Acceptance Criteria\n\n- [ ] `gas://staking/{pubkey}` validator: value must include `staked_utxos`, `total_staked`, `uri_ranges`, signed by pubkey, referenced UTXOs must exist and be owned by pubkey\n- [ ] Staking locks UTXOs: staked UTXOs are marked as locked (cannot be spent while staked)\n- [ ] `gas://withdraw/{pubkey}/{withdrawId}` validator: cooldown period must have elapsed, staking record must exist, no pending slashing\n- [ ] `calculateRewardShare(stakedAmount, totalStaked)` uses sqrt weighting: `share = sqrt(stakedAmount) / sum(sqrt(allStakes))`\n- [ ] `getValidatorsForUri(reader, uri)` returns list of validators whose declared uri_ranges match the given URI\n- [ ] Design document: `docs/book/consensus/staking-design.md` covering staking mechanics, reward formula, slashing conditions, cooldown periods\n- [ ] Test: stake gas tokens -> staking record created, UTXOs locked\n- [ ] Test: attempt to spend staked UTXOs -> rejected\n- [ ] Test: withdraw after cooldown -> tokens unlocked\n- [ ] Test: withdraw before cooldown -> rejected\n- [ ] Test: sqrt reward calculation correct\n- [ ] Test: URI range matching selects correct validators\n\n## Implementation Guide\n\n1. Write design document: `docs/book/consensus/staking-design.md`\n   - Cover: staking flow, UTXO locking mechanism, reward distribution epochs, slashing conditions (offline, invalid validation, equivocation), cooldown period (e.g., 7 epochs)\n   - Cover: stratified validation -- how URI ranges are declared, how overlapping ranges work, minimum validators per range\n2. Create `libs/firecat-protocol/gas-staking.ts`:\n   ```typescript\n   import type { ValidationFn } from \"@bandeira-tech/b3nd-sdk/types\";\n\n   export const stakingValidator: ValidationFn = async ({ uri, value, read, message }) => {\n     // Parse URI: gas://staking/{pubkey}\n     // Validate shape: { staked_utxos, total_staked, uri_ranges }\n     // Verify signature matches pubkey\n     // Verify each staked UTXO exists and is owned by pubkey\n     // Verify total_staked matches sum of staked UTXO values\n     // Write-once (or mutable with version for re-staking)\n   };\n\n   export const withdrawValidator: ValidationFn = async ({ uri, value, read, message }) => {\n     // Parse URI: gas://withdraw/{pubkey}/{withdrawId}\n     // Verify staking record exists\n     // Verify cooldown period elapsed\n     // Verify no pending slashing\n   };\n\n   export function calculateRewardShare(\n     stakedAmount: number,\n     allStakes: number[],\n   ): number { ... }\n\n   export function getValidatorsForUri(\n     reader: ReadInterface,\n     uri: string,\n   ): Promise<string[]> { ... }\n   ```\n3. UTXO locking: when a UTXO is referenced in a staking record, the gasUtxoValidator should check if the UTXO is staked before allowing it to be spent. This may require updating `gas-validators.ts` to read staking records.\n4. Register validators in `mod.ts`\n5. Create test suite\n\n## Files to Create/Modify\n\n- `docs/book/consensus/staking-design.md` -- new design document\n- `libs/firecat-protocol/gas-staking.ts` -- new file: stakingValidator, withdrawValidator, helpers\n- `libs/firecat-protocol/gas-staking_test.ts` -- new file: test suite\n- `libs/firecat-protocol/gas-validators.ts` -- update gasUtxoValidator to check staking locks\n- `libs/firecat-protocol/mod.ts` -- register staking and withdraw validators\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-staking_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G3-B3-03 (relay proofs -- staking rewards reference relay activity)\n- **Blocks**: G3-B3-05 (withdraw programs reference staking)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+}

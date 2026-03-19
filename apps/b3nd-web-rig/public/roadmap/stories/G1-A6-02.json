@@ -1,0 +1,31 @@
+{
+  "id": "G1-A6-02",
+  "title": "Implement Postgres IndexerBackend",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "critical",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/backends/postgres.ts",
+    "libs/b3nd-indexer/backends/postgres_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-02",
+  "markdown": "\n## Goal\n\nImplement the first `IndexerBackend` using PostgreSQL. This backend creates a dynamic table based on the `IndexerDefinition`, supports filtering, full-text search, sorting, pagination, and aggregation via SQL.\n\n## Background\n\nThe `IndexerBackend` interface from G1-A6-01 defines how indexed data is stored and queried. PostgreSQL is the natural first choice: it has full-text search (tsvector/tsquery), JSON support, and the `PostgresClient` already uses a `SqlExecutor` abstraction that can be reused.\n\nThe backend must dynamically create tables based on `IndexerDefinition.fields`. For example, an indexer with fields `[{ name: \"title\", type: \"string\", searchable: true }, { name: \"rating\", type: \"number\" }]` creates a table with columns `uri TEXT PRIMARY KEY, title TEXT, title_tsvector TSVECTOR, rating NUMERIC, version INTEGER, indexed_at TIMESTAMPTZ`.\n\n## Acceptance Criteria\n\n- [ ] `PostgresIndexerBackend` class implements `IndexerBackend`\n- [ ] Constructor accepts `SqlExecutor` (same pattern as PostgresClient) and `IndexerDefinition`\n- [ ] `initialize()` creates a table named `idx_{definition.name}` with:\n  - `uri TEXT PRIMARY KEY`\n  - Dynamic columns based on `IndexerDefinition.fields` with appropriate SQL types\n  - `_tsvector TSVECTOR` for searchable fields (auto-populated via trigger or manual)\n  - `version INTEGER`\n  - `indexed_at TIMESTAMPTZ DEFAULT NOW()`\n  - Appropriate indexes on indexed fields\n  - GIN index on tsvector for full-text search\n- [ ] `index(uri, fields, version?)` upserts a row (INSERT ON CONFLICT UPDATE)\n- [ ] `remove(uri)` deletes the row\n- [ ] `query(IndexQuery)` translates filter operators to SQL WHERE clauses, handles sort/limit/offset\n- [ ] `search(text, options?)` uses PostgreSQL `to_tsquery` for full-text search\n- [ ] `aggregate(pipeline)` translates aggregation stages to SQL GROUP BY, HAVING, ORDER BY, LIMIT\n- [ ] `health()` returns document count and last indexed timestamp\n- [ ] `teardown()` drops the table\n- [ ] `cleanup()` releases executor resources\n- [ ] Tests cover: initialize, index documents, query with filters, full-text search, aggregation, remove, teardown\n\n## Implementation Guide\n\n1. Read `libs/b3nd-indexer/types.ts` for the interfaces\n2. Read `libs/b3nd-client-postgres/mod.ts` to understand `SqlExecutor` pattern\n3. Create `libs/b3nd-indexer/backends/` directory\n4. Create `libs/b3nd-indexer/backends/postgres.ts`:\n   - Map `IndexFieldDefinition.type` to SQL types: string->TEXT, number->NUMERIC, boolean->BOOLEAN, date->TIMESTAMPTZ, json->JSONB\n   - Build CREATE TABLE SQL dynamically from definition.fields\n   - For searchable fields, generate tsvector column and GIN index\n   - `index()`: use `INSERT ... ON CONFLICT (uri) DO UPDATE SET ...`\n   - `query()`: build WHERE clause from filter operators\n   - `search()`: use `WHERE _tsvector @@ to_tsquery($1)`\n   - `aggregate()`: translate $match/$group/$sort/$limit/$project to SQL\n5. Create `libs/b3nd-indexer/backends/postgres_test.ts`\n6. Export from `libs/b3nd-indexer/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/backends/postgres.ts` -- new: PostgresIndexerBackend implementation\n- `libs/b3nd-indexer/backends/postgres_test.ts` -- new: integration tests\n- `libs/b3nd-indexer/mod.ts` -- add export for PostgresIndexerBackend\n\n## Testing\n\n```bash\n# Requires a running PostgreSQL instance\ndeno test --allow-all libs/b3nd-indexer/backends/postgres_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-01 (core types)\n- **Blocks**: G1-A6-03 (processor needs a backend to write to), G1-A6-06 (query tests use backend), G1-A6-07 (aggregation tests)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

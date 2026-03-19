@@ -1,0 +1,31 @@
+{
+  "id": "G1-A6-08",
+  "title": "Implement view key derivation and rotation for encrypted data indexing",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/viewkeys.ts",
+    "libs/b3nd-indexer/viewkeys_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-08",
+  "markdown": "\n## Goal\n\nImplement view key derivation (`deriveViewKey()`) and rotation (`rotateViewKey()`) for indexing encrypted data. View keys allow an indexer to decrypt specific fields for indexing without having the user's full encryption key.\n\n## Background\n\nA core tension: users encrypt their data for privacy, but indexers need to read field values to build useful indexes. View keys resolve this:\n\n1. `deriveViewKey(masterKey, indexerName)` -- deterministic derivation of a purpose-limited key from the user's master encryption key. The view key can decrypt index-relevant fields but not the full record.\n2. The user shares the view key with a trusted indexer.\n3. The indexer uses the view key to decrypt and index specific fields.\n4. `rotateViewKey(oldKey, newKey, backend)` -- re-encrypts all indexed data from old view key to new view key.\n\nThis builds on `libs/b3nd-encrypt/mod.ts` which already has `deriveKeyFromSeed()`, `SecretEncryptionKey`, and HKDF-based derivation.\n\n## Acceptance Criteria\n\n- [ ] `deriveViewKey(params: { masterKeyHex: string; indexerName: string; salt?: string }): Promise<string>` returns a hex-encoded symmetric key\n- [ ] Derivation is deterministic: same inputs always produce the same key\n- [ ] Derivation uses HKDF with `indexerName` as info parameter (different indexers get different keys)\n- [ ] `ViewKeyEncryptor` class:\n  - `constructor(viewKeyHex: string)`\n  - `encryptFields(fields: Record<string, unknown>): Record<string, string>` -- encrypts each field value individually\n  - `decryptFields(encrypted: Record<string, string>): Record<string, unknown>` -- decrypts field values\n- [ ] `rotateViewKey(params: { backend: IndexerBackend; oldKey: string; newKey: string; batchSize?: number }): Promise<{ rotated: number }>`\n  - Reads all indexed records, decrypts with old key, re-encrypts with new key, updates backend\n- [ ] View key rotation is atomic per-record (no partial states)\n- [ ] Tests: derive key determinism, encrypt/decrypt round-trip, key rotation, different indexer names produce different keys\n\n## Implementation Guide\n\n1. Read `libs/b3nd-encrypt/mod.ts` for `deriveKeyFromSeed()`, `SecretEncryptionKey`, HKDF patterns\n2. Create `libs/b3nd-indexer/viewkeys.ts`:\n   - `deriveViewKey`: use HKDF (via `crypto.subtle.deriveBits`) with master key as input keying material, `b3nd-viewkey-{indexerName}` as info\n   - `ViewKeyEncryptor`: uses `encryptSymmetric`/`decryptSymmetric` from b3nd-encrypt per field\n   - `rotateViewKey`: paginate through backend, decrypt with old, encrypt with new, update\n3. Create `libs/b3nd-indexer/viewkeys_test.ts`\n4. Export from `libs/b3nd-indexer/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/viewkeys.ts` -- new: view key derivation, encryption, rotation\n- `libs/b3nd-indexer/viewkeys_test.ts` -- new: tests\n- `libs/b3nd-indexer/mod.ts` -- add exports\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-indexer/viewkeys_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-01 (types), G1-A6-02 (backend for rotation)\n- **Blocks**: G1-A6-09 (HTTP endpoints for view management)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

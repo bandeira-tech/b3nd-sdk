@@ -1,0 +1,36 @@
+{
+  "id": "G1-A4-02",
+  "title": "Implement receiveIf across all client backends",
+  "group": "apps-possible",
+  "category": "concurrency",
+  "section": "A4",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-client-postgres/mod.ts",
+    "libs/b3nd-client-mongo/mod.ts",
+    "libs/b3nd-client-http/mod.ts",
+    "libs/b3nd-client-ws/mod.ts",
+    "libs/b3nd-client-indexeddb/mod.ts",
+    "libs/b3nd-client-localstorage/mod.ts",
+    "libs/b3nd-servers/http.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A4-02",
+  "markdown": "\n## Goal\n\nImplement `receiveIf()` with version tracking across all remaining client backends: PostgresClient, MongoClient, HttpClient, WebSocketClient, IndexedDBClient, and LocalStorageClient. Also update the HTTP server to expose version information and support conditional writes via the existing `/api/v1/receive` endpoint.\n\n## Background\n\nG1-A4-01 added the `receiveIf` method to `NodeProtocolWriteInterface` and implemented it in `MemoryClient`. Now every other client must implement the same interface to maintain protocol conformance.\n\nFor database backends (Postgres, Mongo): use database-native atomic compare-and-set. Postgres can use `UPDATE ... WHERE version = $expected RETURNING version`. Mongo can use `findOneAndUpdate` with a version filter.\n\nFor transport clients (HTTP, WebSocket): pass `expectedVersion` in the request payload and let the server handle it.\n\nFor browser clients (IndexedDB, LocalStorage): implement version tracking in-process, similar to MemoryClient.\n\n## Acceptance Criteria\n\n- [ ] `PostgresClient.receiveIf()` uses atomic SQL: `UPDATE ... SET version = version + 1 WHERE version = $expected`\n- [ ] `PostgresClient` schema includes a `version INTEGER DEFAULT 1` column (migration added)\n- [ ] `PostgresClient.read()` returns `version` in the record\n- [ ] `MongoClient.receiveIf()` uses `findOneAndUpdate` with version filter\n- [ ] `MongoClient.read()` returns `version` in the record\n- [ ] `HttpClient.receiveIf()` sends `expectedVersion` in the POST body to `/api/v1/receive`\n- [ ] `WebSocketClient.receiveIf()` includes `expectedVersion` in the WebSocket request payload\n- [ ] HTTP server `/api/v1/receive` accepts optional `expectedVersion` and delegates to `client.receiveIf()`\n- [ ] HTTP server read endpoint returns `version` in the record response\n- [ ] `IndexedDBClient.receiveIf()` implements version tracking in-store\n- [ ] `LocalStorageClient.receiveIf()` implements version tracking in-store\n- [ ] Existing tests for all clients continue to pass\n\n## Implementation Guide\n\n1. **PostgresClient**: Read `libs/b3nd-client-postgres/mod.ts` and `libs/b3nd-client-postgres/schema.ts`\n   - Add `version INTEGER DEFAULT 1` to the schema generation\n   - Implement `receiveIf()`: if `expectedVersion` provided, use `UPDATE ... WHERE uri = $1 AND version = $2` then check rowCount\n   - Update `receive()` to always increment version\n   - Update `read()` to SELECT and return version\n2. **MongoClient**: Read `libs/b3nd-client-mongo/mod.ts`\n   - Add `version: 1` default to document creation\n   - Implement `receiveIf()` with `findOneAndUpdate({ uri, version: expected }, { $inc: { version: 1 } })`\n   - Update `read()` to return version\n3. **HTTP server**: Read `libs/b3nd-servers/http.ts`\n   - In the `/api/v1/receive` handler, extract optional `expectedVersion` from request body\n   - If present, call `client.receiveIf()` instead of `client.receive()`\n   - In the read handler, include `version` in the JSON response\n4. **HttpClient**: Read `libs/b3nd-client-http/mod.ts`\n   - Add `receiveIf()` that includes `expectedVersion` in the POST body\n5. **WebSocketClient**: Read `libs/b3nd-client-ws/mod.ts`\n   - Add `receiveIf()` that includes `expectedVersion` in the payload\n6. **IndexedDBClient** and **LocalStorageClient**: follow the MemoryClient pattern (in-process version map)\n\n## Files to Create/Modify\n\n- `libs/b3nd-client-postgres/mod.ts` -- add receiveIf, version column\n- `libs/b3nd-client-postgres/schema.ts` -- add version column to schema generation\n- `libs/b3nd-client-mongo/mod.ts` -- add receiveIf, version field\n- `libs/b3nd-client-http/mod.ts` -- add receiveIf\n- `libs/b3nd-client-ws/mod.ts` -- add receiveIf\n- `libs/b3nd-client-indexeddb/mod.ts` -- add receiveIf\n- `libs/b3nd-client-localstorage/mod.ts` -- add receiveIf\n- `libs/b3nd-servers/http.ts` -- accept expectedVersion, return version in reads\n- `libs/b3nd-core/types.ts` -- add receiveIf to WebSocketRequest type if needed\n\n## Testing\n\n```bash\n# Unit tests (memory, indexeddb, localstorage)\ndeno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo libs/b3nd-*/\n\n# Integration tests (require running databases)\ndeno test --allow-all libs/b3nd-client-postgres/\ndeno test --allow-all libs/b3nd-client-mongo/\n```\n\n## Dependencies\n\n- **Depends on**: G1-A4-01 (types and MemoryClient implementation)\n- **Blocks**: G1-A4-03 (documentation)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design `receiveIf(uri, data, { expectedVersion })` — conditional writes with optimistic locking\n- [ ] Add version tracking to records (or use content hash as version)\n- [ ] Update all client implementations to support conditional writes\n- [ ] Document concurrency model and recommended patterns"
+}

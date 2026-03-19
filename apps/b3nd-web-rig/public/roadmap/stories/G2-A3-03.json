@@ -1,0 +1,30 @@
+{
+  "id": "G2-A3-03",
+  "title": "Design timing and liveness rules for era/block/slot enforcement",
+  "group": "nodes-talk",
+  "category": "temporal-consensus",
+  "section": "A3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/README.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A3-03",
+  "markdown": "\n## Goal\n\nDesign the timing and liveness rules for the era/block/slot temporal consensus layer, covering block progression constraints, offline handling, attestation timeouts, and the relationship between wall-clock time and block-based time.\n\n## Background\n\nThe consensus book outline (Open Question 2: Block Timing) identifies remaining questions:\n\n- What prevents a producer from declaring arbitrary future blocks?\n- Should there be a \"block must reference previous block hash\" chain constraint?\n- How to handle competing producers writing to the same block number?\n- Should producers be on a roster with rotation/scheduling, or is it open competition?\n\nThe resolved insight is that block timing is declarative (producer declares, validator checks), not coordinated. But the validation rules need to be specified.\n\nKey tension: The protocol must be usable on retail hardware in warzones with poor connectivity, while still preventing spam and ensuring progress. The design must balance freshness requirements with accessibility.\n\n## Acceptance Criteria\n\n- [ ] Design document covers block progression rules (how block N relates to block N-1)\n- [ ] Design document covers producer competition (open market vs rotation)\n- [ ] Design document covers attestation timeout behavior\n- [ ] Design document covers offline handling (what happens when fewer than threshold nodes are online)\n- [ ] Design document covers era transitions (when does a new era start)\n- [ ] Design document covers slot filling strategy (first-come-first-serve vs producer selection)\n- [ ] All rules are expressible as `ValidationFn` checks (no new types or interfaces needed)\n- [ ] Constants defined: `ATTESTATION_TIMEOUT_MS`, slot/block/era sizing rationale\n- [ ] Trade-offs documented for each rule\n- [ ] No code changes -- design only\n\n## Implementation Guide\n\n1. Read `docs/book/consensus/README.md` and the existing timing-related open questions.\n\n2. Write a design section covering:\n\n   **Block Progression**:\n   - Option A: Block N must reference block N-1's hash (chain constraint)\n   - Option B: Blocks are independent, only slot write-once prevents conflicts\n   - Recommendation and trade-offs\n\n   **Producer Competition**:\n   - Open market: any node can propose blocks, first valid write wins\n   - Rotation: producers take turns based on roster position\n   - Hybrid: open market with priority for rostered producers\n\n   **Attestation Timeouts**:\n   - After `ATTESTATION_TIMEOUT_MS`, pending entries that haven't reached threshold should be:\n     - Marked as \"timed out\" (new program: `immutable://timeout/{envelopeHash} -> true`), or\n     - Simply ignored (no explicit timeout, pending entries just age out)\n   - Impact on client UX (`waitForConfirmation` timeout)\n\n   **Offline Handling**:\n   - Fewer than threshold nodes = no new confirmations\n   - Work accumulates in pending/attestation state\n   - When nodes come back online, they process the backlog\n   - No special recovery mechanism needed (eventual consistency)\n\n   **Era Transitions**:\n   - Every `BLOCKS_PER_ERA` blocks, start a new era\n   - Era transition is implicit (determined by block number)\n   - No special era-boundary logic in validators\n\n3. Each rule should include a sketch of how it maps to a `ValidationFn` check.\n\n## Files to Create/Modify\n\n- `docs/book/consensus/TIMING_RULES.md` -- New design document.\n\n## Testing\n\nNo code changes. Design review only.\n\n## Dependencies\n\nDepends on G2-A3-02 (identity design resolves who produces blocks). Blocks G2-A3-04 (reward design depends on timing/liveness rules).\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+}

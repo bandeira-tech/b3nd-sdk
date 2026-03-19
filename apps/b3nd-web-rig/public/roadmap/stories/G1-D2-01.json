@@ -1,0 +1,34 @@
+{
+  "id": "G1-D2-01",
+  "title": "Build reference app: Recipe Book with indexer integration",
+  "group": "apps-possible",
+  "category": "reference-apps",
+  "section": "D2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "apps/reference-recipe-book/README.md",
+    "apps/reference-recipe-book/server.ts",
+    "apps/reference-recipe-book/schema.ts",
+    "apps/reference-recipe-book/indexer.ts",
+    "apps/reference-recipe-book/web/src/App.tsx"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-D2-01",
+  "markdown": "\n## Goal\n\nBuild a complete, deployable Recipe Book application that demonstrates all core B3nd/Firecat capabilities: schema validation, the indexer system, full-text search, public discovery, and the compose architecture. This serves as the primary reference implementation for new developers.\n\n## Background\n\nThe PRD identified three reference app designs: recipe book, encrypted journal, and invoicing. The recipe book is the best first choice because:\n\n1. It exercises the indexer heavily (search by ingredient, filter by cuisine, sort by rating)\n2. It has both public (discovery) and private (personal collection) data patterns\n3. It is easy to understand and test\n4. It demonstrates aggregation (most popular cuisines, average ratings)\n\n## Acceptance Criteria\n\n- [ ] Complete application in `apps/reference-recipe-book/` with:\n  - **Server**: B3nd node with schema, indexer, and HTTP server\n  - **Web client**: React app with recipe CRUD, search, filtering, and aggregation views\n- [ ] Schema covers:\n  - `mutable://open/recipes/{id}` -- public recipe registry (open namespace)\n  - `mutable://data/{pubkey}/recipes/{id}` -- personal recipe collection\n  - `hash://sha256/{...}` -- content-addressed recipe data\n- [ ] Indexer definition with fields: `title (string, searchable)`, `cuisine (string)`, `rating (number)`, `prepTime (number)`, `tags (json)`, `author (string)`\n- [ ] Features demonstrated:\n  - Write a recipe (with validation)\n  - Read a recipe\n  - Search recipes by text (full-text search via indexer)\n  - Filter recipes by cuisine, rating range, prep time\n  - Sort results by various fields\n  - Aggregate: count by cuisine, average rating by cuisine\n  - Personal collection (write to owned namespace)\n  - Public discovery (write to open namespace)\n- [ ] React app uses hooks: `useIndexedQuery`, `useIndexedSearch`, `useAggregation`\n- [ ] README with setup instructions, architecture diagram, and walkthrough\n- [ ] Can be started with a single `deno task start` command\n\n## Implementation Guide\n\n1. Create `apps/reference-recipe-book/` directory structure:\n   ```\n   apps/reference-recipe-book/\n     deno.json          -- workspace config\n     server.ts          -- B3nd node + HTTP server + indexer\n     schema.ts          -- recipe schema validators\n     indexer.ts          -- IndexerDefinition for recipes\n     web/\n       src/App.tsx       -- React app entry\n       src/components/   -- RecipeList, RecipeDetail, SearchBar, etc.\n       vite.config.ts    -- Vite config\n       package.json\n   ```\n2. **Schema** (`schema.ts`):\n   - `mutable://open` validator: accept any object with title field\n   - `mutable://data` validator: require auth signature matching pubkey in URI\n3. **Indexer** (`indexer.ts`):\n   - Define `IndexerDefinition` with recipe fields\n   - `extract()`: pull title, cuisine, rating, etc. from recipe data\n4. **Server** (`server.ts`):\n   - `MemoryClient` or `PostgresClient` as storage backend\n   - `createValidatedClient` with schema\n   - `createIndexerProcessor` in parallel with storage\n   - `httpServer` with `mountIndexerRoutes`\n5. **Web** (`web/`):\n   - Copy patterns from `apps/b3nd-web-rig/` for the React setup\n   - Components: RecipeList (search + filter), RecipeForm (create), RecipeDetail (view), Analytics (aggregation)\n   - Use indexer hooks for all list/search/aggregate views\n6. Add to workspace in root `deno.json`\n\n## Files to Create/Modify\n\n- `apps/reference-recipe-book/` -- new: entire application directory\n- `deno.json` -- add workspace member\n\n## Testing\n\n```bash\n# Start the server\ncd apps/reference-recipe-book && deno task start\n\n# Run any tests\ndeno test --allow-all apps/reference-recipe-book/\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-09 (HTTP indexer endpoints), G1-A6-10 (React hooks), G1-A7-04 (encrypted helpers for personal collection), G1-D1-01 (quickstart as a reference for patterns)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Build at least one complete reference app demonstrating Firecat capabilities (once indexer exists)\n- [ ] The PRD's three app designs (recipe book, encrypted journal, invoicing) are ready as reference implementations"
+}

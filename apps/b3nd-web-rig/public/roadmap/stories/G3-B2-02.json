@@ -1,0 +1,31 @@
+{
+  "id": "G3-B2-02",
+  "title": "Implement fee calculation engine with program-based rates",
+  "group": "make-it-pay",
+  "category": "gas-runtime",
+  "section": "B2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-fee-engine.ts",
+    "libs/firecat-protocol/gas-fee-engine_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B2-02",
+  "markdown": "\n## Goal\n\nImplement a fee calculation engine that determines the required gas fee for a given message envelope based on which programs it writes to and the size of the data. This replaces the flat `BASE_GAS_FEE` with a dynamic calculation: `total_fee = sum(base_fee per program) + sum(size_fee_per_kb * data_size_kb)`. The engine reads fee rates from `gas://rates/{program}` or falls back to defaults.\n\n## Background\n\nPhase 0 uses a flat `BASE_GAS_FEE` constant. Phase 1 introduces program-specific rates stored at `gas://rates/{encodedProgramKey}`. For example:\n\n- `gas://rates/mutable%3A%2F%2Fopen` -> `{ base_fee: 1, size_fee_per_kb: 0 }`\n- `gas://rates/consensus%3A%2F%2Frecord` -> `{ base_fee: 5, size_fee_per_kb: 1 }`\n- `gas://rates/hash%3A%2F%2Fsha256` -> `{ base_fee: 2, size_fee_per_kb: 2 }`\n\nThe fee engine:\n1. Inspects message outputs to determine which programs are involved\n2. Reads rate configuration for each program\n3. Calculates: `base_fee_sum + size_fee_sum`\n4. Returns the total required fee\n\nThis engine is used by both clients (to know how much gas to attach) and validators (to verify sufficient fee was paid).\n\n## Acceptance Criteria\n\n- [ ] `calculateRequiredFee(envelope, reader)` function: takes a MessageData envelope and a read interface, returns `{ totalFee: number, breakdown: { program: string, baseFee: number, sizeFee: number }[] }`\n- [ ] For each output URI, extracts the program key and reads `gas://rates/{encodedProgram}`\n- [ ] If no rate found for a program, uses `DEFAULT_BASE_FEE` and `DEFAULT_SIZE_FEE_PER_KB`\n- [ ] Size fee calculated on serialized output value size: `Math.ceil(JSON.stringify(value).length / 1024) * size_fee_per_kb`\n- [ ] `validateGasFee(envelope, reader)` function: calls `calculateRequiredFee`, then checks if fee outputs in envelope meet or exceed the required total\n- [ ] Default rates exported as constants: `DEFAULT_BASE_FEE = 1`, `DEFAULT_SIZE_FEE_PER_KB = 0`\n- [ ] Test: envelope writing to a single program with known rate -> correct fee calculated\n- [ ] Test: envelope writing to multiple programs -> fees sum correctly\n- [ ] Test: program with no configured rate -> uses defaults\n- [ ] Test: size-based fee for large payload\n- [ ] Test: validateGasFee accepts envelope with sufficient fee\n- [ ] Test: validateGasFee rejects envelope with insufficient fee\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/gas-constants.ts` for existing constants\n2. Read `libs/firecat-protocol/gas-validators.ts` for the current fee validation approach\n3. Create `libs/firecat-protocol/gas-fee-engine.ts`:\n   ```typescript\n   import type { MessageData } from \"@bandeira-tech/b3nd-sdk\";\n   import type { ReadResult } from \"@bandeira-tech/b3nd-sdk/types\";\n   import { GAS_ROOT_KEY } from \"./gas-constants.ts\";\n\n   export const DEFAULT_BASE_FEE = 1;\n   export const DEFAULT_SIZE_FEE_PER_KB = 0;\n\n   interface FeeRate {\n     base_fee: number;\n     size_fee_per_kb?: number;\n   }\n\n   interface FeeBreakdown {\n     program: string;\n     baseFee: number;\n     sizeFee: number;\n   }\n\n   interface FeeCalculation {\n     totalFee: number;\n     breakdown: FeeBreakdown[];\n   }\n\n   export async function calculateRequiredFee(\n     envelope: MessageData,\n     read: <T>(uri: string) => Promise<ReadResult<T>>,\n   ): Promise<FeeCalculation> { ... }\n\n   export async function validateGasFee(\n     envelope: MessageData,\n     read: <T>(uri: string) => Promise<ReadResult<T>>,\n   ): Promise<{ valid: boolean; error?: string }> { ... }\n   ```\n4. In `calculateRequiredFee`:\n   - Skip outputs that are gas://utxo or gas://consumed (these are gas plumbing, not fee-bearing)\n   - For each application output, extract program key (e.g., `mutable://open`)\n   - URL-encode the program key to read `gas://rates/{encodedProgram}`\n   - Calculate base + size fee per output\n   - Sum all fees\n5. In `validateGasFee`:\n   - Call `calculateRequiredFee` to get required total\n   - Sum gas://utxo outputs to GAS_ROOT_KEY (these are fee payments)\n   - Return valid if fee payments >= required total\n6. Create `libs/firecat-protocol/gas-fee-engine_test.ts`\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/gas-fee-engine.ts` -- new file: calculateRequiredFee, validateGasFee\n- `libs/firecat-protocol/gas-fee-engine_test.ts` -- new file: test suite\n- `libs/firecat-protocol/gas-constants.ts` -- add DEFAULT_BASE_FEE, DEFAULT_SIZE_FEE_PER_KB if not already present\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-fee-engine_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G3-B1-04 (gas schema registered), G3-B2-01 (UTXO tracker for balance checks)\n- **Blocks**: G3-B2-05 (adaptive fee rates)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement UTXO tracking (unspent set maintenance, consumption detection)\n- [ ] Implement fee calculation engine (base_fee per program + size_fee per KB)\n- [ ] Implement checkpoint hash chain (single validator producing `confirmation://checkpoints/{validatorKey}/{sequence}`)\n- [ ] Implement sponsor assembly flow (partial messages without gas → sponsor attaches UTXO → validator confirms)\n- [ ] Implement adaptive fee rates (congestion-based adjustment at epoch boundaries)\n- [ ] Implement free"
+}

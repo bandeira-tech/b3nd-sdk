@@ -26,7 +26,11 @@ import { decodeBase64, encodeBase64 } from "../b3nd-core/encoding.ts";
 /** Wrap Uint8Array as a JSON-safe marker object for localStorage round-tripping */
 function serializeData(data: unknown): unknown {
   if (data instanceof Uint8Array) {
-    return { __b3nd_binary__: true, encoding: "base64", data: encodeBase64(data) };
+    return {
+      __b3nd_binary__: true,
+      encoding: "base64",
+      data: encodeBase64(data),
+    };
   }
   return data;
 }
@@ -102,16 +106,32 @@ export class LocalStorageClient implements NodeProtocolInterface {
   }
 
   /**
+   * Extract program key from URI (protocol://hostname)
+   * Matches MemoryClient/PostgresClient/MongoClient behavior.
+   */
+  private extractProgramKey(uri: string): string {
+    try {
+      const url = new URL(uri);
+      return `${url.protocol}//${url.hostname}`;
+    } catch {
+      // Fall back to prefix match for non-URL URIs
+      for (const programKey of Object.keys(this.schema)) {
+        if (uri.startsWith(programKey)) {
+          return programKey;
+        }
+      }
+      return uri;
+    }
+  }
+
+  /**
    * Find matching program key for URI
    */
   private findMatchingProgram(uri: string): string | null {
-    // Look for prefix matches (e.g., "users://" matches "users://alice/profile")
-    for (const programKey of Object.keys(this.schema)) {
-      if (uri.startsWith(programKey)) {
-        return programKey;
-      }
+    const programKey = this.extractProgramKey(uri);
+    if (this.schema[programKey]) {
+      return programKey;
     }
-
     return null;
   }
 
@@ -228,7 +248,9 @@ export class LocalStorageClient implements NodeProtocolInterface {
         if (serialized === null) {
           results.push({ uri, success: false, error: "Not found" });
         } else {
-          const raw = this.deserialize(serialized) as PersistenceRecord<unknown>;
+          const raw = this.deserialize(serialized) as PersistenceRecord<
+            unknown
+          >;
           const record: PersistenceRecord<T> = {
             ts: raw.ts,
             data: deserializeData(raw.data) as T,
@@ -275,8 +297,8 @@ export class LocalStorageClient implements NodeProtocolInterface {
         if (key && key.startsWith(prefix)) {
           const uri = key.substring(this.config.keyPrefix.length);
 
-          // Apply pattern filter if specified
-          if (pattern && !uri.includes(pattern)) {
+          // Apply pattern filter if specified (regex, consistent with other clients)
+          if (pattern && !new RegExp(pattern).test(uri)) {
             continue;
           }
 

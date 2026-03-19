@@ -1,0 +1,33 @@
+{
+  "id": "G1-D2-02",
+  "title": "Build reference app: Encrypted Journal",
+  "group": "apps-possible",
+  "category": "reference-apps",
+  "section": "D2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "apps/reference-encrypted-journal/README.md",
+    "apps/reference-encrypted-journal/server.ts",
+    "apps/reference-encrypted-journal/schema.ts",
+    "apps/reference-encrypted-journal/web/src/App.tsx"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-D2-02",
+  "markdown": "\n## Goal\n\nBuild a complete Encrypted Journal application that demonstrates end-to-end encryption: KeyBundle management, encrypted writes, encrypted reads, and key backup/recovery. Only the key holder can read their journal entries.\n\n## Background\n\nThe encrypted journal is the ideal reference for privacy-focused apps. It demonstrates:\n1. KeyBundle generation and management\n2. Self-encryption (user encrypts for themselves)\n3. List entries without decrypting (URIs reveal structure but not content)\n4. Decrypt on demand (client-side only)\n5. Key backup and recovery flow\n\nThis app proves the \"key loss = data loss\" reality and shows the recommended patterns for handling it.\n\n## Acceptance Criteria\n\n- [ ] Complete application in `apps/reference-encrypted-journal/` with:\n  - **Server**: B3nd node with schema and HTTP server (no indexer -- encrypted data cannot be indexed without view keys)\n  - **Web client**: React app with journal entry CRUD, key management\n- [ ] Schema covers:\n  - `mutable://data/{pubkey}/journal/{date}/{id}` -- encrypted journal entries\n  - `mutable://data/{pubkey}/journal/meta` -- encrypted metadata (tags, settings)\n- [ ] Features demonstrated:\n  - **First-time setup**: Generate KeyBundle, show backup prompt\n  - **Write entry**: Compose text, encrypt with `receiveEncrypted()`, store\n  - **Read entry**: Read URI, decrypt with `readEncrypted()`, display\n  - **List entries**: List URIs to show dates/IDs without revealing content\n  - **Key backup**: Export KeyBundle with password, download as file\n  - **Key restore**: Import KeyBundle from file with password\n  - **Search** (client-side only): Decrypt all entries, search locally (demonstrates the privacy tradeoff)\n- [ ] Key material NEVER leaves the browser (no private keys sent to server)\n- [ ] README with setup instructions, security model explanation, and walkthrough\n- [ ] Prominent key loss warning in the UI\n\n## Implementation Guide\n\n1. Create `apps/reference-encrypted-journal/` directory structure\n2. **Schema** (`schema.ts`):\n   - `mutable://data` validator: verify auth signature matches pubkey in URI\n3. **Server** (`server.ts`):\n   - Minimal server: `MemoryClient` + `createValidatedClient` + `httpServer`\n   - No indexer (encrypted data is opaque to the server)\n4. **Web** (`web/`):\n   - KeyBundle management component: generate, backup, restore\n   - Store KeyBundle in browser memory (sessionStorage for hex, not localStorage for security)\n   - EntryList: `client.list()` to show dates, decrypt individual entries on click\n   - EntryEditor: rich text or markdown, encrypt on save\n   - Settings: key backup/restore flow\n5. Add to workspace in root `deno.json`\n\n## Files to Create/Modify\n\n- `apps/reference-encrypted-journal/` -- new: entire application directory\n- `deno.json` -- add workspace member\n\n## Testing\n\n```bash\n# Start the server\ncd apps/reference-encrypted-journal && deno task start\n```\n\nManual testing: create entries, verify they are unreadable on the server (read raw data via curl, confirm it is encrypted), restore key on a different browser/tab, verify entries are readable again.\n\n## Dependencies\n\n- **Depends on**: G1-A7-02 (KeyBundle), G1-A7-04 (receiveEncrypted/readEncrypted), G1-D1-01 (quickstart patterns)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Build at least one complete reference app demonstrating Firecat capabilities (once indexer exists)\n- [ ] The PRD's three app designs (recipe book, encrypted journal, invoicing) are ready as reference implementations"
+}

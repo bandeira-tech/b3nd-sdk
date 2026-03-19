@@ -374,6 +374,26 @@ export interface MongoClientConfig {
   collectionName: string;
 }
 
+export interface SqliteClientConfig {
+  /** Path to the SQLite database file (e.g. "./data.db", ":memory:") */
+  path: string;
+  /** Schema for validation — must be explicitly provided */
+  schema: Schema;
+  /** Table name prefix for b3nd data — must be explicitly provided */
+  tablePrefix: string;
+}
+
+export interface RedisClientConfig {
+  /** Redis connection URL (e.g. "redis://localhost:6379") */
+  connectionUrl: string;
+  /** Schema for validation — must be explicitly provided */
+  schema: Schema;
+  /** Key prefix for b3nd data — must be explicitly provided */
+  keyPrefix: string;
+  /** Optional default TTL in seconds (0 = no expiry) */
+  defaultTtl?: number;
+}
+
 /**
  * Structured error codes for programmatic error handling.
  * Callers can switch on `error.code` without string parsing.

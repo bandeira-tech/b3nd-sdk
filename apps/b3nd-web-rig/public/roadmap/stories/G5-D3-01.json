@@ -1,0 +1,31 @@
+{
+  "id": "G5-D3-01",
+  "title": "Design webhook/trigger support for external service integration",
+  "group": "platform-features",
+  "category": "platform",
+  "section": "D3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/design/webhooks.md",
+    "libs/b3nd-core/types.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G5-D3-01",
+  "markdown": "\n## Goal\n\nDesign a webhook and trigger system that allows B3nd nodes to notify external services when specific URI patterns receive new data, enabling integration with third-party systems (e.g., Slack notifications, CI/CD pipelines, analytics ingestion) without requiring those systems to poll the node.\n\n## Background\n\nToday, the only way to react to data changes on a B3nd node is through `connect()` polling (in `libs/b3nd-listener/mod.ts`) or by building a custom compose `Processor` that side-effects on receive. There is no standard mechanism for a node operator to say \"when anything is written to `mutable://invoices/*`, POST the payload to `https://my-erp.example.com/webhook`\". The `respondTo` and `connect` primitives in `libs/b3nd-listener/mod.ts` handle node-to-node communication but not node-to-external-HTTP.\n\nThe compose system (`libs/b3nd-compose/`) provides `Processor`, `when()`, `parallel()`, and `pipe()` combinators that could host webhook dispatch as a processor in the pipeline. The HTTP server (`libs/b3nd-servers/http.ts`) has a `configure()` method that accepts a `Node` or `client`, but no hook points for outbound notifications.\n\nKey design questions:\n- Should webhooks be registered via API calls, config files, or on-chain URIs?\n- How to handle delivery failures (retry, dead-letter, circuit breaker)?\n- Should payloads include the full data or just a notification with the URI?\n- How does this interact with encrypted data (can a webhook see plaintext)?\n- What authentication does the webhook target require (HMAC signatures, bearer tokens)?\n\n## Acceptance Criteria\n\n- [ ] RFC document created at `docs/design/webhooks.md` covering the full design\n- [ ] Design specifies webhook registration mechanism (how operators define triggers)\n- [ ] Design specifies webhook payload format (what gets sent to the target URL)\n- [ ] Design specifies delivery guarantees (at-least-once, retry policy, dead-letter queue)\n- [ ] Design specifies authentication for outbound requests (HMAC signing, custom headers)\n- [ ] Design specifies how webhooks compose with the existing `Processor` pipeline\n- [ ] Design addresses encrypted data handling (webhook sees ciphertext vs plaintext)\n- [ ] Design includes URI pattern matching rules (glob, prefix, exact)\n- [ ] Design includes a `WebhookProcessor` type signature compatible with `libs/b3nd-compose/types.ts`\n- [ ] Design includes at least two sequence diagrams (happy path, delivery failure)\n- [ ] Design documents security considerations (SSRF prevention, URL allowlisting)\n\n## Implementation Guide\n\n1. Read `libs/b3nd-compose/types.ts` to understand the `Processor` type and how combinators like `when()` and `parallel()` work.\n\n2. Read `libs/b3nd-listener/mod.ts` to understand how `respondTo()` wraps handlers as processors and how the decrypt-call-encrypt cycle works. Note how this pattern could inform webhook dispatch.\n\n3. Read `libs/b3nd-servers/http.ts` to understand the `httpServer()` function, its `configure()` method, and how routes are wired. Consider where webhook management endpoints would live.\n\n4. Read `libs/b3nd-core/types.ts` to understand `Message`, `ReceiveResult`, and `NodeProtocolInterface` -- the primitives that webhooks would observe.\n\n5. Create `docs/design/webhooks.md` with the following structure:\n   - **Overview**: What webhooks solve and who benefits\n   - **Registration**: How webhook subscriptions are created (API endpoint, config, or URI-based)\n   - **Matching**: URI pattern syntax (prefix match, glob, regex) and how patterns are evaluated\n   - **Payload format**: JSON structure sent to target URLs, including metadata (uri, timestamp, node identity)\n   - **Delivery**: HTTP POST semantics, retry policy (exponential backoff, max attempts), timeout, dead-letter\n   - **Authentication**: HMAC-SHA256 signature header, optional bearer token, custom headers\n   - **Compose integration**: How `WebhookProcessor` fits into `parallel()` or `pipe()` chains\n   - **Encryption handling**: Webhooks only see ciphertext for encrypted URIs; operators can opt in to plaintext if they hold the key\n   - **Security**: SSRF prevention (private IP blocking, URL allowlist), rate limiting outbound calls\n   - **Type signatures**: Draft TypeScript interfaces for `WebhookConfig`, `WebhookSubscription`, `WebhookProcessor`\n   - **Sequence diagrams**: Mermaid diagrams for happy path and failure/retry path\n   - **Open questions**: List remaining decisions for implementation phase\n\n## Files to Create/Modify\n\n- `docs/design/webhooks.md` -- New RFC document with full webhook/trigger design\n\n## Testing\n\nThis is a design-only story. Verification is via review of the RFC document:\n- All acceptance criteria sections are present and substantive\n- Type signatures are valid TypeScript\n- Sequence diagrams render correctly in Mermaid\n- Security considerations are thorough\n\n## Dependencies\n\nNo prerequisites. This is a standalone design document. Implementation stories will depend on this design being approved.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design webhook/trigger support for external service integration\n- [ ] Design \"durable\" storage tier or SLA mechanism for compliance-sensitive use cases\n- [ ] Design multi-user access control beyond shared keypairs (role-based access to a namespace)\n- [ ] Design offline-first sync framework (local client ↔ remote client reconciliation)\n\n---\n\n## E. Infrastructure & DevOps"
+}

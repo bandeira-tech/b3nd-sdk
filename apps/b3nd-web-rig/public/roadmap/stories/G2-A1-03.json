@@ -1,0 +1,32 @@
+{
+  "id": "G2-A1-03",
+  "title": "Rebuild b3nd-listener module exports on respondTo + connect",
+  "group": "nodes-talk",
+  "category": "compose-primitives",
+  "section": "A1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-listener/mod.ts",
+    "libs/b3nd-listener/listener.test.ts",
+    "apps/vault-listener/mod.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A1-03",
+  "markdown": "\n## Goal\n\nEnsure the `b3nd-listener` module is cleanly organized around `respondTo()` and `connect()` as its two compose primitives, removing any vestigial code or parallel patterns. Verify that the vault-listener app (the only consumer) works correctly with the refined API.\n\n## Background\n\nThe `libs/b3nd-listener/mod.ts` module was already built on `respondTo()` and `connect()` from the start. However, the TASKS.md entry \"Rebuild b3nd-listener on top of respondTo() + connect() instead of parallel custom system\" suggests there may be legacy patterns or the module may need cleaner separation of concerns.\n\nAfter G2-A1-01 (error recovery) and G2-A1-02 (cursor tracking), the module will have grown. This story is about:\n\n1. **Clean module organization**: Ensure types, respondTo, connect, and client helpers (writeRequest, readResponse) are well-separated with clear JSDoc.\n2. **Export hygiene**: Review what is exported vs internal. Type guards (`isSignedMessage`, `isEncryptedPayload`) should be exported for testing.\n3. **Consumer verification**: Run the vault-listener app's tests to confirm compatibility.\n4. **Type tightening**: The processor type in `connect()` is `(msg: [string, unknown]) => Promise<{ success: boolean; error?: string }>` -- this should reference the compose `Processor` type from `b3nd-compose/types.ts` for consistency.\n\n## Acceptance Criteria\n\n- [ ] All exports are intentional and documented with JSDoc\n- [ ] Internal type guards (`isSignedMessage`, `isEncryptedPayload`) are exported for test use\n- [ ] The processor parameter type in `connect()` aligns with compose `Processor` type\n- [ ] `apps/vault-listener/mod.ts` imports work without changes (or changes are minimal and documented)\n- [ ] `apps/vault-listener/vault.test.ts` passes\n- [ ] `libs/b3nd-listener/listener.test.ts` passes\n- [ ] Module-level JSDoc accurately describes the two-primitive architecture\n\n## Implementation Guide\n\n1. Read `libs/b3nd-listener/mod.ts` in its post-G2-A1-01/02 state.\n\n2. Organize the file into clear sections with separator comments:\n   - Types (exported interfaces)\n   - Internal types\n   - respondTo (the request-response primitive)\n   - connect (the polling transport primitive)\n   - Client helpers (writeRequest, readResponse)\n   - Type guards (export them)\n\n3. Import `Processor` from `../b3nd-compose/types.ts` and use it as the type for the `processor` parameter in `connect()`. Verify compatibility -- the compose `Processor` is `(msg: Message<D>) => Promise<{ success: boolean; error?: string }>` which matches.\n\n4. Read `apps/vault-listener/mod.ts` and `apps/vault-listener/vault.ts` to verify they use `respondTo` and `connect` from `@b3nd/listener`. Confirm imports still resolve.\n\n5. Run tests for both the listener lib and the vault-listener app.\n\n## Files to Create/Modify\n\n- `libs/b3nd-listener/mod.ts` -- Reorganize, export type guards, align processor type with compose system.\n- `libs/b3nd-listener/listener.test.ts` -- Update imports if any exports were renamed.\n- `apps/vault-listener/mod.ts` -- Verify compatibility, update imports if needed.\n\n## Testing\n\n```bash\ndeno test libs/b3nd-listener/listener.test.ts\ndeno test apps/vault-listener/vault.test.ts\n```\n\n## Dependencies\n\nDepends on G2-A1-01 and G2-A1-02 (both modify mod.ts). This story finalizes the module shape before downstream stories depend on it.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `respondTo(handler, opts)` — wrap a handler as a compose `Processor` (decrypt → call → encrypt → route)\n- [ ] Implement `connect(remote, opts)` — bridge a handler to a remote node (polling transport, cursor tracking, dedup)\n- [ ] Rebuild `b3nd-listener` on top of `respondTo()` + `connect()` instead of parallel custom system\n- [ ] Define `subscribe(remote, opts)` interface for future WebSocket transport (deferred, but interface should be reserved)"
+}

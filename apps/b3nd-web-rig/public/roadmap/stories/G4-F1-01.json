@@ -1,0 +1,38 @@
+{
+  "id": "G4-F1-01",
+  "title": "Review book chapters 1-9 (Parts I & II) for completeness and three-layer scaffold",
+  "group": "tell-the-story",
+  "category": "book",
+  "section": "F1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/README.md",
+    "docs/book/01-two-friends.md",
+    "docs/book/02-the-setting-is-the-trust.md",
+    "docs/book/03-who-is-speaking.md",
+    "docs/book/04-witnesses-and-formality.md",
+    "docs/book/05-the-limits-of-presence.md",
+    "docs/book/06-the-message-is-born.md",
+    "docs/book/07-the-address-and-the-content.md",
+    "docs/book/08-seals-and-signatures.md",
+    "docs/book/09-secrets-and-sealed-envelopes.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G4-F1-01",
+  "markdown": "\n## Goal\n\nReview chapters 1 through 9 of \"What's in a Message\" for internal consistency, completeness, and alignment with the current B3nd protocol state. Ensure Part I (Conversation, chapters 1-5) and Part II (The Message, chapters 6-9) form a coherent pedagogical arc, and that Part II consistently uses the three-layer scaffold (speech, paper, digital) as promised in the book's README.\n\n## Background\n\nThe book \"What's in a Message\" (16 chapters) lives in `docs/book/`. It teaches B3nd through a three-part structure: Part I covers human conversation (speech in air), Part II covers written messages (paper), and Part III covers the digital network (B3nd). The README establishes the three-layer scaffold as the \"book's rhythm\" -- each concept is introduced first in speech, then in writing, then in B3nd.\n\nPart I (chapters 1-5) does not use the three-layer scaffold because it establishes the conversational foundation. Part II (chapters 6-9) introduces the transition from speech to paper and should begin using the scaffold pattern. The question is: does Part II consistently apply this pattern, and does the narrative flow naturally from Part I into Part II?\n\nThe book was written before several protocol changes (confirmation protocol, temporal consensus, gas semantics). While Part I and II are mostly protocol-agnostic (they deal with human communication), we need to verify that any forward references or foreshadowing remain accurate.\n\n## Acceptance Criteria\n\n- [ ] Each chapter 1-5 reviewed for internal narrative consistency (no contradictions between chapters)\n- [ ] Each chapter 6-9 reviewed for correct use of the three-layer scaffold (speech -> paper -> digital foreshadowing)\n- [ ] Terminology is consistent across all 9 chapters (same terms for same concepts)\n- [ ] Forward references to Part III concepts are accurate given current protocol state\n- [ ] The README accurately describes the book's actual structure and content\n- [ ] Any factual errors or stale references are corrected\n- [ ] A review summary is added as a comment block at the top of each reviewed chapter (or in a tracking file) noting review status and any open questions\n\n## Implementation Guide\n\n1. Read `docs/book/README.md` to understand the promised structure and pedagogy\n2. Read chapters 1-5 sequentially. For each chapter:\n   - Verify the narrative flows from the previous chapter\n   - Check that key concepts (agreement, identity, trust, privacy, consensus) are introduced cleanly\n   - Note any terms that could conflict with Part III protocol terminology\n   - Verify no premature technical language leaks in\n3. Read chapters 6-9 sequentially. For each chapter:\n   - Verify the three-layer scaffold is present (speech version -> paper version -> digital foreshadowing)\n   - Check the transition from Part I concepts to Part II concepts is smooth\n   - Verify the \"gift / threat / countermeasure\" pattern from chapter 6 is carried through\n   - Check that addressing, seals, signatures, and encryption are introduced in proper sequence\n4. Cross-check: do the Part I and Part II chapters cover the same core concepts (agreement, identity, trust, privacy, consensus) or is anything missing?\n5. Read `skills/b3nd/FIRECAT.md` and `skills/b3nd/FRAMEWORK.md` to verify any protocol terminology used in the book matches current definitions\n6. Fix any issues found directly in the chapter files\n7. If substantive changes are needed, note them clearly in the PR description\n\n## Files to Create/Modify\n\n- `docs/book/01-two-friends.md` through `docs/book/09-secrets-and-sealed-envelopes.md` -- fix any consistency issues, stale terminology, or scaffold gaps\n- `docs/book/README.md` -- update if the actual structure has diverged from the described structure\n\n## Dependencies\n\n- **Depends on**: Nothing -- this is a review of existing content\n- **Blocks**: G4-F1-03 (publish plan depends on knowing the book is review-complete)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Review all 16 chapters for completeness and consistency with current protocol state\n- [ ] Ensure three-layer scaffold is used consistently in every chapter from Part II onward\n- [ ] Review cookbook chapter (Ch 16) against actual current SDK API\n- [ ] Publish/distribute (web reader in rig? PDF? separate site?)"
+}

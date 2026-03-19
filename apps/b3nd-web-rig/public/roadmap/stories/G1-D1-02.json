@@ -1,0 +1,31 @@
+{
+  "id": "G1-D1-02",
+  "title": "Write discovery index patterns guide",
+  "group": "apps-possible",
+  "category": "documentation",
+  "section": "D1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "skills/b3nd/APP_COOKBOOK.md",
+    "skills/b3nd/FIRECAT.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-D1-02",
+  "markdown": "\n## Goal\n\nDocument recommended patterns for building discovery indexes -- public registries where users publish metadata to be found by others. Include the security tradeoffs of using `mutable://open` for these indexes.\n\n## Background\n\nDiscovery is a fundamental problem in decentralized systems. How does Alice find Bob's recipe collection? How does a marketplace list available products? The common pattern is a \"discovery index\" at a well-known URI prefix like `mutable://open/recipes/` where anyone can write.\n\nThe tradeoff: `mutable://open` is world-writable. This enables discovery but also enables spam, impersonation, and overwriting. Developers need clear guidance on:\n- When to use open discovery vs. authenticated discovery\n- How to verify entries in a discovery index (check signatures)\n- How to handle spam and abuse\n- When the planned `mutable://verified` namespace (from G1-A8-01) solves the problem\n\n## Acceptance Criteria\n\n- [ ] `skills/b3nd/APP_COOKBOOK.md` has a \"Discovery Index Patterns\" section covering:\n  - **Pattern: Open Registry** -- `mutable://open/directory/{category}/{id}`\n    - Who can write: anyone\n    - Risk: spam, overwriting\n    - Mitigation: entries are signed, readers verify before trusting\n    - Use case: public directory, app listings\n  - **Pattern: Authenticated Registry** -- `mutable://data/{operatorPubkey}/registry/{category}/{id}`\n    - Who can write: only the operator\n    - Risk: single point of control\n    - Mitigation: operator publishes validation policy\n    - Use case: curated marketplace, verified listings\n  - **Pattern: Self-Sovereign Discovery** -- each user writes to their own namespace, aggregation via indexer\n    - Who can write: each user to their own space\n    - Risk: no single directory to browse\n    - Mitigation: indexer aggregates across namespaces\n    - Use case: social profiles, content feeds\n  - Code examples for each pattern\n  - Security tradeoffs comparison table\n- [ ] `skills/b3nd/FIRECAT.md` references the discovery patterns from the appropriate protocol section\n\n## Implementation Guide\n\n1. Read `skills/b3nd/APP_COOKBOOK.md` for existing patterns\n2. Read `skills/b3nd/FIRECAT.md` for protocol-level namespace descriptions\n3. Write the three discovery patterns with working code examples\n4. Include a comparison table with columns: Write Access, Trust Model, Spam Risk, Indexer Required, Best For\n\n## Files to Create/Modify\n\n- `skills/b3nd/APP_COOKBOOK.md` -- add Discovery Index Patterns section\n- `skills/b3nd/FIRECAT.md` -- add reference to discovery patterns\n\n## Testing\n\nDocumentation review for accuracy.\n\n## Dependencies\n\n- **Depends on**: G1-A7-01 (privacy model must be documented first)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+}

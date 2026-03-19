@@ -1,0 +1,39 @@
+{
+  "id": "G1-A7-01",
+  "title": "Fix private visibility warning and document privacy model",
+  "group": "apps-possible",
+  "category": "encryption",
+  "section": "A7",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "critical",
+  "scope": "documentation+implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-encrypt/mod.ts",
+    "skills/b3nd/FIRECAT.md",
+    "skills/b3nd/FRAMEWORK.md",
+    "skills/b3nd/APP_COOKBOOK.md"
+  ],
+  "tags": [],
+  "status": "in-progress",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A7-01",
+  "markdown": "\n## Goal\n\nAddress the misleading \"private\" visibility by adding prominent warnings and documentation. The current derivation using `SALT:uri:ownerPubkey` provides obscurity (unpredictable URIs) but not encryption (anyone who guesses the URI can read the data). This must be clearly communicated to developers.\n\n## Background\n\nThe Firecat protocol uses URI-based visibility:\n- `mutable://open/...` -- public, anyone can read\n- `mutable://data/{pubkey}/...` -- \"private\" but only by obscurity\n\nThe problem: \"private\" implies cryptographic privacy, but the data is stored unencrypted. Anyone with the URI can read it. The salt-based derivation makes URIs hard to guess, but this is security-through-obscurity, not encryption.\n\nDevelopers MUST understand this distinction before building privacy-sensitive apps. Two paths:\n1. Change the default to use X25519 encryption (breaking change, deferred)\n2. Add prominent warnings everywhere \"private\" is mentioned (this story)\n\nThis story takes path 2 (warnings) as the immediate fix.\n\n## Acceptance Criteria\n\n- [ ] `libs/b3nd-encrypt/mod.ts` has a JSDoc comment block at the module level explaining the privacy model\n- [ ] `skills/b3nd/FIRECAT.md` has a \"Privacy Model\" section with:\n  - Clear statement: \"private\" visibility means obscured URIs, NOT encrypted data\n  - Explicit: \"If confidentiality is required, use `createSignedEncryptedMessage()` or `SecretEncryptionKey`\"\n  - Warning box: \"Key loss = permanent data loss for encrypted data\"\n- [ ] `skills/b3nd/APP_COOKBOOK.md` has a \"Privacy Patterns\" section:\n  - Pattern: obscured URI (when obscurity is sufficient -- e.g., user preferences)\n  - Pattern: encrypted at rest (when confidentiality is required -- e.g., medical data, financial data)\n  - Code example: writing encrypted data using existing `createSignedEncryptedMessage()`\n  - Code example: reading and decrypting\n- [ ] `skills/b3nd/FRAMEWORK.md` updated to reference the privacy model\n\n## Implementation Guide\n\n1. Read `libs/b3nd-encrypt/mod.ts` -- add module-level JSDoc explaining privacy tiers\n2. Read `skills/b3nd/FIRECAT.md` -- add Privacy Model section near the top (before protocol details)\n3. Read `skills/b3nd/APP_COOKBOOK.md` -- add Privacy Patterns section with code examples using existing encrypt/decrypt APIs\n4. Read `skills/b3nd/FRAMEWORK.md` -- add cross-reference to privacy model\n\n## Files to Create/Modify\n\n- `libs/b3nd-encrypt/mod.ts` -- add module-level privacy documentation\n- `skills/b3nd/FIRECAT.md` -- add Privacy Model section\n- `skills/b3nd/APP_COOKBOOK.md` -- add Privacy Patterns section with examples\n- `skills/b3nd/FRAMEWORK.md` -- add privacy model cross-reference\n\n## Testing\n\nDocumentation review. No runtime tests needed.\n\n## Dependencies\n\n- **Depends on**: Nothing\n- **Blocks**: Nothing (but should be done early as it affects developer expectations)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "pr": {
+    "number": 19,
+    "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/19",
+    "state": "OPEN",
+    "title": "docs(security): document privacy model and encryption patterns"
+  },
+  "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+}

@@ -1,0 +1,41 @@
+{
+  "id": "G4-D1-01",
+  "title": "Write privacy warning, record size limits, and send() atomicity documentation",
+  "group": "tell-the-story",
+  "category": "dev-docs",
+  "section": "D1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "skills/b3nd/FIRECAT.md",
+    "skills/b3nd/FRAMEWORK.md",
+    "skills/b3nd/FAQ.md",
+    "docs/guides/encryption-and-privacy.md",
+    "libs/b3nd-encrypt/mod.ts",
+    "libs/b3nd-msg/data/send.ts",
+    "libs/b3nd-servers/http.ts"
+  ],
+  "tags": [],
+  "status": "in-progress",
+  "uri": "mutable://open/rig/roadmap/stories/G4-D1-01",
+  "markdown": "\n## Goal\n\nDocument three critical gaps in the current SDK documentation: (1) a prominent privacy warning for \"private\" visibility explaining that it uses SALT-based URI obscurity rather than true encryption, (2) maximum record size limits per backend type, and (3) the atomicity (or lack thereof) of the `send()` operation. These are the documentation items most likely to cause developers to build insecure or broken applications.\n\n## Background\n\nThese three gaps were identified in the App Exploration PRD and TASKS.md:\n\n**Privacy warning**: The \"private\" visibility mode in Firecat derives the URI using `SALT:uri:ownerPubkey`. This means the data location is obscured (you need to know the owner's pubkey to compute the URI), but the data itself is NOT encrypted. A node operator can read the plaintext. This is obscurity, not encryption. The FIRECAT.md skill file may describe this, but there is no prominent warning in the SDK docs, the website, or the book. Developers may assume \"private\" means encrypted.\n\n**Record size limits**: There is no documentation of maximum record sizes. Different backends (Memory, PostgreSQL, MongoDB, HTTP) likely have different limits. The HTTP server (`libs/b3nd-servers/http.ts`) may have body size limits. PostgreSQL has column size limits. Developers building apps that store large objects (images, files) need to know these limits upfront.\n\n**send() atomicity**: The `send()` function batches multiple writes into a single content-addressed envelope. The question is: if one output in the batch fails, are the successful outputs rolled back? Or does the system have partial-write behavior? This is critical for any application doing multi-resource transactions (e.g., writing a profile AND a status update in one send). The answer may be \"send() is NOT atomic\" -- which is fine, but it must be documented.\n\n## Acceptance Criteria\n\n- [ ] `skills/b3nd/FIRECAT.md` contains a prominent warning in the visibility/privacy section explaining that \"private\" is URI obscurity, not encryption\n- [ ] The warning includes the recommended pattern for truly private data (encrypt with X25519/AES-GCM before writing)\n- [ ] `skills/b3nd/FRAMEWORK.md` or `skills/b3nd/FAQ.md` contains documentation of record size limits per backend type\n- [ ] Size limits are determined by reading actual code (HTTP body parser config, database column types, memory client storage)\n- [ ] `skills/b3nd/FRAMEWORK.md` or `skills/b3nd/FAQ.md` contains documentation of `send()` atomicity behavior\n- [ ] Atomicity documentation is determined by reading `libs/b3nd-msg/data/send.ts` and understanding the actual behavior\n- [ ] All three documentation additions are factual (based on code reading, not assumptions)\n\n## Implementation Guide\n\n1. **Privacy warning**:\n   a. Read `skills/b3nd/FIRECAT.md` to find the current visibility/privacy section\n   b. Read `libs/b3nd-encrypt/mod.ts` to understand the actual encryption primitives available\n   c. Determine exactly what \"private\" visibility does: read the URI derivation code to confirm it uses `SALT:uri:ownerPubkey`\n   d. Add a prominent warning (use a blockquote or bold header like `> **Warning: \"Private\" visibility is not encryption**`)\n   e. Include the recommended pattern: \"For truly private data, encrypt with `encryptData()` before writing, and write to an authenticated URI (`mutable://accounts/{pubkey}/...`)\"\n   f. Also add this warning to the book's privacy chapter if time permits\n\n2. **Record size limits**:\n   a. Read `libs/b3nd-servers/http.ts` to find any body size limit configuration (look for body parser options, content-length checks)\n   b. Read `libs/b3nd-client-memory/mod.ts` to check if there is any size limit in the memory store\n   c. Read `libs/b3nd-client-postgres/` to check PostgreSQL column type for data storage (jsonb has a theoretical 255MB limit, but practical limits are much lower)\n   d. Read `libs/b3nd-client-mongo/` to check MongoDB document size limit (16MB default)\n   e. Document the findings: actual configured limits, theoretical limits, and recommended maximums\n   f. Add to FAQ or FRAMEWORK.md as appropriate\n\n3. **send() atomicity**:\n   a. Read `libs/b3nd-msg/data/send.ts` to understand how `send()` processes outputs\n   b. Read `libs/b3nd-msg/data/message.ts` for the message/envelope structure\n   c. Trace the flow: does `send()` call `receive()` for each output individually? Or is there a transaction wrapper?\n   d. Document the actual behavior: \"send() processes outputs sequentially. If output N fails, outputs 1 through N-1 have already been written and are NOT rolled back.\"\n   e. Include guidance: \"If your application requires all-or-nothing writes, implement compensation logic (read-check-write pattern) or design your URIs so partial writes are recoverable.\"\n   f. Add to FAQ or FRAMEWORK.md as appropriate\n\n## Files to Create/Modify\n\n- `skills/b3nd/FIRECAT.md` -- add privacy warning in visibility section\n- `skills/b3nd/FAQ.md` -- add record size limits documentation and send() atomicity documentation\n- `docs/guides/encryption-and-privacy.md` -- if this file exists (from G4-F2-02), add the privacy warning there too\n\n## Dependencies\n\n- **Depends on**: Nothing -- these are documentation additions based on code reading\n- **Blocks**: Nothing directly, but the privacy warning should be written before the encryption guide (G4-F2-02) so the guide can reference it\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "dependencies"
+  ],
+  "pr": {
+    "number": 16,
+    "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/16",
+    "state": "OPEN",
+    "title": "docs: add privacy warning, record size limits, and send() atomicity docs"
+  },
+  "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+}

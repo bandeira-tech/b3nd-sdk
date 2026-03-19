@@ -13,6 +13,7 @@ import {
   Minimize2,
   Play,
 } from "lucide-react";
+import { RoadmapActivityFeed } from "../roadmap/RoadmapActivityFeed";
 
 export function BottomPanel() {
   const { togglePanel, bottomMaximized, toggleBottomPanelMaximized } = useAppStore();
@@ -179,6 +180,10 @@ function WriterStateView() {
 
 function WriterOutputView() {
   const { writerOutputs, activeApp } = useAppStore();
+
+  if (activeApp === "roadmap") {
+    return <RoadmapActivityFeed />;
+  }
 
   if (activeApp !== "writer") {
     return (

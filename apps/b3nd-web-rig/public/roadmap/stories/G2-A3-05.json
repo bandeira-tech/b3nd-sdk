@@ -1,0 +1,30 @@
+{
+  "id": "G2-A3-05",
+  "title": "Design reorg and finality rules for the temporal consensus layer",
+  "group": "nodes-talk",
+  "category": "temporal-consensus",
+  "section": "A3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/README.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A3-05",
+  "markdown": "\n## Goal\n\nDesign the rules for block finality and whether/how blocks can be reorganized in the temporal consensus layer. This addresses the open question: \"Can blocks be reorganized? When is a slot final? Is a finality gadget needed?\"\n\n## Background\n\nB3nd's core safety property is: \"Once a record is written to an immutable URI and passes validation, no subsequent valid message can revert it.\" This follows from write-once semantics.\n\nFor the temporal consensus layer, this means:\n- A slot assignment (`consensus://{era}/{block}/{slot}/{hash}`) is final once written (write-once)\n- A confirmation is final once written (write-once)\n- There is no mechanism to \"undo\" a slot assignment\n\nHowever, this raises questions:\n1. If two producers race to fill the same slot, first-write-wins. Is the losing producer's work lost?\n2. If a block is \"incomplete\" (some slots filled, others not), when is it considered final?\n3. If a block references incorrect inputs (stale shift IDs), but was written first, is it valid forever?\n4. Do we need a finality gadget (explicit \"this block is final\" marker)?\n\nThe answer may be: write-once IS the finality gadget. No reorg is possible. But the implications need to be documented.\n\n## Acceptance Criteria\n\n- [ ] Design document addresses block finality: when is a block considered final\n- [ ] Design document addresses slot conflicts: what happens when two producers race\n- [ ] Design document addresses incomplete blocks: are partially-filled blocks valid\n- [ ] Design document addresses the need (or lack thereof) for a finality gadget\n- [ ] Design document addresses the relationship between confirmation finality and slot finality\n- [ ] Design document addresses implications for clients and explorers\n- [ ] Design is consistent with write-once safety property\n- [ ] No code changes -- design only\n\n## Implementation Guide\n\n1. Read `docs/book/consensus/README.md` FAQ section, especially \"What about equivocation across distributed nodes?\"\n\n2. Write a design section covering:\n\n   **Write-Once as Finality**:\n   - Once a slot is filled, it's final. No reorg.\n   - This is simpler than chain-based consensus (no longest-chain rule)\n   - Trade-off: no way to correct mistakes\n\n   **Producer Racing**:\n   - Two producers submit for the same slot\n   - First write wins (write-once enforcement)\n   - Losing producer's work is not lost -- it can be assigned to a different slot\n   - Implications for producer strategy (pick unclaimed slots)\n\n   **Incomplete Blocks**:\n   - A block with some empty slots is still valid\n   - Validators don't check block completeness\n   - Block \"full\" is an optimization hint, not a protocol requirement\n\n   **Finality Gadget**:\n   - Option A: No finality gadget (write-once is sufficient)\n   - Option B: Explicit block finality marker after threshold slots are filled\n   - Recommendation and trade-offs\n\n## Files to Create/Modify\n\n- `docs/book/consensus/FINALITY_RULES.md` -- New design document.\n\n## Testing\n\nNo code changes. Design review only.\n\n## Dependencies\n\nDepends on G2-A3-03 (timing rules). Blocks nothing directly.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+}

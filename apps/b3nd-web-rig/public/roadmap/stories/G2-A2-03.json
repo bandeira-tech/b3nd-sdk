@@ -1,0 +1,34 @@
+{
+  "id": "G2-A2-03",
+  "title": "Wire pending marker into node receive pipeline for consensus messages",
+  "group": "nodes-talk",
+  "category": "confirmation-protocol",
+  "section": "A2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/mod.ts",
+    "libs/firecat-protocol/helpers.ts",
+    "libs/firecat-protocol/validators.ts",
+    "libs/firecat-protocol/confirmation.ts",
+    "libs/firecat-protocol/confirmation_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A2-03",
+  "markdown": "\n## Goal\n\nCreate a compose `Processor` that intercepts incoming messages containing `consensus://record` outputs, writes a pending marker instead of the final record, and stores the envelope for other nodes to discover and validate. This is the node-side behavior for Stage 0 (Submission) of the confirmation protocol.\n\n## Background\n\nPer CONFIRMATION.md Stage 0, when a node receives a signed envelope with a `consensus://record/{contentHash}` output:\n\n1. The node runs existing validators (balance, consumed, fee, conservation, auth) -- this happens in the normal validation pipeline.\n2. If validation passes, the node stores the envelope at `hash://sha256/{envelopeHash}`.\n3. The node writes `immutable://pending/{contentHash}/{nodeKey} -> hash://sha256/{envelopeHash}`.\n4. The node does NOT write `consensus://record/{contentHash}` yet -- that waits for confirmation.\n\nThis means we need a processor that sits in the receive pipeline and intercepts consensus-bearing envelopes. When `CONFIRMATION_THRESHOLD > 1`, it:\n- Extracts the consensus record output from the envelope\n- Writes the envelope to content-addressed storage\n- Writes the pending marker\n- Strips the `consensus://record` output from what gets processed (other outputs like balance/consumed/fee are written normally)\n\nWhen `CONFIRMATION_THRESHOLD === 1`, the processor is a no-op (passthrough), preserving today's single-node behavior.\n\n## Acceptance Criteria\n\n- [ ] `createPendingProcessor()` function exported from a new file `libs/firecat-protocol/confirmation.ts`\n- [ ] Processor detects envelopes containing `consensus://record` outputs\n- [ ] When threshold > 1: stores envelope at `hash://sha256/{envelopeHash}`, writes pending marker, strips consensus output\n- [ ] When threshold === 1: passthrough (no change to current behavior)\n- [ ] The pending marker URI uses the node's own public key as `{submitterNodeKey}`\n- [ ] Non-consensus messages pass through unmodified\n- [ ] Tests verify pending marker creation and that consensus record is NOT written prematurely\n- [ ] Tests verify passthrough mode when threshold === 1\n\n## Implementation Guide\n\n1. Create `libs/firecat-protocol/confirmation.ts`:\n   ```typescript\n   import type { NodeProtocolInterface, Message } from \"@bandeira-tech/b3nd-sdk/types\";\n   import { CONFIRMATION_THRESHOLD } from \"./constants.ts\";\n   import type { MessageData } from \"@bandeira-tech/b3nd-sdk\";\n\n   export interface PendingProcessorConfig {\n     nodePublicKeyHex: string;\n     client: NodeProtocolInterface;\n   }\n\n   export function createPendingProcessor(config: PendingProcessorConfig) {\n     return async (msg: Message): Promise<{ success: boolean; error?: string }> => {\n       if (CONFIRMATION_THRESHOLD <= 1) {\n         // Single-node mode: passthrough\n         return { success: true };\n       }\n\n       const [uri, data] = msg;\n       // Check if this is a MessageData envelope with consensus outputs\n       // ... implementation\n     };\n   }\n   ```\n\n2. The processor needs to:\n   - Detect if data is a `MessageData` envelope (has `payload.outputs`)\n   - Check if any output URI starts with `consensus://record/`\n   - If yes: compute envelope hash, write envelope to `hash://sha256/{envelopeHash}`, write pending marker\n   - The envelope hash can be computed using the hash utility from `libs/b3nd-hash/mod.ts`\n\n3. Add a helper in `libs/firecat-protocol/helpers.ts`:\n   ```typescript\n   export function extractConsensusOutputs(msg: MessageData): Array<[string, unknown]> {\n     return msg.payload.outputs.filter(([uri]) => uri.startsWith(\"consensus://record/\"));\n   }\n   ```\n\n4. Write tests in `libs/firecat-protocol/confirmation_test.ts`.\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/confirmation.ts` -- New file: `createPendingProcessor()`.\n- `libs/firecat-protocol/helpers.ts` -- Add `extractConsensusOutputs()` helper.\n- `libs/firecat-protocol/confirmation_test.ts` -- New file: tests for pending processor.\n- `libs/firecat-protocol/mod.ts` -- Re-export from confirmation.ts.\n\n## Testing\n\n```bash\ndeno test libs/firecat-protocol/confirmation_test.ts\ndeno test libs/firecat-protocol/validators_test.ts\n```\n\n## Dependencies\n\nDepends on G2-A2-02 (confirmationValidator and threshold constant). Blocks G2-A2-05 (discovery loop needs pending markers to exist) and G2-E1-01 (multi-node testing).\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+}

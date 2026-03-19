@@ -1,0 +1,31 @@
+{
+  "id": "G2-A1-04",
+  "title": "Define subscribe() interface for future WebSocket transport",
+  "group": "nodes-talk",
+  "category": "compose-primitives",
+  "section": "A1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-listener/mod.ts",
+    "libs/b3nd-compose/types.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A1-04",
+  "markdown": "\n## Goal\n\nDefine and export the `subscribe()` function signature and its associated types in the listener module, reserving the interface for future WebSocket-based transport. The implementation will throw a \"not yet implemented\" error, but the type contract is established so downstream code can type-check against it.\n\n## Background\n\nToday, `connect()` uses HTTP polling as its transport. A future WebSocket transport would push messages to the processor instead of polling. The `subscribe()` interface should mirror `connect()` in structure but accept a WebSocket endpoint and return a `Subscription` object with `start()`/`stop()` lifecycle methods.\n\nThis is intentionally deferred implementation -- the goal is to reserve the interface so that:\n1. The `b3nd-listener` module's public API is complete\n2. Consumers can write code that type-checks against `subscribe()` even before it works\n3. The WebSocket transport design has a concrete target to implement against\n\n## Acceptance Criteria\n\n- [ ] `subscribe()` function is exported from `libs/b3nd-listener/mod.ts`\n- [ ] `Subscription` interface is exported with `start()`, `stop()`, and status/connection state\n- [ ] `SubscribeConfig` type is exported with websocket URL, processor, reconnect options\n- [ ] Calling `subscribe()` throws `Error(\"subscribe() is not yet implemented -- use connect() for polling transport\")`\n- [ ] Types are documented with JSDoc explaining the intended behavior\n- [ ] No runtime dependencies on WebSocket libraries are added\n\n## Implementation Guide\n\n1. Define the types in `libs/b3nd-listener/mod.ts`:\n   ```typescript\n   export interface Subscription {\n     start(): () => void;\n     stop(): void;\n     status(): \"disconnected\" | \"connecting\" | \"connected\";\n   }\n\n   export interface SubscribeConfig {\n     url: string;\n     prefix: string;\n     processor: (msg: [string, unknown]) => Promise<{ success: boolean; error?: string }>;\n     reconnect?: {\n       enabled: boolean;\n       maxAttempts?: number;\n       intervalMs?: number;\n       backoff?: \"linear\" | \"exponential\";\n     };\n     onError?: (error: Error) => void;\n     onConnect?: () => void;\n     onDisconnect?: () => void;\n   }\n   ```\n\n2. Implement the stub function:\n   ```typescript\n   export function subscribe(_config: SubscribeConfig): Subscription {\n     throw new Error(\n       \"subscribe() is not yet implemented -- use connect() for polling transport\"\n     );\n   }\n   ```\n\n3. Add a single test that verifies the throw behavior.\n\n## Files to Create/Modify\n\n- `libs/b3nd-listener/mod.ts` -- Add types and stub function.\n- `libs/b3nd-listener/listener.test.ts` -- Add one test for the stub throw.\n\n## Testing\n\n```bash\ndeno test libs/b3nd-listener/listener.test.ts\n```\n\n## Dependencies\n\nDepends on G2-A1-03 (module cleanup). Blocks nothing -- this is a forward-looking interface reservation.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `respondTo(handler, opts)` — wrap a handler as a compose `Processor` (decrypt → call → encrypt → route)\n- [ ] Implement `connect(remote, opts)` — bridge a handler to a remote node (polling transport, cursor tracking, dedup)\n- [ ] Rebuild `b3nd-listener` on top of `respondTo()` + `connect()` instead of parallel custom system\n- [ ] Define `subscribe(remote, opts)` interface for future WebSocket transport (deferred, but interface should be reserved)"
+}

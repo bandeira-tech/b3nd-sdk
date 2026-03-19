@@ -1,0 +1,31 @@
+{
+  "id": "G2-A3-02",
+  "title": "Design node identity, registration resources, and shift ID mechanism",
+  "group": "nodes-talk",
+  "category": "temporal-consensus",
+  "section": "A3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/README.md",
+    "libs/firecat-protocol/CONFIRMATION.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A3-02",
+  "markdown": "\n## Goal\n\nDesign the node identity and registration system that determines who can act as a validator, confirmer, or producer in the temporal consensus layer. Resolve the open design questions around shift IDs from the consensus book outline.\n\n## Background\n\nCurrently, any public key can act as any role in the consensus system. The consensus book outline (`docs/book/consensus/README.md`) identifies this as Open Question 1 (Shift ID Mechanism):\n\n- How do nodes prove they are authorized for a role?\n- How do shift IDs prove a node saw recent state?\n- What prevents a node from claiming to be a validator without authorization?\n\nThe four roles defined in the book:\n1. **Gateway** -- Frontends bringing users in (receives submissions)\n2. **Validator** -- Light nodes attesting to validity\n3. **Confirmer** -- Bandwidth nodes bundling attestations\n4. **Producer** -- Heavy nodes creating blocks\n\nThe design needs to cover:\n- **Registration URI patterns**: Where does a node register its role?\n- **Shift ID format**: How is it constructed, what does it prove?\n- **Shift ID validation**: How does `consensusSlotValidator` verify it?\n- **Role authorization**: How is a node authorized for a specific role?\n- **Roster mechanism**: How do nodes discover each other?\n\n## Acceptance Criteria\n\n- [ ] Design document added to `docs/book/consensus/` covering all items below\n- [ ] URI patterns defined for node registration (e.g., `mutable://accounts/{nodeKey}/roles/{role}`)\n- [ ] Shift ID format specified with construction and verification steps\n- [ ] Shift ID staleness validation logic specified\n- [ ] Role authorization mechanism specified (who grants roles)\n- [ ] Roster discovery pattern specified (how nodes find each other)\n- [ ] Interaction with existing managed-node types documented (`libs/b3nd-managed-node/types.ts` already has `NetworkNodeEntry` with `role` field)\n- [ ] Trade-offs documented for each design choice\n- [ ] No code changes -- design only\n\n## Implementation Guide\n\n1. Read `docs/book/consensus/README.md` open questions 1 and 4 for the existing thinking on shift IDs and network accommodation.\n\n2. Read `libs/b3nd-managed-node/types.ts` for the existing `NetworkNodeEntry` and `NetworkManifest` types that already model node roles and networks.\n\n3. Write a design document that resolves the shift ID mechanism:\n\n   **Option E (recommended based on existing codebase patterns)**:\n   - Registration: Operators register nodes via existing managed-node config\n   - Shift ID: `sign(nodeKey, blockHash + timestamp)` -- proves the node saw a recent block\n   - Staleness: `consensusSlotValidator` checks that the referenced block is within `SHIFT_TTL_BLOCKS` of the target block\n   - Role: Encoded in the registration, not the shift ID\n   - Roster: `list(\"mutable://accounts/{operatorKey}/validators/\")` returns all registered validators\n\n4. Address each open question from the consensus README:\n   - How much work for the nonce?\n   - How many blocks back is \"recent enough\"?\n   - Should shift ID encode role?\n   - How to extract/verify these components in validators?\n\n## Files to Create/Modify\n\n- `docs/book/consensus/NODE_IDENTITY.md` -- New design document.\n- `docs/book/consensus/README.md` -- Update open questions to reference the new design doc.\n\n## Testing\n\nNo code changes. Design review only.\n\n## Dependencies\n\nDepends on G2-A3-01 (slot validator must exist to understand what needs validating). Blocks G2-A3-03 (timing rules depend on identity design).\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `consensusSlotValidator` — era/block/slot timing validation (currently `// TODO`)\n- [ ] Design node identity and registration resources (currently any pubkey can be validator/confirmer/producer)\n- [ ] Design timing and liveness rules (era/block/slot enforcement, offline handling, attestation timeouts)\n- [ ] Design reward distribution mechanism (how validators/confirmers/producers claim rewards via UTXOs)\n- [ ] Design reorg and finality rules (can blocks be reorganized? when is a "
+}

@@ -1,0 +1,31 @@
+{
+  "id": "G1-D1-01",
+  "title": "Create developer quickstart for building a Firecat app",
+  "group": "apps-possible",
+  "category": "documentation",
+  "section": "D1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "skills/b3nd/APP_COOKBOOK.md",
+    "skills/b3nd/FIRECAT.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-D1-01",
+  "markdown": "\n## Goal\n\nWrite a comprehensive developer quickstart guide that walks through building a Firecat app end-to-end: from generating keys to deploying a working application. This is the \"zero to deployed\" path for new developers.\n\n## Background\n\nThe existing documentation explains individual concepts (compose system, validators, encryption) but there is no single guide that shows the full journey. A new developer needs to:\n\n1. Generate an identity (KeyPair / KeyBundle)\n2. Set up a B3nd node (or connect to one)\n3. Define a schema\n4. Write data (plain and encrypted)\n5. Read data back\n6. Build a UI (React hooks)\n7. Deploy\n\nCurrently this requires reading multiple files and piecing together the workflow.\n\n## Acceptance Criteria\n\n- [ ] `skills/b3nd/APP_COOKBOOK.md` has a new \"Quickstart: Build Your First Firecat App\" section at the top\n- [ ] The quickstart covers these steps with working code examples:\n  1. **Install**: `deno add @bandeira-tech/b3nd-sdk` or npm equivalent\n  2. **Generate Identity**: Using `IdentityKey.generate()` or `KeyBundle.generate()`\n  3. **Connect to a Node**: Using `HttpClient` to connect to a running B3nd node\n  4. **Define a Schema**: Example schema with 2-3 program validators\n  5. **Write Data**: Using `client.receive()` for a simple record\n  6. **Read Data**: Using `client.read()` and `client.list()`\n  7. **Send a Message**: Using `send()` with a message envelope\n  8. **Encrypt Data**: Using the encryption helpers (if G1-A7-04 is done) or manual encrypt+sign\n  9. **Run Locally**: Using `MemoryClient` for development\n  10. **Deploy**: Using `httpServer()` + `createValidatedClient()` to serve the node\n- [ ] Each step has:\n  - A brief explanation of WHY (not just HOW)\n  - Working TypeScript code\n  - Expected output or behavior\n- [ ] Common pitfalls section: \"things that trip up new developers\"\n- [ ] Links to deeper documentation for each topic\n\n## Implementation Guide\n\n1. Read `skills/b3nd/APP_COOKBOOK.md` for existing content and style\n2. Read `skills/b3nd/FRAMEWORK.md` for API patterns to reference\n3. Read `libs/b3nd-compose/validated-client.ts` for `createValidatedClient` usage\n4. Read `libs/b3nd-servers/http.ts` for `httpServer` usage\n5. Read `libs/b3nd-encrypt/mod.ts` for key generation and encryption\n6. Write the quickstart guide with tested code examples\n7. Each code example should be self-contained and copy-pasteable\n\n## Files to Create/Modify\n\n- `skills/b3nd/APP_COOKBOOK.md` -- add quickstart guide section\n\n## Testing\n\nManually verify each code example compiles and runs:\n```bash\ndeno eval '...'  # for each code snippet\n```\n\n## Dependencies\n\n- **Depends on**: G1-A7-01 (privacy model documented), G1-A8-01 (SDK gaps filled)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+}

@@ -32,5 +32,22 @@ export type {
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,
   RigConfig,
-  ServeOptions,
 } from "./types.ts";
+
+// URI utilities
+export { uri } from "./uri.ts";
+export type { ParsedUri, UriProtocol } from "./uri.ts";
+
+// Environment config loader
+export { loadConfigFromEnv } from "./env.ts";
+export type { LoadConfigOptions } from "./env.ts";
+
+// Error classification helpers
+export {
+  classifyError,
+  isAuthError,
+  isConflictError,
+  isNotFoundError,
+  isTransientError,
+  isValidationError,
+} from "./errors.ts";
