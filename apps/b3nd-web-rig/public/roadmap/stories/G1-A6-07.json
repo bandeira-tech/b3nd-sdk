@@ -1,0 +1,31 @@
+{
+  "id": "G1-A6-07",
+  "title": "Implement AggregationStage pipeline",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/backends/postgres.ts",
+    "libs/b3nd-indexer/aggregation_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-07",
+  "markdown": "\n## Goal\n\nImplement the MongoDB-style aggregation pipeline in the Postgres backend. This enables analytics queries like \"count recipes by cuisine\" or \"average rating by author\" without requiring raw SQL.\n\n## Background\n\nThe `AggregationStage` type from G1-A6-01 defines a pipeline of stages: `$match` (filter), `$group` (aggregate), `$sort` (order), `$limit` (cap), `$project` (reshape). Each stage transforms the result of the previous stage.\n\nFor Postgres, this translates to a single SQL query with WHERE, GROUP BY, aggregate functions, ORDER BY, LIMIT, and SELECT list.\n\n## Acceptance Criteria\n\n- [ ] `$match` stage translates to WHERE clause (uses same filter operators as IndexQuery)\n- [ ] `$group` stage:\n  - `_id` field specifies grouping key(s) -- string field name or array of field names\n  - Supports accumulator operators: `$sum`, `$avg`, `$min`, `$max`, `$count`\n  - Each accumulator specifies a field to aggregate: `{ totalPrice: { $sum: \"price\" } }`\n  - `$count` requires no field: `{ recordCount: { $count: true } }`\n- [ ] `$sort` stage translates to ORDER BY (on aggregated or grouped columns)\n- [ ] `$limit` stage translates to LIMIT\n- [ ] `$project` stage selects/renames output fields\n- [ ] Pipeline stages execute in order (each stage's output feeds the next)\n- [ ] `aggregate()` returns `{ rows: Record<string, unknown>[]; total: number }`\n- [ ] Tests: group by single field, group by multiple fields, each accumulator, match + group + sort + limit pipeline, empty results\n\n## Implementation Guide\n\n1. Read the `AggregationStage` types in `libs/b3nd-indexer/types.ts`\n2. In `libs/b3nd-indexer/backends/postgres.ts`, implement `aggregate()`:\n   - Parse the pipeline into SQL components:\n     - `$match` -> WHERE\n     - `$group._id` -> GROUP BY, `$group.accumulators` -> SELECT with SUM/AVG/MIN/MAX/COUNT\n     - `$sort` -> ORDER BY\n     - `$limit` -> LIMIT\n     - `$project` -> outer SELECT list\n   - Build a single SQL query from these components\n   - Execute and map rows to `AggregationResult`\n3. Create `libs/b3nd-indexer/aggregation_test.ts`:\n   - Seed test data (e.g., recipes with cuisine, rating, prepTime)\n   - Test: count by cuisine\n   - Test: average rating by cuisine\n   - Test: max prepTime by cuisine, sorted by avg rating\n   - Test: $match filtering before grouping\n   - Test: $project limiting output fields\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/backends/postgres.ts` -- implement aggregate() SQL translation\n- `libs/b3nd-indexer/aggregation_test.ts` -- new: aggregation tests\n\n## Testing\n\n```bash\n# Requires running PostgreSQL\ndeno test --allow-all libs/b3nd-indexer/aggregation_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-01 (types), G1-A6-02 (Postgres backend)\n- **Blocks**: G1-A6-09 (HTTP endpoints)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

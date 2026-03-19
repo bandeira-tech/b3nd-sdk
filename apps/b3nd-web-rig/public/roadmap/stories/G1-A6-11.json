@@ -1,0 +1,32 @@
+{
+  "id": "G1-A6-11",
+  "title": "Implement schema evolution and smart routing",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/evolution.ts",
+    "libs/b3nd-indexer/routing.ts",
+    "libs/b3nd-indexer/evolution_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-11",
+  "markdown": "\n## Goal\n\nImplement schema evolution handling (detect version mismatches, teardown, setup, and backfill) and smart routing via `inferViewFromUri()` that routes read queries to the appropriate indexer view.\n\n## Background\n\nIndexer definitions have a `version` field. When the version changes (new fields, changed types, removed fields), the existing index is stale. The evolution system must detect this mismatch and orchestrate a clean rebuild: teardown the old index, create the new one, and backfill from source data.\n\nSmart routing allows a `FunctionalClient` decorator to intercept `read()` and `list()` calls and route them to an indexer when the URI matches an indexed pattern, falling back to the source node for non-indexed data.\n\n## Acceptance Criteria\n\n- [ ] `initializeIndexer(options)` function:\n  - `definition: IndexerDefinition`\n  - `backend: IndexerBackend`\n  - `source: NodeProtocolInterface`\n  - `cursorStore: CursorStore`\n  - Checks stored version against `definition.version`\n  - If mismatch: `backend.teardown()` -> `backend.initialize(definition)` -> `backfillIndexer()` -> update stored version\n  - If match: no-op (indexer is up to date)\n  - Returns `{ action: \"initialized\" | \"rebuilt\" | \"unchanged\"; version: number }`\n- [ ] Version stored at `mutable://indexer/{name}/version` via the cursor store or a dedicated metadata store\n- [ ] `inferViewFromUri(uri: string, indexers: IndexerDefinition[])`:\n  - Returns the indexer definition whose URI patterns match the given URI\n  - Returns `null` if no indexer matches\n- [ ] `createIndexerAwareClient(source: NodeProtocolInterface, indexerClient: HttpIndexerClient, indexers: IndexerDefinition[]): NodeProtocolInterface`\n  - Wraps a source client\n  - `read()` and `list()` check `inferViewFromUri()` and route to indexer when possible\n  - `receive()` and `delete()` pass through to source\n- [ ] Tests: version mismatch triggers rebuild, version match skips rebuild, inferViewFromUri matching, indexer-aware client routing\n\n## Implementation Guide\n\n1. Create `libs/b3nd-indexer/evolution.ts`:\n   - `initializeIndexer()`: read version from metadata store, compare with definition.version, orchestrate rebuild if needed\n   - Use `backfillIndexer()` from G1-A6-05 for rebuild\n2. Create `libs/b3nd-indexer/routing.ts`:\n   - `inferViewFromUri()`: iterate indexers, check `uriPatterns.some(p => uri.startsWith(p))`\n   - `createIndexerAwareClient()`: use `FunctionalClient` pattern from `libs/b3nd-core/functional-client.ts`\n3. Create `libs/b3nd-indexer/evolution_test.ts`\n4. Export from `libs/b3nd-indexer/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/evolution.ts` -- new: schema evolution logic\n- `libs/b3nd-indexer/routing.ts` -- new: inferViewFromUri and indexer-aware client\n- `libs/b3nd-indexer/evolution_test.ts` -- new: tests\n- `libs/b3nd-indexer/mod.ts` -- add exports\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-indexer/evolution_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-05 (backfill mechanism)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

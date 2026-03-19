@@ -1,0 +1,30 @@
+{
+  "id": "G3-B5-01",
+  "title": "Design ad campaign matching algorithm and settlement epoch mechanism",
+  "group": "make-it-pay",
+  "category": "ad-revenue",
+  "section": "B5",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/ad-campaign-matching.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B5-01",
+  "markdown": "\n## Goal\n\nDesign the ad campaign matching algorithm (how listener nodes match advertising campaigns to user sessions) and the settlement epoch mechanism (how epochs trigger, how ad revenue distribution is calculated, and how it's verified on-chain). These two designs are tightly coupled: matching determines who earns, and settlement determines when and how they get paid.\n\n## Background\n\nThe B3nd economic model includes ad revenue as a primary funding source. The flow:\n\n1. **Advertisers** create campaigns with targeting criteria and CPM (cost per mille) budgets\n2. **Listener nodes** observe user sessions (with user consent and attestation) and match campaigns to sessions\n3. **At epoch boundaries**, listener nodes report matched impressions\n4. **Settlement** calculates: for each participant (user, operator, app developer), how much ad revenue they earned\n5. **Distribution** mints or transfers tokens based on settlement calculations\n\nKey design questions:\n- How are campaigns stored? (`ad://campaigns/{campaignId}` on-chain vs off-chain)\n- How do listener nodes match campaigns? (targeting: demographics, interests, geography -- all privacy-preserving)\n- What's an epoch? (time-based: every 24h? message-count-based? checkpoint-based?)\n- How is settlement verified? (listener reports vs cross-validator verification)\n- How are disputes handled? (listener claims 1000 impressions, advertiser disputes)\n\n## Acceptance Criteria\n\n- [ ] Design document covers campaign matching algorithm\n- [ ] Campaign data model defined: targeting criteria, budget, CPM, duration, status\n- [ ] Matching algorithm specified: inputs (user attestation, campaign criteria), outputs (matched campaign list), privacy properties\n- [ ] Settlement epoch mechanism defined: trigger conditions, calculation formula, verification process\n- [ ] Distribution formula: percentage splits between user, operator, app developer, protocol fund\n- [ ] Dispute resolution mechanism outlined\n- [ ] URI schema for on-chain ad data: `ad://campaigns/{id}`, `ad://impressions/{epoch}/{listenerId}`, `ad://settlements/{epoch}`\n- [ ] Attack analysis: fake impressions, colluding listeners, advertiser non-payment\n- [ ] Integration points with gas system documented (settlements mint/transfer gas UTXOs)\n\n## Implementation Guide\n\n1. Read existing economic model documents for context on CPM assumptions and revenue projections\n2. Read `libs/firecat-protocol/gas-constants.ts` and `libs/firecat-protocol/mod.ts` for schema patterns\n3. Create `docs/book/consensus/ad-campaign-matching.md`:\n   - Section 1: Campaign Data Model\n     - On-chain: `ad://campaigns/{id}` storing targeting criteria, budget, CPM, advertiser pubkey\n     - Campaign lifecycle: draft -> active -> paused -> completed -> settled\n   - Section 2: Matching Algorithm\n     - Input: user attestation (privacy-preserving: age range, interest categories, not PII)\n     - Input: campaign targeting criteria\n     - Output: ranked list of matching campaigns\n     - Privacy: matching happens on listener node, not on-chain. Only impression counts are reported.\n     - Algorithm: simple filter-and-rank (match targeting criteria, rank by CPM)\n   - Section 3: Settlement Epoch\n     - Trigger: time-based (every 24 hours) aligned to UTC midnight\n     - Listener reports: `ad://impressions/{epoch}/{listenerId}` with per-campaign impression counts\n     - Calculation: `revenue = impressions * CPM / 1000` per campaign\n     - Distribution: user 40%, operator 30%, app developer 20%, protocol fund 10% (or whatever split)\n     - Verification: cross-reference multiple listener reports, flag statistical outliers\n   - Section 4: Dispute Resolution\n     - Automated: statistical outlier detection (listener reporting 10x average)\n     - Manual: advertiser can flag campaigns, triggers review\n   - Section 5: Attack Analysis\n     - Fake impressions: mitigated by attestation requirements and statistical outlier detection\n     - Colluding listeners: mitigated by cross-validation and reputation scoring\n\n## Files to Create/Modify\n\n- `docs/book/consensus/ad-campaign-matching.md` -- new design document\n\n## Testing\n\nNo code tests. Design document review for completeness and consistency.\n\n## Dependencies\n\n- **Depends on**: Nothing -- this is a design exercise\n- **Blocks**: G3-B5-02 (reputation system needs matching design to define what's measured)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design ad campaign matching algorithm (how listener nodes match campaigns to user sessions)\n- [ ] Design settlement epoch mechanism (how epochs trigger, how distribution is calculated and verified)\n- [ ] Design reputation system formula (score calculation, decay, flagging)\n- [ ] Design attestation ecosystem (who runs verification services, how users collect attestations, cost structure)\n- [ ] Define token withdrawal mechanics parameters (cliff, minimum threshold, gradual disbursement — cur"
+}

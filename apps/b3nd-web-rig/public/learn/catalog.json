@@ -2395,6 +2395,478 @@
       "updatedAt": 1771886863675
     },
     {
+      "key": "consensus",
+      "title": "Consensus in B3nd: Work, Lifecycle, and Blocks",
+      "label": "Consensus in B3nd",
+      "description": "Work lifecycle, staged validation, and block-based timing",
+      "tier": "design",
+      "chapters": [
+        {
+          "key": "critique",
+          "number": 0,
+          "title": "Consensus Design: Remaining Open Work",
+          "part": "",
+          "sections": [
+            {
+              "id": "1-shift-id-mechanism",
+              "title": "1. Shift ID Mechanism",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "2-block-progression-constraints",
+              "title": "2. Block Progression Constraints",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "3-reward-distribution",
+              "title": "3. Reward Distribution",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "4-stake-and-authorization",
+              "title": "4. Stake and Authorization",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "5-fault-tolerance-statement",
+              "title": "5. Fault Tolerance Statement",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "6-validation-replay-non-determinism",
+              "title": "6. Validation Replay Non-Determinism",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "7-dead-entry-accumulation",
+              "title": "7. Dead Entry Accumulation",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "8-list-not-available-in-validators",
+              "title": "8. `list()` Not Available in Validators",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "9-uri-design-inconsistency-across-documents",
+              "title": "9. URI Design Inconsistency Across Documents",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "10-genesis-bootstrapping",
+              "title": "10. Genesis Bootstrapping",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "11-confirmer-selection-strategy",
+              "title": "11. Confirmer Selection Strategy",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "resolution-order",
+              "title": "Resolution order",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/consensus/critique"
+        },
+        {
+          "key": "option_e_walkthrough",
+          "number": 0,
+          "title": "Option E Walkthrough: Roster Discovery + Inputs as Consumption",
+          "part": "",
+          "sections": [
+            {
+              "id": "core-rules",
+              "title": "Core Rules",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-roster",
+              "title": "The Roster",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "full-message-flow",
+              "title": "Full Message Flow",
+              "level": 2,
+              "children": [
+                {
+                  "id": "stage-0-user-submits-content",
+                  "title": "Stage 0: User Submits Content",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "stage-1-gateway-creates-pending",
+                  "title": "Stage 1: Gateway Creates Pending",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "stage-2-validators-attest",
+                  "title": "Stage 2: Validators Attest",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "stage-3-confirmer-bundles",
+                  "title": "Stage 3: Confirmer Bundles",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "stage-4-producer-creates-consensus-slot",
+                  "title": "Stage 4: Producer Creates Consensus Slot",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "discovery-pattern",
+              "title": "Discovery Pattern",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "validators",
+              "title": "Validators",
+              "level": 2,
+              "children": [
+                {
+                  "id": "roster-check-shared-pattern",
+                  "title": "Roster Check (shared pattern)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "pending-under-immutable-accounts",
+                  "title": "Pending (under `immutable://accounts`)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "attestation-under-immutable-accounts",
+                  "title": "Attestation (under `immutable://accounts`)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "confirmation-under-immutable-accounts",
+                  "title": "Confirmation (under `immutable://accounts`)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "consensus-slot",
+                  "title": "Consensus Slot",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "what-the-roster-replaces",
+              "title": "What the Roster Replaces",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "consumption-chain",
+              "title": "Consumption Chain",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "what-s-not-here",
+              "title": "What's NOT Here",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "open-after-this",
+              "title": "Open After This",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/consensus/option_e_walkthrough"
+        },
+        {
+          "key": "readme",
+          "number": 0,
+          "title": "Consensus in B3nd: Work, Lifecycle, and Blocks",
+          "part": "",
+          "sections": [
+            {
+              "id": "what-this-book-covers",
+              "title": "What This Book Covers",
+              "level": 2,
+              "children": [
+                {
+                  "id": "protocol-vs-client-concerns",
+                  "title": "Protocol vs. client concerns",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "safety-property",
+                  "title": "Safety property",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "what-this-proposes",
+                  "title": "What this proposes",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "chapter-outline",
+              "title": "Chapter Outline",
+              "level": 2,
+              "children": [
+                {
+                  "id": "part-1-foundations",
+                  "title": "Part 1: Foundations",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "part-2-roles-markets",
+                  "title": "Part 2: Roles & Markets",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "part-3-work-lifecycle",
+                  "title": "Part 3: Work Lifecycle",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "part-4-block-structure-timing",
+                  "title": "Part 4: Block Structure & Timing",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "part-5-economics-incentives",
+                  "title": "Part 5: Economics & Incentives",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "part-6-implementation",
+                  "title": "Part 6: Implementation",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "appendices",
+                  "title": "Appendices",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "open-design-questions",
+              "title": "Open Design Questions",
+              "level": 2,
+              "children": [
+                {
+                  "id": "1-shift-id-mechanism",
+                  "title": "1. Shift ID Mechanism",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "2-block-timing",
+                  "title": "2. Block Timing",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "3-block-number-from-uri-resolved",
+                  "title": "3. Block Number from URI (Resolved)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "4-network-reality-accommodation",
+                  "title": "4. Network Reality Accommodation",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "style-format",
+              "title": "Style & Format",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "what-this-book-does-and-doesn-t-cover",
+              "title": "What This Book Does and Doesn't Cover",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "faq-reviewed-questions",
+              "title": "FAQ: Reviewed Questions",
+              "level": 2,
+              "children": [
+                {
+                  "id": "isn-t-this-just-bft-with-extra-steps",
+                  "title": "Isn't this just BFT with extra steps?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "what-about-equivocation-across-distributed-nodes",
+                  "title": "What about equivocation across distributed nodes?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "where-are-the-liveness-guarantees",
+                  "title": "Where are the liveness guarantees?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "why-doesn-t-the-protocol-specify-confirmer-selection-strategy",
+                  "title": "Why doesn't the protocol specify confirmer selection strategy?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-does-block-timing-work-without-clock-synchronization",
+                  "title": "How does block timing work without clock synchronization?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-do-validators-access-current-block-without-global-state",
+                  "title": "How do validators access \"current block\" without global state?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-does-this-relate-to-confirmation-md",
+                  "title": "How does this relate to CONFIRMATION.md?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "what-does-the-protocol-actually-guarantee",
+                  "title": "What does the protocol actually guarantee?",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "related-documentation",
+              "title": "Related Documentation",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "status",
+              "title": "Status",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "contributing",
+              "title": "Contributing",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/consensus/readme"
+        },
+        {
+          "key": "shift_id_options",
+          "number": 0,
+          "title": "Shift ID: Design Options",
+          "part": "",
+          "sections": [
+            {
+              "id": "requirements",
+              "title": "Requirements",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "option-a-signed-block-reference",
+              "title": "Option A: Signed Block Reference",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "option-b-signed-block-nonce-proof-of-work-lite",
+              "title": "Option B: Signed Block + Nonce (Proof-of-Work Lite)",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "option-c-signed-block-counter",
+              "title": "Option C: Signed Block + Counter",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "option-d-hash-of-signed-block-short-id",
+              "title": "Option D: Hash of Signed Block (Short ID)",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "option-e-no-shift-id-use-message-auth-directly",
+              "title": "Option E: No Shift ID — Use Message Auth Directly",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "comparison",
+              "title": "Comparison",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "recommendation",
+              "title": "Recommendation",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/consensus/shift_id_options"
+        }
+      ],
+      "updatedAt": 1773327008256
+    },
+    {
       "key": "design-exchange",
       "title": "Exchange Patterns & Trust Models",
       "label": "Exchange Patterns",
@@ -3830,5 +4302,5 @@
       "updatedAt": 1771940510371
     }
   ],
-  "generatedAt": 1772456952231
+  "generatedAt": 1773332440982
 }

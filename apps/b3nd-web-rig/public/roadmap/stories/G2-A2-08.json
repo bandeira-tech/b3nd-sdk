@@ -1,0 +1,32 @@
+{
+  "id": "G2-A2-08",
+  "title": "Implement waitForConfirmation() client helper",
+  "group": "nodes-talk",
+  "category": "confirmation-protocol",
+  "section": "A2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/helpers.ts",
+    "libs/firecat-protocol/helpers_test.ts",
+    "libs/firecat-protocol/mod.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A2-08",
+  "markdown": "\n## Goal\n\nImplement the `waitForConfirmation()` helper function that clients use to poll for the confirmation of a consensus record. This bridges the gap between the new async confirmation flow (where `receive()` returns after writing the pending marker) and the client's need to know when the record is finalized.\n\n## Background\n\nPer CONFIRMATION.md section 8 (Client-Facing API), the flow changes for multi-node mode:\n\n```typescript\nconst result = await client.receive(envelope);\n// accepted = true means \"pending, awaiting confirmation\"\n\n// Poll for confirmation:\nconst confirmed = await waitForConfirmation(client, contentHash, envelopeHash, 30_000);\nif (confirmed) {\n  // Record is finalized across the network\n}\n```\n\nThe helper should:\n1. Repeatedly read `immutable://confirmation/{contentHash}/{envelopeHash}`\n2. Return `true` when it exists (confirmation achieved)\n3. Return `false` after timeout (confirmation did not happen in time)\n4. Use configurable poll interval (default 2 seconds)\n5. Support an `AbortSignal` for cancellation\n\n## Acceptance Criteria\n\n- [ ] `waitForConfirmation()` exported from `libs/firecat-protocol/helpers.ts`\n- [ ] Polls confirmation URI at configurable interval (default 2s)\n- [ ] Returns `true` when confirmation exists\n- [ ] Returns `false` when timeout exceeded\n- [ ] Supports `AbortSignal` for cancellation\n- [ ] Does not throw on timeout (returns false)\n- [ ] Does not leak timers after resolution\n- [ ] Tests verify successful confirmation detection\n- [ ] Tests verify timeout behavior\n- [ ] Tests verify abort signal cancellation\n- [ ] Also export `getConfirmationStatus()` for one-shot check\n\n## Implementation Guide\n\n1. Implement in `libs/firecat-protocol/helpers.ts`:\n   ```typescript\n   import type { NodeProtocolInterface } from \"@bandeira-tech/b3nd-sdk/types\";\n\n   export async function waitForConfirmation(\n     client: NodeProtocolInterface,\n     contentHash: string,\n     envelopeHash: string,\n     opts?: {\n       timeoutMs?: number;\n       pollIntervalMs?: number;\n       signal?: AbortSignal;\n     },\n   ): Promise<boolean> {\n     const timeoutMs = opts?.timeoutMs ?? 30_000;\n     const pollIntervalMs = opts?.pollIntervalMs ?? 2_000;\n     const deadline = Date.now() + timeoutMs;\n     const uri = `immutable://confirmation/${contentHash}/${envelopeHash}`;\n\n     while (Date.now() < deadline) {\n       if (opts?.signal?.aborted) return false;\n\n       const result = await client.read(uri);\n       if (result.success) return true;\n\n       await new Promise((resolve, reject) => {\n         const timer = setTimeout(resolve, pollIntervalMs);\n         opts?.signal?.addEventListener(\"abort\", () => {\n           clearTimeout(timer);\n           resolve(undefined);\n         }, { once: true });\n       });\n     }\n\n     return false;\n   }\n\n   /** One-shot check: is this content confirmed? */\n   export async function getConfirmationStatus(\n     client: NodeProtocolInterface,\n     contentHash: string,\n     envelopeHash: string,\n   ): Promise<{ confirmed: boolean; uri: string }> {\n     const uri = `immutable://confirmation/${contentHash}/${envelopeHash}`;\n     const result = await client.read(uri);\n     return { confirmed: result.success, uri };\n   }\n   ```\n\n2. Write tests using `MemoryClient`:\n   - Test where confirmation is pre-seeded: should return true immediately\n   - Test where confirmation appears after 2 polls: should return true\n   - Test where confirmation never appears: should return false after timeout\n   - Test abort signal: should return false immediately\n\n3. Export from `libs/firecat-protocol/mod.ts`.\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/helpers.ts` -- Add `waitForConfirmation()` and `getConfirmationStatus()`.\n- `libs/firecat-protocol/helpers_test.ts` -- New file: tests for confirmation helpers.\n- `libs/firecat-protocol/mod.ts` -- Re-export the new helpers.\n\n## Testing\n\n```bash\ndeno test libs/firecat-protocol/helpers_test.ts\n```\n\n## Dependencies\n\nDepends on G2-A2-07 (finalization must work for confirmations to appear). Blocks G2-E1-02 (multi-node testing needs this helper for integration tests).\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+}

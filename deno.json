@@ -18,9 +18,11 @@
   },
   "tasks": {
     "check": "deno check src/mod.ts",
-    "test": "deno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo libs/b3nd-*/",
+    "test": "deno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo,libs/b3nd-client-sqlite,libs/b3nd-client-redis libs/b3nd-*/",
+    "test:integration:sqlite": "deno test --allow-all libs/b3nd-client-sqlite/",
     "test:integration:postgres": "deno test --allow-all libs/b3nd-client-postgres/",
     "test:integration:mongo": "deno test --allow-all libs/b3nd-client-mongo/",
+    "test:integration:redis": "deno test --allow-all libs/b3nd-client-redis/",
     "publish:jsr": "bash scripts/prepublish.sh && deno publish --allow-dirty; bash scripts/postpublish.sh"
   },
   "compilerOptions": {
@@ -69,8 +71,10 @@
     "libs/b3nd-client-ws",
     "libs/b3nd-client-postgres",
     "libs/b3nd-client-mongo",
+    "libs/b3nd-client-sqlite",
     "libs/b3nd-client-indexeddb",
     "libs/b3nd-client-localstorage",
+    "libs/b3nd-client-redis",
     "libs/b3nd-combinators",
     "libs/b3nd-testing",
     "libs/b3nd-auth",

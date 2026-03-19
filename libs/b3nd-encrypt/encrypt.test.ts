@@ -168,8 +168,6 @@ Deno.test("decryptSymmetric — wrong key fails", async () => {
   const encrypted = await encryptSymmetric(plaintext, key1);
   await assertRejects(
     () => decryptSymmetric(encrypted, key2),
-    undefined,
-    undefined,
   );
 });
 

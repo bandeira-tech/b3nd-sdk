@@ -1,0 +1,32 @@
+{
+  "id": "G1-A7-05",
+  "title": "Design key rotation mechanism",
+  "group": "apps-possible",
+  "category": "encryption",
+  "section": "A7",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "design+documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-encrypt/rotation.ts",
+    "skills/b3nd/FIRECAT.md",
+    "skills/b3nd/APP_COOKBOOK.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A7-05",
+  "markdown": "\n## Goal\n\nDesign and document the key rotation mechanism for B3nd identities. Since keypairs ARE identity in B3nd (changing keys = new identity), key rotation requires migrating data from one identity to another while maintaining application continuity.\n\n## Background\n\nIn B3nd, the Ed25519 public key IS the user's identity. All owned URIs are namespaced under that key (e.g., `mutable://data/{pubkey}/...`). Rotating keys means:\n\n1. Generate a new KeyBundle (new pubkey)\n2. Re-encrypt all data for the new encryption key\n3. Copy data from old URI namespace to new namespace\n4. Publish a \"key rotation\" announcement so other parties know the new key\n5. Old data remains readable with old key (no deletion required)\n\nThis is an inherently complex operation. This story designs the approach and provides tooling for the common steps.\n\n## Acceptance Criteria\n\n- [ ] `KeyRotationPlan` type documenting the rotation process:\n  - `oldBundle: KeyBundle`\n  - `newBundle: KeyBundle`\n  - `uriPatterns: string[]` -- which URI patterns to migrate\n  - `announceUri?: string` -- where to publish the rotation announcement\n- [ ] `planKeyRotation(params): KeyRotationPlan` -- creates a plan from old/new bundles\n- [ ] `executeKeyRotation(plan, client, options?)` -- executes the rotation:\n  - Lists all URIs under old namespace\n  - For each: reads, decrypts with old key, re-encrypts with new key, writes to new namespace\n  - Publishes rotation announcement at `announceUri`\n  - Returns `{ migrated: number; errors: number; announcementUri: string }`\n- [ ] Rotation announcement format: `{ type: \"key-rotation\", oldKey: string, newKey: string, timestamp: number, signature: string }`\n  - Signed by BOTH old and new keys (proves ownership of both)\n- [ ] `skills/b3nd/FIRECAT.md` documents key rotation semantics\n- [ ] `skills/b3nd/APP_COOKBOOK.md` has \"Key Rotation\" section with step-by-step guide\n- [ ] Tests: plan creation, migration of encrypted records, announcement format/verification\n\n## Implementation Guide\n\n1. Create `libs/b3nd-encrypt/rotation.ts`:\n   - `planKeyRotation()`: validate old/new bundles, derive URI patterns from old pubkey\n   - `executeKeyRotation()`:\n     - List URIs matching patterns\n     - For each: read -> decrypt with old -> encrypt with new -> write to new namespace\n     - Create rotation announcement signed by both keys\n     - Write announcement\n2. Document in `skills/b3nd/FIRECAT.md` and `skills/b3nd/APP_COOKBOOK.md`\n3. Tests in `libs/b3nd-encrypt/rotation_test.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-encrypt/rotation.ts` -- new: rotation plan and execution\n- `libs/b3nd-encrypt/rotation_test.ts` -- new: tests\n- `skills/b3nd/FIRECAT.md` -- key rotation section\n- `skills/b3nd/APP_COOKBOOK.md` -- key rotation guide\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-encrypt/\n```\n\n## Dependencies\n\n- **Depends on**: G1-A7-02 (KeyBundle)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+}

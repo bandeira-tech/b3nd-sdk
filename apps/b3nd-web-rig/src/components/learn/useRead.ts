@@ -6,7 +6,7 @@ import { useAppStore } from "../../stores/appStore";
  * No caching — data lives in component state and is released on unmount.
  * Whether to cache is a client/transport concern, not an app concern.
  */
-export function useRead<T = unknown>(uri: string | null): {
+export function useRead<T = unknown>(uri: string | null, refreshKey?: number): {
   data: T | null;
   loading: boolean;
   error: string | null;
@@ -72,14 +72,17 @@ export function useRead<T = unknown>(uri: string | null): {
     })();
 
     return () => { cancelled = true; };
-  }, [uri, baseUrl]);
+  }, [uri, baseUrl, refreshKey]);
 
   return { data, loading, error };
 }
 
 function resolveStaticPath(uri: string): string | null {
   if (uri === "mutable://open/rig/learn/catalog") return "/learn/catalog.json";
-  const chapterMatch = uri.match(/\/chapters\/[^/]+\/(.+)$/);
-  if (chapterMatch) return `/learn/chapters/${chapterMatch[1]}.json`;
+  const chapterMatch = uri.match(/\/chapters\/([^/]+)\/(.+)$/);
+  if (chapterMatch) return `/learn/chapters/${chapterMatch[1]}/${chapterMatch[2]}.json`;
+  if (uri === "mutable://open/rig/roadmap/catalog") return "/roadmap/catalog.json";
+  const storyMatch = uri.match(/\/roadmap\/stories\/(.+)$/);
+  if (storyMatch) return `/roadmap/stories/${storyMatch[1]}.json`;
   return null;
 }

@@ -1,0 +1,33 @@
+{
+  "id": "G4-D1-02",
+  "title": "Write KeyBundle recipe and standard encrypted write pattern documentation",
+  "group": "tell-the-story",
+  "category": "dev-docs",
+  "section": "D1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "skills/b3nd/APP_COOKBOOK.md",
+    "skills/b3nd/FIRECAT.md",
+    "skills/b3nd/FRAMEWORK.md",
+    "libs/b3nd-auth/mod.ts",
+    "libs/b3nd-encrypt/mod.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G4-D1-02",
+  "markdown": "\n## Goal\n\nDocument two closely related patterns that developers need for any app handling sensitive data: (1) a \"KeyBundle\" recipe covering key backup, multi-device sync, and recovery, and (2) the standard encrypted write pattern showing how to correctly encrypt, sign, and store data on Firecat. These patterns are the bridge between \"I understand encryption exists\" and \"I can build a secure app.\"\n\n## Background\n\nThe SDK provides all the cryptographic primitives a developer needs: Ed25519 signing keys, X25519 encryption keys, AES-GCM encryption, PBKDF2 key derivation. But there is no documented \"recipe\" for how to combine these into a working key management strategy.\n\n**KeyBundle concept**: A developer needs to manage at least two keypairs -- an Ed25519 signing keypair (identity) and an X25519 encryption keypair (privacy). These are derived differently and serve different purposes. The \"KeyBundle\" recipe should show:\n- How to generate both keypairs\n- How to derive them from a password (for backup/recovery)\n- How to back up keys (encrypted export)\n- How to sync keys across devices (password-wrapped key, QR code, seed phrase concepts)\n- What happens when keys are lost (permanent data loss -- this must be stated clearly)\n\n**Standard encrypted write pattern**: Today, encrypted writes require multiple manual steps: generate/load keys, encrypt data, sign the encrypted data, construct the authenticated message, receive it at the correct URI. There should be a documented \"golden path\" showing the complete flow from plaintext to stored encrypted data.\n\nThe `APP_COOKBOOK.md` skill file contains some encryption patterns. The book cookbook (Ch 16) has a \"private journal\" recipe. But neither provides the complete key lifecycle or the full encrypted write pattern with all steps explicit.\n\n## Acceptance Criteria\n\n- [ ] A KeyBundle recipe exists in `skills/b3nd/APP_COOKBOOK.md` (or a new section in the appropriate doc) covering:\n  - [ ] Generating Ed25519 + X25519 keypairs\n  - [ ] Deriving keys from a password (PBKDF2)\n  - [ ] Exporting/importing keys (encrypted backup)\n  - [ ] Multi-device sync concept (password-based recovery)\n  - [ ] Key loss warning (\"key loss = permanent data loss for encrypted data\")\n  - [ ] Key rotation warning (\"changing keys = new identity; old data is not migrated automatically\")\n- [ ] A standard encrypted write pattern is documented showing the complete code flow:\n  - [ ] Load/generate keys\n  - [ ] Encrypt data with recipient's public key (or own key for self-encrypted data)\n  - [ ] Sign the encrypted payload\n  - [ ] Construct the authenticated message\n  - [ ] Write to the correct URI (authenticated namespace)\n  - [ ] Read and decrypt the data back\n- [ ] Both patterns use correct current SDK API (verified against source code)\n- [ ] Both patterns include error handling guidance (what if encryption fails? what if signing fails?)\n- [ ] The documentation is practical (copy-pasteable code) not theoretical\n\n## Implementation Guide\n\n1. Read `libs/b3nd-auth/mod.ts` to understand available auth primitives:\n   - Key generation functions\n   - Signing functions\n   - `createAuthenticatedMessageWithHex` signature and usage\n2. Read `libs/b3nd-encrypt/mod.ts` to understand available encryption primitives:\n   - `generateSigningKeyPair()`, `generateEncryptionKeyPair()`\n   - `encryptData()`, `decryptData()`\n   - `createSignedEncryptedMessage()`\n   - Key derivation from password (PBKDF2)\n   - Key serialization/deserialization\n3. Read `skills/b3nd/APP_COOKBOOK.md` for existing encryption patterns\n4. Read `docs/book/16-cookbook.md` recipe #2 (private journal) for the existing encrypted write example\n5. Write the KeyBundle recipe:\n   - Show complete code for generating a KeyBundle (signing + encryption keypairs)\n   - Show password-based derivation (PBKDF2 for both keypairs)\n   - Show export: encrypt the keypair data with a password-derived key, output as base64 or JSON\n   - Show import: decrypt the exported data with the password\n   - Show the multi-device sync flow conceptually: \"export on device A, import on device B using the same password\"\n   - Add prominent warnings about key loss and rotation\n6. Write the standard encrypted write pattern:\n   - Show the complete flow as a single code example\n   - Annotate each step\n   - Show the corresponding read-and-decrypt flow\n   - Show the self-encrypted variant (encrypting for yourself) vs shared-encrypted variant (encrypting for another pubkey)\n7. Add both patterns to `skills/b3nd/APP_COOKBOOK.md` as new sections\n\n## Files to Create/Modify\n\n- `skills/b3nd/APP_COOKBOOK.md` -- add KeyBundle recipe section and standard encrypted write pattern section\n\n## Dependencies\n\n- **Depends on**: Nothing -- these are documentation patterns based on existing SDK primitives\n- **Blocks**: Nothing directly, but G4-F2-02 (developer guides) will reference these patterns\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+}

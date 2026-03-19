@@ -1,0 +1,31 @@
+{
+  "id": "G3-B2-01",
+  "title": "Implement UTXO tracking with unspent set maintenance",
+  "group": "make-it-pay",
+  "category": "gas-runtime",
+  "section": "B2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-tracker.ts",
+    "libs/firecat-protocol/gas-tracker_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B2-01",
+  "markdown": "\n## Goal\n\nImplement a UTXO tracking layer that maintains an efficient unspent set for gas UTXOs. This is a runtime component (not just schema validation) that tracks which gas UTXOs exist and are unspent, enabling fast balance lookups and spent-detection without scanning the entire state. It works as a compose `Processor` that observes validated messages and updates the unspent set.\n\n## Background\n\nSchema validators (G3-B1-01) check write-once and conservation rules at validation time by reading state. This works but has limitations:\n\n1. **No efficient balance query**: To find a user's total gas balance, you'd need to scan all `gas://utxo/{pubkey}/*` URIs. With list() pagination this is expensive.\n2. **No consumption index**: Checking if a UTXO is consumed requires reading `gas://consumed/{owner}/{utxoId}`, which is O(1) but the unspent set as a whole is not materialized.\n\nThe tracker solves this by maintaining:\n- An in-memory unspent set (Set of gas UTXO URIs)\n- A per-owner balance summary (Map of pubkey -> total unspent gas)\n- A consumed set (Set of consumed gas UTXO URIs)\n\nIt exposes query methods: `getBalance(pubkey)`, `getUnspentUtxos(pubkey)`, `isSpent(utxoUri)`.\n\nThe tracker is implemented as a post-processor: after a message is validated and written, the tracker observes the outputs and updates its state. It can also be bootstrapped from existing state by scanning `gas://utxo/*` and `gas://consumed/*`.\n\n## Acceptance Criteria\n\n- [ ] `GasTracker` class with methods: `observe(message)`, `getBalance(pubkey)`, `getUnspentUtxos(pubkey)`, `isSpent(utxoUri)`, `bootstrap(reader)`\n- [ ] `observe(message)` processes a validated MessageData envelope: adds new gas UTXOs to unspent set, removes consumed UTXOs\n- [ ] `getBalance(pubkey)` returns sum of unspent gas UTXO values for that pubkey\n- [ ] `getUnspentUtxos(pubkey)` returns array of `{ uri: string, amount: number }`\n- [ ] `isSpent(utxoUri)` returns true if the UTXO has been consumed\n- [ ] `bootstrap(reader)` scans existing state to rebuild the unspent set (uses `list(\"gas://utxo\")` and `list(\"gas://consumed\")`)\n- [ ] `createGasTrackerProcessor(tracker)` returns a compose `Processor` that calls `tracker.observe()` on each message\n- [ ] Test: observe gas genesis -> balance increases\n- [ ] Test: observe gas spend -> consumed UTXO removed from unspent set, change added\n- [ ] Test: getBalance returns correct sum after multiple operations\n- [ ] Test: isSpent returns true for consumed UTXOs\n- [ ] Test: bootstrap from existing state\n\n## Implementation Guide\n\n1. Read `libs/b3nd-compose/composition.ts` to understand the Processor type and composition patterns\n2. Read `libs/b3nd-compose/types.ts` for ReadInterface\n3. Read `libs/b3nd-msg/data/message.ts` to understand MessageData shape\n4. Create `libs/firecat-protocol/gas-tracker.ts`:\n   ```typescript\n   import type { MessageData } from \"@bandeira-tech/b3nd-sdk\";\n   import type { ReadInterface } from \"@bandeira-tech/b3nd-sdk/types\";\n\n   interface UnspentUtxo {\n     uri: string;\n     amount: number;\n     owner: string;\n   }\n\n   export class GasTracker {\n     private unspent = new Map<string, UnspentUtxo>(); // uri -> utxo\n     private consumed = new Set<string>(); // consumed utxo URIs\n     private ownerBalances = new Map<string, number>(); // pubkey -> total\n\n     observe(data: MessageData): void { ... }\n     getBalance(pubkey: string): number { ... }\n     getUnspentUtxos(pubkey: string): UnspentUtxo[] { ... }\n     isSpent(utxoUri: string): boolean { ... }\n     async bootstrap(reader: ReadInterface): Promise<void> { ... }\n   }\n   ```\n5. In `observe()`:\n   - Scan outputs for `gas://utxo/{owner}/{id}` -> add to unspent map, update owner balance\n   - Scan outputs for `gas://consumed/{owner}/{id}` -> extract referenced URI from value, remove from unspent, update owner balance\n6. In `bootstrap()`:\n   - Use `reader.list(\"gas://utxo\")` to find all gas UTXOs\n   - Use `reader.list(\"gas://consumed\")` to find all consumed markers\n   - Read each, build unspent set (UTXOs minus consumed references)\n7. Create `createGasTrackerProcessor()`:\n   ```typescript\n   export function createGasTrackerProcessor(tracker: GasTracker): Processor {\n     return async (msg) => {\n       const [uri, data] = msg;\n       if (isMessageData(data)) {\n         tracker.observe(data);\n       }\n       return { success: true };\n     };\n   }\n   ```\n8. Create `libs/firecat-protocol/gas-tracker_test.ts` with tests\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/gas-tracker.ts` -- new file: GasTracker class, createGasTrackerProcessor\n- `libs/firecat-protocol/gas-tracker_test.ts` -- new file: test suite\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-tracker_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G3-B1-04 (gas schema must be registered)\n- **Blocks**: G3-B2-02 (fee calculation reads from tracker), G3-B3-01 (multi-node needs tracker)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement UTXO tracking (unspent set maintenance, consumption detection)\n- [ ] Implement fee calculation engine (base_fee per program + size_fee per KB)\n- [ ] Implement checkpoint hash chain (single validator producing `confirmation://checkpoints/{validatorKey}/{sequence}`)\n- [ ] Implement sponsor assembly flow (partial messages without gas → sponsor attaches UTXO → validator confirms)\n- [ ] Implement adaptive fee rates (congestion-based adjustment at epoch boundaries)\n- [ ] Implement free"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "G2-E1-03",
+  "title": "Integrate managed-node components: builder, config watcher, heartbeat",
+  "group": "nodes-talk",
+  "category": "multi-node-ops",
+  "section": "E1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-managed-node/mod.ts",
+    "apps/b3nd-node/mod.ts",
+    "libs/b3nd-managed-node/node-builder.ts",
+    "libs/b3nd-managed-node/config-watcher.ts",
+    "libs/b3nd-managed-node/heartbeat.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-E1-03",
+  "markdown": "\n## Goal\n\nImprove the integration between managed-node library components (node builder, config watcher, heartbeat) and the b3nd-node application. Currently, these components exist as independent libraries with unit tests, but their integration in `apps/b3nd-node/mod.ts` is complex and has unclear error handling paths.\n\n## Background\n\nThe managed-node system in `libs/b3nd-managed-node/` provides:\n- `buildClientsFromSpec()` -- Creates backend clients from config\n- `createConfigWatcher()` -- Polls for config changes and triggers reload\n- `createHeartbeatWriter()` -- Writes periodic status to the network\n- `createMetricsCollector()` -- Collects and writes performance metrics\n- `createPeerClients()` -- Splits peers into push/pull sets\n- `createUpdateChecker()` -- Checks for software updates\n\nThese are all used in `apps/b3nd-node/mod.ts` Phase 2 (lines 182-394), which is already quite large. The integration concerns:\n\n1. **Error cascade**: If `buildClientsFromSpec` fails mid-build, some clients are created but not all. Cleanup is unclear.\n2. **Hot-swap safety**: When config changes trigger `buildManagedClient()` + `frontend.configure()`, the old client's resources (DB connections) are not explicitly cleaned up.\n3. **Heartbeat accuracy**: `getBackendStatuses()` is a static snapshot from config, not a live health check.\n4. **Config bootstrap**: If the config isn't available yet, the node runs Phase 1 backends and polls for config. But the config watcher's initial poll may race with the app startup.\n\nThis story addresses these integration gaps.\n\n## Acceptance Criteria\n\n- [ ] `buildClientsFromSpec()` cleans up partially-created clients on failure\n- [ ] Config watcher hot-swap calls `cleanup()` on the old client before replacing\n- [ ] Heartbeat `getBackendStatuses()` uses live `health()` calls instead of static config\n- [ ] Config watcher `onConfigChange` is idempotent (calling it twice with the same config is safe)\n- [ ] Integration test verifies the config-change -> rebuild -> hot-swap lifecycle\n- [ ] Integration test verifies heartbeat writes status to the expected URI\n- [ ] Existing managed-node tests continue to pass\n\n## Implementation Guide\n\n1. Read `apps/b3nd-node/mod.ts` Phase 2 (lines 182-394) to understand the current integration.\n\n2. Read `libs/b3nd-managed-node/node-builder.ts` to understand `buildClientsFromSpec()`.\n\n3. Add cleanup-on-failure to `buildClientsFromSpec()`:\n   ```typescript\n   export async function buildClientsFromSpec(...): Promise<NodeProtocolInterface[]> {\n     const clients: NodeProtocolInterface[] = [];\n     try {\n       for (const spec of backends) {\n         // ... existing logic\n       }\n       return clients;\n     } catch (error) {\n       // Cleanup any already-created clients\n       for (const client of clients) {\n         try { await client.cleanup(); } catch { /* best effort */ }\n       }\n       throw error;\n     }\n   }\n   ```\n\n4. Update the `onConfigChange` handler in `apps/b3nd-node/mod.ts` to cleanup old clients:\n   ```typescript\n   async onConfigChange(newConfig) {\n     const oldClient = frontend.currentClient; // Need to expose this\n     const newClient = await buildManagedClient(newConfig, activeSchema);\n     frontend.configure({ client: newClient });\n     if (oldClient) {\n       try { await oldClient.cleanup(); } catch { /* best effort */ }\n     }\n   }\n   ```\n\n5. Update heartbeat `getBackendStatuses()` to use live health checks:\n   ```typescript\n   getBackendStatuses: async () => {\n     return Promise.all(\n       clients.map(async (client, i) => {\n         try {\n           const health = await client.health();\n           return { type: backends[i].type, status: health.status === \"healthy\" ? \"connected\" : \"error\" };\n         } catch {\n           return { type: backends[i].type, status: \"error\" as const };\n         }\n       })\n     );\n   }\n   ```\n\n6. Write integration tests.\n\n## Files to Create/Modify\n\n- `libs/b3nd-managed-node/node-builder.ts` -- Add cleanup-on-failure.\n- `libs/b3nd-managed-node/node-builder.test.ts` -- Add failure cleanup test.\n- `apps/b3nd-node/mod.ts` -- Update config change handler for old client cleanup.\n- `libs/b3nd-managed-node/heartbeat.ts` -- Update `getBackendStatuses` interface to support async.\n\n## Testing\n\n```bash\ndeno test libs/b3nd-managed-node/\n```\n\n## Dependencies\n\nDepends on G2-E1-01 (peer replication hardening). Blocks G2-E1-04 (staging environment needs reliable managed-node integration).\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Test and harden peer replication across multiple b3nd-nodes\n- [ ] Test confirmation protocol across 3+ nodes\n- [ ] Implement managed-node improvements (node builder, config watcher, heartbeat — libs exist but integration unclear)\n- [ ] Set up multi-node staging environment"
+}

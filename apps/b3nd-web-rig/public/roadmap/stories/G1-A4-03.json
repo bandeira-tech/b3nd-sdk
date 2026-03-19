@@ -1,0 +1,31 @@
+{
+  "id": "G1-A4-03",
+  "title": "Document concurrency model and recommended patterns",
+  "group": "apps-possible",
+  "category": "concurrency",
+  "section": "A4",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "skills/b3nd/APP_COOKBOOK.md",
+    "skills/b3nd/FRAMEWORK.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A4-03",
+  "markdown": "\n## Goal\n\nDocument the concurrency model for B3nd developers: what `receiveIf` does, when to use it, common patterns (read-modify-write loops with retry), and what happens when conflicts occur.\n\n## Background\n\nWith `receiveIf` implemented, developers need clear guidance on how to use it. The optimistic locking pattern requires a specific workflow (read with version, modify, write with expectedVersion, handle conflict, retry) that is not self-evident from the API alone.\n\n## Acceptance Criteria\n\n- [ ] `skills/b3nd/APP_COOKBOOK.md` has a new \"Concurrency Control\" section with:\n  - Explanation of the optimistic locking model\n  - Code example: read-modify-write loop with retry\n  - Code example: first-write-wins pattern (create-if-not-exists)\n  - Guidance on when NOT to use receiveIf (append-only patterns, content-addressed data)\n- [ ] `skills/b3nd/FRAMEWORK.md` concurrency section updated with receiveIf semantics\n- [ ] Version conflict error format documented (`{ accepted: false, error: \"version_conflict\", version: N }`)\n\n## Implementation Guide\n\n1. Read `skills/b3nd/APP_COOKBOOK.md` to understand existing pattern documentation style\n2. Add a \"Concurrency Control\" section covering:\n   - The problem: lost updates in concurrent writes\n   - The solution: `receiveIf(msg, { expectedVersion })`\n   - Pattern: optimistic read-modify-write with retry\n   - Pattern: conditional create (first-write-wins)\n   - When to skip: content-addressed (hash://) data is inherently conflict-free\n3. Read `skills/b3nd/FRAMEWORK.md` and add concurrency semantics to the appropriate section\n\n## Files to Create/Modify\n\n- `skills/b3nd/APP_COOKBOOK.md` -- add Concurrency Control section\n- `skills/b3nd/FRAMEWORK.md` -- update with receiveIf semantics\n\n## Testing\n\nReview documentation for accuracy against the implemented API.\n\n## Dependencies\n\n- **Depends on**: G1-A4-02 (all clients implemented)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design `receiveIf(uri, data, { expectedVersion })` — conditional writes with optimistic locking\n- [ ] Add version tracking to records (or use content hash as version)\n- [ ] Update all client implementations to support conditional writes\n- [ ] Document concurrency model and recommended patterns"
+}

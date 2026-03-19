@@ -1,0 +1,39 @@
+{
+  "id": "G2-A2-01",
+  "title": "Implement pendingValidator, attestationValidator, rejectionValidator",
+  "group": "nodes-talk",
+  "category": "confirmation-protocol",
+  "section": "A2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/validators.ts",
+    "libs/firecat-protocol/validators_test.ts",
+    "libs/firecat-protocol/constants.ts",
+    "libs/firecat-protocol/mod.ts"
+  ],
+  "tags": [],
+  "status": "in-progress",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A2-01",
+  "markdown": "\n## Goal\n\nImplement the three pre-confirmation validators (`pendingValidator`, `attestationValidator`, `rejectionValidator`) in the Firecat protocol library and wire them into the schema. These validators enforce the write-once, type-safe rules for the confirmation flow's first two stages.\n\n## Background\n\nThe CONFIRMATION.md design document (`libs/firecat-protocol/CONFIRMATION.md`) specifies four new URI programs:\n\n```\nimmutable://pending/{contentHash}/{submitterNodeKey}    -> hash://sha256/{envelopeHash}\nimmutable://attestation/{envelopeHash}/{nodeKey}        -> true\nimmutable://rejection/{envelopeHash}/{nodeKey}          -> string (reason)\nimmutable://confirmation/{contentHash}/{envelopeHash}   -> true\n```\n\nThis story implements the first three. The `confirmationValidator` is separate (G2-A2-02) because it requires `list()` access which is not part of the standard `ValidationFn` signature and needs a design decision.\n\nThe existing validators in `libs/firecat-protocol/validators.ts` (`balanceValidator`, `consumedValidator`, `genesisValidator`, `consensusRecordValidator`) follow a consistent pattern: write-once check, value type check, referential integrity check.\n\n## Acceptance Criteria\n\n- [ ] `pendingValidator` exported from `libs/firecat-protocol/validators.ts`\n  - [ ] Rejects if URI already exists (write-once)\n  - [ ] Rejects if value is not a string starting with `hash://sha256/`\n  - [ ] Rejects if referenced envelope (`read(value)`) does not exist\n  - [ ] Accepts valid pending writes\n- [ ] `attestationValidator` exported from `libs/firecat-protocol/validators.ts`\n  - [ ] Rejects if URI already exists (write-once, prevents equivocation)\n  - [ ] Rejects if value is not `true`\n  - [ ] Rejects if envelope hash (extracted from URI) does not exist at `hash://sha256/{envelopeHash}`\n  - [ ] Accepts valid attestation writes\n- [ ] `rejectionValidator` exported from `libs/firecat-protocol/validators.ts`\n  - [ ] Rejects if URI already exists (write-once)\n  - [ ] Rejects if value is not a non-empty string\n  - [ ] Rejects if envelope hash (extracted from URI) does not exist at `hash://sha256/{envelopeHash}`\n  - [ ] Accepts valid rejection writes\n- [ ] All three validators are registered in `libs/firecat-protocol/mod.ts` schema\n- [ ] `CONFIRMATION_THRESHOLD` and `ATTESTATION_TIMEOUT_MS` added to `libs/firecat-protocol/constants.ts`\n- [ ] Comprehensive tests in `libs/firecat-protocol/validators_test.ts`\n- [ ] Existing validator tests still pass\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/CONFIRMATION.md` sections 2 and 3 for the validator specifications.\n\n2. Read `libs/firecat-protocol/validators.ts` to understand the existing pattern (especially `consumedValidator` which is structurally similar).\n\n3. Add helper function to extract URI segments:\n   ```typescript\n   /** Extract path segment at index from URI: immutable://program/seg0/seg1/seg2 */\n   function extractSegment(uri: string, index: number): string | null {\n     const url = URL.parse(uri);\n     if (!url) return null;\n     const segments = url.pathname.substring(1).split(\"/\");\n     return segments[index] ?? null;\n   }\n   ```\n\n4. Implement `pendingValidator`:\n   ```typescript\n   export const pendingValidator: ValidationFn = async ({ uri, value, read }) => {\n     // Write-once\n     const existing = await read(uri);\n     if (existing.success) {\n       return { valid: false, error: \"Already pending\" };\n     }\n     // Value must be envelope hash reference\n     if (typeof value !== \"string\" || !value.startsWith(\"hash://sha256/\")) {\n       return { valid: false, error: \"Value must be envelope hash URI\" };\n     }\n     // Envelope must exist\n     const envelope = await read(value);\n     if (!envelope.success) {\n       return { valid: false, error: \"Referenced envelope not found\" };\n     }\n     return { valid: true };\n   };\n   ```\n\n5. Implement `attestationValidator` and `rejectionValidator` following the same pattern (see CONFIRMATION.md section 3).\n\n6. Add constants to `libs/firecat-protocol/constants.ts`:\n   ```typescript\n   export const CONFIRMATION_THRESHOLD = 2;\n   export const ATTESTATION_TIMEOUT_MS = 60_000;\n   ```\n\n7. Register in `libs/firecat-protocol/mod.ts`:\n   ```typescript\n   \"immutable://pending\": pendingValidator,\n   \"immutable://attestation\": attestationValidator,\n   \"immutable://rejection\": rejectionValidator,\n   ```\n\n8. Write tests using `MemoryClient` to seed state and verify each validator's accept/reject paths.\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/validators.ts` -- Add `pendingValidator`, `attestationValidator`, `rejectionValidator`, and `extractSegment` helper.\n- `libs/firecat-protocol/constants.ts` -- Add `CONFIRMATION_THRESHOLD`, `ATTESTATION_TIMEOUT_MS`.\n- `libs/firecat-protocol/mod.ts` -- Register the three new validators in the schema object.\n- `libs/firecat-protocol/validators_test.ts` -- Add tests for all three validators.\n\n## Testing\n\n```bash\ndeno test libs/firecat-protocol/validators_test.ts\n```\n\n## Dependencies\n\nNo prerequisites. This is the foundation for the entire confirmation protocol. Blocks G2-A2-02 (confirmationValidator), G2-A2-05 (discovery loop), and G2-A2-06 (validation replay).\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "pr": {
+    "number": 20,
+    "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/20",
+    "state": "OPEN",
+    "title": "feat(firecat): implement confirmation protocol validators"
+  },
+  "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+}

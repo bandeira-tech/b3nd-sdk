@@ -1,0 +1,30 @@
+{
+  "id": "G3-B4-01",
+  "title": "Resolve economic design decisions: fee structure, consolidation, consensus model",
+  "group": "make-it-pay",
+  "category": "economic-design",
+  "section": "B4",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/economic-design-decisions.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B4-01",
+  "markdown": "\n## Goal\n\nProduce a design document that resolves the open economic design questions listed in B4 of TASKS.md. These decisions affect the implementation of adaptive fees (B2), staking (B3), and the native economy (C2). Each decision should include: the options considered, analysis of tradeoffs, a recommendation, and the reasoning.\n\n## Background\n\nThe following questions are currently open and blocking downstream work:\n\n1. **Encryption surcharge**: Should encrypted messages pay a higher fee? The existing recommendation is to bundle into base fee (simpler, avoids discouraging encryption).\n\n2. **UTXO consolidation**: Users accumulate many small change UTXOs from gas payments. Without consolidation, the UTXO set grows without bound and balance queries become expensive. Need a mechanism to merge N small UTXOs into 1 larger one (a \"consolidation transaction\" with reduced or zero fees).\n\n3. **Initial fee rate setting**: Who sets fee rates? Options: protocol-fixed constants, algorithmic (output of adaptive rate engine), governance vote, validator consensus. Recommendation: start protocol-fixed, transition to algorithmic once there's enough traffic for meaningful congestion signals.\n\n4. **Relay reward anti-gaming**: How to prevent validators from creating fake relay proofs. Recommendation: make relay rewards a bonus on validation (you only earn relay credit if you also validated the message), not a standalone reward stream.\n\n5. **Gas partition consensus model**: How is the gas UTXO set partitioned across validators? Options: single validator (centralized), multi-validator quorum (all validate everything), path-range partitioning (each validator handles a URI range). This affects scalability, security, and complexity.\n\n6. **Token distribution plan**: Who receives the initial token supply? Categories: operators, contributors, public sale, airdrop, protocol reserve, community fund. Needs concrete percentages and vesting schedules.\n\n## Acceptance Criteria\n\n- [ ] Design document covers all 6 questions with analysis and recommendations\n- [ ] Each question has: options enumerated, tradeoff analysis, recommendation, rationale\n- [ ] Encryption surcharge: decision documented with reasoning\n- [ ] UTXO consolidation: mechanism designed (consolidation transaction type, fee policy, validator behavior)\n- [ ] Fee rate initialization: phased approach documented (fixed -> algorithmic -> governance)\n- [ ] Relay reward anti-gaming: design documented with attack analysis\n- [ ] Gas partition model: recommendation with scalability analysis\n- [ ] Token distribution: percentage allocations proposed with vesting schedules\n- [ ] Document reviewed for internal consistency (decisions don't contradict each other)\n\n## Implementation Guide\n\n1. Read `docs/book/consensus/README.md` for existing consensus documentation context\n2. Read existing economic model documents if present in `docs/`\n3. Read `libs/firecat-protocol/gas-constants.ts` for current fee constants\n4. Create `docs/book/consensus/economic-design-decisions.md`:\n   - Section 1: Encryption Surcharge\n     - Option A: Surcharge (e.g., 2x base fee for encrypted messages)\n     - Option B: Bundle into base fee\n     - Recommendation: B (bundle) -- encryption is a protocol goal, not a luxury\n   - Section 2: UTXO Consolidation\n     - Design a `gas://consolidate` transaction type\n     - Inputs: N small UTXOs owned by the same pubkey\n     - Output: 1 larger UTXO (sum minus small consolidation fee or zero fee)\n     - Validator: verify all inputs owned by signer, output = sum(inputs) - consolidation_fee\n   - Section 3: Fee Rate Initialization\n     - Phase 0: Fixed constants in code\n     - Phase 1: Algorithmic (adaptive rate engine, G3-B2-05)\n     - Phase 2: Governance (if/when governance exists)\n   - Section 4: Relay Reward Anti-Gaming\n     - Require relay ack from recipient\n     - Relay reward = bonus on validation reward, not standalone\n     - Rate-limit relay proofs per message per validator\n   - Section 5: Gas Partition Model\n     - Compare: single validator, multi-validator quorum, path-range\n     - Recommendation: start with single validator, design path-range for scale\n   - Section 6: Token Distribution\n     - Propose allocation across categories\n     - Propose vesting schedule\n5. No code changes in this story -- output is the design document\n\n## Files to Create/Modify\n\n- `docs/book/consensus/economic-design-decisions.md` -- new design document\n\n## Testing\n\nNo code tests. Review the document for internal consistency and completeness.\n\n## Dependencies\n\n- **Depends on**: G3-B1-04 (need working gas schema to contextualize decisions)\n- **Blocks**: G3-B2-05 (adaptive fees need fee rate initialization decision), G3-B3-04 (staking needs partition model), G3-C2-01 (native economy needs distribution plan)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Decide: encryption surcharge yes/no (recommendation in doc: bundle into base fee)\n- [ ] Design UTXO consolidation mechanism (merge many small UTXOs into one)\n- [ ] Decide: who sets fee rates initially (recommendation: protocol-fixed, move to algorithmic)\n- [ ] Design relay reward anti-gaming (make relay rewards bonus on validation, not standalone)\n- [ ] Decide: consensus model for gas partition (single validator vs multi-validator quorum vs path-range)\n- [ ] Design token distribution plan "
+}

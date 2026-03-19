@@ -1,0 +1,30 @@
+{
+  "id": "G3-B5-02",
+  "title": "Design reputation system formula and attestation ecosystem",
+  "group": "make-it-pay",
+  "category": "ad-revenue",
+  "section": "B5",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/reputation-attestation.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B5-02",
+  "markdown": "\n## Goal\n\nDesign the reputation scoring formula (how participant reputation is calculated, decays over time, and triggers flagging) and the attestation ecosystem (who runs verification services, how users collect attestations, and the cost structure). These two systems work together: attestations provide the inputs for reputation scoring, and reputation scores gate access to higher-value ad campaigns and reward tiers.\n\n## Background\n\n**Reputation**: Every participant (user, operator, listener node) has a reputation score that reflects their history of honest behavior. High reputation = access to premium campaigns, higher reward share. Low reputation = restricted access, potential exclusion.\n\nThe reputation score must:\n- Start at a neutral baseline (new participants are not penalized)\n- Increase with honest activity (validated messages, confirmed impressions, relay acks)\n- Decrease with bad behavior (flagged impressions, failed validations, slashing events)\n- Decay over time (inactive participants lose reputation)\n- Be resistant to Sybil attacks (creating many accounts to accumulate reputation)\n\n**Attestation**: Users provide privacy-preserving attestations about themselves (age verification, location, interests) to qualify for targeted ad campaigns. Attestation providers are trusted third parties that verify claims.\n\nKey design questions:\n- Score formula: linear vs exponential? How fast does it decay?\n- What actions contribute positive/negative reputation?\n- Who are the attestation providers? How are they trusted?\n- How are attestation costs structured? (one-time vs subscription)\n- What's the minimum attestation for basic participation?\n\n## Acceptance Criteria\n\n- [ ] Reputation scoring formula defined: inputs, calculation, output range (e.g., 0-1000)\n- [ ] Positive reputation sources: validated messages, confirmed relay, good impression reports, uptime\n- [ ] Negative reputation sources: flagged impressions, failed validations, double-spend attempts, slashing\n- [ ] Time decay formula: `score *= decay_factor^(epochs_since_last_activity)` or similar\n- [ ] Sybil resistance: reputation is tied to staking or PoW history, not freely created\n- [ ] Attestation types defined: age range, location region, interest categories\n- [ ] Attestation data model: `attestation://user/{pubkey}/{attestationType}` with provider signature\n- [ ] Attestation provider requirements: how to become a provider, trust model\n- [ ] Cost structure: attestation costs and who pays (user vs app vs subsidy)\n- [ ] Integration with ad matching: how reputation and attestation gate campaign access\n- [ ] URI schema for on-chain reputation: `reputation://scores/{pubkey}`, `attestation://user/{pubkey}/{type}`\n\n## Implementation Guide\n\n1. Read `docs/book/consensus/ad-campaign-matching.md` (from G3-B5-01) for context on matching\n2. Create `docs/book/consensus/reputation-attestation.md`:\n   - Section 1: Reputation Score Formula\n     - Base score: 100 for new participants\n     - Range: 0-1000\n     - Positive: +1 per validated message, +5 per confirmed relay epoch, +10 per clean impression settlement\n     - Negative: -50 per flagged impression, -100 per failed validation, -200 per slashing event\n     - Decay: score *= 0.99 per epoch of inactivity (slow decay, ~69 epochs to halve)\n     - Floor: 0 (cannot go negative)\n     - Sybil resistance: only scored participants are those with staking history or PoW faucet claims\n   - Section 2: Reputation Tiers\n     - Tier 0 (0-99): Restricted, basic campaigns only, reduced reward share\n     - Tier 1 (100-299): Standard access\n     - Tier 2 (300-599): Premium campaigns, bonus reward share\n     - Tier 3 (600+): Elite, all campaigns, highest reward tier\n   - Section 3: Attestation Types\n     - Age range: \"18-24\", \"25-34\", etc. (privacy-preserving ranges)\n     - Region: country + region (not precise location)\n     - Interests: categories from standardized list\n     - Verification level: basic (self-declared), verified (provider-attested)\n   - Section 4: Attestation Providers\n     - Requirements: registered on-chain, staked gas tokens, auditable verification process\n     - Trust model: multi-provider (users can choose, multiple attestations increase confidence)\n     - Cost: provider-set pricing, paid in gas tokens\n   - Section 5: Integration Points\n     - Campaign matching uses attestation data for targeting\n     - Settlement uses reputation for reward multipliers\n     - Staking tier thresholds use reputation\n\n## Files to Create/Modify\n\n- `docs/book/consensus/reputation-attestation.md` -- new design document\n\n## Testing\n\nNo code tests. Design document review.\n\n## Dependencies\n\n- **Depends on**: G3-B5-01 (ad matching design provides context)\n- **Blocks**: G3-B5-03 (withdrawal mechanics reference reputation)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design ad campaign matching algorithm (how listener nodes match campaigns to user sessions)\n- [ ] Design settlement epoch mechanism (how epochs trigger, how distribution is calculated and verified)\n- [ ] Design reputation system formula (score calculation, decay, flagging)\n- [ ] Design attestation ecosystem (who runs verification services, how users collect attestations, cost structure)\n- [ ] Define token withdrawal mechanics parameters (cliff, minimum threshold, gradual disbursement — cur"
+}

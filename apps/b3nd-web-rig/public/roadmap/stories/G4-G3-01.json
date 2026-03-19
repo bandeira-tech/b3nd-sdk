@@ -1,0 +1,34 @@
+{
+  "id": "G4-G3-01",
+  "title": "Document competitive positioning vs Nostr, Holochain, Filecoin, Ethereum",
+  "group": "tell-the-story",
+  "category": "positioning",
+  "section": "G3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/strategy/competitive-positioning.md",
+    "docs/proposals/tokenization-gas-semantics.md",
+    "docs/proposals/firecat-economic-model.md",
+    "skills/b3nd/FRAMEWORK.md",
+    "skills/b3nd/FIRECAT.md",
+    "skills/b3nd/FAQ.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G4-G3-01",
+  "markdown": "\n## Goal\n\nCreate a comprehensive competitive positioning document that compares B3nd/Firecat against the most relevant alternatives (Nostr, Holochain, Filecoin, Ethereum/IPFS) across dimensions that matter to developers, operators, and potential users. This document serves as the internal source of truth for competitive claims and as source material for external-facing content.\n\n## Background\n\nThe gas semantics proposal (`docs/proposals/tokenization-gas-semantics.md`) already contains partial competitive analysis, particularly around gas models and economic design. The TASKS.md identifies two competitive positioning tasks:\n1. Document comparison with Nostr, Holochain, Filecoin, Ethereum\n2. Prepare for incumbent competitive response\n\nThe comparison should be structured around the dimensions where B3nd/Firecat differentiates:\n- **Data model**: URI-based with four operations vs event-based (Nostr), DHT-based (Holochain), content-addressed storage (Filecoin/IPFS), smart contract state (Ethereum)\n- **Privacy model**: Client-side encryption by default vs metadata-exposed (Nostr), app-level (Holochain), public by default (Filecoin/IPFS/Ethereum)\n- **Developer experience**: Small API surface, familiar patterns vs protocol-specific tooling\n- **Economic model**: UTXO gas with sqrt-weighted staking vs relay-based (Nostr, mostly free), hosting-based (Filecoin), gas auction (Ethereum)\n- **Governance**: Community-owned DePIN vs relay operators (Nostr), agent-centric (Holochain), miner/validator-centric (Filecoin/Ethereum)\n\nThe FAQ (`skills/b3nd/FAQ.md`) contains design rationale that explains \"why B3nd does X differently\" -- this feeds directly into competitive positioning.\n\n## Acceptance Criteria\n\n- [ ] `docs/strategy/competitive-positioning.md` exists with structured comparisons\n- [ ] Each competitor (Nostr, Holochain, Filecoin, Ethereum/IPFS) has its own section covering:\n  - [ ] What it is (one paragraph summary)\n  - [ ] Where it overlaps with B3nd/Firecat\n  - [ ] Where B3nd/Firecat has advantages (with specific technical reasons)\n  - [ ] Where the competitor has advantages (honest assessment)\n  - [ ] Key differentiator summary (one sentence)\n- [ ] A comparison matrix/table exists summarizing all competitors across key dimensions\n- [ ] The document includes a \"how to respond\" section addressing likely competitive objections\n- [ ] Claims are factual and verifiable -- no FUD, no strawman arguments\n- [ ] The document distinguishes between what is built today and what is designed/planned\n- [ ] The document is suitable as an internal reference AND as source material for external content\n\n## Implementation Guide\n\n1. Read `docs/proposals/tokenization-gas-semantics.md` for existing competitive analysis content (gas model comparisons)\n2. Read `docs/proposals/firecat-economic-model.md` for economic positioning (especially the \"competitive response\" risk section)\n3. Read `skills/b3nd/FAQ.md` for design rationale that feeds into \"why we're different\"\n4. Read `skills/b3nd/FRAMEWORK.md` for the technical architecture to compare against\n5. Read `skills/b3nd/FIRECAT.md` for the specific protocol features to compare\n6. Research each competitor (use existing knowledge + any referenced docs):\n   - **Nostr**: NIP-01 event model, relay economics, NIP-13 PoW, no built-in encryption, event kinds as schema\n   - **Holochain**: Agent-centric model, DHT, WASM validation, no global consensus, hosting model\n   - **Filecoin/IPFS**: Content addressing, deal-based storage, proof-of-spacetime, retrieval markets\n   - **Ethereum**: Smart contracts, EVM, gas auction, L2 landscape, account model vs UTXO\n7. Create `docs/strategy/` directory if it does not exist\n8. Write the competitive positioning document:\n   - Start with B3nd/Firecat's positioning statement (what we are, who we serve)\n   - For each competitor: overview, overlap, our advantages, their advantages, key differentiator\n   - Build the comparison matrix table\n   - Write the \"how to respond\" section covering common objections:\n     - \"Why not just use Nostr?\" (no schema validation, no built-in encryption, relay economics are broken)\n     - \"Why not build on Ethereum?\" (data layer vs computation layer, gas costs, privacy)\n     - \"What about Filecoin for storage?\" (storage vs data protocol, no real-time, no schema)\n     - \"Holochain already does agent-centric\" (complexity, adoption, developer experience)\n   - End with honest assessment of B3nd/Firecat's current weaknesses\n9. Review for factual accuracy and tone (confident but not dismissive)\n\n## Files to Create/Modify\n\n- `docs/strategy/competitive-positioning.md` -- new file\n\n## Dependencies\n\n- **Depends on**: Nothing -- this can proceed with current knowledge\n- **Blocks**: Nothing directly, but this feeds into G4-F3-01 (builder pitch references competitive positioning)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Document comparison with Nostr, Holochain, Filecoin, Ethereum (partially done in gas semantics doc)\n- [ ] Prepare for incumbent competitive response (identified as risk in economic model)\n\n---\n\n## Emerging Groupings\n\nLooking at the tasks above, several natural clusters emerge that cut across the front labels:\n\n### Group 1: \"Make Apps Possible\" — The Developer Platform\n**What it is**: Everything a third-party developer needs to build a real app on Firecat today.\n\nTasks: A6 (Indexer), A4 (Co"
+}

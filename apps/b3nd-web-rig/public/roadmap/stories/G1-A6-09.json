@@ -1,0 +1,32 @@
+{
+  "id": "G1-A6-09",
+  "title": "Implement HTTP endpoints, mountIndexerRoutes, and HttpIndexerClient",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/http.ts",
+    "libs/b3nd-indexer/client.ts",
+    "libs/b3nd-indexer/http_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-09",
+  "markdown": "\n## Goal\n\nCreate HTTP endpoints for the indexer system and a client that consumes them. This enables remote querying: a web app can query an indexer running on a different server.\n\n## Background\n\nThe indexer backend runs server-side. Web and mobile apps need HTTP access to query, search, and aggregate indexed data. The endpoints follow the existing B3nd server pattern from `libs/b3nd-servers/http.ts`.\n\nThe `HttpIndexerClient` extends the concept of `NodeProtocolInterface` with query/search/aggregate methods, giving apps a unified client for both key-value and indexed access.\n\n## Acceptance Criteria\n\n- [ ] `mountIndexerRoutes(app: MinimalRouter, backend: IndexerBackend, options?)` function that adds routes:\n  - `POST /api/v1/indexer/query` -- accepts `IndexQuery` body, returns `IndexQueryResult`\n  - `POST /api/v1/indexer/search` -- accepts `{ text, options? }` body, returns `IndexQueryResult`\n  - `POST /api/v1/indexer/aggregate` -- accepts `{ pipeline: AggregationStage[] }` body, returns `AggregationResult`\n  - `GET /api/v1/indexer/health` -- returns indexer health status\n  - `GET /api/v1/indexer/feed?since={cursor}&limit={n}` -- returns feed entries\n  - `GET /api/v1/indexer/views` -- returns available view keys metadata (not the keys themselves)\n- [ ] All endpoints return proper error responses (400 for bad input, 500 for server errors)\n- [ ] `HttpIndexerClient` class:\n  - Constructor accepts `{ url: string; headers?: Record<string, string> }`\n  - `query(query: IndexQuery): Promise<IndexQueryResult>`\n  - `search(text: string, options?: SearchOptions): Promise<IndexQueryResult>`\n  - `aggregate(pipeline: AggregationStage[]): Promise<AggregationResult>`\n  - `health(): Promise<IndexerHealthStatus>`\n  - `feed(since?: string, limit?: number): Promise<FeedResult>`\n- [ ] Client handles network errors gracefully (returns error result, not throws)\n- [ ] Tests: round-trip query/search/aggregate through HTTP server and client\n\n## Implementation Guide\n\n1. Read `libs/b3nd-servers/http.ts` for the `MinimalRouter` pattern and route conventions\n2. Create `libs/b3nd-indexer/http.ts`:\n   - `mountIndexerRoutes(app, backend, options?)`:\n     - Parse JSON bodies, validate required fields\n     - Call backend methods\n     - Return JSON responses\n   - Export route mounting function (composable with existing httpServer)\n3. Create `libs/b3nd-indexer/client.ts`:\n   - `HttpIndexerClient` that uses `fetch()` to call the HTTP endpoints\n   - Each method: POST with JSON body, parse response, handle errors\n4. Create `libs/b3nd-indexer/http_test.ts`:\n   - Use in-memory backend + Hono app for testing\n   - Seed data, mount routes, test each endpoint\n   - Test round-trip: seed -> mount -> client.query() -> verify results\n5. Export from `libs/b3nd-indexer/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/http.ts` -- new: mountIndexerRoutes and HTTP route handlers\n- `libs/b3nd-indexer/client.ts` -- new: HttpIndexerClient\n- `libs/b3nd-indexer/http_test.ts` -- new: integration tests\n- `libs/b3nd-indexer/mod.ts` -- add exports\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-indexer/http_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-06 (query), G1-A6-07 (aggregation), G1-A6-08 (view keys for /views endpoint)\n- **Blocks**: G1-A6-10 (React hooks consume the client)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

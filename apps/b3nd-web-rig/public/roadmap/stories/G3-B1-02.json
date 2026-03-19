@@ -1,0 +1,33 @@
+{
+  "id": "G3-B1-02",
+  "title": "Implement fee output validation and amount conservation",
+  "group": "make-it-pay",
+  "category": "gas-schema",
+  "section": "B1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-validators.ts",
+    "libs/firecat-protocol/gas-helpers.ts",
+    "libs/firecat-protocol/gas-constants.ts",
+    "libs/firecat-protocol/gas-validators_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B1-02",
+  "markdown": "\n## Goal\n\nAdd fee output validation to the gas system so that every non-genesis message envelope that includes program-specific outputs must also include a gas fee payment. This enforces the economic rule: \"every state change costs gas.\" Fee outputs are gas UTXOs sent to the GAS_ROOT_KEY. Conservation is enforced: gas input amounts must be >= gas output amounts (fee + change).\n\n## Background\n\nIn the existing `immutable://balance` system, the `consensusRecordValidator` checks for a fee at `immutable://balance/{ROOT_KEY}/{contentHash}`. This is a per-program fee check embedded in the consensus record validator.\n\nThe gas system takes a different approach: fee validation is an envelope-level concern. When a message envelope spends gas UTXOs as inputs and produces outputs, one of those outputs must be a fee payment to the `GAS_ROOT_KEY`. The fee amount depends on which programs the envelope writes to (defined in `gas://rates`).\n\nFor Phase 0, fee amounts are static constants. The fee structure:\n- `BASE_GAS_FEE` -- minimum fee for any state change (e.g., 1 gas)\n- Fee is paid as a `gas://utxo/{GAS_ROOT_KEY}/{feeId}` output\n- Conservation: sum of gas UTXO inputs >= sum of gas UTXO outputs (fee + change back to user)\n\nA helper `buildGasFeeEnvelope()` constructs a properly formed envelope that includes gas inputs, consumed markers, fee payment, change, and the actual application outputs.\n\n## Acceptance Criteria\n\n- [ ] Gas fee output validation: when `message` context is present and envelope has gas UTXO inputs, at least one output must be `gas://utxo/{GAS_ROOT_KEY}/{id}` with value >= `BASE_GAS_FEE`\n- [ ] Gas conservation: sum of gas UTXO input values >= sum of gas UTXO output values (fee + change)\n- [ ] Missing fee output rejected with clear error: \"Gas fee not paid: expected at least {BASE_GAS_FEE}\"\n- [ ] Insufficient fee rejected: \"Gas fee insufficient: paid {X}, required {Y}\"\n- [ ] `BASE_GAS_FEE` constant defined in `gas-constants.ts`\n- [ ] `buildGasFeeEnvelope()` helper creates a complete envelope: gas consumed markers + change + fee + application outputs\n- [ ] Test: valid fee payment accepted\n- [ ] Test: missing fee rejected\n- [ ] Test: insufficient fee rejected\n- [ ] Test: conservation violation (output gas > input gas) rejected\n- [ ] Test: genesis envelopes (with `gas://genesis/`) bypass fee requirement\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/gas-validators.ts` (from G3-B1-01) to understand current gas validator state\n2. Read `libs/firecat-protocol/gas-constants.ts` -- add `BASE_GAS_FEE = 1`\n3. Enhance `gasUtxoValidator` in `gas-validators.ts`:\n   - After conservation check, add fee validation when envelope has gas inputs:\n   ```typescript\n   // Fee validation: at least one output to GAS_ROOT_KEY with value >= BASE_GAS_FEE\n   let feePaid = 0;\n   for (const [outUri, outVal] of msg.payload.outputs) {\n     if (outUri.startsWith(`gas://utxo/${GAS_ROOT_KEY}/`) && typeof outVal === \"number\") {\n       feePaid += outVal;\n     }\n   }\n   if (msg.payload.inputs.some(u => u.startsWith(\"gas://utxo/\")) && feePaid < BASE_GAS_FEE) {\n     return { valid: false, error: `Gas fee not paid: expected at least ${BASE_GAS_FEE}` };\n   }\n   ```\n4. Create `buildGasFeeEnvelope()` in `gas-helpers.ts`:\n   - Accepts: `{ gasInputUri, gasInputAmount, applicationOutputs, signerPubKey, signerPrivKeyHex }`\n   - Produces envelope with: gas consumed marker, gas change UTXO, gas fee UTXO to ROOT_KEY, application outputs\n   - Signs the envelope with the signer's key\n5. Add tests in `gas-validators_test.ts`:\n   - Test with a properly formed fee envelope (gas inputs -> fee + change + app outputs)\n   - Test missing fee output -> rejected\n   - Test fee below BASE_GAS_FEE -> rejected\n   - Test gas output sum > gas input sum -> rejected (conservation)\n   - Test genesis envelope skips fee check\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/gas-constants.ts` -- add BASE_GAS_FEE\n- `libs/firecat-protocol/gas-validators.ts` -- add fee validation logic to gasUtxoValidator\n- `libs/firecat-protocol/gas-helpers.ts` -- add buildGasFeeEnvelope helper\n- `libs/firecat-protocol/gas-validators_test.ts` -- add fee validation tests\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-validators_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G3-B1-01 (gas UTXO validators must exist)\n- **Blocks**: G3-B1-04 (schema composition needs fee validation working)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `gas://utxo` program validators (creation, consumption, ownership verification)\n- [ ] Implement UTXO existence and unspent checks\n- [ ] Implement fee output validation (amount conservation: input amounts ≥ output amounts)\n- [ ] Implement `gas://rates` program (static fee rates per program key)\n- [ ] Implement `gas://faucet` program (one-time claim with PoW verification)\n- [ ] Define `confirmation://checkpoints` schema and convention\n- [ ] Create test token minting mechanism (self"
+}

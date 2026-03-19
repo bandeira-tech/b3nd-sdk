@@ -1,0 +1,37 @@
+{
+  "id": "G2-A1-01",
+  "title": "Harden respondTo() with error recovery and edge case handling",
+  "group": "nodes-talk",
+  "category": "compose-primitives",
+  "section": "A1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-listener/mod.ts",
+    "libs/b3nd-listener/listener.test.ts"
+  ],
+  "tags": [],
+  "status": "in-progress",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A1-01",
+  "markdown": "\n## Goal\n\nHarden the existing `respondTo()` primitive in `libs/b3nd-listener/mod.ts` so it gracefully handles decryption failures, handler exceptions, malformed payloads, and write-back errors. Today it works on the happy path but any exception in the handler or crypto layer propagates unhandled, which will cause `connect()` to skip the message without retrying and without useful diagnostics.\n\n## Background\n\n`respondTo()` already exists and handles the full decrypt-call-encrypt-route cycle. The existing test suite (`listener.test.ts`) covers the happy path: signed requests, unsigned requests, multi-message polls, and empty inbox. What is missing:\n\n- **Error classification**: Decryption failure vs handler error vs write-back failure are all caught the same way (or not caught at all). The caller gets `{ success: false, error: \"...\" }` but cannot distinguish retryable from permanent failures.\n- **Handler exception safety**: If the user's handler throws, the entire processor rejects. The `connect()` loop catches this via `onError` but the message is never marked processed, causing infinite retry on every poll.\n- **Malformed payload handling**: If the decrypted JSON is missing fields (`clientPublicKeyHex`, `replyTo`), the error message is generic. It should specify what's missing.\n- **Write-back failure**: If `client.receive()` fails when writing the response to `replyTo`, the error is swallowed. The caller sees `{ success: true }` even though the response was never delivered.\n\n## Acceptance Criteria\n\n- [ ] `respondTo()` catches handler exceptions and returns `{ success: false, error: \"Handler error: <message>\" }` without throwing\n- [ ] Decryption failures return `{ success: false, error: \"Decryption failed: <message>\" }` without throwing\n- [ ] Missing `clientPublicKeyHex` and missing `replyTo` produce distinct error messages\n- [ ] Write-back failure (response delivery) returns `{ success: false, error: \"Response delivery failed: <message>\" }`\n- [ ] All error paths are tested with dedicated test cases\n- [ ] Existing tests continue to pass unchanged\n- [ ] No new dependencies added\n\n## Implementation Guide\n\n1. Read `libs/b3nd-listener/mod.ts` to understand the current `respondTo()` implementation (lines 133-213).\n\n2. Wrap the decryption block (lines 170-177) in a try/catch that returns a descriptive error:\n   ```typescript\n   let decrypted: InboxRequestPayload<TReq>;\n   try {\n     decrypted = JSON.parse(\n       new TextDecoder().decode(\n         await decrypt(encryptedPayload, identity.encryptionKeyPair.privateKey),\n       ),\n     ) as InboxRequestPayload<TReq>;\n   } catch (err) {\n     return { success: false, error: `Decryption failed: ${err instanceof Error ? err.message : String(err)}` };\n   }\n   ```\n\n3. Improve the missing-field check (lines 179-181) to specify which field is missing:\n   ```typescript\n   if (!decrypted.clientPublicKeyHex) {\n     return { success: false, error: \"Missing clientPublicKeyHex in request payload\" };\n   }\n   if (!decrypted.replyTo) {\n     return { success: false, error: \"Missing replyTo in request payload\" };\n   }\n   ```\n\n4. Wrap the handler call (line 192) in a try/catch:\n   ```typescript\n   let response: TRes;\n   try {\n     response = await handler(request);\n   } catch (err) {\n     return { success: false, error: `Handler error: ${err instanceof Error ? err.message : String(err)}` };\n   }\n   ```\n\n5. Wrap the response encryption + sign + write-back (lines 196-209) in a try/catch:\n   ```typescript\n   try {\n     const encryptedResponse = await encrypt(...);\n     const signedResponse = await createAuthenticatedMessageWithHex(...);\n     await client.receive([decrypted.replyTo, signedResponse]);\n   } catch (err) {\n     return { success: false, error: `Response delivery failed: ${err instanceof Error ? err.message : String(err)}` };\n   }\n   ```\n\n6. Add test cases in `libs/b3nd-listener/listener.test.ts`:\n   - Test with a handler that throws an Error\n   - Test with a handler that throws a non-Error value\n   - Test with a corrupted encrypted payload (random bytes)\n   - Test with a payload missing `replyTo`\n   - Test with a payload missing `clientPublicKeyHex`\n\n## Files to Create/Modify\n\n- `libs/b3nd-listener/mod.ts` -- Add try/catch blocks around decrypt, handler call, and write-back. Improve error messages for missing fields.\n- `libs/b3nd-listener/listener.test.ts` -- Add 5+ test cases covering error paths.\n\n## Testing\n\n```bash\ndeno test libs/b3nd-listener/listener.test.ts\n```\n\nAll existing tests must pass. New tests must exercise each error path and verify the specific error message returned.\n\n## Dependencies\n\nNo prerequisites. This is foundational hardening that unblocks all downstream work in the multi-node protocol.\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "pr": {
+    "number": 15,
+    "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/15",
+    "state": "OPEN",
+    "title": "feat(listener): harden respondTo() error handling"
+  },
+  "tasksExcerpt": "- [ ] Implement `respondTo(handler, opts)` — wrap a handler as a compose `Processor` (decrypt → call → encrypt → route)\n- [ ] Implement `connect(remote, opts)` — bridge a handler to a remote node (polling transport, cursor tracking, dedup)\n- [ ] Rebuild `b3nd-listener` on top of `respondTo()` + `connect()` instead of parallel custom system\n- [ ] Define `subscribe(remote, opts)` interface for future WebSocket transport (deferred, but interface should be reserved)"
+}

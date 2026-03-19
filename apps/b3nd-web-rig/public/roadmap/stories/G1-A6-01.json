@@ -1,0 +1,38 @@
+{
+  "id": "G1-A6-01",
+  "title": "Define IndexerDefinition, IndexerBackend, and IndexQuery core types",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "critical",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/types.ts",
+    "libs/b3nd-indexer/mod.ts",
+    "libs/b3nd-indexer/deno.json"
+  ],
+  "tags": [],
+  "status": "in-progress",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-01",
+  "markdown": "\n## Goal\n\nCreate the `b3nd-indexer` library with the core type definitions that the entire indexer system builds on: `IndexerDefinition` (how a developer defines an indexer), `IndexerBackend` (the storage interface for indexed data), and `IndexQuery` (how developers query indexed data).\n\n## Background\n\nB3nd stores everything as `[uri, data]` pairs. This is great for key-value access but terrible for queries like \"find all recipes with tag=vegetarian sorted by date.\" An indexer watches incoming messages, extracts fields, and stores them in a queryable format (SQL tables, etc).\n\nThe indexer system has three layers:\n1. **Definition** -- developer declares which URI patterns to index and which fields to extract\n2. **Backend** -- the actual query engine (Postgres, SQLite, etc.) that stores and queries the indexed data\n3. **Query** -- the interface for filtering, searching, sorting, and aggregating indexed data\n\nThis story creates the type definitions only. Implementation follows in subsequent stories.\n\n## Acceptance Criteria\n\n- [ ] New workspace member `libs/b3nd-indexer/` with `deno.json`, `mod.ts`, `types.ts`\n- [ ] `IndexerDefinition` interface:\n  - `name: string` -- unique indexer name\n  - `version: number` -- schema version (for evolution)\n  - `uriPatterns: string[]` -- URI prefixes this indexer watches (e.g., `[\"mutable://recipes\"]`)\n  - `extract: (uri: string, data: unknown) => Record<string, unknown> | null` -- field extraction function (null = skip)\n  - `fields: IndexFieldDefinition[]` -- field schemas for the indexed data\n- [ ] `IndexFieldDefinition` interface:\n  - `name: string`\n  - `type: \"string\" | \"number\" | \"boolean\" | \"date\" | \"json\"`\n  - `indexed?: boolean` (default true)\n  - `searchable?: boolean` (for full-text search, default false)\n  - `nullable?: boolean` (default true)\n- [ ] `IndexerBackend` interface:\n  - `initialize(definition: IndexerDefinition): Promise<void>`\n  - `index(uri: string, fields: Record<string, unknown>, version?: number): Promise<void>`\n  - `remove(uri: string): Promise<void>`\n  - `query(query: IndexQuery): Promise<IndexQueryResult>`\n  - `search(text: string, options?: SearchOptions): Promise<IndexQueryResult>`\n  - `aggregate(pipeline: AggregationStage[]): Promise<AggregationResult>`\n  - `health(): Promise<{ healthy: boolean; documentCount: number; lastIndexedAt?: number }>`\n  - `teardown(): Promise<void>` -- drop all indexed data\n  - `cleanup(): Promise<void>` -- release connections\n- [ ] `IndexQuery` interface:\n  - `filter?: Record<string, FilterOperator>`\n  - `search?: string`\n  - `select?: string[]`\n  - `sort?: Array<{ field: string; order: \"asc\" | \"desc\" }>`\n  - `limit?: number`\n  - `offset?: number`\n- [ ] `FilterOperator` type covering: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$contains`, `$startsWith`\n- [ ] `IndexQueryResult` interface:\n  - `items: Array<{ uri: string; fields: Record<string, unknown>; version?: number }>`\n  - `total: number`\n  - `hasMore: boolean`\n- [ ] `SearchOptions` interface: `{ fields?: string[]; limit?: number; offset?: number }`\n- [ ] `AggregationStage` type: `$match | $group | $sort | $limit | $project`\n- [ ] `AggregationResult` interface: `{ rows: Record<string, unknown>[]; total: number }`\n- [ ] All types exported from `libs/b3nd-indexer/mod.ts`\n- [ ] Workspace member added to root `deno.json`\n\n## Implementation Guide\n\n1. Create `libs/b3nd-indexer/` directory\n2. Create `libs/b3nd-indexer/deno.json`:\n   ```json\n   {\n     \"name\": \"@bandeira-tech/b3nd-indexer\",\n     \"version\": \"0.1.0\"\n   }\n   ```\n3. Create `libs/b3nd-indexer/types.ts` with all type definitions listed above\n4. Create `libs/b3nd-indexer/mod.ts` that re-exports everything from `types.ts`\n5. Add `\"libs/b3nd-indexer\"` to the `workspace` array in root `deno.json`\n6. Run `deno check libs/b3nd-indexer/mod.ts` to verify types compile\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/deno.json` -- new: workspace config\n- `libs/b3nd-indexer/types.ts` -- new: all indexer type definitions\n- `libs/b3nd-indexer/mod.ts` -- new: re-exports\n- `deno.json` -- add workspace member\n\n## Testing\n\n```bash\ndeno check libs/b3nd-indexer/mod.ts\n```\n\nTypes-only library -- no runtime tests needed yet.\n\n## Dependencies\n\n- **Depends on**: Nothing\n- **Blocks**: G1-A6-02 (Postgres backend), G1-A6-03 (createIndexerProcessor), G1-A6-06 (query), G1-A6-07 (aggregation)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "pr": {
+    "number": 18,
+    "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/18",
+    "state": "OPEN",
+    "title": "feat(indexer): define core types for indexer system"
+  },
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

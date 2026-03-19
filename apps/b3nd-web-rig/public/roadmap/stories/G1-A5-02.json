@@ -1,0 +1,31 @@
+{
+  "id": "G1-A5-02",
+  "title": "Implement WebSocketClient subscribe mode",
+  "group": "apps-possible",
+  "category": "subscriptions",
+  "section": "A5",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-client-ws/mod.ts",
+    "libs/b3nd-core/types.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A5-02",
+  "markdown": "\n## Goal\n\nExtend `WebSocketClient` to support subscriptions. Clients can subscribe to a URI prefix and receive push notifications via a callback, replacing polling for real-time use cases.\n\n## Background\n\nG1-A5-01 added subscription support to the server side. The `WebSocketClient` currently only handles request/response messages. It needs to:\n\n1. Send `subscribe` / `unsubscribe` requests\n2. Handle server-initiated `notification` messages (which have no matching request ID)\n3. Route notifications to registered callbacks\n\nThe message handler currently ignores any message without a matching pending request ID. Notifications need a separate dispatch path.\n\n## Acceptance Criteria\n\n- [ ] `WebSocketClient` has a `subscribe(prefix: string, callback: SubscriptionCallback): Promise<Subscription>` method\n- [ ] `SubscriptionCallback` type: `(uri: string, data: unknown, version?: number) => void`\n- [ ] `Subscription` type: `{ id: string; unsubscribe(): Promise<void> }`\n- [ ] Server-initiated notifications (messages without request IDs) are routed to matching subscription callbacks\n- [ ] `unsubscribe()` sends unsubscribe request to server and removes local callback\n- [ ] Multiple subscriptions on the same client work independently\n- [ ] Subscriptions survive reconnection (re-subscribed after reconnect)\n- [ ] `cleanup()` unsubscribes all active subscriptions\n- [ ] Tests: subscribe, receive notification, unsubscribe, reconnect re-subscribe\n\n## Implementation Guide\n\n1. Read `libs/b3nd-client-ws/mod.ts` to understand current message handling\n2. Add subscription tracking: `Map<string, { prefix: string, callback: SubscriptionCallback }>` (subscriptionId -> subscription)\n3. Modify `handleMessage`:\n   - If message has `type: \"notification\"`, find matching subscriptions by prefix and invoke callbacks\n   - Otherwise, handle as existing request/response\n4. Add `subscribe(prefix, callback)`:\n   - Send `{ type: \"subscribe\", payload: { prefix } }` request\n   - On success, store subscription locally with returned ID\n   - Return `Subscription` object with `unsubscribe()` method\n5. Add reconnection logic:\n   - After reconnection, iterate all active subscriptions and re-send subscribe requests\n   - This goes in the `connect()` success handler\n6. Add tests in `libs/b3nd-client-ws/mod_test.ts` (may need mock WebSocket)\n\n## Files to Create/Modify\n\n- `libs/b3nd-client-ws/mod.ts` -- add subscribe/unsubscribe methods, notification handling, reconnect re-subscription\n- `libs/b3nd-client-ws/mod_test.ts` -- tests for subscription lifecycle\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-client-ws/\n```\n\n## Dependencies\n\n- **Depends on**: G1-A5-01 (server-side subscription protocol)\n- **Blocks**: G1-A5-03 (React hooks need client subscribe API)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design WebSocket subscription protocol (server-push for URI prefix changes)\n- [ ] Implement server-side: node tracks subscriptions, pushes matching messages\n- [ ] Implement `WebSocketClient` subscribe mode (beyond current request/response)\n- [ ] Add React hooks for subscriptions (`useSubscription(prefix)`)"
+}

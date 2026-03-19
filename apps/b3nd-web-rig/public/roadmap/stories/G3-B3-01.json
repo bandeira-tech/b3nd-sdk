@@ -1,0 +1,32 @@
+{
+  "id": "G3-B3-01",
+  "title": "Replicate gas UTXOs and checkpoints across peers",
+  "group": "make-it-pay",
+  "category": "gas-multinode",
+  "section": "B3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "design+implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-replication.ts",
+    "libs/firecat-protocol/gas-replication_test.ts",
+    "docs/book/consensus/gas-replication.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B3-01",
+  "markdown": "\n## Goal\n\nDesign and implement the mechanism for replicating gas UTXOs and checkpoint records across multiple B3nd nodes. When a gas transaction is validated on one node, it must propagate to all peers so they have a consistent view of the unspent set. Checkpoints are compared across nodes to detect divergence. This is the foundation for multi-node gas and the prerequisite for cross-node double-spend detection.\n\n## Background\n\nToday, each B3nd node operates independently. The confirmation protocol (Group 2 work) provides the basic mechanism for nodes to attest to messages. Gas replication builds on this:\n\n1. Gas transactions are replicated like any other message (via the peer replication mechanism from Group 2)\n2. Checkpoints are shared between nodes: each validator node produces its own checkpoint chain\n3. Nodes compare checkpoint hashes to detect divergence: if node A and node B have different checkpoints for the same window, something is wrong\n\nThe replication strategy must handle:\n- **Ordering**: Gas UTXOs have dependencies (spend requires the UTXO to exist). Replication must respect this.\n- **Conflict**: Two nodes could accept conflicting spends of the same UTXO. Checkpoint comparison detects this.\n- **Bootstrapping**: A new node joining must sync the full UTXO set from peers.\n\nThis story focuses on the design document and a basic implementation that works with the existing `connect()` / peer mechanisms.\n\n## Acceptance Criteria\n\n- [ ] Design document: `docs/book/consensus/gas-replication.md` covering replication strategy, ordering guarantees, conflict detection, and bootstrap procedure\n- [ ] `GasReplicator` class: `constructor(localNode, peerNodes, tracker, checkpointProducer)`\n- [ ] `syncFromPeer(peerNode)` -- pulls gas UTXOs and checkpoints from a peer, validates, and writes to local node\n- [ ] `pushToPeers(message)` -- after local validation, pushes gas-relevant messages to peers\n- [ ] `compareCheckpoints(localCheckpoint, peerCheckpoint)` -- returns `{ match: boolean, divergence?: { sequence, localHash, peerHash } }`\n- [ ] Replication respects UTXO ordering: consumed markers only replicated after the referenced UTXO exists locally\n- [ ] Test: replicate gas genesis from node A to node B\n- [ ] Test: replicate gas spend from node A to node B (with ordering)\n- [ ] Test: checkpoint comparison detects matching checkpoints\n- [ ] Test: checkpoint comparison detects divergence\n\n## Implementation Guide\n\n1. Read `libs/b3nd-listener/mod.ts` to understand the existing connect/poll replication pattern\n2. Read `libs/firecat-protocol/gas-tracker.ts` for UTXO tracker\n3. Read `libs/firecat-protocol/gas-checkpoint.ts` for checkpoint producer\n4. Write design document first: `docs/book/consensus/gas-replication.md`\n   - Cover: replication topology (gossip vs direct peer), message ordering, conflict detection via checkpoints, bootstrap sync\n5. Create `libs/firecat-protocol/gas-replication.ts`:\n   - `GasReplicator` wraps existing peer communication (HttpClient or similar)\n   - On local gas message acceptance: push to peers\n   - Periodically pull from peers: scan for new gas:// URIs\n   - After each checkpoint: compare with peer checkpoints\n6. For ordering: use a simple queue -- if a consumed marker references a UTXO we don't have, queue it and retry after syncing the UTXO\n7. For checkpoint comparison: read `confirmation://checkpoints/{peerKey}/{sequence}` from peer node, compare hash with local checkpoint at same sequence\n8. Create test with two MemoryClient nodes simulating peer replication\n\n## Files to Create/Modify\n\n- `docs/book/consensus/gas-replication.md` -- new design document\n- `libs/firecat-protocol/gas-replication.ts` -- new file: GasReplicator class\n- `libs/firecat-protocol/gas-replication_test.ts` -- new file: test suite\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-replication_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G3-B2-01 (UTXO tracker), G3-B2-03 (checkpoints)\n- **Blocks**: G3-B3-02 (cross-node consumption detection), G3-B3-03 (relay proofs)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+}

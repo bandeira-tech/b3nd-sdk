@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { Identity } from "./identity.ts";
 import { Rig } from "./rig.ts";
-import { MemoryClient, createTestSchema } from "../b3nd-client-memory/mod.ts";
+import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
 
 // ── Identity tests ──
 
@@ -128,9 +128,9 @@ Deno.test("Rig.init - rejects no use or client", async () => {
   );
 });
 
-Deno.test("Rig.write - raw write works", async () => {
+Deno.test("Rig.receive - validates and stores", async () => {
   const rig = await Rig.init({ use: "memory://" });
-  const result = await rig.write("mutable://open/test", { hello: "world" });
+  const result = await rig.receive("mutable://open/test", { hello: "world" });
   assertEquals(result.accepted, true);
 
   const read = await rig.read("mutable://open/test");
@@ -182,26 +182,10 @@ Deno.test("Rig.identity - is swappable", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.writeSigned - signs and writes", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.init({ identity: id, use: "memory://" });
-
-  const result = await rig.writeSigned("mutable://open/signed", { data: "test" });
-  assertEquals(result.accepted, true);
-
-  const read = await rig.read("mutable://open/signed");
-  assertEquals(read.success, true);
-  // The stored data is an AuthenticatedMessage wrapper
-  const stored = read.record?.data as { auth: unknown[]; payload: unknown };
-  assertEquals(stored.payload, { data: "test" });
-  assertEquals(Array.isArray(stored.auth), true);
-  await rig.cleanup();
-});
-
 Deno.test("Rig.list - lists items", async () => {
   const rig = await Rig.init({ use: "memory://" });
-  await rig.write("mutable://open/a", 1);
-  await rig.write("mutable://open/b", 2);
+  await rig.receive("mutable://open/a", 1);
+  await rig.receive("mutable://open/b", 2);
 
   const result = await rig.list("mutable://open");
   assertEquals(result.success, true);
@@ -213,7 +197,7 @@ Deno.test("Rig.list - lists items", async () => {
 
 Deno.test("Rig.delete - deletes data", async () => {
   const rig = await Rig.init({ use: "memory://" });
-  await rig.write("mutable://open/del", "bye");
+  await rig.receive("mutable://open/del", "bye");
   const delResult = await rig.delete("mutable://open/del");
   assertEquals(delResult.success, true);
 
@@ -224,8 +208,8 @@ Deno.test("Rig.delete - deletes data", async () => {
 
 Deno.test("Rig.readMany - reads multiple URIs", async () => {
   const rig = await Rig.init({ use: "memory://" });
-  await rig.write("mutable://open/m1", "a");
-  await rig.write("mutable://open/m2", "b");
+  await rig.receive("mutable://open/m1", "a");
+  await rig.receive("mutable://open/m2", "b");
 
   const result = await rig.readMany(["mutable://open/m1", "mutable://open/m2"]);
   assertEquals(result.success, true);
@@ -243,7 +227,7 @@ Deno.test("Rig.client - exposes underlying client", async () => {
 Deno.test("Rig.init - multi-backend composes correctly", async () => {
   // Two memory backends — writes should go to both, reads from either
   const rig = await Rig.init({ use: ["memory://", "memory://"] });
-  await rig.write("mutable://open/multi", "shared");
+  await rig.receive("mutable://open/multi", "shared");
 
   const read = await rig.read("mutable://open/multi");
   assertEquals(read.success, true);

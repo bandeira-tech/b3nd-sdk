@@ -1,0 +1,31 @@
+{
+  "id": "G1-A6-12",
+  "title": "Implement verifyIndexerResult for spot-check verification",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/verify.ts",
+    "libs/b3nd-indexer/verify_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-12",
+  "markdown": "\n## Goal\n\nImplement `verifyIndexerResult()` -- a spot-check mechanism that compares indexer output against the source node to detect stale or corrupted index entries. This provides trust-but-verify capability for indexed data.\n\n## Background\n\nIndexers are derived data. They can become stale (missed a write), corrupted (bug in extract function), or tampered with (if the indexer runs on untrusted infrastructure). `verifyIndexerResult()` picks random results from the indexer, reads the original record from the source node, re-runs the extract function, and compares.\n\n## Acceptance Criteria\n\n- [ ] `verifyIndexerResult(options)` function:\n  - `source: NodeProtocolInterface` -- the source of truth\n  - `backend: IndexerBackend` -- the indexer to verify\n  - `definition: IndexerDefinition` -- the extraction logic\n  - `sampleSize?: number` (default 10)\n  - `query?: IndexQuery` -- optional query to scope verification (e.g., verify only recent entries)\n- [ ] Returns `VerificationResult`:\n  - `verified: number` -- count of entries that matched\n  - `mismatched: number` -- count of entries that differed\n  - `missing: number` -- count of entries in indexer but not in source\n  - `details: Array<{ uri: string; status: \"ok\" | \"mismatch\" | \"missing\"; expected?: Record<string, unknown>; actual?: Record<string, unknown> }>`\n- [ ] For each sampled entry: read from source, extract fields, deep compare with indexed fields\n- [ ] Handles gracefully: source record deleted (mark as \"missing\"), extraction returns null (mark as \"should_not_be_indexed\")\n- [ ] Tests: all-matching verification, mismatch detection, missing source detection\n\n## Implementation Guide\n\n1. Create `libs/b3nd-indexer/verify.ts`:\n   - Query backend with optional scope query, sample `sampleSize` random entries\n   - For each entry: `source.read(uri)` -> `definition.extract(uri, data)` -> deep compare with indexed fields\n   - Collect results\n2. Create `libs/b3nd-indexer/verify_test.ts`:\n   - Use MemoryClient as source, mock backend\n   - Test happy path (all match)\n   - Test mismatch (modify indexed data to differ from source)\n   - Test missing (delete source record after indexing)\n3. Export from `libs/b3nd-indexer/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/verify.ts` -- new: verification implementation\n- `libs/b3nd-indexer/verify_test.ts` -- new: tests\n- `libs/b3nd-indexer/mod.ts` -- add export\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-indexer/verify_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-02 (backend), G1-A6-03 (extraction logic)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

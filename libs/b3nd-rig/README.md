@@ -5,7 +5,7 @@ The universal harness for b3nd. Single import, convention over configuration.
 ## Quick Start
 
 ```typescript
-import { Rig, Identity } from "@b3nd/rig";
+import { Identity, Rig } from "@b3nd/rig";
 
 // Create an identity (deterministic from seed, or generate fresh)
 const id = await Identity.fromSeed("my-secret");
@@ -32,12 +32,22 @@ The rig eliminates manual wiring. Before:
 
 ```typescript
 // without rig — 15 lines of setup
-const pgClient = new PostgresClient({ connection, schema, tablePrefix, poolSize, connectionTimeout }, executor);
+const pgClient = new PostgresClient({
+  connection,
+  schema,
+  tablePrefix,
+  poolSize,
+  connectionTimeout,
+}, executor);
 await pgClient.initializeSchema();
 const httpClient = new HttpClient({ url: replicaUrl });
 const write = parallelBroadcast([pgClient, httpClient]);
 const read = firstMatchSequence([pgClient, httpClient]);
-const client = createValidatedClient({ write, read, validate: msgSchema(schema) });
+const client = createValidatedClient({
+  write,
+  read,
+  validate: msgSchema(schema),
+});
 const identity = await IdentityKey.fromPem(pem, pubkey);
 const signature = await identity.sign(payload);
 const msg = { auth: [{ pubkey, signature }], payload };
@@ -48,7 +58,11 @@ After:
 
 ```typescript
 // with rig — 4 lines
-const rig = await Rig.init({ use: ["postgresql://localhost/b3nd", "https://replica.b3nd.net"], schema, executors: { postgres: createPostgresExecutor } });
+const rig = await Rig.init({
+  use: ["postgresql://localhost/b3nd", "https://replica.b3nd.net"],
+  schema,
+  executors: { postgres: createPostgresExecutor },
+});
 rig.identity = await Identity.fromPem(pem, pubkey);
 await rig.send({ inputs: [], outputs: [["mutable://app/key", value]] });
 ```
@@ -57,15 +71,16 @@ await rig.send({ inputs: [], outputs: [["mutable://app/key", value]] });
 
 Every URL string in `use` becomes a typed client:
 
-| URL Protocol | Client |
-|---|---|
-| `https://` / `http://` | `HttpClient` |
-| `wss://` / `ws://` | `WebSocketClient` |
-| `memory://` | `MemoryClient` |
-| `postgresql://` | `PostgresClient` (requires `executors.postgres`) |
-| `mongodb://` | `MongoClient` (requires `executors.mongo`) |
+| URL Protocol           | Client                                           |
+| ---------------------- | ------------------------------------------------ |
+| `https://` / `http://` | `HttpClient`                                     |
+| `wss://` / `ws://`     | `WebSocketClient`                                |
+| `memory://`            | `MemoryClient`                                   |
+| `postgresql://`        | `PostgresClient` (requires `executors.postgres`) |
+| `mongodb://`           | `MongoClient` (requires `executors.mongo`)       |
 
-Multiple URLs = `parallelBroadcast` for writes, `firstMatchSequence` for reads. Single URL = direct pass-through.
+Multiple URLs = `parallelBroadcast` for writes, `firstMatchSequence` for reads.
+Single URL = direct pass-through.
 
 ## Identity
 
@@ -99,25 +114,32 @@ id.signer;                                     // { privateKey, publicKeyHex }
 Identity is **swappable** on the rig at any time:
 
 ```typescript
-rig.identity = alice;   // sign as alice
-rig.identity = bob;     // now sign as bob
-rig.identity = null;    // read-only mode (send() throws)
+rig.identity = alice; // sign as alice
+rig.identity = bob; // now sign as bob
+rig.identity = null; // read-only mode (send() throws)
 ```
 
 ## API
 
-### Write
+### Send (outbound)
 
 ```typescript
 // Auto-signed MessageData envelope (most common)
 await rig.send({ inputs: [...], outputs: [[uri, value]] });
-
-// Raw write (no signing, no envelope)
-await rig.write(uri, data);
-
-// Signed write (wraps data in AuthenticatedMessage, no envelope)
-await rig.writeSigned(uri, data);
 ```
+
+Signs with the current identity, hashes the envelope, and broadcasts to all
+backends.
+
+### Receive (inbound)
+
+```typescript
+// Validate → store
+await rig.receive(uri, data);
+```
+
+Passes data through schema validation (if configured), then stores in all
+backends. This is the counterpart to `send()`.
 
 ### Read
 
@@ -134,16 +156,26 @@ await rig.delete(uri);
 await rig.health();
 await rig.getSchema();
 await rig.cleanup();
-rig.client;   // escape hatch: raw NodeProtocolInterface
+rig.client; // escape hatch: raw NodeProtocolInterface
 ```
 
-### Serve (Deno only)
+### HTTP Server (separate layer)
+
+The rig is the "brain" — it doesn't serve HTTP. The HTTP server is a separate
+media/transport layer:
 
 ```typescript
-await rig.serve({ port: 3000, cors: "*", healthMeta: { version: "1.0" } });
-```
+import { Hono } from "npm:hono";
+import { cors } from "npm:hono/cors";
+import { servers } from "@bandeira-tech/b3nd-sdk";
 
-Starts an HTTP server with all b3nd API routes (`/api/v1/receive`, `/api/v1/read/...`, etc.).
+const app = new Hono();
+app.use("*", cors({ origin: "*" }));
+
+const frontend = servers.httpServer(app, { healthMeta: { version: "1.0" } });
+frontend.configure({ client: rig.client });
+frontend.listen(3000);
+```
 
 ## Examples
 
@@ -162,7 +194,12 @@ const rig = await Rig.init({
   schema: mySchema,
   executors: { postgres: createPostgresExecutor },
 });
-await rig.serve({ port: 3000, cors: "*" });
+
+// Wire HTTP separately
+const app = new Hono();
+const frontend = servers.httpServer(app);
+frontend.configure({ client: rig.client });
+frontend.listen(3000);
 ```
 
 ### Multi-backend with replication

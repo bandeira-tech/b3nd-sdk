@@ -1,0 +1,39 @@
+{
+  "id": "G1-A4-01",
+  "title": "Design conditional writes with optimistic locking (receiveIf)",
+  "group": "apps-possible",
+  "category": "concurrency",
+  "section": "A4",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "design+implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-core/types.ts",
+    "libs/b3nd-compose/types.ts",
+    "libs/b3nd-compose/validated-client.ts",
+    "libs/b3nd-client-memory/mod.ts"
+  ],
+  "tags": [],
+  "status": "in-progress",
+  "pr": {
+    "number": 21,
+    "url": "https://github.com/bandeira-tech/b3nd-sdk/pull/21",
+    "state": "OPEN",
+    "title": "feat(core): conditional writes with optimistic locking (receiveIf)"
+  },
+  "uri": "mutable://open/rig/roadmap/stories/G1-A4-01",
+  "markdown": "\n## Goal\n\nAdd version tracking to persistence records and implement `receiveIf()` -- a conditional write primitive that enables optimistic locking. This prevents lost-update problems where two clients read the same record, both modify it, and the second write silently overwrites the first.\n\n## Background\n\nToday, `PersistenceRecord` has only `{ ts, data }`. There is no mechanism for a client to say \"write this only if the record hasn't changed since I last read it.\" Every `receive()` call is an unconditional overwrite.\n\nThe simplest approach: add a `version` field to `PersistenceRecord` (monotonically incrementing integer, starting at 1). The `receiveIf` method accepts an `expectedVersion` option. If the current version does not match, the write is rejected with a clear error.\n\nContent-hash-as-version was considered but rejected: it conflates \"data changed\" with \"version advanced,\" making idempotent rewrites fail unexpectedly.\n\n## Acceptance Criteria\n\n- [ ] `PersistenceRecord` has an optional `version?: number` field\n- [ ] `ReceiveResult` has an optional `version?: number` field (returns new version on success)\n- [ ] A new `ConditionalWriteOptions` type exists: `{ expectedVersion?: number }`\n- [ ] `NodeProtocolWriteInterface` gains `receiveIf<D>(msg: Message<D>, options: ConditionalWriteOptions): Promise<ReceiveResult>`\n- [ ] `MemoryClient` implements `receiveIf` with version tracking (version starts at 1, increments on each write)\n- [ ] `MemoryClient.read()` returns `version` in the record\n- [ ] `receiveIf` with wrong `expectedVersion` returns `{ accepted: false, error: \"version_conflict\", version: currentVersion }`\n- [ ] `receiveIf` without `expectedVersion` behaves like unconditional `receive()` (backwards compatible)\n- [ ] `createValidatedClient` passes through `receiveIf` to the write backend\n- [ ] All existing tests continue to pass (version field is optional, non-breaking)\n- [ ] New tests cover: first write (version=1), conditional update (version=2), conflict rejection, missing expectedVersion\n\n## Implementation Guide\n\n1. Read `libs/b3nd-core/types.ts` to understand current `PersistenceRecord`, `ReceiveResult`, `NodeProtocolWriteInterface`\n2. Add `version?: number` to `PersistenceRecord`\n3. Add `version?: number` to `ReceiveResult`\n4. Create `ConditionalWriteOptions` type: `{ expectedVersion?: number }`\n5. Add `receiveIf<D>(msg: Message<D>, options: ConditionalWriteOptions): Promise<ReceiveResult>` to `NodeProtocolWriteInterface`\n6. Read `libs/b3nd-client-memory/mod.ts` -- implement `receiveIf`:\n   - Track version per URI in a separate `Map<string, number>`\n   - On write: if `expectedVersion` is provided and doesn't match current version, reject\n   - On successful write: increment version, include in result\n   - On `read()`: include version in returned record\n7. Read `libs/b3nd-compose/validated-client.ts` -- make `createValidatedClient` pass `receiveIf` through to the write backend (validate first, then call `write.receiveIf`)\n8. Add tests in `libs/b3nd-client-memory/mod_test.ts`:\n   - First write returns version=1\n   - Read returns version=1\n   - receiveIf with expectedVersion=1 succeeds, returns version=2\n   - receiveIf with expectedVersion=1 (stale) fails with version_conflict\n   - receiveIf without expectedVersion succeeds (unconditional)\n\n## Files to Create/Modify\n\n- `libs/b3nd-core/types.ts` -- add version to PersistenceRecord, ReceiveResult, add ConditionalWriteOptions, add receiveIf to interface\n- `libs/b3nd-client-memory/mod.ts` -- implement receiveIf with version tracking\n- `libs/b3nd-compose/validated-client.ts` -- wire receiveIf through validation\n- `libs/b3nd-client-memory/mod_test.ts` -- new tests for version tracking and conditional writes\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-client-memory/\n```\n\nVerify all existing tests still pass:\n```bash\ndeno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo libs/b3nd-*/\n```\n\n## Dependencies\n\n- **Depends on**: Nothing -- this is a foundational change\n- **Blocks**: G1-A4-02 (all other clients implementing receiveIf)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design `receiveIf(uri, data, { expectedVersion })` — conditional writes with optimistic locking\n- [ ] Add version tracking to records (or use content hash as version)\n- [ ] Update all client implementations to support conditional writes\n- [ ] Document concurrency model and recommended patterns"
+}

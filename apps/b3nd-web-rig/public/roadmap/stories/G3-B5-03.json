@@ -1,0 +1,30 @@
+{
+  "id": "G3-B5-03",
+  "title": "Define withdrawal mechanics parameters and gas price adaptation formula",
+  "group": "make-it-pay",
+  "category": "ad-revenue",
+  "section": "B5",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/withdrawal-and-gas-adaptation.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B5-03",
+  "markdown": "\n## Goal\n\nFinalize the token withdrawal mechanics parameters (cliff period, minimum threshold, gradual disbursement schedule) and the gas price adaptation formula (floor price, responsiveness coefficient, oscillation prevention). These are currently described with \"e.g.\" placeholder values in the economic model. This story replaces placeholders with analyzed, justified parameters.\n\n## Background\n\n**Withdrawal mechanics**: When participants earn tokens (from ad revenue, validation rewards, relay rewards), those tokens are not immediately available. They go through a vesting/disbursement schedule:\n\n1. **Cliff period**: No withdrawals for the first N epochs after earning (prevents hit-and-run)\n2. **Minimum threshold**: Cannot withdraw less than X gas tokens (prevents dust withdrawals that cost more in gas than they're worth)\n3. **Gradual disbursement**: After cliff, tokens vest linearly over M epochs (prevents market dumps)\n\nCurrent placeholder values: cliff = 7 days, minimum = 100 tokens, vesting = 30 days. These need analysis.\n\n**Gas price adaptation**: The adaptive rate engine (G3-B2-05) needs specific formula parameters:\n\n1. **Floor price**: Minimum gas fee that the rate can never go below (prevents free-riding)\n2. **Responsiveness**: How quickly fees react to congestion (too fast = oscillation, too slow = spam during spikes)\n3. **Oscillation prevention**: Dampening factor to prevent fees from bouncing between high and low\n4. **Target utilization**: What percentage of capacity triggers neutral (no adjustment) pricing\n\n## Acceptance Criteria\n\n- [ ] Withdrawal cliff period: justified value with analysis (how long prevents hit-and-run? comparative analysis with other protocols)\n- [ ] Minimum withdrawal threshold: calculated based on expected gas costs and token value\n- [ ] Gradual disbursement schedule: linear vs exponential, duration justified\n- [ ] Withdrawal formula fully specified: `available(epoch) = earned * max(0, (epoch - cliff) / vesting_period)`\n- [ ] Gas floor price: justified based on minimum cost to operate a node\n- [ ] Responsiveness coefficient: analyzed for stability (simulation or mathematical analysis)\n- [ ] Dampening factor: prevents oscillation (EMA-based or moving average)\n- [ ] Target utilization: justified (e.g., 80% -- leave headroom for bursts)\n- [ ] Gas adaptation formula fully specified: `new_rate = ema(old_rate * (1 + k * (utilization - target) / target), alpha)`\n- [ ] All parameters have \"safe defaults\" for launch and \"adjustable via governance\" for future\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/gas-adaptive-rates.ts` (from G3-B2-05) for current rate engine\n2. Read `libs/firecat-protocol/gas-withdraw.ts` (from G3-B3-05) for current withdraw design\n3. Read existing economic model docs for context\n4. Create `docs/book/consensus/withdrawal-and-gas-adaptation.md`:\n   - Section 1: Withdrawal Mechanics\n     - Cliff analysis: compare Ethereum (no cliff on gas rewards), Cosmos (21 day unbonding), Solana (cooling period)\n     - Recommendation: 7-epoch cliff (epochs = ~24h each, so ~1 week)\n     - Minimum threshold: 100 gas tokens (based on: at 1 gas per transaction, 100 tokens covers meaningful activity)\n     - Disbursement: linear over 30 epochs (~1 month), `available(t) = earned * min(1, (t - cliff) / vesting_duration)`\n     - Edge cases: what happens if token is slashed during vesting? (reduce remaining unvested)\n   - Section 2: Gas Price Adaptation Formula\n     - Base formula: `new_rate = current_rate * (1 + k * (actual_load / target_load - 1))`\n     - Smoothing: Apply EMA: `smoothed_rate = alpha * new_rate + (1 - alpha) * old_rate`\n     - Parameters: k = 0.125 (12.5% max adjustment per epoch), alpha = 0.3 (strong smoothing)\n     - Floor: 1 gas token per transaction (non-negotiable minimum)\n     - Ceiling: 1000 gas tokens per transaction (prevents runaway fees)\n     - Target utilization: 80% of epoch capacity\n     - Oscillation analysis: with k=0.125 and alpha=0.3, convergence to steady state within ~10 epochs\n   - Section 3: Sensitivity Analysis\n     - Model different traffic patterns: steady, bursty, gradual growth, sudden drop\n     - Show how the formula responds to each\n     - Identify failure modes and mitigations\n   - Section 4: Governance Parameters\n     - Which parameters can be adjusted post-launch?\n     - What governance mechanism adjusts them?\n     - Safety bounds on each parameter\n\n## Files to Create/Modify\n\n- `docs/book/consensus/withdrawal-and-gas-adaptation.md` -- new design document\n\n## Testing\n\nNo code tests. Review document for mathematical consistency and parameter justification.\n\n## Dependencies\n\n- **Depends on**: G3-B5-02 (reputation affects withdrawal eligibility), G3-B2-05 (adaptive rate engine)\n- **Blocks**: Nothing -- this finalizes parameter choices for previously designed systems\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design ad campaign matching algorithm (how listener nodes match campaigns to user sessions)\n- [ ] Design settlement epoch mechanism (how epochs trigger, how distribution is calculated and verified)\n- [ ] Design reputation system formula (score calculation, decay, flagging)\n- [ ] Design attestation ecosystem (who runs verification services, how users collect attestations, cost structure)\n- [ ] Define token withdrawal mechanics parameters (cliff, minimum threshold, gradual disbursement — cur"
+}

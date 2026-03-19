@@ -1,0 +1,33 @@
+{
+  "id": "G1-A6-10",
+  "title": "Implement React hooks for indexer queries",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "apps/b3nd-web-rig/src/hooks/useIndexedQuery.ts",
+    "apps/b3nd-web-rig/src/hooks/useIndexedSearch.ts",
+    "apps/b3nd-web-rig/src/hooks/useAggregation.ts",
+    "apps/b3nd-web-rig/src/hooks/useIndexerHealth.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-10",
+  "markdown": "\n## Goal\n\nCreate React hooks that wrap the `HttpIndexerClient`, providing declarative data fetching for indexed queries, search, and aggregation. These hooks handle loading states, error handling, caching, and refetching.\n\n## Background\n\nG1-A6-09 provides the `HttpIndexerClient` for remote indexer access. React apps need hooks that integrate with React's lifecycle (fetch on mount, refetch on dependency changes, cleanup on unmount).\n\n## Acceptance Criteria\n\n- [ ] `useIndexedQuery<T>(query: IndexQuery, options?)` hook:\n  - Fetches on mount and when query changes (deep comparison)\n  - Returns `{ data: IndexQueryResult<T> | null; loading: boolean; error: string | null; refetch: () => void }`\n  - Options: `{ enabled?: boolean; refetchInterval?: number; client?: HttpIndexerClient }`\n- [ ] `useIndexedSearch<T>(text: string, options?)` hook:\n  - Debounces search text (300ms default, configurable)\n  - Returns `{ results: IndexQueryResult<T> | null; loading: boolean; error: string | null }`\n  - Options: `{ debounceMs?: number; fields?: string[]; limit?: number; enabled?: boolean }`\n- [ ] `useAggregation(pipeline: AggregationStage[], options?)` hook:\n  - Returns `{ data: AggregationResult | null; loading: boolean; error: string | null; refetch: () => void }`\n- [ ] `useIndexerHealth()` hook:\n  - Returns `{ health: IndexerHealthStatus | null; loading: boolean }`\n  - Polls every 30 seconds (configurable)\n- [ ] All hooks handle component unmount (abort in-flight requests)\n- [ ] All hooks support an `enabled` option to conditionally skip fetching\n\n## Implementation Guide\n\n1. Read `apps/b3nd-web-rig/src/hooks/` for existing hook patterns\n2. Create each hook file:\n   - Use `useState` for data/loading/error state\n   - Use `useEffect` for fetch-on-mount and fetch-on-dependency-change\n   - Use `useCallback` for refetch function\n   - Use `useRef` for AbortController to cancel in-flight requests on unmount or re-render\n   - For `useIndexedSearch`: use `useRef` + `setTimeout` for debounce\n3. Create a shared utility:\n   - `useIndexerClient()` hook or context that provides the `HttpIndexerClient` instance\n   - Falls back to a default client created from environment/config\n4. Example usage in comments for each hook\n\n## Files to Create/Modify\n\n- `apps/b3nd-web-rig/src/hooks/useIndexedQuery.ts` -- new\n- `apps/b3nd-web-rig/src/hooks/useIndexedSearch.ts` -- new\n- `apps/b3nd-web-rig/src/hooks/useAggregation.ts` -- new\n- `apps/b3nd-web-rig/src/hooks/useIndexerHealth.ts` -- new\n- `apps/b3nd-web-rig/src/hooks/useIndexerClient.ts` -- new: shared client context/hook\n\n## Testing\n\nManual testing in web rig:\n```bash\ncd apps/b3nd-web-rig && npm run dev\n```\n\nCreate a test component that exercises each hook with the SDK inspector or test data.\n\n## Dependencies\n\n- **Depends on**: G1-A6-09 (HttpIndexerClient)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

@@ -72,6 +72,7 @@ export const RIG_ACCOUNTS_PATH = "/accounts";
 export const RIG_DASHBOARD_PATH = "/dashboard";
 export const RIG_NODES_PATH = "/nodes";
 export const RIG_LEARN_PATH = "/learn";
+export const RIG_ROADMAP_PATH = "/roadmap";
 
 export function routeForExplorerPath(
   path: string,

@@ -1,0 +1,32 @@
+{
+  "id": "G3-B2-05",
+  "title": "Implement adaptive fee rates with congestion-based adjustment",
+  "group": "make-it-pay",
+  "category": "gas-runtime",
+  "section": "B2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-fee-engine.ts",
+    "libs/firecat-protocol/gas-adaptive-rates.ts",
+    "libs/firecat-protocol/gas-adaptive-rates_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B2-05",
+  "markdown": "\n## Goal\n\nImplement an adaptive fee rate mechanism that adjusts gas prices based on network congestion at epoch boundaries. When the network is busy (many messages per checkpoint), fees increase; when quiet, fees decrease toward a floor. This prevents spam during high-demand periods and keeps costs low during normal operation. Fee adjustments are recorded as new `gas://rates` entries at each epoch.\n\n## Background\n\nIn Phase 0/early Phase 1, fee rates are static constants. This story adds dynamic adjustment:\n\n- **Epoch**: defined by checkpoint intervals (e.g., every 100 messages = 1 epoch)\n- **Congestion metric**: messages per epoch vs target capacity (e.g., target = 80 messages/epoch)\n- **Adjustment formula**: `new_rate = current_rate * (1 + adjustment_factor * (actual - target) / target)`\n- **Floor**: rates cannot go below a minimum (e.g., `MIN_BASE_FEE = 1`)\n- **Ceiling**: rates cannot exceed a maximum (e.g., `MAX_BASE_FEE = 100`)\n- **Smoothing**: adjustment factor is small (e.g., 0.125) to prevent oscillation\n\nThe rate adjuster runs at checkpoint time: when a checkpoint is produced, it evaluates congestion for that epoch and writes updated rates to `gas://rates/{program}`.\n\nThis is a single-node concern for Phase 1. Multi-node rate consensus comes in Phase 2.\n\n## Acceptance Criteria\n\n- [ ] `AdaptiveRateEngine` class: `constructor(options)`, `evaluateEpoch(messageCount, currentRates)`, `getAdjustedRates()`\n- [ ] `options` includes: `targetMessagesPerEpoch`, `adjustmentFactor`, `minBaseFee`, `maxBaseFee`\n- [ ] `evaluateEpoch` computes new rates based on congestion: above target -> increase, below target -> decrease\n- [ ] Rates clamped to [minBaseFee, maxBaseFee]\n- [ ] `publishAdjustedRates(writer, rates)` writes new rates to `gas://rates/{program}`\n- [ ] Integration with CheckpointProducer: rate adjustment triggered at each checkpoint\n- [ ] Test: high congestion -> rates increase\n- [ ] Test: low congestion -> rates decrease toward floor\n- [ ] Test: rates do not exceed ceiling\n- [ ] Test: rates do not go below floor\n- [ ] Test: zero messages -> rates decrease\n- [ ] Test: published rates are readable from state\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/gas-fee-engine.ts` for current fee calculation\n2. Read `libs/firecat-protocol/gas-checkpoint.ts` for checkpoint producer\n3. Create `libs/firecat-protocol/gas-adaptive-rates.ts`:\n   ```typescript\n   interface AdaptiveRateOptions {\n     targetMessagesPerEpoch: number;  // e.g., 80\n     adjustmentFactor: number;         // e.g., 0.125\n     minBaseFee: number;               // e.g., 1\n     maxBaseFee: number;               // e.g., 100\n   }\n\n   interface ProgramRate {\n     program: string;\n     base_fee: number;\n     size_fee_per_kb: number;\n   }\n\n   export class AdaptiveRateEngine {\n     constructor(private options: AdaptiveRateOptions) {}\n\n     evaluateEpoch(\n       messageCount: number,\n       currentRates: ProgramRate[],\n     ): ProgramRate[] { ... }\n   }\n\n   export async function publishAdjustedRates(\n     writer: NodeProtocolWriteInterface,\n     rates: ProgramRate[],\n   ): Promise<void> { ... }\n   ```\n4. In `evaluateEpoch`:\n   - Calculate congestion ratio: `actual / target`\n   - If ratio > 1: increase rates by `adjustmentFactor * (ratio - 1)`\n   - If ratio < 1: decrease rates by `adjustmentFactor * (1 - ratio)`\n   - Clamp each rate to [min, max]\n   - Apply same ratio to size_fee_per_kb\n5. Wire into checkpoint flow: after checkpoint is produced, call `evaluateEpoch` with the message count from that checkpoint window\n6. Note: since `gas://rates` is write-once per the schema, new rates are written to versioned URIs: `gas://rates/{program}/{epoch}`. The fee engine reads the latest epoch's rate. Update the rates validator in gas-validators.ts to allow this pattern.\n7. Create `libs/firecat-protocol/gas-adaptive-rates_test.ts`\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/gas-adaptive-rates.ts` -- new file: AdaptiveRateEngine, publishAdjustedRates\n- `libs/firecat-protocol/gas-adaptive-rates_test.ts` -- new file: test suite\n- `libs/firecat-protocol/gas-validators.ts` -- update gasRatesValidator to support epoch-versioned URIs\n- `libs/firecat-protocol/gas-fee-engine.ts` -- update to read latest epoch's rates\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-adaptive-rates_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G3-B2-02 (fee engine), G3-B2-03 (checkpoints define epochs)\n- **Blocks**: G3-B5-06 (gas price adaptation formula design)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement UTXO tracking (unspent set maintenance, consumption detection)\n- [ ] Implement fee calculation engine (base_fee per program + size_fee per KB)\n- [ ] Implement checkpoint hash chain (single validator producing `confirmation://checkpoints/{validatorKey}/{sequence}`)\n- [ ] Implement sponsor assembly flow (partial messages without gas → sponsor attaches UTXO → validator confirms)\n- [ ] Implement adaptive fee rates (congestion-based adjustment at epoch boundaries)\n- [ ] Implement free"
+}

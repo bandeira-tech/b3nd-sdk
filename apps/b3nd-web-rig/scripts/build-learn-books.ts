@@ -3,7 +3,7 @@
  *
  * Reads markdown sources, builds a LearnCatalog of books where every book
  * is a list of chapters. Single-file books become one-chapter books.
- * Multi-file books (docs/book/) become many-chapter books. Same shape.
+ * Multi-file books (docs/books/<name>/) become many-chapter books. Same shape.
  *
  * Each chapter's content is stored at its own URI / static file.
  * The catalog index contains only metadata — no markdown.
@@ -76,7 +76,63 @@ interface BookMeta {
 
 const SKILLS_DIR = "skills/b3nd";
 const PROPOSALS_DIR = "docs/proposals";
-const BOOK_DIR = "docs/book";
+const BOOKS_DIR = "docs/books";
+
+// ---------------------------------------------------------------------------
+// Multi-chapter book configuration — one entry per docs/books/<dirname>/
+// ---------------------------------------------------------------------------
+
+interface MultiBookConfig {
+  key: string;
+  label: string;
+  description: string;
+  tier: "guide" | "documentation" | "cookbook" | "design" | "proposals";
+  fallbackTitle: string;
+  includeReadme: boolean;
+  parts: Record<string, string>;
+}
+
+const MULTI_BOOK_META: Record<string, MultiBookConfig> = {
+  messages: {
+    key: "message-guide",
+    label: "What's in a Message",
+    description: "A design guide teaching b3nd through dialogue, letters, and digital messages",
+    tier: "guide",
+    fallbackTitle: "What's in a Message",
+    includeReadme: false,
+    parts: {
+      "01": "The Conversation",
+      "02": "The Conversation",
+      "03": "The Conversation",
+      "04": "The Conversation",
+      "05": "The Conversation",
+      "06": "The Message",
+      "07": "The Message",
+      "08": "The Message",
+      "09": "The Message",
+      "10": "The Network",
+      "11": "The Network",
+      "12": "The Network",
+      "13": "The Network",
+      "14": "The Network",
+      "15": "The Network",
+      "16": "The Network",
+    },
+  },
+  consensus: {
+    key: "consensus",
+    label: "Consensus in B3nd",
+    description: "Work lifecycle, staged validation, and block-based timing",
+    tier: "design",
+    fallbackTitle: "Consensus in B3nd",
+    includeReadme: true,
+    parts: {},
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Single-file book metadata (skills/ and proposals/)
+// ---------------------------------------------------------------------------
 
 const BOOK_META: Record<string, BookMeta> = {
   "SKILL.md": { key: "b3nd", label: "B3nd Overview", description: "What B3nd is and how it works", tier: "documentation" },
@@ -94,26 +150,6 @@ const BOOK_META: Record<string, BookMeta> = {
   "tokenization-gas-semantics.md": { key: "tokenization-gas-semantics", label: "Tokenization & Gas Semantics", description: "Economic layer proposals for B3nd message passing", tier: "proposals" },
   "firecat-economic-model.md": { key: "firecat-economic-model", label: "Firecat Economic Model", description: "Full economic vision: subsidies, ads, node operators, DePIN template", tier: "proposals" },
   "bridge-token-movement.md": { key: "bridge-token-movement", label: "Token Movement", description: "Layers, options, and engagement patterns for cross-chain token flow", tier: "proposals" },
-};
-
-// Part assignments for multi-chapter book chapters
-const CHAPTER_PARTS: Record<string, string> = {
-  "01": "The Conversation",
-  "02": "The Conversation",
-  "03": "The Conversation",
-  "04": "The Conversation",
-  "05": "The Conversation",
-  "06": "The Message",
-  "07": "The Message",
-  "08": "The Message",
-  "09": "The Message",
-  "10": "The Network",
-  "11": "The Network",
-  "12": "The Network",
-  "13": "The Network",
-  "14": "The Network",
-  "15": "The Network",
-  "16": "The Network",
 };
 
 // ---------------------------------------------------------------------------
@@ -201,30 +237,34 @@ async function readSingleFileBook(filePath: string, filename: string): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-// Multi-chapter book reading (docs/book/)
+// Multi-chapter book reading (docs/books/<dirname>/)
 // ---------------------------------------------------------------------------
 
-async function readMultiChapterBook(): Promise<{ book: LearnBook; chapters: CollectedChapter[] } | null> {
-  const bookKey = "message-guide";
-  const uriBase = `mutable://open/rig/learn/chapters/${bookKey}`;
+async function readMultiChapterBook(
+  dirName: string,
+  config: MultiBookConfig,
+): Promise<{ book: LearnBook; chapters: CollectedChapter[] } | null> {
+  const bookDir = `${BOOKS_DIR}/${dirName}`;
+  const uriBase = `mutable://open/rig/learn/chapters/${config.key}`;
 
   let readmeMarkdown = "";
   try {
-    readmeMarkdown = await Deno.readTextFile(`${BOOK_DIR}/README.md`);
+    readmeMarkdown = await Deno.readTextFile(`${bookDir}/README.md`);
   } catch {
-    console.warn(`  No README.md found in ${BOOK_DIR}`);
+    console.warn(`  No README.md found in ${bookDir}`);
   }
 
-  const bookTitle = extractTitle(readmeMarkdown, "README.md") || "What's in a Message";
+  const bookTitle = extractTitle(readmeMarkdown, "README.md") || config.fallbackTitle;
 
   const chapterFiles: string[] = [];
   try {
-    for await (const entry of Deno.readDir(BOOK_DIR)) {
-      if (!entry.isFile || !entry.name.endsWith(".md") || entry.name === "README.md") continue;
+    for await (const entry of Deno.readDir(bookDir)) {
+      if (!entry.isFile || !entry.name.endsWith(".md")) continue;
+      if (entry.name === "README.md" && !config.includeReadme) continue;
       chapterFiles.push(entry.name);
     }
   } catch (e) {
-    console.warn(`  Could not read ${BOOK_DIR}: ${e}`);
+    console.warn(`  Could not read ${bookDir}: ${e}`);
     return null;
   }
 
@@ -235,7 +275,7 @@ async function readMultiChapterBook(): Promise<{ book: LearnBook; chapters: Coll
   let latestMtime = 0;
 
   for (const filename of chapterFiles) {
-    const filePath = `${BOOK_DIR}/${filename}`;
+    const filePath = `${bookDir}/${filename}`;
     const markdown = await Deno.readTextFile(filePath);
     const stat = await Deno.stat(filePath);
     if (stat.mtime && stat.mtime.getTime() > latestMtime) {
@@ -244,11 +284,11 @@ async function readMultiChapterBook(): Promise<{ book: LearnBook; chapters: Coll
 
     const numMatch = filename.match(/^(\d+)/);
     const chapterNum = numMatch ? parseInt(numMatch[1], 10) : 0;
-    const chapterKey = filename.replace(/\.md$/, "");
+    const chapterKey = filename.replace(/\.md$/, "").toLowerCase();
     const title = extractTitle(markdown, filename);
     const sections = parseSections(markdown);
-    const partPrefix = numMatch ? numMatch[1] : "00";
-    const part = CHAPTER_PARTS[partPrefix] ?? "Appendix";
+    const partPrefix = numMatch ? numMatch[1] : "";
+    const part = (partPrefix && config.parts[partPrefix]) ?? "";
     const uri = `${uriBase}/${chapterKey}`;
 
     chapters.push({
@@ -258,11 +298,11 @@ async function readMultiChapterBook(): Promise<{ book: LearnBook; chapters: Coll
   }
 
   const book: LearnBook = {
-    key: bookKey,
+    key: config.key,
     title: bookTitle,
-    label: "What's in a Message",
-    description: "A design guide teaching b3nd through dialogue, letters, and digital messages",
-    tier: "guide",
+    label: config.label,
+    description: config.description,
+    tier: config.tier,
     chapters: chapters.map((c) => c.meta),
     updatedAt: latestMtime || Date.now(),
   };
@@ -278,13 +318,25 @@ async function collectBooks(): Promise<{ books: LearnBook[]; allChapters: Collec
   const books: LearnBook[] = [];
   const allChapters: CollectedChapter[] = [];
 
-  // Multi-chapter book from docs/book/
-  console.log(`Reading ${BOOK_DIR}/...`);
-  const multiBook = await readMultiChapterBook();
-  if (multiBook) {
-    books.push(multiBook.book);
-    allChapters.push(...multiBook.chapters);
-    console.log(`  "${multiBook.book.label}" (${multiBook.chapters.length} chapters)`);
+  // Multi-chapter books from docs/books/*/
+  console.log(`Reading ${BOOKS_DIR}/...`);
+  try {
+    for await (const entry of Deno.readDir(BOOKS_DIR)) {
+      if (!entry.isDirectory) continue;
+      const config = MULTI_BOOK_META[entry.name];
+      if (!config) {
+        console.warn(`  Skipping unknown book directory: ${entry.name}`);
+        continue;
+      }
+      const result = await readMultiChapterBook(entry.name, config);
+      if (result) {
+        books.push(result.book);
+        allChapters.push(...result.chapters);
+        console.log(`  "${result.book.label}" (${result.chapters.length} chapters)`);
+      }
+    }
+  } catch (e) {
+    console.warn(`  Could not read ${BOOKS_DIR}: ${e}`);
   }
 
   // Single-file books from skills/b3nd/
@@ -337,7 +389,7 @@ async function uploadToB3nd(nodeUrl: string, catalog: LearnCatalog, chapters: Co
     const catalogRes = await fetch(`${nodeUrl}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tx: ["mutable://open/rig/learn/catalog", catalog] }),
+      body: JSON.stringify(["mutable://open/rig/learn/catalog", catalog]),
     });
     if (!catalogRes.ok) {
       console.warn(`  Catalog upload failed: ${catalogRes.status}`);
@@ -350,7 +402,7 @@ async function uploadToB3nd(nodeUrl: string, catalog: LearnCatalog, chapters: Co
       const res = await fetch(`${nodeUrl}/api/v1/receive`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tx: [chapter.meta.uri, chapter.content] }),
+        body: JSON.stringify([chapter.meta.uri, chapter.content]),
       });
       if (res.ok) {
         console.log(`  Chapter "${chapter.meta.key}" → ${chapter.meta.uri}`);
@@ -382,11 +434,15 @@ async function writeStaticFiles(outputPath: string, catalog: LearnCatalog, chapt
   await Deno.writeTextFile(outputPath, json);
   console.log(`\nStatic catalog written to ${outputPath} (${(json.length / 1024).toFixed(1)} KB)`);
 
-  // All chapter content as individual static files
+  // All chapter content as individual static files, organized by book key
   const chaptersDir = `${dir}/chapters`;
   await ensureDir(chaptersDir);
   for (const chapter of chapters) {
-    const chapterPath = `${chaptersDir}/${chapter.meta.key}.json`;
+    // Extract book key from URI: mutable://open/rig/learn/chapters/<bookKey>/<chapterKey>
+    const bookKey = chapter.meta.uri.split("/chapters/")[1]?.split("/")[0] ?? "unknown";
+    const bookChaptersDir = `${chaptersDir}/${bookKey}`;
+    await ensureDir(bookChaptersDir);
+    const chapterPath = `${bookChaptersDir}/${chapter.meta.key}.json`;
     await Deno.writeTextFile(chapterPath, JSON.stringify(chapter.content, null, 2));
   }
   console.log(`  ${chapters.length} chapter files written to ${chaptersDir}/`);

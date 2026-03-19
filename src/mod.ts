@@ -86,6 +86,7 @@ export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
 export { PostgresClient } from "../libs/b3nd-client-postgres/mod.ts";
 export { MongoClient } from "../libs/b3nd-client-mongo/mod.ts";
+export { SqliteClient } from "../libs/b3nd-client-sqlite/mod.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 
@@ -96,6 +97,14 @@ export {
   generatePostgresSchema,
   type SchemaInitOptions,
 } from "../libs/b3nd-client-postgres/schema.ts";
+
+// SQLite schema utilities
+export { generateSqliteSchema } from "../libs/b3nd-client-sqlite/schema.ts";
+export type {
+  SqliteClientConfig,
+  SqliteExecutor,
+  SqliteExecutorResult,
+} from "../libs/b3nd-client-sqlite/mod.ts";
 
 // Combinators
 export {
@@ -182,10 +191,23 @@ export type {
 } from "../libs/b3nd-msg/data/mod.ts";
 
 // Rig — the universal harness
-export { Identity, Rig } from "../libs/b3nd-rig/mod.ts";
+export {
+  classifyError,
+  Identity,
+  isAuthError,
+  isConflictError,
+  isNotFoundError,
+  isTransientError,
+  isValidationError,
+  loadConfigFromEnv,
+  Rig,
+  uri,
+} from "../libs/b3nd-rig/mod.ts";
 export type {
+  LoadConfigOptions,
   MongoExecutor,
+  ParsedUri,
   PostgresExecutor,
   RigConfig,
-  ServeOptions,
+  UriProtocol,
 } from "../libs/b3nd-rig/mod.ts";

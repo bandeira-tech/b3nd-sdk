@@ -1,0 +1,31 @@
+{
+  "id": "G1-A5-01",
+  "title": "Design WebSocket subscription protocol for real-time push",
+  "group": "apps-possible",
+  "category": "subscriptions",
+  "section": "A5",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "design+implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-core/types.ts",
+    "libs/b3nd-servers/ws.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A5-01",
+  "markdown": "\n## Goal\n\nDesign and implement the server-side WebSocket subscription protocol. When a client subscribes to a URI prefix, the server pushes notifications for any matching writes. This replaces polling for real-time use cases.\n\n## Background\n\nToday, the WebSocket protocol (`WebSocketRequest`/`WebSocketResponse`) is strictly request/response. The server never initiates messages. For real-time apps (chat, live dashboards, collaborative editing), clients must poll, which is wasteful and adds latency.\n\nThe subscription protocol adds three new message types:\n- `subscribe` -- client subscribes to a URI prefix\n- `unsubscribe` -- client unsubscribes\n- Server-initiated `notification` -- pushed when a matching write occurs\n\nThe server must track active subscriptions per connection and push notifications after successful `receive()` calls.\n\n## Acceptance Criteria\n\n- [ ] `WebSocketRequest.type` union extended with `\"subscribe\"` and `\"unsubscribe\"`\n- [ ] New `WebSocketNotification` type: `{ type: \"notification\", uri: string, data: unknown, version?: number }`\n- [ ] New `SubscriptionOptions` type: `{ prefix: string, id?: string }`\n- [ ] Server-side `WebSocketHandler` (in `libs/b3nd-servers/`) tracks subscriptions per connection\n- [ ] On `subscribe` request: registers prefix for that connection, returns success with subscription ID\n- [ ] On `unsubscribe` request: removes subscription by ID\n- [ ] After a successful `receive()` on the node, all connections with matching prefix subscriptions receive a notification\n- [ ] Connection cleanup removes all subscriptions for that connection\n- [ ] Subscription matching uses prefix comparison: subscription to `mutable://users` matches writes to `mutable://users/alice/profile`\n- [ ] Maximum subscriptions per connection is configurable (default 100)\n- [ ] Tests cover: subscribe, receive matching write, receive notification; unsubscribe stops notifications; connection cleanup\n\n## Implementation Guide\n\n1. Read `libs/b3nd-core/types.ts` to see existing `WebSocketRequest`, `WebSocketResponse` types\n2. Add `\"subscribe\" | \"unsubscribe\"` to `WebSocketRequest.type`\n3. Create `WebSocketNotification` type in `libs/b3nd-core/types.ts`\n4. Read `libs/b3nd-servers/` to understand current WebSocket server setup (check if there is a ws.ts or if WS is handled in http.ts)\n5. Create `libs/b3nd-servers/subscriptions.ts`:\n   - `SubscriptionManager` class that tracks: `Map<WebSocket, Map<string, string>>` (connection -> subscriptionId -> prefix)\n   - `subscribe(ws, prefix)` -> subscriptionId\n   - `unsubscribe(ws, subscriptionId)` -> boolean\n   - `notify(uri, data, version?)` -> iterates all connections, checks prefix match, sends notification\n   - `removeConnection(ws)` -> cleanup\n6. Integrate `SubscriptionManager` into the WebSocket server:\n   - On `subscribe` message type: call `manager.subscribe()`\n   - On `unsubscribe` message type: call `manager.unsubscribe()`\n   - On `close` event: call `manager.removeConnection()`\n   - After successful `receive()`: call `manager.notify(uri, data)`\n7. Add tests for `SubscriptionManager` in `libs/b3nd-servers/subscriptions_test.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-core/types.ts` -- extend WebSocketRequest type, add WebSocketNotification, SubscriptionOptions\n- `libs/b3nd-servers/subscriptions.ts` -- new file: SubscriptionManager\n- `libs/b3nd-servers/subscriptions_test.ts` -- new file: tests\n- `libs/b3nd-servers/http.ts` or `libs/b3nd-servers/ws.ts` -- integrate SubscriptionManager\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-servers/\n```\n\n## Dependencies\n\n- **Depends on**: Nothing (protocol design can proceed independently)\n- **Blocks**: G1-A5-02 (WebSocketClient subscribe mode), G1-A5-03 (React hooks)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Design WebSocket subscription protocol (server-push for URI prefix changes)\n- [ ] Implement server-side: node tracks subscriptions, pushes matching messages\n- [ ] Implement `WebSocketClient` subscribe mode (beyond current request/response)\n- [ ] Add React hooks for subscriptions (`useSubscription(prefix)`)"
+}

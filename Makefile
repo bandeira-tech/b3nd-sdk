@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node run-node check build-learn help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev dev-full relay rig node run-node check build-learn build-roadmap roadmap-mgr help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -133,6 +133,15 @@ ifndef p
 endif
 	@docker compose --profile $(p) down
 
+# Build roadmap catalog and story files for the web rig
+build-roadmap:
+	@echo "Building roadmap..."
+	@DENO_NO_PACKAGE_JSON=1 deno run -A apps/b3nd-web-rig/scripts/build-roadmap.ts
+
+# Roadmap manager service (polls b3nd for commands)
+roadmap-mgr:
+	@DENO_NO_PACKAGE_JSON=1 deno run -A apps/b3nd-web-rig/scripts/roadmap-manager.ts
+
 # Build learn catalog and chapter files for the web rig
 build-learn:
 	@echo "Building learn books..."
@@ -145,6 +154,9 @@ dev:
 	@lsof -ti :5555 -i :5556 -i :9942 2>/dev/null | xargs kill -9 2>/dev/null || true
 	@sleep 1
 	@docker compose --profile dev up -d --wait
+	@# Pre-build static content for the rig
+	@$(MAKE) build-learn
+	@$(MAKE) build-roadmap
 	@trap 'kill 0; docker compose --profile dev down' INT TERM; \
 	(cd apps/b3nd-node && \
 	  BACKEND_URL=postgresql://b3nd:b3nd@localhost:5432/b3nd \
@@ -154,6 +166,14 @@ dev:
 	(cd apps/sdk-inspector && deno task dev) & \
 	echo "Node :9942 (postgres)  Rig :5555  Inspector :5556"; \
 	wait
+
+# Agent relay WebSocket server for dispatching Claude Code from the rig
+relay:
+	@DENO_NO_PACKAGE_JSON=1 deno run -A apps/b3nd-web-rig/scripts/agent-relay.ts
+
+# Full dev environment with agent relay
+dev-full:
+	@$(MAKE) -j2 dev relay
 
 # B3nd node on :9942 with memory backend (standalone)
 node:
@@ -230,6 +250,9 @@ help:
 	@echo "  make pkg target=<name> - Build and push Docker image"
 	@echo ""
 	@echo "  make dev               - Full dev env (dbs + node + rig + inspector)"
+	@echo "  make dev-full          - Full dev env + agent relay"
+	@echo "  make relay             - Start agent relay (:9950)"
+	@echo "  make roadmap-mgr       - Start roadmap manager service"
 	@echo "  make up p=<profile>    - Start a compose profile (dev, test)"
 	@echo "  make down p=<profile>  - Stop a compose profile"
 	@echo "  make node              - Start B3nd node (:9942, memory backend)"

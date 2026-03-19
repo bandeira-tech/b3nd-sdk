@@ -1,0 +1,32 @@
+{
+  "id": "G2-A2-04",
+  "title": "Define static validator set mechanism and attestation authorization",
+  "group": "nodes-talk",
+  "category": "confirmation-protocol",
+  "section": "A2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/constants.ts",
+    "libs/firecat-protocol/validators.ts",
+    "libs/firecat-protocol/validators_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G2-A2-04",
+  "markdown": "\n## Goal\n\nImplement the static validator set mechanism where a list of authorized node public keys is defined as a schema constant, and the `attestationValidator` checks that the attesting node is in the authorized set. This is the simplest trust model (Option A from CONFIRMATION.md section 6).\n\n## Background\n\nPer CONFIRMATION.md section 6 (Trust Model), the simplest approach is a static validator set:\n\n```typescript\nexport const VALIDATOR_SET = [NODE_A_KEY, NODE_B_KEY, NODE_C_KEY];\nexport const CONFIRMATION_THRESHOLD = 2;\n```\n\nThe `attestationValidator` must check: `nodeKey is in VALIDATOR_SET`. The `nodeKey` is extracted from the attestation URI: `immutable://attestation/{envelopeHash}/{nodeKey}`.\n\nCurrently, G2-A2-01 implements the attestation validator without this authorization check (it only checks write-once, value=true, and envelope existence). This story adds the authorization layer.\n\nThe design also needs to handle the empty-set case: when `VALIDATOR_SET` is empty, any node can attest (open attestation). This allows single-node setups to work without configuration.\n\n## Acceptance Criteria\n\n- [ ] `VALIDATOR_SET` exported from `libs/firecat-protocol/constants.ts` as `string[]`\n- [ ] When `VALIDATOR_SET` is non-empty, `attestationValidator` rejects attestations from keys not in the set\n- [ ] When `VALIDATOR_SET` is empty, attestation is open (any key accepted) -- enables single-node mode\n- [ ] `rejectionValidator` also checks the validator set (only authorized validators can reject)\n- [ ] Tests verify authorization with a populated validator set\n- [ ] Tests verify open attestation with an empty validator set\n- [ ] Error messages clearly state \"Node {key} is not in the authorized validator set\"\n\n## Implementation Guide\n\n1. Update `libs/firecat-protocol/constants.ts`:\n   ```typescript\n   /**\n    * Authorized validator public keys.\n    * Empty array = open attestation (any node can attest).\n    * Non-empty = only listed nodes can attest/reject.\n    */\n   export const VALIDATOR_SET: string[] = [];\n   ```\n\n2. Add authorization check to `attestationValidator` in `libs/firecat-protocol/validators.ts`:\n   ```typescript\n   // After existing checks...\n   if (VALIDATOR_SET.length > 0) {\n     const nodeKey = extractSegment(uri, 2); // attestation/{envelopeHash}/{nodeKey}\n     if (!nodeKey || !VALIDATOR_SET.includes(nodeKey)) {\n       return {\n         valid: false,\n         error: `Node ${nodeKey} is not in the authorized validator set`,\n       };\n     }\n   }\n   ```\n\n3. Add the same check to `rejectionValidator`.\n\n4. Write tests that:\n   - Set up a non-empty validator set\n   - Verify authorized nodes can attest\n   - Verify unauthorized nodes are rejected\n   - Verify empty set allows all\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/constants.ts` -- Add `VALIDATOR_SET` with documentation.\n- `libs/firecat-protocol/validators.ts` -- Add authorization checks to attestation and rejection validators.\n- `libs/firecat-protocol/validators_test.ts` -- Add authorization tests.\n\n## Testing\n\n```bash\ndeno test libs/firecat-protocol/validators_test.ts\n```\n\nNote: Since `VALIDATOR_SET` is a module-level constant, tests will need to either:\n- Use a factory function that accepts the validator set as a parameter, or\n- Modify the array in-place for testing (since arrays are mutable references)\n\nThe factory approach is cleaner. Consider making validators accept configuration:\n```typescript\nexport function createAttestationValidator(validatorSet: string[]): ValidationFn\n```\n\nAnd exporting the default-configured version:\n```typescript\nexport const attestationValidator = createAttestationValidator(VALIDATOR_SET);\n```\n\n## Dependencies\n\nDepends on G2-A2-01 (base validators must exist). Blocks G2-A2-02 (confirmation validator needs to iterate the validator set) and G2-A2-05 (discovery loop needs to know which nodes to expect attestations from).\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Wire `pendingValidator` into node receive pipeline (write pending marker after local validation passes)\n- [ ] Wire `attestationValidator` — node monitors `immutable://pending/` and writes attestations\n- [ ] Wire `rejectionValidator` — node writes rejection with reason string on validation failure\n- [ ] Wire `confirmationValidator` — node counts attestations and finalizes when threshold met\n- [ ] Implement node discovery loop (poll `immutable://pending/` for new entries)\n- [ ] Implement val"
+}

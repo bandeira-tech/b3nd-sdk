@@ -1,0 +1,30 @@
+{
+  "id": "G4-F1-04",
+  "title": "Design and document book publishing/distribution plan",
+  "group": "tell-the-story",
+  "category": "book",
+  "section": "F1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "low",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/README.md",
+    "apps/b3nd-web-rig/"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G4-F1-04",
+  "markdown": "\n## Goal\n\nCreate a concrete plan for how the book \"What's in a Message\" will be published and distributed to readers. Evaluate the options (web reader in the rig, PDF generation, standalone site, or combination) and document the chosen approach with implementation steps.\n\n## Background\n\nThe book currently exists as 16 markdown files plus a README in `docs/book/`. There is no published version available to readers -- it can only be read by browsing the repository directly.\n\nSeveral distribution options have been discussed:\n1. **Web reader in the rig** (`apps/b3nd-web-rig/`) -- the rig is a React + Vite + Tailwind app that could host a book reader as one of its \"experiences.\" The rig already uses a slot-based layout system with `useLayoutSlots.tsx` mapping `AppExperience` to component pairs.\n2. **PDF generation** -- convert the markdown chapters to a styled PDF using a tool like Pandoc, mdbook, or a custom pipeline.\n3. **Standalone site** -- a separate static site (e.g., at `book.b3nd.dev`) that renders the markdown chapters as styled HTML pages.\n4. **GitHub/repository reading** -- the current default, which works but provides no designed reading experience.\n\nThe decision depends on:\n- Who the primary audience is (developers vs general readers vs both)\n- Whether the book should live inside the product (rig) or be a standalone artifact\n- How much implementation effort each option requires\n- Whether the book content will be frequently updated (favoring a live web reader) or is mostly stable (favoring PDF)\n\n## Acceptance Criteria\n\n- [ ] A plan document exists at `docs/book/PUBLISHING.md` that evaluates each distribution option\n- [ ] The plan clearly recommends one primary distribution method with rationale\n- [ ] The plan includes a secondary/fallback method\n- [ ] Implementation steps are specified for the recommended method (what to build, which tools, estimated effort)\n- [ ] The plan addresses: hosting, URL, navigation between chapters, mobile readability, code syntax highlighting, table of contents\n- [ ] The plan considers whether the book should be gated or freely accessible\n- [ ] Timeline is realistic (e.g., \"web reader MVP in the rig is 1-2 stories of work\")\n\n## Implementation Guide\n\n1. Read `docs/book/README.md` for the book's described audience and purpose\n2. Read `apps/b3nd-web-rig/` structure to understand what it would take to add a book reader:\n   - Read `apps/b3nd-web-rig/src/hooks/useLayoutSlots.tsx` for the slot system\n   - Read `apps/b3nd-web-rig/src/types/index.ts` for `AppExperience` type\n   - Read `apps/b3nd-web-rig/src/components/AppLayout.tsx` for routing\n3. Evaluate each option:\n   - **Rig web reader**: How much code? Can we use a markdown renderer (e.g., `react-markdown`)? Would need a new `AppExperience` type, two new components, and markdown loading.\n   - **PDF**: What tool? Pandoc with a LaTeX template? mdbook? Custom Node script? How do code blocks render?\n   - **Standalone site**: Use mdbook, Docusaurus, or custom? Where does it deploy? What domain?\n   - **Repository-only**: Is this acceptable for the target audience?\n4. Write the plan document evaluating pros/cons of each\n5. Recommend the approach that best serves the audience with minimal effort\n6. Include specific next steps (what stories to create for implementation)\n\n## Files to Create/Modify\n\n- `docs/book/PUBLISHING.md` -- new file: the publishing plan document\n\n## Dependencies\n\n- **Depends on**: G4-F1-01, G4-F1-02, G4-F1-03 (book content should be reviewed before publishing)\n- **Blocks**: Nothing directly -- this produces a plan that will generate follow-up implementation stories\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Review all 16 chapters for completeness and consistency with current protocol state\n- [ ] Ensure three-layer scaffold is used consistently in every chapter from Part II onward\n- [ ] Review cookbook chapter (Ch 16) against actual current SDK API\n- [ ] Publish/distribute (web reader in rig? PDF? separate site?)"
+}

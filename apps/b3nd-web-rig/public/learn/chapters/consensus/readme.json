@@ -1,0 +1,197 @@
+{
+  "key": "readme",
+  "title": "Consensus in B3nd: Work, Lifecycle, and Blocks",
+  "markdown": "# Consensus in B3nd: Work, Lifecycle, and Blocks\n\n> Design proposal for multi-stage consensus through roster-based work coordination. This is an outline with open design questions — not a specification.\n\n---\n\n## What This Book Covers\n\nThis book documents how B3nd's validation pipeline — validators that check `[uri, data]` outputs — can be extended into a multi-stage consensus mechanism. The validation stages (Pending → Attestation → Confirmation → Consensus Slot) are structurally similar to BFT multi-phase commit. The difference is in where the boundary sits between protocol and client.\n\n### Protocol vs. client concerns\n\nA core design heuristic in B3nd — consistent with every real-world blockchain — is the separation between what the protocol enforces and what clients decide:\n\n**Protocol-level (validator enforcement):**\n- Write-once semantics (immutable URIs reject duplicate writes)\n- Signature verification (auth must match URI identity)\n- Threshold checks (confirmation requires N valid attestations from distinct validators)\n- Conservation rules (inputs >= outputs)\n- Stage ordering (each stage references prior stage outputs as inputs)\n\n**Client-level (infrastructure/social decisions):**\n- Storage backend and replication strategy\n- Discovery timing (how often to poll, which pending items to process)\n- Confirmer selection strategy (which attestations to bundle)\n- Data availability and serving policy\n- Censorship decisions (filtering by signer, IP, content)\n- Liveness (whether to process work at all)\n\nNo blockchain guarantees liveness at the protocol level. Bitcoin nodes can filter inscription transactions. Ethereum validators can run MEV-boost or refuse transactions. Law enforcement can compel censorship. The protocol guarantees that *if* something passes validation, it followed the rules. Whether valid work gets processed is a social/infrastructure/economic outcome.\n\n### Safety property\n\nThe protocol *does* guarantee: **once a record is written to an immutable URI and passes validation, no subsequent valid message can revert it.** This follows from write-once semantics enforced at the validator layer. This is the core safety property — confirmed records are irreversible at the protocol level.\n\n### What this proposes\n\n1. **Roster-based discovery** — Workers publish availability at known URIs, others find work by reading the roster\n2. **Staged validation** — Pending → Attestation → Confirmation → Consensus slots, each stage validated independently\n3. **Market-driven selection** — Attestation is open (many participate), confirmation is selective (confirmer chooses N)\n4. **Block-based timing** — Temporal coordinates (era/block/slot) without wall-clock assumptions\n5. **Ephemeral shift identities** — Session IDs prove work provenance, used for reward claims\n\n## Chapter Outline\n\n### Part 1: Foundations\n\n**Chapter 1: Consensus as Staged Validation**\nHow BFT-style multi-phase commit maps onto B3nd's validator pipeline. What the protocol enforces vs. what clients decide. Structural comparison to Tendermint (propose/prevote/precommit/commit vs. pending/attestation/confirmation/slot) and where the approaches diverge (client sovereignty over infrastructure).\n\n**Chapter 2: Core Principles in Consensus**\nDiscrete resources, primitive values, message structure as data surface. Why these matter for consensus validation.\n\n---\n\n### Part 2: Roles & Markets\n\n**Chapter 3: The Four Roles**\n- Gateway — Frontends bringing users in\n- Validator — Light nodes attesting to validity\n- Confirmer — Bandwidth nodes bundling attestations\n- Producer — Heavy nodes creating blocks\n\nCapabilities, incentives, hardware requirements for each.\n\n**Chapter 4: Roster - The Living Work Index**\nWhat is a roster? Discovery pattern (read roster → read worker accounts). Renewal mechanism. How it differs from schedules.\n\n---\n\n### Part 3: Work Lifecycle\n\n**Chapter 5: Stage 1 - Pending (Gateway)**\nGateway receives user content, validates locally, writes to own account. Message flow, validator implementation.\n\n**Chapter 6: Stage 2 - Attestation (Validator)**\nDiscover pending via roster, validate, write attestation. Unbounded participation. Validator implementation.\n\n**Chapter 7: Stage 3 - Confirmation (Confirmer)**\nDiscover attestations, select N, bundle into confirmation. Selection strategy is a client concern — the protocol only enforces threshold and distinctness. Validator implementation.\n\n**Chapter 8: Stage 4 - Consensus Slot (Producer)**\nDiscover confirmations, assign to era/block/slot coordinates. Block structure. Validator traces inputs through stages.\n\n---\n\n### Part 4: Block Structure & Timing\n\n**Chapter 9: Block-Based Time**\nWhy not wall-clock? Block numbers as temporal reference. TTL in blocks. Shift ID mechanics (see Open Questions).\n\n**Chapter 10: Era/Block/Slot Coordinates**\nTemporal structure. Queryability. Archival strategies.\n\n**Chapter 11: Validation at Slot Assignment**\nProducer creates slots. `consensusSlotValidator` extracts block number from the URI being written (`consensus/{era}/{block}/{slot}/{hash}`), then validates shift ID staleness and input legitimacy relative to that declared block. No global \"current block\" state needed — the block is declared in the data (URI path) and validated for consistency.\n\n---\n\n### Part 5: Economics & Incentives\n\n**Chapter 12: Market Dynamics**\nAttestation (open), Confirmation (selective), Production (bundling). How each market layer creates different incentives.\n\n**Chapter 13: Reward Distribution**\nRewards allocated to shift IDs. Claiming mechanism. Anti-gaming design.\n\n---\n\n### Part 6: Implementation\n\n**Chapter 14: URI Patterns Reference**\nComplete URI catalog with examples.\n\n**Chapter 15: Validator Implementations**\nFull validator code using B3nd's `ValidationFn` interface (`{ uri, value, read, message } → { valid, error? }`).\n\n**Chapter 16: Message Flows**\nEnd-to-end example with concrete data. Discovery patterns. Reading patterns.\n\n**Chapter 17: Running a Consensus Network**\nNode setup. Roster management. Monitoring. Reward claiming.\n\n---\n\n### Appendices\n\n**Appendix A: Design Rationale**\nWhy this architecture? Trade-offs. Alternatives considered. What this doesn't solve.\n\n**Appendix B: Protocol Constants**\n```\nSHIFT_TTL_BLOCKS = 100\nCONFIRMATION_THRESHOLD = 3\nSLOTS_PER_BLOCK = 1000\nBLOCKS_PER_ERA = 10000\n```\n\n**Appendix C: Comparison to Other Consensus**\nvs. Tendermint/BFT, Nakamoto consensus, Avalanche. Structural similarities, where the boundary between protocol and client differs, and what each system actually guarantees at the protocol level.\n\n---\n\n## Open Design Questions\n\nThese are protocol-level decisions that must be resolved before chapters can be written. Each determines what validators check and accept.\n\n### 1. Shift ID Mechanism\n\n**Problem:** Shift IDs must be mechanically irreproducible (can't fake), prove provenance, reference recent block, but allow slack for nodes with poor infrastructure.\n\n**Current thinking:**\n```\nshiftID = sign(workerKey, recentBlockHash + nonce)\nwhere:\n  - recentBlockHash must be within last N blocks\n  - nonce requires brute force search (proof-of-work-lite)\n  - allows wiggle room for slower nodes (warzones, poor infra)\n  - proves worker saw recent state (not making offline decisions on stale data)\n```\n\n**Questions:**\n- How much work for the nonce? (balance accessibility vs. spam prevention)\n- How many blocks back is \"recent enough\"? (balance freshness vs. network slack)\n- Should shift ID encode role? (e.g., `v_` prefix for validator, `c_` for confirmer)\n- How to extract/verify these components in validators?\n\n**Format options:**\n```\nOption A: shiftID = \"v_\" + base64(sign(workerKey, blockHash + nonce))\nOption B: shiftID = sign(workerKey, blockHash + nonce)  // signature IS the ID\nOption C: shiftID = hash(sign(workerKey, blockHash + nonce))  // shorter\n```\n\n### 2. Block Timing\n\n**Problem:** Balance fast throughput (many apps), retail hardware support, spam defense, democratic access.\n\n**Resolved insight:** Block timing is declarative, not coordinated. The producer declares \"this work goes in block 42\" by writing to `consensus/{era}/{block}/{slot}/{hash}`. The validator checks if that declaration is legitimate given the inputs (shift staleness, confirmation validity). No synchronization needed.\n\n**Remaining questions:**\n- What prevents a producer from declaring arbitrary future blocks? (Should validators check block progression?)\n- Should there be a \"block must reference previous block hash\" chain constraint?\n- How to handle competing producers writing to the same block number? (First valid write wins via write-once?)\n- Should producers be on a roster with rotation/scheduling, or is it open competition?\n\n**Current thinking:**\n- Producers compete to fill blocks (open market, not scheduled rotation)\n- Write-once semantics mean first valid slot assignment wins\n- Validators check shift staleness and input validity, not absolute timing\n- Block progression constraint (block N must reference block N-1 hash) could prevent spam future blocks\n\n### 3. Block Number from URI (Resolved)\n\n**Solution:** Block number is only validated at slot assignment, where it's declared in the URI itself: `consensus/{era}/{block}/{slot}/{hash}`. The `consensusSlotValidator` extracts the block number from the URI path and validates shift ID staleness relative to that declared block.\n\n**Example:**\n```typescript\nconst consensusSlotValidator: ValidationFn = async ({ uri, value, read, message }) => {\n  // Block number is RIGHT HERE in the URI\n  const block = parseInt(extractSegment(uri, 2));  // consensus/{era}/{block}/{slot}/{hash}\n\n  // Extract shift ID from attestation inputs\n  const shiftID = extractShiftIDFromInputs(message.inputs);\n  const shiftBlock = extractBlockFromShiftID(shiftID);\n\n  // Validate staleness relative to the declared target block\n  if (block - shiftBlock > SHIFT_TTL_BLOCKS) {\n    return { valid: false, error: \"Shift too stale for target block\" };\n  }\n\n  return { valid: true };\n};\n```\n\n**Why this works:**\n- No global state needed — the producer declares \"this goes in block 42\" via the URI\n- Validator checks: \"Is block 42 a legitimate claim given the inputs?\"\n- Other validators (pending, attestation, confirmation) don't need block timing\n- Block timing only matters at the moment of consensus finality (slot assignment)\n- This is **information vs. data**: the URI path (data) contains the block number (information)\n\n### 4. Network Reality Accommodation\n\n**Design principle:** No assumption of sync, low bandwidth OK, poor infrastructure supported.\n\n**How staleness is validated:**\n- Shift ID references a block: `shiftID = sign(workerKey, blockHash_40 + nonce)`\n- Work sits in worker's account with that shift ID\n- Producer assigns to a slot: `consensus/0/50/7/hash` (block 50)\n- Validator checks: `50 - 40 = 10 blocks age` — is this within `SHIFT_TTL_BLOCKS`?\n\n**This accommodates network reality:**\n- Node with 10-minute latency creates shift ID referencing block 40\n- Work might not get picked up until block 50 (10 blocks later)\n- Validator checks age relative to the target block, not \"now\" (which doesn't exist)\n- If within slack window (e.g., 100 blocks), valid. If too stale, invalid.\n\n**Remaining questions:**\n- What's the right `SHIFT_TTL_BLOCKS` value? (balance freshness vs. accessibility)\n- Should TTL vary by role? (gateway = tight, validator = loose)\n- Should proof-of-work difficulty in shift ID scale with staleness?\n\n**Note:** Whether a node chooses to process work from slow peers is a client concern. The protocol enforces maximum staleness, but clients may apply stricter policies.\n\n---\n\n## Style & Format\n\n**Code examples:** Must use B3nd's actual `ValidationFn` interface: `({ uri, value, read, message }) => { valid, error? }`. Not test assertions, not pseudocode that can't map to real validators.\n\n**Example:**\n```typescript\n// pendingValidator\nconst pendingValidator: ValidationFn = async ({ uri, value, read, message }) => {\n  // Write-once\n  if ((await read(uri)).success)\n    return { valid: false, error: \"Already pending\" };\n\n  // Extract from URI: pending/{contentHash}/{submitterKey}\n  const contentHash = extractSegment(uri, 1);\n  const submitterKey = extractSegment(uri, 2);\n\n  // Value must be signature over content hash\n  if (typeof value !== \"string\")\n    return { valid: false, error: \"Value must be signature string\" };\n\n  if (!await verify(submitterKey, value, contentHash))\n    return { valid: false, error: \"Invalid signature\" };\n\n  // Message must be signed by submitter\n  if (!message?.auth?.[0] || message.auth[0].pubkey !== submitterKey)\n    return { valid: false, error: \"Auth mismatch\" };\n\n  return { valid: true };\n};\n```\n\n**Chapter structure:** Progressive disclosure. Start with what the protocol enforces, show URI patterns, then validators, then what's left to clients.\n\n---\n\n## What This Book Does and Doesn't Cover\n\n**Protocol-level (this book):**\n- Validation rules for each consensus stage\n- URI patterns and their structural meaning\n- Safety guarantees (write-once irreversibility)\n- Fault tolerance parameters (N-of-M threshold)\n- Stage ordering constraints\n\n**Client/infrastructure-level (out of scope):**\n- Liveness and availability guarantees — no protocol can enforce these\n- Specific replication strategies — storage is a client concern\n- Confirmer selection algorithms — the protocol enforces threshold, not strategy\n- Censorship resistance — a social/infrastructure property\n- Data availability proofs — not part of this protocol\n\n---\n\n## FAQ: Reviewed Questions\n\nThese questions emerged from adversarial review of this design. Each was examined, and either resolved or identified as a client-concern mismatch. They are documented here so the reasoning doesn't need to be repeated.\n\n### Isn't this just BFT with extra steps?\n\nYes, structurally. The validation pipeline (pending → attestation → confirmation → slot) is isomorphic to BFT multi-phase commit (propose → prevote → precommit → commit). The difference is not in the pipeline shape but in **where the protocol boundary sits**. Tendermint mandates gossip behavior, timeout rules, and locking mechanics at the protocol level. B3nd enforces only validation rules — write-once, signature verification, threshold, conservation, stage ordering. Everything else (discovery, propagation, storage, selection strategy, timing) is a client decision. The protocol validates outputs; clients decide how to produce them.\n\n### What about equivocation across distributed nodes?\n\nWrite-once is enforced per-node at validation time. During a network partition, two nodes could independently accept conflicting writes to the same URI before replication converges. This is not a protocol bug — it's the same situation as two Bitcoin miners finding blocks at the same height. Bitcoin resolves it via longest-chain rule; B3nd resolves it via write-once-first-wins-per-node + eventual convergence through replication.\n\nGuaranteeing cross-node write consistency during partitions would require synchronous consensus, which is the opposite of this design's goals. Storage and replication are client concerns.\n\n### Where are the liveness guarantees?\n\nThere are none at the protocol level, and there shouldn't be. No blockchain guarantees liveness at the protocol layer. Bitcoin doesn't guarantee your transaction gets mined. Ethereum doesn't guarantee block inclusion. Nodes can refuse any work for any reason — law enforcement, operator policy, inscription filtering, or simply not having received it. The protocol guarantees: *if* something passes validation, it followed the rules. Whether valid work eventually gets processed is a social, infrastructure, and economic outcome. Demanding liveness proofs from a consensus protocol is demanding something no system delivers at this layer.\n\n### Why doesn't the protocol specify confirmer selection strategy?\n\nBecause it's a client concern. The protocol enforces \"confirmation requires N valid attestations from distinct authorized validators.\" *Which* attestations the confirmer picks is their business — exactly like a Bitcoin miner choosing which transactions to include in a block. Different strategies (fastest, highest reputation, random, auction) create different emergent behavior, but the protocol doesn't need to mandate one. This is intentional: it allows market competition between confirmers without protocol-level rigidity.\n\n### How does block timing work without clock synchronization?\n\nBlock timing is declarative. The producer declares \"this work goes in block 42\" by writing to `consensus/{era}/{block}/{slot}/{hash}`. The `consensusSlotValidator` extracts the block number from the URI path and checks whether the declaration is legitimate given the inputs (shift ID staleness, confirmation validity). No node needs to agree on \"what time it is\" or \"what block we're on.\" The block number is data in the URI, validated for consistency — not a synchronized global counter.\n\n### How do validators access \"current block\" without global state?\n\nThey don't need to. Block awareness is only relevant at slot assignment, where the block number is declared in the URI itself. The `consensusSlotValidator` extracts it from the URI path (`consensus/{era}/{block}/{slot}/{hash}`) and validates shift staleness relative to that declared block. Earlier-stage validators (pending, attestation, confirmation) don't need block numbers at all. This fits cleanly within B3nd's `ValidationFn` interface (`{ uri, value, read, message }`) with no context extensions.\n\n### How does this relate to CONFIRMATION.md?\n\nCONFIRMATION.md specifies the confirmation process: how pending records get attested, reach threshold, and finalize. It's a concrete design for one layer of the pipeline.\n\nThis document extends that into the *work lifecycle* layer: how work gets discovered (roster), how workers prove provenance (shift IDs), how confirmed work gets temporal coordinates (era/block/slot), and how rewards distribute to participants. It's the layer above confirmation — the part that enables stake constraints, reward economics, and sybil resistance. They are complementary documents at different layers.\n\n### What does the protocol actually guarantee?\n\n**Safety:** Once a record is written to an immutable URI and passes validation, no subsequent valid message can revert it. Write-once + validation rules = irreversibility.\n\n**Fault tolerance:** Valid confirmations require `CONFIRMATION_THRESHOLD` attestations from distinct authorized validators. Below threshold, work accumulates in pending/attestation state but nothing invalid gets confirmed. Malicious validators cannot produce false confirmations because each attestation is individually verified.\n\n**What it does not guarantee:** Liveness, availability, data existence, censorship resistance, or cross-node consistency during partitions. These are infrastructure and social properties — real and important, but not protocol invariants.\n\n---\n\n## Related Documentation\n\n- `libs/firecat-protocol/CONFIRMATION.md` — Confirmation protocol design (concrete validators, trust model, migration path). More specified than this outline for the confirmation stage specifically.\n- `libs/firecat-protocol/TEMPORAL_CONSENSUS.md` — Initial temporal consensus proposal\n- `docs/books/messages/README.md` — \"What's in a Message\" (foundational B3nd concepts)\n- `skills/b3nd/FRAMEWORK.md` — DePIN protocol SDK patterns\n\n---\n\n## Status\n\n**Current:** Outline complete, design questions documented\n**Next:** Resolve shift ID mechanism and block timing (protocol-level decisions)\n**Then:** Write chapters 1-4 (foundations + roles)\n**Finally:** Implementation chapters (14-17) with full validator code\n\n---\n\n## Contributing\n\nThis book is a living document. As Firecat implementation progresses, lessons learned should flow back into these chapters. Open questions should be resolved through prototyping, not speculation.\n\n**Process:**\n1. Prototype shift ID mechanism in `libs/firecat-protocol/`\n2. Document findings in this README\n3. Update chapter outlines with learnings\n4. Write chapter once design is stable\n5. Test code examples in actual validator implementations\n6. Iterate based on real-world deployment\n\n---\n\n*The chapters will be written once the open questions are resolved and the design is validated through implementation.*\n",
+  "sections": [
+    {
+      "id": "what-this-book-covers",
+      "title": "What This Book Covers",
+      "level": 2,
+      "children": [
+        {
+          "id": "protocol-vs-client-concerns",
+          "title": "Protocol vs. client concerns",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "safety-property",
+          "title": "Safety property",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "what-this-proposes",
+          "title": "What this proposes",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "chapter-outline",
+      "title": "Chapter Outline",
+      "level": 2,
+      "children": [
+        {
+          "id": "part-1-foundations",
+          "title": "Part 1: Foundations",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "part-2-roles-markets",
+          "title": "Part 2: Roles & Markets",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "part-3-work-lifecycle",
+          "title": "Part 3: Work Lifecycle",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "part-4-block-structure-timing",
+          "title": "Part 4: Block Structure & Timing",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "part-5-economics-incentives",
+          "title": "Part 5: Economics & Incentives",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "part-6-implementation",
+          "title": "Part 6: Implementation",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "appendices",
+          "title": "Appendices",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "open-design-questions",
+      "title": "Open Design Questions",
+      "level": 2,
+      "children": [
+        {
+          "id": "1-shift-id-mechanism",
+          "title": "1. Shift ID Mechanism",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "2-block-timing",
+          "title": "2. Block Timing",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "3-block-number-from-uri-resolved",
+          "title": "3. Block Number from URI (Resolved)",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "4-network-reality-accommodation",
+          "title": "4. Network Reality Accommodation",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "style-format",
+      "title": "Style & Format",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "what-this-book-does-and-doesn-t-cover",
+      "title": "What This Book Does and Doesn't Cover",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "faq-reviewed-questions",
+      "title": "FAQ: Reviewed Questions",
+      "level": 2,
+      "children": [
+        {
+          "id": "isn-t-this-just-bft-with-extra-steps",
+          "title": "Isn't this just BFT with extra steps?",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "what-about-equivocation-across-distributed-nodes",
+          "title": "What about equivocation across distributed nodes?",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "where-are-the-liveness-guarantees",
+          "title": "Where are the liveness guarantees?",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "why-doesn-t-the-protocol-specify-confirmer-selection-strategy",
+          "title": "Why doesn't the protocol specify confirmer selection strategy?",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "how-does-block-timing-work-without-clock-synchronization",
+          "title": "How does block timing work without clock synchronization?",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "how-do-validators-access-current-block-without-global-state",
+          "title": "How do validators access \"current block\" without global state?",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "how-does-this-relate-to-confirmation-md",
+          "title": "How does this relate to CONFIRMATION.md?",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "what-does-the-protocol-actually-guarantee",
+          "title": "What does the protocol actually guarantee?",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "related-documentation",
+      "title": "Related Documentation",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "status",
+      "title": "Status",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "contributing",
+      "title": "Contributing",
+      "level": 2,
+      "children": []
+    }
+  ]
+}

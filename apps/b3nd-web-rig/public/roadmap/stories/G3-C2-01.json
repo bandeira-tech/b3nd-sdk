@@ -1,0 +1,30 @@
+{
+  "id": "G3-C2-01",
+  "title": "Design B3nd native economy: supply distribution, protocol locks, and network fund",
+  "group": "make-it-pay",
+  "category": "native-economy",
+  "section": "C2",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "design",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "docs/book/consensus/native-economy-design.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-C2-01",
+  "markdown": "\n## Goal\n\nDesign the B3ND native economy: how the preminted supply is distributed across pools, what protocol lock conditions apply to earned UTXOs, how the Network Fund operates (funding rules, dynamic rates, maximum balance), fund lifecycle transitions (genesis to growth to mature), and withdraw program conditions. This is the internal economic engine that makes the B3nd network self-sustaining.\n\n## Background\n\nB3ND is the internal gas token. Unlike FCAT (which is traded on Solana), B3ND exists entirely within the B3nd network. Key properties:\n\n- **Preminted**: Fixed supply at genesis (no inflation). All tokens exist from day one.\n- **Distributed across pools**: Bridge escrow (for FCAT<->B3ND swaps), reward pool (for validator/relay rewards), foundation pool (for development funding), community pool (for grants, airdrops, ecosystem growth).\n- **Protocol locks**: Earned tokens (from ad revenue, relay rewards, validation rewards) have lock conditions that prevent immediate dumping.\n- **Network Fund**: A protocol-controlled pool that collects gas fees and distributes rewards. It has rules about fill rate, maximum balance, and disbursement.\n- **Fund lifecycle**: The fund operates differently at different stages: genesis (bootstrap subsidies), growth (mixed subsidies + organic revenue), mature (fully self-sustaining).\n\n## Acceptance Criteria\n\n- [ ] B3ND total supply finalized with rationale\n- [ ] Pool distribution: percentage and absolute amounts for bridge escrow, reward, foundation, community\n- [ ] Protocol lock conditions: for each earning source (ad revenue, relay, validation), lock duration and vesting schedule\n- [ ] Network Fund rules: percentage of gas fees directed to fund, dynamic rate formula (more when fund is low, less when high), maximum balance\n- [ ] Fund lifecycle phases defined: genesis, growth, mature -- with transition triggers (user count? revenue level?)\n- [ ] Withdraw program conditions: time delay, work proof requirements, reputation gate\n- [ ] Token flow diagram: how tokens move between pools, users, and the fund\n- [ ] Sustainability analysis: at what point does the fund become self-sustaining? (gas fees in >= rewards out)\n- [ ] Edge cases: what happens if fund runs dry? What happens if fund is overfull?\n\n## Implementation Guide\n\n1. Read `docs/book/consensus/economic-design-decisions.md` (from G3-B4-01) for distribution plan\n2. Read `libs/firecat-protocol/gas-constants.ts` for current constants\n3. Create `docs/book/consensus/native-economy-design.md`:\n   - Section 1: Supply and Distribution\n     - Total B3ND supply: e.g., 2,000,000,000 (2 billion)\n     - Bridge escrow: 40% (800M) -- reserved for FCAT<->B3ND bridge operations\n     - Reward pool: 30% (600M) -- for validator, relay, and ad revenue rewards\n     - Foundation: 15% (300M) -- for team, development, operations (4-year vesting)\n     - Community: 15% (300M) -- for grants, airdrops, ecosystem growth (released over 5 years)\n   - Section 2: Protocol Lock Conditions\n     - Ad revenue earnings: 7-epoch cliff + 30-epoch linear vesting\n     - Validation rewards: 3-epoch cliff + 14-epoch vesting (shorter -- validators need liquidity)\n     - Relay rewards: same as validation rewards\n     - Staking rewards: locked while staked + 7-epoch cooldown after unstaking\n   - Section 3: Network Fund Rules\n     - Gas fee allocation: 50% to fund, 50% burned (deflationary pressure)\n     - Dynamic rate: when fund < 25% target, increase fee allocation to 80%. When fund > 75% target, decrease to 30%.\n     - Maximum balance: 10% of total supply (200M B3ND). Excess is burned or redirected to community pool.\n     - Minimum balance: fund always maintains 1% of total supply as emergency reserve\n   - Section 4: Fund Lifecycle\n     - Genesis phase (0-10K users): Foundation subsidizes reward pool. Fund may operate at deficit.\n     - Growth phase (10K-100K users): Mixed funding. Gas fees cover partial rewards. Foundation supplements.\n     - Mature phase (100K+ users): Self-sustaining. Gas fees cover all rewards. Foundation stops supplementing.\n     - Transition triggers: phase transitions based on rolling 30-epoch average of gas fee revenue vs reward obligations\n   - Section 5: Withdraw Conditions\n     - Time delay: per earning source (see Section 2)\n     - Work proof: must have produced at least N checkpoints in claim period\n     - Reputation gate: minimum reputation score of 100 to withdraw (prevents Sybil withdrawal)\n     - Maximum per epoch: single validator cannot withdraw more than 1% of fund balance per epoch\n\n## Files to Create/Modify\n\n- `docs/book/consensus/native-economy-design.md` -- new design document\n\n## Testing\n\nNo code tests. Design review.\n\n## Dependencies\n\n- **Depends on**: G3-B4-01 (economic design decisions, especially distribution plan)\n- **Blocks**: G3-C4-01 (TGE modeling needs native economy parameters)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Finalize B3ND preminted supply and distribution across pools (bridge escrow, reward, foundation, community)\n- [ ] Design protocol lock conditions for earned UTXOs (ad revenue locks, relay locks, reputation-gated locks)\n- [ ] Design Network Fund rules (% of gas fees to fund, dynamic rate based on fund fullness, maximum balance)\n- [ ] Design fund lifecycle transitions (genesis → growth → mature)\n- [ ] Design withdraw program conditions (time delay, work proof requirements)"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "G1-A7-02",
+  "title": "Design and implement KeyBundle abstraction",
+  "group": "apps-possible",
+  "category": "encryption",
+  "section": "A7",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "design+implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-encrypt/keybundle.ts",
+    "libs/b3nd-encrypt/keybundle_test.ts",
+    "libs/b3nd-encrypt/mod.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A7-02",
+  "markdown": "\n## Goal\n\nCreate a `KeyBundle` abstraction that packages an Ed25519 signing keypair, an X25519 encryption keypair, and a password-based backup mechanism into a single developer-friendly object. This replaces the current pattern of manually managing separate key types.\n\n## Background\n\nToday, developers must independently manage:\n- `IdentityKey` (Ed25519 signing) from `libs/b3nd-encrypt/mod.ts`\n- `PrivateEncryptionKey` / `PublicEncryptionKey` (X25519 encryption)\n- No built-in backup/recovery mechanism\n\nA `KeyBundle` unifies these:\n1. Generate a complete identity from a single seed or password\n2. Export/import for backup (encrypted with a password)\n3. Derive both signing and encryption keys from a single source\n4. Provide a clean API for the common operations (sign, encrypt, decrypt, verify)\n\nThe existing `deriveSigningKeyPairFromSeed()` and `deriveEncryptionKeyPairFromSeed()` functions already support deterministic derivation, which `KeyBundle` will build on.\n\n## Acceptance Criteria\n\n- [ ] `KeyBundle` class with:\n  - `static generate(): Promise<KeyBundle>` -- random generation\n  - `static fromPassword(password: string, salt: string): Promise<KeyBundle>` -- deterministic from password\n  - `static fromSeed(seed: string): Promise<KeyBundle>` -- deterministic from seed\n  - `static fromExport(encrypted: string, password: string): Promise<KeyBundle>` -- restore from backup\n  - `signingPublicKeyHex: string` -- Ed25519 public key (node identity)\n  - `encryptionPublicKeyHex: string` -- X25519 public key\n  - `sign(payload: unknown): Promise<string>` -- sign with Ed25519\n  - `encrypt(data: Uint8Array, recipientPublicKeyHex: string): Promise<EncryptedPayload>` -- encrypt for someone\n  - `decrypt(payload: EncryptedPayload): Promise<Uint8Array>` -- decrypt\n  - `export(password: string): Promise<string>` -- encrypted JSON export (base64)\n  - `toIdentity(): Identity` -- convert to `Identity` type used by `respondTo()`\n- [ ] `fromPassword` uses PBKDF2 (via `deriveKeyFromSeed`) then HKDF for Ed25519 and X25519 derivation\n- [ ] `fromSeed` uses HKDF directly via existing `deriveSigningKeyPairFromSeed` and `deriveEncryptionKeyPairFromSeed`\n- [ ] `export` serializes key material, encrypts with AES-GCM using password-derived key\n- [ ] `fromExport` decrypts and reconstructs the bundle\n- [ ] Same password + salt always produces the same KeyBundle (deterministic)\n- [ ] Tests: generate, fromPassword determinism, export/import round-trip, sign/verify, encrypt/decrypt, toIdentity\n\n## Implementation Guide\n\n1. Read `libs/b3nd-encrypt/mod.ts` for existing key types and derivation functions\n2. Create `libs/b3nd-encrypt/keybundle.ts`:\n   - `generate()`: call `generateSigningKeyPair()` + `PrivateEncryptionKey.generatePair()`\n   - `fromPassword()`: derive seed from password+salt via PBKDF2, then call `fromSeed()`\n   - `fromSeed()`: call `deriveSigningKeyPairFromSeed(seed)` + `deriveEncryptionKeyPairFromSeed(seed)`\n   - `export()`: serialize private key hex values to JSON, encrypt JSON with `SecretEncryptionKey.fromSecret()`\n   - `fromExport()`: decrypt, parse JSON, reconstruct keypairs from hex\n   - `toIdentity()`: return `{ signingKeyPair, encryptionKeyPair }` matching the `Identity` type from `b3nd-listener`\n3. Create `libs/b3nd-encrypt/keybundle_test.ts`\n4. Export from `libs/b3nd-encrypt/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-encrypt/keybundle.ts` -- new: KeyBundle implementation\n- `libs/b3nd-encrypt/keybundle_test.ts` -- new: tests\n- `libs/b3nd-encrypt/mod.ts` -- add export\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-encrypt/\n```\n\n## Dependencies\n\n- **Depends on**: G1-A7-01 (privacy model must be clear before building key management)\n- **Blocks**: G1-A7-03 (multi-device sync uses KeyBundle export), G1-A7-04 (receiveEncrypted uses KeyBundle)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Fix \"private\" visibility: either change derivation to use X25519 by default, or add prominent warning that `SALT:uri:ownerPubkey` is obscurity not encryption\n- [ ] Design `KeyBundle` abstraction (Ed25519 signing + X25519 encryption + password-based backup)\n- [ ] Design multi-device key sync mechanism (password-wrapped keys, QR transfer, or seed phrases)\n- [ ] Document key loss implications prominently (\"key loss = permanent data loss\")\n- [ ] Implement standard `client.receiveEncrypted()` h"
+}

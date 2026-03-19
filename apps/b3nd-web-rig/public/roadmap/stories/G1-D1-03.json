@@ -1,0 +1,30 @@
+{
+  "id": "G1-D1-03",
+  "title": "Write standard encrypted write pattern and KeyBundle recipe documentation",
+  "group": "apps-possible",
+  "category": "documentation",
+  "section": "D1",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "documentation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "skills/b3nd/APP_COOKBOOK.md"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-D1-03",
+  "markdown": "\n## Goal\n\nDocument the standard encrypted write pattern and the KeyBundle recipe: backup, multi-device sync, and recovery. This consolidates encryption documentation from the implementation stories (G1-A7-02, G1-A7-03, G1-A7-04) into clear, task-oriented guides.\n\n## Background\n\nAfter implementing KeyBundle and receiveEncrypted(), developers need recipes they can follow for common encrypted data workflows. This story creates those recipes.\n\n## Acceptance Criteria\n\n- [ ] `skills/b3nd/APP_COOKBOOK.md` has an \"Encrypted Data Patterns\" section:\n  - **Recipe: Write encrypted data** -- using `receiveEncrypted()` helper\n  - **Recipe: Read encrypted data** -- using `readEncrypted()` helper\n  - **Recipe: Encrypt for another user** -- using recipient's public key\n  - **Recipe: Self-encrypting journal** -- complete example of a private journal app\n  - Code examples for each recipe\n- [ ] `skills/b3nd/APP_COOKBOOK.md` has a \"KeyBundle Recipes\" section:\n  - **Recipe: Generate and backup a KeyBundle** -- generate, export with password, store safely\n  - **Recipe: Restore from backup** -- import from encrypted export\n  - **Recipe: Multi-device setup** -- password-based deterministic derivation or QR transfer\n  - **Recipe: Recovery after device loss** -- restore from backup or re-derive from password\n  - **Warning box**: \"Key loss = permanent data loss. There is no password reset.\"\n  - Code examples for each recipe\n- [ ] All code examples use the latest API (KeyBundle, receiveEncrypted, readEncrypted)\n- [ ] Warning about backwards compatibility: old data encrypted with old keys remains readable only with old keys\n\n## Implementation Guide\n\n1. Read `libs/b3nd-encrypt/keybundle.ts` for KeyBundle API\n2. Read `libs/b3nd-encrypt/helpers.ts` for receiveEncrypted/readEncrypted API\n3. Read `libs/b3nd-encrypt/sync.ts` for multi-device sync API\n4. Read `skills/b3nd/APP_COOKBOOK.md` for existing content and style\n5. Write recipes with complete, tested code examples\n\n## Files to Create/Modify\n\n- `skills/b3nd/APP_COOKBOOK.md` -- add Encrypted Data Patterns and KeyBundle Recipes sections\n\n## Testing\n\nVerify code examples compile:\n```bash\ndeno check  # for each snippet\n```\n\n## Dependencies\n\n- **Depends on**: G1-A7-02 (KeyBundle), G1-A7-04 (receiveEncrypted/readEncrypted)\n- **Blocks**: Nothing\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Write privacy warning for \"private\" visibility in FIRECAT.md and SDK docs\n- [ ] Document record size limits\n- [ ] Document `send()` atomicity behavior\n- [ ] Write \"KeyBundle\" recipe (backup, multi-device sync, recovery)\n- [ ] Write standard encrypted write pattern documentation\n- [ ] Write discovery index patterns guide (with `mutable://open` security tradeoffs)\n- [ ] Create developer quickstart for building a Firecat app (end-to-end, from key creation to deployed app)"
+}

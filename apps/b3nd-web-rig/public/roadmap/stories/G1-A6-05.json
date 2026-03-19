@@ -1,0 +1,31 @@
+{
+  "id": "G1-A6-05",
+  "title": "Implement indexer backfill mechanism",
+  "group": "apps-possible",
+  "category": "indexer",
+  "section": "A6",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "high",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/b3nd-indexer/backfill.ts",
+    "libs/b3nd-indexer/backfill_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G1-A6-05",
+  "markdown": "\n## Goal\n\nImplement a backfill mechanism that paginates through an existing B3nd node's data and replays it through the indexer. This is needed when creating a new indexer on existing data, or when rebuilding an indexer after schema changes.\n\n## Background\n\nWhen a new indexer is deployed against a node that already has thousands of records, those records need to be indexed. The backfill mechanism:\n\n1. Lists all URIs matching the indexer's URI patterns\n2. Reads each record\n3. Passes it through the indexer's extract function\n4. Writes to the indexer backend\n\nThis must be paginated (the node's `list()` supports `page`/`limit`) and resumable (track progress via cursor store).\n\n## Acceptance Criteria\n\n- [ ] `backfillIndexer(options)` async function:\n  - `source: NodeProtocolInterface` -- the node to read from\n  - `backend: IndexerBackend` -- where to write indexed data\n  - `definition: IndexerDefinition` -- the indexer definition\n  - `cursorStore?: CursorStore` -- for resumable backfill\n  - `batchSize?: number` (default 50)\n  - `onProgress?: (processed: number, total: number) => void`\n- [ ] Paginates through `source.list()` for each URI pattern in the definition\n- [ ] Reads each record and passes through `definition.extract()`\n- [ ] Writes extracted fields to backend via `backend.index()`\n- [ ] Saves progress to cursor store after each batch (resumable on restart)\n- [ ] Returns `{ processed: number, skipped: number, errors: number, duration: number }`\n- [ ] Handles extraction errors gracefully (logs, increments error count, continues)\n- [ ] Tests: backfill from MemoryClient, resumable backfill, error handling\n\n## Implementation Guide\n\n1. Read `libs/b3nd-core/types.ts` for `ListResult`, `ListOptions` pagination\n2. Create `libs/b3nd-indexer/backfill.ts`:\n   - For each URI pattern, call `source.list(pattern, { page, limit: batchSize })`\n   - For each item in the list, call `source.read(item.uri)`\n   - Run `definition.extract(uri, record.data)`\n   - If extraction returns non-null, call `backend.index(uri, fields)`\n   - After each batch, save cursor to `cursorStore.set(definition.name, lastUri)`\n   - On resume, skip URIs already processed (compare against stored cursor)\n3. Create `libs/b3nd-indexer/backfill_test.ts`:\n   - Seed a MemoryClient with test records\n   - Run backfill\n   - Query the backend to verify all records were indexed\n   - Test resumability: interrupt halfway, resume, verify completion\n4. Export from `libs/b3nd-indexer/mod.ts`\n\n## Files to Create/Modify\n\n- `libs/b3nd-indexer/backfill.ts` -- new: backfill implementation\n- `libs/b3nd-indexer/backfill_test.ts` -- new: tests\n- `libs/b3nd-indexer/mod.ts` -- add export\n\n## Testing\n\n```bash\ndeno test --allow-all libs/b3nd-indexer/backfill_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G1-A6-03 (processor/extract pattern), G1-A6-04 (cursor store)\n- **Blocks**: G1-A6-11 (schema evolution uses backfill for rebuild)\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Implement `IndexerDefinition` interface and runtime\n- [ ] Implement `IndexerBackend` — at least one backend (SQLite or Postgres)\n- [ ] Implement `createIndexerProcessor` — compose `Processor` that pipes messages to indexer\n- [ ] Implement message feed / event stream (pull-based cursor, `GET /api/v1/feed?since={cursor}`)\n- [ ] Implement backfill mechanism (paginate through source node, replay through indexer)\n- [ ] Implement cursor store (using B3nd node itself as storage)\n- [ ] Implement `"
+}

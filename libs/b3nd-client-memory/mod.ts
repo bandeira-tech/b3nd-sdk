@@ -362,15 +362,21 @@ export class MemoryClient implements NodeProtocolInterface {
     if (options?.sortBy === "name") {
       items.sort((a, b) => a.uri.localeCompare(b.uri));
     } else if (options?.sortBy === "timestamp") {
-      items.sort((a, b) => {
-        const aTs =
-          (current.children?.get(a.uri.split("/").pop()!)?.value as any)?.ts ??
-            0;
-        const bTs =
-          (current.children?.get(b.uri.split("/").pop()!)?.value as any)?.ts ??
-            0;
-        return aTs - bTs;
-      });
+      // Traverse the trie to the leaf node for each item to get its timestamp
+      const getTimestamp = (itemUri: string): number => {
+        // Strip the prefix to get relative path segments
+        const relativePath = itemUri.startsWith(prefix)
+          ? itemUri.slice(prefix.length)
+          : itemUri;
+        const segments = relativePath.split("/").filter(Boolean);
+        let node: MemoryClientStorageNode<unknown> | undefined = current;
+        for (const seg of segments) {
+          node = node?.children?.get(seg);
+          if (!node) return 0;
+        }
+        return (node?.value as any)?.ts ?? 0;
+      };
+      items.sort((a, b) => getTimestamp(a.uri) - getTimestamp(b.uri));
     }
 
     if (options?.sortOrder === "desc") {

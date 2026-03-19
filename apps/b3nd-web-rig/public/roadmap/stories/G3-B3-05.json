@@ -1,0 +1,31 @@
+{
+  "id": "G3-B3-05",
+  "title": "Implement withdraw programs with validation proof",
+  "group": "make-it-pay",
+  "category": "gas-multinode",
+  "section": "B3",
+  "dependsOn": [],
+  "blocks": [],
+  "priority": "medium",
+  "scope": "implementation",
+  "estimatedPrs": 1,
+  "filesInvolved": [
+    "libs/firecat-protocol/gas-withdraw.ts",
+    "libs/firecat-protocol/gas-withdraw_test.ts"
+  ],
+  "tags": [],
+  "status": "pending",
+  "uri": "mutable://open/rig/roadmap/stories/G3-B3-05",
+  "markdown": "\n## Goal\n\nImplement withdraw programs that allow validators to claim rewards from the network fund. Withdrawals require proof of validated messages (validator activity) and a time delay. This creates a delayed-claim pattern: validators accumulate proof of work over time, then periodically withdraw earned rewards. The delay prevents flash-loan-style attacks where someone stakes, claims, and immediately unstakes.\n\n## Background\n\nThe withdraw flow:\n1. Validator accumulates checkpoints showing messages validated\n2. Validator submits a withdraw claim at `gas://withdraw-claims/{pubkey}/{claimId}` with proof: list of checkpoint URIs showing activity in the claim period\n3. After a time delay (e.g., 3 epochs), the claim becomes eligible\n4. Validator executes the withdrawal: network fund sends gas UTXOs to validator's address\n\nThe network fund is a pool of gas tokens (accumulated from fees) held at `gas://utxo/{GAS_ROOT_KEY}/*`. Withdraw programs debit from this pool.\n\nReward calculation:\n- For each checkpoint in the claim period, count messages validated\n- Multiply by reward rate per message\n- Apply sqrt-weighting based on stake\n- Subtract relay bonus/penalty adjustments\n\nThe withdraw validator must verify:\n- Claim references real checkpoints\n- Checkpoints are signed by the claiming validator\n- Claim period doesn't overlap with previous claims\n- Time delay has elapsed since claim submission\n- Fund has sufficient balance\n\n## Acceptance Criteria\n\n- [ ] `gas://withdraw-claims/{pubkey}/{claimId}` validator: value must include `checkpoints`, `claim_period`, `calculated_reward`, signed by pubkey\n- [ ] Referenced checkpoints must exist and be signed by the claiming validator\n- [ ] Claim period must not overlap with previous claims from same validator\n- [ ] `gas://withdraw-execute/{pubkey}/{claimId}` validator: claim must exist, time delay must have elapsed, fund must have sufficient balance\n- [ ] Execution creates gas UTXO outputs from the network fund to the validator\n- [ ] `calculateWithdrawReward(checkpoints, stakeAmount, relayProofs)` function\n- [ ] Helpers: `buildWithdrawClaimEnvelope`, `buildWithdrawExecuteEnvelope`\n- [ ] Test: submit valid claim -> accepted\n- [ ] Test: execute after delay -> reward UTXOs created\n- [ ] Test: execute before delay -> rejected\n- [ ] Test: overlapping claim period -> rejected\n- [ ] Test: claim with invalid checkpoints -> rejected\n- [ ] Test: fund insufficient -> rejected\n\n## Implementation Guide\n\n1. Read `libs/firecat-protocol/gas-staking.ts` for staking context\n2. Read `libs/firecat-protocol/gas-checkpoint.ts` for checkpoint structure\n3. Create `libs/firecat-protocol/gas-withdraw.ts`:\n   ```typescript\n   import type { ValidationFn } from \"@bandeira-tech/b3nd-sdk/types\";\n\n   interface WithdrawClaim {\n     checkpoints: string[];        // URIs of checkpoints as activity proof\n     claim_period: { from: number; to: number }; // epoch range\n     calculated_reward: number;\n     submitted_at: number;\n   }\n\n   export const withdrawClaimValidator: ValidationFn = async ({ uri, value, read, message }) => {\n     // Parse URI: gas://withdraw-claims/{pubkey}/{claimId}\n     // Validate shape\n     // Verify signature matches pubkey\n     // Verify each checkpoint exists and is produced by this validator\n     // Verify claim period doesn't overlap with previous claims\n     // Write-once\n   };\n\n   export const withdrawExecuteValidator: ValidationFn = async ({ uri, value, read, message }) => {\n     // Parse URI: gas://withdraw-execute/{pubkey}/{claimId}\n     // Verify corresponding claim exists\n     // Verify time delay elapsed (current timestamp - submitted_at >= WITHDRAW_DELAY)\n     // Verify fund balance sufficient\n     // Value must specify the reward amount matching the claim\n   };\n\n   export function calculateWithdrawReward(\n     checkpoints: CheckpointData[],\n     stakeAmount: number,\n     relayProofCount: number,\n     rewardRatePerMessage: number,\n   ): number { ... }\n   ```\n4. Add constants: `WITHDRAW_DELAY_EPOCHS = 3`, `REWARD_RATE_PER_MESSAGE = 0.1`\n5. Register validators in `mod.ts`\n6. Create test suite\n\n## Files to Create/Modify\n\n- `libs/firecat-protocol/gas-withdraw.ts` -- new file: validators, reward calculation, helpers\n- `libs/firecat-protocol/gas-withdraw_test.ts` -- new file: test suite\n- `libs/firecat-protocol/gas-constants.ts` -- add WITHDRAW_DELAY_EPOCHS, REWARD_RATE_PER_MESSAGE\n- `libs/firecat-protocol/mod.ts` -- register withdraw validators\n\n## Testing\n\n```bash\ndeno test --allow-all libs/firecat-protocol/gas-withdraw_test.ts\n```\n\n## Dependencies\n\n- **Depends on**: G3-B3-04 (staking must exist for stake-weighted rewards)\n- **Blocks**: Nothing directly -- this completes the reward cycle\n",
+  "wave": 0,
+  "keywords": [
+    "goal",
+    "background",
+    "acceptance-criteria",
+    "implementation-guide",
+    "files-to-create-modify",
+    "testing",
+    "dependencies"
+  ],
+  "tasksExcerpt": "- [ ] Replicate gas UTXOs and checkpoints across peers\n- [ ] Implement cross-node UTXO consumption detection (checkpoint comparison)\n- [ ] Implement relay proof recording (`gas://relay-proofs/{hash}`)\n- [ ] Implement relay acknowledgment (`gas://relay-acks`)\n- [ ] Implement operator staking (`gas://staking/{pubkey}` with sqrt-weighted rewards)\n- [ ] Implement stratified validation (validators declare URI path ranges in staking message)\n- [ ] Implement withdraw programs (proof of validated messag"
+}

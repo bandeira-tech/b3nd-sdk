@@ -8,10 +8,17 @@
  *   memory://             → MemoryClient
  *   postgresql://         → PostgresClient (requires executor)
  *   mongodb://            → MongoClient (requires executor)
+ *   sqlite://             → SqliteClient (requires executor)
+ *   redis://              → RedisClient (requires executor)
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
-import type { PostgresExecutorFactory, MongoExecutorFactory } from "./types.ts";
+import type {
+  MongoExecutorFactory,
+  PostgresExecutorFactory,
+  RedisExecutorFactory,
+  SqliteExecutorFactory,
+} from "./types.ts";
 import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { WebSocketClient } from "../b3nd-client-ws/mod.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
@@ -35,6 +42,8 @@ export interface BackendFactoryOptions {
   executors?: {
     postgres?: PostgresExecutorFactory;
     mongo?: MongoExecutorFactory;
+    sqlite?: SqliteExecutorFactory;
+    redis?: RedisExecutorFactory;
   };
 }
 
@@ -107,7 +116,11 @@ export async function createClientFromUrl(
       const collectionName = "b3nd_data";
 
       const { MongoClient } = await import("../b3nd-client-mongo/mod.ts");
-      const executor = await options.executors.mongo(url, dbName, collectionName);
+      const executor = await options.executors.mongo(
+        url,
+        dbName,
+        collectionName,
+      );
       return new MongoClient(
         {
           connectionString: url,
@@ -118,10 +131,53 @@ export async function createClientFromUrl(
       );
     }
 
+    case "sqlite:": {
+      if (!options.executors?.sqlite) {
+        throw new Error(
+          `SQLite URL requires an executor factory. Pass executors.sqlite to Rig.init().`,
+        );
+      }
+      const schema = options.schema;
+      if (!schema) {
+        throw new Error("SQLite backend requires a schema.");
+      }
+      // sqlite://path or sqlite://:memory:
+      const dbPath = parsed.pathname === "/:memory:"
+        ? ":memory:"
+        : parsed.pathname;
+      const { SqliteClient } = await import("../b3nd-client-sqlite/mod.ts");
+      const executor = options.executors.sqlite(dbPath);
+      const client = new SqliteClient(
+        { path: dbPath, schema, tablePrefix: "b3nd" },
+        executor,
+      );
+      client.initializeSchema();
+      return client;
+    }
+
+    case "redis:":
+    case "rediss:": {
+      if (!options.executors?.redis) {
+        throw new Error(
+          `Redis URL requires an executor factory. Pass executors.redis to Rig.init().`,
+        );
+      }
+      const schema = options.schema;
+      if (!schema) {
+        throw new Error("Redis backend requires a schema.");
+      }
+      const { RedisClient } = await import("../b3nd-client-redis/mod.ts");
+      const executor = await options.executors.redis(url);
+      return new RedisClient(
+        { connectionUrl: url, schema, keyPrefix: "b3nd" },
+        executor,
+      );
+    }
+
     default:
       throw new Error(
         `Unsupported backend URL protocol: "${protocol}". ` +
-          `Supported: https://, http://, wss://, ws://, memory://, postgresql://, mongodb://`,
+          `Supported: https://, http://, wss://, ws://, memory://, postgresql://, mongodb://, sqlite://, redis://`,
       );
   }
 }
