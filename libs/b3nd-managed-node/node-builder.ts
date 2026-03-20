@@ -25,6 +25,7 @@ export async function buildClientsFromSpec(
   executors?: {
     postgres?: (connectionString: string) => Promise<any>;
     mongo?: (connectionString: string, dbName: string, collectionName: string) => Promise<any>;
+    sqlite?: (path: string) => any;
   },
 ): Promise<NodeProtocolInterface[]> {
   const clients: NodeProtocolInterface[] = [];
@@ -80,6 +81,26 @@ export async function buildClientsFromSpec(
           executor,
         );
         clients.push(mongo);
+        break;
+      }
+
+      case "sqlite": {
+        const { SqliteClient } = await import("../b3nd-client-sqlite/mod.ts");
+        if (!executors?.sqlite) {
+          throw new Error("SQLite executor factory required for sqlite backend");
+        }
+        const sqlitePath = new URL(spec.url).pathname || ":memory:";
+        const executor = executors.sqlite(sqlitePath);
+        clients.push(
+          new SqliteClient(
+            {
+              path: sqlitePath,
+              schema,
+              tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
+            },
+            executor,
+          ),
+        );
         break;
       }
 

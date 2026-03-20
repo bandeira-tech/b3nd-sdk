@@ -375,6 +375,28 @@ export interface MongoClientConfig {
 }
 
 /**
+ * Configuration for SqliteClient
+ */
+export interface SqliteClientConfig {
+  /**
+   * Path to the SQLite database file, or ":memory:" for in-memory databases
+   * Example: "/data/b3nd.db" or ":memory:"
+   */
+  path: string;
+
+  /**
+   * Schema for validation - must be explicitly provided
+   */
+  schema: Schema;
+
+  /**
+   * Table name prefix for b3nd data tables
+   * Must start with a letter and contain only letters, numbers, and underscores
+   */
+  tablePrefix: string;
+}
+
+/**
  * Structured error codes for programmatic error handling.
  * Callers can switch on `error.code` without string parsing.
  */
