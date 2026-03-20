@@ -21,6 +21,13 @@ export type PostgresExecutorFactory = (
 /**
  * Factory function for creating a MongoDB executor from connection params.
  */
+/**
+ * Factory function for creating a SQLite executor from a file path.
+ */
+export type SqliteExecutorFactory = (
+  path: string,
+) => import("../b3nd-client-sqlite/mod.ts").SqliteExecutor;
+
 export type MongoExecutorFactory = (
   connectionString: string,
   databaseName: string,
@@ -57,11 +64,12 @@ export interface RigConfig {
 
   /**
    * Executor factories for database backends.
-   * Required when using postgresql:// or mongodb:// URLs.
+   * Required when using postgresql://, mongodb://, or sqlite:// URLs.
    */
   executors?: {
     postgres?: PostgresExecutorFactory;
     mongo?: MongoExecutorFactory;
+    sqlite?: SqliteExecutorFactory;
   };
 }
 

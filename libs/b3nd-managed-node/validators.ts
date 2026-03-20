@@ -12,7 +12,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
 
 function validateBackendSpec(b: unknown): string | null {
   if (!isObject(b)) return "backend must be an object";
-  const types = ["memory", "postgresql", "mongodb", "http"];
+  const types = ["memory", "postgresql", "mongodb", "sqlite", "http"];
   if (!types.includes(b.type as string)) return `backend.type must be one of: ${types.join(", ")}`;
   if (typeof b.url !== "string" || b.url.length === 0) return "backend.url must be a non-empty string";
   return null;

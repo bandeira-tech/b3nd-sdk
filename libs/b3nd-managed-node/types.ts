@@ -33,7 +33,7 @@ export interface ManagedNodeConfig {
 }
 
 export interface BackendSpec {
-  type: "memory" | "postgresql" | "mongodb" | "http";
+  type: "memory" | "postgresql" | "mongodb" | "sqlite" | "http";
   url: string;
   options?: Record<string, unknown>;
 }
