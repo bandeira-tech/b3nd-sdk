@@ -1440,6 +1440,11 @@
           "npm:hono@*"
         ]
       },
+      "apps/firecat-host": {
+        "dependencies": [
+          "npm:hono@*"
+        ]
+      },
       "apps/sdk-inspector": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15",
