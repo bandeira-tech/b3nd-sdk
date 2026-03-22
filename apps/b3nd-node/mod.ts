@@ -4,6 +4,8 @@ import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
 import firecatSchema from "@firecat/protocol";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
+import { createSqliteExecutor } from "./sqlite-executor.ts";
+import { createFsExecutor } from "./fs-executor.ts";
 
 // ── Phase 1: Standard node from env vars ─────────────────────────────
 
@@ -43,6 +45,8 @@ const rig = await Rig.init({
     postgres: createPostgresExecutor,
     mongo: (connStr, dbName, collectionName) =>
       createMongoExecutor(connStr, dbName, collectionName),
+    sqlite: createSqliteExecutor,
+    fs: createFsExecutor,
   },
 });
 
@@ -158,6 +162,8 @@ if (OPERATOR_KEY) {
     const localClients = await buildClientsFromSpec(config.backends, schemaToUse, {
       postgres: createPostgresExecutor,
       mongo: createMongoExecutor,
+      sqlite: createSqliteExecutor,
+      fs: createFsExecutor,
     });
     const { pushClients, pullClients } = createPeerClients(config.peers ?? []);
     return createValidatedClient({

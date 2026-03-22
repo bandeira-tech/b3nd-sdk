@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node run-node check build-learn help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs run-node check build-learn help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -161,6 +161,20 @@ node:
 	BACKEND_URL=memory:// PORT=9942 CORS_ORIGIN="*" \
 	deno run --watch -A mod.ts
 
+# B3nd node on :9942 with SQLite backend
+node-sqlite:
+	@mkdir -p .data/sqlite
+	@cd apps/b3nd-node && \
+	BACKEND_URL=sqlite://$(CURDIR)/.data/sqlite/b3nd.db PORT=9942 CORS_ORIGIN="*" \
+	deno run --watch -A mod.ts
+
+# B3nd node on :9942 with filesystem backend
+node-fs:
+	@mkdir -p .data/fs
+	@cd apps/b3nd-node && \
+	BACKEND_URL=file://$(CURDIR)/.data/fs PORT=9942 CORS_ORIGIN="*" \
+	deno run --watch -A mod.ts
+
 # Run a Docker image with freshly generated keys (managed mode)
 # Usage: make run-node image=ghcr.io/bandeira-tech/b3nd/b3nd-node:latest
 run-node:
@@ -233,6 +247,8 @@ help:
 	@echo "  make up p=<profile>    - Start a compose profile (dev, test)"
 	@echo "  make down p=<profile>  - Stop a compose profile"
 	@echo "  make node              - Start B3nd node (:9942, memory backend)"
+	@echo "  make node-sqlite       - Start B3nd node (:9942, SQLite backend)"
+	@echo "  make node-fs           - Start B3nd node (:9942, filesystem backend)"
 	@echo "  make run-node image=.. - Run Docker image with fresh keys (managed mode)"
 	@echo "  make rig               - Start web rig (:5555) + inspector (:5556)"
 	@echo "  make check             - Health check all services"

@@ -1,5 +1,6 @@
 dist
 .claude
+.data
 node_modules
 _vendor/
 .env
