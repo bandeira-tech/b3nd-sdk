@@ -31,6 +31,7 @@ export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
+export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
 export { LocalStorageClient } from "../libs/b3nd-client-localstorage/mod.ts";
 export { IndexedDBClient } from "../libs/b3nd-client-indexeddb/mod.ts";
 export { WalletClient } from "../libs/b3nd-wallet/mod.ts";
@@ -39,3 +40,10 @@ export * as encrypt from "../libs/b3nd-encrypt/mod.ts";
 
 export { Identity } from "../libs/b3nd-rig/identity.ts";
 export type { ExportedIdentity } from "../libs/b3nd-rig/identity.ts";
+
+export { Rig } from "../libs/b3nd-rig/rig.ts";
+export type { RigConfig } from "../libs/b3nd-rig/types.ts";
+export {
+  getSupportedProtocols,
+  SUPPORTED_PROTOCOLS,
+} from "../libs/b3nd-rig/backend-factory.ts";

@@ -359,7 +359,7 @@ Deno.test("Identity.canEncrypt - false for PEM without encryption keys", async (
 Deno.test("Identity.decrypt - throws for public-only identity", async () => {
   const id = Identity.publicOnly({ signing: "ab".repeat(32) });
   await assertRejects(
-    () => id.decrypt({ ciphertext: "", ephemeralPublicKey: "", nonce: "" }),
+    () => id.decrypt({ data: "", ephemeralPublicKey: "", nonce: "" }),
     Error,
     "no encryption private key",
   );
@@ -379,6 +379,14 @@ Deno.test("getSupportedProtocols - returns all supported protocols", () => {
 Deno.test("SUPPORTED_PROTOCOLS - is a readonly array", () => {
   assertEquals(Array.isArray(SUPPORTED_PROTOCOLS), true);
   assertEquals(SUPPORTED_PROTOCOLS.length > 0, true);
+});
+
+Deno.test("Rig.init - rejects unsupported protocol", async () => {
+  await assertRejects(
+    () => Rig.init({ use: "ftp://example.com" }),
+    Error,
+    "Unsupported backend URL protocol",
+  );
 });
 
 // ── Rig tests ──
