@@ -1,7 +1,13 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { Identity } from "./identity.ts";
 import { Rig } from "./rig.ts";
-import { MemoryClient, createTestSchema } from "../b3nd-client-memory/mod.ts";
+import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
+import {
+  exportPrivateKeyPem,
+  generateEncryptionKeyPair,
+  generateSigningKeyPair,
+} from "../b3nd-encrypt/mod.ts";
+import { encodeHex } from "../b3nd-core/encoding.ts";
 
 // ── Identity tests ──
 
@@ -186,7 +192,9 @@ Deno.test("Rig.writeSigned - signs and writes", async () => {
   const id = await Identity.generate();
   const rig = await Rig.init({ identity: id, use: "memory://" });
 
-  const result = await rig.writeSigned("mutable://open/signed", { data: "test" });
+  const result = await rig.writeSigned("mutable://open/signed", {
+    data: "test",
+  });
   assertEquals(result.accepted, true);
 
   const read = await rig.read("mutable://open/signed");
@@ -249,6 +257,84 @@ Deno.test("Rig.init - multi-backend composes correctly", async () => {
   assertEquals(read.success, true);
   assertEquals(read.record?.data, "shared");
   await rig.cleanup();
+});
+
+// ── Identity.fromPem tests ──
+
+Deno.test("Identity.fromPem - restores signing identity from PEM", async () => {
+  const signing = await generateSigningKeyPair();
+  const pem = await exportPrivateKeyPem(signing.privateKey, "PRIVATE KEY");
+
+  const id = await Identity.fromPem(pem, signing.publicKeyHex);
+  assertEquals(id.pubkey, signing.publicKeyHex);
+  assertEquals(id.canSign, true);
+
+  // Verify round-trip: sign with fromPem identity, verify with pubkey
+  const payload = { msg: "hello from PEM" };
+  const { signature } = await id.sign(payload);
+  const valid = await id.verify(payload, signature);
+  assertEquals(valid, true);
+});
+
+Deno.test("Identity.fromPem - works with encryption keys", async () => {
+  const signing = await generateSigningKeyPair();
+  const encryption = await generateEncryptionKeyPair();
+  const signingPem = await exportPrivateKeyPem(
+    signing.privateKey,
+    "PRIVATE KEY",
+  );
+  const encPrivBytes = new Uint8Array(
+    await crypto.subtle.exportKey("pkcs8", encryption.privateKey),
+  );
+  const encPrivHex = encodeHex(encPrivBytes);
+
+  const id = await Identity.fromPem(
+    signingPem,
+    signing.publicKeyHex,
+    encPrivHex,
+    encryption.publicKeyHex,
+  );
+  assertEquals(id.pubkey, signing.publicKeyHex);
+  assertEquals(id.encryptionPubkey, encryption.publicKeyHex);
+  assertEquals(id.canSign, true);
+});
+
+Deno.test("Identity.fromPem - derives encryption pubkey when not provided", async () => {
+  const signing = await generateSigningKeyPair();
+  const encryption = await generateEncryptionKeyPair();
+  const signingPem = await exportPrivateKeyPem(
+    signing.privateKey,
+    "PRIVATE KEY",
+  );
+  const encPrivBytes = new Uint8Array(
+    await crypto.subtle.exportKey("pkcs8", encryption.privateKey),
+  );
+  const encPrivHex = encodeHex(encPrivBytes);
+
+  const id = await Identity.fromPem(
+    signingPem,
+    signing.publicKeyHex,
+    encPrivHex,
+    // No encryption public key — should be derived
+  );
+  assertEquals(id.pubkey, signing.publicKeyHex);
+  assertEquals(id.encryptionPubkey.length, 64); // Should derive 32-byte pubkey
+  assertEquals(id.canSign, true);
+});
+
+Deno.test("Identity.fromPem - signMessage produces verifiable AuthenticatedMessage", async () => {
+  const signing = await generateSigningKeyPair();
+  const pem = await exportPrivateKeyPem(signing.privateKey, "PRIVATE KEY");
+
+  const id = await Identity.fromPem(pem, signing.publicKeyHex);
+  const msg = await id.signMessage({ action: "test" });
+
+  assertEquals(msg.auth.length, 1);
+  assertEquals(msg.auth[0].pubkey, signing.publicKeyHex);
+  assertEquals(msg.payload.action, "test");
+
+  const valid = await id.verify(msg.payload, msg.auth[0].signature);
+  assertEquals(valid, true);
 });
 
 Deno.test("Rig.getSchema - returns schema keys", async () => {
