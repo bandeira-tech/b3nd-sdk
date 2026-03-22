@@ -12,7 +12,11 @@
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
-import type { PostgresExecutorFactory, MongoExecutorFactory, SqliteExecutorFactory } from "./types.ts";
+import type {
+  MongoExecutorFactory,
+  PostgresExecutorFactory,
+  SqliteExecutorFactory,
+} from "./types.ts";
 import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { WebSocketClient } from "../b3nd-client-ws/mod.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
@@ -109,7 +113,11 @@ export async function createClientFromUrl(
       const collectionName = "b3nd_data";
 
       const { MongoClient } = await import("../b3nd-client-mongo/mod.ts");
-      const executor = await options.executors.mongo(url, dbName, collectionName);
+      const executor = await options.executors.mongo(
+        url,
+        dbName,
+        collectionName,
+      );
       return new MongoClient(
         {
           connectionString: url,
@@ -131,7 +139,9 @@ export async function createClientFromUrl(
         throw new Error("SQLite backend requires a schema.");
       }
       // sqlite://path/to/db.sqlite or sqlite://:memory:
-      const path = parsed.pathname === "/:memory:" ? ":memory:" : parsed.pathname;
+      const path = parsed.pathname === "/:memory:"
+        ? ":memory:"
+        : parsed.pathname;
       const { SqliteClient } = await import("../b3nd-client-sqlite/mod.ts");
       const executor = options.executors.sqlite(path);
       return new SqliteClient(

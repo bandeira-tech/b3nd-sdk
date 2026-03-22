@@ -54,7 +54,10 @@ export class Rig {
   /** The current identity. Swappable at any time. */
   identity: Identity | null;
 
-  private constructor(client: NodeProtocolInterface, identity: Identity | null) {
+  private constructor(
+    client: NodeProtocolInterface,
+    identity: Identity | null,
+  ) {
     this.client = client;
     this.identity = identity;
   }
@@ -147,7 +150,9 @@ export class Rig {
     data: { inputs: string[]; outputs: [uri: string, value: V][] },
   ): Promise<SendResult> {
     if (!this.identity) {
-      throw new Error("Rig.send: no identity set — cannot sign. Set rig.identity first.");
+      throw new Error(
+        "Rig.send: no identity set — cannot sign. Set rig.identity first.",
+      );
     }
 
     const payload = { inputs: data.inputs, outputs: data.outputs };
