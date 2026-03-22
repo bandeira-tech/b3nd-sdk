@@ -203,6 +203,24 @@ export class Rig {
 
   // ── Other operations ──
 
+  /**
+   * Check if data exists at a URI.
+   *
+   * Convenience wrapper around `read()` that returns a boolean.
+   * Useful for conditional logic without needing to handle the full ReadResult.
+   *
+   * @example
+   * ```typescript
+   * if (await rig.exists("mutable://app/user/alice")) {
+   *   // user exists, read their data
+   * }
+   * ```
+   */
+  async exists(uri: string): Promise<boolean> {
+    const result = await this.client.read(uri);
+    return result.success;
+  }
+
   /** Delete data at a URI. */
   delete(uri: string): Promise<DeleteResult> {
     return this.client.delete(uri);
@@ -259,6 +277,16 @@ export class Rig {
    */
   get canSign(): boolean {
     return this.identity !== null && this.identity.canSign;
+  }
+
+  /**
+   * Check if this rig has an encryption-capable identity.
+   *
+   * Useful for UI logic that needs to know whether encrypt/decrypt
+   * operations are available.
+   */
+  get canEncrypt(): boolean {
+    return this.identity !== null && this.identity.canEncrypt;
   }
 
   // ── Serve ──

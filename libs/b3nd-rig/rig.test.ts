@@ -628,6 +628,98 @@ Deno.test("Rig.canSign - updates when identity is swapped", async () => {
   await rig.cleanup();
 });
 
+// ── Rig.canEncrypt tests ──
+
+Deno.test("Rig.canEncrypt - true when identity has encryption key", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+  assertEquals(rig.canEncrypt, true);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.canEncrypt - false when no identity", async () => {
+  const rig = await Rig.connect("memory://");
+  assertEquals(rig.canEncrypt, false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.canEncrypt - false for public-only identity without encryption", () => {
+  const publicId = Identity.publicOnly({ signing: "ab".repeat(32) });
+  assertEquals(publicId.canEncrypt, false);
+});
+
+Deno.test("Rig.canEncrypt - updates when identity is swapped", async () => {
+  const rig = await Rig.connect("memory://");
+  assertEquals(rig.canEncrypt, false);
+
+  const id = await Identity.generate();
+  rig.identity = id;
+  assertEquals(rig.canEncrypt, true);
+
+  rig.identity = null;
+  assertEquals(rig.canEncrypt, false);
+  await rig.cleanup();
+});
+
+// ── Rig.exists tests ──
+
+Deno.test("Rig.exists - returns true for existing data", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/check", { present: true });
+  assertEquals(await rig.exists("mutable://open/check"), true);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.exists - returns false for missing data", async () => {
+  const rig = await Rig.connect("memory://");
+  assertEquals(await rig.exists("mutable://open/nonexistent"), false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.exists - returns false after delete", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/ephemeral", "temp");
+  assertEquals(await rig.exists("mutable://open/ephemeral"), true);
+  await rig.delete("mutable://open/ephemeral");
+  assertEquals(await rig.exists("mutable://open/ephemeral"), false);
+  await rig.cleanup();
+});
+
+// ── Rig.writeSigned edge cases ──
+
+Deno.test("Rig.writeSigned - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+  await assertRejects(
+    () => rig.writeSigned("mutable://open/x", { data: 1 }),
+    Error,
+    "no identity set",
+  );
+  await rig.cleanup();
+});
+
+// ── Rig.readMany edge cases ──
+
+Deno.test("Rig.readMany - handles mix of existing and missing URIs", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/yes", "found");
+
+  const result = await rig.readMany([
+    "mutable://open/yes",
+    "mutable://open/nope",
+  ]);
+  assertEquals(result.summary.total, 2);
+  assertEquals(result.summary.succeeded, 1);
+  assertEquals(result.summary.failed, 1);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readMany - handles empty URI array", async () => {
+  const rig = await Rig.connect("memory://");
+  const result = await rig.readMany([]);
+  assertEquals(result.summary.total, 0);
+  await rig.cleanup();
+});
+
 // ── createClientFromUrl tests ──
 
 Deno.test("createClientFromUrl - creates memory client from URL", async () => {
