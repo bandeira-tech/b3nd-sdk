@@ -1177,3 +1177,145 @@ Deno.test("Rig.readAll - respects pagination options", async () => {
   assertEquals(data.size, 2);
   await rig.cleanup();
 });
+
+// ── update() ──
+
+Deno.test("Rig.update - creates value when URI does not exist", async () => {
+  const rig = await Rig.connect("memory://");
+
+  const result = await rig.update<number>(
+    "mutable://open/upd/counter",
+    (n) => (n ?? 0) + 1,
+  );
+
+  assertEquals(result, 1);
+  assertEquals(await rig.readData("mutable://open/upd/counter"), 1);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.update - modifies existing value", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/upd/val", { count: 5, label: "test" });
+
+  const result = await rig.update<{ count: number; label: string }>(
+    "mutable://open/upd/val",
+    (prev) => ({ ...prev!, count: prev!.count + 10 }),
+  );
+
+  assertEquals(result.count, 15);
+  assertEquals(result.label, "test");
+  assertEquals(
+    (await rig.readData<{ count: number }>("mutable://open/upd/val"))?.count,
+    15,
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.update - supports async updater", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/upd/async", "original");
+
+  const result = await rig.update<string>(
+    "mutable://open/upd/async",
+    async (prev) => {
+      // Simulate async work
+      await new Promise((r) => setTimeout(r, 1));
+      return prev + "-updated";
+    },
+  );
+
+  assertEquals(result, "original-updated");
+  assertEquals(
+    await rig.readData("mutable://open/upd/async"),
+    "original-updated",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.update - works with null for missing URIs", async () => {
+  const rig = await Rig.connect("memory://");
+
+  const result = await rig.update<string[]>(
+    "mutable://open/upd/list",
+    (prev) => [...(prev ?? []), "first"],
+  );
+
+  assertEquals(result, ["first"]);
+
+  const result2 = await rig.update<string[]>(
+    "mutable://open/upd/list",
+    (prev) => [...(prev ?? []), "second"],
+  );
+
+  assertEquals(result2, ["first", "second"]);
+  await rig.cleanup();
+});
+
+// ── writeSignedMany() ──
+
+Deno.test("Rig.writeSignedMany - writes multiple signed entries", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  const results = await rig.writeSignedMany([
+    ["mutable://open/wsm/a", { value: 1 }],
+    ["mutable://open/wsm/b", { value: 2 }],
+  ]);
+
+  assertEquals(results.length, 2);
+  assertEquals(results.every((r) => r.accepted), true);
+
+  // Verify the data was written and wrapped in AuthenticatedMessage
+  const a = await rig.readData<{ auth: unknown[]; payload: unknown }>(
+    "mutable://open/wsm/a",
+  );
+  assertEquals(Array.isArray(a?.auth), true);
+  assertEquals(a?.auth.length, 1);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeSignedMany - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+
+  await assertRejects(
+    () =>
+      rig.writeSignedMany([
+        ["mutable://open/wsm/x", "data"],
+      ]),
+    Error,
+    "no identity set",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeSignedMany - returns empty for empty input", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  const results = await rig.writeSignedMany([]);
+  assertEquals(results.length, 0);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeSignedMany - signatures are verifiable", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  await rig.writeSignedMany([
+    ["mutable://open/wsm/verify", { msg: "hello" }],
+  ]);
+
+  const stored = await rig.readData<{
+    auth: { pubkey: string; signature: string }[];
+    payload: unknown;
+  }>("mutable://open/wsm/verify");
+
+  // Verify the signature belongs to our identity
+  assertEquals(stored?.auth[0].pubkey, id.pubkey);
+  assertEquals(typeof stored?.auth[0].signature, "string");
+
+  // Verify the signature is valid
+  const valid = await id.verify(stored!.payload, stored!.auth[0].signature);
+  assertEquals(valid, true);
+  await rig.cleanup();
+});

@@ -186,8 +186,8 @@ export class Rig {
    * console.log(results.every(r => r.success)); // true
    * ```
    */
-  async writeMany<D = unknown>(
-    entries: [uri: string, data: D][],
+  async writeMany(
+    entries: readonly [uri: string, data: unknown][],
   ): Promise<ReceiveResult[]> {
     if (entries.length === 0) return [];
     return Promise.all(
@@ -207,6 +207,37 @@ export class Rig {
 
     const msg = await this.identity.signMessage(data);
     return this.client.receive([uri, msg]);
+  }
+
+  /**
+   * Batch write with signing — wraps each entry in an AuthenticatedMessage.
+   *
+   * Parallels `writeMany()` but signs each write with the current identity.
+   * Each entry is written independently, so partial failures are possible.
+   *
+   * @throws If no identity is set.
+   *
+   * @example
+   * ```typescript
+   * const results = await rig.writeSignedMany([
+   *   ["mutable://app/settings/theme", { dark: true }],
+   *   ["mutable://app/settings/lang", { code: "en" }],
+   * ]);
+   * ```
+   */
+  async writeSignedMany(
+    entries: readonly [uri: string, data: unknown][],
+  ): Promise<ReceiveResult[]> {
+    if (!this.identity) {
+      throw new Error("Rig.writeSignedMany: no identity set — cannot sign.");
+    }
+    if (entries.length === 0) return [];
+    return Promise.all(
+      entries.map(async ([uri, data]) => {
+        const msg = await this.identity!.signMessage(data);
+        return this.client.receive([uri, msg]);
+      }),
+    );
   }
 
   // ── Read operations ──
@@ -271,7 +302,39 @@ export class Rig {
     return this.readDataMany<T>(uris);
   }
 
-  // ── Other operations ──
+  // ── Convenience operations ──
+
+  /**
+   * Read-modify-write in one call.
+   *
+   * Reads the current value at `uri`, passes it to `updater`, and writes
+   * the result back. If the URI doesn't exist, `updater` receives `null`.
+   * Returns the new value.
+   *
+   * This is the most common app pattern — incrementing counters, toggling
+   * flags, merging partial updates into objects, etc.
+   *
+   * @example
+   * ```typescript
+   * // Increment a counter
+   * const count = await rig.update<number>("mutable://app/counter", (n) => (n ?? 0) + 1);
+   *
+   * // Merge partial updates
+   * await rig.update<UserProfile>("mutable://app/users/alice", (profile) => ({
+   *   ...profile,
+   *   lastLogin: Date.now(),
+   * }));
+   * ```
+   */
+  async update<T = unknown>(
+    uri: string,
+    updater: (current: T | null) => T | Promise<T>,
+  ): Promise<T> {
+    const current = await this.readData<T>(uri);
+    const next = await updater(current);
+    await this.write(uri, next);
+    return next;
+  }
 
   /**
    * Read just the data from a URI, returning `null` if not found.
