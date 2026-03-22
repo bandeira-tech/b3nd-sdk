@@ -16,7 +16,9 @@ import { nodeConfigUri } from "@b3nd/managed-node/types";
 import type { ManagedNodeConfig } from "@b3nd/managed-node/types";
 
 /** Create a valid ManagedNodeConfig for testing (local copy to avoid test-helpers import). */
-function createTestConfig(overrides?: Partial<ManagedNodeConfig>): ManagedNodeConfig {
+function createTestConfig(
+  overrides?: Partial<ManagedNodeConfig>,
+): ManagedNodeConfig {
   return {
     configVersion: 1,
     nodeId: "test-node-1",
@@ -109,11 +111,15 @@ async function waitForHealth(
     }
     await new Promise((r) => setTimeout(r, 100));
   }
-  throw new Error(`Node on port ${port} did not become healthy within ${timeoutMs}ms`);
+  throw new Error(
+    `Node on port ${port} did not become healthy within ${timeoutMs}ms`,
+  );
 }
 
 /** Read all available output from a stream. */
-async function drainStream(stream: ReadableStream<Uint8Array>): Promise<string> {
+async function _drainStream(
+  stream: ReadableStream<Uint8Array>,
+): Promise<string> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let text = "";
@@ -198,7 +204,7 @@ Deno.test("phase1: boots with memory backend, health returns ok", async () => {
   }
 });
 
-Deno.test("phase1: permissive schema accepts any URI", async () => {
+Deno.test("phase1: Firecat schema accepts open URI", async () => {
   const port = randomPort();
   const node = await startNode({
     PORT: String(port),
@@ -207,11 +213,11 @@ Deno.test("phase1: permissive schema accepts any URI", async () => {
   });
 
   try {
-    // Write to an arbitrary URI — no SCHEMA_MODULE, so permissive schema
+    // Write to an open URI — default Firecat schema accepts mutable://open/**
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(["mutable://anything/goes/here", { hello: "world" }]),
+      body: JSON.stringify(["mutable://open/test/hello", { hello: "world" }]),
     });
     const body = await res.json();
     assertEquals(res.status, 200);
@@ -230,7 +236,7 @@ Deno.test("phase1: receive and read round-trip", async () => {
   });
 
   try {
-    const uri = "mutable://test/data/item-1";
+    const uri = "mutable://open/data/item-1";
     const data = { name: "test", value: 42 };
 
     // Write
@@ -243,7 +249,7 @@ Deno.test("phase1: receive and read round-trip", async () => {
 
     // Read
     const readRes = await fetch(
-      `http://127.0.0.1:${port}/api/v1/read/mutable/test/data/item-1`,
+      `http://127.0.0.1:${port}/api/v1/read/mutable/open/data/item-1`,
     );
     const record = await readRes.json();
     assertEquals(readRes.status, 200);
@@ -268,18 +274,22 @@ Deno.test("phase1: list returns items after write", async () => {
       const res = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([`mutable://test/items/${id}`, { id }]),
+        body: JSON.stringify([`mutable://open/items/${id}`, { id }]),
       });
       await res.body?.cancel();
     }
 
     // List
     const listRes = await fetch(
-      `http://127.0.0.1:${port}/api/v1/list/mutable/test/items`,
+      `http://127.0.0.1:${port}/api/v1/list/mutable/open/items`,
     );
     const body = await listRes.json();
     assertEquals(listRes.status, 200);
-    assertEquals(body.data.length >= 2, true, `Expected >=2 items, got ${body.data.length}`);
+    assertEquals(
+      body.data.length >= 2,
+      true,
+      `Expected >=2 items, got ${body.data.length}`,
+    );
   } finally {
     await killNode(node);
   }
@@ -294,7 +304,7 @@ Deno.test("phase1: delete removes item", async () => {
   });
 
   try {
-    const uri = "mutable://test/delete/target";
+    const uri = "mutable://open/delete/target";
 
     // Write
     const writeRes = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
@@ -306,14 +316,14 @@ Deno.test("phase1: delete removes item", async () => {
 
     // Delete
     const delRes = await fetch(
-      `http://127.0.0.1:${port}/api/v1/delete/mutable/test/delete/target`,
+      `http://127.0.0.1:${port}/api/v1/delete/mutable/open/delete/target`,
       { method: "DELETE" },
     );
     assertEquals((await delRes.json()).success, true);
 
     // Read should 404
     const readRes = await fetch(
-      `http://127.0.0.1:${port}/api/v1/read/mutable/test/delete/target`,
+      `http://127.0.0.1:${port}/api/v1/read/mutable/open/delete/target`,
     );
     assertEquals(readRes.status, 404);
     await readRes.json(); // drain
@@ -352,7 +362,11 @@ Deno.test("phase2: OPERATOR_KEY without NODE_PRIVATE_KEY_PEM exits with error", 
     OPERATOR_KEY: "aabbccdd",
     // NODE_PRIVATE_KEY_PEM intentionally missing
   });
-  assertEquals(stderr.includes("NODE_PRIVATE_KEY_PEM"), true, `stderr: ${stderr}`);
+  assertEquals(
+    stderr.includes("NODE_PRIVATE_KEY_PEM"),
+    true,
+    `stderr: ${stderr}`,
+  );
 });
 
 // ── Phase 2: Graceful degradation ────────────────────────────────────
@@ -382,7 +396,7 @@ Deno.test("phase2: config not available, node boots with Phase 1 backends", asyn
     const writeRes = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(["mutable://test/graceful", { ok: true }]),
+      body: JSON.stringify(["mutable://open/graceful", { ok: true }]),
     });
     assertEquals((await writeRes.json()).accepted, true);
   } finally {
@@ -432,12 +446,18 @@ Deno.test("phase2: signed config round-trip through HTTP API", async () => {
       body: JSON.stringify([configUri, signedConfig]),
     });
     const writeBody = await writeRes.json();
-    assertEquals(writeRes.status, 200, `Write failed: ${JSON.stringify(writeBody)}`);
+    assertEquals(
+      writeRes.status,
+      200,
+      `Write failed: ${JSON.stringify(writeBody)}`,
+    );
     assertEquals(writeBody.accepted, true);
 
     // Read the config back via HTTP
     const pathParts = configUri.replace("://", "/").split("/");
-    const readUrl = `http://127.0.0.1:${port}/api/v1/read/${pathParts.join("/")}`;
+    const readUrl = `http://127.0.0.1:${port}/api/v1/read/${
+      pathParts.join("/")
+    }`;
     const readRes = await fetch(readUrl);
     const record = await readRes.json();
     assertEquals(readRes.status, 200);
