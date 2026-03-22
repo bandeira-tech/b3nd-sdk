@@ -198,6 +198,121 @@ Deno.test("Identity.export - fromSeed identity round-trips deterministically", a
   assertEquals(authOriginal.signature, authRestored.signature);
 });
 
+// ── Identity.fromPem tests ──
+
+Deno.test("Identity.fromPem - creates identity from PEM and pubkey", async () => {
+  // Generate a fresh identity, export its signing key to PEM
+  const original = await Identity.generate();
+  const exported = await original.export();
+
+  // Export the signing private key as PEM via the encrypt module
+  const { exportPrivateKeyPem, pemToCryptoKey } = await import(
+    "../b3nd-encrypt/mod.ts"
+  );
+  const { decodeHex } = await import("../b3nd-core/encoding.ts");
+
+  // Reconstruct the CryptoKey from exported hex, then export to PEM
+  const signingKey = await crypto.subtle.importKey(
+    "pkcs8",
+    decodeHex(exported.signingPrivateKeyHex!).buffer,
+    { name: "Ed25519", namedCurve: "Ed25519" },
+    true,
+    ["sign"],
+  );
+  const pem = await exportPrivateKeyPem(signingKey, "PRIVATE KEY");
+
+  // Create identity from PEM (signing only, no encryption keys)
+  const fromPem = await Identity.fromPem(pem, original.pubkey);
+  assertEquals(fromPem.pubkey, original.pubkey);
+  assertEquals(fromPem.canSign, true);
+});
+
+Deno.test("Identity.fromPem - sign/verify round-trips with original", async () => {
+  const original = await Identity.generate();
+  const exported = await original.export();
+
+  const { exportPrivateKeyPem } = await import("../b3nd-encrypt/mod.ts");
+  const { decodeHex } = await import("../b3nd-core/encoding.ts");
+
+  const signingKey = await crypto.subtle.importKey(
+    "pkcs8",
+    decodeHex(exported.signingPrivateKeyHex!).buffer,
+    { name: "Ed25519", namedCurve: "Ed25519" },
+    true,
+    ["sign"],
+  );
+  const pem = await exportPrivateKeyPem(signingKey, "PRIVATE KEY");
+
+  const fromPem = await Identity.fromPem(pem, original.pubkey);
+
+  // Sign with PEM-restored identity, verify with original
+  const payload = { action: "pem-test" };
+  const auth = await fromPem.sign(payload);
+  const valid = await original.verify(payload, auth.signature);
+  assertEquals(valid, true);
+});
+
+Deno.test("Identity.fromPem - with encryption keys enables decrypt", async () => {
+  const original = await Identity.generate();
+  const exported = await original.export();
+
+  const { exportPrivateKeyPem } = await import("../b3nd-encrypt/mod.ts");
+  const { decodeHex } = await import("../b3nd-core/encoding.ts");
+
+  const signingKey = await crypto.subtle.importKey(
+    "pkcs8",
+    decodeHex(exported.signingPrivateKeyHex!).buffer,
+    { name: "Ed25519", namedCurve: "Ed25519" },
+    true,
+    ["sign"],
+  );
+  const pem = await exportPrivateKeyPem(signingKey, "PRIVATE KEY");
+
+  // Create with full keys (signing PEM + encryption hex)
+  const fromPem = await Identity.fromPem(
+    pem,
+    original.pubkey,
+    exported.encryptionPrivateKeyHex,
+    exported.encryptionPublicKeyHex,
+  );
+
+  assertEquals(fromPem.encryptionPubkey, original.encryptionPubkey);
+
+  // Encrypt for the PEM identity, decrypt with it
+  const sender = await Identity.generate();
+  const plaintext = new TextEncoder().encode("pem-encrypted");
+  const encrypted = await sender.encrypt(plaintext, fromPem.encryptionPubkey);
+  const decrypted = await fromPem.decrypt(encrypted);
+  assertEquals(new TextDecoder().decode(decrypted), "pem-encrypted");
+});
+
+Deno.test("Identity.fromPem - derives encryption pubkey from private when not provided", async () => {
+  const original = await Identity.generate();
+  const exported = await original.export();
+
+  const { exportPrivateKeyPem } = await import("../b3nd-encrypt/mod.ts");
+  const { decodeHex } = await import("../b3nd-core/encoding.ts");
+
+  const signingKey = await crypto.subtle.importKey(
+    "pkcs8",
+    decodeHex(exported.signingPrivateKeyHex!).buffer,
+    { name: "Ed25519", namedCurve: "Ed25519" },
+    true,
+    ["sign"],
+  );
+  const pem = await exportPrivateKeyPem(signingKey, "PRIVATE KEY");
+
+  // Provide encryption private key but NOT public — should derive it
+  const fromPem = await Identity.fromPem(
+    pem,
+    original.pubkey,
+    exported.encryptionPrivateKeyHex,
+    // No encryptionPublicKeyHex — should be derived
+  );
+
+  assertEquals(fromPem.encryptionPubkey, original.encryptionPubkey);
+});
+
 // ── Rig tests ──
 
 Deno.test("Rig.init - with memory backend", async () => {

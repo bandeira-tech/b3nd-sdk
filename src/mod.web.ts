@@ -34,3 +34,6 @@ export { LocalStorageClient } from "../libs/b3nd-client-localstorage/mod.ts";
 export { WalletClient } from "../libs/b3nd-wallet/mod.ts";
 export { AppsClient } from "../libs/b3nd-apps/mod.ts";
 export * as encrypt from "../libs/b3nd-encrypt/mod.ts";
+
+export { Identity } from "../libs/b3nd-rig/identity.ts";
+export type { ExportedIdentity } from "../libs/b3nd-rig/identity.ts";
