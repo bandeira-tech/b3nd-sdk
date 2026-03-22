@@ -171,6 +171,31 @@ export class Rig {
   }
 
   /**
+   * Batch write multiple URI/data pairs in parallel.
+   *
+   * Parallels `readMany()` for writes. Each entry is written independently
+   * via `client.receive()`, so partial failures are possible — check
+   * each result's `accepted` field.
+   *
+   * @example
+   * ```typescript
+   * const results = await rig.writeMany([
+   *   ["mutable://app/users/alice", { name: "Alice" }],
+   *   ["mutable://app/users/bob", { name: "Bob" }],
+   * ]);
+   * console.log(results.every(r => r.success)); // true
+   * ```
+   */
+  async writeMany<D = unknown>(
+    entries: [uri: string, data: D][],
+  ): Promise<ReceiveResult[]> {
+    if (entries.length === 0) return [];
+    return Promise.all(
+      entries.map(([uri, data]) => this.client.receive([uri, data])),
+    );
+  }
+
+  /**
    * Write with signing — wraps data in an AuthenticatedMessage.
    *
    * @throws If no identity is set.
@@ -220,6 +245,37 @@ export class Rig {
   async readData<T = unknown>(uri: string): Promise<T | null> {
     const result = await this.client.read<T>(uri);
     return result.success && result.record ? result.record.data : null;
+  }
+
+  /**
+   * Batch read data values for multiple URIs.
+   *
+   * Returns a Map of URI → data for all URIs that had data.
+   * Missing URIs are silently omitted from the map.
+   * Parallels `readMany()` but returns only the data values,
+   * not full ReadResult objects.
+   *
+   * @example
+   * ```typescript
+   * const data = await rig.readDataMany<UserProfile>([
+   *   "mutable://app/users/alice",
+   *   "mutable://app/users/bob",
+   *   "mutable://app/users/unknown",
+   * ]);
+   * // data.size === 2 (unknown is omitted)
+   * console.log(data.get("mutable://app/users/alice")?.name);
+   * ```
+   */
+  async readDataMany<T = unknown>(uris: string[]): Promise<Map<string, T>> {
+    if (uris.length === 0) return new Map();
+    const multi = await this.client.readMulti<T>(uris);
+    const map = new Map<string, T>();
+    for (const item of multi.results) {
+      if (item.success) {
+        map.set(item.uri, item.record.data);
+      }
+    }
+    return map;
   }
 
   /**

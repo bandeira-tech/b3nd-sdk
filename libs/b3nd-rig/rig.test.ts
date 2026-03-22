@@ -928,6 +928,101 @@ Deno.test("Rig.send - throws without identity", async () => {
   await rig.cleanup();
 });
 
+// ── writeMany ──
+
+Deno.test("Rig.writeMany - writes multiple entries in parallel", async () => {
+  const rig = await Rig.connect("memory://");
+
+  const results = await rig.writeMany([
+    ["mutable://open/wm/a", { v: 1 }],
+    ["mutable://open/wm/b", { v: 2 }],
+    ["mutable://open/wm/c", { v: 3 }],
+  ]);
+
+  assertEquals(results.length, 3);
+  assertEquals(results.every((r) => r.accepted), true);
+
+  assertEquals(await rig.readData("mutable://open/wm/a"), { v: 1 });
+  assertEquals(await rig.readData("mutable://open/wm/b"), { v: 2 });
+  assertEquals(await rig.readData("mutable://open/wm/c"), { v: 3 });
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeMany - returns empty array for empty input", async () => {
+  const rig = await Rig.connect("memory://");
+  const results = await rig.writeMany([]);
+  assertEquals(results, []);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeMany - handles scalar values", async () => {
+  const rig = await Rig.connect("memory://");
+
+  const results = await rig.writeMany([
+    ["mutable://open/wm/str", "hello"],
+    ["mutable://open/wm/num", 42],
+    ["mutable://open/wm/bool", true],
+  ]);
+
+  assertEquals(results.every((r) => r.accepted), true);
+  assertEquals(await rig.readData("mutable://open/wm/str"), "hello");
+  assertEquals(await rig.readData("mutable://open/wm/num"), 42);
+  assertEquals(await rig.readData("mutable://open/wm/bool"), true);
+  await rig.cleanup();
+});
+
+// ── readDataMany ──
+
+Deno.test("Rig.readDataMany - returns map of existing data", async () => {
+  const rig = await Rig.connect("memory://");
+
+  await rig.write("mutable://open/rdm/a", { name: "Alice" });
+  await rig.write("mutable://open/rdm/b", { name: "Bob" });
+
+  const data = await rig.readDataMany<{ name: string }>([
+    "mutable://open/rdm/a",
+    "mutable://open/rdm/b",
+  ]);
+
+  assertEquals(data.size, 2);
+  assertEquals(data.get("mutable://open/rdm/a"), { name: "Alice" });
+  assertEquals(data.get("mutable://open/rdm/b"), { name: "Bob" });
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readDataMany - omits missing URIs from map", async () => {
+  const rig = await Rig.connect("memory://");
+
+  await rig.write("mutable://open/rdm2/exists", { ok: true });
+
+  const data = await rig.readDataMany([
+    "mutable://open/rdm2/exists",
+    "mutable://open/rdm2/missing",
+  ]);
+
+  assertEquals(data.size, 1);
+  assertEquals(data.get("mutable://open/rdm2/exists"), { ok: true });
+  assertEquals(data.has("mutable://open/rdm2/missing"), false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readDataMany - returns empty map for empty input", async () => {
+  const rig = await Rig.connect("memory://");
+  const data = await rig.readDataMany([]);
+  assertEquals(data.size, 0);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readDataMany - returns empty map when all URIs missing", async () => {
+  const rig = await Rig.connect("memory://");
+  const data = await rig.readDataMany([
+    "mutable://open/gone/a",
+    "mutable://open/gone/b",
+  ]);
+  assertEquals(data.size, 0);
+  await rig.cleanup();
+});
+
 Deno.test("Rig.send - multiple outputs in single envelope", async () => {
   const id = await Identity.generate();
   const rig = await Rig.connect("memory://", id);
