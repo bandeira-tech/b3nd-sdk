@@ -76,6 +76,13 @@ export class MockHttpServer {
         return await this.handleReceive(req);
       }
 
+      // Read-multi endpoint (batch reads)
+      if (
+        url.pathname === "/api/v1/read-multi" && req.method === "POST"
+      ) {
+        return await this.handleReadMulti(req);
+      }
+
       // Read endpoint
       if (url.pathname.startsWith("/api/v1/read/")) {
         return this.handleRead(url);
@@ -176,6 +183,60 @@ export class MockHttpServer {
     this.storage.set(uri, record);
 
     return Response.json({ accepted: true });
+  }
+
+  private async handleReadMulti(req: Request): Promise<Response> {
+    const body = await req.json() as { uris?: string[] };
+
+    if (!body || !Array.isArray(body.uris)) {
+      return Response.json({
+        success: false,
+        error: 'Invalid request: expected { "uris": [...] }',
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      }, { status: 400 });
+    }
+
+    if (body.uris.length === 0) {
+      return Response.json({
+        success: false,
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      }, { status: 400 });
+    }
+
+    if (body.uris.length > 50) {
+      return Response.json({
+        success: false,
+        error: "Batch size exceeds maximum of 50",
+        results: [],
+        summary: {
+          total: body.uris.length,
+          succeeded: 0,
+          failed: body.uris.length,
+        },
+      }, { status: 400 });
+    }
+
+    const results = body.uris.map((uri: string) => {
+      const record = this.storage.get(uri);
+      if (record) {
+        return { uri, success: true, record };
+      }
+      return { uri, success: false, error: "Not found" };
+    });
+
+    const succeeded = results.filter((r: { success: boolean }) => r.success)
+      .length;
+    return Response.json({
+      success: succeeded > 0,
+      results,
+      summary: {
+        total: body.uris.length,
+        succeeded,
+        failed: body.uris.length - succeeded,
+      },
+    });
   }
 
   private handleRead(url: URL): Response {

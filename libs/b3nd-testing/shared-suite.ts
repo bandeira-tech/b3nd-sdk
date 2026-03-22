@@ -176,7 +176,11 @@ export function runSharedSuite(
     assertEquals(result.accepted, true);
 
     const readResult = await client.read("store://users/scalar-empty/data");
-    assertEquals(readResult.success, true, "Empty string value read should succeed");
+    assertEquals(
+      readResult.success,
+      true,
+      "Empty string value read should succeed",
+    );
     assertEquals(readResult.record?.data, "");
 
     await client.cleanup();
@@ -706,6 +710,9 @@ export function runSharedSuite(
 
       const readResult = await client.read("store://users/test/data");
       assertEquals(readResult.success, false);
+
+      const listResult = await client.list("store://users");
+      assertEquals(listResult.success, false);
 
       await client.cleanup();
     });

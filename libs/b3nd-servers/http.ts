@@ -263,6 +263,53 @@ export function httpServer(
     return c.json(res, res.accepted ? 200 : 400);
   });
 
+  // Batch read endpoint
+  app.post("/api/v1/read-multi", async (c: MinimalContext) => {
+    const reader = client || backend?.read;
+    if (!reader) return c.json({ error: "handler not attached" }, 501);
+
+    const body = await (async () => {
+      try {
+        return await (c as any).req.json?.() ?? null;
+      } catch {
+        return null;
+      }
+    })() as { uris?: string[] } | null;
+
+    if (!body || !Array.isArray(body.uris)) {
+      return c.json({
+        success: false,
+        error: 'Invalid request: expected { "uris": [...] }',
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      }, 400);
+    }
+
+    if (body.uris.length === 0) {
+      return c.json({
+        success: false,
+        results: [],
+        summary: { total: 0, succeeded: 0, failed: 0 },
+      }, 400);
+    }
+
+    if (body.uris.length > 50) {
+      return c.json({
+        success: false,
+        error: "Batch size exceeds maximum of 50",
+        results: [],
+        summary: {
+          total: body.uris.length,
+          succeeded: 0,
+          failed: body.uris.length,
+        },
+      }, 400);
+    }
+
+    const res = await reader.readMulti(body.uris);
+    return c.json(res, 200);
+  });
+
   app.get("/api/v1/read/:protocol/:domain/*", async (c: MinimalContext) => {
     const reader = client || backend?.read;
     if (!reader) return c.json({ error: "handler not attached" }, 501);
@@ -296,15 +343,28 @@ export function httpServer(
       return c.json({ data: [], pagination: { page: 1, limit: 50, total: 0 } });
     }
     const baseUri = extractUriFromParams(c).replace(/\/$/, "");
+
+    // Parse and validate numeric query parameters
+    const rawPage = c.req.query("page");
+    const rawLimit = c.req.query("limit");
+    const page = rawPage ? parseInt(rawPage, 10) : undefined;
+    const limit = rawLimit ? parseInt(rawLimit, 10) : undefined;
+    if (
+      (rawPage && (!Number.isFinite(page) || page! < 1)) ||
+      (rawLimit && (!Number.isFinite(limit) || limit! < 1))
+    ) {
+      return c.json({
+        success: false,
+        error: "Invalid pagination: page and limit must be positive integers",
+      }, 400);
+    }
+
     const res = await reader.list(baseUri, {
-      page:
-        (c.req.query("page") ? Number(c.req.query("page")) : undefined) as any,
-      limit: (c.req.query("limit")
-        ? Number(c.req.query("limit"))
-        : undefined) as any,
-      pattern: (c.req.query("pattern") || undefined) as any,
-      sortBy: (c.req.query("sortBy") as any) || undefined,
-      sortOrder: (c.req.query("sortOrder") as any) || undefined,
+      page,
+      limit,
+      pattern: c.req.query("pattern") || undefined,
+      sortBy: (c.req.query("sortBy") as "name" | "timestamp") || undefined,
+      sortOrder: (c.req.query("sortOrder") as "asc" | "desc") || undefined,
     });
     return c.json(res, 200);
   });

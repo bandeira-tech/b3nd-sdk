@@ -299,13 +299,10 @@ export class HttpClient implements NodeProtocolInterface {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
         return {
-          success: true,
-          data: [],
-          pagination: {
-            page: options?.page || 1,
-            limit: options?.limit || 50,
-          },
+          success: false,
+          error: `List failed: ${errorText || response.statusText}`,
         };
       }
 
@@ -313,12 +310,8 @@ export class HttpClient implements NodeProtocolInterface {
       return result;
     } catch (error) {
       return {
-        success: true,
-        data: [],
-        pagination: {
-          page: options?.page || 1,
-          limit: options?.limit || 50,
-        },
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
