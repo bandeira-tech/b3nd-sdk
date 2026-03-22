@@ -204,6 +204,50 @@ export class Rig {
   // ── Other operations ──
 
   /**
+   * Read just the data from a URI, returning `null` if not found.
+   *
+   * The most common read pattern in apps — skips the full ReadResult
+   * when you just need the value.
+   *
+   * @example
+   * ```typescript
+   * const profile = await rig.readData<UserProfile>("mutable://app/users/alice");
+   * if (profile) {
+   *   console.log(profile.name);
+   * }
+   * ```
+   */
+  async readData<T = unknown>(uri: string): Promise<T | null> {
+    const result = await this.client.read<T>(uri);
+    return result.success && result.record ? result.record.data : null;
+  }
+
+  /**
+   * Read data from a URI, throwing if not found.
+   *
+   * Use when missing data is an error condition rather than an expected case.
+   *
+   * @throws {Error} If the URI has no data or the read fails.
+   *
+   * @example
+   * ```typescript
+   * const config = await rig.readOrThrow<AppConfig>("mutable://app/config");
+   * // config is guaranteed to be AppConfig — no null check needed
+   * ```
+   */
+  async readOrThrow<T = unknown>(uri: string): Promise<T> {
+    const result = await this.client.read<T>(uri);
+    if (!result.success || !result.record) {
+      throw new Error(
+        `Rig.readOrThrow: no data at ${uri}${
+          result.error ? ` (${result.error})` : ""
+        }`,
+      );
+    }
+    return result.record.data;
+  }
+
+  /**
    * Check if data exists at a URI.
    *
    * Convenience wrapper around `read()` that returns a boolean.

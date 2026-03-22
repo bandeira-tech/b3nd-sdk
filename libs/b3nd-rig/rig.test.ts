@@ -743,3 +743,216 @@ Deno.test("createClientFromUrl - rejects unknown protocol", async () => {
     "Unsupported backend URL protocol",
   );
 });
+
+// ── Rig.readData tests ──
+
+Deno.test("Rig.readData - returns data for existing URI", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/profile", { name: "Alice", age: 30 });
+
+  const data = await rig.readData<{ name: string; age: number }>(
+    "mutable://open/profile",
+  );
+  assertEquals(data, { name: "Alice", age: 30 });
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readData - returns null for missing URI", async () => {
+  const rig = await Rig.connect("memory://");
+  const data = await rig.readData("mutable://open/ghost");
+  assertEquals(data, null);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readData - returns null after delete", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/temp", "value");
+  assertEquals(await rig.readData("mutable://open/temp"), "value");
+
+  await rig.delete("mutable://open/temp");
+  assertEquals(await rig.readData("mutable://open/temp"), null);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readData - handles scalar values", async () => {
+  const rig = await Rig.connect("memory://");
+
+  await rig.write("mutable://open/num", 42);
+  assertEquals(await rig.readData<number>("mutable://open/num"), 42);
+
+  await rig.write("mutable://open/str", "hello");
+  assertEquals(await rig.readData<string>("mutable://open/str"), "hello");
+
+  await rig.write("mutable://open/bool", true);
+  assertEquals(await rig.readData<boolean>("mutable://open/bool"), true);
+
+  await rig.cleanup();
+});
+
+// ── Rig.readOrThrow tests ──
+
+Deno.test("Rig.readOrThrow - returns data for existing URI", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/config", { debug: false });
+
+  const config = await rig.readOrThrow<{ debug: boolean }>(
+    "mutable://open/config",
+  );
+  assertEquals(config, { debug: false });
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readOrThrow - throws for missing URI", async () => {
+  const rig = await Rig.connect("memory://");
+  await assertRejects(
+    () => rig.readOrThrow("mutable://open/missing"),
+    Error,
+    "no data at mutable://open/missing",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readOrThrow - throws after delete", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/once", "here");
+  assertEquals(await rig.readOrThrow("mutable://open/once"), "here");
+
+  await rig.delete("mutable://open/once");
+  await assertRejects(
+    () => rig.readOrThrow("mutable://open/once"),
+    Error,
+    "no data at mutable://open/once",
+  );
+  await rig.cleanup();
+});
+
+// ── Rig.send integration tests (with Identity and signature verification) ──
+
+Deno.test("Rig.send - creates verifiable signed envelope", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  const result = await rig.send({
+    inputs: [],
+    outputs: [["mutable://open/signed-test", { msg: "hello" }]],
+  });
+
+  assertEquals(result.accepted, true);
+  assertEquals(typeof result.uri, "string");
+  assertEquals(result.uri.startsWith("hash://sha256/"), true);
+
+  // Read back the envelope
+  const envelope = await rig.readOrThrow<{
+    auth: Array<{ pubkey: string; signature: string }>;
+    payload: {
+      inputs: string[];
+      outputs: Array<[string, unknown]>;
+    };
+    hash: string;
+  }>(result.uri);
+
+  // Verify structure
+  assertEquals(Array.isArray(envelope.auth), true);
+  assertEquals(envelope.auth.length, 1);
+  assertEquals(envelope.auth[0].pubkey, id.pubkey);
+  assertEquals(typeof envelope.auth[0].signature, "string");
+  assertEquals(envelope.payload.outputs[0][0], "mutable://open/signed-test");
+  assertEquals(envelope.payload.outputs[0][1], { msg: "hello" });
+
+  // Verify the signature is valid using the identity
+  const valid = await id.verify(
+    envelope.payload,
+    envelope.auth[0].signature,
+  );
+  assertEquals(valid, true);
+
+  // Also verify the mutable output was written
+  const data = await rig.readData("mutable://open/signed-test");
+  assertEquals(data, { msg: "hello" });
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.send - different identity produces different signature", async () => {
+  const alice = await Identity.generate();
+  const bob = await Identity.generate();
+
+  const rig = await Rig.connect("memory://", alice);
+
+  const r1 = await rig.send({
+    inputs: [],
+    outputs: [["mutable://open/alice-write", 1]],
+  });
+
+  rig.identity = bob;
+  const r2 = await rig.send({
+    inputs: [],
+    outputs: [["mutable://open/bob-write", 2]],
+  });
+
+  // Both succeed
+  assertEquals(r1.accepted, true);
+  assertEquals(r2.accepted, true);
+
+  // Different envelopes with different signers
+  const e1 = await rig.readOrThrow<{
+    auth: Array<{ pubkey: string; signature: string }>;
+    payload: unknown;
+  }>(r1.uri);
+  const e2 = await rig.readOrThrow<{
+    auth: Array<{ pubkey: string; signature: string }>;
+    payload: unknown;
+  }>(r2.uri);
+
+  assertEquals(e1.auth[0].pubkey, alice.pubkey);
+  assertEquals(e2.auth[0].pubkey, bob.pubkey);
+
+  // Alice's signature should not verify with Bob's key and vice versa
+  const crossCheck = await bob.verify(e1.payload, e1.auth[0].signature);
+  assertEquals(crossCheck, false);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.send - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+  await assertRejects(
+    () =>
+      rig.send({
+        inputs: [],
+        outputs: [["mutable://open/x", 1]],
+      }),
+    Error,
+    "no identity set",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.send - multiple outputs in single envelope", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  const result = await rig.send({
+    inputs: [],
+    outputs: [
+      ["mutable://open/batch/a", { v: 1 }],
+      ["mutable://open/batch/b", { v: 2 }],
+      ["mutable://open/batch/c", { v: 3 }],
+    ],
+  });
+
+  assertEquals(result.accepted, true);
+
+  // All outputs should be written
+  assertEquals(await rig.readData("mutable://open/batch/a"), { v: 1 });
+  assertEquals(await rig.readData("mutable://open/batch/b"), { v: 2 });
+  assertEquals(await rig.readData("mutable://open/batch/c"), { v: 3 });
+
+  // The envelope at the hash URI should have all 3 outputs
+  const envelope = await rig.readOrThrow<{
+    payload: { outputs: Array<[string, unknown]> };
+  }>(result.uri);
+  assertEquals(envelope.payload.outputs.length, 3);
+
+  await rig.cleanup();
+});
