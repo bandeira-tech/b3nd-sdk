@@ -8,6 +8,12 @@
     "./types": "./src/types.ts",
     "./hash": "./src/hash.ts",
     "./encrypt": "./src/encrypt.ts",
+    "./compose": "./src/compose.ts",
+    "./combinators": "./src/combinators.ts",
+    "./msg": "./src/msg.ts",
+    "./rig": "./src/rig.ts",
+    "./client-memory": "./src/client-memory.ts",
+    "./client-http": "./src/client-http.ts",
     "./client-mongo": "./src/client-mongo.ts",
     "./client-sqlite": "./src/client-sqlite.ts"
   },

@@ -47,6 +47,26 @@
       "import": "./dist/wallet-server/mod.js",
       "types": "./dist/wallet-server/mod.d.ts"
     },
+    "./clients/indexeddb": {
+      "import": "./dist/clients/indexeddb/mod.js",
+      "types": "./dist/clients/indexeddb/mod.d.ts"
+    },
+    "./rig": {
+      "import": "./dist/rig/mod.js",
+      "types": "./dist/rig/mod.d.ts"
+    },
+    "./compose": {
+      "import": "./dist/compose/mod.js",
+      "types": "./dist/compose/mod.d.ts"
+    },
+    "./combinators": {
+      "import": "./dist/combinators/mod.js",
+      "types": "./dist/combinators/mod.d.ts"
+    },
+    "./msg": {
+      "import": "./dist/msg/mod.js",
+      "types": "./dist/msg/mod.d.ts"
+    },
     "./wallet-server/adapters/browser": {
       "import": "./dist/wallet-server/adapters/browser.js",
       "types": "./dist/wallet-server/adapters/browser.d.ts"
