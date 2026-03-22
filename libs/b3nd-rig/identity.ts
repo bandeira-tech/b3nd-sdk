@@ -50,8 +50,10 @@ export class Identity {
   readonly pubkey: string;
   /** X25519 public encryption key hex. */
   readonly encryptionPubkey: string;
-  /** Whether this identity has private keys (can sign and decrypt). */
+  /** Whether this identity has a signing private key (can sign messages). */
   readonly canSign: boolean;
+  /** Whether this identity has an encryption private key (can decrypt). */
+  readonly canEncrypt: boolean;
 
   private readonly _signingPrivateKey: CryptoKey | null;
   private readonly _encryptionPrivateKey: CryptoKey | null;
@@ -67,6 +69,7 @@ export class Identity {
     this._signingPrivateKey = opts.signingPrivateKey;
     this._encryptionPrivateKey = opts.encryptionPrivateKey;
     this.canSign = opts.signingPrivateKey !== null;
+    this.canEncrypt = opts.encryptionPrivateKey !== null;
   }
 
   // ── Factory methods ──

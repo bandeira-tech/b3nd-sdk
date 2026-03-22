@@ -1,5 +1,9 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { Identity } from "./identity.ts";
+import {
+  getSupportedProtocols,
+  SUPPORTED_PROTOCOLS,
+} from "./backend-factory.ts";
 import { Rig } from "./rig.ts";
 import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
 
@@ -311,6 +315,70 @@ Deno.test("Identity.fromPem - derives encryption pubkey from private when not pr
   );
 
   assertEquals(fromPem.encryptionPubkey, original.encryptionPubkey);
+});
+
+// ── Identity.canEncrypt tests ──
+
+Deno.test("Identity.canEncrypt - true for generated identity", async () => {
+  const id = await Identity.generate();
+  assertEquals(id.canEncrypt, true);
+});
+
+Deno.test("Identity.canEncrypt - true for seeded identity", async () => {
+  const id = await Identity.fromSeed("encrypt-test");
+  assertEquals(id.canEncrypt, true);
+});
+
+Deno.test("Identity.canEncrypt - false for public-only identity", () => {
+  const id = Identity.publicOnly({ signing: "ab".repeat(32) });
+  assertEquals(id.canEncrypt, false);
+});
+
+Deno.test("Identity.canEncrypt - false for PEM without encryption keys", async () => {
+  const original = await Identity.generate();
+  const exported = await original.export();
+
+  const { exportPrivateKeyPem } = await import("../b3nd-encrypt/mod.ts");
+  const { decodeHex } = await import("../b3nd-core/encoding.ts");
+
+  const signingKey = await crypto.subtle.importKey(
+    "pkcs8",
+    decodeHex(exported.signingPrivateKeyHex!).buffer,
+    { name: "Ed25519", namedCurve: "Ed25519" },
+    true,
+    ["sign"],
+  );
+  const pem = await exportPrivateKeyPem(signingKey, "PRIVATE KEY");
+
+  // No encryption keys provided
+  const fromPem = await Identity.fromPem(pem, original.pubkey);
+  assertEquals(fromPem.canEncrypt, false);
+  assertEquals(fromPem.canSign, true);
+});
+
+Deno.test("Identity.decrypt - throws for public-only identity", async () => {
+  const id = Identity.publicOnly({ signing: "ab".repeat(32) });
+  await assertRejects(
+    () => id.decrypt({ ciphertext: "", ephemeralPublicKey: "", nonce: "" }),
+    Error,
+    "no encryption private key",
+  );
+});
+
+// ── getSupportedProtocols tests ──
+
+Deno.test("getSupportedProtocols - returns all supported protocols", () => {
+  const protocols = getSupportedProtocols();
+  assertEquals(protocols.includes("memory://"), true);
+  assertEquals(protocols.includes("https://"), true);
+  assertEquals(protocols.includes("postgresql://"), true);
+  assertEquals(protocols.includes("sqlite://"), true);
+  assertEquals(protocols.includes("mongodb://"), true);
+});
+
+Deno.test("SUPPORTED_PROTOCOLS - is a readonly array", () => {
+  assertEquals(Array.isArray(SUPPORTED_PROTOCOLS), true);
+  assertEquals(SUPPORTED_PROTOCOLS.length > 0, true);
 });
 
 // ── Rig tests ──
