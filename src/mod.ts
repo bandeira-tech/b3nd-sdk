@@ -188,6 +188,7 @@ export type {
 
 // Rig — the universal harness
 export {
+  createClientFromUrl,
   getSupportedProtocols,
   Identity,
   Rig,

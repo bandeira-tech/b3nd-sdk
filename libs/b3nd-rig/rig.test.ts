@@ -560,3 +560,27 @@ Deno.test("Rig.getSchema - returns schema keys", async () => {
   assertEquals(schema.length > 0, true);
   await rig.cleanup();
 });
+
+// ── createClientFromUrl tests ──
+
+Deno.test("createClientFromUrl - creates memory client from URL", async () => {
+  const { createClientFromUrl } = await import("./backend-factory.ts");
+  const client = await createClientFromUrl("memory://");
+  const health = await client.health();
+  assertEquals(health.status, "healthy");
+
+  // Write and read back
+  await client.receive(["mutable://open/test", { val: 1 }]);
+  const read = await client.read("mutable://open/test");
+  assertEquals(read.success, true);
+  assertEquals(read.record?.data, { val: 1 });
+});
+
+Deno.test("createClientFromUrl - rejects unknown protocol", async () => {
+  const { createClientFromUrl } = await import("./backend-factory.ts");
+  await assertRejects(
+    () => createClientFromUrl("ftp://example.com"),
+    Error,
+    "Unsupported backend URL protocol",
+  );
+});
