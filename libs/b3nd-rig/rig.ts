@@ -226,6 +226,51 @@ export class Rig {
     return this.client.list(uri, options);
   }
 
+  /**
+   * List URIs at a path, returning just the URI strings.
+   *
+   * The most common list pattern in apps — skips the full ListResult/ListItem
+   * when you just need the URIs. Returns an empty array if the list fails.
+   *
+   * @example
+   * ```typescript
+   * const uris = await rig.listData("mutable://app/users");
+   * for (const uri of uris) {
+   *   const user = await rig.readData(uri);
+   *   console.log(user);
+   * }
+   * ```
+   */
+  async listData(uri: string, options?: ListOptions): Promise<string[]> {
+    const result = await this.client.list(uri, options);
+    if (!result.success) return [];
+    return result.data.map((item) => item.uri);
+  }
+
+  /**
+   * Read all data under a URI prefix.
+   *
+   * Combines `list()` + `readDataMany()` into a single call — the most
+   * common pattern for loading collections. Returns a Map of URI → data
+   * for all items that exist under the prefix.
+   *
+   * @example
+   * ```typescript
+   * const users = await rig.readAll<UserProfile>("mutable://app/users");
+   * for (const [uri, profile] of users) {
+   *   console.log(`${uri}: ${profile.name}`);
+   * }
+   * ```
+   */
+  async readAll<T = unknown>(
+    uri: string,
+    options?: ListOptions,
+  ): Promise<Map<string, T>> {
+    const uris = await this.listData(uri, options);
+    if (uris.length === 0) return new Map();
+    return this.readDataMany<T>(uris);
+  }
+
   // ── Other operations ──
 
   /**
@@ -324,6 +369,26 @@ export class Rig {
   /** Delete data at a URI. */
   delete(uri: string): Promise<DeleteResult> {
     return this.client.delete(uri);
+  }
+
+  /**
+   * Batch delete multiple URIs in parallel.
+   *
+   * Parallels `writeMany()` for deletes. Each URI is deleted independently,
+   * so partial failures are possible — check each result's `success` field.
+   *
+   * @example
+   * ```typescript
+   * const results = await rig.deleteMany([
+   *   "mutable://app/users/alice",
+   *   "mutable://app/users/bob",
+   * ]);
+   * console.log(results.every(r => r.success)); // true
+   * ```
+   */
+  async deleteMany(uris: string[]): Promise<DeleteResult[]> {
+    if (uris.length === 0) return [];
+    return Promise.all(uris.map((uri) => this.client.delete(uri)));
   }
 
   /** Health check. */

@@ -1051,3 +1051,129 @@ Deno.test("Rig.send - multiple outputs in single envelope", async () => {
 
   await rig.cleanup();
 });
+
+// ── Rig.deleteMany tests ──
+
+Deno.test("Rig.deleteMany - deletes multiple URIs", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/d1", "one");
+  await rig.write("mutable://open/d2", "two");
+  await rig.write("mutable://open/d3", "three");
+
+  const results = await rig.deleteMany([
+    "mutable://open/d1",
+    "mutable://open/d2",
+    "mutable://open/d3",
+  ]);
+  assertEquals(results.length, 3);
+  assertEquals(results.every((r) => r.success), true);
+
+  // All should be gone
+  assertEquals(await rig.exists("mutable://open/d1"), false);
+  assertEquals(await rig.exists("mutable://open/d2"), false);
+  assertEquals(await rig.exists("mutable://open/d3"), false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.deleteMany - empty array returns empty results", async () => {
+  const rig = await Rig.connect("memory://");
+  const results = await rig.deleteMany([]);
+  assertEquals(results.length, 0);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.deleteMany - handles mix of existing and missing URIs", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/dm-exists", "here");
+
+  const results = await rig.deleteMany([
+    "mutable://open/dm-exists",
+    "mutable://open/dm-missing",
+  ]);
+  assertEquals(results.length, 2);
+  assertEquals(results[0].success, true);
+  await rig.cleanup();
+});
+
+// ── Rig.listData tests ──
+
+Deno.test("Rig.listData - returns URI strings", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/ld/a", 1);
+  await rig.write("mutable://open/ld/b", 2);
+  await rig.write("mutable://open/ld/c", 3);
+
+  const uris = await rig.listData("mutable://open/ld");
+  assertEquals(uris.length, 3);
+  assertEquals(uris.includes("mutable://open/ld/a"), true);
+  assertEquals(uris.includes("mutable://open/ld/b"), true);
+  assertEquals(uris.includes("mutable://open/ld/c"), true);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.listData - returns empty array for empty prefix", async () => {
+  const rig = await Rig.connect("memory://");
+  const uris = await rig.listData("mutable://open/nothing-here");
+  assertEquals(uris.length, 0);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.listData - respects pagination options", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/pg/a", 1);
+  await rig.write("mutable://open/pg/b", 2);
+  await rig.write("mutable://open/pg/c", 3);
+
+  const uris = await rig.listData("mutable://open/pg", { limit: 2 });
+  assertEquals(uris.length, 2);
+  await rig.cleanup();
+});
+
+// ── Rig.readAll tests ──
+
+Deno.test("Rig.readAll - reads all data under a prefix", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/ra/alice", { name: "Alice" });
+  await rig.write("mutable://open/ra/bob", { name: "Bob" });
+
+  const data = await rig.readAll<{ name: string }>("mutable://open/ra");
+  assertEquals(data.size, 2);
+  assertEquals(data.get("mutable://open/ra/alice"), { name: "Alice" });
+  assertEquals(data.get("mutable://open/ra/bob"), { name: "Bob" });
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readAll - returns empty map for empty prefix", async () => {
+  const rig = await Rig.connect("memory://");
+  const data = await rig.readAll("mutable://open/empty-prefix");
+  assertEquals(data.size, 0);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readAll - works after writes and deletes", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/rd/x", 1);
+  await rig.write("mutable://open/rd/y", 2);
+  await rig.write("mutable://open/rd/z", 3);
+
+  // Delete one
+  await rig.delete("mutable://open/rd/y");
+
+  const data = await rig.readAll<number>("mutable://open/rd");
+  assertEquals(data.size, 2);
+  assertEquals(data.get("mutable://open/rd/x"), 1);
+  assertEquals(data.has("mutable://open/rd/y"), false);
+  assertEquals(data.get("mutable://open/rd/z"), 3);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readAll - respects pagination options", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/rp/a", "a");
+  await rig.write("mutable://open/rp/b", "b");
+  await rig.write("mutable://open/rp/c", "c");
+
+  const data = await rig.readAll<string>("mutable://open/rp", { limit: 2 });
+  assertEquals(data.size, 2);
+  await rig.cleanup();
+});
