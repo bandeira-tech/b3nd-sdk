@@ -561,6 +561,73 @@ Deno.test("Rig.getSchema - returns schema keys", async () => {
   await rig.cleanup();
 });
 
+// ── Rig.connect tests ──
+
+Deno.test("Rig.connect - quick connect to memory backend", async () => {
+  const rig = await Rig.connect("memory://");
+  const health = await rig.health();
+  assertEquals(health.status, "healthy");
+  await rig.cleanup();
+});
+
+Deno.test("Rig.connect - with identity", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+  assertEquals(rig.identity?.pubkey, id.pubkey);
+
+  // Should be able to send (requires identity)
+  const result = await rig.send({
+    inputs: [],
+    outputs: [["mutable://open/connect-test", { v: 1 }]],
+  });
+  assertEquals(result.accepted, true);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.connect - write and read round-trip", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/hello", "world");
+  const read = await rig.read("mutable://open/hello");
+  assertEquals(read.success, true);
+  assertEquals(read.record?.data, "world");
+  await rig.cleanup();
+});
+
+// ── Rig.canSign tests ──
+
+Deno.test("Rig.canSign - true when identity has signing key", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+  assertEquals(rig.canSign, true);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.canSign - false when no identity", async () => {
+  const rig = await Rig.connect("memory://");
+  assertEquals(rig.canSign, false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.canSign - false for public-only identity", async () => {
+  const publicId = Identity.publicOnly({ signing: "ab".repeat(32) });
+  const rig = await Rig.connect("memory://", publicId);
+  assertEquals(rig.canSign, false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.canSign - updates when identity is swapped", async () => {
+  const rig = await Rig.connect("memory://");
+  assertEquals(rig.canSign, false);
+
+  const id = await Identity.generate();
+  rig.identity = id;
+  assertEquals(rig.canSign, true);
+
+  rig.identity = null;
+  assertEquals(rig.canSign, false);
+  await rig.cleanup();
+});
+
 // ── createClientFromUrl tests ──
 
 Deno.test("createClientFromUrl - creates memory client from URL", async () => {

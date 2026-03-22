@@ -1,4 +1,4 @@
-import { Rig, Identity } from "@b3nd/rig";
+import { Identity, Rig } from "@b3nd/rig";
 import { loadConfig } from "./config.ts";
 import { loadAccountKey, loadEncryptionKey } from "./keys.ts";
 import { Logger } from "./logger.ts";

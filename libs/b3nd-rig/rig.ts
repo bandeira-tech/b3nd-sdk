@@ -54,7 +54,10 @@ export class Rig {
   /** The current identity. Swappable at any time. */
   identity: Identity | null;
 
-  private constructor(client: NodeProtocolInterface, identity: Identity | null) {
+  private constructor(
+    client: NodeProtocolInterface,
+    identity: Identity | null,
+  ) {
     this.client = client;
     this.identity = identity;
   }
@@ -147,7 +150,9 @@ export class Rig {
     data: { inputs: string[]; outputs: [uri: string, value: V][] },
   ): Promise<SendResult> {
     if (!this.identity) {
-      throw new Error("Rig.send: no identity set — cannot sign. Set rig.identity first.");
+      throw new Error(
+        "Rig.send: no identity set — cannot sign. Set rig.identity first.",
+      );
     }
 
     const payload = { inputs: data.inputs, outputs: data.outputs };
@@ -216,6 +221,44 @@ export class Rig {
   /** Clean up all backend resources. */
   cleanup(): Promise<void> {
     return this.client.cleanup();
+  }
+
+  // ── Convenience factories ──
+
+  /**
+   * Quick connect to a single backend URL.
+   *
+   * Shorter alternative to `Rig.init({ use: url })` for the common case
+   * of connecting to one node without identity or schema.
+   *
+   * @example
+   * ```typescript
+   * const rig = await Rig.connect("https://node.b3nd.net");
+   * const data = await rig.read("mutable://open/key");
+   * ```
+   *
+   * @example With identity
+   * ```typescript
+   * const id = await Identity.fromSeed("my-secret");
+   * const rig = await Rig.connect("memory://", id);
+   * await rig.send({ inputs: [], outputs: [["mutable://open/x", 1]] });
+   * ```
+   */
+  static async connect(
+    url: string,
+    identity?: Identity,
+  ): Promise<Rig> {
+    return Rig.init({ use: url, identity });
+  }
+
+  /**
+   * Check if this rig has a signing identity.
+   *
+   * Useful for UI logic that needs to know whether send/writeSigned
+   * are available without catching errors.
+   */
+  get canSign(): boolean {
+    return this.identity !== null && this.identity.canSign;
   }
 
   // ── Serve ──

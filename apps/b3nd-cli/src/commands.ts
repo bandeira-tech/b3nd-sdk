@@ -22,7 +22,10 @@ import {
  * @returns Hex-encoded SHA256 hash
  */
 async function computeSha256(data: Uint8Array): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data as BufferSource);
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    data as BufferSource,
+  );
   return encodeHex(new Uint8Array(hashBuffer));
 }
 
@@ -494,6 +497,91 @@ export async function list(
 }
 
 /**
+ * Handle `bnd delete` command
+ */
+export async function del(uri: string, verbose = false): Promise<void> {
+  const logger = createLogger(verbose);
+
+  if (!uri) {
+    throw new Error("URI required. Usage: bnd delete <uri>");
+  }
+
+  try {
+    const client = await getClient(logger);
+
+    // Handle :key placeholder in URI
+    if (uri.includes(":key")) {
+      const accountKey = await loadAccountKey();
+      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
+      logger?.info(`Replaced :key with public key`);
+    }
+
+    const { protocol, domain, path } = parseUri(uri);
+    const config = await loadConfig();
+    const endpoint =
+      `${config.node}/api/v1/delete/${protocol}/${domain}${path}`;
+    logger?.http("DELETE", endpoint);
+
+    const result = await client.delete(uri);
+
+    if (result.success) {
+      console.log(`✓ Delete successful`);
+      console.log(`  URI: ${uri}`);
+    } else {
+      throw new Error(result.error || "Delete failed");
+    }
+  } finally {
+    await closeClient(logger);
+  }
+}
+
+/**
+ * Handle `bnd health` command
+ */
+export async function health(verbose = false): Promise<void> {
+  const logger = createLogger(verbose);
+
+  try {
+    const config = await loadConfig();
+    if (!config.node) {
+      throw new Error(
+        "No node configured. Run: bnd conf node <url>",
+      );
+    }
+
+    const client = await getClient(logger);
+    const endpoint = `${config.node}/api/v1/health`;
+    logger?.http("GET", endpoint);
+
+    const result = await client.health();
+
+    console.log(`Node: ${config.node}`);
+    console.log(`Status: ${result.status}`);
+    if (result.message) {
+      console.log(`Message: ${result.message}`);
+    }
+    if (result.meta) {
+      for (const [key, value] of Object.entries(result.meta)) {
+        console.log(`  ${key}: ${JSON.stringify(value)}`);
+      }
+    }
+
+    // Also get schema
+    try {
+      const schema = await client.getSchema();
+      console.log(`Protocols: ${schema.length}`);
+      for (const s of schema) {
+        console.log(`  - ${s}`);
+      }
+    } catch {
+      // Schema might not be available
+    }
+  } finally {
+    await closeClient(logger);
+  }
+}
+
+/**
  * Show configuration
  */
 export async function showConfig(): Promise<void> {
@@ -539,6 +627,8 @@ COMMANDS:
   deploy <dir> <target>    Deploy site with content-addressed storage + authenticated links
   read <uri>               Read data from a URI
   list <uri>               List items at a URI
+  delete <uri>             Delete data at a URI
+  health                   Check node health and schema
   config                   Show current configuration
   server-keys env          Generate server keys and print .env entries
 
