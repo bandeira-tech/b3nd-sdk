@@ -1,10 +1,9 @@
 # B3nd
 
-A protocol for URI-based data where users own their data, privacy is
-encryption, and any app can read the same addresses.
+A protocol for URI-based data where users own their data, privacy is encryption,
+and any app can read the same addresses.
 
-[Website](https://b3nd.dev) |
-[GitHub](https://github.com/bandeira-tech/b3nd) |
+[Website](https://b3nd.dev) | [GitHub](https://github.com/bandeira-tech/b3nd) |
 [JSR](https://jsr.io/@bandeira-tech/b3nd-sdk) |
 [NPM](https://www.npmjs.com/package/@bandeira-tech/b3nd-web)
 
@@ -16,7 +15,9 @@ Every piece of data has a URI. Four operations do everything:
 const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
 
 // Write — submit a message to a URI
-await client.receive(["mutable://open/my-app/greeting", { text: "Hello, world" }]);
+await client.receive(["mutable://open/my-app/greeting", {
+  text: "Hello, world",
+}]);
 
 // Read — get data from any URI
 const result = await client.read("mutable://open/my-app/greeting");
@@ -34,17 +35,26 @@ protocol works for profiles, posts, configs, messages — any data.
 
 ## Packages
 
-| Package | Registry | Use Case |
-|---------|----------|----------|
-| [@bandeira-tech/b3nd-sdk](https://jsr.io/@bandeira-tech/b3nd-sdk) | JSR | Deno, servers |
-| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | NPM | Browser, React |
+| Package                                                                          | Registry | Use Case       |
+| -------------------------------------------------------------------------------- | -------- | -------------- |
+| [@bandeira-tech/b3nd-sdk](https://jsr.io/@bandeira-tech/b3nd-sdk)                | JSR      | Deno, servers  |
+| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | NPM      | Browser, React |
 
 ```typescript
 // Deno/Server
-import { HttpClient, MemoryClient, PostgresClient } from "@bandeira-tech/b3nd-sdk";
+import {
+  HttpClient,
+  MemoryClient,
+  PostgresClient,
+  SqliteClient,
+} from "@bandeira-tech/b3nd-sdk";
 
 // Browser/React
-import { HttpClient, WalletClient, LocalStorageClient } from "@bandeira-tech/b3nd-web";
+import {
+  HttpClient,
+  LocalStorageClient,
+  WalletClient,
+} from "@bandeira-tech/b3nd-web";
 ```
 
 ## Quick Start
@@ -53,7 +63,10 @@ import { HttpClient, WalletClient, LocalStorageClient } from "@bandeira-tech/b3n
 const client = new HttpClient({ url: "http://localhost:9942" });
 
 // Write
-await client.receive(["mutable://users/alice/profile", { name: "Alice", age: 30 }]);
+await client.receive(["mutable://users/alice/profile", {
+  name: "Alice",
+  age: 30,
+}]);
 
 // Read
 const result = await client.read("mutable://users/alice/profile");
@@ -69,29 +82,30 @@ await client.delete("mutable://users/alice/profile");
 
 ## Available Clients
 
-| Client | Environment | Backend |
-|--------|-------------|---------|
-| `MemoryClient` | Any | In-memory storage |
-| `HttpClient` | Any | Remote HTTP server |
-| `WebSocketClient` | Any | Remote WebSocket server |
-| `PostgresClient` | Deno/Node | PostgreSQL database |
-| `MongoClient` | Deno/Node | MongoDB database |
-| `LocalStorageClient` | Browser | localStorage |
-| `IndexedDBClient` | Browser | IndexedDB |
+| Client               | Environment | Backend                 |
+| -------------------- | ----------- | ----------------------- |
+| `MemoryClient`       | Any         | In-memory storage       |
+| `HttpClient`         | Any         | Remote HTTP server      |
+| `WebSocketClient`    | Any         | Remote WebSocket server |
+| `PostgresClient`     | Deno/Node   | PostgreSQL database     |
+| `MongoClient`        | Deno/Node   | MongoDB database        |
+| `SqliteClient`       | Deno/Node   | SQLite database         |
+| `LocalStorageClient` | Browser     | localStorage            |
+| `IndexedDBClient`    | Browser     | IndexedDB               |
 
 ## Running a Node
 
 The B3nd node lives in `apps/b3nd-node/`. Configuration is via `.env`:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `BACKEND_URL` | Comma-separated backends | `memory://`, `postgresql://...`, or both |
-| `SCHEMA_MODULE` | Path to schema file | `./example-schema.ts` |
-| `PORT` | Listen port | `9942` |
-| `CORS_ORIGIN` | Allowed origins | `*` |
+| Variable        | Description              | Example                                                                         |
+| --------------- | ------------------------ | ------------------------------------------------------------------------------- |
+| `BACKEND_URL`   | Comma-separated backends | `memory://`, `postgresql://...`, `sqlite:///path/to/db.sqlite`, or combinations |
+| `SCHEMA_MODULE` | Path to schema file      | `./example-schema.ts`                                                           |
+| `PORT`          | Listen port              | `9942`                                                                          |
+| `CORS_ORIGIN`   | Allowed origins          | `*`                                                                             |
 
-When multiple backends are listed, **writes broadcast to all** and **reads try each
-in order** until one succeeds.
+When multiple backends are listed, **writes broadcast to all** and **reads try
+each in order** until one succeeds.
 
 ### Memory only (no dependencies)
 
@@ -129,6 +143,16 @@ deno task dev
 ```
 
 The node auto-creates the required tables on first connect.
+
+### With SQLite
+
+No containers needed — SQLite runs embedded:
+
+```bash
+BACKEND_URL=sqlite:///tmp/b3nd.sqlite
+```
+
+The node auto-creates the database and tables on first connect.
 
 ### Memory + PostgreSQL (hybrid)
 
@@ -191,11 +215,13 @@ The B3nd plugin provides a unified `b3nd` skill for AI-assisted development:
 claude mcp add b3nd -- npx -y @anthropic-ai/mcp-b3nd
 ```
 
-MCP tools: `b3nd_read`, `b3nd_receive`, `b3nd_list`, `b3nd_delete`, `b3nd_health`
+MCP tools: `b3nd_read`, `b3nd_receive`, `b3nd_list`, `b3nd_delete`,
+`b3nd_health`
 
 ## Learn More
 
-- [AGENTS.md](AGENTS.md) — Agent reference, architecture, and development workflows
+- [AGENTS.md](AGENTS.md) — Agent reference, architecture, and development
+  workflows
 - Protocol philosophy: URIs express behavior (mutability, authentication), not
   meaning. Higher-level features are workflows on canonical protocols.
 
