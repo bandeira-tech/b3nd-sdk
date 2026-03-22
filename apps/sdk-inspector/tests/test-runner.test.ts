@@ -4,9 +4,9 @@
 import { assertEquals, assertExists } from "@std/assert";
 
 // Import the stripAnsi function and patterns by testing the module
+// deno-lint-ignore no-control-regex
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
-const FILE_HEADER_PATTERN =
-  /^running \d+ tests? from \.\/tests\/(.+\.test\.ts)/;
+const FILE_HEADER_PATTERN = /^running \d+ tests? from \.\/(.+\.test\.ts)/;
 const TEST_RESULT_PATTERN =
   /^(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
 
@@ -25,7 +25,7 @@ Deno.test("FILE_HEADER_PATTERN matches file header", () => {
   const line = "running 13 tests from ./tests/binary-operations.test.ts";
   const match = line.match(FILE_HEADER_PATTERN);
   assertExists(match);
-  assertEquals(match[1], "binary-operations.test.ts");
+  assertEquals(match[1], "tests/binary-operations.test.ts");
 });
 
 Deno.test("TEST_RESULT_PATTERN matches ok result", () => {
@@ -72,7 +72,7 @@ Deno.test("Integration: parse actual deno test output", async () => {
       "test",
       "-A",
       "--filter=MemoryClient - receive message and read",
-      "clients/memory/memory-client.test.ts",
+      "libs/b3nd-client-memory/memory-client.test.ts",
     ],
     cwd: new URL("../../..", import.meta.url).pathname,
     stdout: "piped",
