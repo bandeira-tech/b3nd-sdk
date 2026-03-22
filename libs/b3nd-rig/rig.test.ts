@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { Identity } from "./identity.ts";
 import { Rig } from "./rig.ts";
-import { MemoryClient, createTestSchema } from "../b3nd-client-memory/mod.ts";
+import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
 
 // ── Identity tests ──
 
@@ -186,7 +186,9 @@ Deno.test("Rig.writeSigned - signs and writes", async () => {
   const id = await Identity.generate();
   const rig = await Rig.init({ identity: id, use: "memory://" });
 
-  const result = await rig.writeSigned("mutable://open/signed", { data: "test" });
+  const result = await rig.writeSigned("mutable://open/signed", {
+    data: "test",
+  });
   assertEquals(result.accepted, true);
 
   const read = await rig.read("mutable://open/signed");
@@ -257,4 +259,107 @@ Deno.test("Rig.getSchema - returns schema keys", async () => {
   assertEquals(Array.isArray(schema), true);
   assertEquals(schema.length > 0, true);
   await rig.cleanup();
+});
+
+// ── Rig schema validation tests ──
+
+Deno.test("Rig.init - with custom schema validates writes", async () => {
+  const schema = {
+    "mutable://validated": async (ctx: { uri: string; value: unknown }) => {
+      const data = ctx.value as Record<string, unknown>;
+      if (!data || typeof data !== "object" || !("name" in data)) {
+        return { valid: false, error: "name required" };
+      }
+      return { valid: true };
+    },
+  };
+
+  const rig = await Rig.init({ use: "memory://", schema });
+
+  // Valid write should succeed
+  const ok = await rig.write("mutable://validated/a", { name: "Alice" });
+  assertEquals(ok.accepted, true);
+
+  // Invalid write should be rejected
+  const fail = await rig.write("mutable://validated/b", { age: 30 });
+  assertEquals(fail.accepted, false);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeSigned - throws without identity", async () => {
+  const rig = await Rig.init({ use: "memory://" });
+  await assertRejects(
+    () => rig.writeSigned("mutable://open/x", { data: "test" }),
+    Error,
+    "no identity set",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.health - returns healthy for memory backend", async () => {
+  const rig = await Rig.init({ use: "memory://" });
+  const health = await rig.health();
+  assertEquals(health.status, "healthy");
+  await rig.cleanup();
+});
+
+Deno.test("Rig.cleanup - can be called multiple times safely", async () => {
+  const rig = await Rig.init({ use: "memory://" });
+  await rig.cleanup();
+  // Second cleanup should not throw
+  await rig.cleanup();
+});
+
+// ── Backend factory error tests ──
+
+Deno.test("Rig.init - rejects unsupported protocol", async () => {
+  await assertRejects(
+    () => Rig.init({ use: "ftp://example.com" }),
+    Error,
+    "Unsupported backend URL protocol",
+  );
+});
+
+Deno.test("Rig.init - rejects postgresql without executor", async () => {
+  await assertRejects(
+    () => Rig.init({ use: "postgresql://localhost/db" }),
+    Error,
+    "executor factory",
+  );
+});
+
+Deno.test("Rig.init - rejects mongodb without executor", async () => {
+  await assertRejects(
+    () => Rig.init({ use: "mongodb://localhost/db" }),
+    Error,
+    "executor factory",
+  );
+});
+
+Deno.test("Rig.init - rejects sqlite without executor", async () => {
+  await assertRejects(
+    () => Rig.init({ use: "sqlite:///tmp/test.db" }),
+    Error,
+    "executor factory",
+  );
+});
+
+// ── Identity edge cases ──
+
+Deno.test("Identity.fromSeed - empty string is valid seed", async () => {
+  const id = await Identity.fromSeed("");
+  assertEquals(typeof id.pubkey, "string");
+  assertEquals(id.pubkey.length, 64);
+});
+
+Deno.test("Identity.verify - rejects wrong pubkey signature", async () => {
+  const alice = await Identity.generate();
+  const bob = await Identity.generate();
+  const payload = { test: "data" };
+  const auth = await alice.sign(payload);
+
+  // Bob verifying Alice's signature with Bob's key should fail
+  const valid = await bob.verify(payload, auth.signature);
+  assertEquals(valid, false);
 });
