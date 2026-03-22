@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { Identity } from "./identity.ts";
 import { Rig } from "./rig.ts";
-import { MemoryClient, createTestSchema } from "../b3nd-client-memory/mod.ts";
+import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
 
 // ── Identity tests ──
 
@@ -87,6 +87,115 @@ Deno.test("Identity.signer - returns CryptoKey + pubkey", async () => {
   const signer = id.signer;
   assertEquals(signer.publicKeyHex, id.pubkey);
   assertEquals(signer.privateKey instanceof CryptoKey, true);
+});
+
+// ── Identity export/import tests ──
+
+Deno.test("Identity.export - full identity round-trips", async () => {
+  const original = await Identity.generate();
+  const exported = await original.export();
+
+  // Exported data has all four fields
+  assertEquals(typeof exported.signingPublicKeyHex, "string");
+  assertEquals(typeof exported.signingPrivateKeyHex, "string");
+  assertEquals(typeof exported.encryptionPublicKeyHex, "string");
+  assertEquals(typeof exported.encryptionPrivateKeyHex, "string");
+
+  // Reconstruct
+  const restored = await Identity.fromExport(exported);
+  assertEquals(restored.pubkey, original.pubkey);
+  assertEquals(restored.encryptionPubkey, original.encryptionPubkey);
+  assertEquals(restored.canSign, true);
+});
+
+Deno.test("Identity.export - restored identity can sign and verify", async () => {
+  const original = await Identity.generate();
+  const exported = await original.export();
+  const restored = await Identity.fromExport(exported);
+
+  // Sign with restored, verify with original public key
+  const payload = { test: "round-trip" };
+  const auth = await restored.sign(payload);
+  assertEquals(auth.pubkey, original.pubkey);
+
+  const valid = await original.verify(payload, auth.signature);
+  assertEquals(valid, true);
+});
+
+Deno.test("Identity.export - restored identity can encrypt/decrypt", async () => {
+  const sender = await Identity.generate();
+  const receiver = await Identity.generate();
+
+  // Export and restore the receiver
+  const exported = await receiver.export();
+  const restoredReceiver = await Identity.fromExport(exported);
+
+  // Encrypt to receiver, decrypt with restored receiver
+  const plaintext = new TextEncoder().encode("exported secret");
+  const encrypted = await sender.encrypt(plaintext, receiver.encryptionPubkey);
+  const decrypted = await restoredReceiver.decrypt(encrypted);
+
+  assertEquals(new TextDecoder().decode(decrypted), "exported secret");
+});
+
+Deno.test("Identity.export - public-only identity exports without private keys", async () => {
+  const id = Identity.publicOnly({
+    signing: "ab".repeat(32),
+    encryption: "cd".repeat(32),
+  });
+  const exported = await id.export();
+
+  assertEquals(exported.signingPublicKeyHex, "ab".repeat(32));
+  assertEquals(exported.encryptionPublicKeyHex, "cd".repeat(32));
+  assertEquals(exported.signingPrivateKeyHex, undefined);
+  assertEquals(exported.encryptionPrivateKeyHex, undefined);
+});
+
+Deno.test("Identity.export - public-only round-trip stays public-only", async () => {
+  const id = Identity.publicOnly({
+    signing: "ab".repeat(32),
+    encryption: "cd".repeat(32),
+  });
+  const exported = await id.export();
+  const restored = await Identity.fromExport(exported);
+
+  assertEquals(restored.pubkey, "ab".repeat(32));
+  assertEquals(restored.canSign, false);
+});
+
+Deno.test("Identity.export - JSON serialization round-trip", async () => {
+  const original = await Identity.generate();
+  const exported = await original.export();
+
+  // Simulate localStorage / file persistence
+  const json = JSON.stringify(exported);
+  const parsed = JSON.parse(json);
+
+  const restored = await Identity.fromExport(parsed);
+  assertEquals(restored.pubkey, original.pubkey);
+  assertEquals(restored.encryptionPubkey, original.encryptionPubkey);
+  assertEquals(restored.canSign, true);
+
+  // Verify signing still works after JSON round-trip
+  const auth = await restored.sign({ from: "json" });
+  const valid = await original.verify({ from: "json" }, auth.signature);
+  assertEquals(valid, true);
+});
+
+Deno.test("Identity.export - fromSeed identity round-trips deterministically", async () => {
+  const fromSeed = await Identity.fromSeed("export-test-seed");
+  const exported = await fromSeed.export();
+  const restored = await Identity.fromExport(exported);
+
+  // Same keys
+  assertEquals(restored.pubkey, fromSeed.pubkey);
+  assertEquals(restored.encryptionPubkey, fromSeed.encryptionPubkey);
+
+  // Both can produce the same signatures
+  const payload = { deterministic: true };
+  const authOriginal = await fromSeed.sign(payload);
+  const authRestored = await restored.sign(payload);
+  assertEquals(authOriginal.signature, authRestored.signature);
 });
 
 // ── Rig tests ──
@@ -186,7 +295,9 @@ Deno.test("Rig.writeSigned - signs and writes", async () => {
   const id = await Identity.generate();
   const rig = await Rig.init({ identity: id, use: "memory://" });
 
-  const result = await rig.writeSigned("mutable://open/signed", { data: "test" });
+  const result = await rig.writeSigned("mutable://open/signed", {
+    data: "test",
+  });
   assertEquals(result.accepted, true);
 
   const read = await rig.read("mutable://open/signed");

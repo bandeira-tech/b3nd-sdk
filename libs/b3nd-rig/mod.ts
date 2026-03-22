@@ -27,6 +27,7 @@
  */
 
 export { Identity } from "./identity.ts";
+export type { ExportedIdentity } from "./identity.ts";
 export { Rig } from "./rig.ts";
 export type {
   MongoExecutorFactory as MongoExecutor,
