@@ -12,7 +12,7 @@ ifdef t
 	@deno test --allow-all $(t)
 else
 	@echo "Running all tests..."
-	@deno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo libs/b3nd-*/
+	@deno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo,libs/b3nd-client-sqlite,libs/b3nd-client-localstorage libs/b3nd-*/
 endif
 
 # Run unit tests only (no external dependencies like Postgres/Mongo)

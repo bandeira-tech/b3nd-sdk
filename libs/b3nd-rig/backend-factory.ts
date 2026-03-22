@@ -9,10 +9,11 @@
  *   postgresql://         → PostgresClient (requires executor)
  *   mongodb://            → MongoClient (requires executor)
  *   sqlite://             → SqliteClient (requires executor)
+ *   file://               → FilesystemClient (requires executor)
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
-import type { PostgresExecutorFactory, MongoExecutorFactory, SqliteExecutorFactory } from "./types.ts";
+import type { PostgresExecutorFactory, MongoExecutorFactory, SqliteExecutorFactory, FsExecutorFactory } from "./types.ts";
 import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { WebSocketClient } from "../b3nd-client-ws/mod.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
@@ -37,6 +38,7 @@ export interface BackendFactoryOptions {
     postgres?: PostgresExecutorFactory;
     mongo?: MongoExecutorFactory;
     sqlite?: SqliteExecutorFactory;
+    fs?: FsExecutorFactory;
   };
 }
 
@@ -144,10 +146,33 @@ export async function createClientFromUrl(
       );
     }
 
+    case "file:": {
+      if (!options.executors?.fs) {
+        throw new Error(
+          `File URL requires an executor factory. Pass executors.fs to Rig.init().`,
+        );
+      }
+      const schema = options.schema;
+      if (!schema) {
+        throw new Error("Filesystem backend requires a schema.");
+      }
+      // file:///path/to/root → rootDir = /path/to/root
+      const rootDir = parsed.pathname;
+      const { FilesystemClient } = await import("../b3nd-client-fs/mod.ts");
+      const executor = options.executors.fs(rootDir);
+      return new FilesystemClient(
+        {
+          rootDir,
+          schema,
+        },
+        executor,
+      );
+    }
+
     default:
       throw new Error(
         `Unsupported backend URL protocol: "${protocol}". ` +
-          `Supported: https://, http://, wss://, ws://, memory://, postgresql://, mongodb://, sqlite://`,
+          `Supported: https://, http://, wss://, ws://, memory://, postgresql://, mongodb://, sqlite://, file://`,
       );
   }
 }

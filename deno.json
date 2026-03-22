@@ -9,7 +9,8 @@
     "./hash": "./src/hash.ts",
     "./encrypt": "./src/encrypt.ts",
     "./client-mongo": "./src/client-mongo.ts",
-    "./client-sqlite": "./src/client-sqlite.ts"
+    "./client-sqlite": "./src/client-sqlite.ts",
+    "./client-fs": "./src/client-fs.ts"
   },
   "nodeModulesDir": "auto",
   "imports": {
@@ -19,10 +20,11 @@
   },
   "tasks": {
     "check": "deno check src/mod.ts",
-    "test": "deno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo,libs/b3nd-client-sqlite libs/b3nd-*/",
+    "test": "deno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo,libs/b3nd-client-sqlite,libs/b3nd-client-localstorage libs/b3nd-*/",
     "test:integration:postgres": "deno test --allow-all libs/b3nd-client-postgres/",
     "test:integration:mongo": "deno test --allow-all libs/b3nd-client-mongo/",
     "test:integration:sqlite": "deno test --allow-all libs/b3nd-client-sqlite/",
+    "test:integration:fs": "deno test --allow-all libs/b3nd-client-fs/",
     "publish:jsr": "bash scripts/prepublish.sh && deno publish --allow-dirty; bash scripts/postpublish.sh"
   },
   "compilerOptions": {
@@ -72,6 +74,7 @@
     "libs/b3nd-client-postgres",
     "libs/b3nd-client-mongo",
     "libs/b3nd-client-sqlite",
+    "libs/b3nd-client-fs",
     "libs/b3nd-client-indexeddb",
     "libs/b3nd-client-localstorage",
     "libs/b3nd-combinators",

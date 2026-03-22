@@ -47,6 +47,13 @@ export type SqliteExecutorFactory = (
 ) => import("../b3nd-client-sqlite/mod.ts").SqliteExecutor;
 
 /**
+ * Factory function for creating a filesystem executor from a root directory path.
+ */
+export type FsExecutorFactory = (
+  rootDir: string,
+) => import("../b3nd-client-fs/mod.ts").FsExecutor;
+
+/**
  * Configuration for Rig.init().
  */
 export interface RigConfig {
@@ -70,6 +77,7 @@ export interface RigConfig {
     postgres?: PostgresExecutorFactory;
     mongo?: MongoExecutorFactory;
     sqlite?: SqliteExecutorFactory;
+    fs?: FsExecutorFactory;
   };
 }
 
