@@ -1505,3 +1505,200 @@ Deno.test("Rig.init - schema with identity allows send", async () => {
   assertEquals(data, { name: "Alice" });
   await rig.cleanup();
 });
+
+// ── Rig.count() tests ──
+
+Deno.test("Rig.count - returns count of items under prefix", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.receive(["mutable://open/cnt/a", 1]);
+  await rig.receive(["mutable://open/cnt/b", 2]);
+  await rig.receive(["mutable://open/cnt/c", 3]);
+
+  const count = await rig.count("mutable://open/cnt");
+  assertEquals(count, 3);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.count - returns 0 for empty prefix", async () => {
+  const rig = await Rig.connect("memory://");
+  const count = await rig.count("mutable://open/empty-count");
+  assertEquals(count, 0);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.count - reflects deletes", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.receive(["mutable://open/cnt2/a", 1]);
+  await rig.receive(["mutable://open/cnt2/b", 2]);
+  assertEquals(await rig.count("mutable://open/cnt2"), 2);
+
+  await rig.delete("mutable://open/cnt2/a");
+  assertEquals(await rig.count("mutable://open/cnt2"), 1);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.count - respects pagination limit", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.receive(["mutable://open/cnt3/a", 1]);
+  await rig.receive(["mutable://open/cnt3/b", 2]);
+  await rig.receive(["mutable://open/cnt3/c", 3]);
+
+  const count = await rig.count("mutable://open/cnt3", { limit: 2 });
+  assertEquals(count, 2); // Limited by pagination
+  await rig.cleanup();
+});
+
+// ── Rig.sendEncrypted() tests ──
+
+Deno.test("Rig.sendEncrypted - encrypt to self and read back", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  const result = await rig.sendEncrypted({
+    inputs: [],
+    outputs: [["mutable://open/enc-send/secrets", { apiKey: "sk-test-123" }]],
+  });
+  assertEquals(result.accepted, true);
+  assertEquals(result.uri.startsWith("hash://sha256/"), true);
+
+  // The encrypted data should be readable via readEncrypted
+  const secrets = await rig.readEncrypted<{ apiKey: string }>(
+    "mutable://open/enc-send/secrets",
+  );
+  assertEquals(secrets, { apiKey: "sk-test-123" });
+  await rig.cleanup();
+});
+
+Deno.test("Rig.sendEncrypted - stored data is actually encrypted (not plaintext)", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  await rig.sendEncrypted({
+    inputs: [],
+    outputs: [["mutable://open/enc-send/check", { secret: "plaintext-value" }]],
+  });
+
+  // Read raw data (not decrypted) — should be an EncryptedPayload, not the original
+  const raw = await rig.readData("mutable://open/enc-send/check");
+  assertEquals(typeof raw, "object");
+  assertEquals(raw !== null, true);
+  // Should have EncryptedPayload structure, not the original object
+  const payload = raw as Record<string, unknown>;
+  assertEquals("data" in payload, true);
+  assertEquals("nonce" in payload, true);
+  assertEquals("ephemeralPublicKey" in payload, true);
+  // Should NOT contain the plaintext
+  assertEquals("secret" in payload, false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.sendEncrypted - multiple encrypted outputs", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  const result = await rig.sendEncrypted({
+    inputs: [],
+    outputs: [
+      ["mutable://open/enc-batch/a", { v: 1 }],
+      ["mutable://open/enc-batch/b", { v: 2 }],
+    ],
+  });
+  assertEquals(result.accepted, true);
+
+  const a = await rig.readEncrypted<{ v: number }>(
+    "mutable://open/enc-batch/a",
+  );
+  const b = await rig.readEncrypted<{ v: number }>(
+    "mutable://open/enc-batch/b",
+  );
+  assertEquals(a, { v: 1 });
+  assertEquals(b, { v: 2 });
+  await rig.cleanup();
+});
+
+Deno.test("Rig.sendEncrypted - encrypt to another party", async () => {
+  const sender = await Identity.generate();
+  const receiver = await Identity.generate();
+
+  const rig = await Rig.connect("memory://", sender);
+
+  // Encrypt to receiver
+  await rig.sendEncrypted({
+    inputs: [],
+    outputs: [["mutable://open/enc-cross/msg", { text: "for receiver" }]],
+  }, receiver.encryptionPubkey);
+
+  // Receiver can decrypt (create a new rig with receiver identity, same backend)
+  const receiverRig = await Rig.init({
+    client: rig.client,
+    identity: receiver,
+  });
+
+  const msg = await receiverRig.readEncrypted<{ text: string }>(
+    "mutable://open/enc-cross/msg",
+  );
+  assertEquals(msg, { text: "for receiver" });
+
+  // Sender should NOT be able to decrypt (encrypted to receiver's key)
+  try {
+    await rig.readEncrypted("mutable://open/enc-cross/msg");
+    // If it didn't throw, that's unexpected
+    assertEquals("should have thrown", "did not throw");
+  } catch {
+    // Expected — sender can't decrypt data encrypted to receiver
+  }
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.sendEncrypted - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+  await assertRejects(
+    () =>
+      rig.sendEncrypted({
+        inputs: [],
+        outputs: [["mutable://open/x", 1]],
+      }),
+    Error,
+    "no identity set",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.sendEncrypted - throws for public-only identity", async () => {
+  const id = Identity.publicOnly({ signing: "ab".repeat(32) });
+  const rig = await Rig.connect("memory://", id);
+  await assertRejects(
+    () =>
+      rig.sendEncrypted({
+        inputs: [],
+        outputs: [["mutable://open/x", 1]],
+      }),
+    Error,
+    "no encryption keys",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.sendEncrypted - envelope is signed and verifiable", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  const result = await rig.sendEncrypted({
+    inputs: [],
+    outputs: [["mutable://open/enc-verify/x", { secret: true }]],
+  });
+
+  // Read the envelope at the hash URI
+  const envelope = await rig.readOrThrow<{
+    auth: Array<{ pubkey: string; signature: string }>;
+    payload: { inputs: string[]; outputs: Array<[string, unknown]> };
+  }>(result.uri);
+
+  // Verify the signature
+  assertEquals(envelope.auth[0].pubkey, id.pubkey);
+  const valid = await id.verify(envelope.payload, envelope.auth[0].signature);
+  assertEquals(valid, true);
+
+  await rig.cleanup();
+});

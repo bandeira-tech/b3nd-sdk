@@ -344,6 +344,86 @@ export class Rig {
   }
 
   /**
+   * Send a signed envelope with encrypted output values.
+   *
+   * Each output value is JSON-serialized, encrypted to the specified
+   * recipient (defaults to self), and stored as an EncryptedPayload.
+   * The envelope is then signed and content-addressed, just like `send()`.
+   *
+   * Use `readEncrypted()` to read the values back.
+   *
+   * @param data - Inputs and outputs for the envelope.
+   * @param recipientEncPubkeyHex - Recipient's X25519 public key hex.
+   *   Defaults to this identity's own encryption public key (encrypt to self).
+   * @throws If no identity is set or identity lacks encryption keys.
+   *
+   * @example
+   * ```typescript
+   * // Encrypt to self
+   * await rig.sendEncrypted({
+   *   inputs: [],
+   *   outputs: [["mutable://accounts/:key/secrets", { apiKey: "sk-..." }]],
+   * });
+   *
+   * // Encrypt to another party
+   * await rig.sendEncrypted({
+   *   inputs: [],
+   *   outputs: [["mutable://shared/msg", { text: "hello" }]],
+   * }, recipientPubkey);
+   * ```
+   */
+  async sendEncrypted<V = unknown>(
+    data: { inputs: string[]; outputs: [uri: string, value: V][] },
+    recipientEncPubkeyHex?: string,
+  ): Promise<SendResult> {
+    if (!this.identity) {
+      throw new Error(
+        "Rig.sendEncrypted: no identity set — cannot sign or encrypt.",
+      );
+    }
+    if (!this.identity.canEncrypt) {
+      throw new Error(
+        "Rig.sendEncrypted: identity has no encryption keys.",
+      );
+    }
+
+    const recipient = recipientEncPubkeyHex || this.identity.encryptionPubkey;
+
+    // Encrypt each output value
+    const encryptedOutputs: [string, unknown][] = await Promise.all(
+      data.outputs.map(async ([uri, value]) => {
+        const plaintext = new TextEncoder().encode(JSON.stringify(value));
+        const encrypted = await this.identity!.encrypt(plaintext, recipient);
+        return [uri, encrypted] as [string, unknown];
+      }),
+    );
+
+    // Build and send the signed envelope with encrypted outputs
+    const payload = { inputs: data.inputs, outputs: encryptedOutputs };
+    const auth = [await this.identity.sign(payload)];
+    const messageData: MessageData = { auth, payload };
+
+    return send(messageData, this.client);
+  }
+
+  /**
+   * Count items under a URI prefix.
+   *
+   * Convenience for `listData(uri).length` — useful in dashboards,
+   * pagination, and conditional logic without fetching all data.
+   *
+   * @example
+   * ```typescript
+   * const userCount = await rig.count("mutable://app/users");
+   * console.log(`${userCount} users registered`);
+   * ```
+   */
+  async count(uri: string, options?: ListOptions): Promise<number> {
+    const uris = await this.listData(uri, options);
+    return uris.length;
+  }
+
+  /**
    * Read and decrypt JSON data from a URI.
    *
    * Reads an EncryptedPayload from the backend, decrypts it with this
