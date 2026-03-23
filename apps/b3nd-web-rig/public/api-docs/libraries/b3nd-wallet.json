@@ -1,0 +1,240 @@
+{
+  "key": "b3nd-wallet",
+  "label": "b3nd-wallet",
+  "description": "",
+  "entryPoint": "libs/b3nd-wallet/mod.ts",
+  "symbols": [
+    {
+      "name": "generateSessionKeypair",
+      "kind": "function",
+      "signature": "async function generateSessionKeypair(): Promise<SessionKeypair>",
+      "description": "Generate a new session keypair for authentication The public key should be registered with the app before login.",
+      "line": 573
+    },
+    {
+      "name": "WalletClient",
+      "kind": "class",
+      "signature": "class WalletClient",
+      "description": "B3nd Wallet Client",
+      "line": 62
+    },
+    {
+      "name": "generateTestServerKeys",
+      "kind": "function",
+      "signature": "async function generateTestServerKeys(): Promise<ServerKeys>",
+      "description": "Generate server keys for testing",
+      "line": 94
+    },
+    {
+      "name": "MemoryWalletClient",
+      "kind": "class",
+      "signature": "class MemoryWalletClient",
+      "description": "Memory Wallet Client",
+      "line": 144
+    },
+    {
+      "name": "MemoryWalletClientConfig",
+      "kind": "interface",
+      "signature": "interface MemoryWalletClientConfig",
+      "description": "",
+      "line": 57
+    },
+    {
+      "name": "createTestEnvironment",
+      "kind": "function",
+      "signature": "async function createTestEnvironment(undefined: unknown): Promise<TestEnvironment>",
+      "description": "Create a test environment with shared in-memory backend.",
+      "line": 165
+    },
+    {
+      "name": "TestEnvironment",
+      "kind": "interface",
+      "signature": "interface TestEnvironment",
+      "description": "Test environment with shared backend",
+      "line": 59
+    },
+    {
+      "name": "TestEnvironmentConfig",
+      "kind": "interface",
+      "signature": "interface TestEnvironmentConfig",
+      "description": "Test environment configuration",
+      "line": 36
+    },
+    {
+      "name": "ApiResponse",
+      "kind": "interface",
+      "signature": "interface ApiResponse",
+      "description": "API response wrapper",
+      "line": 274
+    },
+    {
+      "name": "AuthSession",
+      "kind": "interface",
+      "signature": "interface AuthSession",
+      "description": "Authenticated session with JWT token For Google auth, includes optional profile fields.",
+      "line": 164
+    },
+    {
+      "name": "ChangePasswordResponse",
+      "kind": "interface",
+      "signature": "interface ChangePasswordResponse extends ApiResponse",
+      "description": "Change password response",
+      "line": 309
+    },
+    {
+      "name": "GoogleAuthSession",
+      "kind": "typeAlias",
+      "signature": "type GoogleAuthSession = AuthSession",
+      "description": "Google OAuth session",
+      "line": 353
+    },
+    {
+      "name": "GoogleLoginResponse",
+      "kind": "interface",
+      "signature": "interface GoogleLoginResponse extends ApiResponse",
+      "description": "Google login response",
+      "line": 370
+    },
+    {
+      "name": "GoogleSignupResponse",
+      "kind": "interface",
+      "signature": "interface GoogleSignupResponse extends ApiResponse",
+      "description": "Google signup response",
+      "line": 358
+    },
+    {
+      "name": "HealthResponse",
+      "kind": "interface",
+      "signature": "interface HealthResponse extends ApiResponse",
+      "description": "Health check response",
+      "line": 335
+    },
+    {
+      "name": "LoginResponse",
+      "kind": "interface",
+      "signature": "interface LoginResponse extends ApiResponse",
+      "description": "Login response",
+      "line": 292
+    },
+    {
+      "name": "PasswordResetToken",
+      "kind": "interface",
+      "signature": "interface PasswordResetToken",
+      "description": "Password reset token",
+      "line": 187
+    },
+    {
+      "name": "ProxyReadMultiRequest",
+      "kind": "interface",
+      "signature": "interface ProxyReadMultiRequest",
+      "description": "Read-multi proxy request",
+      "line": 239
+    },
+    {
+      "name": "ProxyReadMultiResponse",
+      "kind": "interface",
+      "signature": "interface ProxyReadMultiResponse",
+      "description": "Read-multi proxy response",
+      "line": 260
+    },
+    {
+      "name": "ProxyReadMultiResultItem",
+      "kind": "interface",
+      "signature": "interface ProxyReadMultiResultItem",
+      "description": "Read-multi proxy result item",
+      "line": 246
+    },
+    {
+      "name": "ProxyReadRequest",
+      "kind": "interface",
+      "signature": "interface ProxyReadRequest",
+      "description": "Read proxy request",
+      "line": 218
+    },
+    {
+      "name": "ProxyReadResponse",
+      "kind": "interface",
+      "signature": "interface ProxyReadResponse",
+      "description": "Read proxy response",
+      "line": 225
+    },
+    {
+      "name": "ProxyWriteRequest",
+      "kind": "interface",
+      "signature": "interface ProxyWriteRequest",
+      "description": "Write proxy request",
+      "line": 195
+    },
+    {
+      "name": "ProxyWriteResponse",
+      "kind": "interface",
+      "signature": "interface ProxyWriteResponse",
+      "description": "Write proxy response",
+      "line": 204
+    },
+    {
+      "name": "PublicKeysResponse",
+      "kind": "interface",
+      "signature": "interface PublicKeysResponse extends ApiResponse",
+      "description": "Public keys response",
+      "line": 301
+    },
+    {
+      "name": "RequestPasswordResetResponse",
+      "kind": "interface",
+      "signature": "interface RequestPasswordResetResponse extends ApiResponse",
+      "description": "Request password reset response",
+      "line": 316
+    },
+    {
+      "name": "ResetPasswordResponse",
+      "kind": "interface",
+      "signature": "interface ResetPasswordResponse extends ApiResponse",
+      "description": "Reset password response",
+      "line": 325
+    },
+    {
+      "name": "SessionKeypair",
+      "kind": "interface",
+      "signature": "interface SessionKeypair",
+      "description": "Session keypair for authentication Sessions are Ed25519 keypairs. The client creates the session, requests approval from the app, then uses the private key to sign login requests.",
+      "line": 141
+    },
+    {
+      "name": "SignupResponse",
+      "kind": "interface",
+      "signature": "interface SignupResponse extends ApiResponse",
+      "description": "Signup response",
+      "line": 283
+    },
+    {
+      "name": "UserCredentials",
+      "kind": "typeAlias",
+      "signature": "type UserCredentials = PasswordCredentials | GoogleCredentials",
+      "description": "User credentials for authentication (discriminated union) Use `type` field to distinguish between authentication methods.",
+      "line": 134
+    },
+    {
+      "name": "UserPublicKeys",
+      "kind": "interface",
+      "signature": "interface UserPublicKeys",
+      "description": "User's public keys",
+      "line": 179
+    },
+    {
+      "name": "WalletClientConfig",
+      "kind": "interface",
+      "signature": "interface WalletClientConfig",
+      "description": "Configuration for wallet client",
+      "line": 96
+    },
+    {
+      "name": "WalletClientInterface",
+      "kind": "interface",
+      "signature": "interface WalletClientInterface",
+      "description": "Common interface for wallet clients (WalletClient and MemoryWalletClient)",
+      "line": 27
+    }
+  ],
+  "generatedAt": 1773845121201
+}

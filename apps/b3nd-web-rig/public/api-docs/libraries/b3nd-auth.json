@@ -1,0 +1,37 @@
+{
+  "key": "b3nd-auth",
+  "label": "b3nd-auth",
+  "description": "",
+  "entryPoint": "libs/b3nd-auth/mod.ts",
+  "symbols": [
+    {
+      "name": "authValidation",
+      "kind": "function",
+      "signature": "function authValidation<T>(getWriteAccess: GetWriteAccessFn): AuthenticationValidationFn<T>",
+      "description": "",
+      "line": 103
+    },
+    {
+      "name": "createPubkeyBasedAccess",
+      "kind": "function",
+      "signature": "function createPubkeyBasedAccess(): GetWriteAccessFn",
+      "description": "",
+      "line": 110
+    },
+    {
+      "name": "createRelativePathAccess",
+      "kind": "function",
+      "signature": "function createRelativePathAccess(read: (url: string) => Promise<any>, undefined: unknown): GetWriteAccessFn",
+      "description": "",
+      "line": 128
+    },
+    {
+      "name": "createCombinedAccess",
+      "kind": "function",
+      "signature": "function createCombinedAccess(read: (url: string) => Promise<any>, undefined: unknown): GetWriteAccessFn",
+      "description": "",
+      "line": 169
+    }
+  ],
+  "generatedAt": 1773845120829
+}

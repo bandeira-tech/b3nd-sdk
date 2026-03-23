@@ -1,0 +1,44 @@
+{
+  "key": "b3nd-servers",
+  "label": "b3nd-servers",
+  "description": "",
+  "entryPoint": "libs/b3nd-servers/mod.ts",
+  "symbols": [
+    {
+      "name": "servers",
+      "kind": "namespace",
+      "signature": "servers",
+      "description": "",
+      "line": 3
+    },
+    {
+      "name": "wsservers",
+      "kind": "namespace",
+      "signature": "wsservers",
+      "description": "",
+      "line": 4
+    },
+    {
+      "name": "createServerNode",
+      "kind": "function",
+      "signature": "function createServerNode(options: ServerNodeOptions): unknown",
+      "description": "",
+      "line": 37
+    },
+    {
+      "name": "ServerFrontend",
+      "kind": "interface",
+      "signature": "interface ServerFrontend",
+      "description": "",
+      "line": 9
+    },
+    {
+      "name": "ServerNodeOptions",
+      "kind": "interface",
+      "signature": "interface ServerNodeOptions",
+      "description": "",
+      "line": 26
+    }
+  ],
+  "generatedAt": 1773845121137
+}

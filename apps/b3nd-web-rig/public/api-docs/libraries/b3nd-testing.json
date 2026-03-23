@@ -1,0 +1,58 @@
+{
+  "key": "b3nd-testing",
+  "label": "b3nd-testing",
+  "description": "",
+  "entryPoint": "libs/b3nd-testing/mod.ts",
+  "symbols": [
+    {
+      "name": "runSharedSuite",
+      "kind": "function",
+      "signature": "function runSharedSuite(suiteName: string, factories: TestClientFactories): void",
+      "description": "Run the complete shared test suite against provided client factories",
+      "line": 40
+    },
+    {
+      "name": "TestClientFactories",
+      "kind": "interface",
+      "signature": "interface TestClientFactories",
+      "description": "Test client factory functions for different scenarios",
+      "line": 19
+    },
+    {
+      "name": "runNodeSuite",
+      "kind": "function",
+      "signature": "function runNodeSuite(suiteName: string, factory: NodeTestFactory): void",
+      "description": "Run the node test suite against provided factory",
+      "line": 30
+    },
+    {
+      "name": "NodeTestFactory",
+      "kind": "interface",
+      "signature": "interface NodeTestFactory",
+      "description": "Test client factory for Node interface tests",
+      "line": 17
+    },
+    {
+      "name": "createMockServers",
+      "kind": "function",
+      "signature": "async function createMockServers(): Promise<unknown>",
+      "description": "Create mock server instances for testing",
+      "line": 302
+    },
+    {
+      "name": "MockHttpServer",
+      "kind": "class",
+      "signature": "class MockHttpServer",
+      "description": "",
+      "line": 45
+    },
+    {
+      "name": "MockServerConfig",
+      "kind": "interface",
+      "signature": "interface MockServerConfig",
+      "description": "",
+      "line": 34
+    }
+  ],
+  "generatedAt": 1773845121164
+}

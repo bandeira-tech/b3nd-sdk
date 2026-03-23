@@ -1,0 +1,159 @@
+{
+  "libraries": [
+    {
+      "key": "b3nd-apps",
+      "label": "b3nd-apps",
+      "description": "",
+      "symbolCount": 4,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-apps"
+    },
+    {
+      "key": "b3nd-auth",
+      "label": "b3nd-auth",
+      "description": "",
+      "symbolCount": 4,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-auth"
+    },
+    {
+      "key": "b3nd-client-http",
+      "label": "b3nd-client-http",
+      "description": "",
+      "symbolCount": 1,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-client-http"
+    },
+    {
+      "key": "b3nd-client-indexeddb",
+      "label": "b3nd-client-indexeddb",
+      "description": "",
+      "symbolCount": 1,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-client-indexeddb"
+    },
+    {
+      "key": "b3nd-client-localstorage",
+      "label": "b3nd-client-localstorage",
+      "description": "",
+      "symbolCount": 1,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-client-localstorage"
+    },
+    {
+      "key": "b3nd-client-memory",
+      "label": "b3nd-client-memory",
+      "description": "",
+      "symbolCount": 3,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-client-memory"
+    },
+    {
+      "key": "b3nd-client-mongo",
+      "label": "b3nd-client-mongo",
+      "description": "",
+      "symbolCount": 2,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-client-mongo"
+    },
+    {
+      "key": "b3nd-client-postgres",
+      "label": "b3nd-client-postgres",
+      "description": "",
+      "symbolCount": 3,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-client-postgres"
+    },
+    {
+      "key": "b3nd-client-ws",
+      "label": "b3nd-client-ws",
+      "description": "",
+      "symbolCount": 1,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-client-ws"
+    },
+    {
+      "key": "b3nd-combinators",
+      "label": "b3nd-combinators",
+      "description": "",
+      "symbolCount": 2,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-combinators"
+    },
+    {
+      "key": "b3nd-compose",
+      "label": "b3nd-compose",
+      "description": "",
+      "symbolCount": 26,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-compose"
+    },
+    {
+      "key": "b3nd-core",
+      "label": "b3nd-core",
+      "description": "",
+      "symbolCount": 39,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-core"
+    },
+    {
+      "key": "b3nd-encrypt",
+      "label": "b3nd-encrypt",
+      "description": "",
+      "symbolCount": 40,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-encrypt"
+    },
+    {
+      "key": "b3nd-hash",
+      "label": "b3nd-hash",
+      "description": "Content-addressed storage and link utilities for B3nd",
+      "symbolCount": 8,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-hash"
+    },
+    {
+      "key": "b3nd-listener",
+      "label": "b3nd-listener",
+      "description": "",
+      "symbolCount": 8,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-listener"
+    },
+    {
+      "key": "b3nd-managed-node",
+      "label": "b3nd-managed-node",
+      "description": "B3nd Managed Node library.",
+      "symbolCount": 31,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-managed-node"
+    },
+    {
+      "key": "b3nd-msg",
+      "label": "b3nd-msg",
+      "description": "",
+      "symbolCount": 15,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-msg"
+    },
+    {
+      "key": "b3nd-servers",
+      "label": "b3nd-servers",
+      "description": "",
+      "symbolCount": 5,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-servers"
+    },
+    {
+      "key": "b3nd-testing",
+      "label": "b3nd-testing",
+      "description": "",
+      "symbolCount": 7,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-testing"
+    },
+    {
+      "key": "b3nd-wallet",
+      "label": "b3nd-wallet",
+      "description": "",
+      "symbolCount": 33,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-wallet"
+    },
+    {
+      "key": "b3nd-wallet-server",
+      "label": "b3nd-wallet-server",
+      "description": "",
+      "symbolCount": 63,
+      "uri": "mutable://open/rig/api-docs/libraries/b3nd-wallet-server"
+    },
+    {
+      "key": "firecat-protocol",
+      "label": "firecat-protocol",
+      "description": "",
+      "symbolCount": 11,
+      "uri": "mutable://open/rig/api-docs/libraries/firecat-protocol"
+    }
+  ],
+  "generatedAt": 1773845121258
+}

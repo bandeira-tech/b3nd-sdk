@@ -1,0 +1,191 @@
+{
+  "key": "b3nd-compose",
+  "label": "b3nd-compose",
+  "description": "",
+  "entryPoint": "libs/b3nd-compose/mod.ts",
+  "symbols": [
+    {
+      "name": "Message",
+      "kind": "typeAlias",
+      "signature": "type Message<D> = unknown",
+      "description": "Message: the minimal primitive",
+      "line": 31
+    },
+    {
+      "name": "Node",
+      "kind": "interface",
+      "signature": "interface Node",
+      "description": "Unified Node interface",
+      "line": 56
+    },
+    {
+      "name": "NodeConfig",
+      "kind": "interface",
+      "signature": "interface NodeConfig<D>",
+      "description": "Configuration for creating a node",
+      "line": 107
+    },
+    {
+      "name": "Processor",
+      "kind": "typeAlias",
+      "signature": "type Processor<D> = (msg: Message<D>) => Promise<unknown>",
+      "description": "Processor function",
+      "line": 98
+    },
+    {
+      "name": "ReadInterface",
+      "kind": "interface",
+      "signature": "interface ReadInterface",
+      "description": "Read interface - subset of node capabilities for reading state",
+      "line": 44
+    },
+    {
+      "name": "ReceiveResult",
+      "kind": "interface",
+      "signature": "interface ReceiveResult",
+      "description": "Result of a receive operation",
+      "line": 36
+    },
+    {
+      "name": "Validator",
+      "kind": "typeAlias",
+      "signature": "type Validator<D> = (msg: Message<D>, read: (uri: string) => Promise<ReadResult<T>>) => Promise<unknown>",
+      "description": "Validator function",
+      "line": 88
+    },
+    {
+      "name": "all",
+      "kind": "function",
+      "signature": "function all<D>(undefined: Validator<D>[]): Validator<D>",
+      "description": "Parallel validator composition All validators must pass (runs in parallel)",
+      "line": 82
+    },
+    {
+      "name": "any",
+      "kind": "function",
+      "signature": "function any<D>(undefined: Validator<D>[]): Validator<D>",
+      "description": "Any-match validator composition First validator to pass wins, returns error only if all fail",
+      "line": 48
+    },
+    {
+      "name": "firstMatch",
+      "kind": "function",
+      "signature": "function firstMatch(undefined: ReadInterface[]): ReadInterface",
+      "description": "First-match reader composition Try readers until one succeeds",
+      "line": 229
+    },
+    {
+      "name": "parallel",
+      "kind": "function",
+      "signature": "function parallel<D>(undefined: ProcessorOrReceiver<D>[]): Processor<D>",
+      "description": "Parallel processor composition Run processors/receivers in parallel, at least one must succeed",
+      "line": 152
+    },
+    {
+      "name": "pipeline",
+      "kind": "function",
+      "signature": "function pipeline<D>(undefined: Processor<D>[]): Processor<D>",
+      "description": "Pipeline processor composition Run processors in sequence, all must succeed",
+      "line": 202
+    },
+    {
+      "name": "seq",
+      "kind": "function",
+      "signature": "function seq<D>(undefined: Validator<D>[]): Validator<D>",
+      "description": "Sequential validator composition Runs validators in order, stops at first failure",
+      "line": 24
+    },
+    {
+      "name": "accept",
+      "kind": "function",
+      "signature": "function accept(): Validator",
+      "description": "Pass-through validator Always accepts the message (useful for open/public programs)",
+      "line": 165
+    },
+    {
+      "name": "format",
+      "kind": "function",
+      "signature": "function format<D>(checkFn: (msg: Message<D>) => boolean | string): Validator<D>",
+      "description": "Format validator Validates the structure of message data using a check function",
+      "line": 23
+    },
+    {
+      "name": "msgSchema",
+      "kind": "function",
+      "signature": "function msgSchema<D>(programSchema: Schema): Validator<D>",
+      "description": "Message schema validator Routes validation based on data shape: - If data IS MessageData: validates the envelope URI AND each output against schema - If data is NOT MessageData: validates as a plain message against schema",
+      "line": 185
+    },
+    {
+      "name": "reject",
+      "kind": "function",
+      "signature": "function reject(undefined: unknown): Validator",
+      "description": "Reject validator Always rejects the message with an optional message",
+      "line": 266
+    },
+    {
+      "name": "requireFields",
+      "kind": "function",
+      "signature": "function requireFields(fields: string[]): Validator",
+      "description": "Require fields validator Validates that the message data contains specific fields",
+      "line": 112
+    },
+    {
+      "name": "schema",
+      "kind": "function",
+      "signature": "function schema<D>(programSchema: Schema): Validator<D>",
+      "description": "Schema validator Per-program validation using the existing Schema type",
+      "line": 55
+    },
+    {
+      "name": "uriPattern",
+      "kind": "function",
+      "signature": "function uriPattern(pattern: RegExp): Validator",
+      "description": "URI pattern validator Validates that the message URI matches a regex pattern",
+      "line": 89
+    },
+    {
+      "name": "emit",
+      "kind": "function",
+      "signature": "function emit<D>(callback: (msg: Message<D>) => Promise<void> | void): Processor<D>",
+      "description": "Emit processor Calls a callback function with the message (for events, logging, etc.)",
+      "line": 19
+    },
+    {
+      "name": "log",
+      "kind": "function",
+      "signature": "function log<D>(undefined: unknown): Processor<D>",
+      "description": "Log processor Logs the message (for debugging)",
+      "line": 72
+    },
+    {
+      "name": "noop",
+      "kind": "function",
+      "signature": "function noop<D>(): Processor<D>",
+      "description": "Noop processor Does nothing, always succeeds",
+      "line": 93
+    },
+    {
+      "name": "when",
+      "kind": "function",
+      "signature": "function when<D>(condition: (msg: Message<D>) => boolean | Promise<boolean>, processor: Processor<D>): Processor<D>",
+      "description": "Conditional processor Only processes if the condition is met",
+      "line": 47
+    },
+    {
+      "name": "createValidatedClient",
+      "kind": "function",
+      "signature": "function createValidatedClient(config: unknown): FunctionalClient",
+      "description": "Create a FunctionalClient that validates before writing.",
+      "line": 32
+    },
+    {
+      "name": "createNode",
+      "kind": "function",
+      "signature": "function createNode<D>(config: NodeConfig<D>): Node",
+      "description": "Create a unified node",
+      "line": 114
+    }
+  ],
+  "generatedAt": 1773845120999
+}

@@ -1,0 +1,16 @@
+{
+  "key": "b3nd-client-indexeddb",
+  "label": "b3nd-client-indexeddb",
+  "description": "",
+  "entryPoint": "libs/b3nd-client-indexeddb/mod.ts",
+  "symbols": [
+    {
+      "name": "IndexedDBClient",
+      "kind": "class",
+      "signature": "class IndexedDBClient",
+      "description": "",
+      "line": 89
+    }
+  ],
+  "generatedAt": 1773845120864
+}
