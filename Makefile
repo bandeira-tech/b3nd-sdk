@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs run-node check build-learn help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs run-node check build-learn help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -12,7 +12,7 @@ ifdef t
 	@deno test --allow-all $(t)
 else
 	@echo "Running all tests..."
-	@deno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo,libs/b3nd-client-sqlite,libs/b3nd-client-localstorage libs/b3nd-*/
+	@deno test --allow-all --ignore=libs/b3nd-client-postgres,libs/b3nd-client-mongo,libs/b3nd-client-localstorage libs/b3nd-*/
 endif
 
 # Run unit tests only (no external dependencies like Postgres/Mongo)
@@ -175,6 +175,12 @@ node-fs:
 	BACKEND_URL=file://$(CURDIR)/.data/fs PORT=9942 CORS_ORIGIN="*" \
 	deno run --watch -A mod.ts
 
+# B3nd node on :9942 with IPFS backend (requires Kubo running on :5001)
+node-ipfs:
+	@cd apps/b3nd-node && \
+	BACKEND_URL=ipfs://localhost:5001 PORT=9942 CORS_ORIGIN="*" \
+	deno run --watch -A mod.ts
+
 # Run a Docker image with freshly generated keys (managed mode)
 # Usage: make run-node image=ghcr.io/bandeira-tech/b3nd/b3nd-node:latest
 run-node:
@@ -224,6 +230,12 @@ check:
 	else \
 		echo "- not running"; \
 	fi
+	@printf "  IPFS/Kubo  :5001  "; \
+	if curl -sf -X POST http://localhost:5001/api/v0/id >/dev/null 2>&1; then \
+		echo "✓ healthy"; \
+	else \
+		echo "- not running"; \
+	fi
 
 # Show help
 help:
@@ -249,6 +261,7 @@ help:
 	@echo "  make node              - Start B3nd node (:9942, memory backend)"
 	@echo "  make node-sqlite       - Start B3nd node (:9942, SQLite backend)"
 	@echo "  make node-fs           - Start B3nd node (:9942, filesystem backend)"
+	@echo "  make node-ipfs         - Start B3nd node (:9942, IPFS backend via Kubo :5001)"
 	@echo "  make run-node image=.. - Run Docker image with fresh keys (managed mode)"
 	@echo "  make rig               - Start web rig (:5555) + inspector (:5556)"
 	@echo "  make check             - Health check all services"

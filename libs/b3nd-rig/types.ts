@@ -54,6 +54,13 @@ export type FsExecutorFactory = (
 ) => import("../b3nd-client-fs/mod.ts").FsExecutor;
 
 /**
+ * Factory function for creating an IPFS executor from an API URL.
+ */
+export type IpfsExecutorFactory = (
+  apiUrl: string,
+) => import("../b3nd-client-ipfs/mod.ts").IpfsExecutor;
+
+/**
  * Configuration for Rig.init().
  */
 export interface RigConfig {
@@ -78,6 +85,7 @@ export interface RigConfig {
     mongo?: MongoExecutorFactory;
     sqlite?: SqliteExecutorFactory;
     fs?: FsExecutorFactory;
+    ipfs?: IpfsExecutorFactory;
   };
 }
 

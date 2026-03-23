@@ -10,10 +10,11 @@
  *   mongodb://            → MongoClient (requires executor)
  *   sqlite://             → SqliteClient (requires executor)
  *   file://               → FilesystemClient (requires executor)
+ *   ipfs://               → IpfsClient (requires executor)
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
-import type { PostgresExecutorFactory, MongoExecutorFactory, SqliteExecutorFactory, FsExecutorFactory } from "./types.ts";
+import type { PostgresExecutorFactory, MongoExecutorFactory, SqliteExecutorFactory, FsExecutorFactory, IpfsExecutorFactory } from "./types.ts";
 import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { WebSocketClient } from "../b3nd-client-ws/mod.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
@@ -39,6 +40,7 @@ export interface BackendFactoryOptions {
     mongo?: MongoExecutorFactory;
     sqlite?: SqliteExecutorFactory;
     fs?: FsExecutorFactory;
+    ipfs?: IpfsExecutorFactory;
   };
 }
 
@@ -169,10 +171,33 @@ export async function createClientFromUrl(
       );
     }
 
+    case "ipfs:": {
+      if (!options.executors?.ipfs) {
+        throw new Error(
+          `IPFS URL requires an executor factory. Pass executors.ipfs to Rig.init().`,
+        );
+      }
+      const schema = options.schema;
+      if (!schema) {
+        throw new Error("IPFS backend requires a schema.");
+      }
+      // ipfs://host:port → apiUrl = http://host:port
+      const apiUrl = `http://${parsed.hostname}${parsed.port ? ":" + parsed.port : ":5001"}${parsed.pathname}`;
+      const { IpfsClient } = await import("../b3nd-client-ipfs/mod.ts");
+      const executor = options.executors.ipfs(apiUrl);
+      return new IpfsClient(
+        {
+          apiUrl,
+          schema,
+        },
+        executor,
+      );
+    }
+
     default:
       throw new Error(
         `Unsupported backend URL protocol: "${protocol}". ` +
-          `Supported: https://, http://, wss://, ws://, memory://, postgresql://, mongodb://, sqlite://, file://`,
+          `Supported: https://, http://, wss://, ws://, memory://, postgresql://, mongodb://, sqlite://, file://, ipfs://`,
       );
   }
 }
