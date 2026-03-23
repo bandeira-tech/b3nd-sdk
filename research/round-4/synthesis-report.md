@@ -231,6 +231,8 @@ Client → [Gateway] → [Attestation Workers] → [Finality Committee] → Bloc
 7. **Gateway authorization mechanism** — stake threshold? SLA requirements?
 8. **Namespace economics** — can namespaces set fee premiums to attract workers?
 9. **Three-phase pipeline simulation** — end-to-end latency, throughput, economic viability (see M3, M5 in mechanism games)
+10. **Privacy-visibility game composition** — do the 6 games compose safely? Information leakage under multi-game participation? (see M6, M7 in mechanism games)
+11. **Ad economics simulation** — revenue curves per game, advertiser WTP, equilibrium game adoption (see M7)
 
 ### Updated Decision Card
 
@@ -238,7 +240,7 @@ Client → [Gateway] → [Attestation Workers] → [Finality Committee] → Bloc
 |---|----------|---------------|----------------|------------|
 | D1 | Trust model | Open + stake-based | **Content backbone, data layer is crown jewel** | High |
 | D2 | Committee | K=7 majority | **Three-phase pipeline: gateway → attestation → finality. VRF + roster teams.** | Medium |
-| D3 | Privacy | Path obfuscation + padding | **C=0.5 msg/sec constant-rate** | High |
+| D3 | Privacy | Path obfuscation + padding | **Private by default + 6 visibility games for ad-funded economics** | High |
 | D4 | Fee split | 25/35/25/15 @ $0.002 | **Now mapped: entry/attestation/confirmation/treasury** | High |
 | D5 | Cold-start | Partners + tapering | No change | Medium |
 | D6 | KDF | Argon2id 46MiB | No change | High |

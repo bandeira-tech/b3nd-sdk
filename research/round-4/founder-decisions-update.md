@@ -215,13 +215,222 @@ The S1 6-layer architecture should be revised to reflect this three-phase model.
 
 ---
 
+## Decision D3: Privacy Posture — EXPANDED (2026-03-18)
+
+**Original answer:** Pragmatic privacy — path obfuscation + constant-rate padding, Signal-level default.
+
+**Founder clarification:** Privacy and safety by default, but allow freeform visibility. The social graph has value *to users* — it enables funding via ads that target quality users based on public behavior. The protocol must support both modes seamlessly: private by default, public by choice.
+
+### The Core Tension
+
+| Stakeholder | Wants | Why |
+|-------------|-------|-----|
+| Users (privacy) | Everything hidden by default | Safety. Control. No surveillance capitalism. |
+| Users (economic) | Ability to be visible | Monetization. Discovery. Reputation building. |
+| Advertisers | Targetable audiences | ROI on ad spend. Quality over quantity. |
+| App developers | Flexible privacy tools | Build for different use cases without protocol fights. |
+| Network operators | More public data = more fees | Public graph generates more attestation work = more revenue. |
+
+The insight: these aren't in conflict if **the user controls the boundary.** Privacy is the safe default. Visibility is a conscious economic choice that creates value for all parties.
+
+### The Architecture: Separation of Content and Signal
+
+All user-generated content (UGC) is always signed, encrypted, and obfuscated at the protocol level. Public visibility is achieved through a **reference layer** — app-level data objects that point to private content via hash references, adopting the same mechanics used for hash references in the consensus protocol.
+
+```
+PRIVATE LAYER (always, protocol-enforced)     PUBLIC LAYER (opt-in, app-level)
+┌──────────────────────────┐                  ┌──────────────────────────┐
+│ UGC: signed, encrypted,  │   hash ref       │ App data: profile,       │
+│ obfuscated. Lives in     │─────────────────>│ behavior signals,        │
+│ user's namespace.        │                  │ preferences, reputation  │
+│ Nobody sees this without │                  │ scores. Queryable by     │
+│ the user's keys.         │                  │ advertisers/apps.        │
+└──────────────────────────┘                  └──────────────────────────┘
+```
+
+The hash reference is the bridge — it proves the public signal is derived from real private data without revealing the data itself. This is the same pattern the consensus protocol uses for block references, applied to the privacy-visibility boundary.
+
+### Privacy-Visibility Games
+
+Six canonical game patterns that app developers can compose. Each is an SDK helper built entirely on the single primitive — no protocol changes needed. Each delivers a different privacy-monetization tradeoff.
+
+#### Game 1: Blind Profiles (ZK-Attestable Properties)
+
+**Mechanic:** Users prove properties about their private data without revealing the data. "I am 25-34, interested in technology, based in Europe" — attested by the protocol, without revealing which specific content or interactions prove it.
+
+**How it works:**
+- Private content accumulates in the user's namespace (encrypted, obfuscated)
+- A "profile program" computes aggregate properties from private data
+- The user publishes a **commitment** to these properties (hash of the property set)
+- Attestation workers who validate the namespace verify the commitment is correctly derived
+- Advertisers target based on committed properties, never seeing the underlying data
+
+**Tradeoff:** High privacy, moderate ad value. Advertisers get demographic/interest targeting but no behavioral granularity. Similar to contextual advertising.
+
+**Compression score:** High — solves privacy + monetization + attestation in one construction. Uses the existing attestation worker pipeline; workers who validate the namespace already have the data to verify commitments.
+
+**SDK helper:** `createBlindProfile(schema, properties, proofLevel)`
+
+#### Game 2: Tiered Visibility (Progressive Disclosure)
+
+**Mechanic:** Content has multiple visibility tiers. Each tier reveals more, pays more. Users upgrade or downgrade at will.
+
+| Tier | Visible to | What's revealed | Revenue multiplier |
+|------|-----------|----------------|-------------------|
+| 0 | Nobody | Nothing. Fully private. | 0x |
+| 1 | Protocol only | Existence + hash. "A message exists." | 1x (base attestation) |
+| 2 | Namespace | Content type + metadata. "A photo post about food." | 2-3x |
+| 3 | Public graph | Full public content. "Here's my restaurant review." | 5-10x |
+
+**How it works:**
+- The data object's program declares its tier
+- Each tier uses a different encryption envelope:
+  - Tier 0: full encryption, only user's keys
+  - Tier 1: hash published, content encrypted
+  - Tier 2: metadata in cleartext, content encrypted with namespace-shared key
+  - Tier 3: content in cleartext, signed by user
+- Users upgrade/downgrade tiers at any time (new data object replaces old, hash-referenced)
+
+**Tradeoff:** Maximum user control. Clear economic incentive to share more (higher revenue), but zero coercion. The protocol processes all tiers identically.
+
+**Compression score:** High — maps directly onto the three-phase pipeline. Gateways accept all tiers. Attestation workers validate per-tier rules. Finality doesn't distinguish.
+
+**SDK helper:** `publish(content, { tier: 2, upgradePolicy: 'user-confirm' })`
+
+#### Game 3: Aggregate Signals (Privacy-Preserving Analytics)
+
+**Mechanic:** Instead of exposing individual user data, the protocol computes and publishes aggregate statistics over groups of users. No individual is identifiable, but the aggregate is valuable for targeting.
+
+**How it works:**
+- Users' private data stays private
+- A "signal aggregation program" runs over a namespace's data
+- Attestation workers compute aggregates: "This namespace has 10K users, 60% interested in tech, median age 28"
+- The aggregate is published as a data object in the public graph, hash-referencing the private data set
+- Differential privacy noise can be added to prevent de-anonymization
+
+**Tradeoff:** Strongest individual privacy. Advertisers get cohort-level targeting (similar to Google's Topics API / Privacy Sandbox). Revenue flows to the namespace/app, which distributes to users.
+
+**Compression score:** High — uses attestation workers in a new capacity (computing aggregates), which is additional useful work that earns fees.
+
+**SDK helper:** `createSignalAggregator(namespace, schema, privacyBudget)`
+
+#### Game 4: Reputation Markets (Earned Visibility)
+
+**Mechanic:** Users build public reputation scores through verifiable actions. The reputation is public; the actions that built it remain private.
+
+**How it works:**
+- User takes actions in private namespaces (posting, engaging, transacting)
+- Each action generates a reputation proof (attestation worker signs "this user completed action X")
+- Proofs accumulate into a public reputation score
+- The score is a data object in the public graph, hash-referencing the proofs
+- Apps and advertisers use reputation scores to assess user quality
+
+**Tradeoff:** Users reveal *that* they did things, not *what* they did. "This user has a quality score of 87 based on 1,200 verified actions" is public. The 1,200 actions remain private.
+
+**Why advertisers value this:** Ad fraud is the #1 problem in digital advertising. A protocol-attested reputation score that proves "this is a real, active human" is worth more than behavioral targeting. Quality over granularity.
+
+**Compression score:** Very high — reputation proofs are just attestations flowing through the existing pipeline. Reputation scores are just data objects. No new mechanism needed.
+
+**SDK helper:** `createReputationProgram(actionTypes, scoringFormula, publicFields)`
+
+#### Game 5: Data Unions (Collective Bargaining)
+
+**Mechanic:** Users pool visibility into a collective that negotiates terms with advertisers on behalf of all members. Individual data stays private; the union publishes aggregate access terms.
+
+**How it works:**
+- Users join a "data union" (a program/namespace)
+- The union's program defines what data members contribute and under what terms
+- Advertisers query the union, not individuals
+- Attestation workers verify that member data matches claimed properties
+- Revenue distributed to members proportional to contribution
+- Any member can exit at any time (their data reverts to fully private)
+
+**Tradeoff:** Collective bargaining power + individual privacy. Users get better economic terms than solo. Advertisers get a curated, verified audience.
+
+**This mirrors real-world ad markets:** Publishers aggregate audiences and sell access. The difference is that the aggregation is user-controlled and the publisher is a protocol-level construct, not a company.
+
+**Compression score:** High — a data union is just a namespace with a specific program. No protocol changes needed. Application pattern on the primitive.
+
+**SDK helper:** `createDataUnion(terms, revenueModel, exitPolicy)`
+
+#### Game 6: Consent Receipts (Auditable Privacy)
+
+**Mechanic:** Every visibility decision is itself a data object — a signed, timestamped consent receipt. This creates an auditable trail of what the user agreed to, when, and with whom.
+
+**How it works:**
+- App presents cookie/privacy terms (as today)
+- User's agreement is captured as a signed data object: "I consent to tier-2 visibility for namespace X, with advertiser Y, until date Z"
+- The consent receipt is hash-referenced from the data it applies to
+- Attestation workers verify that data access matches active consent receipts
+- Revocation: a new consent object supersedes the old one, access revoked at the protocol level
+
+**Tradeoff:** Full GDPR/CCPA compliance built into the data layer. Consent isn't a checkbox — it's a cryptographically signed, protocol-attested data object with revocation. Stronger than any current privacy framework.
+
+**Why advertisers value this:** Provably compliant targeting. No regulatory risk. The consent receipt is the proof. This is currently the most expensive compliance problem in ad-tech.
+
+**Compression score:** Very high — consent receipts are data objects, verification uses existing attestation, revocation uses the existing mutable URI mechanism (with replay protection from S6).
+
+**SDK helper:** `createConsentReceipt(scope, parties, duration, revocationPolicy)`
+
+### The App Developer Menu
+
+Each game is a canonical SDK helper. Developers compose them for their use case:
+
+| Use case | Recommended games | Privacy | Revenue potential |
+|----------|------------------|---------|-------------------|
+| Private messaging | None (all Tier 0) | Maximum | None from ads |
+| Social media | Tiered Visibility + Reputation + Consent | User-controlled | High |
+| Content marketplace | Tiered Visibility + Data Unions | Collective | High |
+| Analytics platform | Aggregate Signals + Blind Profiles | Group-level | Medium |
+| Health/finance apps | Blind Profiles + Consent Receipts | Maximum individual | Low but compliant |
+| Ad network | All games composable | Varies per user | Maximum |
+
+### What Ties the Games to the Protocol
+
+The protocol doesn't know about any of these games. Every game is built on:
+1. **The single primitive** — signed, content-addressed data object with a program
+2. **Hash references** — between private content and public signals (same as consensus block refs)
+3. **Programs** — define visibility rules per data object
+4. **Attestation workers** — verify compliance with programs and consent
+5. **Consent receipts** — first-class data objects, not metadata
+
+**The guarantee:** If content is at Tier 0, no game, no advertiser, no app can see it. Everything above Tier 0 is the user's choice, expressed through programs and consent, verified by attestation workers.
+
+### How This Updates D3
+
+| Aspect | Previous D3 | Updated D3 |
+|--------|------------|------------|
+| Default | Signal-level privacy | **Still Signal-level** — unchanged |
+| Visibility | "Configurable per-application" (vague) | **Six canonical games** with concrete SDK helpers |
+| Social graph | "Hide it" | **User-authored, not leaked.** The social graph is explicit data the user publishes, not metadata inferred by the network |
+| Ad targeting | Not addressed | **Data layer targeting via public graph.** Network metadata never exposed |
+| Consent | Not addressed | **First-class protocol primitive** via consent receipts |
+| Revenue model | Not addressed | **Privacy-visibility tradeoff drives the economic model.** Users choose their position on the spectrum |
+
+### Implications for S3 (Traffic Shaping)
+
+S3's constant-rate padding still applies to **all private traffic.** The presence of public data for a user does not weaken the privacy of their private data. The padding ensures an adversary cannot correlate private activity patterns with public activity patterns for the same user.
+
+This is a subtle but important point: a user who has both private medical records and a public social profile must not leak timing correlations between the two. S3 handles this at the network level; the games handle it at the data layer.
+
+### Open Research Questions for D3 Games
+
+1. **Blind profile verification cost:** How much extra work do attestation workers do to verify ZK property commitments? Does this scale with namespace size?
+2. **Tier transition attacks:** Can an adversary learn something about Tier 0 content by observing tier upgrades/downgrades? (e.g., "Alice moved something from Tier 0 to Tier 2 at time T")
+3. **Aggregate deanonymization:** What differential privacy budget is needed to prevent membership inference in aggregated signals? What's the minimum cohort size?
+4. **Data union governance:** How are union terms decided? Majority vote of members? Fixed by the union creator? Can terms change for existing members?
+5. **Consent receipt revocation latency:** How quickly does revocation propagate? Can an advertiser cache data before revocation takes effect?
+6. **Cross-game composition:** When a user participates in multiple games (Blind Profile + Data Union + Consent), do the privacy guarantees compose safely? Or can the combination leak more than either alone?
+
+---
+
 ## Confidence Summary
 
 | # | Decision | Answer | Confidence | Status |
 |---|----------|--------|------------|--------|
 | D1 | Trust model | Open + stake-based, content backbone | **High** | Decided |
 | D2 | Committee | Dynamic, VRF lottery + roster teams | **Medium** | Direction set, mechanism needs research |
-| D3 | Privacy | Path obfuscation + constant-rate padding | High | Decided |
+| D3 | Privacy | Private by default + 6 visibility games | **High** | Direction decided, games need simulation |
 | D4 | Fee split | 25/35/25/15 @ $0.002/msg | High | Decided |
 | D5 | Cold-start | Partners + tapering grants | Medium | Decided |
 | D6 | KDF | Argon2id 46MiB/t1/p1 | High | Decided |

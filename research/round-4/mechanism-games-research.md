@@ -287,43 +287,108 @@ To validate the combined mechanism, we need simulation experiments:
 - **Metrics:** Security (BFT safety violations), economics (all phases profitable), decentralization (stake distribution, Nakamoto coefficient), namespace coverage (do all active namespaces have sufficient workers?), write latency (entry to finality time)
 - **Estimated effort:** 2-3 weeks
 
-**Total estimated research effort: 7-11 weeks**
+### Experiment M6: Privacy-Visibility Game Composition
+- **Question:** Do the 6 privacy-visibility games (Blind Profiles, Tiered Visibility, Aggregate Signals, Reputation Markets, Data Unions, Consent Receipts) compose safely? Can combining games leak more than either alone?
+- **Method:** Information-theoretic analysis + adversarial simulation. Model an adversary who observes the public graph across multiple games for the same user and attempts to infer Tier 0 content.
+- **Metrics:** Information leakage under composition, minimum differential privacy budget for aggregate safety, tier transition correlation attack success rate, consent revocation latency impact
+- **Estimated effort:** 2-3 weeks
+
+### Experiment M7: Ad Economics via Privacy Games
+- **Question:** What's the revenue curve for each privacy game? How does advertiser willingness-to-pay vary across Blind Profiles (low info) vs. Tiered Visibility (high info) vs. Reputation Markets (quality signal)?
+- **Method:** Economic simulation with advertiser agent models calibrated against real-world CPM/CPC rates. Simulate a namespace with 10K-1M users choosing different game combinations.
+- **Metrics:** Revenue per user per game, advertiser ROI per targeting method, equilibrium game adoption (which games do rational users choose?), total network ad revenue at scale
+- **Estimated effort:** 2-3 weeks
+
+**Total estimated research effort: 11-17 weeks** (M1-M7)
 
 ---
 
-## 6. Where Else to Look
+## 6. Privacy-Visibility Games (D3 Integration)
 
-Beyond blockchain consensus mechanisms, the team/roster concept draws from:
+> **Added 2026-03-18.** Founder direction: privacy and safety by default, but the social graph has value to users for ad-funded monetization. The protocol must support both modes — private by default, public by choice.
 
-### 6.1 Network Management & Operations Research
+The privacy-visibility games are a distinct family of mechanisms from the committee/consensus games in §3. They operate at the **data layer** (application-level programs on the single primitive), not at the consensus layer. But they share the same design philosophy: compress multiple goals into a single construction.
+
+### The Core Pattern: Content vs. Signal Separation
+
+All UGC is always signed, encrypted, and obfuscated at the protocol level. Public visibility is achieved through **hash references** from app-level signal objects to private content — the same mechanics used for hash references in the consensus protocol. This separation is the foundation for all 6 games.
+
+### The Six Games
+
+Detailed specifications in `founder-decisions-update.md` (D3 addendum). Summary:
+
+| # | Game | Privacy | Ad Value | Compression | SDK Helper |
+|---|------|---------|----------|-------------|------------|
+| 1 | Blind Profiles | High (ZK properties) | Moderate (demographic) | High | `createBlindProfile()` |
+| 2 | Tiered Visibility | User-controlled (4 tiers) | Scales with tier | High | `publish({ tier })` |
+| 3 | Aggregate Signals | Group-level (differential privacy) | Cohort targeting | High | `createSignalAggregator()` |
+| 4 | Reputation Markets | Actions hidden, score public | Quality signal | Very high | `createReputationProgram()` |
+| 5 | Data Unions | Collective bargaining | Curated audience | High | `createDataUnion()` |
+| 6 | Consent Receipts | Auditable GDPR/CCPA | Compliance proof | Very high | `createConsentReceipt()` |
+
+### Why These Are Games
+
+Each game creates a **strategic choice** for the user: trade privacy for revenue. The games differ in what's traded and how much it's worth. Rational users choose the game(s) that maximize their utility given their privacy preferences. This is mechanism design — the protocol provides the games, the equilibrium emerges from user choices.
+
+### Integration with Three-Phase Pipeline
+
+The games interact with the pipeline at the **attestation layer:**
+- Attestation workers verify game-specific rules (tier compliance, commitment correctness, consent validity)
+- This is additional useful work that earns attestation fees
+- Workers specializing in a namespace learn the games used by that namespace's apps
+- The finality committee doesn't need to understand games — it just confirms attested messages
+
+### Integration with Consensus Games
+
+The privacy games compose with the committee/consensus games from §3:
+- **Hash-Roster Teams** can form around namespace + game combinations (workers who specialize in verifying Blind Profiles for a social media namespace)
+- **Reputation-Weighted Selection** can use game-derived reputation scores (a worker's track record of correctly verifying consent receipts boosts their reputation)
+- **Three-Phase Architecture** naturally separates concerns: gateways accept all tiers, workers verify game rules, finality seals
+
+---
+
+## 8. Where Else to Look
+
+Beyond blockchain consensus mechanisms, the team/roster concept and privacy games draw from:
+
+### 8.1 Network Management & Operations Research
 - **Load balancing algorithms** — consistent hashing (rendezvous hashing) assigns work to servers based on hash of the request. Directly analogous to roster assignment.
 - **Workforce scheduling** — operations research on team formation with heterogeneous skills. Literature on "team formation problems" in combinatorial optimization.
 - **CDN edge selection** — how Cloudflare/Akamai select which edge node serves a request. Combines latency, load, and capability matching.
 
-### 6.2 Game Theory & Mechanism Design
+### 8.2 Game Theory & Mechanism Design
 - **Mechanism design theory** (Myerson, Maskin) — designing games where the equilibrium outcome is the desired one
 - **Cooperative game theory** — Shapley values for fair reward distribution in teams. How much does each team member contribute to the team's success?
 - **Auction theory** (Vickrey, VCG) — for slot auctions and fee markets
 - **Schelling points** — for coordinating behavior without explicit communication
 
-### 6.3 Sports & Esports Team Formation
+### 8.3 Sports & Esports Team Formation
 - **Fantasy sports drafts** — how to form balanced teams from a pool of heterogeneous players
 - **Matchmaking in competitive games** — ELO/MMR systems that form teams of similar skill. The reputation system is analogous.
 - **Salary caps in professional sports** — anti-whale mechanisms that force competitive balance
 
-### 6.4 Distributed Systems
+### 8.4 Distributed Systems
 - **Consistent hashing rings** — nodes responsible for keys in their hash neighborhood. Very similar to "validators whose pubkey matches the hash pattern."
 - **Raft/Paxos leader election** — term-based leadership with deterministic succession
 - **BitTorrent choking/unchoking** — reward peers who contribute, punish free-riders. The reputation mechanism has similar dynamics.
 
-### 6.5 Economic Models
+### 8.5 Economic Models
 - **Platform economics** — two-sided markets (developers + users), cross-subsidization strategies
 - **Co-operative economics** — member-owned enterprises, dividend distribution, one-member-one-vote vs. proportional
 - **Public goods provision** — how to fund shared infrastructure without free-riding (relevant to protocol treasury)
 
+### 8.6 Privacy & Ad-Tech (NEW — for D3 games)
+- **Google Privacy Sandbox / Topics API** — cohort-based targeting without individual tracking. Directly comparable to Game 3 (Aggregate Signals)
+- **Apple ATT (App Tracking Transparency)** — consent-gated tracking. Comparable to Game 6 (Consent Receipts) but weaker (no revocation, no auditability)
+- **Brave Ads** — privacy-preserving browser ads with local matching. The matching happens client-side; the user sees ads without the advertiser knowing who they are
+- **Ocean Protocol / data marketplaces** — tokenized data sharing with compute-to-data. Comparable to Game 5 (Data Unions) but more complex
+- **Solid (Tim Berners-Lee)** — user-controlled data pods. The philosophy is aligned (user owns data), but Solid lacks the economic incentive layer
+- **Differential privacy** (Dwork, Roth) — mathematical framework for privacy-preserving analytics. Foundation for Game 3's privacy budget
+- **Zero-knowledge proofs** (Groth16, PLONK, STARKs) — cryptographic foundation for Game 1's blind profiles. ZK-SNARKs can prove properties about committed data
+
 ---
 
-## 7. The Compression Principle
+## 9. The Compression Principle
 
 The founder's insight deserves its own section: **the best mechanisms compress multiple functions into a single construction.**
 
