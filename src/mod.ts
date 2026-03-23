@@ -203,5 +203,8 @@ export type {
   RigConfig,
   RigInfo,
   ServeOptions,
+  Unsubscribe,
+  WatchAllOptions,
+  WatchAllSnapshot,
   WatchOptions,
 } from "../libs/b3nd-rig/mod.ts";

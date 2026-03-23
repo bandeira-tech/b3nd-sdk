@@ -41,5 +41,8 @@ export type {
   RigConfig,
   RigInfo,
   ServeOptions,
+  Unsubscribe,
+  WatchAllOptions,
+  WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";
