@@ -8,3 +8,4 @@ _vendor/
 explorer/app/public/dashboard/test-logs.txt
 explorer/app/public/dashboard/test-results.json
 apps/sdk-inspector/b3nd-web-rig/
+apps/b3nd-web-rig/public/api-docs/

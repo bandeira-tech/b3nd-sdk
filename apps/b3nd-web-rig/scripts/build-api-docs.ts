@@ -18,41 +18,15 @@
  */
 
 // ---------------------------------------------------------------------------
-// Types — what we produce
+// Types — shared with the web rig React components
 // ---------------------------------------------------------------------------
 
-/** A single exported symbol (function, class, interface, type alias, variable, enum). */
-interface ApiSymbol {
-  name: string;
-  kind: string; // "function" | "class" | "interface" | "typeAlias" | "variable" | "enum" | "namespace"
-  signature: string; // Human-readable one-liner
-  description: string; // First paragraph of JSDoc
-  line: number;
-}
-
-/** Per-library detail document. */
-interface ApiLibrary {
-  key: string; // e.g. "b3nd-hash"
-  label: string; // e.g. "b3nd-hash"
-  description: string; // Module-level JSDoc summary
-  entryPoint: string; // e.g. "libs/b3nd-hash/mod.ts"
-  symbols: ApiSymbol[];
-  generatedAt: number;
-}
-
-/** Top-level catalog (index of all libraries). */
-interface ApiCatalog {
-  libraries: ApiCatalogEntry[];
-  generatedAt: number;
-}
-
-interface ApiCatalogEntry {
-  key: string;
-  label: string;
-  description: string;
-  symbolCount: number;
-  uri: string;
-}
+import type {
+  ApiCatalog,
+  ApiCatalogEntry,
+  ApiLibrary,
+  ApiSymbol,
+} from "../src/components/api-docs/apiDocsTypes.ts";
 
 // ---------------------------------------------------------------------------
 // deno doc JSON shape (subset we care about)
@@ -371,11 +345,8 @@ async function main() {
   const libNames = await discoverLibs();
   console.log(`Found ${libNames.length} libraries:\n  ${libNames.join(", ")}\n`);
 
-  const libraries: ApiLibrary[] = [];
-  for (const name of libNames) {
-    const lib = await processLib(name);
-    if (lib) libraries.push(lib);
-  }
+  const results = await Promise.all(libNames.map(processLib));
+  const libraries = results.filter((lib): lib is ApiLibrary => lib !== null);
 
   console.log(`\nProcessed ${libraries.length} libraries:`);
   for (const lib of libraries) {
