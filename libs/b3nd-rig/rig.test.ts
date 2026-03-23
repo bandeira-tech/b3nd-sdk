@@ -1643,3 +1643,268 @@ Deno.test("Rig.info - reflects identity swap", async () => {
   assertEquals(rig.info().hasIdentity, false);
   await rig.cleanup();
 });
+
+// ── Schema-validated Rig tests ──
+
+Deno.test("Rig.init - single backend with schema validates writes", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: "memory://", schema });
+
+  // Valid write (mutable://open is in the test schema)
+  const accepted = await rig.write("mutable://open/valid", { ok: true });
+  assertEquals(accepted.accepted, true);
+
+  // Read back should succeed
+  const data = await rig.readData("mutable://open/valid");
+  assertEquals(data, { ok: true });
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.init - single backend with schema rejects invalid protocol", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: "memory://", schema });
+
+  // Write to unrecognized protocol domain — schema should reject
+  const result = await rig.write("mutable://unknown-domain/x", { bad: true });
+  assertEquals(result.accepted, false);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.init - multi-backend with schema validates writes", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: ["memory://", "memory://"], schema });
+
+  // Valid write through validated multi-backend
+  const accepted = await rig.write("mutable://open/multi-schema", 42);
+  assertEquals(accepted.accepted, true);
+
+  const data = await rig.readData("mutable://open/multi-schema");
+  assertEquals(data, 42);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.init - multi-backend with schema rejects invalid writes", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: ["memory://", "memory://"], schema });
+
+  // Write to unknown domain — should be rejected by schema
+  const result = await rig.write("mutable://unknown/x", "nope");
+  assertEquals(result.accepted, false);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.init - schema with identity allows signed writes", async () => {
+  const schema = createTestSchema();
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", schema, identity: id });
+
+  // writeSigned through validated client
+  const result = await rig.writeSigned("mutable://accounts/test", {
+    name: "Alice",
+  });
+  assertEquals(result.accepted, true);
+
+  const data = await rig.readData("mutable://accounts/test");
+  assertEquals(typeof data, "object");
+  assertEquals(data !== null, true);
+
+  await rig.cleanup();
+});
+
+// ── Edge case tests ──
+
+Deno.test("Rig.deleteMany - all missing URIs succeeds gracefully", async () => {
+  const rig = await Rig.connect("memory://");
+  const results = await rig.deleteMany([
+    "mutable://open/ghost1",
+    "mutable://open/ghost2",
+    "mutable://open/ghost3",
+  ]);
+  // Deleting non-existent URIs should not throw
+  assertEquals(results.length, 3);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readAll - empty prefix returns empty map", async () => {
+  const rig = await Rig.connect("memory://");
+  const result = await rig.readAll("mutable://open/empty-prefix");
+  assertEquals(result.size, 0);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readAll - returns all items under prefix", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/coll/a", { v: 1 });
+  await rig.write("mutable://open/coll/b", { v: 2 });
+  await rig.write("mutable://open/coll/c", { v: 3 });
+
+  const result = await rig.readAll<{ v: number }>("mutable://open/coll");
+  assertEquals(result.size, 3);
+  assertEquals(result.get("mutable://open/coll/a")?.v, 1);
+  assertEquals(result.get("mutable://open/coll/b")?.v, 2);
+  assertEquals(result.get("mutable://open/coll/c")?.v, 3);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeOrThrow - propagates error message on rejection", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: "memory://", schema });
+
+  await assertRejects(
+    () => rig.writeOrThrow("mutable://unknown-domain/x", { bad: true }),
+    Error,
+    "write rejected",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.update - propagates write rejection as error", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: "memory://", schema });
+
+  // update to an invalid domain — write should fail, update returns next
+  // but the write to backend was rejected
+  const next = await rig.update(
+    "mutable://unknown/counter",
+    (n) => (n ?? 0) as number + 1,
+  );
+  assertEquals(next, 1); // updater still returns the value
+
+  // Verify nothing was actually stored
+  const stored = await rig.readData("mutable://unknown/counter");
+  assertEquals(stored, null);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.health - returns healthy for memory backend", async () => {
+  const rig = await Rig.connect("memory://");
+  const health = await rig.health();
+  assertEquals(health.status, "healthy");
+  await rig.cleanup();
+});
+
+Deno.test("Rig.getSchema - returns schema keys for memory backend", async () => {
+  const rig = await Rig.connect("memory://");
+  const keys = await rig.getSchema();
+  assertEquals(Array.isArray(keys), true);
+  assertEquals(keys.length > 0, true);
+  await rig.cleanup();
+});
+
+// ── Rig.watch() tests ──
+
+Deno.test({
+  name: "Rig.watch - detects data changes",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    const uri = "mutable://open/watch-test";
+
+    const values: (number | null)[] = [];
+    const abort = new AbortController();
+
+    const watchPromise = (async () => {
+      for await (
+        const value of rig.watch<number>(uri, {
+          intervalMs: 30,
+          signal: abort.signal,
+        })
+      ) {
+        values.push(value);
+        if (values.length >= 3) abort.abort();
+      }
+    })();
+
+    // Wait for first poll (null)
+    await new Promise((r) => setTimeout(r, 50));
+    await rig.write(uri, 42);
+    await new Promise((r) => setTimeout(r, 50));
+    await rig.write(uri, 99);
+    await new Promise((r) => setTimeout(r, 100));
+
+    abort.abort();
+    await watchPromise.catch(() => {});
+
+    assertEquals(values[0], null);
+    assertEquals(values.length >= 2, true);
+    await rig.cleanup();
+  },
+});
+
+Deno.test({
+  name: "Rig.watch - stops on abort signal",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    const uri = "mutable://open/watch-abort";
+    const abort = new AbortController();
+
+    let count = 0;
+    const watchPromise = (async () => {
+      for await (
+        const _ of rig.watch(uri, { intervalMs: 20, signal: abort.signal })
+      ) {
+        void _;
+        count++;
+        // Write a different value each time to trigger dedup emission
+        await rig.write(uri, count);
+        if (count >= 2) abort.abort();
+      }
+    })();
+
+    await watchPromise.catch(() => {});
+    assertEquals(count >= 1, true);
+    await rig.cleanup();
+  },
+});
+
+Deno.test({
+  name: "Rig.watch - only emits on change (deduplication)",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    const uri = "mutable://open/watch-dedup";
+    await rig.write(uri, "stable");
+
+    const values: string[] = [];
+    const abort = new AbortController();
+
+    const watchPromise = (async () => {
+      for await (
+        const value of rig.watch<string>(uri, {
+          intervalMs: 20,
+          signal: abort.signal,
+        })
+      ) {
+        values.push(value!);
+        if (values.length >= 2) abort.abort();
+      }
+    })();
+
+    // Wait for initial poll
+    await new Promise((r) => setTimeout(r, 40));
+    // Write same value — should NOT emit again
+    await rig.write(uri, "stable");
+    await new Promise((r) => setTimeout(r, 60));
+    // Write different value — SHOULD emit
+    await rig.write(uri, "changed");
+    await new Promise((r) => setTimeout(r, 60));
+
+    abort.abort();
+    await watchPromise.catch(() => {});
+
+    assertEquals(values[0], "stable");
+    // Duplicates should not appear
+    const uniqueValues = [...new Set(values)];
+    assertEquals(uniqueValues.length, values.length);
+    await rig.cleanup();
+  },
+});

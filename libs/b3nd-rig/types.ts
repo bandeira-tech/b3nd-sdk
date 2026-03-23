@@ -106,6 +106,16 @@ export interface RigInfo {
 }
 
 /**
+ * Options for rig.watch() — reactive polling.
+ */
+export interface WatchOptions {
+  /** Polling interval in milliseconds. Default: 1000. */
+  intervalMs?: number;
+  /** AbortSignal to stop watching. */
+  signal?: AbortSignal;
+}
+
+/**
  * Options for rig.serve().
  */
 export interface ServeOptions {

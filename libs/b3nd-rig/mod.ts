@@ -41,4 +41,5 @@ export type {
   RigConfig,
   RigInfo,
   ServeOptions,
+  WatchOptions,
 } from "./types.ts";

@@ -26,7 +26,12 @@ import { createValidatedClient } from "../b3nd-compose/validated-client.ts";
 import { msgSchema } from "../b3nd-compose/validators.ts";
 import { createClientFromUrl } from "./backend-factory.ts";
 import type { Identity } from "./identity.ts";
-import type { RigConfig, RigInfo, ServeOptions } from "./types.ts";
+import type {
+  RigConfig,
+  RigInfo,
+  ServeOptions,
+  WatchOptions,
+} from "./types.ts";
 
 /**
  * Rig — the single import for working with b3nd.
@@ -733,6 +738,61 @@ export class Rig {
    */
   get canEncrypt(): boolean {
     return this.identity !== null && this.identity.canEncrypt;
+  }
+
+  // ── Reactive ──
+
+  /**
+   * Watch a URI for changes, yielding new values as they appear.
+   *
+   * Polls the URI at `intervalMs` (default 1000ms) and yields the value
+   * whenever it changes. Uses JSON comparison for deduplication — only
+   * emits when the data actually differs from the previous read.
+   *
+   * Pass an `AbortSignal` to stop watching.
+   *
+   * @example
+   * ```typescript
+   * const abort = new AbortController();
+   *
+   * for await (const profile of rig.watch<UserProfile>(
+   *   "mutable://app/users/alice",
+   *   { intervalMs: 2000, signal: abort.signal },
+   * )) {
+   *   console.log("Profile updated:", profile);
+   * }
+   * ```
+   */
+  async *watch<T = unknown>(
+    uri: string,
+    options?: WatchOptions,
+  ): AsyncGenerator<T | null, void, unknown> {
+    const interval = options?.intervalMs ?? 1000;
+    const signal = options?.signal;
+
+    let lastJson: string | undefined;
+
+    while (!signal?.aborted) {
+      const value = await this.readData<T>(uri);
+      const json = JSON.stringify(value);
+
+      if (json !== lastJson) {
+        lastJson = json;
+        yield value;
+      }
+
+      // Wait for next poll or abort
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, interval);
+        if (signal) {
+          const onAbort = () => {
+            clearTimeout(timer);
+            resolve();
+          };
+          signal.addEventListener("abort", onAbort, { once: true });
+        }
+      });
+    }
   }
 
   // ── Serve ──
