@@ -1319,3 +1319,135 @@ Deno.test("Rig.writeSignedMany - signatures are verifiable", async () => {
   assertEquals(valid, true);
   await rig.cleanup();
 });
+
+// ── updateSigned() ──
+
+Deno.test("Rig.updateSigned - creates signed value when URI does not exist", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  const result = await rig.updateSigned<number>(
+    "mutable://open/us/counter",
+    (n) => (n ?? 0) + 1,
+  );
+
+  assertEquals(result, 1);
+
+  // The stored value is wrapped in AuthenticatedMessage
+  const stored = await rig.readData<{
+    auth: { pubkey: string; signature: string }[];
+    payload: unknown;
+  }>("mutable://open/us/counter");
+  assertEquals(Array.isArray(stored?.auth), true);
+  assertEquals(stored?.payload, 1);
+  assertEquals(stored?.auth[0].pubkey, id.pubkey);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.updateSigned - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+  await assertRejects(
+    () => rig.updateSigned("mutable://open/us/x", (v) => v ?? "new"),
+    Error,
+    "no identity set",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.updateSigned - supports async updater", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.connect("memory://", id);
+
+  const result = await rig.updateSigned<string>(
+    "mutable://open/us/async",
+    async () => {
+      await new Promise((r) => setTimeout(r, 1));
+      return "async-value";
+    },
+  );
+
+  assertEquals(result, "async-value");
+  await rig.cleanup();
+});
+
+// ── writeOrThrow() ──
+
+Deno.test("Rig.writeOrThrow - returns result on success", async () => {
+  const rig = await Rig.connect("memory://");
+  const result = await rig.writeOrThrow("mutable://open/wot/ok", { v: 1 });
+  assertEquals(result.accepted, true);
+
+  // Verify data was written
+  assertEquals(await rig.readData("mutable://open/wot/ok"), { v: 1 });
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeOrThrow - throws on rejected write", async () => {
+  // Use a schema that rejects a specific prefix
+  const schema = {
+    "mutable://open": async () => ({ valid: true }),
+    "hash://sha256": async () => ({ valid: true }),
+  };
+  const client = new MemoryClient({ schema });
+  const rig = await Rig.init({ client });
+
+  // Writing to an unrecognized prefix should fail
+  await assertRejects(
+    () => rig.writeOrThrow("mutable://unknown/path", "data"),
+    Error,
+    "write rejected",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeOrThrow - handles scalar values", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.writeOrThrow("mutable://open/wot/num", 42);
+  assertEquals(await rig.readData("mutable://open/wot/num"), 42);
+
+  await rig.writeOrThrow("mutable://open/wot/str", "hello");
+  assertEquals(await rig.readData("mutable://open/wot/str"), "hello");
+  await rig.cleanup();
+});
+
+// ── deleteAll() ──
+
+Deno.test("Rig.deleteAll - deletes all items under prefix", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/da/a", 1);
+  await rig.write("mutable://open/da/b", 2);
+  await rig.write("mutable://open/da/c", 3);
+
+  const results = await rig.deleteAll("mutable://open/da");
+  assertEquals(results.length, 3);
+  assertEquals(results.every((r) => r.success), true);
+
+  // Verify all gone
+  const remaining = await rig.listData("mutable://open/da");
+  assertEquals(remaining.length, 0);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.deleteAll - returns empty array for empty prefix", async () => {
+  const rig = await Rig.connect("memory://");
+  const results = await rig.deleteAll("mutable://open/nothing-here");
+  assertEquals(results.length, 0);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.deleteAll - does not affect other prefixes", async () => {
+  const rig = await Rig.connect("memory://");
+  await rig.write("mutable://open/da2/target/a", 1);
+  await rig.write("mutable://open/da2/target/b", 2);
+  await rig.write("mutable://open/da2/keep/x", 99);
+
+  await rig.deleteAll("mutable://open/da2/target");
+
+  // Target items deleted
+  assertEquals(await rig.exists("mutable://open/da2/target/a"), false);
+  assertEquals(await rig.exists("mutable://open/da2/target/b"), false);
+
+  // Other items preserved
+  assertEquals(await rig.readData("mutable://open/da2/keep/x"), 99);
+  await rig.cleanup();
+});

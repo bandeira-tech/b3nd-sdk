@@ -337,6 +337,37 @@ export class Rig {
   }
 
   /**
+   * Read-modify-write with signing.
+   *
+   * Like `update()`, but wraps the write in an AuthenticatedMessage.
+   * Use for URIs with auth-based access control where the update
+   * must prove who made the change.
+   *
+   * @throws If no identity is set.
+   *
+   * @example
+   * ```typescript
+   * // Update a user profile with signing
+   * await rig.updateSigned<UserProfile>(
+   *   `mutable://accounts/${rig.identity!.pubkey}/profile`,
+   *   (profile) => ({ ...profile, lastLogin: Date.now() }),
+   * );
+   * ```
+   */
+  async updateSigned<T = unknown>(
+    uri: string,
+    updater: (current: T | null) => T | Promise<T>,
+  ): Promise<T> {
+    if (!this.identity) {
+      throw new Error("Rig.updateSigned: no identity set — cannot sign.");
+    }
+    const current = await this.readData<T>(uri);
+    const next = await updater(current);
+    await this.writeSigned(uri, next);
+    return next;
+  }
+
+  /**
    * Read just the data from a URI, returning `null` if not found.
    *
    * The most common read pattern in apps — skips the full ReadResult
@@ -429,6 +460,35 @@ export class Rig {
     return result.success;
   }
 
+  /**
+   * Write data, throwing if the write is not accepted.
+   *
+   * Use when a failed write is an error condition rather than an expected case.
+   * Parallels `readOrThrow()` for writes.
+   *
+   * @throws {Error} If the write is not accepted by the backend.
+   *
+   * @example
+   * ```typescript
+   * // Guaranteed write — throws on schema rejection or backend failure
+   * await rig.writeOrThrow("mutable://app/config", { version: 2 });
+   * ```
+   */
+  async writeOrThrow<D = unknown>(
+    uri: string,
+    data: D,
+  ): Promise<ReceiveResult> {
+    const result = await this.client.receive([uri, data]);
+    if (!result.accepted) {
+      throw new Error(
+        `Rig.writeOrThrow: write rejected at ${uri}${
+          result.error ? ` (${result.error})` : ""
+        }`,
+      );
+    }
+    return result;
+  }
+
   /** Delete data at a URI. */
   delete(uri: string): Promise<DeleteResult> {
     return this.client.delete(uri);
@@ -452,6 +512,34 @@ export class Rig {
   async deleteMany(uris: string[]): Promise<DeleteResult[]> {
     if (uris.length === 0) return [];
     return Promise.all(uris.map((uri) => this.client.delete(uri)));
+  }
+
+  /**
+   * Delete all items under a URI prefix.
+   *
+   * Combines `listData()` + `deleteMany()` into a single call.
+   * Returns the individual delete results. Useful for cleanup,
+   * clearing collections, or resetting state.
+   *
+   * @example
+   * ```typescript
+   * // Clear all user sessions
+   * const results = await rig.deleteAll("mutable://app/sessions");
+   * console.log(`Deleted ${results.length} sessions`);
+   *
+   * // Clear and verify
+   * await rig.deleteAll("mutable://app/temp");
+   * const remaining = await rig.listData("mutable://app/temp");
+   * console.log(remaining.length); // 0
+   * ```
+   */
+  async deleteAll(
+    uri: string,
+    options?: ListOptions,
+  ): Promise<DeleteResult[]> {
+    const uris = await this.listData(uri, options);
+    if (uris.length === 0) return [];
+    return this.deleteMany(uris);
   }
 
   /** Health check. */
