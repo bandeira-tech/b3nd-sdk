@@ -53,7 +53,7 @@ jobs:
           deno-version: v2.x
 
       - name: Run encrypt tests
-        run: cd libs/b3nd-encrypt && deno test --allow-all || true
+        run: cd libs/b3nd-encrypt && deno test --allow-all
 
   e2e-tests:
     name: E2E Tests
@@ -145,6 +145,22 @@ jobs:
 
       - name: Run type check
         run: deno check src/mod.ts
+
+  sqlite-integration-tests:
+    name: SQLite Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run SQLite tests
+        run: deno task test:integration:sqlite
 
   sdk-integration-tests:
     name: SDK Integration Tests (PostgreSQL + MongoDB)

@@ -110,7 +110,9 @@ export class Identity {
           true,
           [],
         );
-        encPubHex = encodeHex(new Uint8Array(await crypto.subtle.exportKey("raw", pub)));
+        encPubHex = encodeHex(
+          new Uint8Array(await crypto.subtle.exportKey("raw", pub)),
+        );
       }
     }
 
@@ -163,7 +165,10 @@ export class Identity {
   }
 
   /** Encrypt data for a recipient's public encryption key. */
-  async encrypt(data: Uint8Array, recipientEncPubkeyHex: string): Promise<EncryptedPayload> {
+  async encrypt(
+    data: Uint8Array,
+    recipientEncPubkeyHex: string,
+  ): Promise<EncryptedPayload> {
     return asymEncrypt(data, recipientEncPubkeyHex);
   }
 

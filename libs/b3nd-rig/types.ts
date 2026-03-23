@@ -3,13 +3,16 @@
  * Types for the b3nd Rig — the universal harness.
  */
 
-import type { Schema, NodeProtocolInterface } from "../b3nd-core/types.ts";
+import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
 
 /**
  * Factory function for creating a PostgreSQL executor from a connection string.
  */
 export type PostgresExecutor = {
-  query: (sql: string, args?: unknown[]) => Promise<{ rows: unknown[]; rowCount?: number }>;
+  query: (
+    sql: string,
+    args?: unknown[],
+  ) => Promise<{ rows: unknown[]; rowCount?: number }>;
   transaction: <T>(fn: (tx: PostgresExecutor) => Promise<T>) => Promise<T>;
   cleanup?: () => Promise<void>;
 };
@@ -26,15 +29,25 @@ export type MongoExecutorFactory = (
   databaseName: string,
   collectionName: string,
 ) => Promise<{
-  insertOne: (doc: Record<string, unknown>) => Promise<{ acknowledged?: boolean }>;
+  insertOne: (
+    doc: Record<string, unknown>,
+  ) => Promise<{ acknowledged?: boolean }>;
   updateOne: (
     filter: Record<string, unknown>,
     update: Record<string, unknown>,
     options?: Record<string, unknown>,
-  ) => Promise<{ matchedCount?: number; modifiedCount?: number; upsertedId?: unknown }>;
-  findOne: (filter: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
-  findMany: (filter: Record<string, unknown>) => Promise<Record<string, unknown>[]>;
-  deleteOne: (filter: Record<string, unknown>) => Promise<{ deletedCount?: number }>;
+  ) => Promise<
+    { matchedCount?: number; modifiedCount?: number; upsertedId?: unknown }
+  >;
+  findOne: (
+    filter: Record<string, unknown>,
+  ) => Promise<Record<string, unknown> | null>;
+  findMany: (
+    filter: Record<string, unknown>,
+  ) => Promise<Record<string, unknown>[]>;
+  deleteOne: (
+    filter: Record<string, unknown>,
+  ) => Promise<{ deletedCount?: number }>;
   ping: () => Promise<boolean>;
   cleanup?: () => Promise<void>;
 }>;
