@@ -58,6 +58,7 @@ export type { ExportedIdentity } from "../libs/b3nd-rig/identity.ts";
 // Rig — universal harness
 export { Rig } from "../libs/b3nd-rig/rig.ts";
 export type {
+  HandlerOptions,
   RigConfig,
   RigInfo,
   Unsubscribe,

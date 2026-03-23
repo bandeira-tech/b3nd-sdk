@@ -159,13 +159,17 @@ export interface WatchAllSnapshot<T = unknown> {
 export type Unsubscribe = () => void;
 
 /**
- * Options for rig.serve().
+ * Options for rig.handler().
  */
-export interface ServeOptions {
-  /** Port to listen on. */
-  port: number;
-  /** CORS origin header value. */
-  cors?: string;
+export interface HandlerOptions {
   /** Extra metadata to include in health response. */
   healthMeta?: Record<string, unknown>;
 }
+
+/**
+ * @deprecated Use HandlerOptions instead. The rig no longer owns the server.
+ */
+export type ServeOptions = HandlerOptions & {
+  port: number;
+  cors?: string;
+};

@@ -115,6 +115,123 @@ type HttpServerOptions = {
   healthMeta?: Record<string, unknown>;
 };
 
+type HttpHandlerOptions = {
+  healthMeta?: Record<string, unknown>;
+};
+
+// ── Built-in minimal router (zero external dependencies) ──────────────
+
+type RouteHandler = (c: MinimalContext) => Promise<Response> | Response;
+type RouteEntry = { pattern: URLPattern; handler: RouteHandler };
+
+/**
+ * A tiny router that implements MinimalRouter using the standard URLPattern API.
+ * No external dependencies — works in Deno, Cloudflare Workers, and modern Node.
+ */
+function createMinimalRouter(): MinimalRouter {
+  const routes: { method: string; entry: RouteEntry }[] = [];
+  const baseUrl = "http://localhost"; // only for pattern matching
+
+  function register(method: string, path: string, handler: RouteHandler) {
+    // Convert Express-style :param and * to URLPattern syntax
+    const pathname = path.replace(/:(\w+)/g, ":$1").replace(/\*/g, ":__rest(.*)");
+    routes.push({ method, entry: { pattern: new URLPattern({ pathname }), handler } });
+
+    // If path ends with /*, also register without the wildcard so the base
+    // path matches too (e.g. /api/v1/list/:protocol/:domain).
+    if (path.endsWith("/*")) {
+      const basePath = path.slice(0, -2).replace(/:(\w+)/g, ":$1");
+      routes.push({ method, entry: { pattern: new URLPattern({ pathname: basePath }), handler } });
+    }
+  }
+
+  function matchRoute(
+    method: string,
+    url: string,
+  ): { handler: RouteHandler; params: Record<string, string> } | null {
+    for (const route of routes) {
+      if (route.method !== method) continue;
+      const result = route.entry.pattern.exec(url, baseUrl);
+      if (result) {
+        const params: Record<string, string> = {};
+        const groups = result.pathname.groups;
+        for (const [key, value] of Object.entries(groups)) {
+          if (key === "__rest") {
+            params["*"] = value ?? "";
+          } else {
+            params[key] = value ?? "";
+          }
+        }
+        return { handler: route.entry.handler, params };
+      }
+    }
+    return null;
+  }
+
+  return {
+    get: (path, handler) => register("GET", path, handler),
+    post: (path, handler) => register("POST", path, handler),
+    delete: (path, handler) => register("DELETE", path, handler),
+    async fetch(req: Request): Promise<Response> {
+      const match = matchRoute(req.method, req.url);
+      if (!match) {
+        return new Response(JSON.stringify({ error: "Not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const url = new URL(req.url);
+      const ctx: MinimalContext = {
+        req: {
+          param: (name: string) => match.params[name] ?? "",
+          query: (name: string) => url.searchParams.get(name),
+          header: (name: string) => req.headers.get(name),
+          url: req.url,
+          arrayBuffer: () => req.arrayBuffer(),
+          json: () => req.json(),
+        } as MinimalRequest & { json: () => Promise<unknown> },
+        json: (body: unknown, status = 200) =>
+          new Response(JSON.stringify(body), {
+            status,
+            headers: { "Content-Type": "application/json" },
+          }),
+      };
+      return match.handler(ctx);
+    },
+  };
+}
+
+/**
+ * Create a standalone HTTP fetch handler for a b3nd client.
+ *
+ * Returns a standard `(Request) => Promise<Response>` function that can be
+ * used with any server: `Deno.serve()`, Hono, Express (via adapter),
+ * Cloudflare Workers, etc. No framework dependencies.
+ *
+ * @example Deno.serve
+ * ```typescript
+ * const handler = createHttpHandler(client);
+ * Deno.serve({ port: 3000 }, handler);
+ * ```
+ *
+ * @example Hono (with CORS or other middleware)
+ * ```typescript
+ * const app = new Hono();
+ * app.use("*", cors({ origin: "*" }));
+ * const handler = createHttpHandler(client);
+ * app.all("/api/*", (c) => handler(c.req.raw));
+ * ```
+ */
+export function createHttpHandler(
+  client: NodeProtocolInterface,
+  options?: HttpHandlerOptions,
+): (req: Request) => Promise<Response> {
+  const router = createMinimalRouter();
+  const frontend = httpServer(router, { healthMeta: options?.healthMeta });
+  frontend.configure({ client });
+  return (req: Request) => Promise.resolve(frontend.fetch(req));
+}
+
 export function httpServer(
   app: MinimalRouter,
   options?: HttpServerOptions,

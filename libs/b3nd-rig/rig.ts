@@ -30,7 +30,6 @@ import type { Identity } from "./identity.ts";
 import type {
   RigConfig,
   RigInfo,
-  ServeOptions,
   Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
@@ -834,29 +833,32 @@ export class Rig {
     return results;
   }
 
-  // ── Serve ──
+  // ── Handler ──
 
   /**
-   * Start an HTTP server exposing this rig's client via the b3nd API.
+   * Create an HTTP fetch handler for this rig's client.
    *
-   * Dynamically imports Hono and the b3nd HTTP server module.
-   * Only available in Deno.
+   * Returns a standard `(Request) => Promise<Response>` function — no
+   * framework, no CORS, no port binding. Plug it into any server:
+   *
+   * @example Deno.serve
+   * ```typescript
+   * const handler = await rig.handler();
+   * Deno.serve({ port: 3000 }, handler);
+   * ```
+   *
+   * @example Hono (add CORS, middleware, etc.)
+   * ```typescript
+   * const app = new Hono();
+   * app.use("*", cors({ origin: "*" }));
+   * const handler = await rig.handler();
+   * app.all("/api/*", (c) => handler(c.req.raw));
+   * ```
    */
-  async serve(options: ServeOptions): Promise<void> {
-    const { Hono } = await import("npm:hono");
-    const { cors } = await import("npm:hono/cors");
-    const { httpServer } = await import("../b3nd-servers/http.ts");
-
-    const app = new Hono();
-    if (options.cors) {
-      app.use("*", cors({ origin: options.cors }));
-    }
-
-    const frontend = httpServer(app as any, {
-      healthMeta: options.healthMeta,
-    });
-
-    frontend.configure({ client: this.client });
-    frontend.listen(options.port);
+  async handler(options?: {
+    healthMeta?: Record<string, unknown>;
+  }): Promise<(req: Request) => Promise<Response>> {
+    const { createHttpHandler } = await import("../b3nd-servers/http.ts");
+    return createHttpHandler(this.client, options);
   }
 }
