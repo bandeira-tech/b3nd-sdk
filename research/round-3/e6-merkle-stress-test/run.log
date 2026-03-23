@@ -1,0 +1,44 @@
+=== E6 Merkle Delta Sync Stress Test ===
+
+Phase 1: Binary tree (N x K) sweep
+  N=1,000 K=1 fanout=2 (~25ms/run)
+  N=1,000 K=10 fanout=2 (~15ms/run)
+  N=1,000 K=100 fanout=2 (~15ms/run)
+  N=10,000 K=1 fanout=2 (~115ms/run)
+  N=10,000 K=10 fanout=2 (~180ms/run)
+  N=10,000 K=100 fanout=2 (~126ms/run)
+  N=10,000 K=1,000 fanout=2 (~135ms/run)
+  N=100,000 K=1 fanout=2 (~1571ms/run)
+  N=100,000 K=10 fanout=2 (~1810ms/run)
+  N=100,000 K=100 fanout=2 (~1474ms/run)
+  N=100,000 K=1,000 fanout=2 (~1550ms/run)
+  N=100,000 K=10,000 fanout=2 (~1744ms/run)
+  N=500,000 K=1 fanout=2 (~9116ms/run)
+  N=500,000 K=10 fanout=2 (~12051ms/run)
+  N=500,000 K=100 fanout=2 (~10282ms/run)
+  N=500,000 K=1,000 fanout=2 (~9804ms/run)
+  N=500,000 K=10,000 fanout=2 (~9265ms/run)
+  N=1,000,000 K=1 fanout=2 (~22411ms/run)
+  N=1,000,000 K=10 fanout=2 (~24258ms/run)
+  N=1,000,000 K=100 fanout=2 (~19958ms/run)
+  N=1,000,000 K=1,000 fanout=2 (~21553ms/run)
+  N=1,000,000 K=10,000 fanout=2 (~23243ms/run)
+
+Phase 2: Fan-out comparison at N=100K
+  N=100,000 K=1 fanout=2
+  N=100,000 K=10 fanout=2
+  N=100,000 K=100 fanout=2
+  N=100,000 K=1000 fanout=2
+  N=100,000 K=10000 fanout=2
+  N=100,000 K=1 fanout=16
+  N=100,000 K=10 fanout=16
+  N=100,000 K=100 fanout=16
+  N=100,000 K=1000 fanout=16
+  N=100,000 K=10000 fanout=16
+  N=100,000 K=1 fanout=256
+  N=100,000 K=10 fanout=256
+  N=100,000 K=100 fanout=256
+  N=100,000 K=1000 fanout=256
+  N=100,000 K=10000 fanout=256
+
+Done. 160 results emitted. Skipped: 0

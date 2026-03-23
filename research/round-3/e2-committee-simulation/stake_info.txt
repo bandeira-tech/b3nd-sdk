@@ -1,0 +1,40 @@
+Stake distribution: {"N":20,"top10pctValidators":2,"top10pctStake":0.4966,"maxStake":0.3512,"minStake":0.0098}
+  N=20, f=0.05: 1 byzantine validators, actual stake=35.12%
+  N=20, f=0.1: 1 byzantine validators, actual stake=35.12%
+  N=20, f=0.15: 1 byzantine validators, actual stake=35.12%
+  N=20, f=0.2: 1 byzantine validators, actual stake=35.12%
+  N=20, f=0.25: 1 byzantine validators, actual stake=35.12%
+  N=20, f=0.3: 1 byzantine validators, actual stake=35.12%
+  N=20, f=0.33: 1 byzantine validators, actual stake=35.12%
+Stake distribution: {"N":50,"top10pctValidators":5,"top10pctStake":0.5053,"maxStake":0.2231,"minStake":0.0045}
+  N=50, f=0.05: 1 byzantine validators, actual stake=22.31%
+  N=50, f=0.1: 1 byzantine validators, actual stake=22.31%
+  N=50, f=0.15: 1 byzantine validators, actual stake=22.31%
+  N=50, f=0.2: 1 byzantine validators, actual stake=22.31%
+  N=50, f=0.25: 2 byzantine validators, actual stake=33.65%
+  N=50, f=0.3: 2 byzantine validators, actual stake=33.65%
+  N=50, f=0.33: 2 byzantine validators, actual stake=33.65%
+Stake distribution: {"N":100,"top10pctValidators":10,"top10pctStake":0.5037,"maxStake":0.1564,"minStake":0.0024}
+  N=100, f=0.05: 1 byzantine validators, actual stake=15.64%
+  N=100, f=0.1: 1 byzantine validators, actual stake=15.64%
+  N=100, f=0.15: 1 byzantine validators, actual stake=15.64%
+  N=100, f=0.2: 2 byzantine validators, actual stake=24.11%
+  N=100, f=0.25: 3 byzantine validators, actual stake=29.72%
+  N=100, f=0.3: 4 byzantine validators, actual stake=34.24%
+  N=100, f=0.33: 4 byzantine validators, actual stake=34.24%
+Stake distribution: {"N":200,"top10pctValidators":20,"top10pctStake":0.4959,"maxStake":0.1117,"minStake":0.0013}
+  N=200, f=0.05: 1 byzantine validators, actual stake=11.17%
+  N=200, f=0.1: 1 byzantine validators, actual stake=11.17%
+  N=200, f=0.15: 2 byzantine validators, actual stake=17.23%
+  N=200, f=0.2: 3 byzantine validators, actual stake=21.51%
+  N=200, f=0.25: 4 byzantine validators, actual stake=25.01%
+  N=200, f=0.3: 6 byzantine validators, actual stake=30.39%
+  N=200, f=0.33: 8 byzantine validators, actual stake=34.45%
+Stake distribution: {"N":500,"top10pctValidators":50,"top10pctStake":0.5005,"maxStake":0.0762,"minStake":0.0005}
+  N=500, f=0.05: 1 byzantine validators, actual stake=7.62%
+  N=500, f=0.1: 2 byzantine validators, actual stake=12.00%
+  N=500, f=0.15: 3 byzantine validators, actual stake=15.12%
+  N=500, f=0.2: 6 byzantine validators, actual stake=21.71%
+  N=500, f=0.25: 9 byzantine validators, actual stake=26.17%
+  N=500, f=0.3: 13 byzantine validators, actual stake=30.51%
+  N=500, f=0.33: 16 byzantine validators, actual stake=33.19%
