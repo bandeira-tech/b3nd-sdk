@@ -428,9 +428,9 @@ Deno.test("Rig.init - rejects no use or client", async () => {
   );
 });
 
-Deno.test("Rig.write - raw write works", async () => {
+Deno.test("Rig.receive - receives a message", async () => {
   const rig = await Rig.init({ use: "memory://" });
-  const result = await rig.write("mutable://open/test", { hello: "world" });
+  const result = await rig.receive(["mutable://open/test", { hello: "world" }]);
   assertEquals(result.accepted, true);
 
   const read = await rig.read("mutable://open/test");
@@ -482,28 +482,10 @@ Deno.test("Rig.identity - is swappable", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.writeSigned - signs and writes", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.init({ identity: id, use: "memory://" });
-
-  const result = await rig.writeSigned("mutable://open/signed", {
-    data: "test",
-  });
-  assertEquals(result.accepted, true);
-
-  const read = await rig.read("mutable://open/signed");
-  assertEquals(read.success, true);
-  // The stored data is an AuthenticatedMessage wrapper
-  const stored = read.record?.data as { auth: unknown[]; payload: unknown };
-  assertEquals(stored.payload, { data: "test" });
-  assertEquals(Array.isArray(stored.auth), true);
-  await rig.cleanup();
-});
-
 Deno.test("Rig.list - lists items", async () => {
   const rig = await Rig.init({ use: "memory://" });
-  await rig.write("mutable://open/a", 1);
-  await rig.write("mutable://open/b", 2);
+  await rig.receive(["mutable://open/a", 1]);
+  await rig.receive(["mutable://open/b", 2]);
 
   const result = await rig.list("mutable://open");
   assertEquals(result.success, true);
@@ -515,7 +497,7 @@ Deno.test("Rig.list - lists items", async () => {
 
 Deno.test("Rig.delete - deletes data", async () => {
   const rig = await Rig.init({ use: "memory://" });
-  await rig.write("mutable://open/del", "bye");
+  await rig.receive(["mutable://open/del", "bye"]);
   const delResult = await rig.delete("mutable://open/del");
   assertEquals(delResult.success, true);
 
@@ -526,8 +508,8 @@ Deno.test("Rig.delete - deletes data", async () => {
 
 Deno.test("Rig.readMany - reads multiple URIs", async () => {
   const rig = await Rig.init({ use: "memory://" });
-  await rig.write("mutable://open/m1", "a");
-  await rig.write("mutable://open/m2", "b");
+  await rig.receive(["mutable://open/m1", "a"]);
+  await rig.receive(["mutable://open/m2", "b"]);
 
   const result = await rig.readMany(["mutable://open/m1", "mutable://open/m2"]);
   assertEquals(result.success, true);
@@ -545,7 +527,7 @@ Deno.test("Rig.client - exposes underlying client", async () => {
 Deno.test("Rig.init - multi-backend composes correctly", async () => {
   // Two memory backends — writes should go to both, reads from either
   const rig = await Rig.init({ use: ["memory://", "memory://"] });
-  await rig.write("mutable://open/multi", "shared");
+  await rig.receive(["mutable://open/multi", "shared"]);
 
   const read = await rig.read("mutable://open/multi");
   assertEquals(read.success, true);
@@ -584,9 +566,9 @@ Deno.test("Rig.connect - with identity", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.connect - write and read round-trip", async () => {
+Deno.test("Rig.connect - receive and read round-trip", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/hello", "world");
+  await rig.receive(["mutable://open/hello", "world"]);
   const read = await rig.read("mutable://open/hello");
   assertEquals(read.success, true);
   assertEquals(read.record?.data, "world");
@@ -665,7 +647,7 @@ Deno.test("Rig.canEncrypt - updates when identity is swapped", async () => {
 
 Deno.test("Rig.exists - returns true for existing data", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/check", { present: true });
+  await rig.receive(["mutable://open/check", { present: true }]);
   assertEquals(await rig.exists("mutable://open/check"), true);
   await rig.cleanup();
 });
@@ -678,22 +660,10 @@ Deno.test("Rig.exists - returns false for missing data", async () => {
 
 Deno.test("Rig.exists - returns false after delete", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/ephemeral", "temp");
+  await rig.receive(["mutable://open/ephemeral", "temp"]);
   assertEquals(await rig.exists("mutable://open/ephemeral"), true);
   await rig.delete("mutable://open/ephemeral");
   assertEquals(await rig.exists("mutable://open/ephemeral"), false);
-  await rig.cleanup();
-});
-
-// ── Rig.writeSigned edge cases ──
-
-Deno.test("Rig.writeSigned - throws without identity", async () => {
-  const rig = await Rig.connect("memory://");
-  await assertRejects(
-    () => rig.writeSigned("mutable://open/x", { data: 1 }),
-    Error,
-    "no identity set",
-  );
   await rig.cleanup();
 });
 
@@ -701,7 +671,7 @@ Deno.test("Rig.writeSigned - throws without identity", async () => {
 
 Deno.test("Rig.readMany - handles mix of existing and missing URIs", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/yes", "found");
+  await rig.receive(["mutable://open/yes", "found"]);
 
   const result = await rig.readMany([
     "mutable://open/yes",
@@ -748,7 +718,7 @@ Deno.test("createClientFromUrl - rejects unknown protocol", async () => {
 
 Deno.test("Rig.readData - returns data for existing URI", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/profile", { name: "Alice", age: 30 });
+  await rig.receive(["mutable://open/profile", { name: "Alice", age: 30 }]);
 
   const data = await rig.readData<{ name: string; age: number }>(
     "mutable://open/profile",
@@ -766,7 +736,7 @@ Deno.test("Rig.readData - returns null for missing URI", async () => {
 
 Deno.test("Rig.readData - returns null after delete", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/temp", "value");
+  await rig.receive(["mutable://open/temp", "value"]);
   assertEquals(await rig.readData("mutable://open/temp"), "value");
 
   await rig.delete("mutable://open/temp");
@@ -777,13 +747,13 @@ Deno.test("Rig.readData - returns null after delete", async () => {
 Deno.test("Rig.readData - handles scalar values", async () => {
   const rig = await Rig.connect("memory://");
 
-  await rig.write("mutable://open/num", 42);
+  await rig.receive(["mutable://open/num", 42]);
   assertEquals(await rig.readData<number>("mutable://open/num"), 42);
 
-  await rig.write("mutable://open/str", "hello");
+  await rig.receive(["mutable://open/str", "hello"]);
   assertEquals(await rig.readData<string>("mutable://open/str"), "hello");
 
-  await rig.write("mutable://open/bool", true);
+  await rig.receive(["mutable://open/bool", true]);
   assertEquals(await rig.readData<boolean>("mutable://open/bool"), true);
 
   await rig.cleanup();
@@ -793,7 +763,7 @@ Deno.test("Rig.readData - handles scalar values", async () => {
 
 Deno.test("Rig.readOrThrow - returns data for existing URI", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/config", { debug: false });
+  await rig.receive(["mutable://open/config", { debug: false }]);
 
   const config = await rig.readOrThrow<{ debug: boolean }>(
     "mutable://open/config",
@@ -814,7 +784,7 @@ Deno.test("Rig.readOrThrow - throws for missing URI", async () => {
 
 Deno.test("Rig.readOrThrow - throws after delete", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/once", "here");
+  await rig.receive(["mutable://open/once", "here"]);
   assertEquals(await rig.readOrThrow("mutable://open/once"), "here");
 
   await rig.delete("mutable://open/once");
@@ -928,56 +898,11 @@ Deno.test("Rig.send - throws without identity", async () => {
   await rig.cleanup();
 });
 
-// ── writeMany ──
-
-Deno.test("Rig.writeMany - writes multiple entries in parallel", async () => {
-  const rig = await Rig.connect("memory://");
-
-  const results = await rig.writeMany([
-    ["mutable://open/wm/a", { v: 1 }],
-    ["mutable://open/wm/b", { v: 2 }],
-    ["mutable://open/wm/c", { v: 3 }],
-  ]);
-
-  assertEquals(results.length, 3);
-  assertEquals(results.every((r) => r.accepted), true);
-
-  assertEquals(await rig.readData("mutable://open/wm/a"), { v: 1 });
-  assertEquals(await rig.readData("mutable://open/wm/b"), { v: 2 });
-  assertEquals(await rig.readData("mutable://open/wm/c"), { v: 3 });
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeMany - returns empty array for empty input", async () => {
-  const rig = await Rig.connect("memory://");
-  const results = await rig.writeMany([]);
-  assertEquals(results, []);
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeMany - handles scalar values", async () => {
-  const rig = await Rig.connect("memory://");
-
-  const results = await rig.writeMany([
-    ["mutable://open/wm/str", "hello"],
-    ["mutable://open/wm/num", 42],
-    ["mutable://open/wm/bool", true],
-  ]);
-
-  assertEquals(results.every((r) => r.accepted), true);
-  assertEquals(await rig.readData("mutable://open/wm/str"), "hello");
-  assertEquals(await rig.readData("mutable://open/wm/num"), 42);
-  assertEquals(await rig.readData("mutable://open/wm/bool"), true);
-  await rig.cleanup();
-});
-
-// ── readDataMany ──
-
 Deno.test("Rig.readDataMany - returns map of existing data", async () => {
   const rig = await Rig.connect("memory://");
 
-  await rig.write("mutable://open/rdm/a", { name: "Alice" });
-  await rig.write("mutable://open/rdm/b", { name: "Bob" });
+  await rig.receive(["mutable://open/rdm/a", { name: "Alice" }]);
+  await rig.receive(["mutable://open/rdm/b", { name: "Bob" }]);
 
   const data = await rig.readDataMany<{ name: string }>([
     "mutable://open/rdm/a",
@@ -993,7 +918,7 @@ Deno.test("Rig.readDataMany - returns map of existing data", async () => {
 Deno.test("Rig.readDataMany - omits missing URIs from map", async () => {
   const rig = await Rig.connect("memory://");
 
-  await rig.write("mutable://open/rdm2/exists", { ok: true });
+  await rig.receive(["mutable://open/rdm2/exists", { ok: true }]);
 
   const data = await rig.readDataMany([
     "mutable://open/rdm2/exists",
@@ -1056,9 +981,9 @@ Deno.test("Rig.send - multiple outputs in single envelope", async () => {
 
 Deno.test("Rig.deleteMany - deletes multiple URIs", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/d1", "one");
-  await rig.write("mutable://open/d2", "two");
-  await rig.write("mutable://open/d3", "three");
+  await rig.receive(["mutable://open/d1", "one"]);
+  await rig.receive(["mutable://open/d2", "two"]);
+  await rig.receive(["mutable://open/d3", "three"]);
 
   const results = await rig.deleteMany([
     "mutable://open/d1",
@@ -1084,7 +1009,7 @@ Deno.test("Rig.deleteMany - empty array returns empty results", async () => {
 
 Deno.test("Rig.deleteMany - handles mix of existing and missing URIs", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/dm-exists", "here");
+  await rig.receive(["mutable://open/dm-exists", "here"]);
 
   const results = await rig.deleteMany([
     "mutable://open/dm-exists",
@@ -1099,9 +1024,9 @@ Deno.test("Rig.deleteMany - handles mix of existing and missing URIs", async () 
 
 Deno.test("Rig.listData - returns URI strings", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/ld/a", 1);
-  await rig.write("mutable://open/ld/b", 2);
-  await rig.write("mutable://open/ld/c", 3);
+  await rig.receive(["mutable://open/ld/a", 1]);
+  await rig.receive(["mutable://open/ld/b", 2]);
+  await rig.receive(["mutable://open/ld/c", 3]);
 
   const uris = await rig.listData("mutable://open/ld");
   assertEquals(uris.length, 3);
@@ -1120,9 +1045,9 @@ Deno.test("Rig.listData - returns empty array for empty prefix", async () => {
 
 Deno.test("Rig.listData - respects pagination options", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/pg/a", 1);
-  await rig.write("mutable://open/pg/b", 2);
-  await rig.write("mutable://open/pg/c", 3);
+  await rig.receive(["mutable://open/pg/a", 1]);
+  await rig.receive(["mutable://open/pg/b", 2]);
+  await rig.receive(["mutable://open/pg/c", 3]);
 
   const uris = await rig.listData("mutable://open/pg", { limit: 2 });
   assertEquals(uris.length, 2);
@@ -1133,8 +1058,8 @@ Deno.test("Rig.listData - respects pagination options", async () => {
 
 Deno.test("Rig.readAll - reads all data under a prefix", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/ra/alice", { name: "Alice" });
-  await rig.write("mutable://open/ra/bob", { name: "Bob" });
+  await rig.receive(["mutable://open/ra/alice", { name: "Alice" }]);
+  await rig.receive(["mutable://open/ra/bob", { name: "Bob" }]);
 
   const data = await rig.readAll<{ name: string }>("mutable://open/ra");
   assertEquals(data.size, 2);
@@ -1152,9 +1077,9 @@ Deno.test("Rig.readAll - returns empty map for empty prefix", async () => {
 
 Deno.test("Rig.readAll - works after writes and deletes", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/rd/x", 1);
-  await rig.write("mutable://open/rd/y", 2);
-  await rig.write("mutable://open/rd/z", 3);
+  await rig.receive(["mutable://open/rd/x", 1]);
+  await rig.receive(["mutable://open/rd/y", 2]);
+  await rig.receive(["mutable://open/rd/z", 3]);
 
   // Delete one
   await rig.delete("mutable://open/rd/y");
@@ -1169,254 +1094,20 @@ Deno.test("Rig.readAll - works after writes and deletes", async () => {
 
 Deno.test("Rig.readAll - respects pagination options", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/rp/a", "a");
-  await rig.write("mutable://open/rp/b", "b");
-  await rig.write("mutable://open/rp/c", "c");
+  await rig.receive(["mutable://open/rp/a", "a"]);
+  await rig.receive(["mutable://open/rp/b", "b"]);
+  await rig.receive(["mutable://open/rp/c", "c"]);
 
   const data = await rig.readAll<string>("mutable://open/rp", { limit: 2 });
   assertEquals(data.size, 2);
   await rig.cleanup();
 });
 
-// ── update() ──
-
-Deno.test("Rig.update - creates value when URI does not exist", async () => {
-  const rig = await Rig.connect("memory://");
-
-  const result = await rig.update<number>(
-    "mutable://open/upd/counter",
-    (n) => (n ?? 0) + 1,
-  );
-
-  assertEquals(result, 1);
-  assertEquals(await rig.readData("mutable://open/upd/counter"), 1);
-  await rig.cleanup();
-});
-
-Deno.test("Rig.update - modifies existing value", async () => {
-  const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/upd/val", { count: 5, label: "test" });
-
-  const result = await rig.update<{ count: number; label: string }>(
-    "mutable://open/upd/val",
-    (prev) => ({ ...prev!, count: prev!.count + 10 }),
-  );
-
-  assertEquals(result.count, 15);
-  assertEquals(result.label, "test");
-  assertEquals(
-    (await rig.readData<{ count: number }>("mutable://open/upd/val"))?.count,
-    15,
-  );
-  await rig.cleanup();
-});
-
-Deno.test("Rig.update - supports async updater", async () => {
-  const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/upd/async", "original");
-
-  const result = await rig.update<string>(
-    "mutable://open/upd/async",
-    async (prev) => {
-      // Simulate async work
-      await new Promise((r) => setTimeout(r, 1));
-      return prev + "-updated";
-    },
-  );
-
-  assertEquals(result, "original-updated");
-  assertEquals(
-    await rig.readData("mutable://open/upd/async"),
-    "original-updated",
-  );
-  await rig.cleanup();
-});
-
-Deno.test("Rig.update - works with null for missing URIs", async () => {
-  const rig = await Rig.connect("memory://");
-
-  const result = await rig.update<string[]>(
-    "mutable://open/upd/list",
-    (prev) => [...(prev ?? []), "first"],
-  );
-
-  assertEquals(result, ["first"]);
-
-  const result2 = await rig.update<string[]>(
-    "mutable://open/upd/list",
-    (prev) => [...(prev ?? []), "second"],
-  );
-
-  assertEquals(result2, ["first", "second"]);
-  await rig.cleanup();
-});
-
-// ── writeSignedMany() ──
-
-Deno.test("Rig.writeSignedMany - writes multiple signed entries", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.connect("memory://", id);
-
-  const results = await rig.writeSignedMany([
-    ["mutable://open/wsm/a", { value: 1 }],
-    ["mutable://open/wsm/b", { value: 2 }],
-  ]);
-
-  assertEquals(results.length, 2);
-  assertEquals(results.every((r) => r.accepted), true);
-
-  // Verify the data was written and wrapped in AuthenticatedMessage
-  const a = await rig.readData<{ auth: unknown[]; payload: unknown }>(
-    "mutable://open/wsm/a",
-  );
-  assertEquals(Array.isArray(a?.auth), true);
-  assertEquals(a?.auth.length, 1);
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeSignedMany - throws without identity", async () => {
-  const rig = await Rig.connect("memory://");
-
-  await assertRejects(
-    () =>
-      rig.writeSignedMany([
-        ["mutable://open/wsm/x", "data"],
-      ]),
-    Error,
-    "no identity set",
-  );
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeSignedMany - returns empty for empty input", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.connect("memory://", id);
-
-  const results = await rig.writeSignedMany([]);
-  assertEquals(results.length, 0);
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeSignedMany - signatures are verifiable", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.connect("memory://", id);
-
-  await rig.writeSignedMany([
-    ["mutable://open/wsm/verify", { msg: "hello" }],
-  ]);
-
-  const stored = await rig.readData<{
-    auth: { pubkey: string; signature: string }[];
-    payload: unknown;
-  }>("mutable://open/wsm/verify");
-
-  // Verify the signature belongs to our identity
-  assertEquals(stored?.auth[0].pubkey, id.pubkey);
-  assertEquals(typeof stored?.auth[0].signature, "string");
-
-  // Verify the signature is valid
-  const valid = await id.verify(stored!.payload, stored!.auth[0].signature);
-  assertEquals(valid, true);
-  await rig.cleanup();
-});
-
-// ── updateSigned() ──
-
-Deno.test("Rig.updateSigned - creates signed value when URI does not exist", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.connect("memory://", id);
-
-  const result = await rig.updateSigned<number>(
-    "mutable://open/us/counter",
-    (n) => (n ?? 0) + 1,
-  );
-
-  assertEquals(result, 1);
-
-  // The stored value is wrapped in AuthenticatedMessage
-  const stored = await rig.readData<{
-    auth: { pubkey: string; signature: string }[];
-    payload: unknown;
-  }>("mutable://open/us/counter");
-  assertEquals(Array.isArray(stored?.auth), true);
-  assertEquals(stored?.payload, 1);
-  assertEquals(stored?.auth[0].pubkey, id.pubkey);
-  await rig.cleanup();
-});
-
-Deno.test("Rig.updateSigned - throws without identity", async () => {
-  const rig = await Rig.connect("memory://");
-  await assertRejects(
-    () => rig.updateSigned("mutable://open/us/x", (v) => v ?? "new"),
-    Error,
-    "no identity set",
-  );
-  await rig.cleanup();
-});
-
-Deno.test("Rig.updateSigned - supports async updater", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.connect("memory://", id);
-
-  const result = await rig.updateSigned<string>(
-    "mutable://open/us/async",
-    async () => {
-      await new Promise((r) => setTimeout(r, 1));
-      return "async-value";
-    },
-  );
-
-  assertEquals(result, "async-value");
-  await rig.cleanup();
-});
-
-// ── writeOrThrow() ──
-
-Deno.test("Rig.writeOrThrow - returns result on success", async () => {
-  const rig = await Rig.connect("memory://");
-  const result = await rig.writeOrThrow("mutable://open/wot/ok", { v: 1 });
-  assertEquals(result.accepted, true);
-
-  // Verify data was written
-  assertEquals(await rig.readData("mutable://open/wot/ok"), { v: 1 });
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeOrThrow - throws on rejected write", async () => {
-  // Use a schema that rejects a specific prefix
-  const schema = {
-    "mutable://open": async () => ({ valid: true }),
-    "hash://sha256": async () => ({ valid: true }),
-  };
-  const client = new MemoryClient({ schema });
-  const rig = await Rig.init({ client });
-
-  // Writing to an unrecognized prefix should fail
-  await assertRejects(
-    () => rig.writeOrThrow("mutable://unknown/path", "data"),
-    Error,
-    "write rejected",
-  );
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeOrThrow - handles scalar values", async () => {
-  const rig = await Rig.connect("memory://");
-  await rig.writeOrThrow("mutable://open/wot/num", 42);
-  assertEquals(await rig.readData("mutable://open/wot/num"), 42);
-
-  await rig.writeOrThrow("mutable://open/wot/str", "hello");
-  assertEquals(await rig.readData("mutable://open/wot/str"), "hello");
-  await rig.cleanup();
-});
-
-// ── deleteAll() ──
-
 Deno.test("Rig.deleteAll - deletes all items under prefix", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/da/a", 1);
-  await rig.write("mutable://open/da/b", 2);
-  await rig.write("mutable://open/da/c", 3);
+  await rig.receive(["mutable://open/da/a", 1]);
+  await rig.receive(["mutable://open/da/b", 2]);
+  await rig.receive(["mutable://open/da/c", 3]);
 
   const results = await rig.deleteAll("mutable://open/da");
   assertEquals(results.length, 3);
@@ -1437,9 +1128,9 @@ Deno.test("Rig.deleteAll - returns empty array for empty prefix", async () => {
 
 Deno.test("Rig.deleteAll - does not affect other prefixes", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/da2/target/a", 1);
-  await rig.write("mutable://open/da2/target/b", 2);
-  await rig.write("mutable://open/da2/keep/x", 99);
+  await rig.receive(["mutable://open/da2/target/a", 1]);
+  await rig.receive(["mutable://open/da2/target/b", 2]);
+  await rig.receive(["mutable://open/da2/keep/x", 99]);
 
   await rig.deleteAll("mutable://open/da2/target");
 
@@ -1452,98 +1143,12 @@ Deno.test("Rig.deleteAll - does not affect other prefixes", async () => {
   await rig.cleanup();
 });
 
-// ── Encrypted read/write tests ──
-
-Deno.test("Rig.writeEncrypted/readEncrypted - round-trips JSON data (encrypt-to-self)", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.init({ use: "memory://", identity: id });
-
-  const secret = { apiKey: "sk-test-12345", nested: { deep: true } };
-  const result = await rig.writeEncrypted(
-    "mutable://open/enc/self",
-    secret,
-  );
-  assertEquals(result.accepted, true);
-
-  // Read back and decrypt
-  const decrypted = await rig.readEncrypted<typeof secret>(
-    "mutable://open/enc/self",
-  );
-  assertEquals(decrypted, secret);
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeEncrypted/readEncrypted - works with string values", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.init({ use: "memory://", identity: id });
-
-  await rig.writeEncrypted("mutable://open/enc/str", "hello secret");
-  const decrypted = await rig.readEncrypted<string>("mutable://open/enc/str");
-  assertEquals(decrypted, "hello secret");
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeEncrypted/readEncrypted - works with number values", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.init({ use: "memory://", identity: id });
-
-  await rig.writeEncrypted("mutable://open/enc/num", 42);
-  const decrypted = await rig.readEncrypted<number>("mutable://open/enc/num");
-  assertEquals(decrypted, 42);
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeEncrypted/readEncrypted - encrypt to a different recipient", async () => {
-  const sender = await Identity.generate();
-  const receiver = await Identity.generate();
-  const rig = await Rig.init({ use: "memory://", identity: sender });
-
-  // Encrypt for receiver
-  await rig.writeEncrypted(
-    "mutable://open/enc/cross",
-    { secret: "for-bob" },
-    receiver.encryptionPubkey,
-  );
-
-  // Sender cannot decrypt (different key)
-  await assertRejects(
-    () => rig.readEncrypted("mutable://open/enc/cross"),
-    Error,
-  );
-
-  // Receiver can decrypt
-  const receiverRig = await Rig.init({ use: "memory://", identity: receiver });
-  // Need to use the same backend — share the client
-  const receiverRig2 = await Rig.init({
-    client: rig.client,
-    identity: receiver,
-  });
-  const decrypted = await receiverRig2.readEncrypted<{ secret: string }>(
-    "mutable://open/enc/cross",
-  );
-  assertEquals(decrypted, { secret: "for-bob" });
-
-  await rig.cleanup();
-  await receiverRig.cleanup();
-});
-
 Deno.test("Rig.readEncrypted - returns null for missing URI", async () => {
   const id = await Identity.generate();
   const rig = await Rig.init({ use: "memory://", identity: id });
 
   const result = await rig.readEncrypted("mutable://open/enc/missing");
   assertEquals(result, null);
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeEncrypted - throws without identity", async () => {
-  const rig = await Rig.connect("memory://");
-
-  await assertRejects(
-    () => rig.writeEncrypted("mutable://open/enc/x", { a: 1 }),
-    Error,
-    "no identity",
-  );
   await rig.cleanup();
 });
 
@@ -1563,7 +1168,7 @@ Deno.test("Rig.readEncrypted - throws for non-encrypted data", async () => {
   const rig = await Rig.init({ use: "memory://", identity: id });
 
   // Write plain (unencrypted) data
-  await rig.write("mutable://open/enc/plain", { not: "encrypted" });
+  await rig.receive(["mutable://open/enc/plain", { not: "encrypted" }]);
 
   // readEncrypted should throw since data isn't an EncryptedPayload
   await assertRejects(
@@ -1571,59 +1176,6 @@ Deno.test("Rig.readEncrypted - throws for non-encrypted data", async () => {
     Error,
     "not an EncryptedPayload",
   );
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeEncrypted - throws for public-only identity (no encryption key)", async () => {
-  const id = Identity.publicOnly({ signing: "ab".repeat(32) });
-  const rig = await Rig.init({ use: "memory://", identity: id });
-
-  await assertRejects(
-    () => rig.writeEncrypted("mutable://open/enc/x", { a: 1 }),
-    Error,
-    "no encryption",
-  );
-  await rig.cleanup();
-});
-
-// ── Batch encrypted read/write tests ──
-
-Deno.test("Rig.writeEncryptedMany/readEncryptedMany - round-trips multiple entries", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.init({ use: "memory://", identity: id });
-
-  const entries: [string, unknown][] = [
-    ["mutable://open/enc-batch/a", { key: "alpha" }],
-    ["mutable://open/enc-batch/b", { key: "beta" }],
-    ["mutable://open/enc-batch/c", { key: "gamma" }],
-  ];
-
-  const results = await rig.writeEncryptedMany(entries);
-  assertEquals(results.length, 3);
-  for (const r of results) {
-    assertEquals(r.accepted, true);
-  }
-
-  const decrypted = await rig.readEncryptedMany<{ key: string }>([
-    "mutable://open/enc-batch/a",
-    "mutable://open/enc-batch/b",
-    "mutable://open/enc-batch/c",
-  ]);
-  assertEquals(decrypted.length, 3);
-  assertEquals(decrypted[0]?.key, "alpha");
-  assertEquals(decrypted[1]?.key, "beta");
-  assertEquals(decrypted[2]?.key, "gamma");
-
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeEncryptedMany - returns empty array for empty input", async () => {
-  const id = await Identity.generate();
-  const rig = await Rig.init({ use: "memory://", identity: id });
-
-  const results = await rig.writeEncryptedMany([]);
-  assertEquals(results, []);
-
   await rig.cleanup();
 });
 
@@ -1641,8 +1193,10 @@ Deno.test("Rig.readEncryptedMany - returns null for missing URIs", async () => {
   const id = await Identity.generate();
   const rig = await Rig.init({ use: "memory://", identity: id });
 
-  // Write only one entry
-  await rig.writeEncrypted("mutable://open/enc-batch/exists", "hello");
+  // Encrypt and receive one entry directly
+  const plaintext = new TextEncoder().encode(JSON.stringify("hello"));
+  const encrypted = await id.encrypt(plaintext, id.encryptionPubkey);
+  await rig.receive(["mutable://open/enc-batch/exists", encrypted]);
 
   const results = await rig.readEncryptedMany<string>([
     "mutable://open/enc-batch/exists",
@@ -1655,17 +1209,6 @@ Deno.test("Rig.readEncryptedMany - returns null for missing URIs", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.writeEncryptedMany - throws without identity", async () => {
-  const rig = await Rig.connect("memory://");
-
-  await assertRejects(
-    () => rig.writeEncryptedMany([["mutable://open/x", { a: 1 }]]),
-    Error,
-    "no identity",
-  );
-  await rig.cleanup();
-});
-
 Deno.test("Rig.readEncryptedMany - throws without identity", async () => {
   const rig = await Rig.connect("memory://");
 
@@ -1674,40 +1217,6 @@ Deno.test("Rig.readEncryptedMany - throws without identity", async () => {
     Error,
     "no identity",
   );
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeEncryptedMany - encrypt to different recipient", async () => {
-  const sender = await Identity.generate();
-  const receiver = await Identity.generate();
-  const rig = await Rig.init({ use: "memory://", identity: sender });
-
-  await rig.writeEncryptedMany(
-    [
-      ["mutable://open/enc-batch/cross-a", { msg: "secret-a" }],
-      ["mutable://open/enc-batch/cross-b", { msg: "secret-b" }],
-    ],
-    receiver.encryptionPubkey,
-  );
-
-  // Sender cannot decrypt
-  await assertRejects(
-    () => rig.readEncryptedMany(["mutable://open/enc-batch/cross-a"]),
-    Error,
-  );
-
-  // Receiver can decrypt via shared backend
-  const receiverRig = await Rig.init({
-    client: rig.client,
-    identity: receiver,
-  });
-  const decrypted = await receiverRig.readEncryptedMany<{ msg: string }>([
-    "mutable://open/enc-batch/cross-a",
-    "mutable://open/enc-batch/cross-b",
-  ]);
-  assertEquals(decrypted[0]?.msg, "secret-a");
-  assertEquals(decrypted[1]?.msg, "secret-b");
-
   await rig.cleanup();
 });
 
@@ -1769,79 +1278,6 @@ Deno.test("Rig.info - reflects identity swap", async () => {
   await rig.cleanup();
 });
 
-// ── Schema-validated Rig tests ──
-
-Deno.test("Rig.init - single backend with schema validates writes", async () => {
-  const schema = createTestSchema();
-  const rig = await Rig.init({ use: "memory://", schema });
-
-  // Valid write (mutable://open is in the test schema)
-  const accepted = await rig.write("mutable://open/valid", { ok: true });
-  assertEquals(accepted.accepted, true);
-
-  // Read back should succeed
-  const data = await rig.readData("mutable://open/valid");
-  assertEquals(data, { ok: true });
-
-  await rig.cleanup();
-});
-
-Deno.test("Rig.init - single backend with schema rejects invalid protocol", async () => {
-  const schema = createTestSchema();
-  const rig = await Rig.init({ use: "memory://", schema });
-
-  // Write to unrecognized protocol domain — schema should reject
-  const result = await rig.write("mutable://unknown-domain/x", { bad: true });
-  assertEquals(result.accepted, false);
-
-  await rig.cleanup();
-});
-
-Deno.test("Rig.init - multi-backend with schema validates writes", async () => {
-  const schema = createTestSchema();
-  const rig = await Rig.init({ use: ["memory://", "memory://"], schema });
-
-  // Valid write through validated multi-backend
-  const accepted = await rig.write("mutable://open/multi-schema", 42);
-  assertEquals(accepted.accepted, true);
-
-  const data = await rig.readData("mutable://open/multi-schema");
-  assertEquals(data, 42);
-
-  await rig.cleanup();
-});
-
-Deno.test("Rig.init - multi-backend with schema rejects invalid writes", async () => {
-  const schema = createTestSchema();
-  const rig = await Rig.init({ use: ["memory://", "memory://"], schema });
-
-  // Write to unknown domain — should be rejected by schema
-  const result = await rig.write("mutable://unknown/x", "nope");
-  assertEquals(result.accepted, false);
-
-  await rig.cleanup();
-});
-
-Deno.test("Rig.init - schema with identity allows signed writes", async () => {
-  const schema = createTestSchema();
-  const id = await Identity.generate();
-  const rig = await Rig.init({ use: "memory://", schema, identity: id });
-
-  // writeSigned through validated client
-  const result = await rig.writeSigned("mutable://accounts/test", {
-    name: "Alice",
-  });
-  assertEquals(result.accepted, true);
-
-  const data = await rig.readData("mutable://accounts/test");
-  assertEquals(typeof data, "object");
-  assertEquals(data !== null, true);
-
-  await rig.cleanup();
-});
-
-// ── Edge case tests ──
-
 Deno.test("Rig.deleteMany - all missing URIs succeeds gracefully", async () => {
   const rig = await Rig.connect("memory://");
   const results = await rig.deleteMany([
@@ -1863,46 +1299,15 @@ Deno.test("Rig.readAll - empty prefix returns empty map", async () => {
 
 Deno.test("Rig.readAll - returns all items under prefix", async () => {
   const rig = await Rig.connect("memory://");
-  await rig.write("mutable://open/coll/a", { v: 1 });
-  await rig.write("mutable://open/coll/b", { v: 2 });
-  await rig.write("mutable://open/coll/c", { v: 3 });
+  await rig.receive(["mutable://open/coll/a", { v: 1 }]);
+  await rig.receive(["mutable://open/coll/b", { v: 2 }]);
+  await rig.receive(["mutable://open/coll/c", { v: 3 }]);
 
   const result = await rig.readAll<{ v: number }>("mutable://open/coll");
   assertEquals(result.size, 3);
   assertEquals(result.get("mutable://open/coll/a")?.v, 1);
   assertEquals(result.get("mutable://open/coll/b")?.v, 2);
   assertEquals(result.get("mutable://open/coll/c")?.v, 3);
-  await rig.cleanup();
-});
-
-Deno.test("Rig.writeOrThrow - propagates error message on rejection", async () => {
-  const schema = createTestSchema();
-  const rig = await Rig.init({ use: "memory://", schema });
-
-  await assertRejects(
-    () => rig.writeOrThrow("mutable://unknown-domain/x", { bad: true }),
-    Error,
-    "write rejected",
-  );
-  await rig.cleanup();
-});
-
-Deno.test("Rig.update - propagates write rejection as error", async () => {
-  const schema = createTestSchema();
-  const rig = await Rig.init({ use: "memory://", schema });
-
-  // update to an invalid domain — write should fail, update returns next
-  // but the write to backend was rejected
-  const next = await rig.update(
-    "mutable://unknown/counter",
-    (n) => (n ?? 0) as number + 1,
-  );
-  assertEquals(next, 1); // updater still returns the value
-
-  // Verify nothing was actually stored
-  const stored = await rig.readData("mutable://unknown/counter");
-  assertEquals(stored, null);
-
   await rig.cleanup();
 });
 
@@ -1948,9 +1353,9 @@ Deno.test({
 
     // Wait for first poll (null)
     await new Promise((r) => setTimeout(r, 50));
-    await rig.write(uri, 42);
+    await rig.receive([uri, 42]);
     await new Promise((r) => setTimeout(r, 50));
-    await rig.write(uri, 99);
+    await rig.receive([uri, 99]);
     await new Promise((r) => setTimeout(r, 100));
 
     abort.abort();
@@ -1979,7 +1384,7 @@ Deno.test({
         void _;
         count++;
         // Write a different value each time to trigger dedup emission
-        await rig.write(uri, count);
+        await rig.receive([uri, count]);
         if (count >= 2) abort.abort();
       }
     })();
@@ -1997,7 +1402,7 @@ Deno.test({
   async fn() {
     const rig = await Rig.connect("memory://");
     const uri = "mutable://open/watch-dedup";
-    await rig.write(uri, "stable");
+    await rig.receive([uri, "stable"]);
 
     const values: string[] = [];
     const abort = new AbortController();
@@ -2017,10 +1422,10 @@ Deno.test({
     // Wait for initial poll
     await new Promise((r) => setTimeout(r, 40));
     // Write same value — should NOT emit again
-    await rig.write(uri, "stable");
+    await rig.receive([uri, "stable"]);
     await new Promise((r) => setTimeout(r, 60));
     // Write different value — SHOULD emit
-    await rig.write(uri, "changed");
+    await rig.receive([uri, "changed"]);
     await new Promise((r) => setTimeout(r, 60));
 
     abort.abort();
@@ -2032,4 +1437,71 @@ Deno.test({
     assertEquals(uniqueValues.length, values.length);
     await rig.cleanup();
   },
+});
+
+// ── Schema-validated Rig tests ──
+
+Deno.test("Rig.init - single backend with schema validates receive", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: "memory://", schema });
+
+  // Valid receive (mutable://open is in the test schema)
+  const accepted = await rig.receive(["mutable://open/valid", { ok: true }]);
+  assertEquals(accepted.accepted, true);
+
+  const data = await rig.readData("mutable://open/valid");
+  assertEquals(data, { ok: true });
+  await rig.cleanup();
+});
+
+Deno.test("Rig.init - single backend with schema rejects invalid domain", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: "memory://", schema });
+
+  const result = await rig.receive([
+    "mutable://unknown-domain/x",
+    { bad: true },
+  ]);
+  assertEquals(result.accepted, false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.init - multi-backend with schema validates receive", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: ["memory://", "memory://"], schema });
+
+  const accepted = await rig.receive(["mutable://open/multi-schema", 42]);
+  assertEquals(accepted.accepted, true);
+
+  const data = await rig.readData("mutable://open/multi-schema");
+  assertEquals(data, 42);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.init - multi-backend with schema rejects invalid domain", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({ use: ["memory://", "memory://"], schema });
+
+  const result = await rig.receive(["mutable://unknown/x", "nope"]);
+  assertEquals(result.accepted, false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.init - schema with identity allows send", async () => {
+  const schema = {
+    ...createTestSchema(),
+    "hash://sha256": async () => ({ valid: true }),
+  };
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", schema, identity: id });
+
+  const result = await rig.send({
+    inputs: [],
+    outputs: [["mutable://accounts/test", { name: "Alice" }]],
+  });
+  assertEquals(result.accepted, true);
+
+  const data = await rig.readData("mutable://accounts/test");
+  assertEquals(data, { name: "Alice" });
+  await rig.cleanup();
 });
