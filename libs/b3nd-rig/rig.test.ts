@@ -714,6 +714,13 @@ Deno.test("createClientFromUrl - rejects unknown protocol", async () => {
   );
 });
 
+Deno.test("Rig.cleanup - can be called multiple times safely", async () => {
+  const rig = await Rig.init({ use: "memory://" });
+  await rig.cleanup();
+  // Second cleanup should not throw
+  await rig.cleanup();
+});
+
 // ── Rig.readData tests ──
 
 Deno.test("Rig.readData - returns data for existing URI", async () => {
@@ -1701,4 +1708,49 @@ Deno.test("Rig.sendEncrypted - envelope is signed and verifiable", async () => {
   assertEquals(valid, true);
 
   await rig.cleanup();
+});
+
+// ── Executor rejection tests (from main) ──
+
+Deno.test("Rig.init - rejects postgresql without executor", async () => {
+  await assertRejects(
+    () => Rig.init({ use: "postgresql://localhost/db" }),
+    Error,
+    "executor factory",
+  );
+});
+
+Deno.test("Rig.init - rejects mongodb without executor", async () => {
+  await assertRejects(
+    () => Rig.init({ use: "mongodb://localhost/db" }),
+    Error,
+    "executor factory",
+  );
+});
+
+Deno.test("Rig.init - rejects sqlite without executor", async () => {
+  await assertRejects(
+    () => Rig.init({ use: "sqlite:///tmp/test.db" }),
+    Error,
+    "executor factory",
+  );
+});
+
+// ── Identity edge cases ──
+
+Deno.test("Identity.fromSeed - empty string is valid seed", async () => {
+  const id = await Identity.fromSeed("");
+  assertEquals(typeof id.pubkey, "string");
+  assertEquals(id.pubkey.length, 64);
+});
+
+Deno.test("Identity.verify - rejects wrong pubkey signature", async () => {
+  const alice = await Identity.generate();
+  const bob = await Identity.generate();
+  const payload = { test: "data" };
+  const auth = await alice.sign(payload);
+
+  // Bob verifying Alice's signature with Bob's key should fail
+  const valid = await bob.verify(payload, auth.signature);
+  assertEquals(valid, false);
 });

@@ -375,6 +375,22 @@ export interface MongoClientConfig {
 }
 
 /**
+ * Configuration for FilesystemClient
+ */
+export interface FsClientConfig {
+  /**
+   * Root directory for data storage
+   * All URI paths are stored relative to this root
+   */
+  rootDir: string;
+
+  /**
+   * Schema for validation - must be explicitly provided
+   */
+  schema: Schema;
+}
+
+/**
  * Configuration for SqliteClient
  */
 export interface SqliteClientConfig {
