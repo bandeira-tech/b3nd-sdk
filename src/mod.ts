@@ -199,5 +199,6 @@ export type {
   MongoExecutor,
   PostgresExecutor,
   RigConfig,
+  RigInfo,
   ServeOptions,
 } from "../libs/b3nd-rig/mod.ts";

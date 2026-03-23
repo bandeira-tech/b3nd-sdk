@@ -87,6 +87,25 @@ export interface RigConfig {
 }
 
 /**
+ * Snapshot of a Rig's current state — returned by `rig.info()`.
+ *
+ * Pure local inspection, no network calls. Useful for debugging,
+ * logging, and UI display of identity/capability status.
+ */
+export interface RigInfo {
+  /** Ed25519 public key hex, or null if no identity. */
+  pubkey: string | null;
+  /** X25519 encryption public key hex, or null. */
+  encryptionPubkey: string | null;
+  /** Whether the rig can sign messages (has signing private key). */
+  canSign: boolean;
+  /** Whether the rig can encrypt/decrypt (has encryption keys). */
+  canEncrypt: boolean;
+  /** Whether an identity is attached at all. */
+  hasIdentity: boolean;
+}
+
+/**
  * Options for rig.serve().
  */
 export interface ServeOptions {

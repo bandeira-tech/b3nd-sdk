@@ -57,7 +57,7 @@ export type { ExportedIdentity } from "../libs/b3nd-rig/identity.ts";
 
 // Rig — universal harness
 export { Rig } from "../libs/b3nd-rig/rig.ts";
-export type { RigConfig } from "../libs/b3nd-rig/types.ts";
+export type { RigConfig, RigInfo } from "../libs/b3nd-rig/types.ts";
 export {
   createClientFromUrl,
   getSupportedProtocols,

@@ -1451,3 +1451,195 @@ Deno.test("Rig.deleteAll - does not affect other prefixes", async () => {
   assertEquals(await rig.readData("mutable://open/da2/keep/x"), 99);
   await rig.cleanup();
 });
+
+// ── Encrypted read/write tests ──
+
+Deno.test("Rig.writeEncrypted/readEncrypted - round-trips JSON data (encrypt-to-self)", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const secret = { apiKey: "sk-test-12345", nested: { deep: true } };
+  const result = await rig.writeEncrypted(
+    "mutable://open/enc/self",
+    secret,
+  );
+  assertEquals(result.accepted, true);
+
+  // Read back and decrypt
+  const decrypted = await rig.readEncrypted<typeof secret>(
+    "mutable://open/enc/self",
+  );
+  assertEquals(decrypted, secret);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeEncrypted/readEncrypted - works with string values", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  await rig.writeEncrypted("mutable://open/enc/str", "hello secret");
+  const decrypted = await rig.readEncrypted<string>("mutable://open/enc/str");
+  assertEquals(decrypted, "hello secret");
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeEncrypted/readEncrypted - works with number values", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  await rig.writeEncrypted("mutable://open/enc/num", 42);
+  const decrypted = await rig.readEncrypted<number>("mutable://open/enc/num");
+  assertEquals(decrypted, 42);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeEncrypted/readEncrypted - encrypt to a different recipient", async () => {
+  const sender = await Identity.generate();
+  const receiver = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: sender });
+
+  // Encrypt for receiver
+  await rig.writeEncrypted(
+    "mutable://open/enc/cross",
+    { secret: "for-bob" },
+    receiver.encryptionPubkey,
+  );
+
+  // Sender cannot decrypt (different key)
+  await assertRejects(
+    () => rig.readEncrypted("mutable://open/enc/cross"),
+    Error,
+  );
+
+  // Receiver can decrypt
+  const receiverRig = await Rig.init({ use: "memory://", identity: receiver });
+  // Need to use the same backend — share the client
+  const receiverRig2 = await Rig.init({
+    client: rig.client,
+    identity: receiver,
+  });
+  const decrypted = await receiverRig2.readEncrypted<{ secret: string }>(
+    "mutable://open/enc/cross",
+  );
+  assertEquals(decrypted, { secret: "for-bob" });
+
+  await rig.cleanup();
+  await receiverRig.cleanup();
+});
+
+Deno.test("Rig.readEncrypted - returns null for missing URI", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const result = await rig.readEncrypted("mutable://open/enc/missing");
+  assertEquals(result, null);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeEncrypted - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+
+  await assertRejects(
+    () => rig.writeEncrypted("mutable://open/enc/x", { a: 1 }),
+    Error,
+    "no identity",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readEncrypted - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+
+  await assertRejects(
+    () => rig.readEncrypted("mutable://open/enc/x"),
+    Error,
+    "no identity",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readEncrypted - throws for non-encrypted data", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  // Write plain (unencrypted) data
+  await rig.write("mutable://open/enc/plain", { not: "encrypted" });
+
+  // readEncrypted should throw since data isn't an EncryptedPayload
+  await assertRejects(
+    () => rig.readEncrypted("mutable://open/enc/plain"),
+    Error,
+    "not an EncryptedPayload",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeEncrypted - throws for public-only identity (no encryption key)", async () => {
+  const id = Identity.publicOnly({ signing: "ab".repeat(32) });
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  await assertRejects(
+    () => rig.writeEncrypted("mutable://open/enc/x", { a: 1 }),
+    Error,
+    "no encryption",
+  );
+  await rig.cleanup();
+});
+
+// ── Rig.info() tests ──
+
+Deno.test("Rig.info - with full identity", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const info = rig.info();
+  assertEquals(info.pubkey, id.pubkey);
+  assertEquals(info.encryptionPubkey, id.encryptionPubkey);
+  assertEquals(info.canSign, true);
+  assertEquals(info.canEncrypt, true);
+  assertEquals(info.hasIdentity, true);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.info - without identity", async () => {
+  const rig = await Rig.connect("memory://");
+
+  const info = rig.info();
+  assertEquals(info.pubkey, null);
+  assertEquals(info.encryptionPubkey, null);
+  assertEquals(info.canSign, false);
+  assertEquals(info.canEncrypt, false);
+  assertEquals(info.hasIdentity, false);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.info - with public-only identity", async () => {
+  const id = Identity.publicOnly({
+    signing: "ab".repeat(32),
+    encryption: "cd".repeat(32),
+  });
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const info = rig.info();
+  assertEquals(info.pubkey, "ab".repeat(32));
+  assertEquals(info.encryptionPubkey, "cd".repeat(32));
+  assertEquals(info.canSign, false);
+  assertEquals(info.canEncrypt, false);
+  assertEquals(info.hasIdentity, true);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.info - reflects identity swap", async () => {
+  const rig = await Rig.connect("memory://");
+  assertEquals(rig.info().hasIdentity, false);
+
+  // Attach identity
+  rig.identity = await Identity.generate();
+  assertEquals(rig.info().hasIdentity, true);
+  assertEquals(rig.info().canSign, true);
+
+  // Detach identity
+  rig.identity = null;
+  assertEquals(rig.info().hasIdentity, false);
+  await rig.cleanup();
+});

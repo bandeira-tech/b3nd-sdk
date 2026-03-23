@@ -26,7 +26,7 @@ import { createValidatedClient } from "../b3nd-compose/validated-client.ts";
 import { msgSchema } from "../b3nd-compose/validators.ts";
 import { createClientFromUrl } from "./backend-factory.ts";
 import type { Identity } from "./identity.ts";
-import type { RigConfig, ServeOptions } from "./types.ts";
+import type { RigConfig, RigInfo, ServeOptions } from "./types.ts";
 
 /**
  * Rig — the single import for working with b3nd.
@@ -541,6 +541,136 @@ export class Rig {
     if (uris.length === 0) return [];
     return this.deleteMany(uris);
   }
+
+  // ── Encrypted operations ──
+
+  /**
+   * Write encrypted JSON data to a URI.
+   *
+   * Serializes `data` to JSON, encrypts it for the given recipient
+   * (or self if no recipient specified), and writes the EncryptedPayload
+   * to the backend. Requires an identity with encryption capability.
+   *
+   * @param uri - The URI to write to.
+   * @param data - The JSON-serializable value to encrypt and store.
+   * @param recipientEncPubkeyHex - Recipient's X25519 public key hex.
+   *   Defaults to this identity's own encryption pubkey (encrypt-to-self).
+   *
+   * @throws If no identity is set or identity lacks encryption keys.
+   *
+   * @example
+   * ```typescript
+   * // Encrypt to self
+   * await rig.writeEncrypted("mutable://accounts/:key/secrets", {
+   *   apiKey: "sk-...",
+   * });
+   *
+   * // Encrypt to another user
+   * await rig.writeEncrypted(
+   *   "mutable://shared/alice-to-bob",
+   *   { message: "hello" },
+   *   bobEncPubkeyHex,
+   * );
+   * ```
+   */
+  async writeEncrypted<T = unknown>(
+    uri: string,
+    data: T,
+    recipientEncPubkeyHex?: string,
+  ): Promise<ReceiveResult> {
+    if (!this.identity) {
+      throw new Error("Rig.writeEncrypted: no identity set.");
+    }
+    if (!this.identity.canEncrypt) {
+      throw new Error(
+        "Rig.writeEncrypted: identity has no encryption keys.",
+      );
+    }
+
+    const recipient = recipientEncPubkeyHex ?? this.identity.encryptionPubkey;
+    const plaintext = new TextEncoder().encode(JSON.stringify(data));
+    const encrypted = await this.identity.encrypt(plaintext, recipient);
+    return this.client.receive([uri, encrypted]);
+  }
+
+  /**
+   * Read and decrypt JSON data from a URI.
+   *
+   * Reads an EncryptedPayload from the backend, decrypts it with this
+   * identity's encryption private key, and parses the JSON. Returns `null`
+   * if the URI has no data.
+   *
+   * @throws If no identity is set or identity lacks decryption keys.
+   * @throws If the stored data is not a valid EncryptedPayload.
+   *
+   * @example
+   * ```typescript
+   * const secrets = await rig.readEncrypted<{ apiKey: string }>(
+   *   "mutable://accounts/:key/secrets",
+   * );
+   * if (secrets) {
+   *   console.log(secrets.apiKey);
+   * }
+   * ```
+   */
+  async readEncrypted<T = unknown>(uri: string): Promise<T | null> {
+    if (!this.identity) {
+      throw new Error("Rig.readEncrypted: no identity set.");
+    }
+    if (!this.identity.canEncrypt) {
+      throw new Error(
+        "Rig.readEncrypted: identity has no encryption/decryption keys.",
+      );
+    }
+
+    const result = await this.client.read(uri);
+    if (!result.success || !result.record) return null;
+
+    const payload = result.record.data;
+    if (
+      !payload || typeof payload !== "object" ||
+      !("data" in (payload as Record<string, unknown>)) ||
+      !("nonce" in (payload as Record<string, unknown>))
+    ) {
+      throw new Error(
+        `Rig.readEncrypted: data at ${uri} is not an EncryptedPayload`,
+      );
+    }
+
+    const decrypted = await this.identity.decrypt(
+      payload as import("../b3nd-encrypt/mod.ts").EncryptedPayload,
+    );
+    return JSON.parse(new TextDecoder().decode(decrypted)) as T;
+  }
+
+  // ── Inspection ──
+
+  /**
+   * Get a snapshot of this rig's current state.
+   *
+   * Useful for debugging, logging, and UI display. Returns
+   * identity info, backend capabilities, and connection status
+   * without making any network calls.
+   *
+   * @example
+   * ```typescript
+   * const info = rig.info();
+   * console.log(info.pubkey);     // "ab12..." or null
+   * console.log(info.canSign);    // true
+   * console.log(info.canEncrypt); // true
+   * ```
+   */
+  info(): RigInfo {
+    return {
+      pubkey: this.identity?.pubkey ?? null,
+      encryptionPubkey: this.identity?.encryptionPubkey ?? null,
+      canSign: this.canSign,
+      canEncrypt: this.canEncrypt,
+      hasIdentity: this.identity !== null,
+    };
+  }
+
+  // ── Infrastructure ──
 
   /** Health check. */
   health(): Promise<HealthStatus> {

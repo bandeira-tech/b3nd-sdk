@@ -39,5 +39,6 @@ export type {
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,
   RigConfig,
+  RigInfo,
   ServeOptions,
 } from "./types.ts";
