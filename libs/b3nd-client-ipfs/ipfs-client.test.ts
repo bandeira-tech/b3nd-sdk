@@ -9,6 +9,7 @@
 
 import { IpfsClient, type IpfsExecutor } from "./mod.ts";
 import { runSharedSuite } from "../b3nd-testing/shared-suite.ts";
+import { runNodeSuite } from "../b3nd-testing/node-suite.ts";
 import type { PersistenceRecord, Schema } from "../b3nd-core/types.ts";
 
 /**
@@ -91,6 +92,21 @@ function createClient(schema: Schema): IpfsClient {
 }
 
 runSharedSuite("IpfsClient", {
+  happy: () => createClient(createSchema()),
+
+  validationError: () =>
+    createClient(
+      createSchema(async (value) => {
+        const data = value as { name?: string };
+        if (!data.name) {
+          return { valid: false, error: "Name is required" };
+        }
+        return { valid: true };
+      }),
+    ),
+});
+
+runNodeSuite("IpfsClient", {
   happy: () => createClient(createSchema()),
 
   validationError: () =>

@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs run-node check build-learn help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs node-postgres node-mongo run-node check build-learn help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -175,6 +175,18 @@ node-fs:
 	BACKEND_URL=file://$(CURDIR)/.data/fs PORT=9942 CORS_ORIGIN="*" \
 	deno run --watch -A mod.ts
 
+# B3nd node on :9942 with PostgreSQL backend (requires Postgres on :5432)
+node-postgres:
+	@cd apps/b3nd-node && \
+	BACKEND_URL=postgresql://b3nd:b3nd@localhost:5432/b3nd PORT=9942 CORS_ORIGIN="*" \
+	deno run --watch -A mod.ts
+
+# B3nd node on :9942 with MongoDB backend (requires Mongo on :27017)
+node-mongo:
+	@cd apps/b3nd-node && \
+	BACKEND_URL=mongodb://localhost:27017/b3nd PORT=9942 CORS_ORIGIN="*" \
+	deno run --watch -A mod.ts
+
 # B3nd node on :9942 with IPFS backend (requires Kubo running on :5001)
 node-ipfs:
 	@cd apps/b3nd-node && \
@@ -261,6 +273,8 @@ help:
 	@echo "  make node              - Start B3nd node (:9942, memory backend)"
 	@echo "  make node-sqlite       - Start B3nd node (:9942, SQLite backend)"
 	@echo "  make node-fs           - Start B3nd node (:9942, filesystem backend)"
+	@echo "  make node-postgres     - Start B3nd node (:9942, PostgreSQL backend :5432)"
+	@echo "  make node-mongo        - Start B3nd node (:9942, MongoDB backend :27017)"
 	@echo "  make node-ipfs         - Start B3nd node (:9942, IPFS backend via Kubo :5001)"
 	@echo "  make run-node image=.. - Run Docker image with fresh keys (managed mode)"
 	@echo "  make rig               - Start web rig (:5555) + inspector (:5556)"

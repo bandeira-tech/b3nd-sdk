@@ -72,7 +72,7 @@ Deno.test("computeSha256 — nested object is deterministic", async () => {
 
 // Helper: compute sha256 of raw bytes via crypto.subtle
 async function computeSha256Bytes(data: Uint8Array): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", new Uint8Array(data));
   return Array.from(new Uint8Array(hashBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
