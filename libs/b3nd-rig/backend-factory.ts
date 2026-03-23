@@ -25,6 +25,26 @@ import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { WebSocketClient } from "../b3nd-client-ws/mod.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 
+/** All supported backend URL protocols. */
+export const SUPPORTED_PROTOCOLS = [
+  "https://",
+  "http://",
+  "wss://",
+  "ws://",
+  "memory://",
+  "postgresql://",
+  "mongodb://",
+  "mongodb+srv://",
+  "sqlite://",
+  "file://",
+  "ipfs://",
+] as const;
+
+/** Returns the list of supported backend URL protocols. */
+export function getSupportedProtocols(): readonly string[] {
+  return SUPPORTED_PROTOCOLS;
+}
+
 /** Default schema for memory:// backends — includes hash:// for MessageData envelopes. */
 function createRigTestSchema(): Schema {
   const acceptAll = async () => ({ valid: true });
@@ -194,7 +214,9 @@ export async function createClientFromUrl(
         throw new Error("IPFS backend requires a schema.");
       }
       // ipfs://host:port → apiUrl = http://host:port
-      const apiUrl = `http://${parsed.hostname}${parsed.port ? ":" + parsed.port : ":5001"}${parsed.pathname}`;
+      const apiUrl = `http://${parsed.hostname}${
+        parsed.port ? ":" + parsed.port : ":5001"
+      }${parsed.pathname}`;
       const { IpfsClient } = await import("../b3nd-client-ipfs/mod.ts");
       const executor = options.executors.ipfs(apiUrl);
       return new IpfsClient(
@@ -209,7 +231,7 @@ export async function createClientFromUrl(
     default:
       throw new Error(
         `Unsupported backend URL protocol: "${protocol}". ` +
-          `Supported: https://, http://, wss://, ws://, memory://, postgresql://, mongodb://, sqlite://, file://, ipfs://`,
+          `Supported: ${SUPPORTED_PROTOCOLS.join(", ")}`,
       );
   }
 }

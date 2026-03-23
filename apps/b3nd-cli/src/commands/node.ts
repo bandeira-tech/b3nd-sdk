@@ -42,7 +42,9 @@ export async function nodeKeygen(outputPath?: string): Promise<void> {
   const encryptionPrivateKeyHex = encodeHex(encryptionPrivateKeyBytes);
 
   const keyPath = outputPath ??
-    `${Deno.env.get("HOME")}/.bnd/nodes/${signingPair.publicKeyHex.slice(0, 12)}.key`;
+    `${Deno.env.get("HOME")}/.bnd/nodes/${
+      signingPair.publicKeyHex.slice(0, 12)
+    }.key`;
 
   const dir = keyPath.split("/").slice(0, -1).join("/");
   await Deno.mkdir(dir, { recursive: true });

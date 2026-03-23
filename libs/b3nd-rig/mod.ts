@@ -27,10 +27,19 @@
  */
 
 export { Identity } from "./identity.ts";
+export type { ExportedIdentity } from "./identity.ts";
+export {
+  createClientFromUrl,
+  getSupportedProtocols,
+  SUPPORTED_PROTOCOLS,
+} from "./backend-factory.ts";
+export type { BackendFactoryOptions } from "./backend-factory.ts";
 export { Rig } from "./rig.ts";
 export type {
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,
   RigConfig,
+  RigInfo,
   ServeOptions,
+  WatchOptions,
 } from "./types.ts";

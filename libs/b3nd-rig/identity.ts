@@ -23,6 +23,23 @@ import {
 import { decodeHex, encodeHex } from "../b3nd-core/encoding.ts";
 
 /**
+ * Portable identity data — JSON-serializable for persistence.
+ *
+ * Store this in localStorage, a file, or a database to restore
+ * a full signing+encryption identity across sessions.
+ */
+export interface ExportedIdentity {
+  /** Ed25519 public key hex. */
+  signingPublicKeyHex: string;
+  /** Ed25519 private key hex (PKCS8). Present only for full identities. */
+  signingPrivateKeyHex?: string;
+  /** X25519 public encryption key hex. */
+  encryptionPublicKeyHex: string;
+  /** X25519 private encryption key hex (PKCS8). Present only for full identities. */
+  encryptionPrivateKeyHex?: string;
+}
+
+/**
  * Identity bundles signing (Ed25519) and encryption (X25519) keypairs.
  *
  * It can be created with full private keys (for signing/decrypting)
@@ -33,8 +50,10 @@ export class Identity {
   readonly pubkey: string;
   /** X25519 public encryption key hex. */
   readonly encryptionPubkey: string;
-  /** Whether this identity has private keys (can sign and decrypt). */
+  /** Whether this identity has a signing private key (can sign messages). */
   readonly canSign: boolean;
+  /** Whether this identity has an encryption private key (can decrypt). */
+  readonly canEncrypt: boolean;
 
   private readonly _signingPrivateKey: CryptoKey | null;
   private readonly _encryptionPrivateKey: CryptoKey | null;
@@ -50,6 +69,7 @@ export class Identity {
     this._signingPrivateKey = opts.signingPrivateKey;
     this._encryptionPrivateKey = opts.encryptionPrivateKey;
     this.canSign = opts.signingPrivateKey !== null;
+    this.canEncrypt = opts.encryptionPrivateKey !== null;
   }
 
   // ── Factory methods ──
@@ -137,6 +157,54 @@ export class Identity {
     });
   }
 
+  /**
+   * Reconstruct an Identity from exported data.
+   *
+   * @example Persist across browser sessions
+   * ```typescript
+   * // Save
+   * const exported = await identity.export();
+   * localStorage.setItem("b3nd-id", JSON.stringify(exported));
+   *
+   * // Restore
+   * const saved = JSON.parse(localStorage.getItem("b3nd-id")!);
+   * const identity = await Identity.fromExport(saved);
+   * ```
+   */
+  static async fromExport(data: ExportedIdentity): Promise<Identity> {
+    let signingPrivateKey: CryptoKey | null = null;
+    let encryptionPrivateKey: CryptoKey | null = null;
+
+    if (data.signingPrivateKeyHex) {
+      const pkcs8Bytes = decodeHex(data.signingPrivateKeyHex);
+      signingPrivateKey = await crypto.subtle.importKey(
+        "pkcs8",
+        pkcs8Bytes.buffer,
+        { name: "Ed25519", namedCurve: "Ed25519" },
+        true,
+        ["sign"],
+      );
+    }
+
+    if (data.encryptionPrivateKeyHex) {
+      const pkcs8Bytes = decodeHex(data.encryptionPrivateKeyHex);
+      encryptionPrivateKey = await crypto.subtle.importKey(
+        "pkcs8",
+        pkcs8Bytes.buffer,
+        { name: "X25519", namedCurve: "X25519" },
+        true,
+        ["deriveBits"],
+      );
+    }
+
+    return new Identity({
+      pubkey: data.signingPublicKeyHex,
+      encryptionPubkey: data.encryptionPublicKeyHex,
+      signingPrivateKey,
+      encryptionPrivateKey,
+    });
+  }
+
   // ── Operations ──
 
   /** Sign a payload — returns `{ pubkey, signature }` auth entry. */
@@ -178,6 +246,38 @@ export class Identity {
       throw new Error("Cannot decrypt: no encryption private key");
     }
     return asymDecrypt(payload, this._encryptionPrivateKey);
+  }
+
+  /**
+   * Export this identity to a JSON-serializable object.
+   *
+   * For full identities (with private keys), exports everything needed
+   * to reconstruct the identity later via `Identity.fromExport()`.
+   * For public-only identities, only public keys are exported.
+   */
+  async export(): Promise<ExportedIdentity> {
+    const result: ExportedIdentity = {
+      signingPublicKeyHex: this.pubkey,
+      encryptionPublicKeyHex: this.encryptionPubkey,
+    };
+
+    if (this._signingPrivateKey) {
+      const pkcs8 = await crypto.subtle.exportKey(
+        "pkcs8",
+        this._signingPrivateKey,
+      );
+      result.signingPrivateKeyHex = encodeHex(new Uint8Array(pkcs8));
+    }
+
+    if (this._encryptionPrivateKey) {
+      const pkcs8 = await crypto.subtle.exportKey(
+        "pkcs8",
+        this._encryptionPrivateKey,
+      );
+      result.encryptionPrivateKeyHex = encodeHex(new Uint8Array(pkcs8));
+    }
+
+    return result;
   }
 
   /**

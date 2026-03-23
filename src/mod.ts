@@ -189,10 +189,19 @@ export type {
 } from "../libs/b3nd-msg/data/mod.ts";
 
 // Rig — the universal harness
-export { Identity, Rig } from "../libs/b3nd-rig/mod.ts";
+export {
+  createClientFromUrl,
+  getSupportedProtocols,
+  Identity,
+  Rig,
+  SUPPORTED_PROTOCOLS,
+} from "../libs/b3nd-rig/mod.ts";
 export type {
+  ExportedIdentity,
   MongoExecutor,
   PostgresExecutor,
   RigConfig,
+  RigInfo,
   ServeOptions,
+  WatchOptions,
 } from "../libs/b3nd-rig/mod.ts";
