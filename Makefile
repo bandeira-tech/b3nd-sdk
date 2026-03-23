@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs node-postgres node-mongo run-node check build-learn help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs node-postgres node-mongo run-node check build-api-docs build-learn help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -133,6 +133,11 @@ ifndef p
 endif
 	@docker compose --profile $(p) down
 
+# Build API docs from all libs/ modules for the web rig
+build-api-docs:
+	@echo "Building API docs..."
+	@DENO_NO_PACKAGE_JSON=1 deno run -A apps/b3nd-web-rig/scripts/build-api-docs.ts
+
 # Build learn catalog and chapter files for the web rig
 build-learn:
 	@echo "Building learn books..."
@@ -145,6 +150,9 @@ dev:
 	@lsof -ti :5555 -i :5556 -i :9942 2>/dev/null | xargs kill -9 2>/dev/null || true
 	@sleep 1
 	@docker compose --profile dev up -d --wait
+	@# Pre-build static content for the rig
+	@$(MAKE) build-api-docs
+	@$(MAKE) build-learn
 	@trap 'kill 0; docker compose --profile dev down' INT TERM; \
 	(cd apps/b3nd-node && \
 	  BACKEND_URL=postgresql://b3nd:b3nd@localhost:5432/b3nd \
@@ -267,6 +275,7 @@ help:
 	@echo ""
 	@echo "  make pkg target=<name> - Build and push Docker image"
 	@echo ""
+	@echo "  make build-api-docs    - Build API docs from all libs/"
 	@echo "  make dev               - Full dev env (dbs + node + rig + inspector)"
 	@echo "  make up p=<profile>    - Start a compose profile (dev, test)"
 	@echo "  make down p=<profile>  - Stop a compose profile"

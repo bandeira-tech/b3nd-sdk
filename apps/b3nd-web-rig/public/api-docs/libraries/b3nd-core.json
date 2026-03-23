@@ -1,0 +1,282 @@
+{
+  "key": "b3nd-core",
+  "label": "b3nd-core",
+  "description": "",
+  "entryPoint": "libs/b3nd-core/mod.ts",
+  "symbols": [
+    {
+      "name": "FunctionalClient",
+      "kind": "class",
+      "signature": "class FunctionalClient",
+      "description": "A client that delegates each method to a config function.",
+      "line": 60
+    },
+    {
+      "name": "FunctionalClientConfig",
+      "kind": "interface",
+      "signature": "interface FunctionalClientConfig",
+      "description": "Configuration for FunctionalClient. Each method is optional — missing methods return sensible defaults.",
+      "line": 26
+    },
+    {
+      "name": "PersistenceRecord",
+      "kind": "interface",
+      "signature": "interface PersistenceRecord<T>",
+      "description": "Persistence record with timestamp",
+      "line": 9
+    },
+    {
+      "name": "WriteResult",
+      "kind": "interface",
+      "signature": "interface WriteResult<T>",
+      "description": "Result of a write operation",
+      "line": 17
+    },
+    {
+      "name": "ReadResult",
+      "kind": "interface",
+      "signature": "interface ReadResult<T>",
+      "description": "Result of a read operation",
+      "line": 26
+    },
+    {
+      "name": "ReadMultiResultItem",
+      "kind": "typeAlias",
+      "signature": "type ReadMultiResultItem<T> = unknown | unknown",
+      "description": "Result for a single URI in a multi-read operation",
+      "line": 35
+    },
+    {
+      "name": "ReadMultiResult",
+      "kind": "interface",
+      "signature": "interface ReadMultiResult<T>",
+      "description": "Result of reading multiple URIs in a single operation",
+      "line": 42
+    },
+    {
+      "name": "DeleteResult",
+      "kind": "interface",
+      "signature": "interface DeleteResult",
+      "description": "Result of a delete operation",
+      "line": 58
+    },
+    {
+      "name": "ListItem",
+      "kind": "interface",
+      "signature": "interface ListItem",
+      "description": "Item returned from list operations",
+      "line": 66
+    },
+    {
+      "name": "ListOptions",
+      "kind": "interface",
+      "signature": "interface ListOptions",
+      "description": "Options for list operations",
+      "line": 73
+    },
+    {
+      "name": "ListResult",
+      "kind": "typeAlias",
+      "signature": "type ListResult = unknown | unknown",
+      "description": "Result of a list operation",
+      "line": 84
+    },
+    {
+      "name": "HealthStatus",
+      "kind": "interface",
+      "signature": "interface HealthStatus",
+      "description": "Health status response",
+      "line": 102
+    },
+    {
+      "name": "ValidationFn",
+      "kind": "typeAlias",
+      "signature": "type ValidationFn = (write: unknown) => Promise<unknown>",
+      "description": "Validation function for write operations Returns an object with valid boolean and optional error message",
+      "line": 112
+    },
+    {
+      "name": "Schema",
+      "kind": "typeAlias",
+      "signature": "type Schema = Record<string, ValidationFn>",
+      "description": "Schema mapping program keys to validation functions",
+      "line": 122
+    },
+    {
+      "name": "ReceiveResult",
+      "kind": "interface",
+      "signature": "interface ReceiveResult",
+      "description": "Result of a receive operation",
+      "line": 127
+    },
+    {
+      "name": "Message",
+      "kind": "typeAlias",
+      "signature": "type Message<D> = unknown",
+      "description": "Message type — the minimal primitive: [uri, data]",
+      "line": 135
+    },
+    {
+      "name": "NodeProtocolWriteInterface",
+      "kind": "interface",
+      "signature": "interface NodeProtocolWriteInterface",
+      "description": "NodeProtocolInterface - The universal interface implemented by all clients",
+      "line": 143
+    },
+    {
+      "name": "NodeProtocolReadInterface",
+      "kind": "interface",
+      "signature": "interface NodeProtocolReadInterface",
+      "description": "",
+      "line": 156
+    },
+    {
+      "name": "NodeProtocolInterface",
+      "kind": "typeAlias",
+      "signature": "type NodeProtocolInterface = NodeProtocolWriteInterface & NodeProtocolReadInterface",
+      "description": "",
+      "line": 177
+    },
+    {
+      "name": "MemoryClientConfig",
+      "kind": "interface",
+      "signature": "interface MemoryClientConfig",
+      "description": "Configuration for MemoryClient",
+      "line": 184
+    },
+    {
+      "name": "HttpClientConfig",
+      "kind": "interface",
+      "signature": "interface HttpClientConfig",
+      "description": "Configuration for HttpClient",
+      "line": 199
+    },
+    {
+      "name": "WebSocketClientConfig",
+      "kind": "interface",
+      "signature": "interface WebSocketClientConfig",
+      "description": "Configuration for WebSocketClient",
+      "line": 219
+    },
+    {
+      "name": "LocalStorageClientConfig",
+      "kind": "interface",
+      "signature": "interface LocalStorageClientConfig",
+      "description": "Configuration for LocalStorageClient",
+      "line": 255
+    },
+    {
+      "name": "IndexedDBClientConfig",
+      "kind": "interface",
+      "signature": "interface IndexedDBClientConfig",
+      "description": "Configuration for IndexedDBClient",
+      "line": 283
+    },
+    {
+      "name": "PostgresClientConfig",
+      "kind": "interface",
+      "signature": "interface PostgresClientConfig",
+      "description": "Configuration for PostgresClient",
+      "line": 314
+    },
+    {
+      "name": "MongoClientConfig",
+      "kind": "interface",
+      "signature": "interface MongoClientConfig",
+      "description": "Configuration for MongoClient",
+      "line": 354
+    },
+    {
+      "name": "ClientError",
+      "kind": "class",
+      "signature": "class ClientError",
+      "description": "Error class for client operations Preserves error context without hiding details",
+      "line": 376
+    },
+    {
+      "name": "LinkValue",
+      "kind": "typeAlias",
+      "signature": "type LinkValue = string",
+      "description": "Link value - just a string URI pointing to another resource",
+      "line": 390
+    },
+    {
+      "name": "ContentData",
+      "kind": "interface",
+      "signature": "interface ContentData<T>",
+      "description": "Content-addressed data metadata (optional wrapper for hash:// data)",
+      "line": 395
+    },
+    {
+      "name": "WebSocketRequest",
+      "kind": "interface",
+      "signature": "interface WebSocketRequest",
+      "description": "WebSocket protocol types for request/response communication",
+      "line": 405
+    },
+    {
+      "name": "WebSocketResponse",
+      "kind": "interface",
+      "signature": "interface WebSocketResponse",
+      "description": "",
+      "line": 418
+    },
+    {
+      "name": "encodeHex",
+      "kind": "function",
+      "signature": "function encodeHex(bytes: Uint8Array): string",
+      "description": "",
+      "line": 1
+    },
+    {
+      "name": "decodeHex",
+      "kind": "function",
+      "signature": "function decodeHex(hex: string): Uint8Array<ArrayBuffer>",
+      "description": "",
+      "line": 5
+    },
+    {
+      "name": "encodeBase64",
+      "kind": "function",
+      "signature": "function encodeBase64(bytes: Uint8Array): string",
+      "description": "",
+      "line": 17
+    },
+    {
+      "name": "decodeBase64",
+      "kind": "function",
+      "signature": "function decodeBase64(b64: string): Uint8Array",
+      "description": "",
+      "line": 29
+    },
+    {
+      "name": "isBinary",
+      "kind": "function",
+      "signature": "function isBinary(value: unknown): value is \u001b[0m\u001b[38;5;12mUint8Array\u001b[0m | \u001b[0m\u001b[38;5;12mArrayBuffer\u001b[0m",
+      "description": "Check if a value is a Uint8Array or ArrayBuffer",
+      "line": 19
+    },
+    {
+      "name": "isEncodedBinary",
+      "kind": "function",
+      "signature": "function isEncodedBinary(value: unknown): value is \u001b[0m\u001b[38;5;12mEncodedBinary\u001b[0m",
+      "description": "Check if a value is an encoded binary object",
+      "line": 26
+    },
+    {
+      "name": "encodeBinaryForJson",
+      "kind": "function",
+      "signature": "function encodeBinaryForJson<T>(value: T): T | EncodedBinary",
+      "description": "Encode binary data for JSON storage Returns the original value if not binary",
+      "line": 39
+    },
+    {
+      "name": "decodeBinaryFromJson",
+      "kind": "function",
+      "signature": "function decodeBinaryFromJson<T>(value: T): T | Uint8Array",
+      "description": "Decode binary data from JSON storage Returns the original value if not encoded binary",
+      "line": 59
+    }
+  ],
+  "generatedAt": 1773845121018
+}

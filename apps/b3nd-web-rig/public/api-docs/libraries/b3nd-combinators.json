@@ -1,0 +1,23 @@
+{
+  "key": "b3nd-combinators",
+  "label": "b3nd-combinators",
+  "description": "",
+  "entryPoint": "libs/b3nd-combinators/mod.ts",
+  "symbols": [
+    {
+      "name": "parallelBroadcast",
+      "kind": "function",
+      "signature": "function parallelBroadcast(clients: unknown[]): NodeProtocolWriteInterface & NodeProtocolReadInterface",
+      "description": "",
+      "line": 13
+    },
+    {
+      "name": "firstMatchSequence",
+      "kind": "function",
+      "signature": "function firstMatchSequence(clients: unknown[]): NodeProtocolWriteInterface & NodeProtocolReadInterface",
+      "description": "",
+      "line": 13
+    }
+  ],
+  "generatedAt": 1773845120972
+}

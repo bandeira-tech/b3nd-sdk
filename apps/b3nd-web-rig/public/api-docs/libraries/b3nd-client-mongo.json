@@ -1,0 +1,23 @@
+{
+  "key": "b3nd-client-mongo",
+  "label": "b3nd-client-mongo",
+  "description": "",
+  "entryPoint": "libs/b3nd-client-mongo/mod.ts",
+  "symbols": [
+    {
+      "name": "MongoExecutor",
+      "kind": "interface",
+      "signature": "interface MongoExecutor",
+      "description": "",
+      "line": 30
+    },
+    {
+      "name": "MongoClient",
+      "kind": "class",
+      "signature": "class MongoClient",
+      "description": "",
+      "line": 50
+    }
+  ],
+  "generatedAt": 1773845120921
+}

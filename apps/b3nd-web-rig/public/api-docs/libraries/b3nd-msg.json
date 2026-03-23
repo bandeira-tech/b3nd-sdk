@@ -1,0 +1,114 @@
+{
+  "key": "b3nd-msg",
+  "label": "b3nd-msg",
+  "description": "",
+  "entryPoint": "libs/b3nd-msg/mod.ts",
+  "symbols": [
+    {
+      "name": "Message",
+      "kind": "typeAlias",
+      "signature": "type Message<D> = unknown",
+      "description": "Message: the minimal primitive",
+      "line": 27
+    },
+    {
+      "name": "MessageNode",
+      "kind": "interface",
+      "signature": "interface MessageNode<D>",
+      "description": "Message node interface",
+      "line": 130
+    },
+    {
+      "name": "MessageNodeConfig",
+      "kind": "interface",
+      "signature": "interface MessageNodeConfig<D>",
+      "description": "Configuration for creating a message node",
+      "line": 91
+    },
+    {
+      "name": "MessageValidator",
+      "kind": "typeAlias",
+      "signature": "type MessageValidator<D> = (msg: Message<D>, read: (uri: string) => Promise<ReadResult<T>>) => Promise<unknown>",
+      "description": "Message validator function",
+      "line": 64
+    },
+    {
+      "name": "SubmitResult",
+      "kind": "interface",
+      "signature": "interface SubmitResult",
+      "description": "Result of a message submission",
+      "line": 32
+    },
+    {
+      "name": "createMessageNode",
+      "kind": "function",
+      "signature": "function createMessageNode<D>(config: MessageNodeConfig<D>): MessageNode<D>",
+      "description": "Create a message node",
+      "line": 26
+    },
+    {
+      "name": "MessageData",
+      "kind": "interface",
+      "signature": "interface MessageData<V>",
+      "description": "Standard message data structure for state transitions",
+      "line": 29
+    },
+    {
+      "name": "MessageValidationContext",
+      "kind": "interface",
+      "signature": "interface MessageValidationContext<V>",
+      "description": "Extended validation context for messages using the inputs/outputs convention Provides access to message context during program validation",
+      "line": 63
+    },
+    {
+      "name": "ProgramSchema",
+      "kind": "typeAlias",
+      "signature": "type ProgramSchema<V> = Record<string, ProgramValidator<V>>",
+      "description": "Schema mapping program prefixes to validators",
+      "line": 126
+    },
+    {
+      "name": "ProgramValidator",
+      "kind": "typeAlias",
+      "signature": "type ProgramValidator<V> = (ctx: MessageValidationContext<V>) => Promise<unknown>",
+      "description": "Program validator for outputs in messages using the inputs/outputs convention",
+      "line": 110
+    },
+    {
+      "name": "StateMessage",
+      "kind": "typeAlias",
+      "signature": "type StateMessage<V> = Message<MessageData<V>>",
+      "description": "A message with the inputs/outputs data convention",
+      "line": 57
+    },
+    {
+      "name": "isMessageData",
+      "kind": "function",
+      "signature": "function isMessageData(data: unknown): data is \u001b[0m\u001b[38;5;12mMessageData\u001b[0m",
+      "description": "Type guard detecting MessageData shape",
+      "line": 25
+    },
+    {
+      "name": "combineValidators",
+      "kind": "function",
+      "signature": "function combineValidators<D>(undefined: MessageValidator<D>[]): MessageValidator<D>",
+      "description": "Combine multiple validators into one (all must pass)",
+      "line": 146
+    },
+    {
+      "name": "createOutputValidator",
+      "kind": "function",
+      "signature": "function createOutputValidator<V>(options: unknown): MessageValidator<MessageData<V>>",
+      "description": "Create a message validator that validates outputs against a program schema",
+      "line": 71
+    },
+    {
+      "name": "extractProgram",
+      "kind": "function",
+      "signature": "function extractProgram(uri: string): string | null",
+      "description": "Extract the program prefix from a URI",
+      "line": 24
+    }
+  ],
+  "generatedAt": 1773845121120
+}

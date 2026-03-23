@@ -1,0 +1,65 @@
+{
+  "key": "b3nd-listener",
+  "label": "b3nd-listener",
+  "description": "",
+  "entryPoint": "libs/b3nd-listener/mod.ts",
+  "symbols": [
+    {
+      "name": "HandlerRequest",
+      "kind": "interface",
+      "signature": "interface HandlerRequest<T>",
+      "description": "What the handler sees — decrypted request data plus context. No envelope concerns (clientPublicKeyHex, replyTo are handled by respondTo).",
+      "line": 55
+    },
+    {
+      "name": "Handler",
+      "kind": "typeAlias",
+      "signature": "type Handler<TReq, TRes> = (request: HandlerRequest<TReq>) => Promise<TRes>",
+      "description": "A handler — the portable unit of backend logic. Takes a request, returns a response. Knows nothing about transport or encryption.",
+      "line": 70
+    },
+    {
+      "name": "Identity",
+      "kind": "interface",
+      "signature": "interface Identity",
+      "description": "Identity — signing and encryption keypairs for a service.",
+      "line": 77
+    },
+    {
+      "name": "Connection",
+      "kind": "interface",
+      "signature": "interface Connection",
+      "description": "A connection to a remote Firecat node.",
+      "line": 85
+    },
+    {
+      "name": "respondTo",
+      "kind": "function",
+      "signature": "function respondTo<TReq, TRes>(handler: Handler<TReq, TRes>, config: unknown): (msg: unknown) => Promise<unknown>",
+      "description": "Wrap a handler as a compose-compatible processor.",
+      "line": 133
+    },
+    {
+      "name": "connect",
+      "kind": "function",
+      "signature": "function connect(client: NodeProtocolInterface, config: unknown): Connection",
+      "description": "Bridge a processor to a remote Firecat node via polling.",
+      "line": 236
+    },
+    {
+      "name": "writeRequest",
+      "kind": "function",
+      "signature": "async function writeRequest<T>(params: unknown): Promise<void>",
+      "description": "Write an encrypted request to a handler's inbox. This is what a client calls to send a request.",
+      "line": 296
+    },
+    {
+      "name": "readResponse",
+      "kind": "function",
+      "signature": "async function readResponse<T>(params: unknown): Promise<unknown | null>",
+      "description": "Read and decrypt a response from a handler's outbox. This is what a client calls after sending a request.",
+      "line": 342
+    }
+  ],
+  "generatedAt": 1773845121071
+}

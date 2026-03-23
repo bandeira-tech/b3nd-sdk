@@ -1,0 +1,16 @@
+{
+  "key": "b3nd-client-localstorage",
+  "label": "b3nd-client-localstorage",
+  "description": "",
+  "entryPoint": "libs/b3nd-client-localstorage/mod.ts",
+  "symbols": [
+    {
+      "name": "LocalStorageClient",
+      "kind": "class",
+      "signature": "class LocalStorageClient",
+      "description": "",
+      "line": 47
+    }
+  ],
+  "generatedAt": 1773845120881
+}

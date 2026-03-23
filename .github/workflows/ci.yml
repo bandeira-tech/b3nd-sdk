@@ -111,6 +111,30 @@ jobs:
             tail -50 /tmp/test-server.log || true
           fi
 
+  build-api-docs:
+    name: Build API Docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Build API docs (static only, no b3nd upload)
+        env:
+          B3ND_NODE_URL: ""
+        run: DENO_NO_PACKAGE_JSON=1 deno run -A apps/b3nd-web-rig/scripts/build-api-docs.ts
+
+      - name: Upload API docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-docs
+          path: apps/b3nd-web-rig/public/api-docs/
+
   lint-and-format:
     name: Lint and Format Check
     runs-on: ubuntu-latest

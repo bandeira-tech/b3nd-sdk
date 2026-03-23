@@ -79,7 +79,10 @@ export function useRead<T = unknown>(uri: string | null): {
 
 function resolveStaticPath(uri: string): string | null {
   if (uri === "mutable://open/rig/learn/catalog") return "/learn/catalog.json";
-  const chapterMatch = uri.match(/\/chapters\/[^/]+\/(.+)$/);
-  if (chapterMatch) return `/learn/chapters/${chapterMatch[1]}.json`;
+  const chapterMatch = uri.match(/\/chapters\/([^/]+)\/(.+)$/);
+  if (chapterMatch) return `/learn/chapters/${chapterMatch[1]}/${chapterMatch[2]}.json`;
+  if (uri === "mutable://open/rig/api-docs/catalog") return "/api-docs/catalog.json";
+  const libMatch = uri.match(/\/api-docs\/libraries\/(.+)$/);
+  if (libMatch) return `/api-docs/libraries/${libMatch[1]}.json`;
   return null;
 }
