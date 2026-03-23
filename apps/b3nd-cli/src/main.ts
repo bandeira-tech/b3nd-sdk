@@ -15,6 +15,7 @@ import {
   showConfig,
   showHelp,
   upload,
+  watch,
   write,
 } from "./commands.ts";
 import {
@@ -145,6 +146,11 @@ async function main(): Promise<void> {
           throw new Error("URI required. Usage: bnd list <uri>");
         }
         await list(cleanArgs[1], verbose);
+        break;
+      }
+
+      case "watch": {
+        await watch(cleanArgs.slice(1), verbose);
         break;
       }
 

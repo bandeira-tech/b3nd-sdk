@@ -627,6 +627,7 @@ COMMANDS:
   deploy <dir> <target>    Deploy site with content-addressed storage + authenticated links
   read <uri>               Read data from a URI
   list <uri>               List items at a URI
+  watch <uri>              Watch a URI for changes (reactive polling)
   delete <uri>             Delete data at a URI
   health                   Check node health and schema
   config                   Show current configuration
@@ -675,6 +676,10 @@ EXAMPLES:
   # Low-level write
   bnd write mutable://accounts/:key/profile '{"name":"Alice"}'
   bnd read mutable://accounts/:key/profile
+
+  # Watch a URI for changes
+  bnd watch mutable://accounts/:key/profile
+  bnd watch mutable://accounts/:key/status --interval 5000
 
 DEBUGGING:
   bnd --verbose deploy ./dist mutable://accounts/:key/mysite
@@ -916,6 +921,92 @@ export async function serverKeysEnv(): Promise<void> {
     );
   } catch (_) {
     // ignore write error
+  }
+}
+
+/**
+ * Handle `bnd watch` command - watch a URI for changes and print updates
+ *
+ * Usage:
+ *   bnd watch <uri>                    Watch with default 2s interval
+ *   bnd watch <uri> --interval 5000   Watch with 5s interval
+ */
+export async function watch(args: string[], verbose = false): Promise<void> {
+  const logger = createLogger(verbose);
+
+  // Parse URI and --interval flag
+  let uri: string | null = null;
+  let intervalMs = 2000;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--interval" && args[i + 1]) {
+      intervalMs = parseInt(args[i + 1], 10);
+      if (isNaN(intervalMs) || intervalMs < 100) {
+        throw new Error("Interval must be a number >= 100 (ms)");
+      }
+      i++; // skip next arg
+    } else if (!uri) {
+      uri = args[i];
+    }
+  }
+
+  if (!uri) {
+    throw new Error(
+      "URI required. Usage: bnd watch <uri> [--interval <ms>]",
+    );
+  }
+
+  try {
+    const { getRig } = await import("./client.ts");
+    const rig = await getRig(logger);
+
+    // Handle :key placeholder in URI
+    if (uri.includes(":key")) {
+      const accountKey = await loadAccountKey();
+      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
+      logger?.info(`Replaced :key with public key`);
+    }
+
+    console.log(`Watching: ${uri}`);
+    console.log(`Interval: ${intervalMs}ms`);
+    console.log(`Press Ctrl+C to stop`);
+    console.log("");
+
+    const controller = new AbortController();
+
+    // Handle Ctrl+C gracefully
+    const onSignal = () => {
+      console.log("\n✓ Watch stopped");
+      controller.abort();
+    };
+    Deno.addSignalListener("SIGINT", onSignal);
+
+    try {
+      let changeCount = 0;
+      for await (
+        const value of rig.watch(uri, {
+          intervalMs,
+          signal: controller.signal,
+        })
+      ) {
+        changeCount++;
+        const timestamp = new Date().toISOString();
+        console.log(
+          `[${timestamp}] Change #${changeCount}:`,
+        );
+        console.log(`  ${JSON.stringify(value, null, 2)}`);
+        console.log("");
+      }
+    } finally {
+      try {
+        Deno.removeSignalListener("SIGINT", onSignal);
+      } catch {
+        // ignore if already removed
+      }
+    }
+  } finally {
+    const { closeRig } = await import("./client.ts");
+    await closeRig(logger);
   }
 }
 

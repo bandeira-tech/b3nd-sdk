@@ -1586,6 +1586,131 @@ Deno.test("Rig.writeEncrypted - throws for public-only identity (no encryption k
   await rig.cleanup();
 });
 
+// ── Batch encrypted read/write tests ──
+
+Deno.test("Rig.writeEncryptedMany/readEncryptedMany - round-trips multiple entries", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const entries: [string, unknown][] = [
+    ["mutable://open/enc-batch/a", { key: "alpha" }],
+    ["mutable://open/enc-batch/b", { key: "beta" }],
+    ["mutable://open/enc-batch/c", { key: "gamma" }],
+  ];
+
+  const results = await rig.writeEncryptedMany(entries);
+  assertEquals(results.length, 3);
+  for (const r of results) {
+    assertEquals(r.accepted, true);
+  }
+
+  const decrypted = await rig.readEncryptedMany<{ key: string }>([
+    "mutable://open/enc-batch/a",
+    "mutable://open/enc-batch/b",
+    "mutable://open/enc-batch/c",
+  ]);
+  assertEquals(decrypted.length, 3);
+  assertEquals(decrypted[0]?.key, "alpha");
+  assertEquals(decrypted[1]?.key, "beta");
+  assertEquals(decrypted[2]?.key, "gamma");
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeEncryptedMany - returns empty array for empty input", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const results = await rig.writeEncryptedMany([]);
+  assertEquals(results, []);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readEncryptedMany - returns empty array for empty input", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const results = await rig.readEncryptedMany([]);
+  assertEquals(results, []);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readEncryptedMany - returns null for missing URIs", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  // Write only one entry
+  await rig.writeEncrypted("mutable://open/enc-batch/exists", "hello");
+
+  const results = await rig.readEncryptedMany<string>([
+    "mutable://open/enc-batch/exists",
+    "mutable://open/enc-batch/missing",
+  ]);
+  assertEquals(results.length, 2);
+  assertEquals(results[0], "hello");
+  assertEquals(results[1], null);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeEncryptedMany - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+
+  await assertRejects(
+    () => rig.writeEncryptedMany([["mutable://open/x", { a: 1 }]]),
+    Error,
+    "no identity",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.readEncryptedMany - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+
+  await assertRejects(
+    () => rig.readEncryptedMany(["mutable://open/x"]),
+    Error,
+    "no identity",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig.writeEncryptedMany - encrypt to different recipient", async () => {
+  const sender = await Identity.generate();
+  const receiver = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: sender });
+
+  await rig.writeEncryptedMany(
+    [
+      ["mutable://open/enc-batch/cross-a", { msg: "secret-a" }],
+      ["mutable://open/enc-batch/cross-b", { msg: "secret-b" }],
+    ],
+    receiver.encryptionPubkey,
+  );
+
+  // Sender cannot decrypt
+  await assertRejects(
+    () => rig.readEncryptedMany(["mutable://open/enc-batch/cross-a"]),
+    Error,
+  );
+
+  // Receiver can decrypt via shared backend
+  const receiverRig = await Rig.init({
+    client: rig.client,
+    identity: receiver,
+  });
+  const decrypted = await receiverRig.readEncryptedMany<{ msg: string }>([
+    "mutable://open/enc-batch/cross-a",
+    "mutable://open/enc-batch/cross-b",
+  ]);
+  assertEquals(decrypted[0]?.msg, "secret-a");
+  assertEquals(decrypted[1]?.msg, "secret-b");
+
+  await rig.cleanup();
+});
+
 // ── Rig.info() tests ──
 
 Deno.test("Rig.info - with full identity", async () => {

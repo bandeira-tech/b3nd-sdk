@@ -599,6 +599,79 @@ export class Rig {
   }
 
   /**
+   * Encrypt and write multiple entries in parallel.
+   *
+   * Each entry is encrypted individually with the recipient's public key
+   * (defaults to this identity's own encryption key for self-encryption).
+   *
+   * @throws If no identity is set or identity lacks encryption keys.
+   *
+   * @example
+   * ```typescript
+   * const results = await rig.writeEncryptedMany([
+   *   ["mutable://secrets/a", { key: "val-a" }],
+   *   ["mutable://secrets/b", { key: "val-b" }],
+   * ]);
+   * ```
+   */
+  async writeEncryptedMany<T = unknown>(
+    entries: readonly [uri: string, data: T][],
+    recipientEncPubkeyHex?: string,
+  ): Promise<ReceiveResult[]> {
+    if (entries.length === 0) return [];
+    if (!this.identity) {
+      throw new Error("Rig.writeEncryptedMany: no identity set.");
+    }
+    if (!this.identity.canEncrypt) {
+      throw new Error(
+        "Rig.writeEncryptedMany: identity has no encryption keys.",
+      );
+    }
+
+    const recipient = recipientEncPubkeyHex ?? this.identity.encryptionPubkey;
+    return Promise.all(
+      entries.map(async ([uri, data]) => {
+        const plaintext = new TextEncoder().encode(JSON.stringify(data));
+        const encrypted = await this.identity!.encrypt(plaintext, recipient);
+        return this.client.receive([uri, encrypted]);
+      }),
+    );
+  }
+
+  /**
+   * Read and decrypt multiple URIs in parallel.
+   *
+   * Each URI is read and decrypted individually. Returns an array of
+   * results in the same order as the input URIs. Missing entries are
+   * returned as `null`.
+   *
+   * @throws If no identity is set or identity lacks decryption keys.
+   *
+   * @example
+   * ```typescript
+   * const [a, b] = await rig.readEncryptedMany<{ key: string }>([
+   *   "mutable://secrets/a",
+   *   "mutable://secrets/b",
+   * ]);
+   * ```
+   */
+  async readEncryptedMany<T = unknown>(
+    uris: readonly string[],
+  ): Promise<(T | null)[]> {
+    if (uris.length === 0) return [];
+    if (!this.identity) {
+      throw new Error("Rig.readEncryptedMany: no identity set.");
+    }
+    if (!this.identity.canEncrypt) {
+      throw new Error(
+        "Rig.readEncryptedMany: identity has no encryption/decryption keys.",
+      );
+    }
+
+    return Promise.all(uris.map((uri) => this.readEncrypted<T>(uri)));
+  }
+
+  /**
    * Read and decrypt JSON data from a URI.
    *
    * Reads an EncryptedPayload from the backend, decrypts it with this
