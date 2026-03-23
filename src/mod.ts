@@ -54,6 +54,7 @@ export type {
   B3ndError,
   ClientError,
   DeleteResult,
+  FsClientConfig,
   HealthStatus,
   HttpClientConfig,
   IndexedDBClientConfig,
@@ -88,6 +89,7 @@ export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
 export { PostgresClient } from "../libs/b3nd-client-postgres/mod.ts";
 export { MongoClient } from "../libs/b3nd-client-mongo/mod.ts";
 export { SqliteClient } from "../libs/b3nd-client-sqlite/mod.ts";
+export { FilesystemClient } from "../libs/b3nd-client-fs/mod.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 

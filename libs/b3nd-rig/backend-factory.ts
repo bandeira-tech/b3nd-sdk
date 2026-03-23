@@ -9,10 +9,14 @@
  *   postgresql://         → PostgresClient (requires executor)
  *   mongodb://            → MongoClient (requires executor)
  *   sqlite://             → SqliteClient (requires executor)
+ *   file://               → FilesystemClient (requires executor)
+ *   ipfs://               → IpfsClient (requires executor)
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
 import type {
+  FsExecutorFactory,
+  IpfsExecutorFactory,
   MongoExecutorFactory,
   PostgresExecutorFactory,
   SqliteExecutorFactory,
@@ -41,6 +45,8 @@ export interface BackendFactoryOptions {
     postgres?: PostgresExecutorFactory;
     mongo?: MongoExecutorFactory;
     sqlite?: SqliteExecutorFactory;
+    fs?: FsExecutorFactory;
+    ipfs?: IpfsExecutorFactory;
   };
 }
 
@@ -154,10 +160,56 @@ export async function createClientFromUrl(
       );
     }
 
+    case "file:": {
+      if (!options.executors?.fs) {
+        throw new Error(
+          `File URL requires an executor factory. Pass executors.fs to Rig.init().`,
+        );
+      }
+      const schema = options.schema;
+      if (!schema) {
+        throw new Error("Filesystem backend requires a schema.");
+      }
+      // file:///path/to/root → rootDir = /path/to/root
+      const rootDir = parsed.pathname;
+      const { FilesystemClient } = await import("../b3nd-client-fs/mod.ts");
+      const executor = options.executors.fs(rootDir);
+      return new FilesystemClient(
+        {
+          rootDir,
+          schema,
+        },
+        executor,
+      );
+    }
+
+    case "ipfs:": {
+      if (!options.executors?.ipfs) {
+        throw new Error(
+          `IPFS URL requires an executor factory. Pass executors.ipfs to Rig.init().`,
+        );
+      }
+      const schema = options.schema;
+      if (!schema) {
+        throw new Error("IPFS backend requires a schema.");
+      }
+      // ipfs://host:port → apiUrl = http://host:port
+      const apiUrl = `http://${parsed.hostname}${parsed.port ? ":" + parsed.port : ":5001"}${parsed.pathname}`;
+      const { IpfsClient } = await import("../b3nd-client-ipfs/mod.ts");
+      const executor = options.executors.ipfs(apiUrl);
+      return new IpfsClient(
+        {
+          apiUrl,
+          schema,
+        },
+        executor,
+      );
+    }
+
     default:
       throw new Error(
         `Unsupported backend URL protocol: "${protocol}". ` +
-          `Supported: https://, http://, wss://, ws://, memory://, postgresql://, mongodb://, sqlite://`,
+          `Supported: https://, http://, wss://, ws://, memory://, postgresql://, mongodb://, sqlite://, file://, ipfs://`,
       );
   }
 }

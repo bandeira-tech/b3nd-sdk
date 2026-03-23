@@ -1,25 +1,27 @@
 # Multi-Backend HTTP Node
 
 An HTTP server node that composes multiple backends (Memory, PostgreSQL,
-MongoDB) based on a comma-separated `BACKEND_URL` env var loaded from a `.env`
-file. Uses the SDK’s Hono-based HTTP frontend and NodeProtocol clients.
+MongoDB, SQLite, Filesystem) based on a comma-separated `BACKEND_URL` env var.
+Uses the SDK's Rig harness and Hono-based HTTP frontend.
 
 ## Configuration
 
-Copy `.env.example` to `.env` in `installations/node` and set these required
-variables:
+Set these required environment variables (or use a `.env` file):
 
 - `BACKEND_URL` (required): Comma-separated list of backend specs. Each entry
   can be:
   - `memory://` — in-memory backend using `MemoryClient`.
   - `postgres://...` — PostgreSQL connection string (e.g.
     `postgres://user:pass@host:5432/db`).
-  - `mongodb://...` — MongoDB connection string with database in the path,
-    optional `collection` in query:
-    - Example: `mongodb://user:pass@host:27017/appdb?collection=b3nd_data`.
+  - `mongodb://...` — MongoDB connection string with database in the path
+    (e.g. `mongodb://user:pass@host:27017/appdb`).
+  - `sqlite://path/to/db.sqlite` — SQLite file-based database. Use
+    `sqlite://:memory:` for an in-memory SQLite instance.
+  - `file:///path/to/root` — Filesystem backend storing each record as a
+    JSON file under the given root directory.
 
-- `SCHEMA_MODULE` (required): Path or URL to a module exporting a default
-  `Schema` object.
+- `SCHEMA_MODULE` (optional): Path or URL to a module exporting a default
+  `Schema` object. Defaults to the Firecat protocol schema.
 
 - `PORT` (required): HTTP port to listen on.
 - `CORS_ORIGIN` (required): CORS origin for the HTTP API (use `*` to allow all
@@ -35,41 +37,56 @@ variables:
   - Tried in BACKEND_URL order using the `firstMatchSequence` combinator.
   - The first backend that returns a successful result wins.
 
-Supported backend specs:
+## Supported backends
 
-- Memory:
-  - `memory://`
-- PostgreSQL:
-  - `postgres://user:password@host:5432/database`
-  - Uses the same Postgres executor as `installations/http-postgres`.
-  - Table prefix is fixed to `b3nd` (table `b3nd_data`), like the Postgres HTTP
-    node.
-- MongoDB:
-  - `mongodb://user:password@host:27017/database?collection=b3nd_data`
-  - Database is taken from the URL path.
-  - Collection defaults to `b3nd_data` if `collection` is not provided.
+| Protocol | Client | Notes |
+|----------|--------|-------|
+| `memory://` | MemoryClient | In-memory, no persistence across restarts |
+| `postgres://` | PostgresClient | JSONB storage, table prefix `b3nd` |
+| `mongodb://` | MongoClient | Collection `b3nd_data`, DB from URL path |
+| `sqlite://` | SqliteClient | WAL mode, file or `:memory:` |
+| `file://` | FilesystemClient | One JSON file per record, recursive dirs |
 
-## Run locally
+## Quick start
 
 From the repo root:
 
 ```sh
-cd installations/node
+# Memory (no dependencies)
+make node
 
-cp .env.example .env
-# edit .env to match your backends and schema
-deno task dev
+# SQLite (creates .data/sqlite/b3nd.db)
+make node-sqlite
+
+# Filesystem (creates .data/fs/)
+make node-fs
+
+# PostgreSQL (requires docker-compose dev profile)
+make up p=dev
+make dev
+
+# Custom backend combination
+cd apps/b3nd-node
+BACKEND_URL="sqlite://./data.db,memory://" PORT=9942 CORS_ORIGIN="*" \
+  deno run -A mod.ts
 ```
 
 ## Docker
 
-You can build a Docker image using a Dockerfile similar to the HTTP
-Postgres/Mongo installations, pointing to `installations/node/mod.ts` and
-providing `BACKEND_URL` plus any DB connection strings as environment variables.
+Build a Docker image:
+
+```sh
+make pkg target=b3nd-node
+```
+
+Run with environment variables for your backends:
+
+```sh
+docker run -e BACKEND_URL=memory:// -e PORT=9942 -e CORS_ORIGIN="*" \
+  ghcr.io/bandeira-tech/b3nd/b3nd-node:latest
+```
 
 ## Routes
-
-Same as other HTTP nodes:
 
 - `POST   /api/v1/receive`
 - `GET    /api/v1/read/:protocol/:domain/*`

@@ -26,6 +26,7 @@ export async function buildClientsFromSpec(
     postgres?: (connectionString: string) => Promise<any>;
     mongo?: (connectionString: string, dbName: string, collectionName: string) => Promise<any>;
     sqlite?: (path: string) => any;
+    fs?: (rootDir: string) => any;
   },
 ): Promise<NodeProtocolInterface[]> {
   const clients: NodeProtocolInterface[] = [];
@@ -97,6 +98,25 @@ export async function buildClientsFromSpec(
               path: sqlitePath,
               schema,
               tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
+            },
+            executor,
+          ),
+        );
+        break;
+      }
+
+      case "filesystem": {
+        const { FilesystemClient } = await import("../b3nd-client-fs/mod.ts");
+        if (!executors?.fs) {
+          throw new Error("Filesystem executor factory required for filesystem backend");
+        }
+        const rootDir = new URL(spec.url).pathname;
+        const executor = executors.fs(rootDir);
+        clients.push(
+          new FilesystemClient(
+            {
+              rootDir,
+              schema,
             },
             executor,
           ),

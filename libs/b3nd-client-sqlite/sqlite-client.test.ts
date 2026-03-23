@@ -9,6 +9,7 @@
 
 import { SqliteClient, type SqliteExecutor, type SqliteExecutorResult } from "./mod.ts";
 import { runSharedSuite } from "../b3nd-testing/shared-suite.ts";
+import { runNodeSuite } from "../b3nd-testing/node-suite.ts";
 import type { PersistenceRecord, Schema } from "../b3nd-core/types.ts";
 
 import { Database } from "jsr:@db/sqlite@0.12";
@@ -88,6 +89,21 @@ function createClient(schema: Schema): SqliteClient {
 }
 
 runSharedSuite("SqliteClient", {
+  happy: () => createClient(createSchema()),
+
+  validationError: () =>
+    createClient(
+      createSchema(async (value) => {
+        const data = value as { name?: string };
+        if (!data.name) {
+          return { valid: false, error: "Name is required" };
+        }
+        return { valid: true };
+      }),
+    ),
+});
+
+runNodeSuite("SqliteClient", {
   happy: () => createClient(createSchema()),
 
   validationError: () =>
