@@ -6,11 +6,9 @@ import { useRead } from "../learn/useRead";
 import type { ApiCatalog, ApiLibrary } from "./apiDocsTypes";
 import { groupByKind, KIND_LABELS } from "./apiDocsTypes";
 
-const CATALOG_URI = "mutable://open/rig/api-docs/catalog";
-
 export function ApiDocsLeftSlot() {
   const activeLibrary = useApiDocsStore((s) => s.activeLibrary);
-  const { data: catalog } = useRead<ApiCatalog>(CATALOG_URI);
+  const catalog = useApiDocsStore((s) => s.catalog);
 
   if (!catalog) return null;
   if (!activeLibrary) return <IndexMode catalog={catalog} />;

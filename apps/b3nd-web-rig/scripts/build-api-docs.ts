@@ -23,7 +23,6 @@
 
 import type {
   ApiCatalog,
-  ApiCatalogEntry,
   ApiLibrary,
   ApiSymbol,
 } from "../src/components/api-docs/apiDocsTypes.ts";
@@ -286,8 +285,8 @@ async function uploadToB3nd(nodeUrl: string, catalog: ApiCatalog, libraries: Api
     }
     console.log("  Catalog uploaded.");
 
-    // Per-library detail
-    for (const lib of libraries) {
+    // Per-library detail (parallel)
+    const results = await Promise.allSettled(libraries.map(async (lib) => {
       const uri = `mutable://open/rig/api-docs/libraries/${lib.key}`;
       const res = await fetch(`${nodeUrl}/api/v1/receive`, {
         method: "POST",
@@ -299,7 +298,9 @@ async function uploadToB3nd(nodeUrl: string, catalog: ApiCatalog, libraries: Api
       } else {
         console.warn(`  ${lib.key} upload failed: ${res.status}`);
       }
-    }
+    }));
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length) console.warn(`  ${failures.length} upload(s) failed`);
 
     return true;
   } catch (e) {
@@ -326,12 +327,12 @@ async function writeStaticFiles(outputDir: string, catalog: ApiCatalog, librarie
   await Deno.writeTextFile(`${outputDir}/catalog.json`, catalogJson);
   console.log(`\nStatic catalog written to ${outputDir}/catalog.json (${(catalogJson.length / 1024).toFixed(1)} KB)`);
 
-  // Per-library detail files
+  // Per-library detail files (parallel)
   const libsDir = `${outputDir}/libraries`;
   await ensureDir(libsDir);
-  for (const lib of libraries) {
-    await Deno.writeTextFile(`${libsDir}/${lib.key}.json`, JSON.stringify(lib, null, 2));
-  }
+  await Promise.all(
+    libraries.map((lib) => Deno.writeTextFile(`${libsDir}/${lib.key}.json`, JSON.stringify(lib, null, 2))),
+  );
   console.log(`  ${libraries.length} library files written to ${libsDir}/`);
 }
 
