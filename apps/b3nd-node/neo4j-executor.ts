@@ -42,6 +42,8 @@ export async function createNeo4jExecutor(
           nodesCreated: counters.nodesCreated,
           nodesDeleted: counters.nodesDeleted,
           propertiesSet: counters.propertiesSet,
+          relationshipsCreated: counters.relationshipsCreated,
+          relationshipsDeleted: counters.relationshipsDeleted,
         };
       } finally {
         await session.close();

@@ -6,6 +6,13 @@
  * a numeric `timestamp`. Uses an injected executor so the SDK does not
  * depend on a specific Neo4j driver.
  *
+ * Graph features beyond basic CRUD:
+ *   - URI hierarchy: :CHILD_OF edges model the URI tree (e.g.
+ *     store://users/alice -[:CHILD_OF]-> store://users).
+ *   - Provenance: MessageData envelopes create :PRODUCES edges to each
+ *     output and :CONSUMES edges from each input.
+ *   - Traversal queries: ancestors(), descendants(), provenance(), related().
+ *
  * URL format: neo4j://host:7687/database or bolt://host:7687/database
  */
 
@@ -57,6 +64,8 @@ export interface Neo4jExecutor {
     nodesCreated?: number;
     nodesDeleted?: number;
     propertiesSet?: number;
+    relationshipsCreated?: number;
+    relationshipsDeleted?: number;
   }>;
 
   /**
@@ -71,6 +80,32 @@ export interface Neo4jExecutor {
 
   /** Optional cleanup (close driver, etc.) */
   cleanup?: () => Promise<void>;
+}
+
+/** A node in a graph traversal result. */
+export interface GraphNode {
+  uri: string;
+  relationship: string;
+  depth: number;
+}
+
+/** Result of a graph traversal query. */
+export interface GraphTraversalResult {
+  success: boolean;
+  nodes: GraphNode[];
+  error?: string;
+}
+
+/** Provenance information for a record. */
+export interface ProvenanceResult {
+  success: boolean;
+  /** The envelope URI that produced this record (if any). */
+  producedBy?: string;
+  /** URIs that this envelope consumes (inputs). */
+  consumes: string[];
+  /** URIs that this envelope produces (outputs). */
+  produces: string[];
+  error?: string;
 }
 
 export class Neo4jClient implements NodeProtocolInterface {
@@ -121,6 +156,8 @@ export class Neo4jClient implements NodeProtocolInterface {
   private async receiveWithExecutor<D = unknown>(
     msg: Message<D>,
     executor: Neo4jExecutor,
+    /** When set, the envelope URI that is producing this record. */
+    envelopeUri?: string,
   ): Promise<ReceiveResult> {
     const [uri, data] = msg;
 
@@ -166,20 +203,49 @@ export class Neo4jClient implements NodeProtocolInterface {
       const ts = Date.now();
       const dataJson = JSON.stringify(encodedData);
 
+      // Helper: upsert a record node + create CHILD_OF hierarchy edge
+      const upsertRecord = async (tx: Neo4jExecutor, nodeUri: string, nodeData: string, nodeTs: number) => {
+        await tx.write(
+          `MERGE (n:Record {uri: $uri})
+           SET n.data = $data, n.timestamp = $ts, n.updatedAt = timestamp()
+           ON CREATE SET n.createdAt = timestamp()`,
+          { uri: nodeUri, data: nodeData, ts: nodeTs },
+        );
+
+        // Create CHILD_OF edge to parent URI if it exists as a prefix
+        const parentUri = this.parentUri(nodeUri);
+        if (parentUri) {
+          await tx.write(
+            `MATCH (child:Record {uri: $childUri})
+             MERGE (parent:Record {uri: $parentUri})
+             ON CREATE SET parent.timestamp = $ts, parent.createdAt = timestamp(), parent.updatedAt = timestamp()
+             MERGE (child)-[:CHILD_OF]->(parent)`,
+            { childUri: nodeUri, parentUri, ts: nodeTs },
+          );
+        }
+      };
+
       // If MessageData with outputs, wrap in a transaction for atomicity
       if (isMessageData(data) && executor.transaction) {
         await executor.transaction(async (tx) => {
-          await tx.write(
-            `MERGE (n:Record {uri: $uri})
-             SET n.data = $data, n.timestamp = $ts, n.updatedAt = timestamp()
-             ON CREATE SET n.createdAt = timestamp()`,
-            { uri, data: dataJson, ts },
-          );
+          await upsertRecord(tx, uri, dataJson, ts);
+
+          // Create CONSUMES edges from envelope to each input
+          for (const inputUri of data.payload.inputs) {
+            await tx.write(
+              `MATCH (envelope:Record {uri: $envelopeUri})
+               MERGE (input:Record {uri: $inputUri})
+               ON CREATE SET input.timestamp = $ts, input.createdAt = timestamp(), input.updatedAt = timestamp()
+               MERGE (envelope)-[:CONSUMES]->(input)`,
+              { envelopeUri: uri, inputUri, ts },
+            );
+          }
 
           for (const [outputUri, outputValue] of data.payload.outputs) {
             const outputResult = await this.receiveWithExecutor(
               [outputUri, outputValue],
               tx,
+              uri,
             );
             if (!outputResult.accepted) {
               throw new Error(
@@ -189,19 +255,35 @@ export class Neo4jClient implements NodeProtocolInterface {
           }
         });
       } else {
-        await executor.write(
-          `MERGE (n:Record {uri: $uri})
-           SET n.data = $data, n.timestamp = $ts, n.updatedAt = timestamp()
-           ON CREATE SET n.createdAt = timestamp()`,
-          { uri, data: dataJson, ts },
-        );
+        await upsertRecord(executor, uri, dataJson, ts);
+
+        // Create PRODUCES edge from envelope to this output
+        if (envelopeUri) {
+          await executor.write(
+            `MATCH (envelope:Record {uri: $envelopeUri}), (output:Record {uri: $outputUri})
+             MERGE (envelope)-[:PRODUCES]->(output)`,
+            { envelopeUri, outputUri: uri },
+          );
+        }
 
         // Store outputs sequentially (no atomicity guarantees without transaction)
         if (isMessageData(data)) {
+          // Create CONSUMES edges
+          for (const inputUri of data.payload.inputs) {
+            await executor.write(
+              `MATCH (envelope:Record {uri: $envelopeUri})
+               MERGE (input:Record {uri: $inputUri})
+               ON CREATE SET input.timestamp = $ts, input.createdAt = timestamp(), input.updatedAt = timestamp()
+               MERGE (envelope)-[:CONSUMES]->(input)`,
+              { envelopeUri: uri, inputUri, ts },
+            );
+          }
+
           for (const [outputUri, outputValue] of data.payload.outputs) {
             const outputResult = await this.receiveWithExecutor(
               [outputUri, outputValue],
               executor,
+              uri,
             );
             if (!outputResult.accepted) {
               return {
@@ -211,6 +293,17 @@ export class Neo4jClient implements NodeProtocolInterface {
               };
             }
           }
+        }
+      }
+
+      // For transactional path, create PRODUCES edges after outputs exist
+      if (isMessageData(data) && executor.transaction) {
+        for (const [outputUri] of data.payload.outputs) {
+          await executor.write(
+            `MATCH (envelope:Record {uri: $envelopeUri}), (output:Record {uri: $outputUri})
+             MERGE (envelope)-[:PRODUCES]->(output)`,
+            { envelopeUri: uri, outputUri },
+          );
         }
       }
 
@@ -248,6 +341,13 @@ export class Neo4jClient implements NodeProtocolInterface {
       }
 
       const row = rows[0];
+      if (row.data === undefined || row.data === null) {
+        return {
+          success: false,
+          error: `Not found: ${uri}`,
+          errorDetail: Errors.notFound(uri),
+        };
+      }
       const parsed = JSON.parse(row.data as string);
       const decodedData = decodeBinaryFromJson(parsed) as T;
 
@@ -296,6 +396,7 @@ export class Neo4jClient implements NodeProtocolInterface {
       const found = new Map<string, PersistenceRecord<T>>();
       for (const row of rows) {
         const docUri = row.uri as string;
+        if (row.data === undefined || row.data === null) continue;
         const parsed = JSON.parse(row.data as string);
         const decodedData = decodeBinaryFromJson(parsed) as T;
         found.set(docUri, {
@@ -374,6 +475,9 @@ export class Neo4jClient implements NodeProtocolInterface {
         params.pattern = `.*${options.pattern}.*`;
       }
 
+      // Exclude stub nodes (created only for CHILD_OF hierarchy, no data)
+      whereClause += " AND n.data IS NOT NULL";
+
       // Sort
       const sortField = options?.sortBy === "timestamp"
         ? "n.timestamp"
@@ -413,8 +517,9 @@ export class Neo4jClient implements NodeProtocolInterface {
 
   async delete(uri: string): Promise<DeleteResult> {
     try {
+      // DETACH DELETE removes the node and all its relationships
       const result = await this.executor.write(
-        "MATCH (n:Record {uri: $uri}) DELETE n",
+        "MATCH (n:Record {uri: $uri}) DETACH DELETE n",
         { uri },
       );
 
@@ -481,8 +586,169 @@ export class Neo4jClient implements NodeProtocolInterface {
     this.connected = false;
   }
 
+  // ── Graph-specific query methods ─────────────────────────────────────
+
+  /**
+   * Get provenance information for a record.
+   * Returns the envelope that produced it and the inputs/outputs of that envelope.
+   */
+  async provenance(uri: string): Promise<ProvenanceResult> {
+    try {
+      // Find the envelope that PRODUCES this URI
+      const producerRows = await this.executor.run(
+        `MATCH (envelope:Record)-[:PRODUCES]->(target:Record {uri: $uri})
+         RETURN envelope.uri AS envelopeUri`,
+        { uri },
+      );
+
+      const producedBy = producerRows.length > 0
+        ? (producerRows[0].envelopeUri as string)
+        : undefined;
+
+      // Find what this URI produces (if it's an envelope)
+      const producesRows = await this.executor.run(
+        `MATCH (envelope:Record {uri: $uri})-[:PRODUCES]->(output:Record)
+         RETURN output.uri AS outputUri`,
+        { uri },
+      );
+      const produces = producesRows.map((r) => r.outputUri as string);
+
+      // Find what this URI consumes (if it's an envelope)
+      const consumesRows = await this.executor.run(
+        `MATCH (envelope:Record {uri: $uri})-[:CONSUMES]->(input:Record)
+         RETURN input.uri AS inputUri`,
+        { uri },
+      );
+      const consumes = consumesRows.map((r) => r.inputUri as string);
+
+      return { success: true, producedBy, consumes, produces };
+    } catch (error) {
+      return {
+        success: false,
+        consumes: [],
+        produces: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Get ancestors of a URI by following CHILD_OF edges upward.
+   * Returns parent, grandparent, etc. up to maxDepth (default 10).
+   */
+  async ancestors(uri: string, maxDepth = 10): Promise<GraphTraversalResult> {
+    try {
+      const rows = await this.executor.run(
+        `MATCH path = (start:Record {uri: $uri})-[:CHILD_OF*1..${maxDepth}]->(ancestor:Record)
+         RETURN ancestor.uri AS uri, length(path) AS depth
+         ORDER BY depth ASC`,
+        { uri },
+      );
+
+      const nodes: GraphNode[] = rows.map((r) => ({
+        uri: r.uri as string,
+        relationship: "CHILD_OF",
+        depth: typeof r.depth === "number" ? r.depth : Number(r.depth),
+      }));
+
+      return { success: true, nodes };
+    } catch (error) {
+      return {
+        success: false,
+        nodes: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Get descendants of a URI by following CHILD_OF edges downward.
+   * Returns children, grandchildren, etc. up to maxDepth (default 10).
+   */
+  async descendants(
+    uri: string,
+    maxDepth = 10,
+  ): Promise<GraphTraversalResult> {
+    try {
+      const rows = await this.executor.run(
+        `MATCH path = (descendant:Record)-[:CHILD_OF*1..${maxDepth}]->(start:Record {uri: $uri})
+         RETURN descendant.uri AS uri, length(path) AS depth
+         ORDER BY depth ASC`,
+        { uri },
+      );
+
+      const nodes: GraphNode[] = rows.map((r) => ({
+        uri: r.uri as string,
+        relationship: "CHILD_OF",
+        depth: typeof r.depth === "number" ? r.depth : Number(r.depth),
+      }));
+
+      return { success: true, nodes };
+    } catch (error) {
+      return {
+        success: false,
+        nodes: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Find all records related to a URI through any relationship type,
+   * up to maxDepth hops (default 3). Useful for exploring the graph
+   * around a particular record.
+   */
+  async related(uri: string, maxDepth = 3): Promise<GraphTraversalResult> {
+    try {
+      const rows = await this.executor.run(
+        `MATCH path = (start:Record {uri: $uri})-[r*1..${maxDepth}]-(related:Record)
+         WHERE related.uri <> $uri
+         RETURN DISTINCT related.uri AS uri, type(head(r)) AS rel, length(path) AS depth
+         ORDER BY depth ASC`,
+        { uri },
+      );
+
+      const nodes: GraphNode[] = rows.map((r) => ({
+        uri: r.uri as string,
+        relationship: r.rel as string,
+        depth: typeof r.depth === "number" ? r.depth : Number(r.depth),
+      }));
+
+      return { success: true, nodes };
+    } catch (error) {
+      return {
+        success: false,
+        nodes: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  // ── Private helpers ──────────────────────────────────────────────────
+
   private extractProgramKey(uri: string): string {
     const url = new URL(uri);
     return `${url.protocol}//${url.hostname}`;
+  }
+
+  /**
+   * Extract the parent URI for hierarchy edges.
+   * e.g. "store://users/alice" → "store://users"
+   *      "store://files/docs/2024" → "store://files/docs"
+   * Returns undefined if the URI is already a root (e.g. "store://users").
+   *
+   * Works on the raw string to handle URI schemes where new URL() puts
+   * path segments into the hostname (e.g. store://users/alice →
+   * hostname="users", pathname="/alice").
+   */
+  private parentUri(uri: string): string | undefined {
+    // Find the :// separator
+    const schemeEnd = uri.indexOf("://");
+    if (schemeEnd === -1) return undefined;
+    // Everything after :// is the authority + path
+    const rest = uri.substring(schemeEnd + 3); // "users/alice"
+    const lastSlash = rest.lastIndexOf("/");
+    if (lastSlash <= 0) return undefined; // already at root (e.g. "users")
+    return uri.substring(0, schemeEnd + 3) + rest.substring(0, lastSlash);
   }
 }
