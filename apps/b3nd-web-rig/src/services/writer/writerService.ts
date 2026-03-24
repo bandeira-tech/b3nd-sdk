@@ -1,11 +1,11 @@
 import { WalletClient, generateSessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
 import type { SessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
-import { HttpClient } from "@bandeira-tech/b3nd-web";
+import { HttpClient, Identity } from "@bandeira-tech/b3nd-web";
+import type { ExportedIdentity } from "@bandeira-tech/b3nd-web";
 import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
 import type { KeyBundle } from "../../types";
-import { HttpAdapter } from "../../adapters/HttpAdapter";
 
 type ValidationFormat = "email" | "";
 type WriteKind = "plain" | "encrypted";
@@ -79,17 +79,6 @@ export const createWalletClient = (walletServerUrl: string) => {
   });
 };
 
-export const createBackendClient = (activeBackend: { adapter?: unknown } | null) => {
-  if (!activeBackend?.adapter || !(activeBackend.adapter instanceof HttpAdapter)) {
-    throw new Error("Active backend with HTTP adapter is required");
-  }
-  if (!activeBackend.adapter.baseUrl) {
-    throw new Error("Active backend URL is required");
-  }
-  return new HttpClient({
-    url: activeBackend.adapter.baseUrl.replace(/\/$/, ""),
-  });
-};
 
 export const createAppsClient = (appServerUrl: string) => {
   ensureValue(appServerUrl, "App server URL");
@@ -99,48 +88,59 @@ export const createAppsClient = (appServerUrl: string) => {
   });
 };
 
-export const generateAppKeys = async () => {
-  const kp =
-    (await crypto.subtle.generateKey("Ed25519", true, [
-      "sign",
-      "verify",
-    ])) as CryptoKeyPair;
-  const pub = await crypto.subtle.exportKey("raw", kp.publicKey);
-  const priv = await crypto.subtle.exportKey("pkcs8", kp.privateKey);
-  const pubHex = Array.from(new Uint8Array(pub))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  const privB64 = btoa(String.fromCharCode(...new Uint8Array(priv)));
-  const privPem = `-----BEGIN PRIVATE KEY-----\n${
-    (privB64.match(/.{1,64}/g) || []).join("\n")
-  }\n-----END PRIVATE KEY-----`;
+/**
+ * Generate a new account identity (Ed25519 signing + X25519 encryption).
+ *
+ * Uses the rig's Identity.generate() under the hood — the same codepath
+ * used by CLI and server apps. Returns KeyBundle format for persistence
+ * compatibility; callers that need an Identity should use
+ * `createIdentityFromKeyBundle()` to reconstruct one.
+ */
+export const generateAppKeys = async (): Promise<KeyBundle> => {
+  const identity = await Identity.generate();
+  const exported = await identity.export();
 
-  const encKp = (await crypto.subtle.generateKey(
-    { name: "X25519", namedCurve: "X25519" } as unknown as EcKeyGenParams,
-    true,
-    ["deriveBits"],
-  )) as CryptoKeyPair;
-  const encPubRaw = await crypto.subtle.exportKey("raw", encKp.publicKey);
-  const encPubHex = Array.from(new Uint8Array(encPubRaw))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  const encPrivPkcs8 = await crypto.subtle.exportKey(
-    "pkcs8",
-    encKp.privateKey,
-  );
-  const encPrivB64 = btoa(
-    String.fromCharCode(...new Uint8Array(encPrivPkcs8)),
-  );
-  const encPrivPem = `-----BEGIN PRIVATE KEY-----\n${
-    (encPrivB64.match(/.{1,64}/g) || []).join("\n")
-  }\n-----END PRIVATE KEY-----`;
+  // Convert PKCS8 hex → PEM for backward compat with KeyBundle format
+  const sigPem = hexToPem(exported.signingPrivateKeyHex!);
+  const encPem = hexToPem(exported.encryptionPrivateKeyHex!);
 
   return {
-    appKey: pubHex,
-    accountPrivateKeyPem: privPem,
-    encryptionPublicKeyHex: encPubHex,
-    encryptionPrivateKeyPem: encPrivPem,
-  } as KeyBundle;
+    appKey: exported.signingPublicKeyHex,
+    accountPrivateKeyPem: sigPem,
+    encryptionPublicKeyHex: exported.encryptionPublicKeyHex,
+    encryptionPrivateKeyPem: encPem,
+  };
+};
+
+/** Convert PKCS8 hex to PEM format. */
+function hexToPem(hex: string): string {
+  const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)));
+  const b64 = btoa(String.fromCharCode(...bytes));
+  return `-----BEGIN PRIVATE KEY-----\n${(b64.match(/.{1,64}/g) || []).join("\n")}\n-----END PRIVATE KEY-----`;
+}
+
+/** Convert PEM to PKCS8 hex. */
+function pemToHex(pem: string): string {
+  const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+  const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Reconstruct a rig Identity from a legacy KeyBundle.
+ *
+ * This bridges the old persistence format to the canonical Identity type.
+ * Use this when you need Identity methods (signMessage, encrypt, etc.)
+ * from stored account data.
+ */
+export const createIdentityFromKeyBundle = async (kb: KeyBundle): Promise<Identity> => {
+  const exported: ExportedIdentity = {
+    signingPublicKeyHex: kb.appKey,
+    signingPrivateKeyHex: pemToHex(kb.accountPrivateKeyPem),
+    encryptionPublicKeyHex: kb.encryptionPublicKeyHex,
+    encryptionPrivateKeyHex: kb.encryptionPrivateKeyPem ? pemToHex(kb.encryptionPrivateKeyPem) : undefined,
+  };
+  return Identity.fromExport(exported);
 };
 
 export const updateOrigins = async (params: {
@@ -460,8 +460,10 @@ export const signAppPayload = async (params: {
   payload: unknown;
   appKey: string;
   accountPrivateKeyPem: string;
+  identity?: Identity;
 }) => {
-  const { payload, appKey, accountPrivateKeyPem } = params;
+  const { payload, identity, appKey, accountPrivateKeyPem } = params;
+  if (identity) return identity.signMessage(payload);
   return signPayload(payload, appKey, accountPrivateKeyPem);
 };
 
@@ -470,13 +472,21 @@ export const signEncryptedAppPayload = async (params: {
   appKey: string;
   accountPrivateKeyPem: string;
   encryptionPublicKeyHex: string;
+  identity?: Identity;
 }) => {
   const {
     payload,
+    identity,
     appKey,
     accountPrivateKeyPem,
     encryptionPublicKeyHex,
   } = params;
+  if (identity) {
+    // Use Identity's encrypt + sign
+    const plaintext = new TextEncoder().encode(JSON.stringify(payload));
+    const encrypted = await identity.encrypt(plaintext, encryptionPublicKeyHex);
+    return identity.signMessage(encrypted);
+  }
   return signAndEncryptPayload(
     payload,
     appKey,

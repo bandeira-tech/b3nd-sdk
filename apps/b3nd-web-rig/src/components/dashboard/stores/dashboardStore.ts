@@ -174,35 +174,30 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
     const { b3ndUri } = get();
 
-    // Resolve B3nd node URL from the active backend in settings
+    // Use rig client from the active backend
     const appState = useAppStore.getState();
-    const activeBackend = appState.backends.find(
-      (b) => b.id === appState.activeBackendId
-    );
-    const b3ndUrl = activeBackend?.adapter?.baseUrl || "";
+    const rigClient = appState.rig?.client;
 
-    // If a B3nd URI is configured, read from B3nd
-    if (b3ndUrl && b3ndUri) {
+    // If a B3nd URI is configured and rig is available, read from B3nd
+    if (rigClient && b3ndUri) {
       try {
         const base = b3ndUri.replace(/\/$/, "");
-        const uriPath = `${base}/results`.replace("://", "/");
-        const res = await fetch(`${b3ndUrl}/api/v1/read/${uriPath}`);
+        const resultsUri = `${base}/results`;
+        const readResult = await rigClient.read(resultsUri);
 
-        if (res.ok) {
-          const record = await res.json();
-          const staticData: StaticTestData = record.data ?? record;
+        if (readResult.success && readResult.record) {
+          const staticData: StaticTestData = readResult.record.data;
 
           // Skip update if data hasn't changed
           if (isRefresh && staticData.generatedAt === prev.staticData?.generatedAt) return;
 
           let rawLogs = "";
           try {
-            const logsPath = `${base}/logs`.replace("://", "/");
-            const logsRes = await fetch(`${b3ndUrl}/api/v1/read/${logsPath}`);
-            if (logsRes.ok) {
-              const logsRecord = await logsRes.json();
-              const logsData = logsRecord.data ?? logsRecord;
-              rawLogs = Array.isArray(logsData.lines)
+            const logsUri = `${base}/logs`;
+            const logsResult = await rigClient.read(logsUri);
+            if (logsResult.success && logsResult.record) {
+              const logsData = logsResult.record.data;
+              rawLogs = Array.isArray(logsData?.lines)
                 ? logsData.lines.join("\n")
                 : typeof logsData === "string" ? logsData : "";
             }

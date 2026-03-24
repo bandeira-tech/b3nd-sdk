@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAppStore } from "../../stores/appStore";
 
 /**
- * Read from a b3nd URI. Tries the active backend first, falls back to static.
+ * Read from a b3nd URI. Tries the active rig client first, falls back to static.
  * No caching — data lives in component state and is released on unmount.
  * Whether to cache is a client/transport concern, not an app concern.
  */
@@ -15,10 +15,7 @@ export function useRead<T = unknown>(uri: string | null): {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const baseUrl = useAppStore((s) => {
-    const backend = s.backends.find((b) => b.id === s.activeBackendId);
-    return backend?.adapter?.baseUrl ?? "";
-  });
+  const rig = useAppStore((s) => s.rig);
 
   useEffect(() => {
     if (!uri) {
@@ -34,14 +31,12 @@ export function useRead<T = unknown>(uri: string | null): {
     setData(null);
 
     (async () => {
-      // Try b3nd client
-      if (baseUrl) {
+      // Try rig client
+      if (rig) {
         try {
-          const apiPath = "/api/v1/read/" + uri.replace("://", "/");
-          const res = await fetch(`${baseUrl}${apiPath}`);
-          if (res.ok && !cancelled) {
-            const json = await res.json();
-            setData((json.data ?? json) as T);
+          const result = await rig.read<T>(uri);
+          if (result.success && result.record && !cancelled) {
+            setData(result.record.data);
             setLoading(false);
             return;
           }
@@ -72,14 +67,17 @@ export function useRead<T = unknown>(uri: string | null): {
     })();
 
     return () => { cancelled = true; };
-  }, [uri, baseUrl]);
+  }, [uri, rig]);
 
   return { data, loading, error };
 }
 
 function resolveStaticPath(uri: string): string | null {
   if (uri === "mutable://open/rig/learn/catalog") return "/learn/catalog.json";
-  const chapterMatch = uri.match(/\/chapters\/[^/]+\/(.+)$/);
-  if (chapterMatch) return `/learn/chapters/${chapterMatch[1]}.json`;
+  const chapterMatch = uri.match(/\/chapters\/([^/]+)\/(.+)$/);
+  if (chapterMatch) return `/learn/chapters/${chapterMatch[1]}/${chapterMatch[2]}.json`;
+  if (uri === "mutable://open/rig/api-docs/catalog") return "/api-docs/catalog.json";
+  const libMatch = uri.match(/\/api-docs\/libraries\/(.+)$/);
+  if (libMatch) return `/api-docs/libraries/${libMatch[1]}.json`;
   return null;
 }

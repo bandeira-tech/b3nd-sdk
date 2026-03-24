@@ -80,7 +80,7 @@ export interface EndpointConfig {
 
 // Application state types
 export type AppMode = "filesystem" | "search" | "watched";
-export type AppExperience = "explorer" | "editor" | "writer" | "dashboard" | "nodes" | "learn";
+export type AppExperience = "explorer" | "editor" | "writer" | "dashboard" | "nodes" | "learn" | "api-docs";
 export type WriterSection =
   | "backend"
   | "hash"
@@ -232,9 +232,9 @@ export interface AppState {
 // Action types for state management
 export interface AppActions {
   // Backend actions
-  addBackend: (config: Omit<BackendConfig, "id">) => void;
+  addBackend: (config: Omit<BackendConfig, "id">) => void | Promise<void>;
   removeBackend: (id: string) => void;
-  setActiveBackend: (id: string) => void;
+  setActiveBackend: (id: string) => void | Promise<void>;
   loadEndpoints: () => Promise<void>;
   addWalletServer: (config: Omit<EndpointConfig, "id">) => void;
   removeWalletServer: (id: string) => void;

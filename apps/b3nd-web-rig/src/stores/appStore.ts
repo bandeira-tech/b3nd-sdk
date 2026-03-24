@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { Rig } from "@bandeira-tech/b3nd-web";
+import { createIdentityFromKeyBundle } from "../services/writer/writerService";
 import type {
   AppActions,
   AppExperience,
@@ -18,7 +20,6 @@ import type {
 } from "../types";
 import { HttpAdapter } from "../adapters/HttpAdapter";
 import { generateId, joinPath, sanitizePath } from "../utils";
-// Using latest sdk HttpClient via HttpAdapter; no external client manager
 
 // Serializable backend config for persistence
 interface SerializableBackendConfig {
@@ -78,7 +79,7 @@ async function loadAllEndpoints(): Promise<{
 }> {
   const config = await loadInstanceConfig();
 
-  const backends: BackendConfig[] = [];
+  const backends: Array<{ id: string; name: string; baseUrl: string; isActive: boolean }> = [];
   if (config.backends) {
     const defaultBackendId = config.defaults?.backend;
     for (const id of Object.keys(config.backends)) {
@@ -87,7 +88,7 @@ async function loadAllEndpoints(): Promise<{
       backends.push({
         id,
         name: entry.name || id,
-        adapter: new HttpAdapter(entry.baseUrl),
+        baseUrl: entry.baseUrl,
         isActive: id === defaultBackendId,
       });
     }
@@ -128,6 +129,21 @@ async function loadAllEndpoints(): Promise<{
     walletServers,
     appServers,
     defaults: config.defaults || {},
+  };
+}
+
+/** Create a BackendConfig backed by a Rig instance. */
+async function createBackendFromUrl(
+  id: string,
+  name: string,
+  baseUrl: string,
+  isActive: boolean,
+): Promise<{ backend: BackendConfig; rig: Rig }> {
+  const rig = await Rig.connect(baseUrl);
+  const adapter = new HttpAdapter(rig.client, baseUrl);
+  return {
+    backend: { id, name, adapter, isActive },
+    rig,
   };
 }
 
@@ -182,6 +198,8 @@ const initialState: Omit<AppState, "backendsReady"> = {
 
 export interface AppStore extends AppState, AppActions {
   backendsReady: boolean;
+  /** The active Rig instance — null until backends are loaded. Not persisted. */
+  rig: Rig | null;
   panelPreferences: {
     right: Record<string, boolean>;
   };
@@ -205,22 +223,25 @@ export const useAppStore = create<AppStore>()(
       return {
         ...initialState,
         backendsReady: false,
+        rig: null,
         panelPreferences: { right: {} },
 
-        addBackend: (config) => {
-          set((state) => {
-            // Mark adapter as user-added for persistence
-            const adapter = config.adapter;
-            (adapter as any).isUserAdded = true;
-
-            return {
-              backends: [...state.backends, {
-                ...config,
-                id: generateId(),
-                adapter,
-              }],
-            };
-          });
+        addBackend: async (config) => {
+          const baseUrl = config.adapter?.baseUrl || "";
+          if (!baseUrl) {
+            console.error("[addBackend] No baseUrl provided");
+            return;
+          }
+          try {
+            const id = generateId();
+            const { backend } = await createBackendFromUrl(id, config.name, baseUrl, config.isActive);
+            (backend.adapter as any).isUserAdded = true;
+            set((state) => ({
+              backends: [...state.backends, backend],
+            }));
+          } catch (err) {
+            console.error("[addBackend] Failed:", err);
+          }
         },
 
         addWalletServer: (config) => {
@@ -309,29 +330,50 @@ export const useAppStore = create<AppStore>()(
           });
         },
 
-        setActiveBackend: (id) => {
-          set((state) => {
-            const backend = state.backends.find((b) => b.id === id);
-            if (backend) {
-              // Update isActive flags
-              const updatedBackends = state.backends.map((b) => ({
-                ...b,
-                isActive: b.id === id,
-              }));
-              return {
-                backends: updatedBackends,
-                activeBackendId: id,
-                currentPath: "/", // Reset to root when switching
-                explorerSection: "index" as ExplorerSection,
-                explorerIndexPath: "/",
-                explorerAccountPath: "/",
-                navigationHistory: ["/"],
-                expandedPaths: new Set(),
-                schemas: {}, // Clear schemas when switching
-                rootNodes: [], // Clear root nodes when switching
-              };
+        setActiveBackend: async (id) => {
+          const state = get();
+          const backend = state.backends.find((b) => b.id === id);
+          if (!backend) return;
+
+          // Cleanup previous rig
+          if (state.rig) {
+            state.rig.cleanup().catch(() => {});
+          }
+
+          // Create new rig for this backend
+          const baseUrl = backend.adapter.baseUrl || "";
+          let rig: Rig | null = null;
+          try {
+            rig = await Rig.connect(baseUrl);
+            // Transfer existing identity to new rig
+            if (state.rig?.identity) {
+              rig.identity = state.rig.identity;
             }
-            return state;
+            // Update the adapter to use the new rig's client
+            (backend.adapter as HttpAdapter).setClient(rig.client);
+          } catch (err) {
+            console.error("[setActiveBackend] Failed to create rig:", err);
+          }
+
+          set(() => {
+            // Update isActive flags
+            const updatedBackends = state.backends.map((b) => ({
+              ...b,
+              isActive: b.id === id,
+            }));
+            return {
+              backends: updatedBackends,
+              activeBackendId: id,
+              rig,
+              currentPath: "/", // Reset to root when switching
+              explorerSection: "index" as ExplorerSection,
+              explorerIndexPath: "/",
+              explorerAccountPath: "/",
+              navigationHistory: ["/"],
+              expandedPaths: new Set(),
+              schemas: {}, // Clear schemas when switching
+              rootNodes: [], // Clear root nodes when switching
+            };
           });
 
           // Load schemas after switching backend
@@ -814,6 +856,15 @@ export const useAppStore = create<AppStore>()(
             accounts: [account, ...state.accounts],
             activeAccountId: account.id,
           }));
+          // Sync rig identity with the new active account
+          const rig = get().rig;
+          if (rig && account.type !== "application-user" && account.keyBundle) {
+            createIdentityFromKeyBundle(account.keyBundle).then((identity) => {
+              rig.identity = identity;
+            }).catch((err) => {
+              console.error("[addAccount] Failed to create identity:", err);
+            });
+          }
         },
 
         removeAccount: (id: string) => {
@@ -828,6 +879,22 @@ export const useAppStore = create<AppStore>()(
 
         setActiveAccount: (id: string | null) => {
           set({ activeAccountId: id });
+          // Sync rig identity with active account
+          const state = get();
+          const rig = state.rig;
+          if (!rig) return;
+          if (!id) {
+            rig.identity = null;
+            return;
+          }
+          const account = state.accounts.find((a) => a.id === id);
+          if (account && account.type !== "application-user" && account.keyBundle) {
+            createIdentityFromKeyBundle(account.keyBundle).then((identity) => {
+              rig.identity = identity;
+            }).catch((err) => {
+              console.error("[setActiveAccount] Failed to create identity:", err);
+            });
+          }
         },
 
         setFormValue: (formId, field, value) => {
@@ -946,22 +1013,51 @@ export const useAppStore = create<AppStore>()(
       },
       onRehydrateStorage: () => async (state) => {
         console.log("[onRehydrate] Starting rehydration");
-        const { backends, walletServers, appServers, defaults } = await loadAllEndpoints();
+        const { backends: rawBackends, walletServers, appServers, defaults } = await loadAllEndpoints();
 
         if (state) {
           const userBackends: SerializableBackendConfig[] = (state as any).userBackends || [];
-          const restoredUserBackends: BackendConfig[] = userBackends.map((b) => ({
-            id: b.id,
-            name: b.name,
-            adapter: Object.assign(new HttpAdapter(b.baseUrl), { isUserAdded: true }),
-            isActive: b.isActive,
-          }));
 
-          state.backends = [...backends, ...restoredUserBackends];
-          const allBackends = [...backends, ...restoredUserBackends];
-          const validBackendId = allBackends.find((b) => b.id === state.activeBackendId)?.id;
+          // Create Rig-backed BackendConfigs for all backends
+          const allRaw = [
+            ...rawBackends.map((b) => ({ ...b, isUserAdded: false })),
+            ...userBackends.map((b) => ({ ...b, isUserAdded: true })),
+          ];
+
+          const results = await Promise.allSettled(
+            allRaw.map(async (b) => {
+              const { backend, rig } = await createBackendFromUrl(b.id, b.name, b.baseUrl, b.isActive);
+              if (b.isUserAdded) {
+                (backend.adapter as any).isUserAdded = true;
+              }
+              return { backend, rig };
+            }),
+          );
+
+          const backends: BackendConfig[] = [];
+          let activeRig: Rig | null = null;
+
+          for (const r of results) {
+            if (r.status === "fulfilled") {
+              backends.push(r.value.backend);
+            } else {
+              console.error("[onRehydrate] Failed to create backend:", r.reason);
+            }
+          }
+
+          state.backends = backends;
+          const validBackendId = backends.find((b) => b.id === state.activeBackendId)?.id;
           const defaultBackend = backends.find((b) => b.isActive) || backends.find((b) => b.id === defaults.backend);
-          state.activeBackendId = validBackendId || defaultBackend?.id || allBackends[0]?.id || null;
+          state.activeBackendId = validBackendId || defaultBackend?.id || backends[0]?.id || null;
+
+          // Set the active rig to the one matching the active backend
+          for (const r of results) {
+            if (r.status === "fulfilled" && r.value.backend.id === state.activeBackendId) {
+              activeRig = r.value.rig;
+              break;
+            }
+          }
+          state.rig = activeRig;
 
           const mergedWalletServers = state.walletServers?.length ? state.walletServers : walletServers;
           const validWalletId = mergedWalletServers.find((w) => w.id === state.activeWalletServerId)?.id;
@@ -1044,18 +1140,49 @@ export const useAppStore = create<AppStore>()(
 
           state.backendsReady = true;
 
-          setTimeout(() => {
+          setTimeout(async () => {
             const store = useAppStore.getState();
             store.loadSchemas();
+            // Sync rig identity with active account after rehydration
+            if (store.rig && store.activeAccountId) {
+              const account = store.accounts.find((a) => a.id === store.activeAccountId);
+              if (account && account.type !== "application-user" && account.keyBundle) {
+                try {
+                  store.rig.identity = await createIdentityFromKeyBundle(account.keyBundle);
+                } catch (err) {
+                  console.error("[rehydrate] Failed to set rig identity:", err);
+                }
+              }
+            }
           }, 0);
         } else {
+          // Fresh state — create rig-backed backends
+          const freshResults = await Promise.allSettled(
+            rawBackends.map((b) => createBackendFromUrl(b.id, b.name, b.baseUrl, b.isActive)),
+          );
+          const freshBackends: BackendConfig[] = [];
+          let freshRig: Rig | null = null;
+          for (const r of freshResults) {
+            if (r.status === "fulfilled") {
+              freshBackends.push(r.value.backend);
+            }
+          }
+          const freshActiveId =
+            freshBackends.find((b) => b.isActive)?.id ||
+            freshBackends.find((b) => b.id === defaults.backend)?.id ||
+            freshBackends[0]?.id ||
+            null;
+          for (const r of freshResults) {
+            if (r.status === "fulfilled" && r.value.backend.id === freshActiveId) {
+              freshRig = r.value.rig;
+              break;
+            }
+          }
+
           useAppStore.setState({
-            backends,
-            activeBackendId:
-              backends.find((b) => b.isActive)?.id ||
-              backends.find((b) => b.id === defaults.backend)?.id ||
-              backends[0]?.id ||
-              null,
+            backends: freshBackends,
+            activeBackendId: freshActiveId,
+            rig: freshRig,
             walletServers,
             activeWalletServerId:
               walletServers.find((w) => w.isActive)?.id ||

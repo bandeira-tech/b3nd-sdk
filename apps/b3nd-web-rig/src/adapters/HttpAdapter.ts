@@ -6,17 +6,39 @@ import type {
   SearchFilters,
   SearchResult,
 } from "../types";
-import { HttpClient } from "@bandeira-tech/b3nd-web";
+
+/**
+ * Media-level adapter that translates between Explorer UI paths
+ * and b3nd URIs. Delegates all network operations to the provided client.
+ *
+ * The client can be a Rig's `.client` (NodeProtocolInterface), an HttpClient,
+ * or any object with `list`, `read`, `getSchema`, and `health` methods.
+ */
+
+interface ClientLike {
+  list(
+    uri: string,
+    options?: { page?: number; limit?: number },
+  ): Promise<{ success: boolean; data: any[]; pagination?: any; error?: string }>;
+  read(uri: string): Promise<{ success: boolean; record?: PersistenceRecord; error?: string }>;
+  getSchema(): Promise<string[]>;
+  health(): Promise<{ status: string }>;
+}
 
 export class HttpAdapter implements BackendAdapter {
   name = "HTTP Backend";
   type = "http" as const;
   baseUrl: string;
-  private client: HttpClient;
+  private client: ClientLike;
 
-  constructor(baseUrl: string) {
+  constructor(client: ClientLike, baseUrl: string) {
     this.baseUrl = baseUrl;
-    this.client = new HttpClient({ url: baseUrl });
+    this.client = client;
+  }
+
+  /** Swap the underlying client (e.g. on backend switch). */
+  setClient(client: ClientLike) {
+    this.client = client;
   }
 
   async listPath(

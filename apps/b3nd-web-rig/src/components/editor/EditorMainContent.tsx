@@ -19,9 +19,7 @@ import {
   decrypt as decryptData,
 } from "@bandeira-tech/b3nd-web/encrypt";
 import type { EncryptedPayload } from "@bandeira-tech/b3nd-web/encrypt";
-import { HttpClient } from "@bandeira-tech/b3nd-web";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
-import { HttpAdapter } from "../../adapters/HttpAdapter";
 import { signAppPayload } from "../../services/writer/writerService";
 import { cn } from "../../utils";
 import type { EditorDocument, SaveVersionInput } from "./EditorLayoutSlot";
@@ -120,13 +118,8 @@ export function EditorMainContent({
     setDecryptedVersionBody(null);
   }, [viewingVersionIndex]);
 
-  const getBackendClient = useCallback((): HttpClient | null => {
-    if (!activeBackend?.adapter || !(activeBackend.adapter instanceof HttpAdapter)) {
-      return null;
-    }
-    if (!activeBackend.adapter.baseUrl) return null;
-    return new HttpClient({ url: activeBackend.adapter.baseUrl.replace(/\/$/, "") });
-  }, [activeBackend]);
+  const rig = useAppStore((s) => s.rig);
+  const getBackendClient = useCallback(() => rig?.client ?? null, [rig]);
 
   // Decrypt a historical version from the backend
   const handleDecryptVersion = useCallback(async (hashUri: string) => {

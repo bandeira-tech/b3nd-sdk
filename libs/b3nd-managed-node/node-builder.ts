@@ -27,6 +27,7 @@ export async function buildClientsFromSpec(
     mongo?: (connectionString: string, dbName: string, collectionName: string) => Promise<any>;
     sqlite?: (path: string) => any;
     fs?: (rootDir: string) => any;
+    ipfs?: (apiUrl: string) => any;
   },
 ): Promise<NodeProtocolInterface[]> {
   const clients: NodeProtocolInterface[] = [];
