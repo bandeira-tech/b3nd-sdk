@@ -133,8 +133,12 @@ Deno.test("ObserveRegistry - multiple patterns match same URI", async () => {
   const registry = new ObserveRegistry();
   const calls: string[] = [];
 
-  registry.add("mutable://app/users/:id", () => calls.push("specific"));
-  registry.add("mutable://app/*", () => calls.push("wildcard"));
+  registry.add("mutable://app/users/:id", () => {
+    calls.push("specific");
+  });
+  registry.add("mutable://app/*", () => {
+    calls.push("wildcard");
+  });
 
   registry.match("mutable://app/users/alice", {});
   await new Promise((r) => setTimeout(r, 10));

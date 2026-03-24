@@ -2222,7 +2222,9 @@ Deno.test("Rig events - fires on receive success", async () => {
   const rig = await Rig.init({
     use: "memory://",
     on: {
-      "receive:success": [(e) => events.push(e)],
+      "receive:success": [(e) => {
+        events.push(e);
+      }],
     },
   });
 
@@ -2244,7 +2246,9 @@ Deno.test("Rig events - fires on receive error", async () => {
       },
     },
     on: {
-      "receive:error": [(e) => errors.push(e)],
+      "receive:error": [(e) => {
+        errors.push(e);
+      }],
     },
   });
 
@@ -2260,7 +2264,9 @@ Deno.test("Rig events - wildcard fires for all ops", async () => {
   const rig = await Rig.init({
     use: "memory://",
     on: {
-      "*:success": [(e) => events.push(e)],
+      "*:success": [(e) => {
+        events.push(e);
+      }],
     },
   });
 
@@ -2371,7 +2377,9 @@ Deno.test("Rig.on - runtime event handler works", async () => {
   const rig = await Rig.init({ use: "memory://" });
   const events: unknown[] = [];
 
-  const unsub = rig.on("receive:success", (e) => events.push(e));
+  const unsub = rig.on("receive:success", (e) => {
+    events.push(e);
+  });
 
   await rig.receive(["mutable://open/test", { x: 1 }]);
   await new Promise((r) => setTimeout(r, 20));
@@ -2388,7 +2396,9 @@ Deno.test("Rig.on - runtime event handler works", async () => {
 Deno.test("Rig.off - removes event handler", async () => {
   const rig = await Rig.init({ use: "memory://" });
   const events: unknown[] = [];
-  const handler = (e: unknown) => events.push(e);
+  const handler = (e: unknown) => {
+    events.push(e);
+  };
 
   rig.on("receive:success", handler);
   await rig.receive(["mutable://open/a", { v: 1 }]);

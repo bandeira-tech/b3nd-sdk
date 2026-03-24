@@ -106,9 +106,15 @@ Deno.test("RigEventEmitter - handler errors are swallowed", async () => {
 Deno.test("RigEventEmitter - multiple handlers for same event", async () => {
   const emitter = new RigEventEmitter();
   const calls: number[] = [];
-  emitter.on("list:success", () => calls.push(1));
-  emitter.on("list:success", () => calls.push(2));
-  emitter.on("list:success", () => calls.push(3));
+  emitter.on("list:success", () => {
+    calls.push(1);
+  });
+  emitter.on("list:success", () => {
+    calls.push(2);
+  });
+  emitter.on("list:success", () => {
+    calls.push(3);
+  });
 
   emitter.emit("list:success", { op: "list", ts: 1 });
   await new Promise((r) => setTimeout(r, 10));
@@ -118,8 +124,12 @@ Deno.test("RigEventEmitter - multiple handlers for same event", async () => {
 Deno.test("RigEventEmitter - specific + wildcard both fire", async () => {
   const emitter = new RigEventEmitter();
   const calls: string[] = [];
-  emitter.on("send:success", () => calls.push("specific"));
-  emitter.on("*:success", () => calls.push("wildcard"));
+  emitter.on("send:success", () => {
+    calls.push("specific");
+  });
+  emitter.on("*:success", () => {
+    calls.push("wildcard");
+  });
 
   emitter.emit("send:success", { op: "send", ts: 1 });
   await new Promise((r) => setTimeout(r, 10));

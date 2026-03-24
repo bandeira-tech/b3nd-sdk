@@ -28,8 +28,8 @@ import type {
   ManagedAccountType,
   ManagedApplicationUserAccount,
   ManagedKeyAccount,
-  WriterUserSession,
   WriterSessionKeypair,
+  WriterUserSession,
 } from "../../types";
 import { cn, routeForExplorerPath } from "../../utils";
 import { SectionCard } from "../common/SectionCard";
@@ -178,7 +178,7 @@ export function AccountsSidePanel(
   const requireBackendClient = () => {
     const rig = useAppStore.getState().rig;
     if (!rig) throw new Error("No rig instance available");
-    return rig.client;
+    return rig; // Return Rig directly so hooks/events/observe fire
   };
 
   return (
@@ -330,8 +330,8 @@ function ActiveAccountSummary(
       {activeAccount.type === "application"
         ? <WriterLink />
         : activeAccount.type !== "application-user"
-          ? <ExplorerLink appKey={activeAccount.pubkey} />
-          : <ExplorerLink appKey={activeAccount.appKey} />}
+        ? <ExplorerLink appKey={activeAccount.pubkey} />
+        : <ExplorerLink appKey={activeAccount.appKey} />}
     </div>
   );
 }
@@ -471,7 +471,8 @@ function KeyAccountForm(
     }
     setCreating(true);
     try {
-      const { exported, pubkey, encryptionPubkey } = await generateAccountIdentity();
+      const { exported, pubkey, encryptionPubkey } =
+        await generateAccountIdentity();
       onCreate({
         id: crypto.randomUUID(),
         type: accountType,
@@ -523,14 +524,20 @@ function ApplicationUserAccountForm(
     requireAppsClient: () => ReturnType<typeof createAppsClient>;
     requireWalletClient: () => ReturnType<typeof createWalletClient>;
     requireActiveWalletServer: () => { url: string };
-    requireBackendClient: () => { receive: (msg: [string, unknown]) => Promise<any>; read: (uri: string) => Promise<any>; list: (uri: string, opts?: any) => Promise<any> };
+    requireBackendClient: () => {
+      receive: (msg: [string, unknown]) => Promise<any>;
+      read: (uri: string) => Promise<any>;
+      list: (uri: string, opts?: any) => Promise<any>;
+    };
   },
 ) {
   const [selectedAppId, setSelectedAppId] = useState("");
-  const [appSessionForAccount, setAppSessionForAccount] = useState<{
-    sessionId: string;
-    sessionKeypair: WriterSessionKeypair;
-  } | null>(null);
+  const [appSessionForAccount, setAppSessionForAccount] = useState<
+    {
+      sessionId: string;
+      sessionKeypair: WriterSessionKeypair;
+    } | null
+  >(null);
   const [authKeys, setAuthKeys] = useState<AccountAuthKeys | null>(null);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const [name, setName] = useState(props.defaultIdentity.name);
@@ -621,7 +628,22 @@ function ApplicationUserAccountForm(
     googleScriptPromiseRef.current.then(() => {
       if (cancelled) return;
       const google = (window as any).google as
-        | { accounts?: { id?: { initialize: (opts: { client_id: string; callback: (response: { credential?: string }) => void }) => void; renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void } } }
+        | {
+          accounts?: {
+            id?: {
+              initialize: (
+                opts: {
+                  client_id: string;
+                  callback: (response: { credential?: string }) => void;
+                },
+              ) => void;
+              renderButton: (
+                el: HTMLElement,
+                opts: Record<string, unknown>,
+              ) => void;
+            };
+          };
+        }
         | undefined;
       const api = google?.accounts?.id;
       if (!api || !googleButtonRef.current) return;

@@ -86,7 +86,9 @@ export async function closeRig(logger?: Logger): Promise<void> {
 
 /**
  * Get the underlying NodeProtocolInterface client.
- * Use this for commands that need raw receive/read/list.
+ *
+ * @deprecated Use `getRig()` directly — operations through `rig.client`
+ * bypass hooks, events, and observe. Prefer `rig.receive()`, `rig.read()`, etc.
  */
 export async function getClient(logger?: Logger) {
   const rig = await getRig(logger);

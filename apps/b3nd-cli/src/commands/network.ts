@@ -7,7 +7,7 @@
  *   bnd network status <networkId>  - Read all node statuses in a network
  */
 
-import { closeClient, getClient } from "../client.ts";
+import { closeRig, getRig } from "../client.ts";
 import { loadConfig } from "../config.ts";
 import { createLogger } from "../logger.ts";
 import { loadAccountKey, signAsAuthenticatedMessage } from "../keys.ts";
@@ -86,7 +86,7 @@ export async function networkUp(
   const accountKey = await loadAccountKey();
 
   try {
-    const client = await getClient(logger);
+    const rig = await getRig(logger);
 
     for (const node of manifest.nodes) {
       const uri =
@@ -97,7 +97,7 @@ export async function networkUp(
         node.config,
         accountKey,
       );
-      const result = await client.receive([uri, signedConfig]);
+      const result = await rig.receive([uri, signedConfig]);
 
       if (result.accepted) {
         console.log(`  Pushed config for ${node.name}`);
@@ -115,10 +115,10 @@ export async function networkUp(
       manifest,
       accountKey,
     );
-    await client.receive([networkUri, signedManifest]);
+    await rig.receive([networkUri, signedManifest]);
     console.log(`\nNetwork manifest pushed to ${networkUri}`);
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 
   console.log(`\nConfigs pushed. To start each managed node:`);
@@ -142,17 +142,17 @@ export async function networkStatus(
     manifest = JSON.parse(content);
   } catch {
     try {
-      const client = await getClient(logger);
+      const rig = await getRig(logger);
       const uri =
         `mutable://accounts/${accountKey.publicKeyHex}/networks/${networkIdOrPath}`;
-      const result = await client.read(uri);
+      const result = await rig.read(uri);
       if (result.success && result.record) {
         const data = result.record.data as any;
         manifest = data.payload ?? data;
       } else {
         throw new Error("Not found");
       }
-      await closeClient(logger);
+      await closeRig(logger);
     } catch {
       throw new Error(
         `Cannot find network: ${networkIdOrPath} (not a file or known network ID)`,
@@ -165,12 +165,12 @@ export async function networkStatus(
   console.log("");
 
   try {
-    const client = await getClient(logger);
+    const rig = await getRig(logger);
 
     for (const node of manifest.nodes) {
       const nodeKey = node.publicKey;
       const statusUri = `mutable://accounts/${nodeKey}/status`;
-      const result = await client.read(statusUri);
+      const result = await rig.read(statusUri);
 
       if (result.success && result.record) {
         const data = result.record.data as any;
@@ -195,7 +195,7 @@ export async function networkStatus(
       }
     }
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 

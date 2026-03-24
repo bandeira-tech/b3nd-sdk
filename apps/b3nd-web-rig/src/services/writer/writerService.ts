@@ -1,4 +1,7 @@
-import { WalletClient, generateSessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
+import {
+  generateSessionKeypair,
+  WalletClient,
+} from "@bandeira-tech/b3nd-web/wallet";
 import type { SessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
 import { Identity } from "@bandeira-tech/b3nd-web";
 import type { ExportedIdentity } from "@bandeira-tech/b3nd-web";
@@ -13,12 +16,18 @@ type WriteKind = "plain" | "encrypted";
 const DEFAULT_API_BASE_PATH = "/api/v1";
 
 /**
- * Minimal backend client interface — satisfied by both HttpClient
- * and rig.client (NodeProtocolInterface).
+ * Minimal backend client interface — satisfied by both Rig (preferred —
+ * fires hooks/events/observe) and raw NodeProtocolInterface / HttpClient.
  */
 export interface BackendClient {
-  receive(msg: [string, unknown]): Promise<{ accepted: boolean; error?: string }>;
-  read(uri: string): Promise<{ success: boolean; record?: { ts: number; data: any }; error?: string }>;
+  receive(
+    msg: [string, unknown],
+  ): Promise<{ accepted: boolean; error?: string }>;
+  read(
+    uri: string,
+  ): Promise<
+    { success: boolean; record?: { ts: number; data: any }; error?: string }
+  >;
 }
 
 const ensureValue = (value: string | null | undefined, label: string) => {
@@ -86,7 +95,9 @@ export function migrateKeyBundle(kb: KeyBundle): ExportedIdentity {
     signingPublicKeyHex: kb.appKey,
     signingPrivateKeyHex: pemToHex(kb.accountPrivateKeyPem),
     encryptionPublicKeyHex: kb.encryptionPublicKeyHex,
-    encryptionPrivateKeyHex: kb.encryptionPrivateKeyPem ? pemToHex(kb.encryptionPrivateKeyPem) : undefined,
+    encryptionPrivateKeyHex: kb.encryptionPrivateKeyPem
+      ? pemToHex(kb.encryptionPrivateKeyPem)
+      : undefined,
   };
 }
 
@@ -134,7 +145,8 @@ export const updateOrigins = async (params: {
   allowedOrigins: string[];
   encryptionPublicKeyHex: string | null;
 }) => {
-  const { appsClient, identity, allowedOrigins, encryptionPublicKeyHex } = params;
+  const { appsClient, identity, allowedOrigins, encryptionPublicKeyHex } =
+    params;
   const payload = {
     allowedOrigins: allowedOrigins.length > 0 ? allowedOrigins : ["*"],
     encryptionPublicKeyHex: encryptionPublicKeyHex || null,
@@ -150,7 +162,13 @@ export const saveAppProfile = async (params: {
   allowedOrigins: string[];
   encryptionPublicKeyHex: string | null;
 }) => {
-  const { backendClient, identity, googleClientId, allowedOrigins, encryptionPublicKeyHex } = params;
+  const {
+    backendClient,
+    identity,
+    googleClientId,
+    allowedOrigins,
+    encryptionPublicKeyHex,
+  } = params;
   const profile = {
     googleClientId: googleClientId || null,
     allowedOrigins: allowedOrigins.length > 0 ? allowedOrigins : ["*"],
@@ -159,7 +177,10 @@ export const saveAppProfile = async (params: {
   const signedProfile = await identity.signMessage(profile);
   const uri = `mutable://accounts/${identity.pubkey}/app-profile`;
   const response = await backendClient.receive([uri, signedProfile]);
-  return { uri, response: { success: response.accepted, error: response.error } };
+  return {
+    uri,
+    response: { success: response.accepted, error: response.error },
+  };
 };
 
 export const fetchAppProfile = async (params: {
@@ -248,14 +269,18 @@ export const createSession = async (params: {
     sessionKeypair.publicKeyHex,
     sessionKeypair.privateKeyHex,
   );
-  const inboxUri = `immutable://inbox/${identity.pubkey}/sessions/${sessionKeypair.publicKeyHex}`;
+  const inboxUri =
+    `immutable://inbox/${identity.pubkey}/sessions/${sessionKeypair.publicKeyHex}`;
   await backendClient.receive([inboxUri, signedRequest]);
 
   // 2. Request app server to approve
   const message = await identity.signMessage(
     { sessionPubkey: sessionKeypair.publicKeyHex },
   );
-  const result = await appsClient.createSession(identity.pubkey, message as any);
+  const result = await appsClient.createSession(
+    identity.pubkey,
+    message as any,
+  );
 
   return { ...result, sessionKeypair };
 };
@@ -276,7 +301,11 @@ export const signupWithPassword = async (params: {
   if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
     throw new Error("Session keypair is required");
   }
-  return walletClient.signup(appKey, sessionKeypair, { type: "password", username, password });
+  return walletClient.signup(appKey, sessionKeypair, {
+    type: "password",
+    username,
+    password,
+  });
 };
 
 export const loginWithPassword = async (params: {
@@ -291,7 +320,11 @@ export const loginWithPassword = async (params: {
   if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
     throw new Error("Session keypair is required");
   }
-  return walletClient.login(appKey, sessionKeypair, { type: "password", username, password });
+  return walletClient.login(appKey, sessionKeypair, {
+    type: "password",
+    username,
+    password,
+  });
 };
 
 export const googleSignup = async (params: {
@@ -305,7 +338,10 @@ export const googleSignup = async (params: {
   if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
     throw new Error("Session keypair is required");
   }
-  return walletClient.signup(appKey, sessionKeypair, { type: "google", googleIdToken });
+  return walletClient.signup(appKey, sessionKeypair, {
+    type: "google",
+    googleIdToken,
+  });
 };
 
 export const googleLogin = async (params: {
@@ -319,7 +355,10 @@ export const googleLogin = async (params: {
   if (!sessionKeypair?.publicKeyHex || !sessionKeypair?.privateKeyHex) {
     throw new Error("Session keypair is required");
   }
-  return walletClient.login(appKey, sessionKeypair, { type: "google", googleIdToken });
+  return walletClient.login(appKey, sessionKeypair, {
+    type: "google",
+    googleIdToken,
+  });
 };
 
 export const fetchMyKeys = async (params: {
@@ -347,9 +386,14 @@ export const backendWritePlain = async (params: {
   ensureValue(writePayload, "Write payload");
   const payload = JSON.parse(writePayload);
   const value = await identity.signMessage(payload);
-  const targetUri = writeUri.includes(":key") ? writeUri.replace(/:key/g, identity.pubkey) : writeUri;
+  const targetUri = writeUri.includes(":key")
+    ? writeUri.replace(/:key/g, identity.pubkey)
+    : writeUri;
   const response = await backendClient.receive([targetUri, value]);
-  return { targetUri, response: { success: response.accepted, error: response.error } };
+  return {
+    targetUri,
+    response: { success: response.accepted, error: response.error },
+  };
 };
 
 export const backendWriteEnc = async (params: {
@@ -359,15 +403,26 @@ export const backendWriteEnc = async (params: {
   writeUri: string;
   writePayload: string;
 }) => {
-  const { backendClient, identity, encryptionPublicKeyHex, writeUri, writePayload } = params;
+  const {
+    backendClient,
+    identity,
+    encryptionPublicKeyHex,
+    writeUri,
+    writePayload,
+  } = params;
   ensureValue(writePayload, "Write payload");
   const payload = JSON.parse(writePayload);
   const plaintext = new TextEncoder().encode(JSON.stringify(payload));
   const encrypted = await identity.encrypt(plaintext, encryptionPublicKeyHex);
   const value = await identity.signMessage(encrypted);
-  const targetUri = writeUri.includes(":key") ? writeUri.replace(/:key/g, identity.pubkey) : writeUri;
+  const targetUri = writeUri.includes(":key")
+    ? writeUri.replace(/:key/g, identity.pubkey)
+    : writeUri;
   const response = await backendClient.receive([targetUri, value]);
-  return { targetUri, response: { success: response.accepted, error: response.error } };
+  return {
+    targetUri,
+    response: { success: response.accepted, error: response.error },
+  };
 };
 
 export const proxyWrite = async (params: {
@@ -423,7 +478,12 @@ export const uploadHash = async (params: {
 
   if (encryptToPublicKey) {
     const dataUrl = await readFileAsDataUrl(file);
-    const payload = { type: file.type, name: file.name, size: file.size, data: dataUrl };
+    const payload = {
+      type: file.type,
+      name: file.name,
+      size: file.size,
+      data: dataUrl,
+    };
     const encrypted = await encrypt.encrypt(
       new TextEncoder().encode(JSON.stringify(payload)),
       encryptToPublicKey,
@@ -431,7 +491,12 @@ export const uploadHash = async (params: {
     contentData = encrypted;
   } else {
     const dataUrl = await readFileAsDataUrl(file);
-    contentData = { type: file.type, name: file.name, size: file.size, data: dataUrl };
+    contentData = {
+      type: file.type,
+      name: file.name,
+      size: file.size,
+      data: dataUrl,
+    };
   }
 
   const hash = await computeSha256(contentData);
@@ -454,33 +519,55 @@ export const uploadHashWithLink = async (params: {
   file: File;
   linkPath: string;
   encryptToPublicKey?: string;
-}): Promise<HashUploadResult & { linkResponse: { success: boolean; error?: string } }> => {
-  const { backendClient, identity, file, linkPath, encryptToPublicKey } = params;
+}): Promise<
+  HashUploadResult & { linkResponse: { success: boolean; error?: string } }
+> => {
+  const { backendClient, identity, file, linkPath, encryptToPublicKey } =
+    params;
 
-  const hashResult = await uploadHash({ backendClient, file, encryptToPublicKey });
+  const hashResult = await uploadHash({
+    backendClient,
+    file,
+    encryptToPublicKey,
+  });
 
   if (!hashResult.response.success) {
-    return { ...hashResult, linkResponse: { success: false, error: "Upload failed" } };
+    return {
+      ...hashResult,
+      linkResponse: { success: false, error: "Upload failed" },
+    };
   }
 
   const linkUri = `link://accounts/${identity.pubkey}/${linkPath}`;
   const signedLink = await identity.signMessage(hashResult.hashUri);
   const linkResponse = await backendClient.receive([linkUri, signedLink]);
 
-  return { ...hashResult, linkUri, linkResponse: { success: linkResponse.accepted, error: linkResponse.error } };
+  return {
+    ...hashResult,
+    linkUri,
+    linkResponse: { success: linkResponse.accepted, error: linkResponse.error },
+  };
 };
 
 export const uploadMultipleHashes = async (params: {
   backendClient: BackendClient;
   files: File[];
   encryptToPublicKey?: string;
-  onProgress?: (completed: number, total: number, current: HashUploadResult) => void;
+  onProgress?: (
+    completed: number,
+    total: number,
+    current: HashUploadResult,
+  ) => void;
 }): Promise<HashUploadResult[]> => {
   const { backendClient, files, encryptToPublicKey, onProgress } = params;
   const results: HashUploadResult[] = [];
 
   for (let i = 0; i < files.length; i++) {
-    const result = await uploadHash({ backendClient, file: files[i], encryptToPublicKey });
+    const result = await uploadHash({
+      backendClient,
+      file: files[i],
+      encryptToPublicKey,
+    });
     results.push(result);
     onProgress?.(i + 1, files.length, result);
   }

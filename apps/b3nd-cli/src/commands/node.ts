@@ -9,7 +9,7 @@
  *   bnd node status <nodeKey>       - Read node status (by node's public key)
  */
 
-import { closeClient, getClient } from "../client.ts";
+import { closeRig, getRig } from "../client.ts";
 import { loadConfig } from "../config.ts";
 import { createLogger } from "../logger.ts";
 import {
@@ -132,8 +132,8 @@ export async function nodeConfigPush(
   logger?.info(`Writing config to ${uri}`);
 
   try {
-    const client = await getClient(logger);
-    const result = await client.receive([uri, signedMessage]);
+    const rig = await getRig(logger);
+    const result = await rig.receive([uri, signedMessage]);
 
     if (result.accepted) {
       console.log(`Config pushed successfully`);
@@ -143,7 +143,7 @@ export async function nodeConfigPush(
       throw new Error(result.error || "Push failed");
     }
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 
@@ -162,8 +162,8 @@ export async function nodeConfigGet(
   logger?.info(`Reading config from ${uri}`);
 
   try {
-    const client = await getClient(logger);
-    const result = await client.read(uri);
+    const rig = await getRig(logger);
+    const result = await rig.read(uri);
 
     if (result.success && result.record) {
       console.log(`Node config for ${nodeId}:`);
@@ -172,7 +172,7 @@ export async function nodeConfigGet(
       console.log(`No config found for node ${nodeId}`);
     }
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 
@@ -189,8 +189,8 @@ export async function nodeStatus(
   logger?.info(`Reading status from ${uri}`);
 
   try {
-    const client = await getClient(logger);
-    const result = await client.read(uri);
+    const rig = await getRig(logger);
+    const result = await rig.read(uri);
 
     if (result.success && result.record) {
       const data = result.record.data as any;
@@ -213,7 +213,7 @@ export async function nodeStatus(
       console.log(`No status found for node ${nodeKey}`);
     }
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 

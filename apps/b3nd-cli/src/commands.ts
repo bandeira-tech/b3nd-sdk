@@ -1,5 +1,5 @@
 import { getConfigPath, loadConfig, updateConfig } from "./config.ts";
-import { closeClient, getClient } from "./client.ts";
+import { closeRig, getRig } from "./client.ts";
 import { createLogger, Logger } from "./logger.ts";
 import { dirname, parse } from "@std/path";
 import { ensureDir } from "@std/fs";
@@ -273,7 +273,7 @@ export async function write(args: string[], verbose = false): Promise<void> {
 
   try {
     const config = await loadConfig();
-    const client = await getClient(logger);
+    const rig = await getRig(logger);
 
     // Handle :key placeholder in URI and accounts program writes
     if (uri.includes(":key")) {
@@ -317,7 +317,7 @@ export async function write(args: string[], verbose = false): Promise<void> {
     const endpoint = `${config.node}/api/v1/receive`;
     logger?.http("POST", endpoint);
 
-    const result = await client.receive([uri, data]);
+    const result = await rig.receive([uri, data]);
 
     if (result.accepted) {
       console.log(`✓ Write successful`);
@@ -328,7 +328,7 @@ export async function write(args: string[], verbose = false): Promise<void> {
       throw new Error(result.error || "Write failed with no error message");
     }
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 
@@ -344,7 +344,7 @@ export async function read(uri: string, verbose = false): Promise<void> {
 
   try {
     const config = await loadConfig();
-    const client = await getClient(logger);
+    const rig = await getRig(logger);
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
@@ -357,7 +357,7 @@ export async function read(uri: string, verbose = false): Promise<void> {
     const endpoint = `${config.node}/api/v1/read/${protocol}/${domain}${path}`;
     logger?.http("GET", endpoint);
 
-    const result = await client.read(uri);
+    const result = await rig.read(uri);
 
     if (result.success && result.record) {
       console.log(`✓ Read successful`);
@@ -424,7 +424,7 @@ export async function read(uri: string, verbose = false): Promise<void> {
       console.log(`✓ Read complete, but no data found at ${uri}`);
     }
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 
@@ -444,7 +444,7 @@ export async function list(
 
   try {
     const config = await loadConfig();
-    const client = await getClient(logger);
+    const rig = await getRig(logger);
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
@@ -461,7 +461,7 @@ export async function list(
     }`;
     logger?.http("GET", endpoint);
 
-    const result = await client.list(uri, options);
+    const result = await rig.list(uri, options);
 
     if (result.success) {
       console.log(`✓ List successful`);
@@ -492,7 +492,7 @@ export async function list(
       throw new Error(result.error || "List failed");
     }
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 
@@ -507,7 +507,7 @@ export async function del(uri: string, verbose = false): Promise<void> {
   }
 
   try {
-    const client = await getClient(logger);
+    const rig = await getRig(logger);
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
@@ -522,7 +522,7 @@ export async function del(uri: string, verbose = false): Promise<void> {
       `${config.node}/api/v1/delete/${protocol}/${domain}${path}`;
     logger?.http("DELETE", endpoint);
 
-    const result = await client.delete(uri);
+    const result = await rig.delete(uri);
 
     if (result.success) {
       console.log(`✓ Delete successful`);
@@ -531,7 +531,7 @@ export async function del(uri: string, verbose = false): Promise<void> {
       throw new Error(result.error || "Delete failed");
     }
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 
@@ -549,26 +549,26 @@ export async function health(verbose = false): Promise<void> {
       );
     }
 
-    const client = await getClient(logger);
+    const rig = await getRig(logger);
     const endpoint = `${config.node}/api/v1/health`;
     logger?.http("GET", endpoint);
 
-    const result = await client.health();
+    const result = await rig.health();
 
     console.log(`Node: ${config.node}`);
     console.log(`Status: ${result.status}`);
     if (result.message) {
       console.log(`Message: ${result.message}`);
     }
-    if (result.meta) {
-      for (const [key, value] of Object.entries(result.meta)) {
+    if (result.details) {
+      for (const [key, value] of Object.entries(result.details)) {
         console.log(`  ${key}: ${JSON.stringify(value)}`);
       }
     }
 
     // Also get schema
     try {
-      const schema = await client.getSchema();
+      const schema = await rig.getSchema();
       console.log(`Protocols: ${schema.length}`);
       for (const s of schema) {
         console.log(`  - ${s}`);
@@ -577,7 +577,7 @@ export async function health(verbose = false): Promise<void> {
       // Schema might not be available
     }
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 
@@ -720,7 +720,7 @@ export async function upload(
   const hashMap = new Map<string, string>();
 
   try {
-    const client = await getClient(logger);
+    const rig = await getRig(logger);
 
     // Get file info
     const stat = await Deno.stat(pathArg);
@@ -758,7 +758,7 @@ export async function upload(
           );
 
           // Write to content-addressed storage
-          const result = await client.receive([hashUri, fileData]);
+          const result = await rig.receive([hashUri, fileData]);
 
           if (result.accepted) {
             hashMap.set(relativePath, hashUri);
@@ -801,7 +801,7 @@ export async function upload(
       const hashUri = `hash://sha256/${hash}`;
       logger?.info(`${fileName} -> ${hashUri} (${fileData.length} bytes)`);
 
-      const result = await client.receive([hashUri, fileData]);
+      const result = await rig.receive([hashUri, fileData]);
 
       if (result.accepted) {
         hashMap.set(fileName, hashUri);
@@ -832,7 +832,7 @@ export async function upload(
 
     return hashMap;
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
 
@@ -1046,7 +1046,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
   }
 
   try {
-    const client = await getClient(logger);
+    const rig = await getRig(logger);
     const accountKey = await loadAccountKey();
 
     // Replace :key placeholder
@@ -1098,7 +1098,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
         const hash = await computeSha256(fileData);
         const hashUri = `hash://sha256/${hash}`;
 
-        const result = await client.receive([hashUri, fileData]);
+        const result = await rig.receive([hashUri, fileData]);
 
         if (result.accepted) {
           hashMap.set(relativePath, hashUri);
@@ -1139,7 +1139,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
 
       const signedLink = await signAsAuthenticatedMessage(hashUri, accountKey);
 
-      const result = await client.receive([linkUri, signedLink]);
+      const result = await rig.receive([linkUri, signedLink]);
 
       if (result.accepted) {
         logger?.info(`  ✓ ${linkUri} -> ${hashUri}`);
@@ -1162,7 +1162,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
       accountKey,
     );
 
-    const pointerResult = await client.receive([resolvedTarget, signedPointer]);
+    const pointerResult = await rig.receive([resolvedTarget, signedPointer]);
 
     if (!pointerResult.accepted) {
       throw new Error(`Failed to update pointer: ${pointerResult.error}`);
@@ -1183,6 +1183,6 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     console.log(`  Pointer: ${resolvedTarget}`);
     console.log("═".repeat(60));
   } finally {
-    await closeClient(logger);
+    await closeRig(logger);
   }
 }
