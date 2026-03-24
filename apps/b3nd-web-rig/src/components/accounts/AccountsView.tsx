@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import {
   createAppsClient,
+  createIdentityFromKeyBundle,
   createSession,
   createWalletClient,
   fetchAppProfile,
@@ -676,11 +677,11 @@ function ApplicationUserAccountForm(
 
   const startAppSession = async () => {
     const app = requireSelectedApp();
+    const identity = await createIdentityFromKeyBundle(app.keyBundle);
     const res = await createSession({
       appsClient: props.requireAppsClient(),
       backendClient: props.requireBackendClient(),
-      appKey: app.keyBundle.appKey,
-      accountPrivateKeyPem: app.keyBundle.accountPrivateKeyPem,
+      identity,
     });
     const sessionData = {
       sessionId: res.session,

@@ -13,17 +13,13 @@ import {
   KeyRound,
 } from "lucide-react";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
-import {
-  encrypt as encryptData,
-  pemToCryptoKey,
-  decrypt as decryptData,
-} from "@bandeira-tech/b3nd-web/encrypt";
 import type { EncryptedPayload } from "@bandeira-tech/b3nd-web/encrypt";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import { signAppPayload } from "../../services/writer/writerService";
 import { cn } from "../../utils";
 import type { EditorDocument, SaveVersionInput } from "./EditorLayoutSlot";
 import type { ManagedKeyAccount } from "../../types";
+import type { Identity } from "@bandeira-tech/b3nd-web";
 
 interface EditorMainContentProps {
   activeDoc: EditorDocument | null;
@@ -36,21 +32,21 @@ interface EditorMainContentProps {
 }
 
 /**
- * Attempt to decrypt an EncryptedPayload using the account's encryption private key (PEM).
+ * Attempt to decrypt an EncryptedPayload using the rig Identity.
  * Returns the decrypted `{ title, body }` object or null on failure.
  */
 async function tryDecryptContent(
   encPayload: EncryptedPayload,
-  encryptionPrivateKeyPem: string,
+  identity: Identity,
 ): Promise<{ title: string; body: string } | null> {
   try {
-    const privateKey = await pemToCryptoKey(encryptionPrivateKeyPem, "X25519");
-    const decrypted = await decryptData(encPayload, privateKey);
+    const decryptedBytes = await identity.decrypt(encPayload);
+    const decrypted = JSON.parse(new TextDecoder().decode(decryptedBytes));
     if (
       decrypted &&
       typeof decrypted === "object" &&
-      "title" in (decrypted as Record<string, unknown>) &&
-      "body" in (decrypted as Record<string, unknown>)
+      "title" in decrypted &&
+      "body" in decrypted
     ) {
       return decrypted as { title: string; body: string };
     }
@@ -93,7 +89,8 @@ export function EditorMainContent({
 
   const activeAccount = accounts.find((a) => a.id === activeAccountId) ?? null;
   const hasKeyAccount = isKeyAccount(activeAccount);
-  const canEncrypt = hasKeyAccount && !!activeAccount.keyBundle.encryptionPublicKeyHex;
+  const rigIdentity = useAppStore((s) => s.rig?.identity ?? null);
+  const canEncrypt = rigIdentity !== null && rigIdentity.canEncrypt;
 
   // Sync local state when active doc changes
   useEffect(() => {
@@ -149,9 +146,13 @@ export function EditorMainContent({
         "data" in (storedData as Record<string, unknown>) &&
         "nonce" in (storedData as Record<string, unknown>)
       ) {
+        if (!rigIdentity || !rigIdentity.canEncrypt) {
+          setDecryptedVersionBody("[No encryption identity available]");
+          return;
+        }
         const result = await tryDecryptContent(
           storedData as EncryptedPayload,
-          activeAccount.keyBundle.encryptionPrivateKeyPem,
+          rigIdentity,
         );
         if (result) {
           setDecryptedVersionBody(result.body);
@@ -184,7 +185,7 @@ export function EditorMainContent({
     } finally {
       setDecrypting(false);
     }
-  }, [hasKeyAccount, activeAccount, getBackendClient, addLogEntry]);
+  }, [hasKeyAccount, rigIdentity, getBackendClient, addLogEntry]);
 
   const handleSave = useCallback(async () => {
     if (!activeDoc) return;
@@ -206,11 +207,9 @@ export function EditorMainContent({
       const contentObj = { title, body };
       let contentData: unknown;
 
-      if (shouldEncrypt) {
-        contentData = await encryptData(
-          contentObj,
-          activeAccount.keyBundle.encryptionPublicKeyHex,
-        );
+      if (shouldEncrypt && rigIdentity && rigIdentity.canEncrypt) {
+        const plaintext = new TextEncoder().encode(JSON.stringify(contentObj));
+        contentData = await rigIdentity.encrypt(plaintext, rigIdentity.encryptionPubkey);
       } else {
         contentData = contentObj;
       }
@@ -225,15 +224,13 @@ export function EditorMainContent({
       let linkPayload: unknown;
       let signedBy: string | null = null;
 
-      if (hasKeyAccount) {
-        const pubkey = activeAccount.keyBundle.appKey;
-        linkUri = `link://accounts/${pubkey}/${docPath}`;
+      if (rigIdentity && rigIdentity.canSign) {
+        linkUri = `link://accounts/${rigIdentity.pubkey}/${docPath}`;
         linkPayload = await signAppPayload({
+          identity: rigIdentity,
           payload: hashUri,
-          appKey: pubkey,
-          accountPrivateKeyPem: activeAccount.keyBundle.accountPrivateKeyPem,
         });
-        signedBy = pubkey;
+        signedBy = rigIdentity.pubkey;
       } else {
         linkUri = `link://open/${docPath}`;
         linkPayload = hashUri;
@@ -262,8 +259,8 @@ export function EditorMainContent({
           linkUri,
           encrypted: shouldEncrypt,
           signedBy,
-          encryptionPublicKeyHex: shouldEncrypt
-            ? activeAccount.keyBundle.encryptionPublicKeyHex
+          encryptionPublicKeyHex: shouldEncrypt && rigIdentity
+            ? rigIdentity.encryptionPubkey
             : null,
         });
 

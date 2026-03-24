@@ -228,12 +228,17 @@ export function WriterMainContent() {
     return activeAccount;
   };
 
+  const requireIdentity = () => {
+    const rig = useAppStore.getState().rig;
+    if (!rig?.identity) throw new Error("No identity set — select an account first");
+    return rig.identity;
+  };
+
   const loadAppProfile = async () => {
-    const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
+    const identity = requireIdentity();
     const res = await fetchAppProfileService({
       backendClient: requireBackendClient(),
-      appKey,
+      appKey: identity.pubkey,
     });
     if (!res.success) {
       setCurrentAppProfile(null);
@@ -255,11 +260,7 @@ export function WriterMainContent() {
   };
 
   const saveAppProfile = async () => {
-    const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
-    const accountPrivateKeyPem = appAccount.keyBundle.accountPrivateKeyPem;
-    const encryptionPublicKeyHex = appAccount.keyBundle.encryptionPublicKeyHex;
-    ensureValue(appKey, "Auth key");
+    const identity = requireIdentity();
 
     const origins = allowedOrigins
       .split(",")
@@ -268,11 +269,10 @@ export function WriterMainContent() {
 
     const { uri, response } = await saveAppProfileService({
       backendClient: requireBackendClient(),
-      appKey,
-      accountPrivateKeyPem,
+      identity,
       googleClientId: googleClientId ? googleClientId.trim() : null,
       allowedOrigins: origins.length > 0 ? origins : ["*"],
-      encryptionPublicKeyHex: encryptionPublicKeyHex || null,
+      encryptionPublicKeyHex: identity.encryptionPubkey || null,
     });
 
     if (response.success) {
@@ -285,45 +285,37 @@ export function WriterMainContent() {
   };
 
   const updateSchema = async () => {
-    const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
-    const accountPrivateKeyPem = appAccount.keyBundle.accountPrivateKeyPem;
-    const encryptionPublicKeyHex = appAccount.keyBundle.encryptionPublicKeyHex;
+    const identity = requireIdentity();
     const res = await updateSchemaService({
       appsClient: requireAppsClient(),
-      appKey,
+      identity,
       actionName,
       validationFormat,
       writeKind,
       writePlainPath,
       writeEncPath,
-      accountPrivateKeyPem,
-      encryptionPublicKeyHex: encryptionPublicKeyHex || null,
+      encryptionPublicKeyHex: identity.encryptionPubkey || null,
     });
     addWriterOutput(res);
     logLine("apps", "Schema updated", "success");
   };
 
   const fetchSchema = async () => {
-    const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
+    const identity = requireIdentity();
     const res = await fetchSchemaService({
       appsClient: requireAppsClient(),
-      appKey,
+      appKey: identity.pubkey,
     });
     addWriterOutput(res);
     logLine("apps", "Schema fetched", "info");
   };
 
   const createSession = async () => {
-    const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
-    const accountPrivateKeyPem = appAccount.keyBundle.accountPrivateKeyPem;
+    const identity = requireIdentity();
     const res = await createSessionService({
       appsClient: requireAppsClient(),
       backendClient: requireBackendClient(),
-      appKey,
-      accountPrivateKeyPem,
+      identity,
     });
     setWriterAppSession({
       sessionId: res.session,
@@ -480,10 +472,10 @@ export function WriterMainContent() {
       return;
     }
 
+    const identity = requireIdentity();
     const { targetUri, response } = await backendWritePlainService({
       backendClient: requireBackendClient(),
-      appKey: account.keyBundle.appKey,
-      accountPrivateKeyPem: account.keyBundle.accountPrivateKeyPem,
+      identity,
       writeUri,
       writePayload,
     });
@@ -538,12 +530,12 @@ export function WriterMainContent() {
       return;
     }
 
-    ensureValue(account.keyBundle.encryptionPublicKeyHex, "Encryption public key");
+    const identity = requireIdentity();
+    if (!identity.canEncrypt) throw new Error("Identity has no encryption keys");
     const { targetUri, response } = await backendWriteEncService({
       backendClient: requireBackendClient(),
-      appKey: account.keyBundle.appKey,
-      accountPrivateKeyPem: account.keyBundle.accountPrivateKeyPem,
-      encryptionPublicKeyHex: account.keyBundle.encryptionPublicKeyHex,
+      identity,
+      encryptionPublicKeyHex: identity.encryptionPubkey,
       writeUri,
       writePayload,
     });
@@ -608,28 +600,23 @@ export function WriterMainContent() {
   };
 
   const testAction = async () => {
-    const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
-    const accountPrivateKeyPem = appAccount.keyBundle.accountPrivateKeyPem;
-    const encryptionPublicKeyHex = appAccount.keyBundle.encryptionPublicKeyHex;
+    const identity = requireIdentity();
     ensureValue(actionPayload, "Action payload");
-    if (writeKind === "encrypted") {
-      ensureValue(encryptionPublicKeyHex, "Encryption public key");
+    if (writeKind === "encrypted" && !identity.canEncrypt) {
+      throw new Error("Encryption public key required for encrypted actions");
     }
     const signedMessage = writeKind === "encrypted"
       ? await signEncryptedAppPayload({
+        identity,
         payload: actionPayload,
-        appKey,
-        accountPrivateKeyPem,
-        encryptionPublicKeyHex: encryptionPublicKeyHex || "",
+        encryptionPublicKeyHex: identity.encryptionPubkey || "",
       })
       : await signAppPayload({
+        identity,
         payload: actionPayload,
-        appKey,
-        accountPrivateKeyPem,
       });
     const res = await requireAppsClient().invokeAction(
-      appKey,
+      identity.pubkey,
       actionName,
       signedMessage,
       window.location.origin,
@@ -701,12 +688,12 @@ export function WriterMainContent() {
 
         if (hashLinkEnabled && account?.type === "application" && hashLinkPath) {
           // Upload with authenticated link
+          const identity = requireIdentity();
           result = await uploadHashWithLink({
             backendClient,
+            identity,
             file,
             linkPath: hashLinkPath.replace(/:filename/g, file.name),
-            appKey: account.keyBundle.appKey,
-            accountPrivateKeyPem: account.keyBundle.accountPrivateKeyPem,
             encryptToPublicKey: encryptionKey,
           });
           logLine(
