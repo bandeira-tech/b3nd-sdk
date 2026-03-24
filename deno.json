@@ -11,7 +11,8 @@
     "./client-mongo": "./src/client-mongo.ts",
     "./client-sqlite": "./src/client-sqlite.ts",
     "./client-fs": "./src/client-fs.ts",
-    "./client-ipfs": "./src/client-ipfs.ts"
+    "./client-ipfs": "./src/client-ipfs.ts",
+    "./client-neo4j": "./src/client-neo4j.ts"
   },
   "nodeModulesDir": "auto",
   "imports": {
@@ -27,6 +28,7 @@
     "test:integration:sqlite": "deno test --allow-all libs/b3nd-client-sqlite/",
     "test:integration:fs": "deno test --allow-all libs/b3nd-client-fs/",
     "test:integration:ipfs": "deno test --allow-all libs/b3nd-client-ipfs/",
+    "test:integration:neo4j": "deno test --allow-all libs/b3nd-client-neo4j/",
     "publish:jsr": "bash scripts/prepublish.sh && deno publish --allow-dirty; bash scripts/postpublish.sh"
   },
   "compilerOptions": {
@@ -78,6 +80,7 @@
     "libs/b3nd-client-sqlite",
     "libs/b3nd-client-fs",
     "libs/b3nd-client-ipfs",
+    "libs/b3nd-client-neo4j",
     "libs/b3nd-client-indexeddb",
     "libs/b3nd-client-localstorage",
     "libs/b3nd-combinators",

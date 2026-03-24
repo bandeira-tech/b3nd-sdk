@@ -33,7 +33,7 @@ export interface ManagedNodeConfig {
 }
 
 export interface BackendSpec {
-  type: "memory" | "postgresql" | "mongodb" | "sqlite" | "filesystem" | "http";
+  type: "memory" | "postgresql" | "mongodb" | "sqlite" | "filesystem" | "http" | "neo4j";
   url: string;
   options?: Record<string, unknown>;
 }

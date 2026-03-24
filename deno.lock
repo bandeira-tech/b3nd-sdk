@@ -1465,6 +1465,7 @@
     "packageJson": {
       "dependencies": [
         "npm:@types/node@^22.10.1",
+        "npm:canonicalize@2",
         "npm:hono@^4.6.0",
         "npm:tsup@^8.3.5",
         "npm:typescript@^5.6.3"
@@ -1536,6 +1537,11 @@
         ]
       },
       "libs/b3nd-client-mongo": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-client-neo4j": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15"
         ]

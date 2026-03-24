@@ -413,6 +413,27 @@ export interface SqliteClientConfig {
 }
 
 /**
+ * Configuration for Neo4jClient
+ */
+export interface Neo4jClientConfig {
+  /**
+   * Neo4j connection string
+   * Example: "neo4j://localhost:7687" or "bolt://localhost:7687"
+   */
+  connectionString: string;
+
+  /**
+   * Schema for validation - must be explicitly provided
+   */
+  schema: Schema;
+
+  /**
+   * Neo4j database name. Defaults to "neo4j".
+   */
+  database?: string;
+}
+
+/**
  * Structured error codes for programmatic error handling.
  * Callers can switch on `error.code` without string parsing.
  */

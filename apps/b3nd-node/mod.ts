@@ -7,6 +7,7 @@ import { createMongoExecutor } from "./mongo-executor.ts";
 import { createSqliteExecutor } from "./sqlite-executor.ts";
 import { createFsExecutor } from "./fs-executor.ts";
 import { createIpfsExecutor } from "./ipfs-executor.ts";
+import { createNeo4jExecutor } from "./neo4j-executor.ts";
 
 // ── Phase 1: Standard node from env vars ─────────────────────────────
 
@@ -49,6 +50,7 @@ const rig = await Rig.init({
     sqlite: createSqliteExecutor,
     fs: createFsExecutor,
     ipfs: createIpfsExecutor,
+    neo4j: createNeo4jExecutor,
   },
 });
 
@@ -176,6 +178,7 @@ if (OPERATOR_KEY) {
       sqlite: createSqliteExecutor,
       fs: createFsExecutor,
       ipfs: createIpfsExecutor,
+      neo4j: createNeo4jExecutor,
     });
     const { pushClients, pullClients } = createPeerClients(config.peers ?? []);
     return createValidatedClient({

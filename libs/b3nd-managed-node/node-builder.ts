@@ -28,6 +28,7 @@ export async function buildClientsFromSpec(
     sqlite?: (path: string) => any;
     fs?: (rootDir: string) => any;
     ipfs?: (apiUrl: string) => any;
+    neo4j?: (connectionString: string, database: string) => Promise<any>;
   },
 ): Promise<NodeProtocolInterface[]> {
   const clients: NodeProtocolInterface[] = [];
@@ -127,6 +128,27 @@ export async function buildClientsFromSpec(
 
       case "http": {
         clients.push(new HttpClient({ url: spec.url }));
+        break;
+      }
+
+      case "neo4j": {
+        const { Neo4jClient } = await import("../b3nd-client-neo4j/mod.ts");
+        if (!executors?.neo4j) {
+          throw new Error("Neo4j executor factory required for neo4j backend");
+        }
+        const neo4jUrl = new URL(spec.url);
+        const database = neo4jUrl.pathname.replace(/^\//, "") || "neo4j";
+        const executor = await executors.neo4j(spec.url, database);
+        const neo4jClient = new Neo4jClient(
+          {
+            connectionString: spec.url,
+            schema,
+            database,
+          },
+          executor,
+        );
+        await neo4jClient.initializeSchema();
+        clients.push(neo4jClient);
         break;
       }
 

@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs node-postgres node-mongo run-node check build-api-docs build-learn help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs node-postgres node-mongo node-neo4j run-node check build-api-docs build-learn help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -201,6 +201,12 @@ node-ipfs:
 	BACKEND_URL=ipfs://localhost:5001 PORT=9942 CORS_ORIGIN="*" \
 	deno run --watch -A mod.ts
 
+# B3nd node on :9942 with Neo4j backend (requires Neo4j on :7687)
+node-neo4j:
+	@cd apps/b3nd-node && \
+	BACKEND_URL=neo4j://localhost:7687/neo4j PORT=9942 CORS_ORIGIN="*" \
+	deno run --watch -A mod.ts
+
 # Run a Docker image with freshly generated keys (managed mode)
 # Usage: make run-node image=ghcr.io/bandeira-tech/b3nd/b3nd-node:latest
 run-node:
@@ -256,6 +262,12 @@ check:
 	else \
 		echo "- not running"; \
 	fi
+	@printf "  Neo4j      :7687  "; \
+	if curl -sf http://localhost:7474 >/dev/null 2>&1; then \
+		echo "✓ healthy"; \
+	else \
+		echo "- not running"; \
+	fi
 
 # Show help
 help:
@@ -285,6 +297,7 @@ help:
 	@echo "  make node-postgres     - Start B3nd node (:9942, PostgreSQL backend :5432)"
 	@echo "  make node-mongo        - Start B3nd node (:9942, MongoDB backend :27017)"
 	@echo "  make node-ipfs         - Start B3nd node (:9942, IPFS backend via Kubo :5001)"
+	@echo "  make node-neo4j        - Start B3nd node (:9942, Neo4j backend :7687)"
 	@echo "  make run-node image=.. - Run Docker image with fresh keys (managed mode)"
 	@echo "  make rig               - Start web rig (:5555) + inspector (:5556)"
 	@echo "  make check             - Health check all services"
