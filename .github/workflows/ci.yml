@@ -135,6 +135,46 @@ jobs:
           name: api-docs
           path: apps/b3nd-web-rig/public/api-docs/
 
+  web-rig-build:
+    name: Web Rig Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Guard against Deno-only specifiers in web-bundled libs
+        run: |
+          # libs/ code is aliased into the Vite bundle — any npm:/jsr: bare
+          # specifiers will crash esbuild. Catch them before the build does.
+          echo "Checking for Deno-only specifiers in libs/ source files..."
+          if grep -rn --include='*.ts' --include='*.tsx' \
+               -E '(import|from)\s+["\x27]npm:' \
+               libs/b3nd-core libs/b3nd-hash libs/b3nd-auth libs/b3nd-encrypt \
+               libs/b3nd-msg libs/b3nd-compose libs/b3nd-combinators \
+               libs/b3nd-listener libs/b3nd-rig libs/b3nd-apps \
+               libs/b3nd-client-http libs/b3nd-client-memory \
+               libs/b3nd-wallet libs/b3nd-testing \
+               libs/firecat-protocol 2>/dev/null; then
+            echo ""
+            echo "ERROR: Found npm: specifiers in libs that are bundled by Vite."
+            echo "These will crash the web rig build. Use import maps in deno.json"
+            echo "or dynamic imports behind a Deno runtime check instead."
+            exit 1
+          fi
+          echo "No Deno-only specifiers found in web-bundled libs."
+
+      - name: Install web rig dependencies
+        run: cd apps/b3nd-web-rig && npm ci
+
+      - name: Build web rig
+        run: cd apps/b3nd-web-rig && npx vite build
+
   lint-and-format:
     name: Lint and Format Check
     runs-on: ubuntu-latest
