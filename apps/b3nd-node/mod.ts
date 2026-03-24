@@ -52,20 +52,21 @@ const rig = await Rig.init({
   },
 });
 
-// HTTP server — separate media layer using the rig's client
+const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
+
+// The rig produces a generic fetch handler — the app owns the server.
+const b3ndHandler = await rig.handler({
+  healthMeta: { backends: backendTypes },
+});
+
+// CORS and port binding are the app's responsibility.
 const { Hono } = await import("npm:hono");
 const { cors } = await import("npm:hono/cors");
-const { httpServer } = await import("../../libs/b3nd-servers/http.ts");
-
 const app = new Hono();
-if (CORS_ORIGIN) {
-  app.use("*", cors({ origin: CORS_ORIGIN }));
-}
+if (CORS_ORIGIN) app.use("*", cors({ origin: CORS_ORIGIN }));
+app.all("/api/*", (c: any) => b3ndHandler(c.req.raw));
 
-const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
-const frontend = httpServer(app, { healthMeta: { backends: backendTypes } });
-frontend.configure({ client: rig.client });
-frontend.listen(PORT);
+Deno.serve({ port: PORT }, app.fetch);
 
 console.log(`B3nd Node :${PORT} (backends=${BACKEND_URL})`);
 

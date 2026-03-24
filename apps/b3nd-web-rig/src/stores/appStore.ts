@@ -797,7 +797,18 @@ export const useAppStore = create<AppStore>()(
         },
 
         loadEndpoints: async () => {
-          const { backends, walletServers, appServers, defaults } = await loadAllEndpoints();
+          const { backends: rawBackends, walletServers, appServers, defaults } = await loadAllEndpoints();
+
+          // Create proper BackendConfig objects with adapters (same as onRehydrateStorage)
+          const results = await Promise.allSettled(
+            rawBackends.map((b) => createBackendFromUrl(b.id, b.name, b.baseUrl, b.isActive)),
+          );
+          const backends: BackendConfig[] = [];
+          let activeRig: Rig | null = null;
+          for (const r of results) {
+            if (r.status === "fulfilled") backends.push(r.value.backend);
+          }
+
           set((state) => {
             const nextBackends = state.backends.length ? state.backends : backends;
             const nextWallets = state.walletServers.length ? state.walletServers : walletServers;
@@ -810,6 +821,14 @@ export const useAppStore = create<AppStore>()(
                 nextBackends.find((b) => b.id === defaults.backend);
               return defaultBackend?.id || nextBackends[0]?.id || null;
             })();
+
+            // Set the active rig
+            for (const r of results) {
+              if (r.status === "fulfilled" && r.value.backend.id === activeBackendId) {
+                activeRig = r.value.rig;
+                break;
+              }
+            }
 
             const activeWalletServerId = (() => {
               const existing = nextWallets.find((w) => w.id === state.activeWalletServerId)?.id;
@@ -829,6 +848,7 @@ export const useAppStore = create<AppStore>()(
 
             return {
               backends: nextBackends,
+              rig: state.rig || activeRig,
               walletServers: nextWallets,
               appServers: nextApps,
               activeBackendId,
@@ -961,7 +981,7 @@ export const useAppStore = create<AppStore>()(
         // Serialize user-added backends (those not from instances.json)
         const userBackends: SerializableBackendConfig[] = state.backends
           .filter((b) =>
-            b.adapter.type === "http" && (b.adapter as any).isUserAdded
+            b.adapter && b.adapter.type === "http" && (b.adapter as any).isUserAdded
           )
           .map((b) => ({
             id: b.id,

@@ -152,14 +152,16 @@ await rig.cleanup();
 rig.client; // escape hatch: raw NodeProtocolInterface
 ```
 
-### Serve (Deno only)
+### Handler
 
 ```typescript
-await rig.serve({ port: 3000, cors: "*", healthMeta: { version: "1.0" } });
+const handler = await rig.handler({ healthMeta: { version: "1.0" } });
+Deno.serve({ port: 3000 }, handler);
 ```
 
-Starts an HTTP server with all b3nd API routes (`/api/v1/receive`,
-`/api/v1/read/...`, etc.).
+Returns a standard `(Request) => Promise<Response>` fetch handler with all
+b3nd API routes (`/api/v1/receive`, `/api/v1/read/...`, etc.).
+Framework-agnostic — plug into Deno.serve, Hono, Express, Cloudflare Workers, etc.
 
 ## Examples
 
@@ -178,7 +180,8 @@ const rig = await Rig.init({
   schema: mySchema,
   executors: { postgres: createPostgresExecutor },
 });
-await rig.serve({ port: 3000, cors: "*" });
+const handler = await rig.handler();
+Deno.serve({ port: 3000 }, handler);
 ```
 
 ### Multi-backend with replication

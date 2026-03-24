@@ -131,3 +131,45 @@ export interface WatchOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Options for rig.watchAll() — reactive collection watching.
+ */
+export interface WatchAllOptions extends WatchOptions {
+  /** List options (e.g. limit) passed to listData on each poll. */
+  listOptions?: import("../b3nd-core/types.ts").ListOptions;
+}
+
+/**
+ * A snapshot emitted by watchAll() when any item in the collection changes.
+ */
+export interface WatchAllSnapshot<T = unknown> {
+  /** Current state of all items — URI → data. */
+  items: Map<string, T>;
+  /** URIs added since the last snapshot. */
+  added: string[];
+  /** URIs removed since the last snapshot. */
+  removed: string[];
+  /** URIs whose data changed since the last snapshot. */
+  changed: string[];
+}
+
+/**
+ * Cleanup function returned by subscribe() — call to stop watching.
+ */
+export type Unsubscribe = () => void;
+
+/**
+ * Options for rig.handler().
+ */
+export interface HandlerOptions {
+  /** Extra metadata to include in health response. */
+  healthMeta?: Record<string, unknown>;
+}
+
+/**
+ * @deprecated Use HandlerOptions instead. The rig no longer owns the server.
+ */
+export type ServeOptions = HandlerOptions & {
+  port: number;
+  cors?: string;
+};
