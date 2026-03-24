@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
 import { Identity } from "./identity.ts";
 import {
   getSupportedProtocols,
@@ -1753,4 +1753,336 @@ Deno.test("Identity.verify - rejects wrong pubkey signature", async () => {
   // Bob verifying Alice's signature with Bob's key should fail
   const valid = await bob.verify(payload, auth.signature);
   assertEquals(valid, false);
+});
+
+// ── Rig.watchAll() tests ──
+
+Deno.test({
+  name: "Rig.watchAll - yields initial snapshot with all items",
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
+    await rig.receive(["mutable://open/wacol/b", { n: 2 }]);
+
+    const abort = new AbortController();
+    let snapshots = 0;
+
+    for await (
+      const snapshot of rig.watchAll<{ n: number }>("mutable://open/wacol", {
+        intervalMs: 50,
+        signal: abort.signal,
+      })
+    ) {
+      snapshots++;
+      assertEquals(snapshot.items.size, 2);
+      assertEquals(snapshot.items.get("mutable://open/wacol/a")?.n, 1);
+      assertEquals(snapshot.items.get("mutable://open/wacol/b")?.n, 2);
+      assertEquals(snapshot.added.length, 2);
+      assertEquals(snapshot.removed.length, 0);
+      assertEquals(snapshot.changed.length, 0);
+      abort.abort();
+    }
+
+    assertEquals(snapshots, 1);
+    await rig.cleanup();
+  },
+});
+
+Deno.test({
+  name: "Rig.watchAll - detects added items",
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
+
+    const abort = new AbortController();
+    let snapshots = 0;
+
+    for await (
+      const snapshot of rig.watchAll<{ n: number }>("mutable://open/wacol", {
+        intervalMs: 50,
+        signal: abort.signal,
+      })
+    ) {
+      snapshots++;
+      if (snapshots === 1) {
+        assertEquals(snapshot.items.size, 1);
+        // Add a new item before next poll
+        await rig.receive(["mutable://open/wacol/b", { n: 2 }]);
+      } else {
+        assertEquals(snapshot.items.size, 2);
+        assertEquals(snapshot.added, ["mutable://open/wacol/b"]);
+        assertEquals(snapshot.removed.length, 0);
+        assertEquals(snapshot.changed.length, 0);
+        abort.abort();
+      }
+    }
+
+    assertEquals(snapshots, 2);
+    await rig.cleanup();
+  },
+});
+
+Deno.test({
+  name: "Rig.watchAll - detects removed items",
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
+    await rig.receive(["mutable://open/wacol/b", { n: 2 }]);
+
+    const abort = new AbortController();
+    let snapshots = 0;
+
+    for await (
+      const snapshot of rig.watchAll<{ n: number }>("mutable://open/wacol", {
+        intervalMs: 50,
+        signal: abort.signal,
+      })
+    ) {
+      snapshots++;
+      if (snapshots === 1) {
+        assertEquals(snapshot.items.size, 2);
+        // Remove an item before next poll
+        await rig.delete("mutable://open/wacol/b");
+      } else {
+        assertEquals(snapshot.items.size, 1);
+        assertEquals(snapshot.added.length, 0);
+        assertEquals(snapshot.removed, ["mutable://open/wacol/b"]);
+        assertEquals(snapshot.changed.length, 0);
+        abort.abort();
+      }
+    }
+
+    assertEquals(snapshots, 2);
+    await rig.cleanup();
+  },
+});
+
+Deno.test({
+  name: "Rig.watchAll - detects changed items",
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
+
+    const abort = new AbortController();
+    let snapshots = 0;
+
+    for await (
+      const snapshot of rig.watchAll<{ n: number }>("mutable://open/wacol", {
+        intervalMs: 50,
+        signal: abort.signal,
+      })
+    ) {
+      snapshots++;
+      if (snapshots === 1) {
+        assertEquals(snapshot.items.get("mutable://open/wacol/a")?.n, 1);
+        // Modify an item before next poll
+        await rig.receive(["mutable://open/wacol/a", { n: 99 }]);
+      } else {
+        assertEquals(snapshot.items.get("mutable://open/wacol/a")?.n, 99);
+        assertEquals(snapshot.added.length, 0);
+        assertEquals(snapshot.removed.length, 0);
+        assertEquals(snapshot.changed, ["mutable://open/wacol/a"]);
+        abort.abort();
+      }
+    }
+
+    assertEquals(snapshots, 2);
+    await rig.cleanup();
+  },
+});
+
+Deno.test({
+  name: "Rig.watchAll - skips emit when nothing changed",
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
+
+    const abort = new AbortController();
+    let snapshots = 0;
+
+    // After the first snapshot, wait 3 intervals — no changes, so no new emit
+    for await (
+      const _snapshot of rig.watchAll<{ n: number }>("mutable://open/wacol", {
+        intervalMs: 30,
+        signal: abort.signal,
+      })
+    ) {
+      snapshots++;
+      if (snapshots === 1) {
+        // Wait long enough for 3 poll intervals with no changes
+        await new Promise((r) => setTimeout(r, 120));
+        abort.abort();
+      }
+    }
+
+    // Should only have gotten 1 snapshot (the initial one)
+    assertEquals(snapshots, 1);
+    await rig.cleanup();
+  },
+});
+
+Deno.test({
+  name: "Rig.watchAll - empty collection yields initial empty snapshot",
+  async fn() {
+    const rig = await Rig.connect("memory://");
+
+    const abort = new AbortController();
+    let snapshots = 0;
+
+    for await (
+      const snapshot of rig.watchAll("mutable://open/waempty", {
+        intervalMs: 50,
+        signal: abort.signal,
+      })
+    ) {
+      snapshots++;
+      assertEquals(snapshot.items.size, 0);
+      assertEquals(snapshot.added.length, 0);
+      abort.abort();
+    }
+
+    assertEquals(snapshots, 1);
+    await rig.cleanup();
+  },
+});
+
+// ── Rig.subscribe() tests ──
+
+Deno.test({
+  name: "Rig.subscribe - calls back on initial value",
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    await rig.receive(["mutable://open/wasub/key", { hello: "world" }]);
+
+    const values: unknown[] = [];
+    const unsub = rig.subscribe("mutable://open/wasub/key", (value) => {
+      values.push(value);
+    }, { intervalMs: 50 });
+
+    // Wait for first callback
+    await new Promise((r) => setTimeout(r, 100));
+    unsub();
+
+    assertEquals(values.length >= 1, true);
+    assertEquals((values[0] as { hello: string }).hello, "world");
+    await rig.cleanup();
+  },
+});
+
+Deno.test({
+  name: "Rig.subscribe - calls back on changes",
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    await rig.receive(["mutable://open/wasub/key", { v: 1 }]);
+
+    const values: unknown[] = [];
+    const unsub = rig.subscribe<{ v: number }>("mutable://open/wasub/key", (value) => {
+      values.push(value);
+    }, { intervalMs: 50 });
+
+    // Wait for initial callback
+    await new Promise((r) => setTimeout(r, 80));
+
+    // Change the value
+    await rig.receive(["mutable://open/wasub/key", { v: 2 }]);
+    await new Promise((r) => setTimeout(r, 120));
+
+    unsub();
+
+    assertEquals(values.length >= 2, true);
+    assertEquals((values[0] as { v: number }).v, 1);
+    assertEquals((values[values.length - 1] as { v: number }).v, 2);
+    await rig.cleanup();
+  },
+});
+
+Deno.test({
+  name: "Rig.subscribe - unsub stops watching",
+  async fn() {
+    const rig = await Rig.connect("memory://");
+    await rig.receive(["mutable://open/wasub/stop", { v: 1 }]);
+
+    let callCount = 0;
+    const unsub = rig.subscribe("mutable://open/wasub/stop", () => {
+      callCount++;
+    }, { intervalMs: 30 });
+
+    await new Promise((r) => setTimeout(r, 80));
+    unsub();
+    const countAfterUnsub = callCount;
+
+    // Wait more — should not get more callbacks
+    await rig.receive(["mutable://open/wasub/stop", { v: 2 }]);
+    await new Promise((r) => setTimeout(r, 100));
+
+    assertEquals(callCount, countAfterUnsub);
+    await rig.cleanup();
+  },
+});
+
+// ── Rig.sendMany() tests ──
+
+Deno.test("Rig.sendMany - sends multiple envelopes", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const results = await rig.sendMany([
+    { inputs: [], outputs: [["mutable://open/wamulti/a", { n: 1 }]] },
+    { inputs: [], outputs: [["mutable://open/wamulti/b", { n: 2 }]] },
+  ]);
+
+  assertEquals(results.length, 2);
+  assertEquals(results[0].accepted, true);
+  assertEquals(results[1].accepted, true);
+
+  // Verify both values exist
+  const a = await rig.readData<{ n: number }>("mutable://open/wamulti/a");
+  const b = await rig.readData<{ n: number }>("mutable://open/wamulti/b");
+  assertEquals(a?.n, 1);
+  assertEquals(b?.n, 2);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.sendMany - returns empty array for empty input", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const results = await rig.sendMany([]);
+  assertEquals(results, []);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.sendMany - each envelope gets its own hash", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({ use: "memory://", identity: id });
+
+  const results = await rig.sendMany([
+    { inputs: [], outputs: [["mutable://open/wahash/x", "one"]] },
+    { inputs: [], outputs: [["mutable://open/wahash/y", "two"]] },
+  ]);
+
+  // Each result should have a unique hash URI
+  assertNotEquals(results[0].uri, results[1].uri);
+  assertEquals(results[0].uri.startsWith("hash://"), true);
+  assertEquals(results[1].uri.startsWith("hash://"), true);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig.sendMany - throws without identity", async () => {
+  const rig = await Rig.connect("memory://");
+
+  await assertRejects(
+    () =>
+      rig.sendMany([{
+        inputs: [],
+        outputs: [["mutable://open/x", 1]],
+      }]),
+    Error,
+    "no identity",
+  );
+
+  await rig.cleanup();
 });

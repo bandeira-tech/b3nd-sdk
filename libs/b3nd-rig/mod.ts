@@ -36,9 +36,14 @@ export {
 export type { BackendFactoryOptions } from "./backend-factory.ts";
 export { Rig } from "./rig.ts";
 export type {
+  HandlerOptions,
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,
   RigConfig,
   RigInfo,
+  ServeOptions,
+  Unsubscribe,
+  WatchAllOptions,
+  WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";

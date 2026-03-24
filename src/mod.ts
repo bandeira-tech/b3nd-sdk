@@ -198,9 +198,17 @@ export {
 } from "../libs/b3nd-rig/mod.ts";
 export type {
   ExportedIdentity,
+  HandlerOptions,
   MongoExecutor,
   PostgresExecutor,
   RigConfig,
   RigInfo,
+  ServeOptions,
+  Unsubscribe,
+  WatchAllOptions,
+  WatchAllSnapshot,
   WatchOptions,
 } from "../libs/b3nd-rig/mod.ts";
+
+// Server handler factory (zero-dependency)
+export { createHttpHandler } from "../libs/b3nd-servers/http.ts";

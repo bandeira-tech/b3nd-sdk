@@ -30,6 +30,9 @@ import type { Identity } from "./identity.ts";
 import type {
   RigConfig,
   RigInfo,
+  Unsubscribe,
+  WatchAllOptions,
+  WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";
 
@@ -687,4 +690,175 @@ export class Rig {
     }
   }
 
+  /**
+   * Watch a URI prefix for collection-level changes.
+   *
+   * Polls the prefix, reads all items, and yields a snapshot whenever the
+   * collection changes — items added, removed, or modified. Useful for
+   * dashboards, lists, and any UI that renders a collection.
+   *
+   * @example
+   * ```typescript
+   * const abort = new AbortController();
+   *
+   * for await (const snapshot of rig.watchAll<UserProfile>(
+   *   "mutable://app/users",
+   *   { intervalMs: 2000, signal: abort.signal },
+   * )) {
+   *   console.log(`${snapshot.items.size} users`);
+   *   console.log("Added:", snapshot.added);
+   *   console.log("Removed:", snapshot.removed);
+   *   console.log("Changed:", snapshot.changed);
+   * }
+   * ```
+   */
+  async *watchAll<T = unknown>(
+    prefix: string,
+    options?: WatchAllOptions,
+  ): AsyncGenerator<WatchAllSnapshot<T>, void, unknown> {
+    const interval = options?.intervalMs ?? 1000;
+    const signal = options?.signal;
+
+    let lastItems = new Map<string, string>(); // uri → JSON
+
+    while (!signal?.aborted) {
+      const items = await this.readAll<T>(prefix, options?.listOptions);
+      const currentJson = new Map<string, string>();
+      for (const [uri, data] of items) {
+        currentJson.set(uri, JSON.stringify(data));
+      }
+
+      // Diff against previous
+      const added: string[] = [];
+      const removed: string[] = [];
+      const changed: string[] = [];
+
+      for (const uri of currentJson.keys()) {
+        if (!lastItems.has(uri)) {
+          added.push(uri);
+        } else if (lastItems.get(uri) !== currentJson.get(uri)) {
+          changed.push(uri);
+        }
+      }
+      for (const uri of lastItems.keys()) {
+        if (!currentJson.has(uri)) {
+          removed.push(uri);
+        }
+      }
+
+      // Emit if anything changed (or on first poll)
+      if (
+        lastItems.size === 0 || added.length > 0 || removed.length > 0 ||
+        changed.length > 0
+      ) {
+        yield { items, added, removed, changed };
+      }
+
+      lastItems = currentJson;
+
+      // Wait for next poll or abort
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, interval);
+        if (signal) {
+          const onAbort = () => {
+            clearTimeout(timer);
+            resolve();
+          };
+          signal.addEventListener("abort", onAbort, { once: true });
+        }
+      });
+    }
+  }
+
+  /**
+   * Subscribe to changes at a URI with a callback.
+   *
+   * Wraps `watch()` into a simpler callback pattern. Returns an
+   * unsubscribe function. Ideal for React effects and event-driven code.
+   *
+   * @example
+   * ```typescript
+   * const unsub = rig.subscribe<UserProfile>(
+   *   "mutable://app/users/alice",
+   *   (profile) => setProfile(profile),
+   *   { intervalMs: 2000 },
+   * );
+   *
+   * // Later:
+   * unsub();
+   * ```
+   */
+  subscribe<T = unknown>(
+    uri: string,
+    callback: (value: T | null) => void,
+    options?: Omit<WatchOptions, "signal">,
+  ): Unsubscribe {
+    const abort = new AbortController();
+    const opts: WatchOptions = { ...options, signal: abort.signal };
+
+    // Run the watch loop in the background
+    (async () => {
+      for await (const value of this.watch<T>(uri, opts)) {
+        if (abort.signal.aborted) break;
+        callback(value);
+      }
+    })();
+
+    return () => abort.abort();
+  }
+
+  /**
+   * Send multiple envelopes in sequence.
+   *
+   * Each entry becomes its own signed envelope with its own content hash.
+   * Useful when a single logical action requires multiple state transitions
+   * across different protocol domains.
+   *
+   * @example
+   * ```typescript
+   * const results = await rig.sendMany([
+   *   { inputs: [], outputs: [["mutable://app/counter", { value: 1 }]] },
+   *   { inputs: [], outputs: [["mutable://app/log/1", { event: "init" }]] },
+   * ]);
+   * ```
+   */
+  async sendMany<V = unknown>(
+    envelopes: { inputs: string[]; outputs: [uri: string, value: V][] }[],
+  ): Promise<SendResult[]> {
+    if (envelopes.length === 0) return [];
+    const results: SendResult[] = [];
+    for (const envelope of envelopes) {
+      results.push(await this.send(envelope));
+    }
+    return results;
+  }
+
+  // ── Handler ──
+
+  /**
+   * Create an HTTP fetch handler for this rig's client.
+   *
+   * Returns a standard `(Request) => Promise<Response>` function — no
+   * framework, no CORS, no port binding. Plug it into any server:
+   *
+   * @example Deno.serve
+   * ```typescript
+   * const handler = await rig.handler();
+   * Deno.serve({ port: 3000 }, handler);
+   * ```
+   *
+   * @example Hono (add CORS, middleware, etc.)
+   * ```typescript
+   * const app = new Hono();
+   * app.use("*", cors({ origin: "*" }));
+   * const handler = await rig.handler();
+   * app.all("/api/*", (c) => handler(c.req.raw));
+   * ```
+   */
+  async handler(options?: {
+    healthMeta?: Record<string, unknown>;
+  }): Promise<(req: Request) => Promise<Response>> {
+    const { createHttpHandler } = await import("../b3nd-servers/http.ts");
+    return createHttpHandler(this.client, options);
+  }
 }
