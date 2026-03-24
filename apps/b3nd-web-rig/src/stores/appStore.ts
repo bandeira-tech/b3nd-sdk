@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Rig } from "@bandeira-tech/b3nd-web";
+import { createIdentityFromKeyBundle } from "../services/writer/writerService";
 import type {
   AppActions,
   AppExperience,
@@ -855,6 +856,15 @@ export const useAppStore = create<AppStore>()(
             accounts: [account, ...state.accounts],
             activeAccountId: account.id,
           }));
+          // Sync rig identity with the new active account
+          const rig = get().rig;
+          if (rig && account.type !== "application-user" && account.keyBundle) {
+            createIdentityFromKeyBundle(account.keyBundle).then((identity) => {
+              rig.identity = identity;
+            }).catch((err) => {
+              console.error("[addAccount] Failed to create identity:", err);
+            });
+          }
         },
 
         removeAccount: (id: string) => {
@@ -869,6 +879,22 @@ export const useAppStore = create<AppStore>()(
 
         setActiveAccount: (id: string | null) => {
           set({ activeAccountId: id });
+          // Sync rig identity with active account
+          const state = get();
+          const rig = state.rig;
+          if (!rig) return;
+          if (!id) {
+            rig.identity = null;
+            return;
+          }
+          const account = state.accounts.find((a) => a.id === id);
+          if (account && account.type !== "application-user" && account.keyBundle) {
+            createIdentityFromKeyBundle(account.keyBundle).then((identity) => {
+              rig.identity = identity;
+            }).catch((err) => {
+              console.error("[setActiveAccount] Failed to create identity:", err);
+            });
+          }
         },
 
         setFormValue: (formId, field, value) => {
@@ -1114,9 +1140,20 @@ export const useAppStore = create<AppStore>()(
 
           state.backendsReady = true;
 
-          setTimeout(() => {
+          setTimeout(async () => {
             const store = useAppStore.getState();
             store.loadSchemas();
+            // Sync rig identity with active account after rehydration
+            if (store.rig && store.activeAccountId) {
+              const account = store.accounts.find((a) => a.id === store.activeAccountId);
+              if (account && account.type !== "application-user" && account.keyBundle) {
+                try {
+                  store.rig.identity = await createIdentityFromKeyBundle(account.keyBundle);
+                } catch (err) {
+                  console.error("[rehydrate] Failed to set rig identity:", err);
+                }
+              }
+            }
           }, 0);
         } else {
           // Fresh state — create rig-backed backends
