@@ -1,15 +1,17 @@
 import { Code2, Loader2, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
 import { useApiDocsStore } from "./useApiDocsStore";
+import { useApiDocsCatalog } from "./useApiDocsCatalog";
 import { useRead } from "../learn/useRead";
-import type { ApiCatalog, ApiLibrary, ApiSymbol } from "./apiDocsTypes";
+import type { ApiLibrary, ApiSymbol } from "./apiDocsTypes";
 import { groupByKind, KIND_LABELS } from "./apiDocsTypes";
 
-const CATALOG_URI = "mutable://open/rig/api-docs/catalog";
-
 export function ApiDocsLayoutSlot() {
+  useApiDocsCatalog();
   const activeLibrary = useApiDocsStore((s) => s.activeLibrary);
-  const { data: catalog, loading, error } = useRead<ApiCatalog>(CATALOG_URI);
+  const catalog = useApiDocsStore((s) => s.catalog);
+  const loading = useApiDocsStore((s) => s.catalogLoading);
+  const error = useApiDocsStore((s) => s.catalogError);
 
   if (loading) {
     return (

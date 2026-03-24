@@ -18,41 +18,14 @@
  */
 
 // ---------------------------------------------------------------------------
-// Types — what we produce
+// Types — shared with the web rig React components
 // ---------------------------------------------------------------------------
 
-/** A single exported symbol (function, class, interface, type alias, variable, enum). */
-interface ApiSymbol {
-  name: string;
-  kind: string; // "function" | "class" | "interface" | "typeAlias" | "variable" | "enum" | "namespace"
-  signature: string; // Human-readable one-liner
-  description: string; // First paragraph of JSDoc
-  line: number;
-}
-
-/** Per-library detail document. */
-interface ApiLibrary {
-  key: string; // e.g. "b3nd-hash"
-  label: string; // e.g. "b3nd-hash"
-  description: string; // Module-level JSDoc summary
-  entryPoint: string; // e.g. "libs/b3nd-hash/mod.ts"
-  symbols: ApiSymbol[];
-  generatedAt: number;
-}
-
-/** Top-level catalog (index of all libraries). */
-interface ApiCatalog {
-  libraries: ApiCatalogEntry[];
-  generatedAt: number;
-}
-
-interface ApiCatalogEntry {
-  key: string;
-  label: string;
-  description: string;
-  symbolCount: number;
-  uri: string;
-}
+import type {
+  ApiCatalog,
+  ApiLibrary,
+  ApiSymbol,
+} from "../src/components/api-docs/apiDocsTypes.ts";
 
 // ---------------------------------------------------------------------------
 // deno doc JSON shape (subset we care about)
@@ -312,8 +285,8 @@ async function uploadToB3nd(nodeUrl: string, catalog: ApiCatalog, libraries: Api
     }
     console.log("  Catalog uploaded.");
 
-    // Per-library detail
-    for (const lib of libraries) {
+    // Per-library detail (parallel)
+    const results = await Promise.allSettled(libraries.map(async (lib) => {
       const uri = `mutable://open/rig/api-docs/libraries/${lib.key}`;
       const res = await fetch(`${nodeUrl}/api/v1/receive`, {
         method: "POST",
@@ -325,7 +298,9 @@ async function uploadToB3nd(nodeUrl: string, catalog: ApiCatalog, libraries: Api
       } else {
         console.warn(`  ${lib.key} upload failed: ${res.status}`);
       }
-    }
+    }));
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length) console.warn(`  ${failures.length} upload(s) failed`);
 
     return true;
   } catch (e) {
@@ -352,12 +327,12 @@ async function writeStaticFiles(outputDir: string, catalog: ApiCatalog, librarie
   await Deno.writeTextFile(`${outputDir}/catalog.json`, catalogJson);
   console.log(`\nStatic catalog written to ${outputDir}/catalog.json (${(catalogJson.length / 1024).toFixed(1)} KB)`);
 
-  // Per-library detail files
+  // Per-library detail files (parallel)
   const libsDir = `${outputDir}/libraries`;
   await ensureDir(libsDir);
-  for (const lib of libraries) {
-    await Deno.writeTextFile(`${libsDir}/${lib.key}.json`, JSON.stringify(lib, null, 2));
-  }
+  await Promise.all(
+    libraries.map((lib) => Deno.writeTextFile(`${libsDir}/${lib.key}.json`, JSON.stringify(lib, null, 2))),
+  );
   console.log(`  ${libraries.length} library files written to ${libsDir}/`);
 }
 
@@ -371,11 +346,8 @@ async function main() {
   const libNames = await discoverLibs();
   console.log(`Found ${libNames.length} libraries:\n  ${libNames.join(", ")}\n`);
 
-  const libraries: ApiLibrary[] = [];
-  for (const name of libNames) {
-    const lib = await processLib(name);
-    if (lib) libraries.push(lib);
-  }
+  const results = await Promise.all(libNames.map(processLib));
+  const libraries = results.filter((lib): lib is ApiLibrary => lib !== null);
 
   console.log(`\nProcessed ${libraries.length} libraries:`);
   for (const lib of libraries) {

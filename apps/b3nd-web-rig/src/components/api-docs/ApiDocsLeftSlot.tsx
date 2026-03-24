@@ -1,16 +1,14 @@
 import { useState } from "react";
-import { ArrowLeft, BookOpen, ChevronDown, ChevronRight, Code2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Code2 } from "lucide-react";
 import { cn } from "../../utils";
 import { useApiDocsStore } from "./useApiDocsStore";
 import { useRead } from "../learn/useRead";
 import type { ApiCatalog, ApiLibrary } from "./apiDocsTypes";
 import { groupByKind, KIND_LABELS } from "./apiDocsTypes";
 
-const CATALOG_URI = "mutable://open/rig/api-docs/catalog";
-
 export function ApiDocsLeftSlot() {
   const activeLibrary = useApiDocsStore((s) => s.activeLibrary);
-  const { data: catalog } = useRead<ApiCatalog>(CATALOG_URI);
+  const catalog = useApiDocsStore((s) => s.catalog);
 
   if (!catalog) return null;
   if (!activeLibrary) return <IndexMode catalog={catalog} />;
@@ -182,19 +180,27 @@ interface LibGroup {
   uri: string;
 }
 
+const GROUP_PREFIXES: [string, string][] = [
+  ["b3nd-client-", "Clients"],
+  ["b3nd-wallet", "Wallet"],
+  ["b3nd-server", "Servers"],
+  ["firecat-", "Firecat"],
+];
+
 function groupLibraries(libs: LibGroup[]): [string, LibGroup[]][] {
   const groups = new Map<string, LibGroup[]>();
   for (const lib of libs) {
-    let group: string;
-    if (lib.key.startsWith("b3nd-client-")) group = "Clients";
-    else if (lib.key.startsWith("b3nd-wallet")) group = "Wallet";
-    else if (lib.key.startsWith("firecat-")) group = "Firecat";
-    else group = "Core";
-
+    const match = GROUP_PREFIXES.find(([prefix]) => lib.key.startsWith(prefix));
+    const group = match ? match[1] : "Core";
     const list = groups.get(group) || [];
     list.push(lib);
     groups.set(group, list);
   }
-  const order = ["Core", "Clients", "Wallet", "Firecat"];
-  return order.filter((g) => groups.has(g)).map((g) => [g, groups.get(g)!] as [string, LibGroup[]]);
+  // Core first, then alphabetical for the rest
+  const sorted = [...groups.keys()].sort((a, b) => {
+    if (a === "Core") return -1;
+    if (b === "Core") return 1;
+    return a.localeCompare(b);
+  });
+  return sorted.map((g) => [g, groups.get(g)!] as [string, LibGroup[]]);
 }
