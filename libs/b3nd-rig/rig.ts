@@ -30,7 +30,6 @@ import type { Identity } from "./identity.ts";
 import type {
   RigConfig,
   RigInfo,
-  ServeOptions,
   WatchOptions,
 } from "./types.ts";
 
@@ -688,29 +687,4 @@ export class Rig {
     }
   }
 
-  // ── Serve ──
-
-  /**
-   * Start an HTTP server exposing this rig's client via the b3nd API.
-   *
-   * Dynamically imports Hono and the b3nd HTTP server module.
-   * Only available in Deno.
-   */
-  async serve(options: ServeOptions): Promise<void> {
-    const { Hono } = await import("npm:hono");
-    const { cors } = await import("npm:hono/cors");
-    const { httpServer } = await import("../b3nd-servers/http.ts");
-
-    const app = new Hono();
-    if (options.cors) {
-      app.use("*", cors({ origin: options.cors }));
-    }
-
-    const frontend = httpServer(app as any, {
-      healthMeta: options.healthMeta,
-    });
-
-    frontend.configure({ client: this.client });
-    frontend.listen(options.port);
-  }
 }

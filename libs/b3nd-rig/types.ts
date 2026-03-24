@@ -131,14 +131,3 @@ export interface WatchOptions {
   signal?: AbortSignal;
 }
 
-/**
- * Options for rig.serve().
- */
-export interface ServeOptions {
-  /** Port to listen on. */
-  port: number;
-  /** CORS origin header value. */
-  cors?: string;
-  /** Extra metadata to include in health response. */
-  healthMeta?: Record<string, unknown>;
-}

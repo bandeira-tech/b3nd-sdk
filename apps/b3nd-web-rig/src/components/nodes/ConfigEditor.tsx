@@ -10,7 +10,6 @@ import {
 import { useAppStore } from "../../stores/appStore";
 import {
   signAppPayload,
-  createBackendClient,
 } from "../../services/writer/writerService";
 import type { ManagedKeyAccount } from "../../types";
 
@@ -82,9 +81,10 @@ export function ConfigEditor({ entry, networkId }: Props) {
         throw new Error("Active account has no signing keys");
       }
 
-      // Create backend client
-      const activeBackend = backends.find((b) => b.id === activeBackendId);
-      const client = createBackendClient(activeBackend ?? null);
+      // Use rig client
+      const rig = useAppStore.getState().rig;
+      if (!rig) throw new Error("No rig instance available");
+      const client = rig.client;
 
       // Sign config with operator key
       const signed = await signAppPayload({

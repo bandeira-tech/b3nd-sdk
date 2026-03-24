@@ -38,7 +38,6 @@ import {
   backendWriteEnc as backendWriteEncService,
   backendWritePlain as backendWritePlainService,
   createAppsClient,
-  createBackendClient,
   createSession as createSessionService,
   createWalletClient,
   fetchAppProfile as fetchAppProfileService,
@@ -210,10 +209,9 @@ export function WriterMainContent() {
   };
 
   const requireBackendClient = () => {
-    if (!activeBackend) {
-      throw new Error("Active backend is required");
-    }
-    return createBackendClient(activeBackend);
+    const rig = useAppStore.getState().rig;
+    if (!rig) throw new Error("No rig instance available");
+    return rig.client;
   };
 
   const requireAppsClient = () => {

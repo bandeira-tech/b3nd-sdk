@@ -202,6 +202,5 @@ export type {
   PostgresExecutor,
   RigConfig,
   RigInfo,
-  ServeOptions,
   WatchOptions,
 } from "../libs/b3nd-rig/mod.ts";
