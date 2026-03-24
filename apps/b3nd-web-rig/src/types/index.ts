@@ -106,6 +106,10 @@ export interface AppLogEntry {
   level?: "info" | "success" | "warning" | "error";
 }
 
+/**
+ * @deprecated Use ExportedIdentity from the rig instead.
+ * Kept only for migration of old persisted data.
+ */
 export interface KeyBundle {
   appKey: string;
   accountPrivateKeyPem: string;
@@ -129,7 +133,17 @@ interface BaseManagedAccount {
 
 export interface ManagedKeyAccount extends BaseManagedAccount {
   type: "account" | "application";
-  keyBundle: KeyBundle;
+  /** Signing public key hex — the account's address on the network. */
+  pubkey: string;
+  /** Encryption public key hex. */
+  encryptionPubkey: string;
+  /** Serialized identity for persistence (private keys included). */
+  exportedIdentity: import("@bandeira-tech/b3nd-web").ExportedIdentity;
+  /**
+   * @deprecated Legacy field. Use exportedIdentity + pubkey instead.
+   * Present on accounts created before the migration.
+   */
+  keyBundle?: KeyBundle;
 }
 
 export interface ManagedApplicationUserAccount extends BaseManagedAccount {
@@ -179,7 +193,6 @@ export interface AppState {
   appServers: EndpointConfig[];
   activeAppServerId: string | null;
   googleClientId: string;
-  keyBundle: KeyBundle;
 
   // Schema and root navigation
   schemas: Record<string, string[]>; // Schemas by instance: { instanceId: [uris] }
@@ -243,7 +256,6 @@ export interface AppActions {
   removeAppServer: (id: string) => void;
   setActiveAppServer: (id: string) => void;
   setGoogleClientId: (id: string) => void;
-  setKeyBundle: (bundle: Partial<KeyBundle>) => void;
   closeSettings: () => void;
 
   // Schema actions

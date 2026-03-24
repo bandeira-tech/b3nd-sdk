@@ -11,15 +11,15 @@ import { Link } from "react-router-dom";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import {
   createAppsClient,
-  createIdentityFromKeyBundle,
   createSession,
   createWalletClient,
   fetchAppProfile,
   fetchMyKeys,
-  generateAppKeys,
+  generateAccountIdentity,
   googleLogin,
   googleSignup,
   loginWithPassword,
+  restoreIdentity,
   signupWithPassword,
 } from "../../services/writer/writerService";
 import type {
@@ -330,7 +330,7 @@ function ActiveAccountSummary(
       {activeAccount.type === "application"
         ? <WriterLink />
         : activeAccount.type !== "application-user"
-          ? <ExplorerLink appKey={activeAccount.keyBundle.appKey} />
+          ? <ExplorerLink appKey={activeAccount.pubkey} />
           : <ExplorerLink appKey={activeAccount.appKey} />}
     </div>
   );
@@ -362,10 +362,10 @@ function AccountDetailsTable({ account }: { account: ManagedAccount }) {
     ]
     : [
       ...baseRows,
-      { label: "Auth key", value: account.keyBundle.appKey },
+      { label: "Auth key", value: account.pubkey },
       {
         label: "Encryption key",
-        value: account.keyBundle.encryptionPublicKeyHex,
+        value: account.encryptionPubkey,
       },
     ];
 
@@ -471,12 +471,14 @@ function KeyAccountForm(
     }
     setCreating(true);
     try {
-      const keyBundle = await generateAppKeys();
+      const { exported, pubkey, encryptionPubkey } = await generateAccountIdentity();
       onCreate({
         id: crypto.randomUUID(),
         type: accountType,
         name: name.trim(),
-        keyBundle,
+        pubkey,
+        encryptionPubkey,
+        exportedIdentity: exported,
         createdAt: Date.now(),
         emoji: emoji.trim(),
       });
@@ -659,7 +661,7 @@ function ApplicationUserAccountForm(
     try {
       const result = await fetchAppProfile({
         backendClient: props.requireBackendClient(),
-        appKey: app.keyBundle.appKey,
+        appKey: app.pubkey,
       });
       if (!result.success) {
         throw new Error(result.error || "Failed to load app profile");
@@ -677,7 +679,7 @@ function ApplicationUserAccountForm(
 
   const startAppSession = async () => {
     const app = requireSelectedApp();
-    const identity = await createIdentityFromKeyBundle(app.keyBundle);
+    const identity = await restoreIdentity(app.exportedIdentity);
     const res = await createSession({
       appsClient: props.requireAppsClient(),
       backendClient: props.requireBackendClient(),
@@ -695,7 +697,7 @@ function ApplicationUserAccountForm(
     const app = requireSelectedApp();
     const keys = await fetchMyKeys({
       walletClient: props.requireWalletClient(),
-      appKey: app.keyBundle.appKey,
+      appKey: app.pubkey,
       session: currentSession,
     });
     setAuthKeys(keys);
@@ -727,7 +729,7 @@ function ApplicationUserAccountForm(
         if (authMode === "signup") {
           session = await signupWithPassword({
             walletClient: props.requireWalletClient(),
-            appKey: app.keyBundle.appKey,
+            appKey: app.pubkey,
             sessionKeypair: appSession.sessionKeypair,
             username,
             password,
@@ -735,7 +737,7 @@ function ApplicationUserAccountForm(
         } else {
           session = await loginWithPassword({
             walletClient: props.requireWalletClient(),
-            appKey: app.keyBundle.appKey,
+            appKey: app.pubkey,
             sessionKeypair: appSession.sessionKeypair,
             username,
             password,
@@ -751,14 +753,14 @@ function ApplicationUserAccountForm(
         if (authMode === "signup") {
           session = await googleSignup({
             walletClient: props.requireWalletClient(),
-            appKey: app.keyBundle.appKey,
+            appKey: app.pubkey,
             sessionKeypair: appSession.sessionKeypair,
             googleIdToken: googleCredential,
           });
         } else {
           session = await googleLogin({
             walletClient: props.requireWalletClient(),
-            appKey: app.keyBundle.appKey,
+            appKey: app.pubkey,
             sessionKeypair: appSession.sessionKeypair,
             googleIdToken: googleCredential,
           });
@@ -787,7 +789,7 @@ function ApplicationUserAccountForm(
         createdAt: Date.now(),
         appAccountId: app.id,
         appName: app.name,
-        appKey: app.keyBundle.appKey,
+        appKey: app.pubkey,
         appSession: appSession.sessionId,
         userSession: session,
         authKeys: resolvedKeys,
@@ -1036,7 +1038,7 @@ function ApplicationSelector(
         <option value="">Select an application account</option>
         {applications.map((app) => (
           <option key={app.id} value={app.id}>
-            {app.name} ({app.keyBundle.appKey.slice(0, 8)}…)
+            {app.name} ({app.pubkey.slice(0, 8)}…)
           </option>
         ))}
       </select>

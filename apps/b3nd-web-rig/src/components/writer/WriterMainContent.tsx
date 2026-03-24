@@ -336,7 +336,7 @@ export function WriterMainContent() {
 
   const signup = async (username: string, password: string) => {
     const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
+    const appKey = appAccount.pubkey;
     if (!appSession?.sessionKeypair) {
       throw new Error("Session keypair is required - start a session first");
     }
@@ -355,7 +355,7 @@ export function WriterMainContent() {
 
   const login = async (username: string, password: string) => {
     const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
+    const appKey = appAccount.pubkey;
     if (!appSession?.sessionKeypair) {
       throw new Error("Session keypair is required - start a session first");
     }
@@ -374,7 +374,7 @@ export function WriterMainContent() {
 
   const handleGoogleSignup = async (idToken: string) => {
     const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
+    const appKey = appAccount.pubkey;
     ensureValue(idToken, "Google ID token");
     if (!appSession?.sessionKeypair) {
       throw new Error("Session keypair is required - start a session first");
@@ -393,7 +393,7 @@ export function WriterMainContent() {
 
   const handleGoogleLogin = async (idToken: string) => {
     const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
+    const appKey = appAccount.pubkey;
     ensureValue(idToken, "Google ID token");
     if (!appSession?.sessionKeypair) {
       throw new Error("Session keypair is required - start a session first");
@@ -412,7 +412,7 @@ export function WriterMainContent() {
 
   const fetchKeysForSession = async (currentSession: WriterUserSession) => {
     const appAccount = requireApplicationAccount();
-    const appKey = appAccount.keyBundle.appKey;
+    const appKey = appAccount.pubkey;
     const keys = await fetchMyKeys({
       walletClient: requireWalletClient(),
       appKey,
@@ -683,7 +683,7 @@ export function WriterMainContent() {
 
         // Get encryption key if enabled
         const encryptionKey = hashEncryptEnabled && account?.type === "application"
-          ? account.keyBundle.encryptionPublicKeyHex
+          ? account.encryptionPubkey
           : undefined;
 
         if (hashLinkEnabled && account?.type === "application" && hashLinkPath) {
@@ -1646,7 +1646,7 @@ function ApplicationAccountContext(
                   Application Account
                 </div>
                 <div className="text-xs text-muted-foreground font-mono">
-                  {activeAccount.keyBundle.appKey}
+                  {activeAccount.pubkey}
                 </div>
               </div>
             </div>

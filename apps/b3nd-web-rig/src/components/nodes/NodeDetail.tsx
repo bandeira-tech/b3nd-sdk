@@ -241,11 +241,11 @@ function SetupPanel({ entry }: { entry: NetworkNodeEntry }) {
   const account = accounts.find((a) => a.id === activeAccountId);
   const operatorKey =
     account && account.type !== "application-user"
-      ? (account as ManagedKeyAccount).keyBundle.appKey
+      ? (account as ManagedKeyAccount).pubkey
       : "";
   const operatorEncPubKey =
     account && account.type !== "application-user"
-      ? (account as ManagedKeyAccount).keyBundle.encryptionPublicKeyHex
+      ? (account as ManagedKeyAccount).encryptionPubkey
       : "";
   const activeBackend = backends.find((b) => b.id === activeBackendId);
   const backendUrl = activeBackend?.adapter.baseUrl || "http://localhost:8842";

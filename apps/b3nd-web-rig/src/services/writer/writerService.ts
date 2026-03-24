@@ -5,7 +5,7 @@ import type { ExportedIdentity } from "@bandeira-tech/b3nd-web";
 import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
-import type { KeyBundle } from "../../types";
+import type { KeyBundle } from "../../types"; // Legacy — for migration only
 
 type ValidationFormat = "email" | "";
 type WriteKind = "plain" | "encrypted";
@@ -46,30 +46,28 @@ export const createAppsClient = (appServerUrl: string) => {
 /**
  * Generate a new account identity (Ed25519 signing + X25519 encryption).
  *
- * Uses the rig's Identity.generate() — the same codepath CLI and server
- * apps use. Returns KeyBundle format for persistence compatibility.
+ * Returns the Identity and its ExportedIdentity for persistence.
  */
-export const generateAppKeys = async (): Promise<KeyBundle> => {
+export const generateAccountIdentity = async (): Promise<{
+  identity: Identity;
+  exported: ExportedIdentity;
+  pubkey: string;
+  encryptionPubkey: string;
+}> => {
   const identity = await Identity.generate();
   const exported = await identity.export();
-
-  const sigPem = hexToPem(exported.signingPrivateKeyHex!);
-  const encPem = hexToPem(exported.encryptionPrivateKeyHex!);
-
   return {
-    appKey: exported.signingPublicKeyHex,
-    accountPrivateKeyPem: sigPem,
-    encryptionPublicKeyHex: exported.encryptionPublicKeyHex,
-    encryptionPrivateKeyPem: encPem,
+    identity,
+    exported,
+    pubkey: identity.pubkey,
+    encryptionPubkey: identity.encryptionPubkey,
   };
 };
 
-/** Convert PKCS8 hex to PEM format. */
-function hexToPem(hex: string): string {
-  const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)));
-  const b64 = btoa(String.fromCharCode(...bytes));
-  return `-----BEGIN PRIVATE KEY-----\n${(b64.match(/.{1,64}/g) || []).join("\n")}\n-----END PRIVATE KEY-----`;
-}
+/** @deprecated Use generateAccountIdentity instead. */
+export const generateAppKeys = generateAccountIdentity;
+
+// ── Legacy migration helpers ──
 
 /** Convert PEM to PKCS8 hex. */
 function pemToHex(pem: string): string {
@@ -79,19 +77,34 @@ function pemToHex(pem: string): string {
 }
 
 /**
- * Reconstruct a rig Identity from a legacy KeyBundle.
+ * Migrate a legacy KeyBundle to ExportedIdentity.
  *
- * Bridges the old persistence format to the canonical Identity type.
+ * Used during rehydration to upgrade old persisted accounts.
  */
-export const createIdentityFromKeyBundle = async (kb: KeyBundle): Promise<Identity> => {
-  const exported: ExportedIdentity = {
+export function migrateKeyBundle(kb: KeyBundle): ExportedIdentity {
+  return {
     signingPublicKeyHex: kb.appKey,
     signingPrivateKeyHex: pemToHex(kb.accountPrivateKeyPem),
     encryptionPublicKeyHex: kb.encryptionPublicKeyHex,
     encryptionPrivateKeyHex: kb.encryptionPrivateKeyPem ? pemToHex(kb.encryptionPrivateKeyPem) : undefined,
   };
-  return Identity.fromExport(exported);
+}
+
+/**
+ * Reconstruct a rig Identity from an ExportedIdentity or legacy KeyBundle.
+ */
+export const restoreIdentity = async (
+  source: ExportedIdentity | KeyBundle,
+): Promise<Identity> => {
+  // Detect legacy KeyBundle by the presence of `appKey`
+  if ("appKey" in source) {
+    return Identity.fromExport(migrateKeyBundle(source as KeyBundle));
+  }
+  return Identity.fromExport(source as ExportedIdentity);
 };
+
+/** @deprecated Use restoreIdentity instead. */
+export const createIdentityFromKeyBundle = restoreIdentity;
 
 // ============================================================================
 // AUTHENTICATED OPERATIONS — all signing goes through Identity

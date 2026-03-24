@@ -130,13 +130,16 @@ function TabButton({
 
 function WriterStateView() {
   const {
-    keyBundle,
+    accounts,
+    activeAccountId,
     writerAppSession,
     writerSession,
     writerLastResolvedUri,
     writerLastAppUri,
     activeApp,
   } = useAppStore();
+  const activeAccount = accounts.find((a) => a.id === activeAccountId);
+  const pubkey = activeAccount && activeAccount.type !== "application-user" ? activeAccount.pubkey : "";
 
   if (activeApp !== "writer") {
     return (
@@ -147,7 +150,7 @@ function WriterStateView() {
   }
 
   const rows: Array<{ label: string; value: string }> = [
-    { label: "App Key", value: keyBundle.appKey },
+    { label: "App Key", value: pubkey },
     { label: "App Session", value: writerAppSession?.sessionId || "" },
     { label: "User", value: writerSession?.username || "" },
     { label: "Authenticated", value: writerSession ? "yes" : "no" },
