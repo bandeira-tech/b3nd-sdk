@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Rig } from "@bandeira-tech/b3nd-web";
-import { createIdentityFromKeyBundle } from "../services/writer/writerService";
+import { Rig, Identity } from "@bandeira-tech/b3nd-web";
+import { restoreIdentity, migrateKeyBundle } from "../services/writer/writerService";
 import type {
   AppActions,
   AppExperience,
@@ -155,12 +155,6 @@ const initialState: Omit<AppState, "backendsReady"> = {
   appServers: [],
   activeAppServerId: null,
   googleClientId: "",
-  keyBundle: {
-    appKey: "",
-    accountPrivateKeyPem: "",
-    encryptionPublicKeyHex: "",
-    encryptionPrivateKeyPem: "",
-  },
   schemas: {},
   rootNodes: [],
   currentPath: "/",
@@ -303,12 +297,6 @@ export const useAppStore = create<AppStore>()(
 
         setGoogleClientId: (googleClientId: string) => {
           set({ googleClientId });
-        },
-
-        setKeyBundle: (bundle) => {
-          set((state) => ({
-            keyBundle: { ...state.keyBundle, ...bundle },
-          }));
         },
 
         closeSettings: () => {
@@ -878,11 +866,11 @@ export const useAppStore = create<AppStore>()(
           }));
           // Sync rig identity with the new active account
           const rig = get().rig;
-          if (rig && account.type !== "application-user" && account.keyBundle) {
-            createIdentityFromKeyBundle(account.keyBundle).then((identity) => {
+          if (rig && account.type !== "application-user" && account.exportedIdentity) {
+            restoreIdentity(account.exportedIdentity).then((identity) => {
               rig.identity = identity;
             }).catch((err) => {
-              console.error("[addAccount] Failed to create identity:", err);
+              console.error("[addAccount] Failed to restore identity:", err);
             });
           }
         },
@@ -908,11 +896,11 @@ export const useAppStore = create<AppStore>()(
             return;
           }
           const account = state.accounts.find((a) => a.id === id);
-          if (account && account.type !== "application-user" && account.keyBundle) {
-            createIdentityFromKeyBundle(account.keyBundle).then((identity) => {
+          if (account && account.type !== "application-user" && account.exportedIdentity) {
+            restoreIdentity(account.exportedIdentity).then((identity) => {
               rig.identity = identity;
             }).catch((err) => {
-              console.error("[setActiveAccount] Failed to create identity:", err);
+              console.error("[setActiveAccount] Failed to restore identity:", err);
             });
           }
         },
@@ -1018,7 +1006,6 @@ export const useAppStore = create<AppStore>()(
           appServers: state.appServers,
           activeAppServerId: state.activeAppServerId,
           googleClientId: state.googleClientId,
-          keyBundle: state.keyBundle,
           panels: state.panels,
           bottomMaximized: state.bottomMaximized,
           panelPreferences: state.panelPreferences,
@@ -1151,12 +1138,23 @@ export const useAppStore = create<AppStore>()(
             appServers[0]?.id ||
             null;
           state.googleClientId = state.googleClientId || "";
-          state.keyBundle = state.keyBundle || {
-            appKey: "",
-            accountPrivateKeyPem: "",
-            encryptionPublicKeyHex: "",
-            encryptionPrivateKeyPem: "",
-          };
+
+          // Migrate legacy accounts: keyBundle → exportedIdentity
+          if (state.accounts) {
+            state.accounts = state.accounts.map((acct) => {
+              if (acct.type !== "application-user" && !acct.exportedIdentity && (acct as any).keyBundle) {
+                const kb = (acct as any).keyBundle;
+                const exported = migrateKeyBundle(kb);
+                return {
+                  ...acct,
+                  pubkey: exported.signingPublicKeyHex,
+                  encryptionPubkey: exported.encryptionPublicKeyHex,
+                  exportedIdentity: exported,
+                };
+              }
+              return acct;
+            });
+          }
 
           state.backendsReady = true;
 
@@ -1166,9 +1164,9 @@ export const useAppStore = create<AppStore>()(
             // Sync rig identity with active account after rehydration
             if (store.rig && store.activeAccountId) {
               const account = store.accounts.find((a) => a.id === store.activeAccountId);
-              if (account && account.type !== "application-user" && account.keyBundle) {
+              if (account && account.type !== "application-user" && account.exportedIdentity) {
                 try {
-                  store.rig.identity = await createIdentityFromKeyBundle(account.keyBundle);
+                  store.rig.identity = await restoreIdentity(account.exportedIdentity);
                 } catch (err) {
                   console.error("[rehydrate] Failed to set rig identity:", err);
                 }

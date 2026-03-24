@@ -1,9 +1,10 @@
 /**
  * @module
- * b3nd Rig — the universal harness.
+ * b3nd Rig — the universal harness for b3nd networks.
  *
- * Single import for working with the b3nd network.
- * Convention over configuration.
+ * Identity, connection, send/receive, and observation.
+ * For the full toolkit (hash, encrypt, message layer),
+ * use the bundle: `@bandeira-tech/b3nd-web` or `@bandeira-tech/b3nd-sdk`.
  *
  * @example
  * ```typescript
@@ -26,14 +27,9 @@
  * ```
  */
 
+// Core
 export { Identity } from "./identity.ts";
 export type { ExportedIdentity } from "./identity.ts";
-export {
-  createClientFromUrl,
-  getSupportedProtocols,
-  SUPPORTED_PROTOCOLS,
-} from "./backend-factory.ts";
-export type { BackendFactoryOptions } from "./backend-factory.ts";
 export { Rig } from "./rig.ts";
 export type {
   HandlerOptions,
@@ -47,3 +43,11 @@ export type {
   WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";
+
+// Backend factory
+export {
+  createClientFromUrl,
+  getSupportedProtocols,
+  SUPPORTED_PROTOCOLS,
+} from "./backend-factory.ts";
+export type { BackendFactoryOptions } from "./backend-factory.ts";

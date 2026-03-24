@@ -11,7 +11,6 @@ import { useAppStore } from "../../stores/appStore";
 import {
   signAppPayload,
 } from "../../services/writer/writerService";
-import type { ManagedKeyAccount } from "../../types";
 
 interface Props {
   entry: NetworkNodeEntry;
@@ -75,27 +74,19 @@ export function ConfigEditor({ entry, networkId }: Props) {
           "Select an account or application key to sign config pushes"
         );
       }
-      const keyAccount = account as ManagedKeyAccount;
-      const { appKey, accountPrivateKeyPem } = keyAccount.keyBundle;
-      if (!appKey || !accountPrivateKeyPem) {
-        throw new Error("Active account has no signing keys");
-      }
-
-      // Use rig client
       const rig = useAppStore.getState().rig;
       if (!rig) throw new Error("No rig instance available");
-      const client = rig.client;
+      if (!rig.identity) throw new Error("No identity set — select an account first");
 
       // Sign config with operator key
       const signed = await signAppPayload({
+        identity: rig.identity,
         payload: draft,
-        appKey,
-        accountPrivateKeyPem,
       });
 
       // Write to correct URI
-      const uri = `mutable://accounts/${appKey}/nodes/${entry.nodeId}/config`;
-      const result = await client.receive([uri, signed]);
+      const uri = `mutable://accounts/${rig.identity.pubkey}/nodes/${entry.nodeId}/config`;
+      const result = await rig.client.receive([uri, signed]);
 
       if (!result.accepted) {
         throw new Error(result.error || "Backend rejected config push");

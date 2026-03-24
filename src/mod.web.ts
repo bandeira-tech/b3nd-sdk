@@ -1,11 +1,15 @@
 /**
- * @bandeira-tech/b3nd-web - Browser/NPM Distribution
+ * @bandeira-tech/b3nd-web — the browser bundle.
  *
- * Full browser-safe surface: core types, clients, identity, rig,
- * message layer, encryption, and protocol discovery.
+ * Single import for everything: rig, identity, hash, encrypt,
+ * clients, message layer, and core types.
+ *
+ * Individual tools have their own packages (`@b3nd/rig`, subpath exports).
+ * This bundle is the convergence — all tools, one import.
  */
 
-// Core types
+// ── Core types ──
+
 export type {
   B3ndError,
   ClientError,
@@ -18,6 +22,7 @@ export type {
   ListResult,
   LocalStorageClientConfig,
   MemoryClientConfig,
+  Message,
   NodeProtocolInterface,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
@@ -35,7 +40,8 @@ export type {
 } from "../libs/b3nd-core/types.ts";
 export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 
-// Client implementations
+// ── Client implementations ──
+
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
 export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
@@ -48,14 +54,10 @@ export { AppsClient } from "../libs/b3nd-apps/mod.ts";
 export { FunctionalClient } from "../libs/b3nd-core/functional-client.ts";
 export type { FunctionalClientConfig } from "../libs/b3nd-core/functional-client.ts";
 
-// Encryption
-export * as encrypt from "../libs/b3nd-encrypt/mod.ts";
+// ── Rig — universal harness ──
 
-// Identity — signing + encryption keypair bundle
 export { Identity } from "../libs/b3nd-rig/identity.ts";
 export type { ExportedIdentity } from "../libs/b3nd-rig/identity.ts";
-
-// Rig — universal harness
 export { Rig } from "../libs/b3nd-rig/rig.ts";
 export type {
   HandlerOptions,
@@ -66,13 +68,57 @@ export type {
   WatchAllSnapshot,
   WatchOptions,
 } from "../libs/b3nd-rig/types.ts";
+export type { BackendFactoryOptions } from "../libs/b3nd-rig/backend-factory.ts";
 export {
   createClientFromUrl,
   getSupportedProtocols,
   SUPPORTED_PROTOCOLS,
 } from "../libs/b3nd-rig/backend-factory.ts";
 
-// Message layer — structured state transitions
+// ── Content addressing (hash) ──
+
+export {
+  computeSha256,
+  generateHashUri,
+  generateLinkUri,
+  hashValidator,
+  isValidSha256Hash,
+  parseHashUri,
+  validateLinkValue,
+  verifyHashContent,
+} from "../libs/b3nd-hash/mod.ts";
+
+// ── Encryption & auth ──
+
+export {
+  createAuthenticatedMessage,
+  createSignedEncryptedMessage,
+  decrypt,
+  decryptSymmetric,
+  deriveEncryptionKeyPairFromSeed,
+  deriveSigningKeyPairFromSeed,
+  encrypt,
+  encryptSymmetric,
+  generateEncryptionKeyPair,
+  generateSigningKeyPair,
+  IdentityKey,
+  pemToCryptoKey,
+  PublicEncryptionKey,
+  SecretEncryptionKey,
+  sign,
+  signPayload,
+  verify,
+  verifyAndDecryptMessage,
+  verifyPayload,
+} from "../libs/b3nd-encrypt/mod.ts";
+export type {
+  AuthenticatedMessage,
+  EncryptedPayload,
+  SignedEncryptedMessage,
+} from "../libs/b3nd-encrypt/mod.ts";
+
+// ── Message layer ──
+
 export {
   combineValidators,
   createOutputValidator,
