@@ -246,16 +246,12 @@ export function EditorMainContent({
       }
 
       // 4. Store content at hash URI, then update link pointer
+      // rig "receive:error" event handles logging to bottom panel
       const hashResponse = await rig.receive([hashUri, contentData]);
       if (!hashResponse.accepted) {
         setStatus({
           ok: false,
           message: hashResponse.error || "Hash store rejected",
-        });
-        addLogEntry({
-          source: "editor",
-          message: `Hash store rejected: ${hashResponse.error || "unknown"}`,
-          level: "error",
         });
         return;
       }
@@ -285,7 +281,8 @@ export function EditorMainContent({
           level: "success",
         });
 
-        // 5. Read-back confirmation
+        // Read-back confirmation — success logged here for context,
+        // failures handled by rig "read:error" event
         try {
           const hashRead = await rig.read(hashUri);
           if (hashRead.success && hashRead.record) {
@@ -296,29 +293,13 @@ export function EditorMainContent({
               }`,
               level: "info",
             });
-          } else {
-            addLogEntry({
-              source: "editor",
-              message: `Read-back failed: ${hashRead.error || "unknown"}`,
-              level: "warning",
-            });
           }
-        } catch (err) {
-          addLogEntry({
-            source: "editor",
-            message: `Read-back error: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-            level: "warning",
-          });
+        } catch {
+          // rig "read:error" event handles this
         }
       } else {
+        // rig "receive:error" event handles logging to bottom panel
         setStatus({ ok: false, message: response.error || "Save rejected" });
-        addLogEntry({
-          source: "editor",
-          message: `Save rejected: ${response.error || "unknown"}`,
-          level: "error",
-        });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

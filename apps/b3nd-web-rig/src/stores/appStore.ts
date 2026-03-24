@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Rig, Identity } from "@bandeira-tech/b3nd-web";
-import { restoreIdentity, migrateKeyBundle } from "../services/writer/writerService";
+import { Identity, Rig } from "@bandeira-tech/b3nd-web";
+import {
+  migrateKeyBundle,
+  restoreIdentity,
+} from "../services/writer/writerService";
 import type {
   AppActions,
   AppExperience,
@@ -10,13 +13,13 @@ import type {
   AppState,
   BackendConfig,
   EndpointConfig,
+  ExplorerSection,
   ManagedAccount,
   PanelState,
   ThemeMode,
+  WriterAppSession,
   WriterSection,
   WriterUserSession,
-  WriterAppSession,
-  ExplorerSection,
 } from "../types";
 import { HttpAdapter } from "../adapters/HttpAdapter";
 import { generateId, joinPath, sanitizePath } from "../utils";
@@ -59,7 +62,10 @@ async function loadInstanceConfig(): Promise<InstancesConfig> {
         appServer: "local-app",
       },
       backends: {
-        "local-api": { name: "Local HTTP API", baseUrl: "http://localhost:9942" },
+        "local-api": {
+          name: "Local HTTP API",
+          baseUrl: "http://localhost:9942",
+        },
       },
       walletServers: {
         "local-wallet": { name: "Local Wallet", url: "http://localhost:9943" },
@@ -79,7 +85,9 @@ async function loadAllEndpoints(): Promise<{
 }> {
   const config = await loadInstanceConfig();
 
-  const backends: Array<{ id: string; name: string; baseUrl: string; isActive: boolean }> = [];
+  const backends: Array<
+    { id: string; name: string; baseUrl: string; isActive: boolean }
+  > = [];
   if (config.backends) {
     const defaultBackendId = config.defaults?.backend;
     for (const id of Object.keys(config.backends)) {
@@ -140,6 +148,30 @@ async function createBackendFromUrl(
   isActive: boolean,
 ): Promise<{ backend: BackendConfig; rig: Rig }> {
   const rig = await Rig.connect(baseUrl);
+
+  // Wire rig events → bottom-panel log
+  rig.on("receive:success", (e) => {
+    useAppStore.getState().addLogEntry({
+      source: "rig",
+      message: `receive ok: ${e.uri}`,
+      level: "success",
+    });
+  });
+  rig.on("receive:error", (e) => {
+    useAppStore.getState().addLogEntry({
+      source: "rig",
+      message: `receive failed: ${e.uri ?? "unknown"} — ${e.error}`,
+      level: "error",
+    });
+  });
+  rig.on("read:error", (e) => {
+    useAppStore.getState().addLogEntry({
+      source: "rig",
+      message: `read failed: ${e.uri ?? "unknown"} — ${e.error}`,
+      level: "error",
+    });
+  });
+
   const adapter = new HttpAdapter(rig.client, baseUrl);
   return {
     backend: { id, name, adapter, isActive },
@@ -228,7 +260,12 @@ export const useAppStore = create<AppStore>()(
           }
           try {
             const id = generateId();
-            const { backend } = await createBackendFromUrl(id, config.name, baseUrl, config.isActive);
+            const { backend } = await createBackendFromUrl(
+              id,
+              config.name,
+              baseUrl,
+              config.isActive,
+            );
             (backend.adapter as any).isUserAdded = true;
             set((state) => ({
               backends: [...state.backends, backend],
@@ -458,14 +495,18 @@ export const useAppStore = create<AppStore>()(
 
         navigateToPath: (path, options) => {
           set((state) => {
-            const section: ExplorerSection = options?.section || state.explorerSection || "index";
+            const section: ExplorerSection = options?.section ||
+              state.explorerSection || "index";
             const nextHistory = [...state.navigationHistory];
             const normalized = sanitizePath(path);
 
             if (section === "account") {
-              const accountKey = options?.accountKey || state.explorerAccountKey;
+              const accountKey = options?.accountKey ||
+                state.explorerAccountKey;
               if (!accountKey) {
-                throw new Error("Account key is required when navigating account explorer paths");
+                throw new Error(
+                  "Account key is required when navigating account explorer paths",
+                );
               }
               const segments = normalized.split("/").filter(Boolean);
               if (segments.length === 0) {
@@ -483,11 +524,18 @@ export const useAppStore = create<AppStore>()(
                 };
               }
 
-              const hasProtocol = segments[0] === "mutable" || segments[0] === "immutable";
+              const hasProtocol = segments[0] === "mutable" ||
+                segments[0] === "immutable";
               const protocol = hasProtocol ? segments[0] : "mutable";
               const remainder = hasProtocol ? segments.slice(1) : segments;
-              const resolved = joinPath(protocol, "accounts", accountKey, ...remainder);
-              const storedPath = "/" + [protocol, ...remainder].filter(Boolean).join("/");
+              const resolved = joinPath(
+                protocol,
+                "accounts",
+                accountKey,
+                ...remainder,
+              );
+              const storedPath = "/" +
+                [protocol, ...remainder].filter(Boolean).join("/");
               if (nextHistory[nextHistory.length - 1] !== resolved) {
                 nextHistory.push(resolved);
               }
@@ -556,7 +604,9 @@ export const useAppStore = create<AppStore>()(
             if (history.length > 50) history.shift();
             return {
               explorerIndexPath: normalized,
-              currentPath: state.explorerSection === "index" ? normalized : state.currentPath,
+              currentPath: state.explorerSection === "index"
+                ? normalized
+                : state.currentPath,
               navigationHistory: history,
             };
           });
@@ -567,14 +617,25 @@ export const useAppStore = create<AppStore>()(
             if (!accountKey) {
               return {
                 explorerAccountKey: null,
-                currentPath: state.explorerSection === "account" ? "/" : state.currentPath,
+                currentPath: state.explorerSection === "account"
+                  ? "/"
+                  : state.currentPath,
               };
             }
-            const normalizedPath = sanitizePath(state.explorerAccountPath || "/");
-            const resolved = joinPath("mutable", "accounts", accountKey, normalizedPath === "/" ? "" : normalizedPath);
+            const normalizedPath = sanitizePath(
+              state.explorerAccountPath || "/",
+            );
+            const resolved = joinPath(
+              "mutable",
+              "accounts",
+              accountKey,
+              normalizedPath === "/" ? "" : normalizedPath,
+            );
             return {
               explorerAccountKey: accountKey,
-              currentPath: state.explorerSection === "account" ? resolved : state.currentPath,
+              currentPath: state.explorerSection === "account"
+                ? resolved
+                : state.currentPath,
             };
           });
         },
@@ -585,7 +646,9 @@ export const useAppStore = create<AppStore>()(
             const history = [...state.navigationHistory];
             const accountKey = state.explorerAccountKey;
             if (!accountKey) {
-              throw new Error("Account key is required when setting the account explorer path");
+              throw new Error(
+                "Account key is required when setting the account explorer path",
+              );
             }
             const segments = normalized.split("/").filter(Boolean);
             if (segments.length === 0) {
@@ -595,15 +658,24 @@ export const useAppStore = create<AppStore>()(
               if (history.length > 50) history.shift();
               return {
                 explorerAccountPath: "/",
-                currentPath: state.explorerSection === "account" ? "/" : state.currentPath,
+                currentPath: state.explorerSection === "account"
+                  ? "/"
+                  : state.currentPath,
                 navigationHistory: history,
               };
             }
-            const hasProtocol = segments[0] === "mutable" || segments[0] === "immutable";
+            const hasProtocol = segments[0] === "mutable" ||
+              segments[0] === "immutable";
             const protocol = hasProtocol ? segments[0] : "mutable";
             const remainder = hasProtocol ? segments.slice(1) : segments;
-            const resolved = joinPath(protocol, "accounts", accountKey, ...remainder);
-            const storedPath = "/" + [protocol, ...remainder].filter(Boolean).join("/");
+            const resolved = joinPath(
+              protocol,
+              "accounts",
+              accountKey,
+              ...remainder,
+            );
+            const storedPath = "/" +
+              [protocol, ...remainder].filter(Boolean).join("/");
             if (history[history.length - 1] !== resolved) {
               history.push(resolved);
             }
@@ -611,7 +683,9 @@ export const useAppStore = create<AppStore>()(
 
             return {
               explorerAccountPath: storedPath,
-              currentPath: state.explorerSection === "account" ? resolved : state.currentPath,
+              currentPath: state.explorerSection === "account"
+                ? resolved
+                : state.currentPath,
               navigationHistory: history,
             };
           });
@@ -797,11 +871,14 @@ export const useAppStore = create<AppStore>()(
         },
 
         loadEndpoints: async () => {
-          const { backends: rawBackends, walletServers, appServers, defaults } = await loadAllEndpoints();
+          const { backends: rawBackends, walletServers, appServers, defaults } =
+            await loadAllEndpoints();
 
           // Create proper BackendConfig objects with adapters (same as onRehydrateStorage)
           const results = await Promise.allSettled(
-            rawBackends.map((b) => createBackendFromUrl(b.id, b.name, b.baseUrl, b.isActive)),
+            rawBackends.map((b) =>
+              createBackendFromUrl(b.id, b.name, b.baseUrl, b.isActive)
+            ),
           );
           const backends: BackendConfig[] = [];
           let activeRig: Rig | null = null;
@@ -810,12 +887,20 @@ export const useAppStore = create<AppStore>()(
           }
 
           set((state) => {
-            const nextBackends = state.backends.length ? state.backends : backends;
-            const nextWallets = state.walletServers.length ? state.walletServers : walletServers;
-            const nextApps = state.appServers.length ? state.appServers : appServers;
+            const nextBackends = state.backends.length
+              ? state.backends
+              : backends;
+            const nextWallets = state.walletServers.length
+              ? state.walletServers
+              : walletServers;
+            const nextApps = state.appServers.length
+              ? state.appServers
+              : appServers;
 
             const activeBackendId = (() => {
-              const existing = nextBackends.find((b) => b.id === state.activeBackendId)?.id;
+              const existing = nextBackends.find((b) =>
+                b.id === state.activeBackendId
+              )?.id;
               if (existing) return existing;
               const defaultBackend = nextBackends.find((b) => b.isActive) ||
                 nextBackends.find((b) => b.id === defaults.backend);
@@ -824,14 +909,19 @@ export const useAppStore = create<AppStore>()(
 
             // Set the active rig
             for (const r of results) {
-              if (r.status === "fulfilled" && r.value.backend.id === activeBackendId) {
+              if (
+                r.status === "fulfilled" &&
+                r.value.backend.id === activeBackendId
+              ) {
                 activeRig = r.value.rig;
                 break;
               }
             }
 
             const activeWalletServerId = (() => {
-              const existing = nextWallets.find((w) => w.id === state.activeWalletServerId)?.id;
+              const existing = nextWallets.find((w) =>
+                w.id === state.activeWalletServerId
+              )?.id;
               if (existing) return existing;
               const defaultWallet = nextWallets.find((w) => w.isActive) ||
                 nextWallets.find((w) => w.id === defaults.wallet);
@@ -839,7 +929,9 @@ export const useAppStore = create<AppStore>()(
             })();
 
             const activeAppServerId = (() => {
-              const existing = nextApps.find((w) => w.id === state.activeAppServerId)?.id;
+              const existing = nextApps.find((w) =>
+                w.id === state.activeAppServerId
+              )?.id;
               if (existing) return existing;
               const defaultApp = nextApps.find((w) => w.isActive) ||
                 nextApps.find((w) => w.id === defaults.appServer);
@@ -866,7 +958,10 @@ export const useAppStore = create<AppStore>()(
           }));
           // Sync rig identity with the new active account
           const rig = get().rig;
-          if (rig && account.type !== "application-user" && account.exportedIdentity) {
+          if (
+            rig && account.type !== "application-user" &&
+            account.exportedIdentity
+          ) {
             restoreIdentity(account.exportedIdentity).then((identity) => {
               rig.identity = identity;
             }).catch((err) => {
@@ -896,11 +991,17 @@ export const useAppStore = create<AppStore>()(
             return;
           }
           const account = state.accounts.find((a) => a.id === id);
-          if (account && account.type !== "application-user" && account.exportedIdentity) {
+          if (
+            account && account.type !== "application-user" &&
+            account.exportedIdentity
+          ) {
             restoreIdentity(account.exportedIdentity).then((identity) => {
               rig.identity = identity;
             }).catch((err) => {
-              console.error("[setActiveAccount] Failed to restore identity:", err);
+              console.error(
+                "[setActiveAccount] Failed to restore identity:",
+                err,
+              );
             });
           }
         },
@@ -981,7 +1082,8 @@ export const useAppStore = create<AppStore>()(
         // Serialize user-added backends (those not from instances.json)
         const userBackends: SerializableBackendConfig[] = state.backends
           .filter((b) =>
-            b.adapter && b.adapter.type === "http" && (b.adapter as any).isUserAdded
+            b.adapter && b.adapter.type === "http" &&
+            (b.adapter as any).isUserAdded
           )
           .map((b) => ({
             id: b.id,
@@ -1020,10 +1122,12 @@ export const useAppStore = create<AppStore>()(
       },
       onRehydrateStorage: () => async (state) => {
         console.log("[onRehydrate] Starting rehydration");
-        const { backends: rawBackends, walletServers, appServers, defaults } = await loadAllEndpoints();
+        const { backends: rawBackends, walletServers, appServers, defaults } =
+          await loadAllEndpoints();
 
         if (state) {
-          const userBackends: SerializableBackendConfig[] = (state as any).userBackends || [];
+          const userBackends: SerializableBackendConfig[] =
+            (state as any).userBackends || [];
 
           // Create Rig-backed BackendConfigs for all backends
           const allRaw = [
@@ -1033,7 +1137,12 @@ export const useAppStore = create<AppStore>()(
 
           const results = await Promise.allSettled(
             allRaw.map(async (b) => {
-              const { backend, rig } = await createBackendFromUrl(b.id, b.name, b.baseUrl, b.isActive);
+              const { backend, rig } = await createBackendFromUrl(
+                b.id,
+                b.name,
+                b.baseUrl,
+                b.isActive,
+              );
               if (b.isUserAdded) {
                 (backend.adapter as any).isUserAdded = true;
               }
@@ -1048,44 +1157,65 @@ export const useAppStore = create<AppStore>()(
             if (r.status === "fulfilled") {
               backends.push(r.value.backend);
             } else {
-              console.error("[onRehydrate] Failed to create backend:", r.reason);
+              console.error(
+                "[onRehydrate] Failed to create backend:",
+                r.reason,
+              );
             }
           }
 
           state.backends = backends;
-          const validBackendId = backends.find((b) => b.id === state.activeBackendId)?.id;
-          const defaultBackend = backends.find((b) => b.isActive) || backends.find((b) => b.id === defaults.backend);
-          state.activeBackendId = validBackendId || defaultBackend?.id || backends[0]?.id || null;
+          const validBackendId = backends.find((b) =>
+            b.id === state.activeBackendId
+          )?.id;
+          const defaultBackend = backends.find((b) => b.isActive) ||
+            backends.find((b) => b.id === defaults.backend);
+          state.activeBackendId = validBackendId || defaultBackend?.id ||
+            backends[0]?.id || null;
 
           // Set the active rig to the one matching the active backend
           for (const r of results) {
-            if (r.status === "fulfilled" && r.value.backend.id === state.activeBackendId) {
+            if (
+              r.status === "fulfilled" &&
+              r.value.backend.id === state.activeBackendId
+            ) {
               activeRig = r.value.rig;
               break;
             }
           }
           state.rig = activeRig;
 
-          const mergedWalletServers = state.walletServers?.length ? state.walletServers : walletServers;
-          const validWalletId = mergedWalletServers.find((w) => w.id === state.activeWalletServerId)?.id;
+          const mergedWalletServers = state.walletServers?.length
+            ? state.walletServers
+            : walletServers;
+          const validWalletId = mergedWalletServers.find((w) =>
+            w.id === state.activeWalletServerId
+          )?.id;
           const defaultWallet = mergedWalletServers.find((w) => w.isActive) ||
             mergedWalletServers.find((w) => w.id === defaults.wallet);
           state.walletServers = mergedWalletServers;
-          state.activeWalletServerId = validWalletId || defaultWallet?.id || mergedWalletServers[0]?.id || null;
+          state.activeWalletServerId = validWalletId || defaultWallet?.id ||
+            mergedWalletServers[0]?.id || null;
 
-          const mergedAppServers = state.appServers?.length ? state.appServers : appServers;
-          const validAppServerId = mergedAppServers.find((w) => w.id === state.activeAppServerId)?.id;
+          const mergedAppServers = state.appServers?.length
+            ? state.appServers
+            : appServers;
+          const validAppServerId = mergedAppServers.find((w) =>
+            w.id === state.activeAppServerId
+          )?.id;
           const defaultAppServer = mergedAppServers.find((w) => w.isActive) ||
             mergedAppServers.find((w) => w.id === defaults.appServer);
           state.appServers = mergedAppServers;
-          state.activeAppServerId = validAppServerId || defaultAppServer?.id || mergedAppServers[0]?.id || null;
+          state.activeAppServerId = validAppServerId || defaultAppServer?.id ||
+            mergedAppServers[0]?.id || null;
 
           const theme = state.theme || "system";
           const root = document.documentElement;
           if (theme === "dark") root.classList.add("dark");
           else if (theme === "light") root.classList.remove("dark");
           else {
-            const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const isDark =
+              window.matchMedia("(prefers-color-scheme: dark)").matches;
             root.classList.toggle("dark", isDark);
           }
 
@@ -1114,7 +1244,8 @@ export const useAppStore = create<AppStore>()(
           state.writerOutputs = state.writerOutputs || [];
           state.accounts = state.accounts || [];
           state.activeAccountId = state.activeAccountId || null;
-          state.panels = state.panels || { left: true, right: true, bottom: false };
+          state.panels = state.panels ||
+            { left: true, right: true, bottom: false };
           state.panelPreferences = state.panelPreferences || { right: {} };
           if (state.activeApp === "explorer" && state.writerSection) {
             state.panels.right = true;
@@ -1123,16 +1254,19 @@ export const useAppStore = create<AppStore>()(
           state.logs = [];
           state.schemas = {};
           state.rootNodes = [];
-          state.walletServers = state.walletServers && state.walletServers.length > 0 ? state.walletServers : walletServers;
-          state.appServers = state.appServers && state.appServers.length > 0 ? state.appServers : appServers;
-          state.activeWalletServerId =
-            state.activeWalletServerId ||
+          state.walletServers =
+            state.walletServers && state.walletServers.length > 0
+              ? state.walletServers
+              : walletServers;
+          state.appServers = state.appServers && state.appServers.length > 0
+            ? state.appServers
+            : appServers;
+          state.activeWalletServerId = state.activeWalletServerId ||
             walletServers.find((w) => w.isActive)?.id ||
             walletServers.find((w) => w.id === defaults.wallet)?.id ||
             walletServers[0]?.id ||
             null;
-          state.activeAppServerId =
-            state.activeAppServerId ||
+          state.activeAppServerId = state.activeAppServerId ||
             appServers.find((w) => w.isActive)?.id ||
             appServers.find((w) => w.id === defaults.appServer)?.id ||
             appServers[0]?.id ||
@@ -1142,7 +1276,10 @@ export const useAppStore = create<AppStore>()(
           // Migrate legacy accounts: keyBundle → exportedIdentity
           if (state.accounts) {
             state.accounts = state.accounts.map((acct) => {
-              if (acct.type !== "application-user" && !acct.exportedIdentity && (acct as any).keyBundle) {
+              if (
+                acct.type !== "application-user" && !acct.exportedIdentity &&
+                (acct as any).keyBundle
+              ) {
                 const kb = (acct as any).keyBundle;
                 const exported = migrateKeyBundle(kb);
                 return {
@@ -1163,10 +1300,17 @@ export const useAppStore = create<AppStore>()(
             store.loadSchemas();
             // Sync rig identity with active account after rehydration
             if (store.rig && store.activeAccountId) {
-              const account = store.accounts.find((a) => a.id === store.activeAccountId);
-              if (account && account.type !== "application-user" && account.exportedIdentity) {
+              const account = store.accounts.find((a) =>
+                a.id === store.activeAccountId
+              );
+              if (
+                account && account.type !== "application-user" &&
+                account.exportedIdentity
+              ) {
                 try {
-                  store.rig.identity = await restoreIdentity(account.exportedIdentity);
+                  store.rig.identity = await restoreIdentity(
+                    account.exportedIdentity,
+                  );
                 } catch (err) {
                   console.error("[rehydrate] Failed to set rig identity:", err);
                 }
@@ -1176,7 +1320,9 @@ export const useAppStore = create<AppStore>()(
         } else {
           // Fresh state — create rig-backed backends
           const freshResults = await Promise.allSettled(
-            rawBackends.map((b) => createBackendFromUrl(b.id, b.name, b.baseUrl, b.isActive)),
+            rawBackends.map((b) =>
+              createBackendFromUrl(b.id, b.name, b.baseUrl, b.isActive)
+            ),
           );
           const freshBackends: BackendConfig[] = [];
           let freshRig: Rig | null = null;
@@ -1185,13 +1331,14 @@ export const useAppStore = create<AppStore>()(
               freshBackends.push(r.value.backend);
             }
           }
-          const freshActiveId =
-            freshBackends.find((b) => b.isActive)?.id ||
+          const freshActiveId = freshBackends.find((b) => b.isActive)?.id ||
             freshBackends.find((b) => b.id === defaults.backend)?.id ||
             freshBackends[0]?.id ||
             null;
           for (const r of freshResults) {
-            if (r.status === "fulfilled" && r.value.backend.id === freshActiveId) {
+            if (
+              r.status === "fulfilled" && r.value.backend.id === freshActiveId
+            ) {
               freshRig = r.value.rig;
               break;
             }
@@ -1202,14 +1349,12 @@ export const useAppStore = create<AppStore>()(
             activeBackendId: freshActiveId,
             rig: freshRig,
             walletServers,
-            activeWalletServerId:
-              walletServers.find((w) => w.isActive)?.id ||
+            activeWalletServerId: walletServers.find((w) => w.isActive)?.id ||
               walletServers.find((w) => w.id === defaults.wallet)?.id ||
               walletServers[0]?.id ||
               null,
             appServers,
-            activeAppServerId:
-              appServers.find((w) => w.isActive)?.id ||
+            activeAppServerId: appServers.find((w) => w.isActive)?.id ||
               appServers.find((w) => w.id === defaults.appServer)?.id ||
               appServers[0]?.id ||
               null,

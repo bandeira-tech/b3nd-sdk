@@ -52,6 +52,31 @@ export async function getRig(
       use: config.node,
     });
 
+    // Wire verbose logging through rig events
+    if (logger) {
+      cachedRig.on("receive:success", (e) => {
+        logger.info(`✓ receive accepted: ${e.uri}`);
+      });
+      cachedRig.on("receive:error", (e) => {
+        logger.error(`✗ receive rejected: ${e.uri ?? "unknown"} — ${e.error}`);
+      });
+      cachedRig.on("read:success", (e) => {
+        logger.info(`✓ read ok: ${e.uri}`);
+      });
+      cachedRig.on("read:error", (e) => {
+        logger.error(`✗ read failed: ${e.uri ?? "unknown"} — ${e.error}`);
+      });
+      cachedRig.on("list:success", (e) => {
+        logger.info(`✓ list ok: ${e.uri}`);
+      });
+      cachedRig.on("delete:success", (e) => {
+        logger.info(`✓ delete ok: ${e.uri}`);
+      });
+      cachedRig.on("delete:error", (e) => {
+        logger.error(`✗ delete failed: ${e.uri ?? "unknown"} — ${e.error}`);
+      });
+    }
+
     // Test connection
     logger?.http("GET", `${config.node}/api/v1/health`);
     const health = await cachedRig.health();
