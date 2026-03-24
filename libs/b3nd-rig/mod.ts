@@ -40,6 +40,5 @@ export type {
   PostgresExecutorFactory as PostgresExecutor,
   RigConfig,
   RigInfo,
-  ServeOptions,
   WatchOptions,
 } from "./types.ts";

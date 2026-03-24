@@ -11,7 +11,6 @@ import { Link } from "react-router-dom";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import {
   createAppsClient,
-  createBackendClient,
   createSession,
   createWalletClient,
   fetchAppProfile,
@@ -176,10 +175,9 @@ export function AccountsSidePanel(
   };
 
   const requireBackendClient = () => {
-    if (!activeBackend) {
-      throw new Error("Active backend is required");
-    }
-    return createBackendClient(activeBackend);
+    const rig = useAppStore.getState().rig;
+    if (!rig) throw new Error("No rig instance available");
+    return rig.client;
   };
 
   return (
@@ -522,7 +520,7 @@ function ApplicationUserAccountForm(
     requireAppsClient: () => ReturnType<typeof createAppsClient>;
     requireWalletClient: () => ReturnType<typeof createWalletClient>;
     requireActiveWalletServer: () => { url: string };
-    requireBackendClient: () => ReturnType<typeof createBackendClient>;
+    requireBackendClient: () => { receive: (msg: [string, unknown]) => Promise<any>; read: (uri: string) => Promise<any>; list: (uri: string, opts?: any) => Promise<any> };
   },
 ) {
   const [selectedAppId, setSelectedAppId] = useState("");

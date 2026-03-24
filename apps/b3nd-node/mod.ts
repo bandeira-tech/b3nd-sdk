@@ -52,12 +52,20 @@ const rig = await Rig.init({
   },
 });
 
+// HTTP server — separate media layer using the rig's client
+const { Hono } = await import("npm:hono");
+const { cors } = await import("npm:hono/cors");
+const { httpServer } = await import("../../libs/b3nd-servers/http.ts");
+
+const app = new Hono();
+if (CORS_ORIGIN) {
+  app.use("*", cors({ origin: CORS_ORIGIN }));
+}
+
 const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
-await rig.serve({
-  port: PORT,
-  cors: CORS_ORIGIN,
-  healthMeta: { backends: backendTypes },
-});
+const frontend = httpServer(app, { healthMeta: { backends: backendTypes } });
+frontend.configure({ client: rig.client });
+frontend.listen(PORT);
 
 console.log(`B3nd Node :${PORT} (backends=${BACKEND_URL})`);
 
