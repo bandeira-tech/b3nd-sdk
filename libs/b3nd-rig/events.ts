@@ -6,6 +6,9 @@
  * completes (after post-hooks). They never block the caller.
  * Handler errors are caught and logged, never propagated.
  *
+ * On cleanup, pending event promises are returned to the caller
+ * so they can choose to await them or let them go.
+ *
  * Pure module — no Rig dependency, testable in isolation.
  */
 
@@ -53,9 +56,11 @@ export type EventHandler = (event: RigEvent) => void | Promise<void>;
  * - Handlers fire asynchronously (via microtask)
  * - Handler errors are caught and logged to console.warn
  * - Wildcard events (`*:success`, `*:error`) fire for all operations
+ * - `pending()` returns in-flight handler promises for drain-on-cleanup
  */
 export class RigEventEmitter {
   private handlers = new Map<RigEventName, Set<EventHandler>>();
+  private inflight: Promise<void>[] = [];
 
   /** Register a handler. Returns an unsubscribe function. */
   on(event: RigEventName, handler: EventHandler): () => void {
@@ -85,6 +90,7 @@ export class RigEventEmitter {
   /**
    * Fire an event. Handlers run asynchronously and never block.
    * Errors in handlers are caught and logged to console.warn.
+   * Promises are tracked so `pending()` can return them.
    */
   emit(event: RigEventName, payload: RigEvent): void {
     const specific = this.handlers.get(event);
@@ -98,9 +104,32 @@ export class RigEventEmitter {
     ];
 
     for (const handler of all) {
-      Promise.resolve().then(() => handler(payload)).catch((err) => {
+      const p = Promise.resolve().then(() => handler(payload)).catch((err) => {
         console.warn(`[rig] event handler error on "${event}":`, err);
       });
+      this.inflight.push(p);
     }
+
+    // Prune settled promises to prevent unbounded growth
+    if (this.inflight.length > 100) {
+      this.inflight = this.inflight.filter((p) => {
+        let settled = false;
+        p.then(() => settled = true, () => settled = true);
+        return !settled;
+      });
+    }
+  }
+
+  /**
+   * Return all in-flight event handler promises and clear the queue.
+   *
+   * The caller decides what to do with them:
+   * - `await Promise.allSettled(pending)` to drain before exit
+   * - Ignore them if you don't care about completion
+   */
+  pending(): Promise<void>[] {
+    const result = this.inflight;
+    this.inflight = [];
+    return result;
   }
 }

@@ -893,6 +893,26 @@ export class Rig {
     return this._cleanupAllClients();
   }
 
+  /**
+   * Return any in-flight event handler promises and clear the queue.
+   *
+   * Call before cleanup when you need to ensure event handlers complete:
+   *
+   * @example
+   * ```typescript
+   * await Promise.allSettled(rig.drain()); // wait for audit events
+   * await rig.cleanup();
+   * ```
+   *
+   * @example Fire-and-forget (default — just ignore pending events)
+   * ```typescript
+   * await rig.cleanup(); // pending events are abandoned
+   * ```
+   */
+  drain(): Promise<void>[] {
+    return this._events.pending();
+  }
+
   // ── Convenience factories ──
 
   /**
