@@ -67,6 +67,10 @@ export { RigEventEmitter } from "./events.ts";
 export type { ObserveHandler } from "./observe.ts";
 export { matchPattern, ObserveRegistry } from "./observe.ts";
 
+// Client filtering — declare what URIs each client accepts
+export { clientAccepts, withFilter } from "./filter.ts";
+export type { FilteredClient, FilterPatterns } from "./filter.ts";
+
 // Backend factory
 export {
   createClientFromUrl,

@@ -2499,3 +2499,139 @@ Deno.test("Rig clients - schema still works with hooks", async () => {
 });
 
 // No hook chain replacement test — hooks are immutable after init.
+
+// ── Client array dispatch (accepts-based routing) ──
+
+import { withFilter } from "./filter.ts";
+
+Deno.test("Rig dispatch - routes receive to accepting clients only", async () => {
+  const schema = { "mutable://open": async () => ({ valid: true }) };
+  const b3ndClient = new MemoryClient({ schema });
+  const localClient = new MemoryClient({ schema });
+
+  const rig = await Rig.init({
+    clients: [
+      withFilter(b3ndClient, {
+        receive: ["mutable://*"],
+        read: ["mutable://*"],
+      }),
+      withFilter(localClient, {
+        receive: ["local://*"],
+        read: ["local://*"],
+      }),
+    ],
+  });
+
+  // Write to mutable — only b3ndClient should get it
+  await rig.receive(["mutable://open/test", { v: 1 }]);
+  const b3ndRead = await b3ndClient.read("mutable://open/test");
+  assertEquals(b3ndRead.success, true);
+  assertEquals(b3ndRead.record?.data, { v: 1 });
+
+  // localClient should NOT have it
+  const localRead = await localClient.read("mutable://open/test");
+  assertEquals(localRead.success, false);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - routes read to accepting clients", async () => {
+  const schema = { "mutable://open": async () => ({ valid: true }) };
+  const primary = new MemoryClient({ schema });
+  const cache = new MemoryClient({ schema });
+
+  // Pre-populate cache
+  await cache.receive(["mutable://open/cached", { from: "cache" }]);
+  // Pre-populate primary with different data
+  await primary.receive(["mutable://open/cached", { from: "primary" }]);
+
+  const rig = await Rig.init({
+    clients: [
+      // Cache first (read-only)
+      withFilter(cache, {
+        read: ["mutable://*"],
+      }),
+      // Primary (read + write)
+      withFilter(primary, {
+        receive: ["mutable://*"],
+        read: ["mutable://*"],
+      }),
+    ],
+  });
+
+  // Read should hit cache first
+  const result = await rig.read("mutable://open/cached");
+  assertEquals(result.success, true);
+  assertEquals(result.record?.data, { from: "cache" });
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - unfiltered clients accept everything", async () => {
+  const rig = await Rig.init({
+    clients: [
+      new MemoryClient({
+        schema: { "mutable://open": async () => ({ valid: true }) },
+      }),
+    ],
+  });
+
+  // Unfiltered client accepts all URIs
+  const result = await rig.receive(["mutable://open/test", { v: 1 }]);
+  assertEquals(result.accepted, true);
+
+  const read = await rig.read("mutable://open/test");
+  assertEquals(read.success, true);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - no accepting client returns error", async () => {
+  const rig = await Rig.init({
+    clients: [
+      withFilter(new MemoryClient({ schema: {} }), {
+        receive: ["local://*"],
+      }),
+    ],
+  });
+
+  // Nothing accepts mutable://
+  const result = await rig.receive(["mutable://open/test", { v: 1 }]);
+  assertEquals(result.accepted, false);
+  assertEquals(result.error?.includes("No client accepts"), true);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - health aggregates all clients", async () => {
+  const rig = await Rig.init({
+    clients: [
+      new MemoryClient({ schema: {} }),
+      new MemoryClient({ schema: {} }),
+    ],
+  });
+
+  const health = await rig.health();
+  assertEquals(health.status, "healthy");
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - getSchema unions all clients", async () => {
+  const c1 = new MemoryClient({
+    schema: { "mutable://open": async () => ({ valid: true }) },
+  });
+  const c2 = new MemoryClient({
+    schema: { "hash://sha256": async () => ({ valid: true }) },
+  });
+
+  const rig = await Rig.init({
+    clients: [c1, c2],
+  });
+
+  const schemas = await rig.getSchema();
+  assertEquals(schemas.includes("mutable://open"), true);
+  assertEquals(schemas.includes("hash://sha256"), true);
+
+  await rig.cleanup();
+});

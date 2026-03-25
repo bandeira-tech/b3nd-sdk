@@ -44,6 +44,7 @@ import type { EventHandler, RigEventName } from "./events.ts";
 import { RigEventEmitter } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
 import { ObserveRegistry } from "./observe.ts";
+import { clientAccepts } from "./filter.ts";
 
 /** Per-operation client map. */
 interface OpClients {
@@ -155,15 +156,21 @@ export class Rig {
    * - `use: "https://..."` → single HttpClient
    * - `use: ["postgresql://...", "https://..."]` → parallelBroadcast writes, firstMatchSequence reads
    * - `client: myClient` → use a pre-built client directly
-   * - `clients: { read: [...], send: [...] }` → per-operation routing
+   * - `clients: [...]` → array of filtered clients, rig routes by `accepts()`
+   * - `clients: { read: [...], send: [...] }` → per-operation routing (legacy)
    * - `hooks`, `on`, `observe` → behavior layers
    */
   static async init(config: RigConfig): Promise<Rig> {
-    // 1. Resolve default client from use/client
-    const defaultClient = await resolveDefaultClient(config);
+    let opClients: OpClients;
 
-    // 2. Resolve per-operation clients (overrides default)
-    const opClients = await resolveOpClients(config, defaultClient);
+    if (Array.isArray(config.clients)) {
+      // Array form — clients declare what they accept via accepts()
+      opClients = createDispatchClients(config.clients);
+    } else {
+      // Legacy form — use/client with optional per-op overrides
+      const defaultClient = await resolveDefaultClient(config);
+      opClients = await resolveOpClients(config, defaultClient);
+    }
 
     // 3. Build hook chains (frozen — immutable after init)
     const hooks = createHookChains(config.hooks);
@@ -1323,7 +1330,9 @@ async function resolveOpClients(
     delete: defaultClient,
   };
 
-  if (!config.clients) return opClients;
+  // Only called for object-form config (array form uses createDispatchClients)
+  if (!config.clients || Array.isArray(config.clients)) return opClients;
+  const clientsConfig = config.clients;
 
   const factoryOpts = {
     schema: config.schema,
@@ -1335,13 +1344,16 @@ async function resolveOpClients(
   const readOps: (keyof OpClients)[] = ["read", "list"];
 
   for (const op of [...writeOps, ...readOps]) {
-    const entry = config.clients[op as keyof typeof config.clients];
+    const entry = clientsConfig[op as keyof typeof clientsConfig] as
+      | string[]
+      | NodeProtocolInterface
+      | undefined;
     if (!entry) continue;
 
     if (Array.isArray(entry)) {
       // URL strings — resolve and compose
       const clients = await Promise.all(
-        entry.map((url) => createClientFromUrl(url, factoryOpts)),
+        entry.map((url: string) => createClientFromUrl(url, factoryOpts)),
       );
       if (clients.length === 1) {
         opClients[op] = clients[0];
@@ -1357,6 +1369,149 @@ async function resolveOpClients(
   }
 
   return opClients;
+}
+
+/**
+ * Build dispatch clients from a flat array.
+ *
+ * Each operation is backed by a synthetic client that iterates all
+ * clients in order, checking `accepts(operation, uri)`.
+ *
+ * - Writes (receive, delete): broadcast to ALL accepting clients.
+ *   If none accept, returns an error.
+ * - Reads (read, list): first-match — tries each accepting client
+ *   in order, returns the first success.
+ * - Send delegates to receive (the envelope is a receive to the network).
+ *
+ * Clients without `accepts()` accept everything (backwards compat).
+ */
+function createDispatchClients(
+  clients: NodeProtocolInterface[],
+): OpClients {
+  if (clients.length === 0) {
+    throw new Error("Rig.init: `clients` array must not be empty");
+  }
+
+  const dispatch: NodeProtocolInterface = {
+    async receive(msg) {
+      const [uri] = msg;
+      const accepting = clients.filter((c) => clientAccepts(c, "receive", uri));
+      if (accepting.length === 0) {
+        return {
+          accepted: false,
+          error: `No client accepts receive for ${uri}`,
+        };
+      }
+      // Broadcast — all must accept
+      const results = await Promise.all(accepting.map((c) => c.receive(msg)));
+      const failed = results.find((r) => !r.accepted);
+      if (failed) return failed;
+      return results[0];
+    },
+
+    async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+      // First match — try accepting clients in order
+      for (const c of clients) {
+        if (!clientAccepts(c, "read", uri)) continue;
+        const result = await c.read<T>(uri);
+        if (result.success) return result;
+      }
+      return { success: false, error: `No client has data for ${uri}` };
+    },
+
+    async readMulti<T = unknown>(
+      uris: string[],
+    ): Promise<ReadMultiResult<T>> {
+      // Delegate each URI to the first accepting client
+      const items = await Promise.all(uris.map(async (uri) => {
+        for (const c of clients) {
+          if (!clientAccepts(c, "read", uri)) continue;
+          const r = await c.read<T>(uri);
+          if (r.success && r.record) {
+            return {
+              uri,
+              success: true as const,
+              record: r.record,
+            };
+          }
+        }
+        return {
+          uri,
+          success: false as const,
+          error: `No client has data for ${uri}`,
+        };
+      }));
+      const succeeded = items.filter((r) => r.success).length;
+      return {
+        success: succeeded > 0,
+        results: items as ReadMultiResult<T>["results"],
+        summary: {
+          total: uris.length,
+          succeeded,
+          failed: uris.length - succeeded,
+        },
+      };
+    },
+
+    async list(uri, options) {
+      // First non-empty — try accepting clients in order
+      for (const c of clients) {
+        if (!clientAccepts(c, "list", uri)) continue;
+        const result = await c.list(uri, options);
+        if (result.success && result.data.length > 0) return result;
+      }
+      // No data found — return empty success
+      return {
+        success: true,
+        data: [],
+        pagination: { page: 1, limit: options?.limit ?? 50, total: 0 },
+      } as ListResult;
+    },
+
+    async delete(uri) {
+      const accepting = clients.filter((c) => clientAccepts(c, "delete", uri));
+      if (accepting.length === 0) {
+        return { success: false, error: `No client accepts delete for ${uri}` };
+      }
+      const results = await Promise.all(accepting.map((c) => c.delete(uri)));
+      const failed = results.find((r) => !r.success);
+      if (failed) return failed;
+      return results[0];
+    },
+
+    async health() {
+      // Aggregate health from all clients
+      const results = await Promise.all(clients.map((c) => c.health()));
+      const unhealthy = results.find((r) => r.status === "unhealthy");
+      if (unhealthy) return unhealthy;
+      const degraded = results.find((r) => r.status === "degraded");
+      if (degraded) return degraded;
+      return results[0] ?? { status: "healthy" as const };
+    },
+
+    async getSchema() {
+      // Union of all client schemas
+      const all = new Set<string>();
+      for (const c of clients) {
+        const schemas = await c.getSchema();
+        for (const s of schemas) all.add(s);
+      }
+      return [...all];
+    },
+
+    async cleanup() {
+      await Promise.all(clients.map((c) => c.cleanup()));
+    },
+  };
+
+  // All ops go through the same dispatch — filtering is per-call
+  return {
+    send: dispatch,
+    receive: dispatch,
+    read: dispatch,
+    list: dispatch,
+    delete: dispatch,
+  };
 }
 
 // ── Compile-time assertion ──
