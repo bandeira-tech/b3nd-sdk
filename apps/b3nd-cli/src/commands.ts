@@ -9,11 +9,7 @@ import {
   type EncryptedPayload,
   pemToCryptoKey,
 } from "@b3nd/sdk/encrypt";
-import {
-  loadAccountKey,
-  loadEncryptionKey,
-  signAsAuthenticatedMessage,
-} from "./keys.ts";
+import { loadEncryptionKey } from "./keys.ts";
 
 /**
  * Compute SHA256 hash of binary data
@@ -348,9 +344,15 @@ export async function read(uri: string, verbose = false): Promise<void> {
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      const accountKey = await loadAccountKey();
-      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
-      logger?.info(`Replaced :key with public key`);
+      if (!rig.identity) {
+        throw new Error(
+          ":key placeholder requires an identity. Run: bnd account create",
+        );
+      }
+      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      logger?.info(
+        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+      );
     }
 
     const { protocol, domain, path } = parseUri(uri);
@@ -448,9 +450,15 @@ export async function list(
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      const accountKey = await loadAccountKey();
-      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
-      logger?.info(`Replaced :key with public key`);
+      if (!rig.identity) {
+        throw new Error(
+          ":key placeholder requires an identity. Run: bnd account create",
+        );
+      }
+      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      logger?.info(
+        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+      );
     }
 
     const { protocol, domain, path } = parseUri(uri);
@@ -511,9 +519,15 @@ export async function del(uri: string, verbose = false): Promise<void> {
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      const accountKey = await loadAccountKey();
-      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
-      logger?.info(`Replaced :key with public key`);
+      if (!rig.identity) {
+        throw new Error(
+          ":key placeholder requires an identity. Run: bnd account create",
+        );
+      }
+      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      logger?.info(
+        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+      );
     }
 
     const { protocol, domain, path } = parseUri(uri);
@@ -961,9 +975,15 @@ export async function watch(args: string[], verbose = false): Promise<void> {
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      const accountKey = await loadAccountKey();
-      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
-      logger?.info(`Replaced :key with public key`);
+      if (!rig.identity) {
+        throw new Error(
+          ":key placeholder requires an identity. Run: bnd account create",
+        );
+      }
+      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      logger?.info(
+        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+      );
     }
 
     console.log(`Watching: ${uri}`);
@@ -1046,12 +1066,17 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
 
   try {
     const rig = await getRig(logger);
-    const accountKey = await loadAccountKey();
 
-    // Replace :key placeholder
+    if (!rig.canSign) {
+      throw new Error(
+        "Deploy requires an identity for signing. Run: bnd account create",
+      );
+    }
+
+    // Replace :key placeholder using rig identity
     const resolvedTarget = replaceKeyPlaceholder(
       targetUri,
-      accountKey.publicKeyHex,
+      rig.identity!.pubkey,
     );
     logger?.info(`Target: ${resolvedTarget}`);
 
@@ -1129,16 +1154,17 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     );
     console.log("");
 
-    // Phase 2: Create authenticated links
-    console.log("Phase 2: Creating links...");
+    // Phase 2: Create authenticated links via rig.send()
+    console.log("Phase 2: Sending links...");
     let linkCount = 0;
 
     for (const [relativePath, hashUri] of hashMap) {
       const linkUri = `${versionBase}${relativePath}`;
 
-      const signedLink = await signAsAuthenticatedMessage(hashUri, accountKey);
-
-      const result = await rig.receive([linkUri, signedLink]);
+      const result = await rig.send({
+        inputs: [],
+        outputs: [[linkUri, hashUri]],
+      });
 
       if (result.accepted) {
         logger?.info(`  ✓ ${linkUri} -> ${hashUri}`);
@@ -1149,19 +1175,16 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
       }
     }
 
-    console.log(`  Created ${linkCount} links at ${versionBase}`);
+    console.log(`  Sent ${linkCount} links at ${versionBase}`);
     console.log("");
 
-    // Phase 3: Update mutable pointer
+    // Phase 3: Update mutable pointer via rig.send()
     console.log("Phase 3: Updating pointer...");
 
-    // The mutable pointer stores the version base (a link:// URI that paths get appended to)
-    const signedPointer = await signAsAuthenticatedMessage(
-      versionBase,
-      accountKey,
-    );
-
-    const pointerResult = await rig.receive([resolvedTarget, signedPointer]);
+    const pointerResult = await rig.send({
+      inputs: [],
+      outputs: [[resolvedTarget, versionBase]],
+    });
 
     if (!pointerResult.accepted) {
       throw new Error(`Failed to update pointer: ${pointerResult.error}`);
