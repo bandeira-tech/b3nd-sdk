@@ -172,7 +172,8 @@ async function createBackendFromUrl(
     });
   });
 
-  const adapter = new HttpAdapter(rig.client, baseUrl);
+  // Pass rig directly — it satisfies ClientLike and hooks/events fire
+  const adapter = new HttpAdapter(rig, baseUrl);
   return {
     backend: { id, name, adapter, isActive },
     rig,
@@ -374,8 +375,8 @@ export const useAppStore = create<AppStore>()(
             if (state.rig?.identity) {
               rig.identity = state.rig.identity;
             }
-            // Update the adapter to use the new rig's client
-            (backend.adapter as HttpAdapter).setClient(rig.client);
+            // Update the adapter to use the new rig directly
+            (backend.adapter as HttpAdapter).setClient(rig);
           } catch (err) {
             console.error("[setActiveBackend] Failed to create rig:", err);
           }

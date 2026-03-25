@@ -169,9 +169,9 @@ if (OPERATOR_KEY) {
   console.log(`[managed] Node ID: ${nodeId} (derived from PEM)`);
   console.log(`[managed] Operator: ${OPERATOR_KEY}`);
 
-  // Use rig directly (not rig.client) where possible so hooks/events fire.
-  // Managed-node helpers still need a raw NodeProtocolInterface.
-  const configClient = rig.client;
+  // Rig satisfies NodeProtocolInterface — pass it directly so
+  // hooks/events/observe fire for all operations.
+  const configClient = rig;
 
   // Load initial config
   let currentConfig:

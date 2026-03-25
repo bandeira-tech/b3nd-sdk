@@ -29,9 +29,9 @@ async function main() {
   rig.on("read:error", (e) => {
     console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
   });
-  // rig.client for helper functions that need NodeProtocolInterface,
-  // rig.receive/read directly in handlers so hooks/events fire.
-  const dataClient = rig.client;
+  // Pass rig directly as the data client — it satisfies NodeProtocolInterface
+  // and ensures hooks/events/observe fire for all operations.
+  const dataClient = rig;
 
   const app = new Hono();
   app.use(

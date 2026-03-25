@@ -27,7 +27,8 @@ const rig = await Rig.connect(BACKEND_URL);
 rig.on("read:error", (e) => {
   console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
 });
-const handler = createHandler(rig.client, config);
+// Pass rig directly — it satisfies NodeProtocolReadInterface
+const handler = createHandler(rig, config);
 
 const app = new Hono();
 app.use("*", cors());

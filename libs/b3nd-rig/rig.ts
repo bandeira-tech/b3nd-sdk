@@ -444,6 +444,16 @@ export class Rig {
     return this._clients.read.readMulti<T>(uris);
   }
 
+  /**
+   * Alias for `readMany` — satisfies `NodeProtocolInterface.readMulti`.
+   *
+   * The Rig structurally implements `NodeProtocolInterface`, so it can be
+   * passed directly to any function that expects a client.
+   */
+  readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    return this.readMany<T>(uris);
+  }
+
   /** List items at a URI path. */
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
     // Pre-hooks
@@ -1429,3 +1439,9 @@ async function resolveOpClients(
 
   return opClients;
 }
+
+// ── Compile-time assertion ──
+// Rig structurally satisfies NodeProtocolInterface, so it can be
+// passed directly to any function that expects a client.
+// deno-lint-ignore no-unused-vars
+const _rigIsClient: NodeProtocolInterface = null! as Rig;

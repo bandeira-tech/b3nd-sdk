@@ -93,11 +93,12 @@ rig.on("receive:error", (e) => {
 rig.on("read:error", (e) => {
   console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
 });
-const client = rig.client;
 const health = await rig.health();
 console.log(`Firecat node: ${FIRECAT_URL} (${health.status})`);
 
 // --- Compose: handler + respondTo + connect ---
+// Pass the rig directly — it satisfies NodeProtocolInterface and
+// ensures hooks/events/observe fire for all operations.
 
 const identity = { signingKeyPair, encryptionKeyPair };
 const inboxPrefix = `mutable://data/vault/${signingKeyPair.publicKeyHex}/inbox`;
@@ -107,9 +108,9 @@ const handler = createVaultHandler({
   verifiers,
 });
 
-const processor = respondTo(handler, { identity, client });
+const processor = respondTo(handler, { identity, client: rig });
 
-const connection = connect(client, {
+const connection = connect(rig, {
   prefix: inboxPrefix,
   processor,
   pollIntervalMs: POLL_INTERVAL_MS,
