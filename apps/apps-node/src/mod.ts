@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Context } from "hono";
-import { HttpClient } from "@b3nd/sdk";
+import { Rig } from "@b3nd/rig";
 
 import { loadConfig } from "./config.ts";
 import { loadServerKeys } from "./server-keys.ts";
@@ -21,7 +21,17 @@ async function main() {
   const config = loadConfig();
   const serverKeys = loadServerKeys();
 
-  const dataClient = new HttpClient({ url: config.dataNodeUrl });
+  // Use Rig instead of raw HttpClient — operations go through hooks/events
+  const rig = await Rig.connect(config.dataNodeUrl);
+  rig.on("receive:error", (e) => {
+    console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
+  });
+  rig.on("read:error", (e) => {
+    console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
+  });
+  // Pass rig directly as the data client — it satisfies NodeProtocolInterface
+  // and ensures hooks/events/observe fire for all operations.
+  const dataClient = rig;
 
   const app = new Hono();
   app.use(
@@ -260,7 +270,7 @@ async function main() {
         appKey,
       );
 
-      const readRes = await dataClient.read<any>(uri);
+      const readRes = await rig.read<any>(uri);
       if (!readRes.success || !readRes.record) {
         return c.json(
           { success: false, error: readRes.error || "not found" },
@@ -337,7 +347,7 @@ async function main() {
       const uri = `mutable://accounts/${appKey}/sessions/${sessionPubkey}`;
 
       // Write just the value 1 to indicate approval (0 would mean revoked)
-      const res = await dataClient.receive([uri, 1]);
+      const res = await rig.receive([uri, 1]);
       if (!res.accepted) {
         return c.json(
           { success: false, error: res.error || "write failed" },

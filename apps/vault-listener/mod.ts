@@ -17,15 +17,15 @@
  * No database. No sessions. No key storage. One HMAC secret.
  */
 
-import { respondTo, connect } from "@b3nd/listener";
+import { connect, respondTo } from "@b3nd/listener";
 import {
-  generateSigningKeyPair,
-  generateEncryptionKeyPair,
-  deriveSigningKeyPairFromSeed,
   deriveEncryptionKeyPairFromSeed,
+  deriveSigningKeyPairFromSeed,
+  generateEncryptionKeyPair,
+  generateSigningKeyPair,
 } from "@b3nd/encrypt";
 import { verifyGoogleIdToken } from "@b3nd/google-oauth";
-import { HttpClient } from "@bandeira-tech/b3nd-sdk";
+import { Rig } from "@b3nd/rig";
 import { createVaultHandler, type TokenVerifier } from "./vault.ts";
 
 // --- Configuration ---
@@ -53,7 +53,9 @@ if (VAULT_SEED) {
   signingKeyPair = await deriveSigningKeyPairFromSeed(VAULT_SEED);
   encryptionKeyPair = await deriveEncryptionKeyPairFromSeed(VAULT_SEED);
 } else {
-  console.log("Generating random vault identity (set VAULT_SEED for stable identity)...");
+  console.log(
+    "Generating random vault identity (set VAULT_SEED for stable identity)...",
+  );
   signingKeyPair = await generateSigningKeyPair();
   encryptionKeyPair = await generateEncryptionKeyPair();
 }
@@ -84,11 +86,19 @@ if (verifiers.size === 0) {
 
 // --- Client ---
 
-const client = new HttpClient({ url: FIRECAT_URL });
-const health = await client.health();
+const rig = await Rig.connect(FIRECAT_URL);
+rig.on("receive:error", (e) => {
+  console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
+});
+rig.on("read:error", (e) => {
+  console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
+});
+const health = await rig.health();
 console.log(`Firecat node: ${FIRECAT_URL} (${health.status})`);
 
 // --- Compose: handler + respondTo + connect ---
+// Pass the rig directly — it satisfies NodeProtocolInterface and
+// ensures hooks/events/observe fire for all operations.
 
 const identity = { signingKeyPair, encryptionKeyPair };
 const inboxPrefix = `mutable://data/vault/${signingKeyPair.publicKeyHex}/inbox`;
@@ -98,9 +108,9 @@ const handler = createVaultHandler({
   verifiers,
 });
 
-const processor = respondTo(handler, { identity, client });
+const processor = respondTo(handler, { identity, client: rig });
 
-const connection = connect(client, {
+const connection = connect(rig, {
   prefix: inboxPrefix,
   processor,
   pollIntervalMs: POLL_INTERVAL_MS,

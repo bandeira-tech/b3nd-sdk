@@ -44,6 +44,29 @@ export type {
   WatchOptions,
 } from "./types.ts";
 
+// Hooks (immutable after init — throw to reject, observe to audit)
+export type {
+  DeleteHookContext,
+  HookableOp,
+  HookChains,
+  HookContext,
+  ListHookContext,
+  PostHook,
+  PreHook,
+  ReadHookContext,
+  ReceiveHookContext,
+  SendHookContext,
+} from "./hooks.ts";
+export { createHookChains, runPostHooks, runPreHooks } from "./hooks.ts";
+
+// Events
+export type { EventHandler, RigEvent, RigEventName } from "./events.ts";
+export { RigEventEmitter } from "./events.ts";
+
+// Observe
+export type { ObserveHandler } from "./observe.ts";
+export { matchPattern, ObserveRegistry } from "./observe.ts";
+
 // Backend factory
 export {
   createClientFromUrl,

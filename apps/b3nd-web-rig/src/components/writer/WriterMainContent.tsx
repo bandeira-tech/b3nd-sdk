@@ -1,36 +1,36 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  createSignedEncryptedMessage,
   IdentityKey,
   SecretEncryptionKey,
-  createSignedEncryptedMessage,
 } from "@bandeira-tech/b3nd-web/encrypt";
 import {
   Activity,
+  CheckCircle2,
   ChevronRight,
+  File,
   FileText,
+  Image,
   KeyRound,
+  Link as LinkIcon,
   Lock,
   PanelRightOpen,
   PenSquare,
   Server,
-  ShieldCheck,
   Share2,
+  ShieldCheck,
   Upload,
-  Image,
-  File,
-  CheckCircle2,
   XCircle,
-  Link as LinkIcon,
 } from "lucide-react";
 import { useActiveBackend, useAppStore } from "../../stores/appStore";
 import type {
   AppLogEntry,
   ManagedAccount,
   ManagedKeyAccount,
+  WriterAppSession,
   WriterSection,
   WriterUserSession,
-  WriterAppSession,
 } from "../../types";
 import { SectionCard } from "../common/SectionCard";
 import { AuthSection } from "../auth/AuthSection";
@@ -45,6 +45,7 @@ import {
   fetchSchema as fetchSchemaService,
   googleLogin,
   googleSignup,
+  type HashUploadResult,
   loginWithPassword,
   proxyWrite,
   saveAppProfile as saveAppProfileService,
@@ -54,7 +55,6 @@ import {
   updateSchema as updateSchemaService,
   uploadHash,
   uploadHashWithLink,
-  type HashUploadResult,
 } from "../../services/writer/writerService";
 import { routeForExplorerPath, sanitizePath } from "../../utils";
 
@@ -79,15 +79,15 @@ export function WriterMainContent() {
     googleClientId,
     setGoogleClientId,
     panels,
-  togglePanel,
-  setFormValue,
-  getFormValue,
-  writerAppSession,
-  writerSession,
-  setWriterAppSession,
-  setWriterSession,
-  setWriterLastResolvedUri,
-  setWriterLastAppUri,
+    togglePanel,
+    setFormValue,
+    getFormValue,
+    writerAppSession,
+    writerSession,
+    setWriterAppSession,
+    setWriterSession,
+    setWriterLastResolvedUri,
+    setWriterLastAppUri,
     addWriterOutput,
     accounts,
     activeAccountId,
@@ -114,14 +114,18 @@ export function WriterMainContent() {
   >([]);
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
   const [authKeys, setAuthKeys] = useState<AuthKeys | null>(null);
-  const [shareIdentityKey, setShareIdentityKey] = useState<{
-    identity: IdentityKey;
-    publicKeyHex: string;
-    privateKeyPem: string;
-  } | null>(null);
+  const [shareIdentityKey, setShareIdentityKey] = useState<
+    {
+      identity: IdentityKey;
+      publicKeyHex: string;
+      privateKeyPem: string;
+    } | null
+  >(null);
   const [lastShareUri, setLastShareUri] = useState<string | null>(null);
   const [lastShareLink, setLastShareLink] = useState<string | null>(null);
-  const [lastExplorerRoute, setLastExplorerRoute] = useState<string | null>(null);
+  const [lastExplorerRoute, setLastExplorerRoute] = useState<string | null>(
+    null,
+  );
   // Hash upload state
   const [hashHistory, setHashHistory] = useState<HashUploadResult[]>([]);
   const [hashEncryptEnabled, setHashEncryptEnabled] = useState(true);
@@ -208,10 +212,12 @@ export function WriterMainContent() {
     return createWalletClient(activeWallet.url);
   };
 
+  /** Returns the Rig instance as the backend client.
+   * Using Rig directly (not rig.client) ensures hooks, events, and observe fire. */
   const requireBackendClient = () => {
     const rig = useAppStore.getState().rig;
     if (!rig) throw new Error("No rig instance available");
-    return rig.client;
+    return rig;
   };
 
   const requireAppsClient = () => {
@@ -230,7 +236,9 @@ export function WriterMainContent() {
 
   const requireIdentity = () => {
     const rig = useAppStore.getState().rig;
-    if (!rig?.identity) throw new Error("No identity set — select an account first");
+    if (!rig?.identity) {
+      throw new Error("No identity set — select an account first");
+    }
     return rig.identity;
   };
 
@@ -531,7 +539,9 @@ export function WriterMainContent() {
     }
 
     const identity = requireIdentity();
-    if (!identity.canEncrypt) throw new Error("Identity has no encryption keys");
+    if (!identity.canEncrypt) {
+      throw new Error("Identity has no encryption keys");
+    }
     const { targetUri, response } = await backendWriteEncService({
       backendClient: requireBackendClient(),
       identity,
@@ -627,9 +637,21 @@ export function WriterMainContent() {
   };
 
   const saveShareableContent = async () => {
-    const shareLocation = getFormValue("shareable-content", "share-location", "") as string;
-    const shareMatter = getFormValue("shareable-content", "share-matter", "") as string;
-    const shareContent = getFormValue("shareable-content", "share-content", "") as string;
+    const shareLocation = getFormValue(
+      "shareable-content",
+      "share-location",
+      "",
+    ) as string;
+    const shareMatter = getFormValue(
+      "shareable-content",
+      "share-matter",
+      "",
+    ) as string;
+    const shareContent = getFormValue(
+      "shareable-content",
+      "share-content",
+      "",
+    ) as string;
     if (!shareIdentityKey) {
       throw new Error("Generate an identity key first");
     }
@@ -637,7 +659,10 @@ export function WriterMainContent() {
     ensureValue(rawLocation, "Location");
     ensureValue(shareMatter, "Encryption matter");
     ensureValue(shareContent, "Content");
-    const resolvedLocation = rawLocation.replace(/:key/g, shareIdentityKey.publicKeyHex);
+    const resolvedLocation = rawLocation.replace(
+      /:key/g,
+      shareIdentityKey.publicKeyHex,
+    );
     if (!resolvedLocation) {
       throw new Error("Location must not be empty");
     }
@@ -647,7 +672,9 @@ export function WriterMainContent() {
     });
     const explorerRoute = explorerRouteFromUri(resolvedLocation);
     const linkLocation = (() => {
-      const match = resolvedLocation.match(/^([a-z]+):\/\/accounts\/([^/]+)\/(.+)$/);
+      const match = resolvedLocation.match(
+        /^([a-z]+):\/\/accounts\/([^/]+)\/(.+)$/,
+      );
       if (match && match[2] === shareIdentityKey.publicKeyHex) {
         return match[3];
       }
@@ -661,7 +688,8 @@ export function WriterMainContent() {
     });
     const backendClient = requireBackendClient();
     const response = await backendClient.receive([targetUri, signed]);
-    const shareLink = `${shareMatter}#l=${shareIdentityKey.publicKeyHex}/${linkLocation}`;
+    const shareLink =
+      `${shareMatter}#l=${shareIdentityKey.publicKeyHex}/${linkLocation}`;
     setLastShareUri(targetUri);
     setLastShareLink(shareLink);
     setLastExplorerRoute(explorerRoute);
@@ -679,14 +707,19 @@ export function WriterMainContent() {
 
     try {
       for (const file of Array.from(files)) {
-        let result: HashUploadResult & { linkResponse?: { success: boolean; error?: string } };
+        let result: HashUploadResult & {
+          linkResponse?: { success: boolean; error?: string };
+        };
 
         // Get encryption key if enabled
-        const encryptionKey = hashEncryptEnabled && account?.type === "application"
-          ? account.encryptionPubkey
-          : undefined;
+        const encryptionKey =
+          hashEncryptEnabled && account?.type === "application"
+            ? account.encryptionPubkey
+            : undefined;
 
-        if (hashLinkEnabled && account?.type === "application" && hashLinkPath) {
+        if (
+          hashLinkEnabled && account?.type === "application" && hashLinkPath
+        ) {
           // Upload with authenticated link
           const identity = requireIdentity();
           result = await uploadHashWithLink({
@@ -698,7 +731,9 @@ export function WriterMainContent() {
           });
           logLine(
             "backend",
-            `Hash uploaded: ${file.name} -> ${result.hashUri}${result.linkUri ? ` (link: ${result.linkUri})` : ""}`,
+            `Hash uploaded: ${file.name} -> ${result.hashUri}${
+              result.linkUri ? ` (link: ${result.linkUri})` : ""
+            }`,
             result.response.success ? "success" : "error",
           );
         } else {
@@ -748,7 +783,10 @@ export function WriterMainContent() {
           )}
           {writerSection === "auth" && (
             <div className="space-y-4">
-              <SessionStateCard session={appSession} startedAt={sessionStartedAt} />
+              <SessionStateCard
+                session={appSession}
+                startedAt={sessionStartedAt}
+              />
               <AuthenticationStateCard session={session} keys={authKeys} />
             </div>
           )}
@@ -759,12 +797,16 @@ export function WriterMainContent() {
             <HashUploadHistory history={hashHistory} />
           )}
           {writerSection === "shareable" && (
-            <SectionCard title="Shareable Content" icon={<Share2 className="h-4 w-4" />}>
+            <SectionCard
+              title="Shareable Content"
+              icon={<Share2 className="h-4 w-4" />}
+            >
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
-                  Generate a one-off identity key, derive an encryption key from a shared phrase,
-                  and store encrypted content at a specific account path. Share the generated link
-                  to let apps derive the key and locate the payload.
+                  Generate a one-off identity key, derive an encryption key from
+                  a shared phrase, and store encrypted content at a specific
+                  account path. Share the generated link to let apps derive the
+                  key and locate the payload.
                 </p>
                 {lastShareLink && (
                   <div className="rounded border border-border bg-muted/30 p-3 space-y-1">
@@ -776,7 +818,10 @@ export function WriterMainContent() {
                     </code>
                     {lastShareUri && (
                       <div className="text-xs text-muted-foreground">
-                        Written to <span className="font-mono text-foreground">{lastShareUri}</span>
+                        Written to{" "}
+                        <span className="font-mono text-foreground">
+                          {lastShareUri}
+                        </span>
                       </div>
                     )}
                     {lastExplorerRoute && (
@@ -828,11 +873,15 @@ export function WriterMainContent() {
 
             {writerSection === "hash" && (
               <div className="space-y-4">
-                <SectionCard title="Upload Files" icon={<Upload className="h-4 w-4" />}>
+                <SectionCard
+                  title="Upload Files"
+                  icon={<Upload className="h-4 w-4" />}
+                >
                   <div className="space-y-4">
                     <div className="text-sm text-muted-foreground">
-                      Upload files as content-addressed hashes. Files are encrypted by default
-                      when an application account is selected.
+                      Upload files as content-addressed hashes. Files are
+                      encrypted by default when an application account is
+                      selected.
                     </div>
 
                     {/* File input */}
@@ -843,13 +892,18 @@ export function WriterMainContent() {
                         multiple
                         accept="image/*,application/pdf,.txt,.json,.md"
                         onChange={(e) =>
-                          handleAction("Upload hash", () => handleBlobUpload(e.target.files))}
+                          handleAction(
+                            "Upload hash",
+                            () => handleBlobUpload(e.target.files),
+                          )}
                         className="hidden"
                         id="hash-file-input"
                       />
                       <label
                         htmlFor="hash-file-input"
-                        className={`${PRIMARY_BUTTON} w-full cursor-pointer flex items-center justify-center gap-2 ${hashUploading ? "opacity-50 pointer-events-none" : ""}`}
+                        className={`${PRIMARY_BUTTON} w-full cursor-pointer flex items-center justify-center gap-2 ${
+                          hashUploading ? "opacity-50 pointer-events-none" : ""
+                        }`}
                       >
                         <Upload className="h-4 w-4" />
                         {hashUploading ? "Uploading..." : "Select Files"}
@@ -858,34 +912,50 @@ export function WriterMainContent() {
 
                     {/* Encryption toggle */}
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Encrypt content</label>
+                      <label className="text-sm font-medium">
+                        Encrypt content
+                      </label>
                       <button
                         type="button"
-                        onClick={() => setHashEncryptEnabled(!hashEncryptEnabled)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hashEncryptEnabled ? "bg-primary" : "bg-muted"}`}
+                        onClick={() =>
+                          setHashEncryptEnabled(!hashEncryptEnabled)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          hashEncryptEnabled ? "bg-primary" : "bg-muted"
+                        }`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hashEncryptEnabled ? "translate-x-6" : "translate-x-1"}`}
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            hashEncryptEnabled
+                              ? "translate-x-6"
+                              : "translate-x-1"
+                          }`}
                         />
                       </button>
                     </div>
                     {hashEncryptEnabled && (
                       <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                        Files will be encrypted using your application's encryption key before
-                        being hashed and stored. Only you can decrypt them.
+                        Files will be encrypted using your application's
+                        encryption key before being hashed and stored. Only you
+                        can decrypt them.
                       </div>
                     )}
 
                     {/* Link creation toggle */}
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Create authenticated link</label>
+                      <label className="text-sm font-medium">
+                        Create authenticated link
+                      </label>
                       <button
                         type="button"
                         onClick={() => setHashLinkEnabled(!hashLinkEnabled)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hashLinkEnabled ? "bg-primary" : "bg-muted"}`}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          hashLinkEnabled ? "bg-primary" : "bg-muted"
+                        }`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hashLinkEnabled ? "translate-x-6" : "translate-x-1"}`}
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            hashLinkEnabled ? "translate-x-6" : "translate-x-1"
+                          }`}
                         />
                       </button>
                     </div>
@@ -902,7 +972,8 @@ export function WriterMainContent() {
                           className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
                         />
                         <div className="text-xs text-muted-foreground">
-                          Creates link at: link://accounts/:key/{hashLinkPath || "files/:filename"}
+                          Creates link at: link://accounts/:key/{hashLinkPath ||
+                            "files/:filename"}
                         </div>
                       </div>
                     )}
@@ -911,7 +982,8 @@ export function WriterMainContent() {
 
                 {activeAccount?.type !== "application" && (
                   <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded border border-amber-200 dark:border-amber-800">
-                    Select an application account to enable encryption and authenticated links.
+                    Select an application account to enable encryption and
+                    authenticated links.
                   </div>
                 )}
               </div>
@@ -939,7 +1011,8 @@ export function WriterMainContent() {
                     handleAction("Load app profile", loadAppProfile)}
                   saveAppProfile={() =>
                     handleAction("Save app profile", saveAppProfile)}
-                  disabled={!activeAccount || activeAccount.type !== "application"}
+                  disabled={!activeAccount ||
+                    activeAccount.type !== "application"}
                 />
               </div>
             )}
@@ -967,12 +1040,14 @@ export function WriterMainContent() {
             {writerSection === "auth" && (
               <div className="space-y-4">
                 <SessionCard
-                  onStart={() =>
-                    handleAction("Start session", createSession)}
+                  onStart={() => handleAction("Start session", createSession)}
                   onFinish={finishSession}
                   hasSession={Boolean(appSession)}
                 />
-                <SectionCard title="Authentication" icon={<ShieldCheck className="h-4 w-4" />}>
+                <SectionCard
+                  title="Authentication"
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                >
                   <AuthSection
                     disabled={!appSession}
                     googleEnabled={Boolean(googleClientId)}
@@ -1005,7 +1080,10 @@ export function WriterMainContent() {
 
             {writerSection === "shareable" && (
               <div className="space-y-4">
-                <SectionCard title="Shareable Secret" icon={<Lock className="h-4 w-4" />}>
+                <SectionCard
+                  title="Shareable Secret"
+                  icon={<Lock className="h-4 w-4" />}
+                >
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <button
@@ -1044,7 +1122,11 @@ export function WriterMainContent() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => handleAction("Create shareable content", saveShareableContent)}
+                        onClick={() =>
+                          handleAction(
+                            "Create shareable content",
+                            saveShareableContent,
+                          )}
                         className={PRIMARY_BUTTON}
                       >
                         Encrypt & Save
@@ -1169,7 +1251,10 @@ function BackendHistory(
 function HashUploadHistory({ history }: { history: HashUploadResult[] }) {
   if (!history.length) {
     return (
-      <SectionCard title="Uploaded Hashes" icon={<Upload className="h-4 w-4" />}>
+      <SectionCard
+        title="Uploaded Hashes"
+        icon={<Upload className="h-4 w-4" />}
+      >
         <div className="text-sm text-muted-foreground">
           No hashes uploaded yet. Use the controls on the right to upload files.
         </div>
@@ -1193,11 +1278,9 @@ function HashUploadHistory({ history }: { history: HashUploadResult[] }) {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {entry.contentType.startsWith("image/") ? (
-                  <Image className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <File className="h-4 w-4 text-muted-foreground" />
-                )}
+                {entry.contentType.startsWith("image/")
+                  ? <Image className="h-4 w-4 text-muted-foreground" />
+                  : <File className="h-4 w-4 text-muted-foreground" />}
                 <span className="text-sm font-medium truncate max-w-[200px]">
                   {entry.contentType}
                 </span>
@@ -1211,23 +1294,25 @@ function HashUploadHistory({ history }: { history: HashUploadResult[] }) {
                     Encrypted
                   </span>
                 )}
-                {entry.response.success ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-red-500" />
-                )}
+                {entry.response.success
+                  ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  : <XCircle className="h-4 w-4 text-red-500" />}
               </div>
             </div>
             <div className="text-xs space-y-1">
               <div className="flex items-center gap-1">
                 <span className="text-muted-foreground">Hash:</span>
-                <code className="text-foreground break-all">{entry.hashUri}</code>
+                <code className="text-foreground break-all">
+                  {entry.hashUri}
+                </code>
               </div>
               {entry.linkUri && (
                 <div className="flex items-center gap-1">
                   <LinkIcon className="h-3 w-3 text-muted-foreground" />
                   <span className="text-muted-foreground">Link:</span>
-                  <code className="text-foreground break-all">{entry.linkUri}</code>
+                  <code className="text-foreground break-all">
+                    {entry.linkUri}
+                  </code>
                 </div>
               )}
             </div>
@@ -1276,7 +1361,10 @@ function SessionCard(
 }
 
 function SessionStateCard(
-  { session, startedAt }: { session: WriterAppSession | null; startedAt: number | null },
+  { session, startedAt }: {
+    session: WriterAppSession | null;
+    startedAt: number | null;
+  },
 ) {
   const hasSession = Boolean(session);
   const startedLabel = startedAt
@@ -1307,7 +1395,10 @@ function SessionStateCard(
 }
 
 function AuthenticationStateCard(
-  { session, keys }: { session: WriterUserSession | null; keys: AuthKeys | null },
+  { session, keys }: {
+    session: WriterUserSession | null;
+    keys: AuthKeys | null;
+  },
 ) {
   const rows = [
     { label: "Status", value: session ? "Authenticated" : "Not authenticated" },
@@ -1336,7 +1427,9 @@ function AuthenticationStateCard(
   );
 }
 
-function InfoTable({ rows }: { rows: Array<{ label: string; value: string }> }) {
+function InfoTable(
+  { rows }: { rows: Array<{ label: string; value: string }> },
+) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-background">
       <table className="w-full text-sm">
@@ -1544,7 +1637,10 @@ function CurrentProfileCard(
     : false;
 
   return (
-    <SectionCard title="Current App Profile" icon={<FileText className="h-4 w-4" />}>
+    <SectionCard
+      title="Current App Profile"
+      icon={<FileText className="h-4 w-4" />}
+    >
       {error && (
         <div className="text-sm text-destructive mb-2">
           {error}
@@ -1634,12 +1730,17 @@ function ApplicationAccountContext(
   const isApplication = activeAccount?.type === "application";
 
   return (
-    <SectionCard title="Application Context" icon={<KeyRound className="h-4 w-4" />}>
+    <SectionCard
+      title="Application Context"
+      icon={<KeyRound className="h-4 w-4" />}
+    >
       {isApplication
         ? (
           <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
             <div className="flex items-center gap-3">
-              <span className="text-lg leading-none">{activeAccount.emoji}</span>
+              <span className="text-lg leading-none">
+                {activeAccount.emoji}
+              </span>
               <div>
                 <div className="font-semibold">{activeAccount.name}</div>
                 <div className="text-[11px] uppercase text-muted-foreground tracking-wide">

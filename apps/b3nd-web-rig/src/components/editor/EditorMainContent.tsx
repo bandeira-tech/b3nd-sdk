@@ -1,16 +1,16 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Save,
-  CheckCircle,
   AlertCircle,
-  Loader2,
+  CheckCircle,
   FileText,
+  KeyRound,
+  Loader2,
   Lock,
   LockOpen,
-  ShieldCheck,
+  Save,
   Shield,
+  ShieldCheck,
   User,
-  KeyRound,
 } from "lucide-react";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
 import type { EncryptedPayload } from "@bandeira-tech/b3nd-web/encrypt";
@@ -63,7 +63,8 @@ async function tryDecryptContent(
 function isKeyAccount(
   account: { type: string } | null,
 ): account is ManagedKeyAccount {
-  return account !== null && (account.type === "account" || account.type === "application");
+  return account !== null &&
+    (account.type === "account" || account.type === "application");
 }
 
 export function EditorMainContent({
@@ -82,9 +83,13 @@ export function EditorMainContent({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(
+    null,
+  );
   // Decrypted version body for encrypted historical versions
-  const [decryptedVersionBody, setDecryptedVersionBody] = useState<string | null>(null);
+  const [decryptedVersionBody, setDecryptedVersionBody] = useState<
+    string | null
+  >(null);
   const [decrypting, setDecrypting] = useState(false);
 
   const activeAccount = accounts.find((a) => a.id === activeAccountId) ?? null;
@@ -116,22 +121,22 @@ export function EditorMainContent({
   }, [viewingVersionIndex]);
 
   const rig = useAppStore((s) => s.rig);
-  const getBackendClient = useCallback(() => rig?.client ?? null, [rig]);
 
   // Decrypt a historical version from the backend
   const handleDecryptVersion = useCallback(async (hashUri: string) => {
     if (!hasKeyAccount) return;
 
-    const backendClient = getBackendClient();
-    if (!backendClient) return;
+    if (!rig) return;
 
     setDecrypting(true);
     try {
-      const hashRead = await backendClient.read(hashUri);
+      const hashRead = await rig.read(hashUri);
       if (!hashRead.success || !hashRead.record) {
         addLogEntry({
           source: "editor",
-          message: `Failed to read encrypted content for decryption: ${hashRead.error || "not found"}`,
+          message: `Failed to read encrypted content for decryption: ${
+            hashRead.error || "not found"
+          }`,
           level: "error",
         });
         setDecryptedVersionBody("[Failed to read content from backend]");
@@ -162,7 +167,9 @@ export function EditorMainContent({
             level: "success",
           });
         } else {
-          setDecryptedVersionBody("[Decryption failed -- wrong key or corrupted data]");
+          setDecryptedVersionBody(
+            "[Decryption failed -- wrong key or corrupted data]",
+          );
           addLogEntry({
             source: "editor",
             message: `Decryption failed for ${hashUri}`,
@@ -191,8 +198,7 @@ export function EditorMainContent({
     if (!activeDoc) return;
     if (!body.trim()) return;
 
-    const backendClient = getBackendClient();
-    if (!backendClient) {
+    if (!rig) {
       setStatus({ ok: false, message: "No active backend configured" });
       return;
     }
@@ -209,7 +215,10 @@ export function EditorMainContent({
 
       if (shouldEncrypt && rigIdentity && rigIdentity.canEncrypt) {
         const plaintext = new TextEncoder().encode(JSON.stringify(contentObj));
-        contentData = await rigIdentity.encrypt(plaintext, rigIdentity.encryptionPubkey);
+        contentData = await rigIdentity.encrypt(
+          plaintext,
+          rigIdentity.encryptionPubkey,
+        );
       } else {
         contentData = contentObj;
       }
@@ -237,18 +246,17 @@ export function EditorMainContent({
       }
 
       // 4. Store content at hash URI, then update link pointer
-      const hashResponse = await backendClient.receive([hashUri, contentData]);
+      // rig "receive:error" event handles logging to bottom panel
+      const hashResponse = await rig.receive([hashUri, contentData]);
       if (!hashResponse.accepted) {
-        setStatus({ ok: false, message: hashResponse.error || "Hash store rejected" });
-        addLogEntry({
-          source: "editor",
-          message: `Hash store rejected: ${hashResponse.error || "unknown"}`,
-          level: "error",
+        setStatus({
+          ok: false,
+          message: hashResponse.error || "Hash store rejected",
         });
         return;
       }
 
-      const response = await backendClient.receive([linkUri, linkPayload]);
+      const response = await rig.receive([linkUri, linkPayload]);
 
       if (response.accepted) {
         onSaveVersion({
@@ -273,41 +281,34 @@ export function EditorMainContent({
           level: "success",
         });
 
-        // 5. Read-back confirmation
+        // Read-back confirmation — success logged here for context,
+        // failures handled by rig "read:error" event
         try {
-          const hashRead = await backendClient.read(hashUri);
+          const hashRead = await rig.read(hashUri);
           if (hashRead.success && hashRead.record) {
             addLogEntry({
               source: "editor",
-              message: `Read-back confirmed: ${JSON.stringify(hashRead.record.data).slice(0, 120)}`,
+              message: `Read-back confirmed: ${
+                JSON.stringify(hashRead.record.data).slice(0, 120)
+              }`,
               level: "info",
             });
-          } else {
-            addLogEntry({
-              source: "editor",
-              message: `Read-back failed: ${hashRead.error || "unknown"}`,
-              level: "warning",
-            });
           }
-        } catch (err) {
-          addLogEntry({
-            source: "editor",
-            message: `Read-back error: ${err instanceof Error ? err.message : String(err)}`,
-            level: "warning",
-          });
+        } catch {
+          // rig "read:error" event handles this
         }
       } else {
+        // rig "receive:error" event handles logging to bottom panel
         setStatus({ ok: false, message: response.error || "Save rejected" });
-        addLogEntry({
-          source: "editor",
-          message: `Save rejected: ${response.error || "unknown"}`,
-          level: "error",
-        });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setStatus({ ok: false, message });
-      addLogEntry({ source: "editor", message: `Save error: ${message}`, level: "error" });
+      addLogEntry({
+        source: "editor",
+        message: `Save error: ${message}`,
+        level: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -336,7 +337,9 @@ export function EditorMainContent({
 
   // -- Viewing a historical version --
   const isViewingHistory = viewingVersionIndex !== null;
-  const viewedVersion = isViewingHistory ? activeDoc.versions[viewingVersionIndex] : null;
+  const viewedVersion = isViewingHistory
+    ? activeDoc.versions[viewingVersionIndex]
+    : null;
 
   if (isViewingHistory && viewedVersion) {
     const versionIsEncrypted = viewedVersion.encrypted;
@@ -352,17 +355,19 @@ export function EditorMainContent({
                 Signed
               </span>
             )}
-            {versionIsEncrypted ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                <Lock className="w-3 h-3" />
-                Encrypted
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-muted text-muted-foreground border border-border">
-                <LockOpen className="w-3 h-3" />
-                Plaintext
-              </span>
-            )}
+            {versionIsEncrypted
+              ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  <Lock className="w-3 h-3" />
+                  Encrypted
+                </span>
+              )
+              : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-muted text-muted-foreground border border-border">
+                  <LockOpen className="w-3 h-3" />
+                  Plaintext
+                </span>
+              )}
           </div>
 
           {/* Read-only title */}
@@ -378,42 +383,46 @@ export function EditorMainContent({
           {/* Read-only body */}
           <div className="flex-1 flex flex-col min-h-0">
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Content (version #{activeDoc.versions.length - viewingVersionIndex})
+              Content (version #{activeDoc.versions.length -
+                viewingVersionIndex})
             </label>
-            {versionIsEncrypted && decryptedVersionBody === null ? (
-              <div className="flex-1 min-h-[200px] px-3 py-2 text-sm rounded border border-amber-500/30 bg-amber-500/5 flex flex-col items-center justify-center gap-3">
-                <Lock className="w-8 h-8 text-amber-500/60" />
-                <p className="text-xs text-muted-foreground text-center">
-                  This version is encrypted. Decrypt with your account key to view.
-                </p>
-                <button
-                  onClick={() => handleDecryptVersion(viewedVersion.hashUri)}
-                  disabled={decrypting || !hasKeyAccount}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded",
-                    "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
-                    "hover:bg-amber-500/20 transition-colors",
-                    "disabled:opacity-50 disabled:cursor-not-allowed",
-                  )}
-                >
-                  {decrypting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <KeyRound className="w-3.5 h-3.5" />
-                  )}
-                  {decrypting ? "Decrypting..." : "Decrypt"}
-                </button>
-                {!hasKeyAccount && (
-                  <p className="text-[10px] text-muted-foreground">
-                    Select an account with encryption keys to decrypt
+            {versionIsEncrypted && decryptedVersionBody === null
+              ? (
+                <div className="flex-1 min-h-[200px] px-3 py-2 text-sm rounded border border-amber-500/30 bg-amber-500/5 flex flex-col items-center justify-center gap-3">
+                  <Lock className="w-8 h-8 text-amber-500/60" />
+                  <p className="text-xs text-muted-foreground text-center">
+                    This version is encrypted. Decrypt with your account key to
+                    view.
                   </p>
-                )}
-              </div>
-            ) : (
-              <div className="flex-1 min-h-[200px] px-3 py-2 text-sm rounded border border-border bg-muted/30 whitespace-pre-wrap overflow-auto">
-                {versionIsEncrypted ? decryptedVersionBody : viewedVersion.body}
-              </div>
-            )}
+                  <button
+                    onClick={() => handleDecryptVersion(viewedVersion.hashUri)}
+                    disabled={decrypting || !hasKeyAccount}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded",
+                      "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
+                      "hover:bg-amber-500/20 transition-colors",
+                      "disabled:opacity-50 disabled:cursor-not-allowed",
+                    )}
+                  >
+                    {decrypting
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <KeyRound className="w-3.5 h-3.5" />}
+                    {decrypting ? "Decrypting..." : "Decrypt"}
+                  </button>
+                  {!hasKeyAccount && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Select an account with encryption keys to decrypt
+                    </p>
+                  )}
+                </div>
+              )
+              : (
+                <div className="flex-1 min-h-[200px] px-3 py-2 text-sm rounded border border-border bg-muted/30 whitespace-pre-wrap overflow-auto">
+                  {versionIsEncrypted
+                    ? decryptedVersionBody
+                    : viewedVersion.body}
+                </div>
+              )}
           </div>
 
           {/* Back to editing */}
@@ -441,36 +450,36 @@ export function EditorMainContent({
         {/* Account and security status bar */}
         <div className="flex items-center gap-3 flex-wrap">
           {/* Account indicator */}
-          {hasKeyAccount ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
-              <User className="w-3.5 h-3.5 text-blue-500" />
-              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 truncate max-w-[160px]">
-                {activeAccount.name}
-              </span>
-              <ShieldCheck className="w-3 h-3 text-blue-500/60" />
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted border border-border">
-              <Shield className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-[11px] text-muted-foreground">
-                No account (unsigned)
-              </span>
-            </div>
-          )}
+          {hasKeyAccount
+            ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
+                <User className="w-3.5 h-3.5 text-blue-500" />
+                <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 truncate max-w-[160px]">
+                  {activeAccount.name}
+                </span>
+                <ShieldCheck className="w-3 h-3 text-blue-500/60" />
+              </div>
+            )
+            : (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted border border-border">
+                <Shield className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground">
+                  No account (unsigned)
+                </span>
+              </div>
+            )}
 
           {/* Encryption toggle */}
           <button
             onClick={() => onSetEncryptionEnabled(!encryptionEnabled)}
             disabled={!canEncrypt}
-            title={
-              !hasKeyAccount
-                ? "Select an account to enable encryption"
-                : !canEncrypt
-                  ? "Account has no encryption key"
-                  : encryptionEnabled
-                    ? "Encryption enabled -- click to disable"
-                    : "Encryption disabled -- click to enable"
-            }
+            title={!hasKeyAccount
+              ? "Select an account to enable encryption"
+              : !canEncrypt
+              ? "Account has no encryption key"
+              : encryptionEnabled
+              ? "Encryption enabled -- click to disable"
+              : "Encryption disabled -- click to enable"}
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors text-[11px] font-medium",
               encryptionEnabled && canEncrypt
@@ -481,11 +490,9 @@ export function EditorMainContent({
                 : "opacity-50 cursor-not-allowed",
             )}
           >
-            {encryptionEnabled && canEncrypt ? (
-              <Lock className="w-3.5 h-3.5" />
-            ) : (
-              <LockOpen className="w-3.5 h-3.5" />
-            )}
+            {encryptionEnabled && canEncrypt
+              ? <Lock className="w-3.5 h-3.5" />
+              : <LockOpen className="w-3.5 h-3.5" />}
             {encryptionEnabled && canEncrypt ? "Encrypted" : "Unencrypted"}
           </button>
         </div>
@@ -540,11 +547,9 @@ export function EditorMainContent({
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
+            {saving
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <Save className="w-4 h-4" />}
             {saving ? "Saving..." : "Save"}
           </button>
 
@@ -556,12 +561,14 @@ export function EditorMainContent({
 
           {status && (
             <div className="flex items-center gap-1.5 text-xs">
-              {status.ok ? (
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-              ) : (
-                <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-              )}
-              <span className={status.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
+              {status.ok
+                ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                : <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
+              <span
+                className={status.ok
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-red-600 dark:text-red-400"}
+              >
                 {status.message}
               </span>
             </div>

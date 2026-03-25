@@ -5,6 +5,9 @@
  * Single object that wires up backends, identity, and serving.
  * Two core actions: send (outward to the network) and receive
  * (inward from external sources). Everything else is observation.
+ *
+ * Supports per-operation client routing, synchronous hooks
+ * (pre/post), async events, and URI-pattern observe reactions.
  */
 
 import type {
@@ -35,6 +38,21 @@ import type {
   WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";
+import type { HookChains, HookContext } from "./hooks.ts";
+import { createHookChains, runPostHooks, runPreHooks } from "./hooks.ts";
+import type { EventHandler, RigEventName } from "./events.ts";
+import { RigEventEmitter } from "./events.ts";
+import type { ObserveHandler } from "./observe.ts";
+import { ObserveRegistry } from "./observe.ts";
+
+/** Per-operation client map. */
+interface OpClients {
+  send: NodeProtocolInterface;
+  receive: NodeProtocolInterface;
+  read: NodeProtocolInterface;
+  list: NodeProtocolInterface;
+  delete: NodeProtocolInterface;
+}
 
 /**
  * Rig — the single import for working with b3nd.
@@ -45,7 +63,9 @@ import type {
  *
  * Everything else is observation: read, list, watch, exists.
  *
- * @example
+ * Supports per-operation client routing, hooks, events, and observe:
+ *
+ * @example Basic
  * ```typescript
  * import { Rig, Identity } from "@b3nd/rig";
  *
@@ -60,21 +80,74 @@ import type {
  *   outputs: [["mutable://app/key", { hello: "world" }]],
  * });
  * ```
+ *
+ * @example With hooks, events, and observe
+ * ```typescript
+ * const rig = await Rig.init({
+ *   use: "memory://",
+ *   identity: id,
+ *   hooks: {
+ *     receive: { pre: [validateSchema] },
+ *     read:    { post: [decrypt] },
+ *   },
+ *   on: {
+ *     "send:success": [audit],
+ *   },
+ *   observe: {
+ *     "mutable://app/users/:id": (uri, data, { id }) => {
+ *       console.log(`User ${id} updated`);
+ *     },
+ *   },
+ * });
+ * ```
  */
 export class Rig {
-  /** The composed NodeProtocolInterface client. */
-  readonly client: NodeProtocolInterface;
-
   /** The current identity. Swappable at any time. */
   identity: Identity | null;
 
+  // ── Internal state ──
+  private readonly _clients: OpClients;
+  private readonly _hooks: HookChains;
+  private readonly _events: RigEventEmitter;
+  private readonly _observers: ObserveRegistry;
+
   private constructor(
-    client: NodeProtocolInterface,
+    clients: OpClients,
     identity: Identity | null,
+    hooks: HookChains,
+    events: RigEventEmitter,
+    observers: ObserveRegistry,
   ) {
-    this.client = client;
+    this._clients = clients;
     this.identity = identity;
+    this._hooks = hooks;
+    this._events = events;
+    this._observers = observers;
   }
+
+  /**
+   * Raw composite client — bypasses hooks, events, and observe.
+   *
+   * Prefer passing the Rig itself (it satisfies `NodeProtocolInterface`).
+   * This getter exists for third-party code that requires a plain object.
+   *
+   * @deprecated Pass the Rig instance directly instead.
+   */
+  get client(): NodeProtocolInterface {
+    const c = this._clients;
+    return {
+      receive: (msg) => c.receive.receive(msg),
+      read: (uri) => c.read.read(uri),
+      readMulti: (uris) => c.read.readMulti(uris),
+      list: (uri, opts) => c.list.list(uri, opts),
+      delete: (uri) => c.delete.delete(uri),
+      health: () => c.read.health(),
+      getSchema: () => c.read.getSchema(),
+      cleanup: () => this._cleanupAllClients(),
+    };
+  }
+
+  // ── Init ──
 
   /**
    * Initialize a Rig from config.
@@ -82,72 +155,46 @@ export class Rig {
    * - `use: "https://..."` → single HttpClient
    * - `use: ["postgresql://...", "https://..."]` → parallelBroadcast writes, firstMatchSequence reads
    * - `client: myClient` → use a pre-built client directly
+   * - `clients: { read: [...], send: [...] }` → per-operation routing
+   * - `hooks`, `on`, `observe` → behavior layers
    */
   static async init(config: RigConfig): Promise<Rig> {
-    let client: NodeProtocolInterface;
+    // 1. Resolve default client from use/client
+    const defaultClient = await resolveDefaultClient(config);
 
-    if (config.client) {
-      // Pre-built client — use directly
-      client = config.client;
-    } else if (config.use) {
-      const urls = Array.isArray(config.use) ? config.use : [config.use];
-      if (urls.length === 0) {
-        throw new Error("Rig.init: `use` must contain at least one URL");
-      }
+    // 2. Resolve per-operation clients (overrides default)
+    const opClients = await resolveOpClients(config, defaultClient);
 
-      const factoryOpts = {
-        schema: config.schema,
-        executors: config.executors,
-      };
+    // 3. Build hook chains (frozen — immutable after init)
+    const hooks = createHookChains(config.hooks);
 
-      const clients = await Promise.all(
-        urls.map((url) => createClientFromUrl(url, factoryOpts)),
-      );
-
-      if (clients.length === 1) {
-        // Single backend — if we have a schema, wrap with validation
-        if (config.schema) {
-          client = createValidatedClient({
-            write: clients[0],
-            read: clients[0],
-            validate: msgSchema(config.schema),
-          });
-        } else {
-          client = clients[0];
-        }
-      } else {
-        // Multi-backend — parallel writes, sequential read fallback
-        const write = parallelBroadcast(clients);
-        const read = firstMatchSequence(clients);
-
-        if (config.schema) {
-          client = createValidatedClient({
-            write,
-            read,
-            validate: msgSchema(config.schema),
-          });
-        } else {
-          // No schema — compose without validation
-          client = {
-            receive: (msg) => write.receive(msg),
-            read: (uri) => read.read(uri),
-            readMulti: (uris) => read.readMulti(uris),
-            list: (uri, opts) => read.list(uri, opts),
-            delete: (uri) => write.delete(uri),
-            health: () => read.health(),
-            getSchema: () => read.getSchema(),
-            cleanup: async () => {
-              await write.cleanup();
-              await read.cleanup();
-            },
-          };
+    // 4. Build event emitter
+    const events = new RigEventEmitter();
+    if (config.on) {
+      for (const [name, handlers] of Object.entries(config.on)) {
+        if (handlers) {
+          for (const handler of handlers) {
+            events.on(name as RigEventName, handler);
+          }
         }
       }
-    } else {
-      throw new Error("Rig.init: either `use` or `client` is required");
     }
 
-    return new Rig(client, config.identity ?? null);
+    // 5. Build observe registry
+    const observers = new ObserveRegistry();
+    if (config.observe) {
+      for (const [pattern, handler] of Object.entries(config.observe)) {
+        observers.add(pattern, handler);
+      }
+    }
+
+    return new Rig(
+      opClients,
+      config.identity ?? null,
+      hooks,
+      events,
+      observers,
+    );
   }
 
   // ── Core actions ──
@@ -180,11 +227,56 @@ export class Rig {
       );
     }
 
-    const payload = { inputs: data.inputs, outputs: data.outputs };
-    const auth = [await this.identity.sign(payload)];
-    const messageData: MessageData<V> = { auth, payload };
+    // Pre-hooks — throw to reject
+    const ctx: HookContext = {
+      op: "send",
+      envelope: { inputs: data.inputs, outputs: data.outputs },
+      identity: this.identity,
+    };
+    const sendCtx = await runPreHooks(this._hooks.send.pre, ctx);
+    const envelope = sendCtx.op === "send" ? sendCtx.envelope : data;
 
-    return send(messageData, this.client);
+    // Execute
+    const payload = { inputs: envelope.inputs, outputs: envelope.outputs };
+    const auth = [await this.identity.sign(payload)];
+    const messageData = { auth, payload } as MessageData<V>;
+
+    let result: SendResult;
+    try {
+      result = await send(messageData, this._clients.send);
+    } catch (err) {
+      this._events.emit("send:error", {
+        op: "send",
+        error: err instanceof Error ? err.message : String(err),
+        ts: Date.now(),
+      });
+      throw err;
+    }
+
+    // Post-hooks — observe only, cannot modify result
+    await runPostHooks(this._hooks.send.post, sendCtx, result);
+
+    // Events + observe
+    if (result.accepted) {
+      this._events.emit("send:success", {
+        op: "send",
+        uri: result.uri,
+        data: envelope,
+        result,
+        ts: Date.now(),
+      });
+      for (const [outputUri, outputData] of envelope.outputs) {
+        this._observers.match(outputUri, outputData);
+      }
+    } else {
+      this._events.emit("send:error", {
+        op: "send",
+        error: result.error,
+        ts: Date.now(),
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -201,25 +293,183 @@ export class Rig {
    * console.log(result.accepted); // true
    * ```
    */
-  receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    return this.client.receive(msg);
+  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
+    const [uri, data] = msg;
+
+    // Pre-hooks — throw to reject
+    const ctx: HookContext = { op: "receive", uri, data };
+    const recvCtx = await runPreHooks(this._hooks.receive.pre, ctx);
+    const finalUri = recvCtx.op === "receive" ? recvCtx.uri : uri;
+    const finalData = recvCtx.op === "receive" ? recvCtx.data : data;
+
+    // Execute
+    let result: ReceiveResult;
+    try {
+      result = await this._clients.receive.receive([finalUri, finalData]);
+    } catch (err) {
+      this._events.emit("receive:error", {
+        op: "receive",
+        uri: finalUri,
+        error: err instanceof Error ? err.message : String(err),
+        ts: Date.now(),
+      });
+      throw err;
+    }
+
+    // Post-hooks — observe only
+    await runPostHooks(this._hooks.receive.post, recvCtx, result);
+
+    // Events + observe
+    if (result.accepted) {
+      this._events.emit("receive:success", {
+        op: "receive",
+        uri: finalUri,
+        data: finalData,
+        result,
+        ts: Date.now(),
+      });
+      this._observers.match(finalUri, finalData);
+    } else {
+      this._events.emit("receive:error", {
+        op: "receive",
+        uri: finalUri,
+        error: result.error,
+        ts: Date.now(),
+      });
+    }
+
+    return result;
   }
 
   // ── Observation ──
 
   /** Read data from a URI. */
-  read<T = unknown>(uri: string): Promise<ReadResult<T>> {
-    return this.client.read<T>(uri);
+  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+    // Pre-hooks — throw to reject
+    const ctx: HookContext = { op: "read", uri };
+    const readCtx = await runPreHooks(this._hooks.read.pre, ctx);
+    const finalUri = readCtx.op === "read" ? readCtx.uri : uri;
+
+    // Execute
+    let result: ReadResult<T>;
+    try {
+      result = await this._clients.read.read<T>(finalUri);
+    } catch (err) {
+      this._events.emit("read:error", {
+        op: "read",
+        uri: finalUri,
+        error: err instanceof Error ? err.message : String(err),
+        ts: Date.now(),
+      });
+      throw err;
+    }
+
+    // Post-hooks — observe only
+    await runPostHooks(this._hooks.read.post, readCtx, result);
+
+    // Events
+    if (result.success) {
+      this._events.emit("read:success", {
+        op: "read",
+        uri: finalUri,
+        result,
+        ts: Date.now(),
+      });
+    } else {
+      this._events.emit("read:error", {
+        op: "read",
+        uri: finalUri,
+        error: result.error,
+        ts: Date.now(),
+      });
+    }
+
+    return result;
   }
 
-  /** Batch read multiple URIs. */
-  readMany<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    return this.client.readMulti<T>(uris);
+  /** Batch read multiple URIs. Fires read events per-URI. */
+  async readMany<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    const result = await this._clients.read.readMulti<T>(uris);
+
+    // Fire events for each URI result
+    for (const item of result.results) {
+      if (item.success) {
+        this._events.emit("read:success", {
+          op: "read",
+          uri: item.uri,
+          result: item,
+          ts: Date.now(),
+        });
+      } else {
+        this._events.emit("read:error", {
+          op: "read",
+          uri: item.uri,
+          error: "error" in item
+            ? (item as { error?: string }).error
+            : undefined,
+          ts: Date.now(),
+        });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Alias for `readMany` — satisfies `NodeProtocolInterface.readMulti`.
+   *
+   * The Rig structurally implements `NodeProtocolInterface`, so it can be
+   * passed directly to any function that expects a client.
+   */
+  readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    return this.readMany<T>(uris);
   }
 
   /** List items at a URI path. */
-  list(uri: string, options?: ListOptions): Promise<ListResult> {
-    return this.client.list(uri, options);
+  async list(uri: string, options?: ListOptions): Promise<ListResult> {
+    // Pre-hooks — throw to reject
+    const ctx: HookContext = { op: "list", uri, options };
+    const listCtx = await runPreHooks(this._hooks.list.pre, ctx);
+    const finalUri = listCtx.op === "list" ? listCtx.uri : uri;
+    const finalOpts = listCtx.op === "list" ? listCtx.options : options;
+
+    // Execute
+    let result: ListResult;
+    try {
+      result = await this._clients.list.list(finalUri, finalOpts);
+    } catch (err) {
+      this._events.emit("list:error", {
+        op: "list",
+        uri: finalUri,
+        error: err instanceof Error ? err.message : String(err),
+        ts: Date.now(),
+      });
+      throw err;
+    }
+
+    // Post-hooks — observe only
+    await runPostHooks(this._hooks.list.post, listCtx, result);
+
+    // Events
+    if (result.success) {
+      this._events.emit("list:success", {
+        op: "list",
+        uri: finalUri,
+        result,
+        ts: Date.now(),
+      });
+    } else {
+      this._events.emit("list:error", {
+        op: "list",
+        uri: finalUri,
+        error: "error" in result
+          ? (result as { error?: string }).error
+          : undefined,
+        ts: Date.now(),
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -237,7 +487,7 @@ export class Rig {
    * ```
    */
   async listData(uri: string, options?: ListOptions): Promise<string[]> {
-    const result = await this.client.list(uri, options);
+    const result = await this.list(uri, options);
     if (!result.success) return [];
     return result.data.map((item) => item.uri);
   }
@@ -277,7 +527,7 @@ export class Rig {
    * ```
    */
   async readData<T = unknown>(uri: string): Promise<T | null> {
-    const result = await this.client.read<T>(uri);
+    const result = await this.read<T>(uri);
     return result.success && result.record ? result.record.data : null;
   }
 
@@ -298,7 +548,7 @@ export class Rig {
    */
   async readDataMany<T = unknown>(uris: string[]): Promise<Map<string, T>> {
     if (uris.length === 0) return new Map();
-    const multi = await this.client.readMulti<T>(uris);
+    const multi = await this.readMany<T>(uris);
     const map = new Map<string, T>();
     for (const item of multi.results) {
       if (item.success) {
@@ -319,7 +569,7 @@ export class Rig {
    * ```
    */
   async readOrThrow<T = unknown>(uri: string): Promise<T> {
-    const result = await this.client.read<T>(uri);
+    const result = await this.read<T>(uri);
     if (!result.success || !result.record) {
       throw new Error(
         `Rig.readOrThrow: no data at ${uri}${
@@ -341,7 +591,7 @@ export class Rig {
    * ```
    */
   async exists(uri: string): Promise<boolean> {
-    const result = await this.client.read(uri);
+    const result = await this.read(uri);
     return result.success;
   }
 
@@ -400,12 +650,11 @@ export class Rig {
       }),
     );
 
-    // Build and send the signed envelope with encrypted outputs
-    const payload = { inputs: data.inputs, outputs: encryptedOutputs };
-    const auth = [await this.identity.sign(payload)];
-    const messageData: MessageData = { auth, payload };
-
-    return send(messageData, this.client);
+    // Delegate to send() which handles hooks/events/observe
+    return this.send({
+      inputs: data.inputs,
+      outputs: encryptedOutputs,
+    });
   }
 
   /**
@@ -455,7 +704,7 @@ export class Rig {
       );
     }
 
-    const result = await this.client.read(uri);
+    const result = await this.read(uri);
     if (!result.success || !result.record) return null;
 
     const payload = result.record.data;
@@ -508,8 +757,47 @@ export class Rig {
   }
 
   /** Delete data at a URI. */
-  delete(uri: string): Promise<DeleteResult> {
-    return this.client.delete(uri);
+  async delete(uri: string): Promise<DeleteResult> {
+    // Pre-hooks — throw to reject
+    const ctx: HookContext = { op: "delete", uri };
+    const delCtx = await runPreHooks(this._hooks.delete.pre, ctx);
+    const finalUri = delCtx.op === "delete" ? delCtx.uri : uri;
+
+    // Execute
+    let result: DeleteResult;
+    try {
+      result = await this._clients.delete.delete(finalUri);
+    } catch (err) {
+      this._events.emit("delete:error", {
+        op: "delete",
+        uri: finalUri,
+        error: err instanceof Error ? err.message : String(err),
+        ts: Date.now(),
+      });
+      throw err;
+    }
+
+    // Post-hooks — observe only
+    await runPostHooks(this._hooks.delete.post, delCtx, result);
+
+    // Events
+    if (result.success) {
+      this._events.emit("delete:success", {
+        op: "delete",
+        uri: finalUri,
+        result,
+        ts: Date.now(),
+      });
+    } else {
+      this._events.emit("delete:error", {
+        op: "delete",
+        uri: finalUri,
+        error: result.error,
+        ts: Date.now(),
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -525,7 +813,7 @@ export class Rig {
    */
   async deleteMany(uris: string[]): Promise<DeleteResult[]> {
     if (uris.length === 0) return [];
-    return Promise.all(uris.map((uri) => this.client.delete(uri)));
+    return Promise.all(uris.map((uri) => this.delete(uri)));
   }
 
   /**
@@ -564,12 +852,27 @@ export class Rig {
    * ```
    */
   info(): RigInfo {
+    const hooks: Record<string, { pre: number; post: number }> = {};
+    for (
+      const op of ["send", "receive", "read", "list", "delete"] as const
+    ) {
+      const h = this._hooks[op];
+      if (h.pre.length > 0 || h.post.length > 0) {
+        hooks[op] = { pre: h.pre.length, post: h.post.length };
+      }
+    }
+
     return {
       pubkey: this.identity?.pubkey ?? null,
       encryptionPubkey: this.identity?.encryptionPubkey ?? null,
       canSign: this.canSign,
       canEncrypt: this.canEncrypt,
       hasIdentity: this.identity !== null,
+      behavior: {
+        hooks,
+        events: this._events.counts(),
+        observers: this._observers.size,
+      },
     };
   }
 
@@ -577,17 +880,37 @@ export class Rig {
 
   /** Health check. */
   health(): Promise<HealthStatus> {
-    return this.client.health();
+    return this._clients.read.health();
   }
 
   /** Get the schema keys from the backend. */
   getSchema(): Promise<string[]> {
-    return this.client.getSchema();
+    return this._clients.read.getSchema();
   }
 
   /** Clean up all backend resources. */
   cleanup(): Promise<void> {
-    return this.client.cleanup();
+    return this._cleanupAllClients();
+  }
+
+  /**
+   * Return any in-flight event handler promises and clear the queue.
+   *
+   * Call before cleanup when you need to ensure event handlers complete:
+   *
+   * @example
+   * ```typescript
+   * await Promise.allSettled(rig.drain()); // wait for audit events
+   * await rig.cleanup();
+   * ```
+   *
+   * @example Fire-and-forget (default — just ignore pending events)
+   * ```typescript
+   * await rig.cleanup(); // pending events are abandoned
+   * ```
+   */
+  drain(): Promise<void>[] {
+    return this._events.pending();
   }
 
   // ── Convenience factories ──
@@ -633,6 +956,51 @@ export class Rig {
    */
   get canEncrypt(): boolean {
     return this.identity !== null && this.identity.canEncrypt;
+  }
+
+  // ── Runtime API: events, observe ──
+  // Hooks are immutable after init — see createHookChains().
+
+  /**
+   * Register an event handler at runtime. Returns an unsubscribe function.
+   *
+   * @example
+   * ```typescript
+   * const unsub = rig.on("send:success", (event) => {
+   *   console.log(`Sent to ${event.uri}`);
+   * });
+   *
+   * // Later:
+   * unsub();
+   * ```
+   */
+  on(event: RigEventName, handler: EventHandler): () => void {
+    return this._events.on(event, handler);
+  }
+
+  /** Remove a specific event handler. */
+  off(event: RigEventName, handler: EventHandler): void {
+    this._events.off(event, handler);
+  }
+
+  /**
+   * Register an observe pattern at runtime. Returns an unsubscribe function.
+   *
+   * Fires on successful `send()` or `receive()` when the written URI
+   * matches the pattern.
+   *
+   * @example
+   * ```typescript
+   * const unsub = rig.observe("mutable://app/users/:id", (uri, data, { id }) => {
+   *   console.log(`User ${id} updated:`, data);
+   * });
+   *
+   * // Later:
+   * unsub();
+   * ```
+   */
+  observe(pattern: string, handler: ObserveHandler): () => void {
+    return this._observers.add(pattern, handler);
   }
 
   // ── Reactive ──
@@ -861,4 +1229,138 @@ export class Rig {
     const { createHttpHandler } = await import("../b3nd-servers/http.ts");
     return createHttpHandler(this.client, options);
   }
+
+  // ── Private ──
+
+  /** Cleanup all unique clients (deduplicates if same client used for multiple ops). */
+  private async _cleanupAllClients(): Promise<void> {
+    const seen = new Set<NodeProtocolInterface>();
+    for (const client of Object.values(this._clients)) {
+      if (!seen.has(client)) {
+        seen.add(client);
+        await client.cleanup();
+      }
+    }
+  }
 }
+
+// ── Init helpers ──
+
+/** Resolve the default client from `use` or `client` config. */
+async function resolveDefaultClient(
+  config: RigConfig,
+): Promise<NodeProtocolInterface> {
+  if (config.client) {
+    return config.client;
+  }
+
+  if (config.use) {
+    const urls = Array.isArray(config.use) ? config.use : [config.use];
+    if (urls.length === 0) {
+      throw new Error("Rig.init: `use` must contain at least one URL");
+    }
+
+    const factoryOpts = {
+      schema: config.schema,
+      executors: config.executors,
+    };
+
+    const clients = await Promise.all(
+      urls.map((url) => createClientFromUrl(url, factoryOpts)),
+    );
+
+    if (clients.length === 1) {
+      if (config.schema) {
+        return createValidatedClient({
+          write: clients[0],
+          read: clients[0],
+          validate: msgSchema(config.schema),
+        });
+      }
+      return clients[0];
+    }
+
+    // Multi-backend
+    const write = parallelBroadcast(clients);
+    const read = firstMatchSequence(clients);
+
+    if (config.schema) {
+      return createValidatedClient({
+        write,
+        read,
+        validate: msgSchema(config.schema),
+      });
+    }
+
+    return {
+      receive: (msg) => write.receive(msg),
+      read: (uri) => read.read(uri),
+      readMulti: (uris) => read.readMulti(uris),
+      list: (uri, opts) => read.list(uri, opts),
+      delete: (uri) => write.delete(uri),
+      health: () => read.health(),
+      getSchema: () => read.getSchema(),
+      cleanup: async () => {
+        await write.cleanup();
+        await read.cleanup();
+      },
+    };
+  }
+
+  throw new Error("Rig.init: either `use` or `client` is required");
+}
+
+/** Resolve per-operation clients, falling back to the default. */
+async function resolveOpClients(
+  config: RigConfig,
+  defaultClient: NodeProtocolInterface,
+): Promise<OpClients> {
+  const opClients: OpClients = {
+    send: defaultClient,
+    receive: defaultClient,
+    read: defaultClient,
+    list: defaultClient,
+    delete: defaultClient,
+  };
+
+  if (!config.clients) return opClients;
+
+  const factoryOpts = {
+    schema: config.schema,
+    executors: config.executors,
+  };
+
+  // Write-like ops use parallelBroadcast, read-like use firstMatchSequence
+  const writeOps: (keyof OpClients)[] = ["send", "receive", "delete"];
+  const readOps: (keyof OpClients)[] = ["read", "list"];
+
+  for (const op of [...writeOps, ...readOps]) {
+    const entry = config.clients[op as keyof typeof config.clients];
+    if (!entry) continue;
+
+    if (Array.isArray(entry)) {
+      // URL strings — resolve and compose
+      const clients = await Promise.all(
+        entry.map((url) => createClientFromUrl(url, factoryOpts)),
+      );
+      if (clients.length === 1) {
+        opClients[op] = clients[0];
+      } else if (writeOps.includes(op)) {
+        opClients[op] = parallelBroadcast(clients);
+      } else {
+        opClients[op] = firstMatchSequence(clients);
+      }
+    } else {
+      // Pre-built client
+      opClients[op] = entry as NodeProtocolInterface;
+    }
+  }
+
+  return opClients;
+}
+
+// ── Compile-time assertion ──
+// Rig structurally satisfies NodeProtocolInterface, so it can be
+// passed directly to any function that expects a client.
+// deno-lint-ignore no-unused-vars
+const _rigIsClient: NodeProtocolInterface = null! as Rig;

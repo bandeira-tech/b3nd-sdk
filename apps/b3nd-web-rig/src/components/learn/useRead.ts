@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
 
 /**
- * Read from a b3nd URI. Tries the active rig client first, falls back to static.
+ * Read from a b3nd URI. Tries rig.read() first (fires hooks/events), falls back to static.
  * No caching — data lives in component state and is released on unmount.
  * Whether to cache is a client/transport concern, not an app concern.
  */
@@ -66,7 +66,9 @@ export function useRead<T = unknown>(uri: string | null): {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [uri, rig]);
 
   return { data, loading, error };
@@ -75,8 +77,12 @@ export function useRead<T = unknown>(uri: string | null): {
 function resolveStaticPath(uri: string): string | null {
   if (uri === "mutable://open/rig/learn/catalog") return "/learn/catalog.json";
   const chapterMatch = uri.match(/\/chapters\/([^/]+)\/(.+)$/);
-  if (chapterMatch) return `/learn/chapters/${chapterMatch[1]}/${chapterMatch[2]}.json`;
-  if (uri === "mutable://open/rig/api-docs/catalog") return "/api-docs/catalog.json";
+  if (chapterMatch) {
+    return `/learn/chapters/${chapterMatch[1]}/${chapterMatch[2]}.json`;
+  }
+  if (uri === "mutable://open/rig/api-docs/catalog") {
+    return "/api-docs/catalog.json";
+  }
   const libMatch = uri.match(/\/api-docs\/libraries\/(.+)$/);
   if (libMatch) return `/api-docs/libraries/${libMatch[1]}.json`;
   return null;

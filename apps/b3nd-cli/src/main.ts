@@ -11,12 +11,12 @@ import {
   health,
   list,
   read,
+  send,
   serverKeysEnv,
   showConfig,
   showHelp,
   upload,
   watch,
-  write,
 } from "./commands.ts";
 import {
   nodeConfigGet,
@@ -118,8 +118,8 @@ async function main(): Promise<void> {
         break;
       }
 
-      case "write": {
-        await write(cleanArgs.slice(1), verbose);
+      case "send": {
+        await send(cleanArgs.slice(1), verbose);
         break;
       }
 

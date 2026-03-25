@@ -1,5 +1,5 @@
 /// <reference lib="deno.ns" />
-import { HttpClient } from "@bandeira-tech/b3nd-sdk";
+import { Rig } from "@b3nd/rig";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createHandler } from "./src/handler.ts";
@@ -21,10 +21,14 @@ const config: HostConfig = {
   primaryDomain: PRIMARY_DOMAIN,
 };
 
-// ── Client & Server ──────────────────────────────────────────────────
+// ── Rig & Server ─────────────────────────────────────────────────────
 
-const client = new HttpClient({ url: BACKEND_URL });
-const handler = createHandler(client, config);
+const rig = await Rig.connect(BACKEND_URL);
+rig.on("read:error", (e) => {
+  console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
+});
+// Pass rig directly — it satisfies NodeProtocolReadInterface
+const handler = createHandler(rig, config);
 
 const app = new Hono();
 app.use("*", cors());

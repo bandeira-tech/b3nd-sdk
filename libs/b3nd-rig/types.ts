@@ -4,6 +4,9 @@
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
+import type { HookableOp, PostHook, PreHook } from "./hooks.ts";
+import type { EventHandler, RigEventName } from "./events.ts";
+import type { ObserveHandler } from "./observe.ts";
 
 /**
  * Factory function for creating a PostgreSQL executor from a connection string.
@@ -100,6 +103,96 @@ export interface RigConfig {
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
   };
+
+  /**
+   * Per-operation client routing.
+   *
+   * Overrides the default `use`/`client` for specific operations.
+   * Each entry is either a pre-built client or URL string(s) to resolve.
+   *
+   * - `send`, `receive`, `delete` → composed with parallelBroadcast (all must accept)
+   * - `read`, `list` → composed with firstMatchSequence (first success wins)
+   *
+   * @example
+   * ```typescript
+   * const rig = await Rig.init({
+   *   use: "postgresql://primary",
+   *   clients: {
+   *     read: ["redis://cache", "postgresql://primary"],
+   *     observe: ["wss://realtime"],
+   *   },
+   * });
+   * ```
+   */
+  clients?: {
+    send?: string[] | NodeProtocolInterface;
+    receive?: string[] | NodeProtocolInterface;
+    read?: string[] | NodeProtocolInterface;
+    list?: string[] | NodeProtocolInterface;
+    delete?: string[] | NodeProtocolInterface;
+    observe?: string[] | NodeProtocolInterface;
+  };
+
+  /**
+   * Synchronous hook pipelines — frozen after init.
+   *
+   * Pre-hooks **throw** to reject an operation (no silent aborts).
+   * Post-hooks **observe** the result but cannot modify it (throw if violated).
+   * Hooks are immutable — want different hooks? Create a new rig.
+   *
+   * @example
+   * ```typescript
+   * const rig = await Rig.init({
+   *   use: "memory://",
+   *   hooks: {
+   *     receive: { pre: [validateSchema] },
+   *     read:    { post: [auditRead] },
+   *   },
+   * });
+   * ```
+   */
+  hooks?: Partial<
+    Record<HookableOp, { pre?: PreHook[]; post?: PostHook[] }>
+  >;
+
+  /**
+   * Async event handlers — fire-and-forget after operations complete.
+   *
+   * Events never block the caller. Handler errors are caught and logged.
+   * Wildcard events (`*:success`, `*:error`) fire for all operations.
+   *
+   * @example
+   * ```typescript
+   * const rig = await Rig.init({
+   *   use: "memory://",
+   *   on: {
+   *     "send:success": [audit, notifyPeers],
+   *     "*:error": [alertOps],
+   *   },
+   * });
+   * ```
+   */
+  on?: Partial<Record<RigEventName, EventHandler[]>>;
+
+  /**
+   * URI-pattern reactions — fire on successful writes.
+   *
+   * Patterns use Express-style matching: `:param` captures a segment,
+   * `*` matches the rest. Handlers are fire-and-forget.
+   *
+   * @example
+   * ```typescript
+   * const rig = await Rig.init({
+   *   use: "memory://",
+   *   observe: {
+   *     "mutable://app/users/:id": (uri, data, { id }) => {
+   *       console.log(`User ${id} updated`);
+   *     },
+   *   },
+   * });
+   * ```
+   */
+  observe?: Record<string, ObserveHandler>;
 }
 
 /**
@@ -119,6 +212,12 @@ export interface RigInfo {
   canEncrypt: boolean;
   /** Whether an identity is attached at all. */
   hasIdentity: boolean;
+  /** Behavior layer counts — hooks, events, and observers registered. */
+  behavior: {
+    hooks: Record<string, { pre: number; post: number }>;
+    events: Record<string, number>;
+    observers: number;
+  };
 }
 
 /**

@@ -1976,9 +1976,13 @@ Deno.test({
     await rig.receive(["mutable://open/wasub/key", { v: 1 }]);
 
     const values: unknown[] = [];
-    const unsub = rig.subscribe<{ v: number }>("mutable://open/wasub/key", (value) => {
-      values.push(value);
-    }, { intervalMs: 50 });
+    const unsub = rig.subscribe<{ v: number }>(
+      "mutable://open/wasub/key",
+      (value) => {
+        values.push(value);
+      },
+      { intervalMs: 50 },
+    );
 
     // Wait for initial callback
     await new Promise((r) => setTimeout(r, 80));
@@ -2086,3 +2090,412 @@ Deno.test("Rig.sendMany - throws without identity", async () => {
 
   await rig.cleanup();
 });
+
+// ── Hooks integration tests ──
+
+Deno.test("Rig hooks - pre-hook throw rejects receive", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    hooks: {
+      receive: {
+        pre: [() => {
+          throw new Error("blocked");
+        }],
+      },
+    },
+  });
+
+  await assertRejects(
+    () => rig.receive(["mutable://open/test", { x: 1 }]),
+    Error,
+    "blocked",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig hooks - pre-hook mutates receive context", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    hooks: {
+      receive: {
+        pre: [(ctx) => {
+          if (ctx.op === "receive") {
+            return {
+              ctx: {
+                ...ctx,
+                data: {
+                  ...(ctx.data as Record<string, unknown>),
+                  injected: true,
+                },
+              },
+            };
+          }
+        }],
+      },
+    },
+  });
+
+  await rig.receive(["mutable://open/test", { x: 1 }]);
+  const data = await rig.readData("mutable://open/test");
+  assertEquals((data as Record<string, unknown>).injected, true);
+  await rig.cleanup();
+});
+
+Deno.test("Rig hooks - post-hook observes read result without modifying", async () => {
+  const observed: unknown[] = [];
+  const rig = await Rig.init({
+    use: "memory://",
+    hooks: {
+      read: {
+        post: [(_ctx, result) => {
+          observed.push(result);
+        }],
+      },
+    },
+  });
+
+  await rig.receive(["mutable://open/test", { x: 1 }]);
+  const result = await rig.read("mutable://open/test");
+  assertEquals(result.success, true);
+  // Result is unmodified — post-hooks cannot transform
+  assertEquals((result.record?.data as Record<string, unknown>).x, 1);
+  assertEquals(observed.length, 1);
+  await rig.cleanup();
+});
+
+Deno.test("Rig hooks - post-hook throw propagates to caller", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    hooks: {
+      read: {
+        post: [() => {
+          throw new Error("post-condition failed");
+        }],
+      },
+    },
+  });
+
+  await rig.receive(["mutable://open/test", { x: 1 }]);
+  await assertRejects(
+    () => rig.read("mutable://open/test"),
+    Error,
+    "post-condition failed",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig hooks - pre-hook throw rejects delete", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    hooks: {
+      delete: {
+        pre: [() => {
+          throw new Error("no deletes");
+        }],
+      },
+    },
+  });
+
+  await rig.receive(["mutable://open/keep", { x: 1 }]);
+  await assertRejects(
+    () => rig.delete("mutable://open/keep"),
+    Error,
+    "no deletes",
+  );
+
+  // Data should still be there
+  const data = await rig.readData("mutable://open/keep");
+  assertEquals((data as Record<string, unknown>).x, 1);
+  await rig.cleanup();
+});
+
+Deno.test("Rig hooks - pre-hook throw rejects send", async () => {
+  const id = await Identity.generate();
+  const rig = await Rig.init({
+    use: "memory://",
+    identity: id,
+    hooks: {
+      send: {
+        pre: [() => {
+          throw new Error("rate limited");
+        }],
+      },
+    },
+  });
+
+  await assertRejects(
+    () =>
+      rig.send({
+        inputs: [],
+        outputs: [["mutable://open/x", { v: 1 }]],
+      }),
+    Error,
+    "rate limited",
+  );
+  await rig.cleanup();
+});
+
+// ── Events integration tests ──
+
+Deno.test("Rig events - fires on receive success", async () => {
+  const events: unknown[] = [];
+  const rig = await Rig.init({
+    use: "memory://",
+    on: {
+      "receive:success": [(e) => {
+        events.push(e);
+      }],
+    },
+  });
+
+  await rig.receive(["mutable://open/test", { x: 1 }]);
+  await new Promise((r) => setTimeout(r, 20));
+
+  assertEquals(events.length, 1);
+  assertEquals((events[0] as { op: string }).op, "receive");
+  await rig.cleanup();
+});
+
+Deno.test("Rig events - fires on receive error (backend rejection)", async () => {
+  const errors: unknown[] = [];
+  const rig = await Rig.init({
+    use: "memory://",
+    on: {
+      "receive:error": [(e) => {
+        errors.push(e);
+      }],
+    },
+  });
+
+  // Write to an invalid domain to trigger a backend rejection
+  await rig.receive(["mutable://invalid-domain/test", { x: 1 }]);
+  await new Promise((r) => setTimeout(r, 20));
+
+  assertEquals(errors.length, 1);
+  await rig.cleanup();
+});
+
+Deno.test("Rig events - wildcard fires for all ops", async () => {
+  const events: unknown[] = [];
+  const rig = await Rig.init({
+    use: "memory://",
+    on: {
+      "*:success": [(e) => {
+        events.push(e);
+      }],
+    },
+  });
+
+  await rig.receive(["mutable://open/a", { v: 1 }]);
+  await rig.read("mutable://open/a");
+  await new Promise((r) => setTimeout(r, 20));
+
+  assertEquals(events.length, 2);
+  assertEquals((events[0] as { op: string }).op, "receive");
+  assertEquals((events[1] as { op: string }).op, "read");
+  await rig.cleanup();
+});
+
+// ── Observe integration tests ──
+
+Deno.test("Rig observe - fires on receive matching pattern", async () => {
+  const calls: { uri: string; params: Record<string, string> }[] = [];
+  const rig = await Rig.init({
+    use: "memory://",
+    observe: {
+      "mutable://open/:key": (uri, _data, params) => {
+        calls.push({ uri, params });
+      },
+    },
+  });
+
+  await rig.receive(["mutable://open/hello", { v: 1 }]);
+  await new Promise((r) => setTimeout(r, 20));
+
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0].uri, "mutable://open/hello");
+  assertEquals(calls[0].params, { key: "hello" });
+  await rig.cleanup();
+});
+
+Deno.test("Rig observe - fires on send for each output", async () => {
+  const id = await Identity.generate();
+  const uris: string[] = [];
+  const rig = await Rig.init({
+    use: "memory://",
+    identity: id,
+    observe: {
+      "mutable://open/:key": (uri) => {
+        uris.push(uri);
+      },
+    },
+  });
+
+  await rig.send({
+    inputs: [],
+    outputs: [
+      ["mutable://open/a", { v: 1 }],
+      ["mutable://open/b", { v: 2 }],
+    ],
+  });
+  await new Promise((r) => setTimeout(r, 20));
+
+  assertEquals(uris.length, 2);
+  assertEquals(uris.includes("mutable://open/a"), true);
+  assertEquals(uris.includes("mutable://open/b"), true);
+  await rig.cleanup();
+});
+
+Deno.test("Rig observe - does not fire on read", async () => {
+  let called = false;
+  const rig = await Rig.init({
+    use: "memory://",
+    observe: {
+      "mutable://open/:key": () => {
+        called = true;
+      },
+    },
+  });
+
+  await rig.receive(["mutable://open/test", { v: 1 }]);
+  await new Promise((r) => setTimeout(r, 20));
+  called = false; // reset from the receive
+
+  await rig.read("mutable://open/test");
+  await new Promise((r) => setTimeout(r, 20));
+
+  assertEquals(called, false);
+  await rig.cleanup();
+});
+
+// ── Runtime API tests ──
+
+Deno.test("Rig hooks - immutable after init", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    hooks: {
+      receive: { pre: [() => {}] },
+    },
+  });
+
+  // Hooks are frozen — no runtime mutation possible
+  // (Rig no longer exposes a hook() method)
+  // deno-lint-ignore no-explicit-any
+  assertEquals(typeof (rig as any).hook, "undefined");
+  await rig.cleanup();
+});
+
+Deno.test("Rig.on - runtime event handler works", async () => {
+  const rig = await Rig.init({ use: "memory://" });
+  const events: unknown[] = [];
+
+  const unsub = rig.on("receive:success", (e) => {
+    events.push(e);
+  });
+
+  await rig.receive(["mutable://open/test", { x: 1 }]);
+  await new Promise((r) => setTimeout(r, 20));
+  assertEquals(events.length, 1);
+
+  unsub();
+
+  await rig.receive(["mutable://open/test2", { x: 2 }]);
+  await new Promise((r) => setTimeout(r, 20));
+  assertEquals(events.length, 1); // no new event
+  await rig.cleanup();
+});
+
+Deno.test("Rig.off - removes event handler", async () => {
+  const rig = await Rig.init({ use: "memory://" });
+  const events: unknown[] = [];
+  const handler = (e: unknown) => {
+    events.push(e);
+  };
+
+  rig.on("receive:success", handler);
+  await rig.receive(["mutable://open/a", { v: 1 }]);
+  await new Promise((r) => setTimeout(r, 20));
+  assertEquals(events.length, 1);
+
+  rig.off("receive:success", handler);
+  await rig.receive(["mutable://open/b", { v: 2 }]);
+  await new Promise((r) => setTimeout(r, 20));
+  assertEquals(events.length, 1);
+  await rig.cleanup();
+});
+
+Deno.test("Rig.observe - runtime observe works", async () => {
+  const rig = await Rig.init({ use: "memory://" });
+  const calls: string[] = [];
+
+  const unsub = rig.observe("mutable://open/:key", (uri) => {
+    calls.push(uri);
+  });
+
+  await rig.receive(["mutable://open/hello", { v: 1 }]);
+  await new Promise((r) => setTimeout(r, 20));
+  assertEquals(calls.length, 1);
+
+  unsub();
+
+  await rig.receive(["mutable://open/world", { v: 2 }]);
+  await new Promise((r) => setTimeout(r, 20));
+  assertEquals(calls.length, 1); // no new call
+  await rig.cleanup();
+});
+
+// ── Per-operation client routing tests ──
+
+Deno.test("Rig clients - per-op routing uses separate backends", async () => {
+  const writeClient = new MemoryClient({ schema: createTestSchema() });
+  const readClient = new MemoryClient({ schema: createTestSchema() });
+
+  // Write some data to readClient directly
+  await readClient.receive(["mutable://open/cached", { from: "cache" }]);
+
+  const rig = await Rig.init({
+    client: writeClient,
+    clients: {
+      read: readClient,
+    },
+  });
+
+  // Read should come from readClient
+  const data = await rig.readData("mutable://open/cached");
+  assertEquals((data as Record<string, unknown>).from, "cache");
+
+  // Receive should go to writeClient
+  await rig.receive(["mutable://open/new", { from: "write" }]);
+  const fromWrite = await writeClient.read("mutable://open/new");
+  assertEquals(fromWrite.success, true);
+
+  // readClient should NOT have the write
+  const fromRead = await readClient.read("mutable://open/new");
+  assertEquals(fromRead.success, false);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig clients - schema still works with hooks", async () => {
+  const schema = createTestSchema();
+  const rig = await Rig.init({
+    use: "memory://",
+    schema,
+    hooks: {
+      receive: {
+        post: [() => {}], // observer hook
+      },
+    },
+  });
+
+  // Valid domain
+  const r1 = await rig.receive(["mutable://open/test", { v: 1 }]);
+  assertEquals(r1.accepted, true);
+
+  // Invalid domain — schema should still reject
+  const r2 = await rig.receive(["mutable://invalid/test", { v: 1 }]);
+  assertEquals(r2.accepted, false);
+  await rig.cleanup();
+});
+
+// No hook chain replacement test — hooks are immutable after init.
