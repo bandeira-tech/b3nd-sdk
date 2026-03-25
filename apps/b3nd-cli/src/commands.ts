@@ -6,7 +6,6 @@ import { ensureDir } from "@std/fs";
 import { encodeHex } from "@std/encoding/hex";
 import {
   decrypt,
-  encrypt,
   type EncryptedPayload,
   pemToCryptoKey,
 } from "@b3nd/sdk/encrypt";
@@ -226,14 +225,20 @@ export async function confEncrypt(keyPath: string): Promise<void> {
 }
 
 /**
- * Handle `bnd write` command
+ * Handle `bnd send` command — send data to the network via the rig.
+ *
+ * - With identity + encryption: rig.sendEncrypted() (auto-signs + encrypts)
+ * - With identity: rig.send() (auto-signs, content-addressed envelope)
+ * - Without identity: rig.receive() (raw message, for open URIs)
+ *
+ * The rig handles signing, encryption, and envelope construction.
+ * The CLI just parses input and delegates.
  */
-export async function write(args: string[], verbose = false): Promise<void> {
+export async function send(args: string[], verbose = false): Promise<void> {
   const logger = createLogger(verbose);
 
   let uri: string | null = null;
   let data: unknown = null;
-  let originalData: unknown = null; // Keep track of original before encryption
 
   // Check for -f flag for file input
   if (args[0] === "-f" && args[1]) {
@@ -251,7 +256,7 @@ export async function write(args: string[], verbose = false): Promise<void> {
       throw new Error(`Failed to read file ${filePath}: ${error}`);
     }
   } else if (args[0] && args[1]) {
-    // Direct URI and data: bnd write <uri> <data>
+    // Direct URI and data: bnd send <uri> <data>
     uri = args[0];
     try {
       data = JSON.parse(args[1]);
@@ -260,72 +265,67 @@ export async function write(args: string[], verbose = false): Promise<void> {
     }
   } else {
     throw new Error(
-      "Usage: bnd write <uri> <data> OR bnd write -f <filepath>",
+      "Usage: bnd send <uri> <data> OR bnd send -f <filepath>",
     );
   }
 
   if (!uri) {
-    throw new Error("URI is required for write operation");
+    throw new Error("URI is required");
   }
-
-  // Save original data before encryption
-  originalData = data;
 
   try {
     const config = await loadConfig();
     const rig = await getRig(logger);
 
-    // Handle :key placeholder in URI and accounts program writes
+    // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      const accountKey = await loadAccountKey();
-      uri = replaceKeyPlaceholder(uri, accountKey.publicKeyHex);
-      logger?.info(`Replaced :key with public key`);
-
-      // For accounts domain, wrap in auth structure
-      const { domain } = parseUri(uri);
-      if (domain.includes("accounts")) {
-        // Check if encryption is enabled
-        const config = await loadConfig();
-        if (config.encrypt) {
-          try {
-            const encryptionKey = await loadEncryptionKey();
-            const encryptedPayload = await encrypt(
-              new TextEncoder().encode(JSON.stringify(data)),
-              encryptionKey.publicKeyHex,
-            );
-            logger?.info(`Encrypted payload`);
-
-            data = await signAsAuthenticatedMessage(
-              encryptedPayload,
-              accountKey,
-            );
-            logger?.info(`Signed encrypted payload with account key`);
-          } catch (error) {
-            throw new Error(
-              `Encryption failed: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            );
-          }
-        } else {
-          data = await signAsAuthenticatedMessage(data, accountKey);
-          logger?.info(`Signed payload with account key`);
-        }
+      if (!rig.identity) {
+        throw new Error(
+          ":key placeholder requires an identity. Run: bnd account create",
+        );
       }
+      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      logger?.info(
+        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+      );
     }
 
-    const endpoint = `${config.node}/api/v1/receive`;
-    logger?.http("POST", endpoint);
-
-    const result = await rig.receive([uri, data]);
-
-    if (result.accepted) {
-      console.log(`✓ Write successful`);
-      console.log(`  URI: ${uri}`);
-      console.log(`  Encrypted: ${config.encrypt ? "yes" : "no"}`);
-      console.log(`  Value: ${JSON.stringify(originalData)}`);
+    // Delegate to the rig based on capabilities
+    if (rig.canSign) {
+      if (config.encrypt && rig.canEncrypt) {
+        // Signed + encrypted envelope
+        logger?.info("Sending encrypted envelope (rig.sendEncrypted)");
+        const result = await rig.sendEncrypted({
+          inputs: [],
+          outputs: [[uri, data]],
+        });
+        console.log(`✓ Send successful (signed + encrypted)`);
+        console.log(`  Hash: ${result.uri}`);
+        console.log(`  Output: ${uri}`);
+        console.log(`  Value: ${JSON.stringify(data)}`);
+      } else {
+        // Signed envelope
+        logger?.info("Sending signed envelope (rig.send)");
+        const result = await rig.send({
+          inputs: [],
+          outputs: [[uri, data]],
+        });
+        console.log(`✓ Send successful (signed)`);
+        console.log(`  Hash: ${result.uri}`);
+        console.log(`  Output: ${uri}`);
+        console.log(`  Value: ${JSON.stringify(data)}`);
+      }
     } else {
-      throw new Error(result.error || "Write failed with no error message");
+      // No identity — raw message for open URIs
+      logger?.info("Sending raw message (rig.receive, no identity)");
+      const result = await rig.receive([uri, data]);
+      if (result.accepted) {
+        console.log(`✓ Send successful (unsigned)`);
+        console.log(`  URI: ${uri}`);
+        console.log(`  Value: ${JSON.stringify(data)}`);
+      } else {
+        throw new Error(result.error || "Send failed");
+      }
     }
   } finally {
     await closeRig(logger);
@@ -609,43 +609,51 @@ export async function showConfig(): Promise<void> {
  */
 export function showHelp(): void {
   console.log(`
-b3nd CLI - Development and debugging tool for b3nd nodes
+b3nd CLI - Command-line interface for the b3nd rig
 
 USAGE:
   bnd [options] <command> [arguments]
 
-COMMANDS:
-  account create [path]    Generate Ed25519 key pair (PEM format)
-  encrypt create [path]    Generate X25519 encryption key pair (PEM format)
-  conf node <url>          Set the node URL
-  conf account <path>      Set the account key path
-  conf encrypt <path>      Set the encryption key path
-  write <uri> <data>       Write data to a URI (low-level)
-  write -f <filepath>      Write data from a JSON file
-  upload <file>            Upload file (content-addressed)
-  upload -r <dir>          Upload directory recursively (content-addressed)
-  deploy <dir> <target>    Deploy site with content-addressed storage + authenticated links
+RIG OPERATIONS:
+  send <uri> <data>        Send data to a URI (auto-signs when identity is set)
+  send -f <filepath>       Send data from a JSON file
   read <uri>               Read data from a URI
   list <uri>               List items at a URI
   watch <uri>              Watch a URI for changes (reactive polling)
   delete <uri>             Delete data at a URI
   health                   Check node health and schema
+
+CONTENT:
+  upload <file>            Upload file (content-addressed)
+  upload -r <dir>          Upload directory recursively (content-addressed)
+  deploy <dir> <target>    Deploy site with content-addressed storage + authenticated links
+
+IDENTITY:
+  account create [path]    Generate Ed25519 key pair (PEM format)
+  encrypt create [path]    Generate X25519 encryption key pair (PEM format)
+
+CONFIGURATION:
+  conf node <url>          Set the node URL
+  conf account <path>      Set the account key path
+  conf encrypt <path>      Set the encryption key path
   config                   Show current configuration
   server-keys env          Generate server keys and print .env entries
 
+NODE MANAGEMENT:
   node keygen [path]       Generate Ed25519 + X25519 keypairs for a managed node
   node env <keyfile>       Output Phase 2 env vars from a node key file
-  node config push <file>  Sign and push node config to B3nd
+  node config push <file>  Sign and push node config
   node config get <nodeId> Read current config for a node
   node status <nodeId>     Read node heartbeat status
+
+NETWORK:
   network create <name>    Create a network manifest file
   network up <manifest>    Push configs and start a local network
   network status <id|path> Read all node statuses in a network
 
-  help                     Show this help message
-
 OPTIONS:
   -v, --verbose            Show detailed operation logs for debugging
+  help                     Show this help message
 
 SETUP:
   bnd account create
@@ -659,30 +667,21 @@ PROTOCOLS:
   immutable://accounts/:key/... Immutable authenticated storage
 
 EXAMPLES:
+  # Send data (auto-signs with identity)
+  bnd send mutable://accounts/:key/profile '{"name":"Alice"}'
+  bnd read mutable://accounts/:key/profile
+
   # Upload a file (content-addressed)
   bnd upload ./image.png
-  # Returns: hash://sha256/abc123...
 
-  # Upload directory (content-addressed)
-  bnd upload -r ./dist
-
-  # Deploy a site (content-addressed storage + links + versioning)
+  # Deploy a site (content-addressed + authenticated links)
   bnd deploy ./dist mutable://accounts/:key/mysite
-  # Creates:
-  #   - hash://sha256/... for each file
-  #   - link://accounts/:key/mysite/v<ts>/<path> for each file
-  #   - mutable://accounts/:key/mysite -> link://.../<version>/
-
-  # Low-level write
-  bnd write mutable://accounts/:key/profile '{"name":"Alice"}'
-  bnd read mutable://accounts/:key/profile
 
   # Watch a URI for changes
   bnd watch mutable://accounts/:key/profile
-  bnd watch mutable://accounts/:key/status --interval 5000
 
 DEBUGGING:
-  bnd --verbose deploy ./dist mutable://accounts/:key/mysite
+  bnd --verbose send mutable://accounts/:key/profile '{"name":"Alice"}'
   bnd -v read hash://sha256/abc123...
   bnd config
 

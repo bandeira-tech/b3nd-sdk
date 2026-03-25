@@ -4,7 +4,7 @@
  * Commands:
  *   bnd node keygen [path]          - Generate Ed25519 + X25519 keypair for a new node
  *   bnd node env <keyfile>          - Output Phase 2 env vars from a node key file
- *   bnd node config push <file>     - Sign and write config to B3nd
+ *   bnd node config push <file>     - Sign and send config to B3nd
  *   bnd node config get <nodeId>    - Read current config for a node
  *   bnd node status <nodeKey>       - Read node status (by node's public key)
  */
