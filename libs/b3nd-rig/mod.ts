@@ -44,7 +44,7 @@ export type {
   WatchOptions,
 } from "./types.ts";
 
-// Hooks
+// Hooks (immutable after init — throw to reject, observe to audit)
 export type {
   DeleteHookContext,
   HookableOp,
@@ -53,8 +53,6 @@ export type {
   ListHookContext,
   PostHook,
   PreHook,
-  PreHookResult,
-  PreHookRunResult,
   ReadHookContext,
   ReceiveHookContext,
   SendHookContext,

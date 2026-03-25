@@ -38,13 +38,7 @@ import type {
   WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";
-import type {
-  HookableOp,
-  HookChains,
-  HookContext,
-  PostHook,
-  PreHook,
-} from "./hooks.ts";
+import type { HookChains, HookContext } from "./hooks.ts";
 import { createHookChains, runPostHooks, runPreHooks } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import { RigEventEmitter } from "./events.ts";
@@ -171,15 +165,8 @@ export class Rig {
     // 2. Resolve per-operation clients (overrides default)
     const opClients = await resolveOpClients(config, defaultClient);
 
-    // 3. Build hook chains
-    const hooks = createHookChains();
-    if (config.hooks) {
-      for (const op of Object.keys(config.hooks) as HookableOp[]) {
-        const h = config.hooks[op];
-        if (h?.pre) hooks[op].pre.push(...h.pre);
-        if (h?.post) hooks[op].post.push(...h.post);
-      }
-    }
+    // 3. Build hook chains (frozen — immutable after init)
+    const hooks = createHookChains(config.hooks);
 
     // 4. Build event emitter
     const events = new RigEventEmitter();
@@ -240,19 +227,13 @@ export class Rig {
       );
     }
 
-    // Pre-hooks
+    // Pre-hooks — throw to reject
     const ctx: HookContext = {
       op: "send",
       envelope: { inputs: data.inputs, outputs: data.outputs },
       identity: this.identity,
     };
-    const pre = await runPreHooks(this._hooks.send.pre, ctx);
-    if (pre.aborted) {
-      const error = pre.reason ?? "Aborted by pre-hook";
-      this._events.emit("send:error", { op: "send", error, ts: Date.now() });
-      return { uri: "", accepted: false, error };
-    }
-    const sendCtx = pre.ctx as typeof ctx;
+    const sendCtx = await runPreHooks(this._hooks.send.pre, ctx);
     const envelope = sendCtx.op === "send" ? sendCtx.envelope : data;
 
     // Execute
@@ -272,12 +253,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks
-    result = (await runPostHooks(
-      this._hooks.send.post,
-      sendCtx,
-      result,
-    )) as SendResult;
+    // Post-hooks — observe only, cannot modify result
+    await runPostHooks(this._hooks.send.post, sendCtx, result);
 
     // Events + observe
     if (result.accepted) {
@@ -288,7 +265,6 @@ export class Rig {
         result,
         ts: Date.now(),
       });
-      // Fire observe for each output URI
       for (const [outputUri, outputData] of envelope.outputs) {
         this._observers.match(outputUri, outputData);
       }
@@ -320,20 +296,9 @@ export class Rig {
   async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
     const [uri, data] = msg;
 
-    // Pre-hooks
+    // Pre-hooks — throw to reject
     const ctx: HookContext = { op: "receive", uri, data };
-    const pre = await runPreHooks(this._hooks.receive.pre, ctx);
-    if (pre.aborted) {
-      const error = pre.reason ?? "Aborted by pre-hook";
-      this._events.emit("receive:error", {
-        op: "receive",
-        uri,
-        error,
-        ts: Date.now(),
-      });
-      return { accepted: false, error };
-    }
-    const recvCtx = pre.ctx as typeof ctx;
+    const recvCtx = await runPreHooks(this._hooks.receive.pre, ctx);
     const finalUri = recvCtx.op === "receive" ? recvCtx.uri : uri;
     const finalData = recvCtx.op === "receive" ? recvCtx.data : data;
 
@@ -351,12 +316,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks
-    result = (await runPostHooks(
-      this._hooks.receive.post,
-      recvCtx,
-      result,
-    )) as ReceiveResult;
+    // Post-hooks — observe only
+    await runPostHooks(this._hooks.receive.post, recvCtx, result);
 
     // Events + observe
     if (result.accepted) {
@@ -384,20 +345,9 @@ export class Rig {
 
   /** Read data from a URI. */
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
-    // Pre-hooks
+    // Pre-hooks — throw to reject
     const ctx: HookContext = { op: "read", uri };
-    const pre = await runPreHooks(this._hooks.read.pre, ctx);
-    if (pre.aborted) {
-      const error = pre.reason ?? "Aborted by pre-hook";
-      this._events.emit("read:error", {
-        op: "read",
-        uri,
-        error,
-        ts: Date.now(),
-      });
-      return { success: false, error };
-    }
-    const readCtx = pre.ctx as typeof ctx;
+    const readCtx = await runPreHooks(this._hooks.read.pre, ctx);
     const finalUri = readCtx.op === "read" ? readCtx.uri : uri;
 
     // Execute
@@ -414,12 +364,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks
-    result = (await runPostHooks(
-      this._hooks.read.post,
-      readCtx,
-      result,
-    )) as ReadResult<T>;
+    // Post-hooks — observe only
+    await runPostHooks(this._hooks.read.post, readCtx, result);
 
     // Events
     if (result.success) {
@@ -458,25 +404,9 @@ export class Rig {
 
   /** List items at a URI path. */
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
-    // Pre-hooks
+    // Pre-hooks — throw to reject
     const ctx: HookContext = { op: "list", uri, options };
-    const pre = await runPreHooks(this._hooks.list.pre, ctx);
-    if (pre.aborted) {
-      const error = pre.reason ?? "Aborted by pre-hook";
-      this._events.emit("list:error", {
-        op: "list",
-        uri,
-        error,
-        ts: Date.now(),
-      });
-      return {
-        success: false,
-        data: [],
-        pagination: { page: 1, limit: 50, total: 0 },
-        error,
-      } as ListResult;
-    }
-    const listCtx = pre.ctx as typeof ctx;
+    const listCtx = await runPreHooks(this._hooks.list.pre, ctx);
     const finalUri = listCtx.op === "list" ? listCtx.uri : uri;
     const finalOpts = listCtx.op === "list" ? listCtx.options : options;
 
@@ -494,12 +424,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks
-    result = (await runPostHooks(
-      this._hooks.list.post,
-      listCtx,
-      result,
-    )) as ListResult;
+    // Post-hooks — observe only
+    await runPostHooks(this._hooks.list.post, listCtx, result);
 
     // Events
     if (result.success) {
@@ -809,20 +735,9 @@ export class Rig {
 
   /** Delete data at a URI. */
   async delete(uri: string): Promise<DeleteResult> {
-    // Pre-hooks
+    // Pre-hooks — throw to reject
     const ctx: HookContext = { op: "delete", uri };
-    const pre = await runPreHooks(this._hooks.delete.pre, ctx);
-    if (pre.aborted) {
-      const error = pre.reason ?? "Aborted by pre-hook";
-      this._events.emit("delete:error", {
-        op: "delete",
-        uri,
-        error,
-        ts: Date.now(),
-      });
-      return { success: false, error };
-    }
-    const delCtx = pre.ctx as typeof ctx;
+    const delCtx = await runPreHooks(this._hooks.delete.pre, ctx);
     const finalUri = delCtx.op === "delete" ? delCtx.uri : uri;
 
     // Execute
@@ -839,12 +754,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks
-    result = (await runPostHooks(
-      this._hooks.delete.post,
-      delCtx,
-      result,
-    )) as DeleteResult;
+    // Post-hooks — observe only
+    await runPostHooks(this._hooks.delete.post, delCtx, result);
 
     // Events
     if (result.success) {
@@ -989,60 +900,8 @@ export class Rig {
     return this.identity !== null && this.identity.canEncrypt;
   }
 
-  // ── Runtime API: hooks, events, observe ──
-
-  /**
-   * Register a hook at runtime.
-   *
-   * If `fn` is an array, it replaces the entire chain for that op+phase.
-   * If `fn` is a single function, it is appended to the chain.
-   * Returns an unhook function.
-   *
-   * @example
-   * ```typescript
-   * const unhook = rig.hook("receive", "pre", (ctx) => {
-   *   if (ctx.op === "receive" && !isValid(ctx.data)) {
-   *     return { abort: true, reason: "invalid" };
-   *   }
-   * });
-   *
-   * // Later:
-   * unhook();
-   * ```
-   */
-  hook(
-    op: HookableOp,
-    phase: "pre",
-    fn: PreHook | PreHook[],
-  ): () => void;
-  hook(
-    op: HookableOp,
-    phase: "post",
-    fn: PostHook | PostHook[],
-  ): () => void;
-  hook(
-    op: HookableOp,
-    phase: "pre" | "post",
-    fn: PreHook | PostHook | PreHook[] | PostHook[],
-  ): () => void {
-    // The overload signatures enforce type safety at call sites.
-    // deno-lint-ignore no-explicit-any
-    const chain = this._hooks[op][phase] as any[];
-    if (Array.isArray(fn)) {
-      const original = [...chain];
-      chain.length = 0;
-      chain.push(...fn);
-      return () => {
-        chain.length = 0;
-        chain.push(...original);
-      };
-    }
-    chain.push(fn);
-    return () => {
-      const idx = chain.indexOf(fn);
-      if (idx >= 0) chain.splice(idx, 1);
-    };
-  }
+  // ── Runtime API: events, observe ──
+  // Hooks are immutable after init — see createHookChains().
 
   /**
    * Register an event handler at runtime. Returns an unsubscribe function.

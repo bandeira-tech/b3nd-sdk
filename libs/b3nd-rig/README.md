@@ -159,9 +159,9 @@ const handler = await rig.handler({ healthMeta: { version: "1.0" } });
 Deno.serve({ port: 3000 }, handler);
 ```
 
-Returns a standard `(Request) => Promise<Response>` fetch handler with all
-b3nd API routes (`/api/v1/receive`, `/api/v1/read/...`, etc.).
-Framework-agnostic — plug into Deno.serve, Hono, Express, Cloudflare Workers, etc.
+Returns a standard `(Request) => Promise<Response>` fetch handler with all b3nd
+API routes (`/api/v1/receive`, `/api/v1/read/...`, etc.). Framework-agnostic —
+plug into Deno.serve, Hono, Express, Cloudflare Workers, etc.
 
 ## Examples
 

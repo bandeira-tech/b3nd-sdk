@@ -1,42 +1,40 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import type { HookContext } from "./hooks.ts";
-import { runPostHooks, runPreHooks } from "./hooks.ts";
+import { createHookChains, runPostHooks, runPreHooks } from "./hooks.ts";
 
 // ── runPreHooks ──
 
 Deno.test("runPreHooks - empty array passes through", async () => {
   const ctx: HookContext = { op: "read", uri: "mutable://test" };
   const result = await runPreHooks([], ctx);
-  assertEquals(result.aborted, false);
-  if (!result.aborted) {
-    assertEquals(result.ctx, ctx);
-  }
+  assertEquals(result, ctx);
 });
 
 Deno.test("runPreHooks - void return passes through", async () => {
   const ctx: HookContext = { op: "read", uri: "mutable://test" };
   const result = await runPreHooks([() => {}], ctx);
-  assertEquals(result.aborted, false);
+  assertEquals(result, ctx);
 });
 
-Deno.test("runPreHooks - abort stops execution", async () => {
+Deno.test("runPreHooks - throw rejects operation", async () => {
   const calls: string[] = [];
-  const result = await runPreHooks(
-    [
-      () => {
-        calls.push("first");
-        return { abort: true as const, reason: "denied" };
-      },
-      () => {
-        calls.push("second");
-      },
-    ],
-    { op: "receive", uri: "mutable://test", data: {} },
+  await assertRejects(
+    () =>
+      runPreHooks(
+        [
+          () => {
+            calls.push("first");
+            throw new Error("denied");
+          },
+          () => {
+            calls.push("second");
+          },
+        ],
+        { op: "receive", uri: "mutable://test", data: {} },
+      ),
+    Error,
+    "denied",
   );
-  assertEquals(result.aborted, true);
-  if (result.aborted) {
-    assertEquals(result.reason, "denied");
-  }
   assertEquals(calls, ["first"]); // second never ran
 });
 
@@ -55,95 +53,125 @@ Deno.test("runPreHooks - context replacement threads through", async () => {
     ],
     { op: "read", uri: "mutable://original" },
   );
-  assertEquals(result.aborted, false);
-  if (!result.aborted && result.ctx.op === "read") {
-    assertEquals(result.ctx.uri, "mutable://replaced");
+  if (result.op === "read") {
+    assertEquals(result.uri, "mutable://replaced");
   }
 });
 
 Deno.test("runPreHooks - async hooks work", async () => {
-  const result = await runPreHooks(
-    [
-      async () => {
-        await new Promise((r) => setTimeout(r, 1));
-        return { abort: true as const, reason: "async deny" };
-      },
-    ],
-    { op: "delete", uri: "mutable://test" },
+  await assertRejects(
+    () =>
+      runPreHooks(
+        [
+          async () => {
+            await new Promise((r) => setTimeout(r, 1));
+            throw new Error("async deny");
+          },
+        ],
+        { op: "delete", uri: "mutable://test" },
+      ),
+    Error,
+    "async deny",
   );
-  assertEquals(result.aborted, true);
-  if (result.aborted) {
-    assertEquals(result.reason, "async deny");
-  }
 });
 
 // ── runPostHooks ──
 
-Deno.test("runPostHooks - empty array passes result through", async () => {
-  const result = await runPostHooks(
+Deno.test("runPostHooks - empty array completes", async () => {
+  await runPostHooks(
     [],
     { op: "read", uri: "mutable://test" },
     { success: true, record: { ts: 1, data: "hello" } },
   );
-  assertEquals(result, { success: true, record: { ts: 1, data: "hello" } });
+  // no error = pass
 });
 
-Deno.test("runPostHooks - void return passes result through", async () => {
-  const result = await runPostHooks(
-    [() => {}],
+Deno.test("runPostHooks - observers see the result", async () => {
+  const seen: unknown[] = [];
+  await runPostHooks(
+    [(_ctx, result) => {
+      seen.push(result);
+    }],
     { op: "read", uri: "mutable://test" },
     { success: true },
   );
-  assertEquals(result, { success: true });
+  assertEquals(seen, [{ success: true }]);
 });
 
-Deno.test("runPostHooks - transformation replaces result", async () => {
-  const result = await runPostHooks(
+Deno.test("runPostHooks - throw propagates to caller", async () => {
+  await assertRejects(
+    () =>
+      runPostHooks(
+        [() => {
+          throw new Error("post-condition violated");
+        }],
+        { op: "read", uri: "mutable://test" },
+        { success: true },
+      ),
+    Error,
+    "post-condition violated",
+  );
+});
+
+Deno.test("runPostHooks - multiple hooks run sequentially", async () => {
+  const order: number[] = [];
+  await runPostHooks(
     [
-      (_ctx, result) => {
-        const r = result as { success: boolean; record?: { data: number } };
-        if (r.record) {
-          return { ...r, record: { ...r.record, data: r.record.data * 2 } };
-        }
+      () => {
+        order.push(1);
+      },
+      () => {
+        order.push(2);
+      },
+      () => {
+        order.push(3);
       },
     ],
     { op: "read", uri: "mutable://test" },
-    { success: true, record: { ts: 1, data: 5 } },
+    { success: true },
   );
-  assertEquals(
-    (result as { record: { data: number } }).record.data,
-    10,
-  );
-});
-
-Deno.test("runPostHooks - multiple hooks chain transformations", async () => {
-  const result = await runPostHooks(
-    [
-      (_ctx, result) => ({
-        ...(result as Record<string, unknown>),
-        step1: true,
-      }),
-      (_ctx, result) => ({
-        ...(result as Record<string, unknown>),
-        step2: true,
-      }),
-    ],
-    { op: "read", uri: "mutable://test" },
-    { original: true },
-  );
-  assertEquals(result, { original: true, step1: true, step2: true });
+  assertEquals(order, [1, 2, 3]);
 });
 
 Deno.test("runPostHooks - async hooks work", async () => {
-  const result = await runPostHooks(
+  let called = false;
+  await runPostHooks(
     [
-      async (_ctx, _result) => {
+      async () => {
         await new Promise((r) => setTimeout(r, 1));
-        return { transformed: true };
+        called = true;
       },
     ],
     { op: "read", uri: "mutable://test" },
     { original: true },
   );
-  assertEquals(result, { transformed: true });
+  assertEquals(called, true);
+});
+
+// ── createHookChains ──
+
+Deno.test("createHookChains - frozen after creation", () => {
+  const chains = createHookChains({
+    receive: { pre: [() => {}] },
+  });
+
+  // Chains are frozen — mutations throw in strict mode or silently fail
+  let threw = false;
+  try {
+    // deno-lint-ignore no-explicit-any
+    (chains.receive.pre as any).push(() => {});
+  } catch {
+    threw = true;
+  }
+  // Frozen arrays throw on push in strict mode
+  assertEquals(threw, true);
+  assertEquals(chains.receive.pre.length, 1);
+});
+
+Deno.test("createHookChains - empty config gives empty chains", () => {
+  const chains = createHookChains();
+  assertEquals(chains.send.pre.length, 0);
+  assertEquals(chains.send.post.length, 0);
+  assertEquals(chains.receive.pre.length, 0);
+  assertEquals(chains.delete.post.length, 0);
 });

@@ -2093,19 +2093,23 @@ Deno.test("Rig.sendMany - throws without identity", async () => {
 
 // ── Hooks integration tests ──
 
-Deno.test("Rig hooks - pre-hook abort on receive", async () => {
+Deno.test("Rig hooks - pre-hook throw rejects receive", async () => {
   const rig = await Rig.init({
     use: "memory://",
     hooks: {
       receive: {
-        pre: [(_ctx) => ({ abort: true as const, reason: "blocked" })],
+        pre: [() => {
+          throw new Error("blocked");
+        }],
       },
     },
   });
 
-  const result = await rig.receive(["mutable://open/test", { x: 1 }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "blocked");
+  await assertRejects(
+    () => rig.receive(["mutable://open/test", { x: 1 }]),
+    Error,
+    "blocked",
+  );
   await rig.cleanup();
 });
 
@@ -2137,29 +2141,14 @@ Deno.test("Rig hooks - pre-hook mutates receive context", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig hooks - post-hook transforms read result", async () => {
+Deno.test("Rig hooks - post-hook observes read result without modifying", async () => {
+  const observed: unknown[] = [];
   const rig = await Rig.init({
     use: "memory://",
     hooks: {
       read: {
         post: [(_ctx, result) => {
-          const r = result as {
-            success: boolean;
-            record?: { ts: number; data: unknown };
-          };
-          if (r.success && r.record) {
-            return {
-              ...r,
-              record: {
-                ...r.record,
-                data: {
-                  ...(r.record.data as Record<string, unknown>),
-                  enriched: true,
-                },
-              },
-            };
-          }
-          return result;
+          observed.push(result);
         }],
       },
     },
@@ -2168,25 +2157,51 @@ Deno.test("Rig hooks - post-hook transforms read result", async () => {
   await rig.receive(["mutable://open/test", { x: 1 }]);
   const result = await rig.read("mutable://open/test");
   assertEquals(result.success, true);
-  assertEquals((result.record?.data as Record<string, unknown>).enriched, true);
+  // Result is unmodified — post-hooks cannot transform
   assertEquals((result.record?.data as Record<string, unknown>).x, 1);
+  assertEquals(observed.length, 1);
   await rig.cleanup();
 });
 
-Deno.test("Rig hooks - pre-hook abort on delete", async () => {
+Deno.test("Rig hooks - post-hook throw propagates to caller", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    hooks: {
+      read: {
+        post: [() => {
+          throw new Error("post-condition failed");
+        }],
+      },
+    },
+  });
+
+  await rig.receive(["mutable://open/test", { x: 1 }]);
+  await assertRejects(
+    () => rig.read("mutable://open/test"),
+    Error,
+    "post-condition failed",
+  );
+  await rig.cleanup();
+});
+
+Deno.test("Rig hooks - pre-hook throw rejects delete", async () => {
   const rig = await Rig.init({
     use: "memory://",
     hooks: {
       delete: {
-        pre: [() => ({ abort: true as const, reason: "no deletes" })],
+        pre: [() => {
+          throw new Error("no deletes");
+        }],
       },
     },
   });
 
   await rig.receive(["mutable://open/keep", { x: 1 }]);
-  const result = await rig.delete("mutable://open/keep");
-  assertEquals(result.success, false);
-  assertEquals(result.error, "no deletes");
+  await assertRejects(
+    () => rig.delete("mutable://open/keep"),
+    Error,
+    "no deletes",
+  );
 
   // Data should still be there
   const data = await rig.readData("mutable://open/keep");
@@ -2194,24 +2209,29 @@ Deno.test("Rig hooks - pre-hook abort on delete", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig hooks - pre-hook abort on send", async () => {
+Deno.test("Rig hooks - pre-hook throw rejects send", async () => {
   const id = await Identity.generate();
   const rig = await Rig.init({
     use: "memory://",
     identity: id,
     hooks: {
       send: {
-        pre: [() => ({ abort: true as const, reason: "rate limited" })],
+        pre: [() => {
+          throw new Error("rate limited");
+        }],
       },
     },
   });
 
-  const result = await rig.send({
-    inputs: [],
-    outputs: [["mutable://open/x", { v: 1 }]],
-  });
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "rate limited");
+  await assertRejects(
+    () =>
+      rig.send({
+        inputs: [],
+        outputs: [["mutable://open/x", { v: 1 }]],
+      }),
+    Error,
+    "rate limited",
+  );
   await rig.cleanup();
 });
 
@@ -2236,15 +2256,10 @@ Deno.test("Rig events - fires on receive success", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig events - fires on receive error", async () => {
+Deno.test("Rig events - fires on receive error (backend rejection)", async () => {
   const errors: unknown[] = [];
   const rig = await Rig.init({
     use: "memory://",
-    hooks: {
-      receive: {
-        pre: [() => ({ abort: true as const, reason: "denied" })],
-      },
-    },
     on: {
       "receive:error": [(e) => {
         errors.push(e);
@@ -2252,7 +2267,8 @@ Deno.test("Rig events - fires on receive error", async () => {
     },
   });
 
-  await rig.receive(["mutable://open/test", { x: 1 }]);
+  // Write to an invalid domain to trigger a backend rejection
+  await rig.receive(["mutable://invalid-domain/test", { x: 1 }]);
   await new Promise((r) => setTimeout(r, 20));
 
   assertEquals(errors.length, 1);
@@ -2354,22 +2370,18 @@ Deno.test("Rig observe - does not fire on read", async () => {
 
 // ── Runtime API tests ──
 
-Deno.test("Rig.hook - runtime hook works after init", async () => {
-  const rig = await Rig.init({ use: "memory://" });
+Deno.test("Rig hooks - immutable after init", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    hooks: {
+      receive: { pre: [() => {}] },
+    },
+  });
 
-  const unhook = rig.hook("receive", "pre", (_ctx) => ({
-    abort: true as const,
-    reason: "runtime block",
-  }));
-
-  const result = await rig.receive(["mutable://open/test", { x: 1 }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "runtime block");
-
-  unhook();
-
-  const result2 = await rig.receive(["mutable://open/test", { x: 1 }]);
-  assertEquals(result2.accepted, true);
+  // Hooks are frozen — no runtime mutation possible
+  // (Rig no longer exposes a hook() method)
+  // deno-lint-ignore no-explicit-any
+  assertEquals(typeof (rig as any).hook, "undefined");
   await rig.cleanup();
 });
 
@@ -2471,7 +2483,7 @@ Deno.test("Rig clients - schema still works with hooks", async () => {
     schema,
     hooks: {
       receive: {
-        post: [(_ctx, result) => result], // passthrough hook
+        post: [() => {}], // observer hook
       },
     },
   });
@@ -2486,32 +2498,4 @@ Deno.test("Rig clients - schema still works with hooks", async () => {
   await rig.cleanup();
 });
 
-// ── Hook chain replacement test ──
-
-Deno.test("Rig.hook - array replaces entire chain", async () => {
-  const rig = await Rig.init({
-    use: "memory://",
-    hooks: {
-      receive: {
-        pre: [() => ({ abort: true as const, reason: "original" })],
-      },
-    },
-  });
-
-  // Original hook blocks
-  let result = await rig.receive(["mutable://open/test", { x: 1 }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "original");
-
-  // Replace with empty chain — should now pass
-  const unhook = rig.hook("receive", "pre", []);
-  result = await rig.receive(["mutable://open/test", { x: 1 }]);
-  assertEquals(result.accepted, true);
-
-  // Unhook restores original chain
-  unhook();
-  result = await rig.receive(["mutable://open/test2", { x: 2 }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "original");
-  await rig.cleanup();
-});
+// No hook chain replacement test — hooks are immutable after init.

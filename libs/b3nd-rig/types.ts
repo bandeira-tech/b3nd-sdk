@@ -134,18 +134,19 @@ export interface RigConfig {
   };
 
   /**
-   * Synchronous hook pipelines — pre can abort, post can transform.
+   * Synchronous hook pipelines — frozen after init.
    *
-   * Hooks run IN the operation (blocking). Pre-hooks can abort the
-   * operation or mutate the context. Post-hooks can transform the result.
+   * Pre-hooks **throw** to reject an operation (no silent aborts).
+   * Post-hooks **observe** the result but cannot modify it (throw if violated).
+   * Hooks are immutable — want different hooks? Create a new rig.
    *
    * @example
    * ```typescript
    * const rig = await Rig.init({
    *   use: "memory://",
    *   hooks: {
-   *     receive: { pre: [validateSchema, dedup] },
-   *     read:    { post: [decrypt, enrich] },
+   *     receive: { pre: [validateSchema] },
+   *     read:    { post: [auditRead] },
    *   },
    * });
    * ```

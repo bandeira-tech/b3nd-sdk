@@ -2,9 +2,12 @@
  * @module
  * Hook types and runners for the Rig.
  *
- * Hooks are synchronous pipelines that run IN the operation:
- * - Pre-hooks can abort or mutate the operation context
- * - Post-hooks can transform the result
+ * Security model:
+ * - Pre-hooks THROW to reject an operation. The caller must catch explicitly.
+ *   No silent aborts — if validation fails, it's an exception.
+ * - Post-hooks OBSERVE but cannot modify the result. They can throw if
+ *   a post-condition is violated, or return metadata for diagnostics.
+ * - Hooks are immutable after init. Want different hooks? Create a new rig.
  *
  * Pure module — no Rig dependency, testable in isolation.
  */
@@ -59,101 +62,115 @@ export type HookContext =
   | DeleteHookContext;
 
 /**
- * Pre-hook return value:
- * - `void` / `undefined` → continue with original context
- * - `{ abort: true, reason? }` → stop the operation
- * - `{ ctx }` → continue with a replacement context
+ * Pre-hook function. Runs before the operation.
+ *
+ * - Return `void` to allow the operation to proceed unchanged.
+ * - Return `{ ctx }` to replace the context for downstream hooks.
+ * - **Throw** to reject the operation. The exception propagates to the caller.
  */
-export type PreHookResult =
-  | void
-  | undefined
-  | { abort: true; reason?: string }
-  | { ctx: HookContext };
-
-/** Pre-hook function. Runs before the operation. */
 export type PreHook = (
-  ctx: HookContext,
-) => PreHookResult | Promise<PreHookResult>;
+  ctx: Readonly<HookContext>,
+) => void | { ctx: HookContext } | Promise<void | { ctx: HookContext }>;
 
 /**
- * Post-hook function. Runs after the operation.
- * Return a value to replace the result, or void to pass through.
+ * Post-hook function. Runs after the operation completes.
+ *
+ * Post-hooks **cannot** modify the result — the operation's return value
+ * is immutable. Use post-hooks for:
+ * - Logging / auditing (return void)
+ * - Diagnostics (return metadata object — available via events)
+ * - Enforcement (throw if a post-condition is violated)
  */
 export type PostHook = (
-  ctx: HookContext,
+  ctx: Readonly<HookContext>,
   result: unknown,
-) => unknown | void | Promise<unknown | void>;
+) => void | Promise<void>;
 
-/** The full set of hook chains for all operations. */
+/** The full set of hook chains for all operations. Frozen after init. */
 export interface HookChains {
-  send: { pre: PreHook[]; post: PostHook[] };
-  receive: { pre: PreHook[]; post: PostHook[] };
-  read: { pre: PreHook[]; post: PostHook[] };
-  list: { pre: PreHook[]; post: PostHook[] };
-  delete: { pre: PreHook[]; post: PostHook[] };
+  readonly send: {
+    readonly pre: readonly PreHook[];
+    readonly post: readonly PostHook[];
+  };
+  readonly receive: {
+    readonly pre: readonly PreHook[];
+    readonly post: readonly PostHook[];
+  };
+  readonly read: {
+    readonly pre: readonly PreHook[];
+    readonly post: readonly PostHook[];
+  };
+  readonly list: {
+    readonly pre: readonly PreHook[];
+    readonly post: readonly PostHook[];
+  };
+  readonly delete: {
+    readonly pre: readonly PreHook[];
+    readonly post: readonly PostHook[];
+  };
 }
 
 // ── Factories ──
 
-/** Create empty hook chains. */
-export function createHookChains(): HookChains {
-  return {
-    send: { pre: [], post: [] },
-    receive: { pre: [], post: [] },
-    read: { pre: [], post: [] },
-    list: { pre: [], post: [] },
-    delete: { pre: [], post: [] },
-  };
+/** Create hook chains from config. Freezes the result — no mutation after init. */
+export function createHookChains(
+  config?: Partial<
+    Record<HookableOp, { pre?: PreHook[]; post?: PostHook[] }>
+  >,
+): HookChains {
+  const ops: HookableOp[] = ["send", "receive", "read", "list", "delete"];
+  const chains: Record<
+    string,
+    { pre: readonly PreHook[]; post: readonly PostHook[] }
+  > = {};
+
+  for (const op of ops) {
+    const entry = config?.[op];
+    chains[op] = Object.freeze({
+      pre: Object.freeze(entry?.pre ? [...entry.pre] : []),
+      post: Object.freeze(entry?.post ? [...entry.post] : []),
+    });
+  }
+
+  return Object.freeze(chains) as unknown as HookChains;
 }
 
 // ── Runners ──
 
-/** Result of running pre-hooks. */
-export type PreHookRunResult =
-  | { aborted: true; reason?: string }
-  | { aborted: false; ctx: HookContext };
-
 /**
- * Run pre-hooks sequentially.
+ * Run pre-hooks sequentially. Returns the (possibly replaced) context.
  *
- * Stops at the first abort. Each hook can optionally replace
- * the context for downstream hooks.
+ * **Throws** if any pre-hook throws — this is the rejection mechanism.
+ * The caller is expected to let the exception propagate or catch it
+ * explicitly if they want to handle the rejection.
  */
 export async function runPreHooks(
-  hooks: PreHook[],
+  hooks: readonly PreHook[],
   ctx: HookContext,
-): Promise<PreHookRunResult> {
+): Promise<HookContext> {
   let current = ctx;
   for (const hook of hooks) {
     const result = await hook(current);
-    if (result == null) continue;
-    if ("abort" in result && result.abort) {
-      return { aborted: true, reason: result.reason };
-    }
-    if ("ctx" in result && result.ctx) {
+    if (result != null && "ctx" in result && result.ctx) {
       current = result.ctx;
     }
   }
-  return { aborted: false, ctx: current };
+  return current;
 }
 
 /**
- * Run post-hooks sequentially.
+ * Run post-hooks sequentially. The result is passed as read-only context.
  *
- * Each hook can transform the result. If a hook returns
- * `undefined` or `void`, the previous result passes through.
+ * Post-hooks cannot modify the result. They can:
+ * - Observe (return void)
+ * - Throw if a post-condition is violated
  */
 export async function runPostHooks(
-  hooks: PostHook[],
+  hooks: readonly PostHook[],
   ctx: HookContext,
   result: unknown,
-): Promise<unknown> {
-  let current = result;
+): Promise<void> {
   for (const hook of hooks) {
-    const transformed = await hook(ctx, current);
-    if (transformed !== undefined) {
-      current = transformed;
-    }
+    await hook(ctx, result);
   }
-  return current;
 }
