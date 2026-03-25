@@ -80,6 +80,7 @@
     "libs/b3nd-client-ipfs",
     "libs/b3nd-client-indexeddb",
     "libs/b3nd-client-console",
+    "libs/b3nd-client-s3",
     "libs/b3nd-client-localstorage",
     "libs/b3nd-combinators",
     "libs/b3nd-testing",
