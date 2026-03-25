@@ -105,7 +105,7 @@ export async function nodeEnv(keyFilePath: string): Promise<void> {
 }
 
 /**
- * Push a node config file to B3nd (sign and write)
+ * Push a node config file to B3nd (sign and send)
  */
 export async function nodeConfigPush(
   configFilePath: string,

@@ -108,19 +108,3 @@ export async function closeRig(logger?: Logger): Promise<void> {
     cachedRig = null;
   }
 }
-
-/**
- * Get the underlying NodeProtocolInterface client.
- *
- * @deprecated Use `getRig()` directly — operations through `rig.client`
- * bypass hooks, events, and observe. Prefer `rig.receive()`, `rig.read()`, etc.
- */
-export async function getClient(logger?: Logger) {
-  const rig = await getRig(logger);
-  return rig.client;
-}
-
-/**
- * Close the cached client connection (alias for closeRig)
- */
-export const closeClient = closeRig;

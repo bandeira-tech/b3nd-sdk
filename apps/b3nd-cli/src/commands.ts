@@ -770,7 +770,7 @@ export async function upload(
             `${relativePath} -> ${hashUri} (${fileData.length} bytes)`,
           );
 
-          // Write to content-addressed storage
+          // Send to content-addressed storage
           const result = await rig.receive([hashUri, fileData]);
 
           if (result.accepted) {
@@ -1137,7 +1137,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
           console.log(`  ○ ${relativePath} [dedup]`);
           hashExistsCount++;
         } else {
-          throw new Error(result.error || "Write failed");
+          throw new Error(result.error || "Send failed");
         }
       } catch (error) {
         console.log(

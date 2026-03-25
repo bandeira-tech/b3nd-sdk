@@ -132,10 +132,12 @@ export class Rig {
   }
 
   /**
-   * Backwards-compatible composite client.
+   * Raw composite client — bypasses hooks, events, and observe.
    *
-   * Delegates each operation to the per-op client. Useful as an escape
-   * hatch or for passing to libraries that expect a NodeProtocolInterface.
+   * Prefer passing the Rig itself (it satisfies `NodeProtocolInterface`).
+   * This getter exists for third-party code that requires a plain object.
+   *
+   * @deprecated Pass the Rig instance directly instead.
    */
   get client(): NodeProtocolInterface {
     const c = this._clients;
