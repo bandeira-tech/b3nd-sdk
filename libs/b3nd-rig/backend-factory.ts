@@ -18,6 +18,7 @@ import type {
   FsExecutorFactory,
   IpfsExecutorFactory,
   MongoExecutorFactory,
+  Neo4jExecutorFactory,
   PostgresExecutorFactory,
   SqliteExecutorFactory,
 } from "./types.ts";
@@ -38,6 +39,8 @@ export const SUPPORTED_PROTOCOLS = [
   "sqlite://",
   "file://",
   "ipfs://",
+  "neo4j://",
+  "bolt://",
 ] as const;
 
 /** Returns the list of supported backend URL protocols. */
@@ -67,6 +70,7 @@ export interface BackendFactoryOptions {
     sqlite?: SqliteExecutorFactory;
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
+    neo4j?: Neo4jExecutorFactory;
   };
 }
 
@@ -226,6 +230,33 @@ export async function createClientFromUrl(
         },
         executor,
       );
+    }
+
+    case "neo4j:":
+    case "bolt:": {
+      if (!options.executors?.neo4j) {
+        throw new Error(
+          `Neo4j URL requires an executor factory. Pass executors.neo4j to Rig.init().`,
+        );
+      }
+      const schema = options.schema;
+      if (!schema) {
+        throw new Error("Neo4j backend requires a schema.");
+      }
+      // neo4j://host:port/database → database from path, default "neo4j"
+      const database = parsed.pathname.replace(/^\//, "") || "neo4j";
+      const { Neo4jClient } = await import("../b3nd-client-neo4j/mod.ts");
+      const executor = await options.executors.neo4j(url, database);
+      const client = new Neo4jClient(
+        {
+          connectionString: url,
+          schema,
+          database,
+        },
+        executor,
+      );
+      await client.initializeSchema();
+      return client;
     }
 
     default:

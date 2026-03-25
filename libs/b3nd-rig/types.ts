@@ -74,6 +74,14 @@ export type IpfsExecutorFactory = (
 ) => import("../b3nd-client-ipfs/mod.ts").IpfsExecutor;
 
 /**
+ * Factory function for creating a Neo4j executor from connection params.
+ */
+export type Neo4jExecutorFactory = (
+  connectionString: string,
+  database: string,
+) => Promise<import("../b3nd-client-neo4j/mod.ts").Neo4jExecutor>;
+
+/**
  * Configuration for Rig.init().
  */
 export interface RigConfig {
@@ -91,7 +99,7 @@ export interface RigConfig {
 
   /**
    * Executor factories for database backends.
-   * Required when using postgresql://, mongodb://, or sqlite:// URLs.
+   * Required when using postgresql://, mongodb://, sqlite://, or neo4j:// URLs.
    */
   executors?: {
     postgres?: PostgresExecutorFactory;
@@ -99,6 +107,7 @@ export interface RigConfig {
     sqlite?: SqliteExecutorFactory;
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
+    neo4j?: Neo4jExecutorFactory;
   };
 }
 
