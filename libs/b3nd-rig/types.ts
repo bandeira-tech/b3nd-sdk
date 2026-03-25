@@ -212,6 +212,12 @@ export interface RigInfo {
   canEncrypt: boolean;
   /** Whether an identity is attached at all. */
   hasIdentity: boolean;
+  /** Behavior layer counts — hooks, events, and observers registered. */
+  behavior: {
+    hooks: Record<string, { pre: number; post: number }>;
+    events: Record<string, number>;
+    observers: number;
+  };
 }
 
 /**

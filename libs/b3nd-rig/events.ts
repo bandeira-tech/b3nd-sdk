@@ -73,6 +73,15 @@ export class RigEventEmitter {
     this.handlers.get(event)?.delete(handler);
   }
 
+  /** Return handler counts per event name. */
+  counts(): Record<string, number> {
+    const result: Record<string, number> = {};
+    for (const [name, set] of this.handlers) {
+      if (set.size > 0) result[name] = set.size;
+    }
+    return result;
+  }
+
   /**
    * Fire an event. Handlers run asynchronously and never block.
    * Errors in handlers are caught and logged to console.warn.

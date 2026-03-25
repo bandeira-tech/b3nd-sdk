@@ -387,9 +387,32 @@ export class Rig {
     return result;
   }
 
-  /** Batch read multiple URIs. */
-  readMany<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    return this._clients.read.readMulti<T>(uris);
+  /** Batch read multiple URIs. Fires read events per-URI. */
+  async readMany<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
+    const result = await this._clients.read.readMulti<T>(uris);
+
+    // Fire events for each URI result
+    for (const item of result.results) {
+      if (item.success) {
+        this._events.emit("read:success", {
+          op: "read",
+          uri: item.uri,
+          result: item,
+          ts: Date.now(),
+        });
+      } else {
+        this._events.emit("read:error", {
+          op: "read",
+          uri: item.uri,
+          error: "error" in item
+            ? (item as { error?: string }).error
+            : undefined,
+          ts: Date.now(),
+        });
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -525,7 +548,7 @@ export class Rig {
    */
   async readDataMany<T = unknown>(uris: string[]): Promise<Map<string, T>> {
     if (uris.length === 0) return new Map();
-    const multi = await this._clients.read.readMulti<T>(uris);
+    const multi = await this.readMany<T>(uris);
     const map = new Map<string, T>();
     for (const item of multi.results) {
       if (item.success) {
@@ -829,12 +852,27 @@ export class Rig {
    * ```
    */
   info(): RigInfo {
+    const hooks: Record<string, { pre: number; post: number }> = {};
+    for (
+      const op of ["send", "receive", "read", "list", "delete"] as const
+    ) {
+      const h = this._hooks[op];
+      if (h.pre.length > 0 || h.post.length > 0) {
+        hooks[op] = { pre: h.pre.length, post: h.post.length };
+      }
+    }
+
     return {
       pubkey: this.identity?.pubkey ?? null,
       encryptionPubkey: this.identity?.encryptionPubkey ?? null,
       canSign: this.canSign,
       canEncrypt: this.canEncrypt,
       hasIdentity: this.identity !== null,
+      behavior: {
+        hooks,
+        events: this._events.counts(),
+        observers: this._observers.size,
+      },
     };
   }
 
