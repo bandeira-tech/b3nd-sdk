@@ -275,6 +275,28 @@ export interface WatchAllSnapshot<T = unknown> {
 export type Unsubscribe = () => void;
 
 /**
+ * Handler for pattern-based subscriptions.
+ *
+ * Same shape as ObserveHandler — receives the URI, data, and extracted
+ * params from the pattern match.
+ */
+export type SubscribeHandler<T = unknown> = (
+  uri: string,
+  data: T,
+  params: Record<string, string>,
+) => void | Promise<void>;
+
+/**
+ * Options for pattern-based subscriptions.
+ */
+export interface SubscribeOptions {
+  /** Polling interval in ms (used as fallback when SSE is unavailable). Default: 2000. */
+  intervalMs?: number;
+  /** Abort signal to stop the subscription. */
+  signal?: AbortSignal;
+}
+
+/**
  * Options for rig.handler().
  */
 export interface HandlerOptions {

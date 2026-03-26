@@ -33,6 +33,8 @@ import type { Identity } from "./identity.ts";
 import type {
   RigConfig,
   RigInfo,
+  SubscribeHandler,
+  SubscribeOptions,
   Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
@@ -45,6 +47,8 @@ import { RigEventEmitter } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
 import { ObserveRegistry } from "./observe.ts";
 import { clientAccepts } from "./filter.ts";
+import { openSseStream } from "../b3nd-client-http/sse.ts";
+import { matchPattern } from "./observe.ts";
 
 /** Per-operation client map. */
 interface OpClients {
@@ -111,6 +115,8 @@ export class Rig {
   private readonly _hooks: HookChains;
   private readonly _events: RigEventEmitter;
   private readonly _observers: ObserveRegistry;
+  /** Base URL for SSE subscriptions — set when init'd via HTTP URL. */
+  private readonly _sseBaseUrl: string | null;
 
   private constructor(
     clients: OpClients,
@@ -118,12 +124,14 @@ export class Rig {
     hooks: HookChains,
     events: RigEventEmitter,
     observers: ObserveRegistry,
+    sseBaseUrl: string | null = null,
   ) {
     this._clients = clients;
     this.identity = identity;
     this._hooks = hooks;
     this._events = events;
     this._observers = observers;
+    this._sseBaseUrl = sseBaseUrl;
   }
 
   /**
@@ -195,12 +203,30 @@ export class Rig {
       }
     }
 
+    // 6. Detect SSE base URL from config
+    let sseBaseUrl: string | null = null;
+    if (typeof config.use === "string") {
+      const url = config.use;
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        sseBaseUrl = url.replace(/\/$/, "");
+      }
+    } else if (Array.isArray(config.use)) {
+      // Use first HTTP URL if available
+      const httpUrl = config.use.find(
+        (u) =>
+          typeof u === "string" &&
+          (u.startsWith("http://") || u.startsWith("https://")),
+      );
+      if (httpUrl) sseBaseUrl = httpUrl.replace(/\/$/, "");
+    }
+
     return new Rig(
       opClients,
       config.identity ?? null,
       hooks,
       events,
       observers,
+      sseBaseUrl,
     );
   }
 
@@ -1146,40 +1172,204 @@ export class Rig {
   }
 
   /**
-   * Subscribe to changes at a URI with a callback.
+   * Subscribe to changes at a URI or URI pattern.
    *
-   * Wraps `watch()` into a simpler callback pattern. Returns an
-   * unsubscribe function. Ideal for React effects and event-driven code.
+   * **Single URI** (legacy): wraps `watch()` into callback style.
+   * **URI pattern**: uses SSE when available, falls back to polling.
+   * Patterns use Express-style matching: `:param` captures a segment,
+   * `*` matches the rest.
    *
-   * @example
+   * @example Single URI
    * ```typescript
    * const unsub = rig.subscribe<UserProfile>(
    *   "mutable://app/users/alice",
-   *   (profile) => setProfile(profile),
+   *   (value) => setProfile(value),
    *   { intervalMs: 2000 },
    * );
+   * ```
    *
-   * // Later:
-   * unsub();
+   * @example URI pattern (fires for any matching write)
+   * ```typescript
+   * const unsub = rig.subscribe<MarketMessage>(
+   *   "mutable://data/market/X/:msgId",
+   *   (uri, data, { msgId }) => {
+   *     console.log(`New message ${msgId}:`, data);
+   *   },
+   * );
    * ```
    */
   subscribe<T = unknown>(
     uri: string,
     callback: (value: T | null) => void,
-    options?: Omit<WatchOptions, "signal">,
+    options?: SubscribeOptions,
+  ): Unsubscribe;
+  subscribe<T = unknown>(
+    pattern: string,
+    handler: SubscribeHandler<T>,
+    options?: SubscribeOptions,
+  ): Unsubscribe;
+  subscribe<T = unknown>(
+    uriOrPattern: string,
+    handler:
+      | ((value: T | null) => void)
+      | SubscribeHandler<T>,
+    options?: SubscribeOptions,
   ): Unsubscribe {
-    const abort = new AbortController();
-    const opts: WatchOptions = { ...options, signal: abort.signal };
+    // Detect pattern vs single URI — patterns have :param or *
+    const isPattern = uriOrPattern.includes("/:") ||
+      uriOrPattern.endsWith("/*");
 
-    // Run the watch loop in the background
+    if (isPattern) {
+      return this._subscribePattern<T>(
+        uriOrPattern,
+        handler as SubscribeHandler<T>,
+        options,
+      );
+    }
+
+    // Legacy single-URI subscribe via watch()
+    const abort = new AbortController();
+    const opts: WatchOptions = {
+      intervalMs: options?.intervalMs,
+      signal: options?.signal ?? abort.signal,
+    };
+    const callback = handler as (value: T | null) => void;
+
     (async () => {
-      for await (const value of this.watch<T>(uri, opts)) {
+      for await (const value of this.watch<T>(uriOrPattern, opts)) {
         if (abort.signal.aborted) break;
         callback(value);
       }
     })();
 
     return () => abort.abort();
+  }
+
+  /** Pattern-based subscription — SSE when available, polling fallback. */
+  private _subscribePattern<T>(
+    pattern: string,
+    handler: SubscribeHandler<T>,
+    options?: SubscribeOptions,
+  ): Unsubscribe {
+    const abort = new AbortController();
+    const signal = options?.signal;
+    const patternSegments = pattern.split("/");
+
+    // Link external signal to our abort
+    if (signal) {
+      signal.addEventListener("abort", () => abort.abort(), { once: true });
+    }
+
+    // Extract prefix from pattern (strip :param and * segments)
+    const prefix = patternSegments
+      .filter((s) => !s.startsWith(":") && s !== "*")
+      .join("/");
+
+    if (this._sseBaseUrl) {
+      // SSE transport — real-time push
+      this._subscribeSse<T>(
+        prefix,
+        patternSegments,
+        handler,
+        abort,
+      );
+    } else {
+      // Polling fallback
+      this._subscribePoll<T>(
+        prefix,
+        patternSegments,
+        handler,
+        options?.intervalMs ?? 2000,
+        abort,
+      );
+    }
+
+    return () => abort.abort();
+  }
+
+  /** SSE-based subscription. */
+  private _subscribeSse<T>(
+    prefix: string,
+    patternSegments: string[],
+    handler: SubscribeHandler<T>,
+    abort: AbortController,
+  ): void {
+    // Convert URI prefix to SSE endpoint path
+    // "mutable://data/market/X" → "/api/v1/subscribe/mutable/data/market/X"
+    const uriPath = prefix.replace("://", "/");
+    const url = `${this._sseBaseUrl}/api/v1/subscribe/${uriPath}`;
+
+    (async () => {
+      try {
+        for await (
+          const event of openSseStream(url, { signal: abort.signal })
+        ) {
+          if (abort.signal.aborted) break;
+          const params = matchPattern(patternSegments, event.uri);
+          if (params !== null) {
+            try {
+              await handler(event.uri, event.data as T, params);
+            } catch (err) {
+              console.warn(
+                `[rig] subscribe handler error for "${event.uri}":`,
+                err,
+              );
+            }
+          }
+        }
+      } catch {
+        // Stream ended or aborted
+      }
+    })();
+  }
+
+  /** Polling-based subscription fallback. */
+  private _subscribePoll<T>(
+    prefix: string,
+    patternSegments: string[],
+    handler: SubscribeHandler<T>,
+    intervalMs: number,
+    abort: AbortController,
+  ): void {
+    const seen = new Set<string>();
+
+    (async () => {
+      while (!abort.signal.aborted) {
+        try {
+          const uris = await this.listData(prefix);
+          for (const uri of uris) {
+            if (seen.has(uri)) continue;
+            seen.add(uri);
+
+            const params = matchPattern(patternSegments, uri);
+            if (params === null) continue;
+
+            const data = await this.readData<T>(uri);
+            if (data !== null) {
+              try {
+                await handler(uri, data, params);
+              } catch (err) {
+                console.warn(
+                  `[rig] subscribe handler error for "${uri}":`,
+                  err,
+                );
+              }
+            }
+          }
+        } catch {
+          // List/read failed — retry on next poll
+        }
+
+        // Wait for next poll or abort
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, intervalMs);
+          abort.signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            resolve();
+          }, { once: true });
+        });
+      }
+    })();
   }
 
   /**

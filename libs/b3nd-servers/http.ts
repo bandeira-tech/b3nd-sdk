@@ -8,6 +8,7 @@ import type {
 } from "../b3nd-core/types.ts";
 import type { Node } from "../b3nd-compose/types.ts";
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
+import { SubscriptionBus } from "./subscription-bus.ts";
 
 /**
  * Deserialize message data from JSON transport.
@@ -134,14 +135,23 @@ function createMinimalRouter(): MinimalRouter {
 
   function register(method: string, path: string, handler: RouteHandler) {
     // Convert Express-style :param and * to URLPattern syntax
-    const pathname = path.replace(/:(\w+)/g, ":$1").replace(/\*/g, ":__rest(.*)");
-    routes.push({ method, entry: { pattern: new URLPattern({ pathname }), handler } });
+    const pathname = path.replace(/:(\w+)/g, ":$1").replace(
+      /\*/g,
+      ":__rest(.*)",
+    );
+    routes.push({
+      method,
+      entry: { pattern: new URLPattern({ pathname }), handler },
+    });
 
     // If path ends with /*, also register without the wildcard so the base
     // path matches too (e.g. /api/v1/list/:protocol/:domain).
     if (path.endsWith("/*")) {
       const basePath = path.slice(0, -2).replace(/:(\w+)/g, ":$1");
-      routes.push({ method, entry: { pattern: new URLPattern({ pathname: basePath }), handler } });
+      routes.push({
+        method,
+        entry: { pattern: new URLPattern({ pathname: basePath }), handler },
+      });
     }
   }
 
@@ -248,6 +258,9 @@ export function httpServer(
   // New simplified client interface
   let client: NodeProtocolInterface | undefined;
 
+  // Subscription bus for SSE push — notified on every successful receive
+  const bus = new SubscriptionBus();
+
   const extractProgramKey = (uri: string): string | undefined => {
     const programMatch = uri.match(/^([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/]+)/);
     return programMatch ? programMatch[1] : undefined;
@@ -337,6 +350,9 @@ export function httpServer(
       const result = await client.receive([uri, data] as Message);
       if (!result.accepted) {
         console.warn(`[receive] REJECTED ${uri}: ${result.error ?? "unknown"}`);
+      } else {
+        // Notify SSE subscribers of the successful write
+        bus.notify(uri, data, Date.now());
       }
       return c.json(result, result.accepted ? 200 : 400);
     }
@@ -346,6 +362,8 @@ export function httpServer(
       const result = await node.receive([uri, data] as Message);
       if (!result.accepted) {
         console.warn(`[receive] REJECTED ${uri}: ${result.error ?? "unknown"}`);
+      } else {
+        bus.notify(uri, data, Date.now());
       }
       return c.json(result, result.accepted ? 200 : 400);
     }
@@ -377,6 +395,9 @@ export function httpServer(
     }
 
     const res = await backend.write.receive([uri, data] as Message);
+    if (res.accepted) {
+      bus.notify(uri, data, Date.now());
+    }
     return c.json(res, res.accepted ? 200 : 400);
   });
 
@@ -439,6 +460,107 @@ export function httpServer(
       const uri = extractUriFromParams(c);
       const res = await writer.delete(uri);
       return c.json(res, res.success ? 200 : 404);
+    },
+  );
+
+  // ── SSE subscription endpoint ────────────────────────────────────────
+  app.get(
+    "/api/v1/subscribe/:protocol/:domain/*",
+    async (c: MinimalContext) => {
+      const reader = client || backend?.read;
+      if (!reader) {
+        return new Response(
+          JSON.stringify({ error: "handler not attached" }),
+          { status: 501, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      const prefix = extractUriFromParams(c);
+      const since = Number(c.req.query("since") || "0");
+      const lastEventId = c.req.header("Last-Event-ID");
+      const effectiveSince = lastEventId ? Number(lastEventId) : since;
+
+      // Cleanup state — shared between start() and cancel()
+      let cleanupFn: (() => void) | null = null;
+
+      const body = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          let closed = false;
+          const write = (text: string) => {
+            if (closed) return;
+            try {
+              controller.enqueue(encoder.encode(text));
+            } catch {
+              closed = true;
+            }
+          };
+
+          // 1. Send backlog (items since timestamp)
+          (async () => {
+            try {
+              const listResult = await reader.list(prefix);
+              if (listResult.success) {
+                for (const item of listResult.data) {
+                  if (closed) break;
+                  const itemTs = (item as { ts?: number }).ts ?? 0;
+                  if (itemTs <= effectiveSince) continue;
+
+                  const readResult = await reader.read(item.uri);
+                  if (readResult.success && readResult.record) {
+                    const event = {
+                      uri: item.uri,
+                      data: readResult.record.data,
+                      ts: readResult.record.ts,
+                    };
+                    write(
+                      `id: ${event.ts}\nevent: write\ndata: ${
+                        JSON.stringify(event)
+                      }\n\n`,
+                    );
+                  }
+                }
+              }
+            } catch (err) {
+              if (!closed) console.warn("[sse] backlog error:", err);
+            }
+
+            // 2. Subscribe to live changes
+            const unsub = bus.subscribe(prefix, (event) => {
+              write(
+                `id: ${event.ts}\nevent: write\ndata: ${
+                  JSON.stringify(event)
+                }\n\n`,
+              );
+            });
+
+            // 3. Keep-alive ping every 30s
+            const keepAlive = setInterval(() => {
+              write(": keepalive\n\n");
+            }, 30_000);
+
+            // Register cleanup
+            cleanupFn = () => {
+              closed = true;
+              unsub();
+              clearInterval(keepAlive);
+            };
+          })();
+        },
+        cancel() {
+          cleanupFn?.();
+        },
+      });
+
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+          "X-Accel-Buffering": "no", // Disable nginx buffering
+        },
+      });
     },
   );
 

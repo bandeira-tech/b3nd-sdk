@@ -38,6 +38,8 @@ export type {
   RigConfig,
   RigInfo,
   ServeOptions,
+  SubscribeHandler,
+  SubscribeOptions,
   Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
