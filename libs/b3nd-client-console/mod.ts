@@ -156,35 +156,35 @@ export class ConsoleClient implements NodeProtocolWriteInterface {
     return { accepted: true };
   }
 
-  public async delete(uri: string): Promise<DeleteResult> {
+  public delete(uri: string): Promise<DeleteResult> {
     if (!uri || typeof uri !== "string") {
-      return {
+      return Promise.resolve({
         success: false,
         error: "URI is required",
         errorDetail: Errors.invalidUri(uri ?? "", "URI is required"),
-      };
+      });
     }
 
     const url = URL.parse(uri);
     if (!url) {
-      return {
+      return Promise.resolve({
         success: false,
         error: "Invalid URI format",
         errorDetail: Errors.invalidUri(uri, "Invalid URI format"),
-      };
+      });
     }
 
     const program = `${url.protocol}//${url.hostname}`;
     if (!this.schema[program]) {
-      return {
+      return Promise.resolve({
         success: false,
         error: "Program not found",
         errorDetail: Errors.invalidSchema(uri, "Program not found"),
-      };
+      });
     }
 
     this.log(`[${this.label}] DELETE ${uri}`);
-    return { success: true };
+    return Promise.resolve({ success: true });
   }
 
   public health(): Promise<HealthStatus> {

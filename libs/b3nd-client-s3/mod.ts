@@ -408,8 +408,8 @@ export class S3Client implements NodeProtocolInterface {
     }
   }
 
-  async getSchema(): Promise<string[]> {
-    return Object.keys(this.schema);
+  getSchema(): Promise<string[]> {
+    return Promise.resolve(Object.keys(this.schema));
   }
 
   async cleanup(): Promise<void> {
