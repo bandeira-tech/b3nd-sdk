@@ -110,11 +110,6 @@ export {
   parallelBroadcast,
 } from "../libs/b3nd-combinators/mod.ts";
 
-// Server primitives
-export { createServerNode } from "../libs/b3nd-servers/node.ts";
-export * as servers from "../libs/b3nd-servers/http.ts";
-export * as wsservers from "../libs/b3nd-servers/websocket.ts";
-
 // Crypto utilities
 export { pemToCryptoKey } from "../libs/b3nd-encrypt/mod.ts";
 export { deriveObfuscatedPath } from "../libs/b3nd-encrypt/utils.ts";
@@ -210,5 +205,5 @@ export type {
   WatchOptions,
 } from "../libs/b3nd-rig/mod.ts";
 
-// Server handler factory (zero-dependency)
-export { createHttpHandler } from "../libs/b3nd-servers/http.ts";
+// Server handler factory — use createRigHandler from @b3nd/rig instead
+export { createRigHandler } from "../libs/b3nd-rig/http-handler.ts";
