@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import { ConsoleClient } from "./mod.ts";
 
 function createClient(
-  schema = { "store://logs": async () => ({ valid: true }) },
+  schema = { "store://logs": () => Promise.resolve({ valid: true }) },
   label?: string,
 ) {
   const output: string[] = [];
@@ -59,10 +59,12 @@ Deno.test("ConsoleClient - rejects invalid URI", async () => {
 
 Deno.test("ConsoleClient - validation failure logs rejection", async () => {
   const { client, output } = createClient({
-    "store://logs": async ({ value }) => {
+    "store://logs": ({ value }) => {
       const data = value as { level?: string };
-      if (!data?.level) return { valid: false, error: "level is required" };
-      return { valid: true };
+      if (!data?.level) {
+        return Promise.resolve({ valid: false, error: "level is required" });
+      }
+      return Promise.resolve({ valid: true });
     },
   });
 
@@ -103,8 +105,8 @@ Deno.test("ConsoleClient - health returns healthy", async () => {
 
 Deno.test("ConsoleClient - getSchema returns schema keys", async () => {
   const { client } = createClient({
-    "store://logs": async () => ({ valid: true }),
-    "store://events": async () => ({ valid: true }),
+    "store://logs": () => Promise.resolve({ valid: true }),
+    "store://events": () => Promise.resolve({ valid: true }),
   });
 
   const schema = await client.getSchema();
@@ -121,7 +123,7 @@ Deno.test("ConsoleClient - invalid schema key throws", () => {
   let threw = false;
   try {
     new ConsoleClient({
-      schema: { "invalid-key": async () => ({ valid: true }) },
+      schema: { "invalid-key": () => Promise.resolve({ valid: true }) },
     });
   } catch {
     threw = true;

@@ -8,29 +8,31 @@ function createMockExecutor(): S3Executor & { objects: Map<string, string> } {
   const objects = new Map<string, string>();
   return {
     objects,
-    putObject: async (key: string, body: string, _contentType: string) => {
+    putObject: (key: string, body: string, _contentType: string) => {
       objects.set(key, body);
+      return Promise.resolve();
     },
-    getObject: async (key: string) => {
-      return objects.get(key) ?? null;
+    getObject: (key: string) => {
+      return Promise.resolve(objects.get(key) ?? null);
     },
-    deleteObject: async (key: string) => {
+    deleteObject: (key: string) => {
       objects.delete(key);
+      return Promise.resolve();
     },
-    listObjects: async (prefix: string) => {
+    listObjects: (prefix: string) => {
       const keys: string[] = [];
       for (const key of objects.keys()) {
         if (key.startsWith(prefix)) {
           keys.push(key);
         }
       }
-      return keys;
+      return Promise.resolve(keys);
     },
-    headBucket: async () => true,
+    headBucket: () => Promise.resolve(true),
   };
 }
 
-const acceptAll = async () => ({ valid: true });
+const acceptAll = () => Promise.resolve({ valid: true });
 
 function createClient(
   schema = { "store://data": acceptAll },
@@ -76,10 +78,12 @@ Deno.test("S3Client - receive rejects unknown program", async () => {
 
 Deno.test("S3Client - receive validates data", async () => {
   const { client } = createClient({
-    "store://data": async ({ value }) => {
+    "store://data": ({ value }) => {
       const v = value as { name?: string };
-      if (!v?.name) return { valid: false, error: "name is required" };
-      return { valid: true };
+      if (!v?.name) {
+        return Promise.resolve({ valid: false, error: "name is required" });
+      }
+      return Promise.resolve({ valid: true });
     },
   });
 
@@ -215,7 +219,7 @@ Deno.test("S3Client - health returns healthy", async () => {
 
 Deno.test("S3Client - health returns unhealthy", async () => {
   const executor = createMockExecutor();
-  executor.headBucket = async () => false;
+  executor.headBucket = () => Promise.resolve(false);
 
   const client = new S3Client(
     { bucket: "bad-bucket", schema: { "store://data": acceptAll } },
@@ -239,7 +243,10 @@ Deno.test("S3Client - getSchema returns keys", async () => {
 Deno.test("S3Client - cleanup delegates to executor", async () => {
   let cleaned = false;
   const executor = createMockExecutor();
-  executor.cleanup = async () => { cleaned = true; };
+  executor.cleanup = () => {
+    cleaned = true;
+    return Promise.resolve();
+  };
 
   const client = new S3Client(
     { bucket: "b", schema: { "store://data": acceptAll } },
