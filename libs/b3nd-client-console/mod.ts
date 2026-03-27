@@ -1,10 +1,11 @@
-import type {
-  DeleteResult,
-  HealthStatus,
-  Message,
-  NodeProtocolWriteInterface,
-  ReceiveResult,
-  Schema,
+import {
+  Errors,
+  type DeleteResult,
+  type HealthStatus,
+  type Message,
+  type NodeProtocolWriteInterface,
+  type ReceiveResult,
+  type Schema,
 } from "../b3nd-core/types.ts";
 
 /**
@@ -39,6 +40,18 @@ function validateSchemaKey(key: string): boolean {
 }
 
 /**
+ * Safely serialize data for console output.
+ * Falls back to a placeholder if JSON.stringify throws (circular refs, BigInt, etc.).
+ */
+function safeStringify(data: unknown): string {
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return "[unserializable]";
+  }
+}
+
+/**
  * ConsoleClient — a write-only client that logs received messages to the console.
  *
  * This client implements `NodeProtocolWriteInterface` and has no read capabilities.
@@ -59,9 +72,9 @@ function validateSchemaKey(key: string): boolean {
  * ```
  */
 export class ConsoleClient implements NodeProtocolWriteInterface {
-  private schema: Schema;
-  private label: string;
-  private log: (message: string) => void;
+  private readonly schema: Schema;
+  private readonly label: string;
+  private readonly log: (message: string) => void;
 
   constructor(config: ConsoleClientConfig) {
     const invalidKeys = Object.keys(config.schema).filter(
@@ -87,19 +100,31 @@ export class ConsoleClient implements NodeProtocolWriteInterface {
     const [uri, data] = msg;
 
     if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Message URI is required" };
+      return {
+        accepted: false,
+        error: "Message URI is required",
+        errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
+      };
     }
 
     const url = URL.parse(uri);
     if (!url) {
-      return { accepted: false, error: "Invalid URI format" };
+      return {
+        accepted: false,
+        error: "Invalid URI format",
+        errorDetail: Errors.invalidUri(uri, "Invalid URI format"),
+      };
     }
 
     const program = `${url.protocol}//${url.hostname}`;
     const validator = this.schema[program];
 
     if (!validator) {
-      return { accepted: false, error: "Program not found" };
+      return {
+        accepted: false,
+        error: "Program not found",
+        errorDetail: Errors.invalidSchema(uri, "Program not found"),
+      };
     }
 
     const validation = await validator({
@@ -113,17 +138,19 @@ export class ConsoleClient implements NodeProtocolWriteInterface {
     });
 
     if (!validation.valid) {
+      const error = validation.error || "Validation failed";
       this.log(
-        `[${this.label}] REJECTED ${uri} ${validation.error ?? "Validation failed"}`,
+        `[${this.label}] REJECTED ${uri} ${error}`,
       );
       return {
         accepted: false,
-        error: validation.error || "Validation failed",
+        error,
+        errorDetail: Errors.invalidSchema(uri, error),
       };
     }
 
     this.log(
-      `[${this.label}] RECEIVE ${uri} ${JSON.stringify(data)}`,
+      `[${this.label}] RECEIVE ${uri} ${safeStringify(data)}`,
     );
 
     return { accepted: true };
@@ -131,17 +158,29 @@ export class ConsoleClient implements NodeProtocolWriteInterface {
 
   public async delete(uri: string): Promise<DeleteResult> {
     if (!uri || typeof uri !== "string") {
-      return { success: false, error: "URI is required" };
+      return {
+        success: false,
+        error: "URI is required",
+        errorDetail: Errors.invalidUri(uri ?? "", "URI is required"),
+      };
     }
 
     const url = URL.parse(uri);
     if (!url) {
-      return { success: false, error: "Invalid URI format" };
+      return {
+        success: false,
+        error: "Invalid URI format",
+        errorDetail: Errors.invalidUri(uri, "Invalid URI format"),
+      };
     }
 
     const program = `${url.protocol}//${url.hostname}`;
     if (!this.schema[program]) {
-      return { success: false, error: "Program not found" };
+      return {
+        success: false,
+        error: "Program not found",
+        errorDetail: Errors.invalidSchema(uri, "Program not found"),
+      };
     }
 
     this.log(`[${this.label}] DELETE ${uri}`);

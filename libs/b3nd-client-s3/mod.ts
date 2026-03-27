@@ -167,11 +167,11 @@ export class S3Client implements NodeProtocolInterface {
       const validator = this.schema[programKey];
 
       if (!validator) {
-        const msg = `No schema defined for program key: ${programKey}`;
+        const errMsg = `No schema defined for program key: ${programKey}`;
         return {
           accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
+          error: errMsg,
+          errorDetail: Errors.invalidSchema(uri, errMsg),
         };
       }
 
@@ -182,11 +182,11 @@ export class S3Client implements NodeProtocolInterface {
       });
 
       if (!validation.valid) {
-        const msg = validation.error || "Validation failed";
+        const errMsg = validation.error || "Validation failed";
         return {
           accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
+          error: errMsg,
+          errorDetail: Errors.invalidSchema(uri, errMsg),
         };
       }
 
@@ -218,11 +218,11 @@ export class S3Client implements NodeProtocolInterface {
 
       return { accepted: true };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const errMsg = error instanceof Error ? error.message : String(error);
       return {
         accepted: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
+        error: errMsg,
+        errorDetail: Errors.storageError(errMsg, uri),
       };
     }
   }
