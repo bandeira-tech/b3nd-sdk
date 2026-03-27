@@ -1,8 +1,9 @@
 import { assertEquals } from "@std/assert";
+import type { Schema } from "../b3nd-core/types.ts";
 import { ConsoleClient } from "./mod.ts";
 
 function createClient(
-  schema = { "store://logs": () => Promise.resolve({ valid: true }) },
+  schema: Schema = { "store://logs": () => Promise.resolve({ valid: true }) },
   label?: string,
 ) {
   const output: string[] = [];

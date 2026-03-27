@@ -1,4 +1,5 @@
 import { assertEquals } from "@std/assert";
+import type { Schema } from "../b3nd-core/types.ts";
 import { S3Client, type S3Executor } from "./mod.ts";
 
 /**
@@ -35,7 +36,7 @@ function createMockExecutor(): S3Executor & { objects: Map<string, string> } {
 const acceptAll = () => Promise.resolve({ valid: true });
 
 function createClient(
-  schema = { "store://data": acceptAll },
+  schema: Schema = { "store://data": acceptAll },
   prefix?: string,
 ) {
   const executor = createMockExecutor();
