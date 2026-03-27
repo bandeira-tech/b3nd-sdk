@@ -11,7 +11,9 @@
     "./client-mongo": "./src/client-mongo.ts",
     "./client-sqlite": "./src/client-sqlite.ts",
     "./client-fs": "./src/client-fs.ts",
-    "./client-ipfs": "./src/client-ipfs.ts"
+    "./client-ipfs": "./src/client-ipfs.ts",
+    "./client-s3": "./src/client-s3.ts",
+    "./client-console": "./src/client-console.ts"
   },
   "nodeModulesDir": "auto",
   "imports": {

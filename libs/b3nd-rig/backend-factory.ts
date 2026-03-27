@@ -11,6 +11,7 @@
  *   sqlite://             → SqliteClient (requires executor)
  *   file://               → FilesystemClient (requires executor)
  *   ipfs://               → IpfsClient (requires executor)
+ *   s3://                 → S3Client (requires executor)
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
@@ -19,6 +20,7 @@ import type {
   IpfsExecutorFactory,
   MongoExecutorFactory,
   PostgresExecutorFactory,
+  S3ExecutorFactory,
   SqliteExecutorFactory,
 } from "./types.ts";
 import { HttpClient } from "../b3nd-client-http/mod.ts";
@@ -38,6 +40,7 @@ export const SUPPORTED_PROTOCOLS = [
   "sqlite://",
   "file://",
   "ipfs://",
+  "s3://",
 ] as const;
 
 /** Returns the list of supported backend URL protocols. */
@@ -67,6 +70,7 @@ export interface BackendFactoryOptions {
     sqlite?: SqliteExecutorFactory;
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
+    s3?: S3ExecutorFactory;
   };
 }
 
@@ -222,6 +226,33 @@ export async function createClientFromUrl(
       return new IpfsClient(
         {
           apiUrl,
+          schema,
+        },
+        executor,
+      );
+    }
+
+    case "s3:": {
+      if (!options.executors?.s3) {
+        throw new Error(
+          `S3 URL requires an executor factory. Pass executors.s3 to Rig.init().`,
+        );
+      }
+      const schema = options.schema;
+      if (!schema) {
+        throw new Error("S3 backend requires a schema.");
+      }
+      // s3://bucket-name/optional/prefix
+      const bucket = parsed.hostname;
+      const prefix = parsed.pathname.length > 1
+        ? parsed.pathname.substring(1) // strip leading "/"
+        : "";
+      const { S3Client } = await import("../b3nd-client-s3/mod.ts");
+      const executor = options.executors.s3(bucket, prefix);
+      return new S3Client(
+        {
+          bucket,
+          prefix,
           schema,
         },
         executor,

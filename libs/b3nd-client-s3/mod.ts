@@ -80,8 +80,8 @@ export interface S3Executor {
 
   /**
    * List object keys under a prefix.
-   * Returns keys relative to the given prefix.
-   * @param prefix - Key prefix to list under
+   * Returns **full** object keys (not relative to the prefix).
+   * @param prefix - Key prefix to filter by
    */
   listObjects: (prefix: string) => Promise<string[]>;
 
@@ -274,26 +274,22 @@ export class S3Client implements NodeProtocolInterface {
       };
     }
 
-    const results: ReadMultiResultItem<T>[] = [];
-    let succeeded = 0;
+    // Parallelize reads — S3 is network-bound, sequential would be slow
+    const settled = await Promise.all(
+      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
+        const result = await this.read<T>(uri);
+        if (result.success && result.record) {
+          return { uri, success: true, record: result.record };
+        }
+        return { uri, success: false, error: result.error || "Read failed" };
+      }),
+    );
 
-    for (const uri of uris) {
-      const result = await this.read<T>(uri);
-      if (result.success && result.record) {
-        results.push({ uri, success: true, record: result.record });
-        succeeded++;
-      } else {
-        results.push({
-          uri,
-          success: false,
-          error: result.error || "Read failed",
-        });
-      }
-    }
+    const succeeded = settled.filter((r) => r.success).length;
 
     return {
       success: succeeded > 0,
-      results,
+      results: settled,
       summary: {
         total: uris.length,
         succeeded,

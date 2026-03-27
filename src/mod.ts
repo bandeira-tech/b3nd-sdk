@@ -205,6 +205,7 @@ export type {
   HandlerOptions,
   MongoExecutor,
   PostgresExecutor,
+  S3Executor as S3ExecutorFactory,
   RigConfig,
   RigInfo,
   ServeOptions,

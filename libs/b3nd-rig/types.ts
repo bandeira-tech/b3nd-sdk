@@ -77,6 +77,14 @@ export type IpfsExecutorFactory = (
 ) => import("../b3nd-client-ipfs/mod.ts").IpfsExecutor;
 
 /**
+ * Factory function for creating an S3 executor from a bucket URL.
+ */
+export type S3ExecutorFactory = (
+  bucket: string,
+  prefix: string,
+) => import("../b3nd-client-s3/mod.ts").S3Executor;
+
+/**
  * Configuration for Rig.init().
  */
 export interface RigConfig {
@@ -94,7 +102,7 @@ export interface RigConfig {
 
   /**
    * Executor factories for database backends.
-   * Required when using postgresql://, mongodb://, or sqlite:// URLs.
+   * Required when using postgresql://, mongodb://, sqlite://, or s3:// URLs.
    */
   executors?: {
     postgres?: PostgresExecutorFactory;
@@ -102,6 +110,7 @@ export interface RigConfig {
     sqlite?: SqliteExecutorFactory;
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
+    s3?: S3ExecutorFactory;
   };
 
   /**
