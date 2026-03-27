@@ -116,9 +116,20 @@ type HttpServerOptions = {
   healthMeta?: Record<string, unknown>;
 };
 
-type HttpHandlerOptions = {
-  healthMeta?: Record<string, unknown>;
-};
+type HttpHandlerOptions = HttpServerOptions;
+
+/** Return type for createHttpHandler — the handler + a way to push SSE events. */
+export interface HttpHandlerResult {
+  /** The request handler: `(req: Request) => Promise<Response>` */
+  handler: (req: Request) => Promise<Response>;
+  /**
+   * Push a write event to SSE subscribers.
+   *
+   * Call this for writes that happen outside the HTTP endpoint
+   * (e.g. rig.receive() calls) so SSE subscribers see them.
+   */
+  notifyWrite: (uri: string, data: unknown, ts: number) => void;
+}
 
 // ── Built-in minimal router (zero external dependencies) ──────────────
 
@@ -232,14 +243,28 @@ function createMinimalRouter(): MinimalRouter {
  * app.all("/api/*", (c) => handler(c.req.raw));
  * ```
  */
+/**
+ * Create an HTTP handler — returns the handler function AND a notifyWrite
+ * hook for pushing SSE events from non-HTTP writes.
+ */
 export function createHttpHandler(
   client: NodeProtocolInterface,
   options?: HttpHandlerOptions,
-): (req: Request) => Promise<Response> {
+): HttpHandlerResult {
   const router = createMinimalRouter();
   const frontend = httpServer(router, { healthMeta: options?.healthMeta });
   frontend.configure({ client });
-  return (req: Request) => Promise.resolve(frontend.fetch(req));
+
+  // Access the bus exposed by httpServer (typed internally)
+  // deno-lint-ignore no-explicit-any
+  const busFrontend = frontend as any;
+
+  return {
+    handler: (req: Request) => Promise.resolve(frontend.fetch(req)),
+    notifyWrite: (uri: string, data: unknown, ts: number) => {
+      busFrontend.bus?.notify?.(uri, data, ts);
+    },
+  };
 }
 
 export function httpServer(
@@ -345,14 +370,13 @@ export function httpServer(
     // Deserialize binary data from base64-encoded wrapper
     const data = deserializeMsgData(rawData);
 
-    // If client is configured, delegate directly
+    // If client is configured, delegate directly.
+    // SSE notification happens via rig events → notifyWrite (wired in rig.handler()).
+    // For non-rig clients the bus.notify in the node path below handles it.
     if (client) {
       const result = await client.receive([uri, data] as Message);
       if (!result.accepted) {
         console.warn(`[receive] REJECTED ${uri}: ${result.error ?? "unknown"}`);
-      } else {
-        // Notify SSE subscribers of the successful write
-        bus.notify(uri, data, Date.now());
       }
       return c.json(result, result.accepted ? 200 : 400);
     }
@@ -589,5 +613,7 @@ export function httpServer(
         node = opts.node;
       }
     },
-  } as ServerFrontend;
+    /** Expose the SSE subscription bus for external write notification. */
+    bus,
+  } as ServerFrontend & { bus: SubscriptionBus };
 }

@@ -2638,12 +2638,8 @@ Deno.test("Rig dispatch - getSchema unions all clients", async () => {
 
 // ── SSE subscription integration test ──
 
-// SSE end-to-end test — requires manual cleanup of fetch streaming connections.
-// The subscribe API and pattern matching are tested via polling fallback above.
-// TODO: Fix Deno fetch ReadableStream abort propagation for SSE streams.
 Deno.test({
   name: "Rig subscribe - pattern via SSE end-to-end",
-  ignore: true,
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -2651,15 +2647,24 @@ Deno.test({
     const serverRig = await Rig.init({
       use: "memory://",
     });
-    const handler = await serverRig.handler();
+    const requestHandler = await serverRig.handler();
 
     // Start a Deno server on a random port
-    const server = Deno.serve({ port: 0, onListen() {} }, handler);
+    const server = Deno.serve(
+      { port: 0, onListen() {} },
+      requestHandler,
+    );
     const port = server.addr.port;
+
+    // Track the subscriber's abort controller so we can guarantee
+    // the SSE fetch is cancelled before the server shuts down.
+    const subscriberAbort = new AbortController();
 
     try {
       // 2. Create a subscriber rig pointing at the server
-      const subscriberRig = await Rig.connect(`http://127.0.0.1:${port}`);
+      const subscriberRig = await Rig.connect(
+        `http://127.0.0.1:${port}`,
+      );
 
       // 3. Subscribe to a pattern
       const received: {
@@ -2667,35 +2672,39 @@ Deno.test({
         data: unknown;
         params: Record<string, string>;
       }[] = [];
-      const handler: import("./types.ts").SubscribeHandler = (
+      const subHandler: import("./types.ts").SubscribeHandler = (
         uri,
         data,
         params,
       ) => {
         received.push({ uri, data, params });
       };
-      const unsub = subscriberRig.subscribe(
+      subscriberRig.subscribe(
         "mutable://open/market/:msgId",
-        handler,
+        subHandler,
+        { signal: subscriberAbort.signal },
       );
 
       // Give SSE connection time to establish
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 300));
 
       // 4. Write through the server rig (simulating another client)
-      await serverRig.receive(["mutable://open/market/msg1", {
-        type: "ask",
-        price: 42,
-      }]);
-      await serverRig.receive(["mutable://open/market/msg2", {
-        type: "bid",
-        price: 40,
-      }]);
+      await serverRig.receive([
+        "mutable://open/market/msg1",
+        { type: "ask", price: 42 },
+      ]);
+      await serverRig.receive([
+        "mutable://open/market/msg2",
+        { type: "bid", price: 40 },
+      ]);
       // This one should NOT match the pattern
-      await serverRig.receive(["mutable://open/other/foo", { type: "other" }]);
+      await serverRig.receive([
+        "mutable://open/other/foo",
+        { type: "other" },
+      ]);
 
       // Give SSE events time to propagate
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 500));
 
       // 5. Verify subscriber received exactly the matching events
       assertEquals(received.length, 2);
@@ -2705,10 +2714,15 @@ Deno.test({
       assertEquals(received[1].uri, "mutable://open/market/msg2");
       assertEquals(received[1].params, { msgId: "msg2" });
 
-      // 6. Cleanup
-      unsub();
+      // 6. Cleanup — abort SSE first, then shut down server
+      subscriberAbort.abort();
+      // Give fetch abort a tick to propagate
+      await new Promise((r) => setTimeout(r, 50));
       await subscriberRig.cleanup();
     } finally {
+      // Ensure SSE stream is aborted before server shutdown
+      subscriberAbort.abort();
+      await new Promise((r) => setTimeout(r, 50));
       await server.shutdown();
       await serverRig.cleanup();
     }

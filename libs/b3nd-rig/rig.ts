@@ -1424,7 +1424,18 @@ export class Rig {
     healthMeta?: Record<string, unknown>;
   }): Promise<(req: Request) => Promise<Response>> {
     const { createHttpHandler } = await import("../b3nd-servers/http.ts");
-    return createHttpHandler(this.client, options);
+    const { handler, notifyWrite } = createHttpHandler(this.client, options);
+
+    // Wire rig events → SSE bus so that writes through rig.receive()
+    // (not just HTTP POST /api/v1/receive) push to SSE subscribers.
+    this.on("receive:success", (e) => {
+      if (e.uri) notifyWrite(e.uri, e.data, e.ts);
+    });
+    this.on("send:success", (e) => {
+      if (e.uri) notifyWrite(e.uri, e.data, e.ts);
+    });
+
+    return handler;
   }
 
   // ── Private ──
