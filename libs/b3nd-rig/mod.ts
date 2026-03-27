@@ -73,6 +73,10 @@ export { matchPattern, ObserveRegistry } from "./observe.ts";
 export { clientAccepts, withFilter } from "./filter.ts";
 export type { FilteredClient, FilterPatterns } from "./filter.ts";
 
+// HTTP handler — thin adapter for serving a rig over HTTP
+export { createRigHandler } from "./http-handler.ts";
+export type { RigHandlerOptions } from "./http-handler.ts";
+
 // Backend factory
 export {
   createClientFromUrl,

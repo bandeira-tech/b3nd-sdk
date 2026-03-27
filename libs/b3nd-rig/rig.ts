@@ -47,6 +47,7 @@ import { RigEventEmitter } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
 import { ObserveRegistry } from "./observe.ts";
 import { clientAccepts } from "./filter.ts";
+import { createRigHandler } from "./http-handler.ts";
 import { openSseStream } from "../b3nd-client-http/sse.ts";
 import { matchPattern } from "./observe.ts";
 
@@ -1420,22 +1421,34 @@ export class Rig {
    * app.all("/api/*", (c) => handler(c.req.raw));
    * ```
    */
-  async handler(options?: {
+  /**
+   * Create an HTTP request handler backed by this rig.
+   *
+   * Returns a standard `(Request) => Promise<Response>` — plug it
+   * into `Deno.serve()`, Hono, or any HTTP framework.
+   *
+   * SSE subscriptions are powered by rig events — when `rig.receive()`
+   * or `rig.send()` succeeds, SSE subscribers with matching prefixes
+   * receive the event in real-time. No external subscription bus needed.
+   *
+   * @example Deno.serve
+   * ```typescript
+   * const handler = rig.handler();
+   * Deno.serve({ port: 3000 }, handler);
+   * ```
+   *
+   * @example Hono (add CORS, middleware, etc.)
+   * ```typescript
+   * const app = new Hono();
+   * app.use("*", cors({ origin: "*" }));
+   * const handler = rig.handler();
+   * app.all("/api/*", (c) => handler(c.req.raw));
+   * ```
+   */
+  handler(options?: {
     healthMeta?: Record<string, unknown>;
-  }): Promise<(req: Request) => Promise<Response>> {
-    const { createHttpHandler } = await import("../b3nd-servers/http.ts");
-    const { handler, notifyWrite } = createHttpHandler(this.client, options);
-
-    // Wire rig events → SSE bus so that writes through rig.receive()
-    // (not just HTTP POST /api/v1/receive) push to SSE subscribers.
-    this.on("receive:success", (e) => {
-      if (e.uri) notifyWrite(e.uri, e.data, e.ts);
-    });
-    this.on("send:success", (e) => {
-      if (e.uri) notifyWrite(e.uri, e.data, e.ts);
-    });
-
-    return handler;
+  }): (req: Request) => Promise<Response> {
+    return createRigHandler(this, options);
   }
 
   // ── Private ──
