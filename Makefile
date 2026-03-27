@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs node-postgres node-mongo run-node check build-api-docs build-learn help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs node-postgres node-mongo node-s3 run-node check build-api-docs build-learn help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -201,6 +201,14 @@ node-ipfs:
 	BACKEND_URL=ipfs://localhost:5001 PORT=9942 CORS_ORIGIN="*" \
 	deno run --watch -A mod.ts
 
+# B3nd node on :9942 with S3 backend (requires MinIO on :9000)
+node-s3:
+	@cd apps/b3nd-node && \
+	BACKEND_URL=s3://b3nd S3_ENDPOINT=http://localhost:9000 \
+	S3_ACCESS_KEY=minioadmin S3_SECRET_KEY=minioadmin \
+	PORT=9942 CORS_ORIGIN="*" \
+	deno run --watch -A mod.ts
+
 # Run a Docker image with freshly generated keys (managed mode)
 # Usage: make run-node image=ghcr.io/bandeira-tech/b3nd/b3nd-node:latest
 run-node:
@@ -256,6 +264,12 @@ check:
 	else \
 		echo "- not running"; \
 	fi
+	@printf "  MinIO/S3   :9000  "; \
+	if curl -sf http://localhost:9000/minio/health/live >/dev/null 2>&1; then \
+		echo "✓ healthy"; \
+	else \
+		echo "- not running"; \
+	fi
 
 # Show help
 help:
@@ -285,6 +299,7 @@ help:
 	@echo "  make node-postgres     - Start B3nd node (:9942, PostgreSQL backend :5432)"
 	@echo "  make node-mongo        - Start B3nd node (:9942, MongoDB backend :27017)"
 	@echo "  make node-ipfs         - Start B3nd node (:9942, IPFS backend via Kubo :5001)"
+	@echo "  make node-s3           - Start B3nd node (:9942, S3 backend via MinIO :9000)"
 	@echo "  make run-node image=.. - Run Docker image with fresh keys (managed mode)"
 	@echo "  make rig               - Start web rig (:5555) + inspector (:5556)"
 	@echo "  make check             - Health check all services"

@@ -53,6 +53,7 @@
 export type {
   B3ndError,
   ClientError,
+  ConsoleClientConfig,
   DeleteResult,
   FsClientConfig,
   HealthStatus,
@@ -72,6 +73,7 @@ export type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
+  S3ClientConfig,
   Schema,
   SqliteClientConfig,
   ValidationFn,
@@ -90,6 +92,9 @@ export { PostgresClient } from "../libs/b3nd-client-postgres/mod.ts";
 export { MongoClient } from "../libs/b3nd-client-mongo/mod.ts";
 export { SqliteClient } from "../libs/b3nd-client-sqlite/mod.ts";
 export { FilesystemClient } from "../libs/b3nd-client-fs/mod.ts";
+export { ConsoleClient } from "../libs/b3nd-client-console/mod.ts";
+export { S3Client } from "../libs/b3nd-client-s3/mod.ts";
+export type { S3Executor } from "../libs/b3nd-client-s3/mod.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 
@@ -203,6 +208,7 @@ export type {
   PostgresExecutor,
   RigConfig,
   RigInfo,
+  S3Executor as S3ExecutorFactory,
   ServeOptions,
   Unsubscribe,
   WatchAllOptions,

@@ -43,9 +43,11 @@ protocol works for profiles, posts, configs, messages — any data.
 ```typescript
 // Deno/Server
 import {
+  ConsoleClient,
   HttpClient,
   MemoryClient,
   PostgresClient,
+  S3Client,
   SqliteClient,
 } from "@bandeira-tech/b3nd-sdk";
 
@@ -90,6 +92,10 @@ await client.delete("mutable://users/alice/profile");
 | `PostgresClient`     | Deno/Node   | PostgreSQL database     |
 | `MongoClient`        | Deno/Node   | MongoDB database        |
 | `SqliteClient`       | Deno/Node   | SQLite database         |
+| `FilesystemClient`   | Deno/Node   | Local filesystem        |
+| `S3Client`           | Deno/Node   | S3-compatible storage   |
+| `IpfsClient`         | Deno/Node   | IPFS via Kubo           |
+| `ConsoleClient`      | Any         | Console output (write-only) |
 | `LocalStorageClient` | Browser     | localStorage            |
 | `IndexedDBClient`    | Browser     | IndexedDB               |
 
@@ -99,7 +105,7 @@ The B3nd node lives in `apps/b3nd-node/`. Configuration is via `.env`:
 
 | Variable        | Description              | Example                                                                         |
 | --------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| `BACKEND_URL`   | Comma-separated backends | `memory://`, `postgresql://...`, `sqlite:///path/to/db.sqlite`, or combinations |
+| `BACKEND_URL`   | Comma-separated backends | `memory://`, `postgresql://...`, `sqlite://...`, `s3://bucket`, or combinations |
 | `SCHEMA_MODULE` | Path to schema file      | `./example-schema.ts`                                                           |
 | `PORT`          | Listen port              | `9942`                                                                          |
 | `CORS_ORIGIN`   | Allowed origins          | `*`                                                                             |
@@ -153,6 +159,24 @@ BACKEND_URL=sqlite:///tmp/b3nd.sqlite
 ```
 
 The node auto-creates the database and tables on first connect.
+
+### With S3 (MinIO)
+
+Start MinIO, then point the node at it:
+
+```bash
+make up p=dev   # Starts MinIO on :9000 (console on :9001)
+make node-s3    # B3nd node with S3 backend
+```
+
+Or configure manually:
+
+```bash
+BACKEND_URL=s3://b3nd
+S3_ENDPOINT=http://localhost:9000
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin
+```
 
 ### Memory + PostgreSQL (hybrid)
 
