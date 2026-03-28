@@ -69,7 +69,6 @@
     "libs/b3nd-compose",
     "libs/b3nd-hash",
     "libs/b3nd-msg",
-    "libs/b3nd-servers",
     "libs/b3nd-client-memory",
     "libs/b3nd-client-http",
     "libs/b3nd-client-ws",

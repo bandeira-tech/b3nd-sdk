@@ -1,9 +1,0 @@
-{
-  "version": "0.3.0",
-  "exports": {
-    ".": "./mod.ts",
-    "./node": "./node.ts",
-    "./http": "./http.ts",
-    "./websocket": "./websocket.ts"
-  }
-}
