@@ -33,6 +33,8 @@ import type { Identity } from "./identity.ts";
 import type {
   RigConfig,
   RigInfo,
+  SubscribeHandler,
+  SubscribeOptions,
   Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
@@ -44,6 +46,10 @@ import type { EventHandler, RigEventName } from "./events.ts";
 import { RigEventEmitter } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
 import { ObserveRegistry } from "./observe.ts";
+import { clientAccepts } from "./filter.ts";
+import { createRigHandler } from "./http-handler.ts";
+import { openSseStream } from "../b3nd-client-http/sse.ts";
+import { matchPattern } from "./observe.ts";
 
 /** Per-operation client map. */
 interface OpClients {
@@ -110,6 +116,8 @@ export class Rig {
   private readonly _hooks: HookChains;
   private readonly _events: RigEventEmitter;
   private readonly _observers: ObserveRegistry;
+  /** Base URL for SSE subscriptions — set when init'd via HTTP URL. */
+  private readonly _sseBaseUrl: string | null;
 
   private constructor(
     clients: OpClients,
@@ -117,12 +125,14 @@ export class Rig {
     hooks: HookChains,
     events: RigEventEmitter,
     observers: ObserveRegistry,
+    sseBaseUrl: string | null = null,
   ) {
     this._clients = clients;
     this.identity = identity;
     this._hooks = hooks;
     this._events = events;
     this._observers = observers;
+    this._sseBaseUrl = sseBaseUrl;
   }
 
   /**
@@ -155,15 +165,21 @@ export class Rig {
    * - `use: "https://..."` → single HttpClient
    * - `use: ["postgresql://...", "https://..."]` → parallelBroadcast writes, firstMatchSequence reads
    * - `client: myClient` → use a pre-built client directly
-   * - `clients: { read: [...], send: [...] }` → per-operation routing
+   * - `clients: [...]` → array of filtered clients, rig routes by `accepts()`
+   * - `clients: { read: [...], send: [...] }` → per-operation routing (legacy)
    * - `hooks`, `on`, `observe` → behavior layers
    */
   static async init(config: RigConfig): Promise<Rig> {
-    // 1. Resolve default client from use/client
-    const defaultClient = await resolveDefaultClient(config);
+    let opClients: OpClients;
 
-    // 2. Resolve per-operation clients (overrides default)
-    const opClients = await resolveOpClients(config, defaultClient);
+    if (Array.isArray(config.clients)) {
+      // Array form — clients declare what they accept via accepts()
+      opClients = createDispatchClients(config.clients);
+    } else {
+      // Legacy form — use/client with optional per-op overrides
+      const defaultClient = await resolveDefaultClient(config);
+      opClients = await resolveOpClients(config, defaultClient);
+    }
 
     // 3. Build hook chains (frozen — immutable after init)
     const hooks = createHookChains(config.hooks);
@@ -188,12 +204,30 @@ export class Rig {
       }
     }
 
+    // 6. Detect SSE base URL from config
+    let sseBaseUrl: string | null = null;
+    if (typeof config.use === "string") {
+      const url = config.use;
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        sseBaseUrl = url.replace(/\/$/, "");
+      }
+    } else if (Array.isArray(config.use)) {
+      // Use first HTTP URL if available
+      const httpUrl = config.use.find(
+        (u) =>
+          typeof u === "string" &&
+          (u.startsWith("http://") || u.startsWith("https://")),
+      );
+      if (httpUrl) sseBaseUrl = httpUrl.replace(/\/$/, "");
+    }
+
     return new Rig(
       opClients,
       config.identity ?? null,
       hooks,
       events,
       observers,
+      sseBaseUrl,
     );
   }
 
@@ -1139,40 +1173,204 @@ export class Rig {
   }
 
   /**
-   * Subscribe to changes at a URI with a callback.
+   * Subscribe to changes at a URI or URI pattern.
    *
-   * Wraps `watch()` into a simpler callback pattern. Returns an
-   * unsubscribe function. Ideal for React effects and event-driven code.
+   * **Single URI** (legacy): wraps `watch()` into callback style.
+   * **URI pattern**: uses SSE when available, falls back to polling.
+   * Patterns use Express-style matching: `:param` captures a segment,
+   * `*` matches the rest.
    *
-   * @example
+   * @example Single URI
    * ```typescript
    * const unsub = rig.subscribe<UserProfile>(
    *   "mutable://app/users/alice",
-   *   (profile) => setProfile(profile),
+   *   (value) => setProfile(value),
    *   { intervalMs: 2000 },
    * );
+   * ```
    *
-   * // Later:
-   * unsub();
+   * @example URI pattern (fires for any matching write)
+   * ```typescript
+   * const unsub = rig.subscribe<MarketMessage>(
+   *   "mutable://data/market/X/:msgId",
+   *   (uri, data, { msgId }) => {
+   *     console.log(`New message ${msgId}:`, data);
+   *   },
+   * );
    * ```
    */
   subscribe<T = unknown>(
     uri: string,
     callback: (value: T | null) => void,
-    options?: Omit<WatchOptions, "signal">,
+    options?: SubscribeOptions,
+  ): Unsubscribe;
+  subscribe<T = unknown>(
+    pattern: string,
+    handler: SubscribeHandler<T>,
+    options?: SubscribeOptions,
+  ): Unsubscribe;
+  subscribe<T = unknown>(
+    uriOrPattern: string,
+    handler:
+      | ((value: T | null) => void)
+      | SubscribeHandler<T>,
+    options?: SubscribeOptions,
   ): Unsubscribe {
-    const abort = new AbortController();
-    const opts: WatchOptions = { ...options, signal: abort.signal };
+    // Detect pattern vs single URI — patterns have :param or *
+    const isPattern = uriOrPattern.includes("/:") ||
+      uriOrPattern.endsWith("/*");
 
-    // Run the watch loop in the background
+    if (isPattern) {
+      return this._subscribePattern<T>(
+        uriOrPattern,
+        handler as SubscribeHandler<T>,
+        options,
+      );
+    }
+
+    // Legacy single-URI subscribe via watch()
+    const abort = new AbortController();
+    const opts: WatchOptions = {
+      intervalMs: options?.intervalMs,
+      signal: options?.signal ?? abort.signal,
+    };
+    const callback = handler as (value: T | null) => void;
+
     (async () => {
-      for await (const value of this.watch<T>(uri, opts)) {
+      for await (const value of this.watch<T>(uriOrPattern, opts)) {
         if (abort.signal.aborted) break;
         callback(value);
       }
     })();
 
     return () => abort.abort();
+  }
+
+  /** Pattern-based subscription — SSE when available, polling fallback. */
+  private _subscribePattern<T>(
+    pattern: string,
+    handler: SubscribeHandler<T>,
+    options?: SubscribeOptions,
+  ): Unsubscribe {
+    const abort = new AbortController();
+    const signal = options?.signal;
+    const patternSegments = pattern.split("/");
+
+    // Link external signal to our abort
+    if (signal) {
+      signal.addEventListener("abort", () => abort.abort(), { once: true });
+    }
+
+    // Extract prefix from pattern (strip :param and * segments)
+    const prefix = patternSegments
+      .filter((s) => !s.startsWith(":") && s !== "*")
+      .join("/");
+
+    if (this._sseBaseUrl) {
+      // SSE transport — real-time push
+      this._subscribeSse<T>(
+        prefix,
+        patternSegments,
+        handler,
+        abort,
+      );
+    } else {
+      // Polling fallback
+      this._subscribePoll<T>(
+        prefix,
+        patternSegments,
+        handler,
+        options?.intervalMs ?? 2000,
+        abort,
+      );
+    }
+
+    return () => abort.abort();
+  }
+
+  /** SSE-based subscription. */
+  private _subscribeSse<T>(
+    prefix: string,
+    patternSegments: string[],
+    handler: SubscribeHandler<T>,
+    abort: AbortController,
+  ): void {
+    // Convert URI prefix to SSE endpoint path
+    // "mutable://data/market/X" → "/api/v1/subscribe/mutable/data/market/X"
+    const uriPath = prefix.replace("://", "/");
+    const url = `${this._sseBaseUrl}/api/v1/subscribe/${uriPath}`;
+
+    (async () => {
+      try {
+        for await (
+          const event of openSseStream(url, { signal: abort.signal })
+        ) {
+          if (abort.signal.aborted) break;
+          const params = matchPattern(patternSegments, event.uri);
+          if (params !== null) {
+            try {
+              await handler(event.uri, event.data as T, params);
+            } catch (err) {
+              console.warn(
+                `[rig] subscribe handler error for "${event.uri}":`,
+                err,
+              );
+            }
+          }
+        }
+      } catch {
+        // Stream ended or aborted
+      }
+    })();
+  }
+
+  /** Polling-based subscription fallback. */
+  private _subscribePoll<T>(
+    prefix: string,
+    patternSegments: string[],
+    handler: SubscribeHandler<T>,
+    intervalMs: number,
+    abort: AbortController,
+  ): void {
+    const seen = new Set<string>();
+
+    (async () => {
+      while (!abort.signal.aborted) {
+        try {
+          const uris = await this.listData(prefix);
+          for (const uri of uris) {
+            if (seen.has(uri)) continue;
+            seen.add(uri);
+
+            const params = matchPattern(patternSegments, uri);
+            if (params === null) continue;
+
+            const data = await this.readData<T>(uri);
+            if (data !== null) {
+              try {
+                await handler(uri, data, params);
+              } catch (err) {
+                console.warn(
+                  `[rig] subscribe handler error for "${uri}":`,
+                  err,
+                );
+              }
+            }
+          }
+        } catch {
+          // List/read failed — retry on next poll
+        }
+
+        // Wait for next poll or abort
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, intervalMs);
+          abort.signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            resolve();
+          }, { once: true });
+        });
+      }
+    })();
   }
 
   /**
@@ -1223,11 +1421,34 @@ export class Rig {
    * app.all("/api/*", (c) => handler(c.req.raw));
    * ```
    */
-  async handler(options?: {
+  /**
+   * Create an HTTP request handler backed by this rig.
+   *
+   * Returns a standard `(Request) => Promise<Response>` — plug it
+   * into `Deno.serve()`, Hono, or any HTTP framework.
+   *
+   * SSE subscriptions are powered by rig events — when `rig.receive()`
+   * or `rig.send()` succeeds, SSE subscribers with matching prefixes
+   * receive the event in real-time. No external subscription bus needed.
+   *
+   * @example Deno.serve
+   * ```typescript
+   * const handler = rig.handler();
+   * Deno.serve({ port: 3000 }, handler);
+   * ```
+   *
+   * @example Hono (add CORS, middleware, etc.)
+   * ```typescript
+   * const app = new Hono();
+   * app.use("*", cors({ origin: "*" }));
+   * const handler = rig.handler();
+   * app.all("/api/*", (c) => handler(c.req.raw));
+   * ```
+   */
+  handler(options?: {
     healthMeta?: Record<string, unknown>;
-  }): Promise<(req: Request) => Promise<Response>> {
-    const { createHttpHandler } = await import("../b3nd-servers/http.ts");
-    return createHttpHandler(this.client, options);
+  }): (req: Request) => Promise<Response> {
+    return createRigHandler(this, options);
   }
 
   // ── Private ──
@@ -1323,7 +1544,9 @@ async function resolveOpClients(
     delete: defaultClient,
   };
 
-  if (!config.clients) return opClients;
+  // Only called for object-form config (array form uses createDispatchClients)
+  if (!config.clients || Array.isArray(config.clients)) return opClients;
+  const clientsConfig = config.clients;
 
   const factoryOpts = {
     schema: config.schema,
@@ -1335,13 +1558,16 @@ async function resolveOpClients(
   const readOps: (keyof OpClients)[] = ["read", "list"];
 
   for (const op of [...writeOps, ...readOps]) {
-    const entry = config.clients[op as keyof typeof config.clients];
+    const entry = clientsConfig[op as keyof typeof clientsConfig] as
+      | string[]
+      | NodeProtocolInterface
+      | undefined;
     if (!entry) continue;
 
     if (Array.isArray(entry)) {
       // URL strings — resolve and compose
       const clients = await Promise.all(
-        entry.map((url) => createClientFromUrl(url, factoryOpts)),
+        entry.map((url: string) => createClientFromUrl(url, factoryOpts)),
       );
       if (clients.length === 1) {
         opClients[op] = clients[0];
@@ -1357,6 +1583,149 @@ async function resolveOpClients(
   }
 
   return opClients;
+}
+
+/**
+ * Build dispatch clients from a flat array.
+ *
+ * Each operation is backed by a synthetic client that iterates all
+ * clients in order, checking `accepts(operation, uri)`.
+ *
+ * - Writes (receive, delete): broadcast to ALL accepting clients.
+ *   If none accept, returns an error.
+ * - Reads (read, list): first-match — tries each accepting client
+ *   in order, returns the first success.
+ * - Send delegates to receive (the envelope is a receive to the network).
+ *
+ * Clients without `accepts()` accept everything (backwards compat).
+ */
+function createDispatchClients(
+  clients: NodeProtocolInterface[],
+): OpClients {
+  if (clients.length === 0) {
+    throw new Error("Rig.init: `clients` array must not be empty");
+  }
+
+  const dispatch: NodeProtocolInterface = {
+    async receive(msg) {
+      const [uri] = msg;
+      const accepting = clients.filter((c) => clientAccepts(c, "receive", uri));
+      if (accepting.length === 0) {
+        return {
+          accepted: false,
+          error: `No client accepts receive for ${uri}`,
+        };
+      }
+      // Broadcast — all must accept
+      const results = await Promise.all(accepting.map((c) => c.receive(msg)));
+      const failed = results.find((r) => !r.accepted);
+      if (failed) return failed;
+      return results[0];
+    },
+
+    async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+      // First match — try accepting clients in order
+      for (const c of clients) {
+        if (!clientAccepts(c, "read", uri)) continue;
+        const result = await c.read<T>(uri);
+        if (result.success) return result;
+      }
+      return { success: false, error: `No client has data for ${uri}` };
+    },
+
+    async readMulti<T = unknown>(
+      uris: string[],
+    ): Promise<ReadMultiResult<T>> {
+      // Delegate each URI to the first accepting client
+      const items = await Promise.all(uris.map(async (uri) => {
+        for (const c of clients) {
+          if (!clientAccepts(c, "read", uri)) continue;
+          const r = await c.read<T>(uri);
+          if (r.success && r.record) {
+            return {
+              uri,
+              success: true as const,
+              record: r.record,
+            };
+          }
+        }
+        return {
+          uri,
+          success: false as const,
+          error: `No client has data for ${uri}`,
+        };
+      }));
+      const succeeded = items.filter((r) => r.success).length;
+      return {
+        success: succeeded > 0,
+        results: items as ReadMultiResult<T>["results"],
+        summary: {
+          total: uris.length,
+          succeeded,
+          failed: uris.length - succeeded,
+        },
+      };
+    },
+
+    async list(uri, options) {
+      // First non-empty — try accepting clients in order
+      for (const c of clients) {
+        if (!clientAccepts(c, "list", uri)) continue;
+        const result = await c.list(uri, options);
+        if (result.success && result.data.length > 0) return result;
+      }
+      // No data found — return empty success
+      return {
+        success: true,
+        data: [],
+        pagination: { page: 1, limit: options?.limit ?? 50, total: 0 },
+      } as ListResult;
+    },
+
+    async delete(uri) {
+      const accepting = clients.filter((c) => clientAccepts(c, "delete", uri));
+      if (accepting.length === 0) {
+        return { success: false, error: `No client accepts delete for ${uri}` };
+      }
+      const results = await Promise.all(accepting.map((c) => c.delete(uri)));
+      const failed = results.find((r) => !r.success);
+      if (failed) return failed;
+      return results[0];
+    },
+
+    async health() {
+      // Aggregate health from all clients
+      const results = await Promise.all(clients.map((c) => c.health()));
+      const unhealthy = results.find((r) => r.status === "unhealthy");
+      if (unhealthy) return unhealthy;
+      const degraded = results.find((r) => r.status === "degraded");
+      if (degraded) return degraded;
+      return results[0] ?? { status: "healthy" as const };
+    },
+
+    async getSchema() {
+      // Union of all client schemas
+      const all = new Set<string>();
+      for (const c of clients) {
+        const schemas = await c.getSchema();
+        for (const s of schemas) all.add(s);
+      }
+      return [...all];
+    },
+
+    async cleanup() {
+      await Promise.all(clients.map((c) => c.cleanup()));
+    },
+  };
+
+  // All ops go through the same dispatch — filtering is per-call
+  return {
+    send: dispatch,
+    receive: dispatch,
+    read: dispatch,
+    list: dispatch,
+    delete: dispatch,
+  };
 }
 
 // ── Compile-time assertion ──

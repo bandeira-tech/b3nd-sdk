@@ -67,7 +67,7 @@ const rig = await Rig.init({
 const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
 
 // The rig produces a generic fetch handler — the app owns the server.
-const b3ndHandler = await rig.handler({
+const b3ndHandler = rig.handler({
   healthMeta: { backends: backendTypes },
 });
 

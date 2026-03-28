@@ -1,19 +1,26 @@
 import { assertEquals } from "@std/assert";
-import { createTestSchema, MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
-import { createHttpHandler } from "../libs/b3nd-servers/http.ts";
+import { Rig } from "../libs/b3nd-rig/mod.ts";
+import { createTestSchema } from "../libs/b3nd-client-memory/mod.ts";
 
-Deno.test("createHttpHandler - health endpoint", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
-  const handler = createHttpHandler(client, { healthMeta: { test: true } });
+Deno.test("createRigHandler - health endpoint", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    schema: createTestSchema(),
+  });
+  const handler = rig.handler({ healthMeta: { test: true } });
   const res = await handler(new Request("http://localhost/api/v1/health"));
   const body = await res.json();
   assertEquals(body.status, "healthy");
   assertEquals(body.test, true);
+  await rig.cleanup();
 });
 
-Deno.test("createHttpHandler - receive/read/list round-trip", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
-  const handler = createHttpHandler(client);
+Deno.test("createRigHandler - receive/read/list round-trip", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    schema: createTestSchema(),
+  });
+  const handler = rig.handler();
 
   // Receive
   const receiveRes = await handler(
@@ -39,11 +46,15 @@ Deno.test("createHttpHandler - receive/read/list round-trip", async () => {
   );
   const list = await listRes.json();
   assertEquals(list.data.length, 1);
+  await rig.cleanup();
 });
 
-Deno.test("createHttpHandler - delete endpoint", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
-  const handler = createHttpHandler(client);
+Deno.test("createRigHandler - delete endpoint", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    schema: createTestSchema(),
+  });
+  const handler = rig.handler();
 
   // Write first
   await handler(
@@ -68,11 +79,16 @@ Deno.test("createHttpHandler - delete endpoint", async () => {
     new Request("http://localhost/api/v1/read/mutable/open/del"),
   );
   assertEquals(readRes.status, 404);
+  await rig.cleanup();
 });
 
-Deno.test("createHttpHandler - unknown route returns 404", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
-  const handler = createHttpHandler(client);
+Deno.test("createRigHandler - unknown route returns 404", async () => {
+  const rig = await Rig.init({
+    use: "memory://",
+    schema: createTestSchema(),
+  });
+  const handler = rig.handler();
   const res = await handler(new Request("http://localhost/unknown"));
   assertEquals(res.status, 404);
+  await rig.cleanup();
 });

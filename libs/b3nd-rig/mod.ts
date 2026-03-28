@@ -38,6 +38,8 @@ export type {
   RigConfig,
   RigInfo,
   ServeOptions,
+  SubscribeHandler,
+  SubscribeOptions,
   Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
@@ -66,6 +68,14 @@ export { RigEventEmitter } from "./events.ts";
 // Observe
 export type { ObserveHandler } from "./observe.ts";
 export { matchPattern, ObserveRegistry } from "./observe.ts";
+
+// Client filtering — declare what URIs each client accepts
+export { clientAccepts, withFilter } from "./filter.ts";
+export type { FilteredClient, FilterPatterns } from "./filter.ts";
+
+// HTTP handler — thin adapter for serving a rig over HTTP
+export { createRigHandler } from "./http-handler.ts";
+export type { RigHandlerOptions } from "./http-handler.ts";
 
 // Backend factory
 export {

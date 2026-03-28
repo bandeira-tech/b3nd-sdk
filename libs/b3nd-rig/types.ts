@@ -7,6 +7,7 @@ import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
 import type { HookableOp, PostHook, PreHook } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
+import type { FilteredClient } from "./filter.ts";
 
 /**
  * Factory function for creating a PostgreSQL executor from a connection string.
@@ -105,33 +106,49 @@ export interface RigConfig {
   };
 
   /**
-   * Per-operation client routing.
+   * Clients to connect to the rig.
    *
-   * Overrides the default `use`/`client` for specific operations.
+   * **Array form (recommended):** Clients with `accepts()` filters.
+   * The rig routes each operation to clients that accept the URI.
+   * Writes broadcast to all accepting clients; reads try first match.
+   *
+   * ```typescript
+   * const rig = await Rig.init({
+   *   clients: [
+   *     withFilter(httpClient, {
+   *       receive: ["mutable://*", "hash://*"],
+   *       read: ["mutable://*", "hash://*"],
+   *     }),
+   *     withFilter(memoryClient, {
+   *       receive: ["local://*"],
+   *       read: ["local://*"],
+   *     }),
+   *   ],
+   * });
+   * ```
+   *
+   * **Object form (legacy):** Per-operation routing overrides.
    * Each entry is either a pre-built client or URL string(s) to resolve.
    *
-   * - `send`, `receive`, `delete` → composed with parallelBroadcast (all must accept)
-   * - `read`, `list` → composed with firstMatchSequence (first success wins)
-   *
-   * @example
    * ```typescript
    * const rig = await Rig.init({
    *   use: "postgresql://primary",
    *   clients: {
    *     read: ["redis://cache", "postgresql://primary"],
-   *     observe: ["wss://realtime"],
    *   },
    * });
    * ```
    */
-  clients?: {
-    send?: string[] | NodeProtocolInterface;
-    receive?: string[] | NodeProtocolInterface;
-    read?: string[] | NodeProtocolInterface;
-    list?: string[] | NodeProtocolInterface;
-    delete?: string[] | NodeProtocolInterface;
-    observe?: string[] | NodeProtocolInterface;
-  };
+  clients?:
+    | (NodeProtocolInterface | FilteredClient)[]
+    | {
+      send?: string[] | NodeProtocolInterface;
+      receive?: string[] | NodeProtocolInterface;
+      read?: string[] | NodeProtocolInterface;
+      list?: string[] | NodeProtocolInterface;
+      delete?: string[] | NodeProtocolInterface;
+      observe?: string[] | NodeProtocolInterface;
+    };
 
   /**
    * Synchronous hook pipelines — frozen after init.
@@ -256,6 +273,28 @@ export interface WatchAllSnapshot<T = unknown> {
  * Cleanup function returned by subscribe() — call to stop watching.
  */
 export type Unsubscribe = () => void;
+
+/**
+ * Handler for pattern-based subscriptions.
+ *
+ * Same shape as ObserveHandler — receives the URI, data, and extracted
+ * params from the pattern match.
+ */
+export type SubscribeHandler<T = unknown> = (
+  uri: string,
+  data: T,
+  params: Record<string, string>,
+) => void | Promise<void>;
+
+/**
+ * Options for pattern-based subscriptions.
+ */
+export interface SubscribeOptions {
+  /** Polling interval in ms (used as fallback when SSE is unavailable). Default: 2000. */
+  intervalMs?: number;
+  /** Abort signal to stop the subscription. */
+  signal?: AbortSignal;
+}
 
 /**
  * Options for rig.handler().

@@ -2499,3 +2499,268 @@ Deno.test("Rig clients - schema still works with hooks", async () => {
 });
 
 // No hook chain replacement test — hooks are immutable after init.
+
+// ── Client array dispatch (accepts-based routing) ──
+
+import { withFilter } from "./filter.ts";
+
+Deno.test("Rig dispatch - routes receive to accepting clients only", async () => {
+  const schema = { "mutable://open": async () => ({ valid: true }) };
+  const b3ndClient = new MemoryClient({ schema });
+  const localClient = new MemoryClient({ schema });
+
+  const rig = await Rig.init({
+    clients: [
+      withFilter(b3ndClient, {
+        receive: ["mutable://*"],
+        read: ["mutable://*"],
+      }),
+      withFilter(localClient, {
+        receive: ["local://*"],
+        read: ["local://*"],
+      }),
+    ],
+  });
+
+  // Write to mutable — only b3ndClient should get it
+  await rig.receive(["mutable://open/test", { v: 1 }]);
+  const b3ndRead = await b3ndClient.read("mutable://open/test");
+  assertEquals(b3ndRead.success, true);
+  assertEquals(b3ndRead.record?.data, { v: 1 });
+
+  // localClient should NOT have it
+  const localRead = await localClient.read("mutable://open/test");
+  assertEquals(localRead.success, false);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - routes read to accepting clients", async () => {
+  const schema = { "mutable://open": async () => ({ valid: true }) };
+  const primary = new MemoryClient({ schema });
+  const cache = new MemoryClient({ schema });
+
+  // Pre-populate cache
+  await cache.receive(["mutable://open/cached", { from: "cache" }]);
+  // Pre-populate primary with different data
+  await primary.receive(["mutable://open/cached", { from: "primary" }]);
+
+  const rig = await Rig.init({
+    clients: [
+      // Cache first (read-only)
+      withFilter(cache, {
+        read: ["mutable://*"],
+      }),
+      // Primary (read + write)
+      withFilter(primary, {
+        receive: ["mutable://*"],
+        read: ["mutable://*"],
+      }),
+    ],
+  });
+
+  // Read should hit cache first
+  const result = await rig.read("mutable://open/cached");
+  assertEquals(result.success, true);
+  assertEquals(result.record?.data, { from: "cache" });
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - unfiltered clients accept everything", async () => {
+  const rig = await Rig.init({
+    clients: [
+      new MemoryClient({
+        schema: { "mutable://open": async () => ({ valid: true }) },
+      }),
+    ],
+  });
+
+  // Unfiltered client accepts all URIs
+  const result = await rig.receive(["mutable://open/test", { v: 1 }]);
+  assertEquals(result.accepted, true);
+
+  const read = await rig.read("mutable://open/test");
+  assertEquals(read.success, true);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - no accepting client returns error", async () => {
+  const rig = await Rig.init({
+    clients: [
+      withFilter(new MemoryClient({ schema: {} }), {
+        receive: ["local://*"],
+      }),
+    ],
+  });
+
+  // Nothing accepts mutable://
+  const result = await rig.receive(["mutable://open/test", { v: 1 }]);
+  assertEquals(result.accepted, false);
+  assertEquals(result.error?.includes("No client accepts"), true);
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - health aggregates all clients", async () => {
+  const rig = await Rig.init({
+    clients: [
+      new MemoryClient({ schema: {} }),
+      new MemoryClient({ schema: {} }),
+    ],
+  });
+
+  const health = await rig.health();
+  assertEquals(health.status, "healthy");
+
+  await rig.cleanup();
+});
+
+Deno.test("Rig dispatch - getSchema unions all clients", async () => {
+  const c1 = new MemoryClient({
+    schema: { "mutable://open": async () => ({ valid: true }) },
+  });
+  const c2 = new MemoryClient({
+    schema: { "hash://sha256": async () => ({ valid: true }) },
+  });
+
+  const rig = await Rig.init({
+    clients: [c1, c2],
+  });
+
+  const schemas = await rig.getSchema();
+  assertEquals(schemas.includes("mutable://open"), true);
+  assertEquals(schemas.includes("hash://sha256"), true);
+
+  await rig.cleanup();
+});
+
+// ── SSE subscription integration test ──
+
+Deno.test({
+  name: "Rig subscribe - pattern via SSE end-to-end",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    // 1. Start a server rig with memory backend
+    const serverRig = await Rig.init({
+      use: "memory://",
+    });
+    const requestHandler = await serverRig.handler();
+
+    // Start a Deno server on a random port
+    const server = Deno.serve(
+      { port: 0, onListen() {} },
+      requestHandler,
+    );
+    const port = server.addr.port;
+
+    // Track the subscriber's abort controller so we can guarantee
+    // the SSE fetch is cancelled before the server shuts down.
+    const subscriberAbort = new AbortController();
+
+    try {
+      // 2. Create a subscriber rig pointing at the server
+      const subscriberRig = await Rig.connect(
+        `http://127.0.0.1:${port}`,
+      );
+
+      // 3. Subscribe to a pattern
+      const received: {
+        uri: string;
+        data: unknown;
+        params: Record<string, string>;
+      }[] = [];
+      const subHandler: import("./types.ts").SubscribeHandler = (
+        uri,
+        data,
+        params,
+      ) => {
+        received.push({ uri, data, params });
+      };
+      subscriberRig.subscribe(
+        "mutable://open/market/:msgId",
+        subHandler,
+        { signal: subscriberAbort.signal },
+      );
+
+      // Give SSE connection time to establish
+      await new Promise((r) => setTimeout(r, 300));
+
+      // 4. Write through the server rig (simulating another client)
+      await serverRig.receive([
+        "mutable://open/market/msg1",
+        { type: "ask", price: 42 },
+      ]);
+      await serverRig.receive([
+        "mutable://open/market/msg2",
+        { type: "bid", price: 40 },
+      ]);
+      // This one should NOT match the pattern
+      await serverRig.receive([
+        "mutable://open/other/foo",
+        { type: "other" },
+      ]);
+
+      // Give SSE events time to propagate
+      await new Promise((r) => setTimeout(r, 500));
+
+      // 5. Verify subscriber received exactly the matching events
+      assertEquals(received.length, 2);
+      assertEquals(received[0].uri, "mutable://open/market/msg1");
+      assertEquals(received[0].data, { type: "ask", price: 42 });
+      assertEquals(received[0].params, { msgId: "msg1" });
+      assertEquals(received[1].uri, "mutable://open/market/msg2");
+      assertEquals(received[1].params, { msgId: "msg2" });
+
+      // 6. Cleanup — abort SSE first, then shut down server
+      subscriberAbort.abort();
+      // Give fetch abort a tick to propagate
+      await new Promise((r) => setTimeout(r, 50));
+      await subscriberRig.cleanup();
+    } finally {
+      // Ensure SSE stream is aborted before server shutdown
+      subscriberAbort.abort();
+      await new Promise((r) => setTimeout(r, 50));
+      await server.shutdown();
+      await serverRig.cleanup();
+    }
+  },
+});
+
+Deno.test("Rig subscribe - polling fallback for non-HTTP clients", async () => {
+  const rig = await Rig.init({ use: "memory://" });
+
+  // Write some data first
+  await rig.receive(["mutable://open/items/a", { v: 1 }]);
+  await rig.receive(["mutable://open/items/b", { v: 2 }]);
+
+  const received: string[] = [];
+  const handler: import("./types.ts").SubscribeHandler = (
+    _uri,
+    _data,
+    { id },
+  ) => {
+    received.push(id);
+  };
+  const unsub = rig.subscribe(
+    "mutable://open/items/:id",
+    handler,
+    { intervalMs: 50 },
+  );
+
+  // Wait for first poll
+  await new Promise((r) => setTimeout(r, 100));
+  assertEquals(received.length, 2);
+  assertEquals(received.includes("a"), true);
+  assertEquals(received.includes("b"), true);
+
+  // Write a new item
+  await rig.receive(["mutable://open/items/c", { v: 3 }]);
+  await new Promise((r) => setTimeout(r, 100));
+  assertEquals(received.includes("c"), true);
+
+  unsub();
+  await rig.cleanup();
+});
