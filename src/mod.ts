@@ -82,6 +82,10 @@ export type {
   WebSocketResponse,
   WriteResult,
 } from "../libs/b3nd-core/types.ts";
+export type {
+  GraphQLClientConfig,
+  GraphQLExecutor,
+} from "../libs/b3nd-client-graphql/mod.ts";
 export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 
 // Client implementations
@@ -95,6 +99,7 @@ export { FilesystemClient } from "../libs/b3nd-client-fs/mod.ts";
 export { ConsoleClient } from "../libs/b3nd-client-console/mod.ts";
 export { S3Client } from "../libs/b3nd-client-s3/mod.ts";
 export type { S3Executor } from "../libs/b3nd-client-s3/mod.ts";
+export { GraphQLClient } from "../libs/b3nd-client-graphql/mod.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 
@@ -203,6 +208,7 @@ export {
 } from "../libs/b3nd-rig/mod.ts";
 export type {
   ExportedIdentity,
+  GraphQLExecutorFactory,
   HandlerOptions,
   MongoExecutor,
   PostgresExecutor,
