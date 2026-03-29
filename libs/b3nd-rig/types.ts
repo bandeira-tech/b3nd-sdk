@@ -85,6 +85,13 @@ export type S3ExecutorFactory = (
 ) => import("../b3nd-client-s3/mod.ts").S3Executor;
 
 /**
+ * Factory function for creating an Elasticsearch executor from an endpoint URL.
+ */
+export type ElasticsearchExecutorFactory = (
+  endpoint: string,
+) => import("../b3nd-client-elasticsearch/mod.ts").ElasticsearchExecutor;
+
+/**
  * Configuration for Rig.init().
  */
 export interface RigConfig {
@@ -111,6 +118,7 @@ export interface RigConfig {
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
     s3?: S3ExecutorFactory;
+    elasticsearch?: ElasticsearchExecutorFactory;
   };
 
   /**
