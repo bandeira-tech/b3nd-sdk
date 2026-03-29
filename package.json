@@ -31,6 +31,10 @@
       "import": "./dist/clients/memory/mod.js",
       "types": "./dist/clients/memory/mod.d.ts"
     },
+    "./clients/graphql": {
+      "import": "./dist/clients/graphql/mod.js",
+      "types": "./dist/clients/graphql/mod.d.ts"
+    },
     "./wallet": {
       "import": "./dist/wallet/mod.js",
       "types": "./dist/wallet/mod.d.ts"

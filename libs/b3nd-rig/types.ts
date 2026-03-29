@@ -77,6 +77,13 @@ export type IpfsExecutorFactory = (
 ) => import("../b3nd-client-ipfs/mod.ts").IpfsExecutor;
 
 /**
+ * Factory function for creating a GraphQL executor from an endpoint URL.
+ */
+export type GraphQLExecutorFactory = (
+  url: string,
+) => import("../b3nd-client-graphql/mod.ts").GraphQLExecutor;
+
+/**
  * Configuration for Rig.init().
  */
 export interface RigConfig {
@@ -102,6 +109,7 @@ export interface RigConfig {
     sqlite?: SqliteExecutorFactory;
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
+    graphql?: GraphQLExecutorFactory;
   };
 
   /**
