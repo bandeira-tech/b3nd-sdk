@@ -11,7 +11,8 @@
     "./client-mongo": "./src/client-mongo.ts",
     "./client-sqlite": "./src/client-sqlite.ts",
     "./client-fs": "./src/client-fs.ts",
-    "./client-ipfs": "./src/client-ipfs.ts"
+    "./client-ipfs": "./src/client-ipfs.ts",
+    "./client-graphql": "./src/client-graphql.ts"
   },
   "nodeModulesDir": "auto",
   "imports": {
@@ -78,6 +79,7 @@
     "libs/b3nd-client-sqlite",
     "libs/b3nd-client-fs",
     "libs/b3nd-client-ipfs",
+    "libs/b3nd-client-graphql",
     "libs/b3nd-client-indexeddb",
     "libs/b3nd-client-localstorage",
     "libs/b3nd-combinators",

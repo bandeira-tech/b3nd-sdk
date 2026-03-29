@@ -32,6 +32,7 @@ export { Identity } from "./identity.ts";
 export type { ExportedIdentity } from "./identity.ts";
 export { Rig } from "./rig.ts";
 export type {
+  GraphQLExecutorFactory,
   HandlerOptions,
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,

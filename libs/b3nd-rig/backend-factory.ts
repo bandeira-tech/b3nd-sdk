@@ -11,11 +11,13 @@
  *   sqlite://             → SqliteClient (requires executor)
  *   file://               → FilesystemClient (requires executor)
  *   ipfs://               → IpfsClient (requires executor)
+ *   graphql://            → GraphQLClient (optional executor)
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
 import type {
   FsExecutorFactory,
+  GraphQLExecutorFactory,
   IpfsExecutorFactory,
   MongoExecutorFactory,
   PostgresExecutorFactory,
@@ -38,6 +40,7 @@ export const SUPPORTED_PROTOCOLS = [
   "sqlite://",
   "file://",
   "ipfs://",
+  "graphql://",
 ] as const;
 
 /** Returns the list of supported backend URL protocols. */
@@ -67,6 +70,7 @@ export interface BackendFactoryOptions {
     sqlite?: SqliteExecutorFactory;
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
+    graphql?: GraphQLExecutorFactory;
   };
 }
 
@@ -226,6 +230,23 @@ export async function createClientFromUrl(
         },
         executor,
       );
+    }
+
+    case "graphql:": {
+      // graphql://host:port/path → http://host:port/path
+      const graphqlUrl = `http://${parsed.hostname}${
+        parsed.port ? ":" + parsed.port : ""
+      }${parsed.pathname}`;
+      const { GraphQLClient } = await import(
+        "../b3nd-client-graphql/mod.ts"
+      );
+      const schema = options.schema;
+      const config = { url: graphqlUrl, schema };
+      if (options.executors?.graphql) {
+        const executor = options.executors.graphql(graphqlUrl);
+        return new GraphQLClient(config, executor);
+      }
+      return new GraphQLClient(config);
     }
 
     default:
