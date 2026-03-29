@@ -11,7 +11,8 @@
     "./client-mongo": "./src/client-mongo.ts",
     "./client-sqlite": "./src/client-sqlite.ts",
     "./client-fs": "./src/client-fs.ts",
-    "./client-ipfs": "./src/client-ipfs.ts"
+    "./client-ipfs": "./src/client-ipfs.ts",
+    "./client-elasticsearch": "./src/client-elasticsearch.ts"
   },
   "nodeModulesDir": "auto",
   "imports": {
@@ -89,6 +90,7 @@
     "libs/b3nd-wallet-server",
     "libs/b3nd-apps",
     "libs/b3nd-managed-node",
+    "libs/b3nd-client-elasticsearch",
     "libs/b3nd-rig",
     "libs/firecat-protocol",
     "apps/apps-node",
