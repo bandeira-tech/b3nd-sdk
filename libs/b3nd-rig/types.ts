@@ -77,6 +77,13 @@ export type IpfsExecutorFactory = (
 ) => import("../b3nd-client-ipfs/mod.ts").IpfsExecutor;
 
 /**
+ * Factory function for creating an Elasticsearch executor from an endpoint URL.
+ */
+export type ElasticsearchExecutorFactory = (
+  endpoint: string,
+) => import("../b3nd-client-elasticsearch/mod.ts").ElasticsearchExecutor;
+
+/**
  * Configuration for Rig.init().
  */
 export interface RigConfig {
@@ -102,6 +109,7 @@ export interface RigConfig {
     sqlite?: SqliteExecutorFactory;
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
+    elasticsearch?: ElasticsearchExecutorFactory;
   };
 
   /**

@@ -33,6 +33,7 @@ export type { ExportedIdentity } from "./identity.ts";
 export { Rig } from "./rig.ts";
 export type {
   HandlerOptions,
+  ElasticsearchExecutorFactory,
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,
   RigConfig,
