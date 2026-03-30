@@ -73,16 +73,16 @@ const rig = await Rig.connect("https://node.example.com", restored);
 
 ---
 
-### Connect to a database backend directly
+### Build a client from a database URL
 
-Server-side — the rig talks to Postgres, Mongo, SQLite, or the filesystem with no HTTP hop.
+Server-side — build a database client with `createClientFromUrl`, then hand it to the rig. Clients are plumbing; the rig orchestrates.
 
 ```typescript
+import { Rig, createClientFromUrl } from "@b3nd/rig";
 import { Pool } from "pg";
 
-const rig = await Rig.init({
-  use: "postgresql://localhost:5432/mydb",
-  schema: mySchema,
+const client = await createClientFromUrl("postgresql://localhost:5432/mydb", {
+  schema: appSchema,
   executors: {
     postgres: async (connStr) => {
       const pool = new Pool({ connectionString: connStr });
@@ -101,6 +101,23 @@ const rig = await Rig.init({
     },
   },
 });
+
+const rig = await Rig.init({ client, schema: appSchema });
+```
+
+---
+
+### `Rig.connect` vs `Rig.init`
+
+`connect(url)` is the one-liner — it builds a client internally. `init({...})` is the explicit path for when you build clients yourself.
+
+```typescript
+// One-liner — builds HttpClient or MemoryClient for you
+const rig = await Rig.connect("https://node.example.com", identity);
+
+// Explicit — you bring the client
+const client = new HttpClient({ url: "https://node.example.com" });
+const rig = await Rig.init({ client, identity, schema: mySchema });
 ```
 
 ---
@@ -219,7 +236,7 @@ const results = await rig.deleteMany([
 
 ```typescript
 const id = await Identity.fromSeed("alice-secret");
-const rig = await Rig.init({ use: "https://node.example.com", identity: id });
+const rig = await Rig.connect("https://node.example.com", id);
 
 await rig.send({
   inputs: ["mutable://accounts/" + id.pubkey + "/app/balance"],
@@ -232,6 +249,79 @@ await rig.send({
 
 ---
 
+## Schema — Application-Level Validation
+
+### Schema is a rig concern
+
+The schema defines which URI programs your application accepts. It lives on the rig — the application layer — not on clients. Clients are pure plumbing that store and retrieve data without opinions.
+
+```typescript
+import { Rig } from "@b3nd/rig";
+import { MemoryClient } from "@b3nd/client-memory";
+
+const schema = {
+  "mutable://open": async () => ({ valid: true }),
+  "mutable://accounts": async (data) => {
+    if (!data.amount) return { valid: false, error: "missing amount" };
+    return { valid: true };
+  },
+};
+
+// Schema on the rig — client has no schema
+const client = new MemoryClient();
+const rig = await Rig.init({ client, schema });
+
+// Succeeds — mutable://open is in the schema
+await rig.receive(["mutable://open/app/hello", { msg: "hi" }]);
+
+// Rejected — unknown://foo is not in the schema
+await rig.receive(["unknown://foo", { v: 1 }]);
+// → error: no validator for program "unknown://foo"
+```
+
+---
+
+### Schema with `Rig.connect`
+
+When using `Rig.connect`, the client is built internally. Pass schema to `Rig.init` for validation.
+
+```typescript
+// connect() is a shortcut — no schema validation
+const simple = await Rig.connect("memory://");
+
+// For schema validation, use init()
+const client = await createClientFromUrl("memory://");
+const validated = await Rig.init({ client, schema: mySchema });
+```
+
+---
+
+### Schema + hooks = defense in depth
+
+Schema validates URI programs. Hooks validate data shapes. Together they form a layered security model.
+
+```typescript
+const rig = await Rig.init({
+  client,
+  schema: appSchema,
+  hooks: {
+    beforeReceive: (ctx) => {
+      const data = ctx.data as Record<string, unknown>;
+      if (!data.title || typeof data.title !== "string") {
+        throw new Error("missing title");
+      }
+    },
+  },
+});
+
+// Must pass BOTH schema (known URI program) AND hook (valid shape)
+await rig.receive(["mutable://open/app/post", { title: "Hello" }]); // ok
+await rig.receive(["mutable://open/app/post", { oops: true }]);     // hook rejects
+await rig.receive(["unknown://app/post", { title: "Hello" }]);      // schema rejects
+```
+
+---
+
 ## Encrypted Data
 
 ### Encrypt to self
@@ -240,7 +330,7 @@ Store secrets only you can decrypt. The identity's X25519 key is used automatica
 
 ```typescript
 const id = await Identity.generate();
-const rig = await Rig.init({ use: "memory://", identity: id });
+const rig = await Rig.connect("memory://", id);
 
 await rig.sendEncrypted({
   inputs: [],
@@ -265,7 +355,7 @@ Send a message only the recipient can read.
 const alice = await Identity.generate();
 const bob = await Identity.generate();
 
-const rig = await Rig.init({ use: "memory://", identity: alice });
+const rig = await Rig.connect("memory://", alice);
 
 // Alice encrypts to Bob's encryption public key
 await rig.sendEncrypted(
@@ -279,7 +369,7 @@ await rig.sendEncrypted(
 );
 
 // Bob decrypts (needs his own rig with his identity)
-const bobRig = await Rig.init({ use: "memory://", identity: bob });
+const bobRig = await Rig.connect("memory://", bob);
 // (assuming shared backend — in practice both point to the same node)
 ```
 
@@ -296,9 +386,9 @@ const [secretA, secretB] = await rig.readEncryptedMany<{ key: string }>([
 
 ---
 
-## Hooks — Synchronous Pipelines
+## Hooks — Flat, Typed, Single-Function
 
-Hooks are frozen at init time. Pre-hooks throw to reject. Post-hooks observe only.
+Hooks are frozen at init. Before-hooks throw to reject. After-hooks observe only. One function per slot — compose on your end if needed.
 
 ### Validate on receive
 
@@ -306,18 +396,13 @@ Reject writes that don't match your app's shape.
 
 ```typescript
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   hooks: {
-    receive: {
-      pre: [
-        (ctx) => {
-          if (ctx.op !== "receive") return;
-          const data = ctx.data as Record<string, unknown>;
-          if (!data.title || typeof data.title !== "string") {
-            throw new Error("receive rejected: missing title");
-          }
-        },
-      ],
+    beforeReceive: (ctx) => {
+      const data = ctx.data as Record<string, unknown>;
+      if (!data.title || typeof data.title !== "string") {
+        throw new Error("receive rejected: missing title");
+      }
     },
   },
 });
@@ -333,25 +418,21 @@ await rig.receive(["mutable://open/app/post", { oops: true }]);
 
 ### Rate-limit writes
 
-A pre-hook that enforces a cooldown.
+A before-hook that enforces a cooldown.
 
 ```typescript
 let lastWrite = 0;
 const COOLDOWN_MS = 1000;
 
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   hooks: {
-    receive: {
-      pre: [
-        () => {
-          const now = Date.now();
-          if (now - lastWrite < COOLDOWN_MS) {
-            throw new Error("rate limit: too many writes");
-          }
-          lastWrite = now;
-        },
-      ],
+    beforeReceive: () => {
+      const now = Date.now();
+      if (now - lastWrite < COOLDOWN_MS) {
+        throw new Error("rate limit: too many writes");
+      }
+      lastWrite = now;
     },
   },
 });
@@ -361,22 +442,16 @@ const rig = await Rig.init({
 
 ### Audit trail on reads
 
-Post-hooks can't modify the result, but they can observe it.
+After-hooks can't modify the result, but they can observe it.
 
 ```typescript
 const auditLog: Array<{ uri: string; ts: number }> = [];
 
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   hooks: {
-    read: {
-      post: [
-        (ctx) => {
-          if (ctx.op === "read") {
-            auditLog.push({ uri: ctx.uri, ts: Date.now() });
-          }
-        },
-      ],
+    afterRead: (ctx, _result) => {
+      auditLog.push({ uri: ctx.uri, ts: Date.now() });
     },
   },
 });
@@ -388,17 +463,12 @@ const rig = await Rig.init({
 
 ```typescript
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   hooks: {
-    delete: {
-      pre: [
-        (ctx) => {
-          if (ctx.op !== "delete") return;
-          if (!ctx.uri.includes("/admin/")) {
-            throw new Error("only admin URIs can be deleted");
-          }
-        },
-      ],
+    beforeDelete: (ctx) => {
+      if (!ctx.uri.includes("/admin/")) {
+        throw new Error("only admin URIs can be deleted");
+      }
     },
   },
 });
@@ -406,27 +476,45 @@ const rig = await Rig.init({
 
 ---
 
-### Multiple pre-hooks (pipeline)
+### Rewrite a URI in a before-hook
 
-Pre-hooks run sequentially. The first throw stops the chain.
+Before-hooks can return `{ ctx }` to replace the context — useful for URI rewriting, normalization, or aliasing.
 
 ```typescript
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   hooks: {
-    send: {
-      pre: [
-        (ctx) => {
-          /* 1. check identity */
-        },
-        (ctx) => {
-          /* 2. check envelope size */
-        },
-        (ctx) => {
-          /* 3. check URI namespace */
-        },
-      ],
+    beforeRead: (ctx) => {
+      // Redirect alias to canonical URI
+      if (ctx.uri === "mutable://open/app/latest") {
+        return { ctx: { uri: "mutable://open/app/v2/current" } };
+      }
     },
+  },
+});
+```
+
+---
+
+### Compose multiple checks in one hook
+
+The rig takes one function per hook slot. If you need multiple checks, compose them yourself.
+
+```typescript
+function composeChecks(...fns: Array<(ctx: SendCtx) => void>): BeforeHook<SendCtx> {
+  return (ctx) => {
+    for (const fn of fns) fn(ctx);
+  };
+}
+
+const rig = await Rig.init({
+  client,
+  hooks: {
+    beforeSend: composeChecks(
+      (ctx) => { /* 1. check identity */ },
+      (ctx) => { /* 2. check envelope size */ },
+      (ctx) => { /* 3. check URI namespace */ },
+    ),
   },
 });
 ```
@@ -439,11 +527,25 @@ Hooks cannot be added at runtime. This is intentional — your security invarian
 
 ```typescript
 // Build-time:
-const prodRig = await Rig.init({ use: url, hooks: prodHooks });
-const testRig = await Rig.init({ use: "memory://", hooks: testHooks });
+const prodRig = await Rig.init({ client: prodClient, hooks: prodHooks });
+const testRig = await Rig.init({ client: new MemoryClient(), hooks: testHooks });
 
 // Runtime: rig.hook() does NOT exist — hooks are sealed.
 ```
+
+---
+
+### The hook slots
+
+Each operation has a typed before/after pair. No `ctx.op` check needed — the type tells you which operation you're in.
+
+| Slot | Context Type | Fields |
+| --- | --- | --- |
+| `beforeSend` / `afterSend` | `SendCtx` | `envelope`, `identity` |
+| `beforeReceive` / `afterReceive` | `ReceiveCtx` | `uri`, `data` |
+| `beforeRead` / `afterRead` | `ReadCtx` | `uri` |
+| `beforeList` / `afterList` | `ListCtx` | `uri`, `options?` |
+| `beforeDelete` / `afterDelete` | `DeleteCtx` | `uri` |
 
 ---
 
@@ -455,7 +557,7 @@ Events never block the caller. They fire after an operation completes.
 
 ```typescript
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   on: {
     "*:success": [(e) => console.log(`[ok] ${e.op} ${e.uri}`)],
     "*:error": [(e) => console.error(`[err] ${e.op} ${e.uri}: ${e.error}`)],
@@ -471,28 +573,12 @@ const rig = await Rig.init({
 const metrics = { reads: 0, writes: 0, errors: 0 };
 
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   on: {
-    "read:success": [
-      (e) => {
-        metrics.reads++;
-      },
-    ],
-    "receive:success": [
-      (e) => {
-        metrics.writes++;
-      },
-    ],
-    "send:success": [
-      (e) => {
-        metrics.writes++;
-      },
-    ],
-    "*:error": [
-      (e) => {
-        metrics.errors++;
-      },
-    ],
+    "read:success": [(e) => { metrics.reads++; }],
+    "receive:success": [(e) => { metrics.writes++; }],
+    "send:success": [(e) => { metrics.writes++; }],
+    "*:error": [(e) => { metrics.errors++; }],
   },
 });
 ```
@@ -515,9 +601,7 @@ const unsub = rig.on("receive:success", (e) => {
 unsub();
 
 // Or remove by reference
-const handler = (e) => {
-  /* ... */
-};
+const handler = (e) => { /* ... */ };
 rig.on("send:success", handler);
 rig.off("send:success", handler);
 ```
@@ -530,7 +614,7 @@ Events are async — if the process exits, some handlers might not finish. `drai
 
 ```typescript
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   on: {
     "receive:success": [
       async (e) => {
@@ -560,7 +644,7 @@ Observers fire on successful writes and match against URI patterns with `:param`
 
 ```typescript
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   observe: {
     "mutable://open/app/users/:userId/profile": (uri, data, { userId }) => {
       console.log(`User ${userId} updated their profile:`, data);
@@ -578,7 +662,7 @@ await rig.receive(["mutable://open/app/users/alice/profile", { name: "Alice" }])
 
 ```typescript
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   observe: {
     "mutable://open/app/*": (uri, data) => {
       console.log(`Write to ${uri}`);
@@ -618,12 +702,13 @@ unsub();
 |  | Hooks | Events | Observe |
 | --- | --- | --- | --- |
 | **Timing** | Before/after op | After op | After write |
-| **Blocking** | Synchronous (pre-hooks) | Never blocks | Never blocks |
-| **Can reject** | Pre-hooks throw | No | No |
-| **Can modify** | Pre-hooks can replace ctx | No | No |
+| **Blocking** | Before-hooks block | Never blocks | Never blocks |
+| **Can reject** | Before-hooks throw | No | No |
+| **Can modify** | Before-hooks replace ctx | No | No |
 | **Mutable** | Frozen at init | Add/remove anytime | Add/remove anytime |
 | **Scope** | All operations | All operations | Writes only |
 | **Pattern match** | No | By event name | By URI pattern |
+| **Multiplicity** | One function per slot | Array of handlers | One per pattern |
 
 ---
 
@@ -645,10 +730,11 @@ Different URIs go to different backends. The rig inspects `accepts()` on each cl
 
 ```typescript
 import { Rig, withFilter } from "@b3nd/rig";
-import { HttpClient, MemoryClient } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient } from "@b3nd/client-http";
+import { MemoryClient } from "@b3nd/client-memory";
 
 const remote = new HttpClient({ url: "https://node.example.com" });
-const local = new MemoryClient({ schema: {} });
+const local = new MemoryClient();
 
 const rig = await Rig.init({
   clients: [
@@ -739,17 +825,22 @@ const rig = await Rig.init({
 
 ---
 
-### Per-operation routing (legacy object form)
+### Per-operation routing (object form)
 
-Explicit per-operation client assignment. Less flexible than filtered clients but still supported.
+Explicit per-operation client assignment with a default fallback. Less flexible than filtered clients but supported.
 
 ```typescript
+const pgClient = await createClientFromUrl("postgresql://primary", {
+  schema: appSchema,
+  executors: { postgres: pgFactory },
+});
+const cacheClient = new MemoryClient();
+
 const rig = await Rig.init({
-  use: "postgresql://primary",
+  client: pgClient,       // default for all operations
   clients: {
-    read: ["redis://cache", "postgresql://primary"],
+    read: cacheClient,    // reads go to cache
   },
-  executors: { postgres: myPgFactory },
 });
 ```
 
@@ -839,14 +930,15 @@ const unsub = rig.subscribe<ChatMessage>(
 
 ### Expose the rig as an HTTP endpoint
 
-The rig has a built-in HTTP handler. No framework needed.
+The rig has a built-in HTTP handler. Build the client outside, hand it to the rig.
 
 ```typescript
-const rig = await Rig.init({
-  use: "postgresql://localhost:5432/mydb",
-  schema: mySchema,
+const client = await createClientFromUrl("postgresql://localhost:5432/mydb", {
+  schema: appSchema,
   executors: { postgres: pgFactory },
 });
+
+const rig = await Rig.init({ client, schema: appSchema });
 
 const handler = rig.handler();
 
@@ -879,15 +971,16 @@ The HTTP handler goes through the same rig pipeline — hooks, events, observe a
 
 ```typescript
 const rig = await Rig.init({
-  use: "memory://",
+  client,
+  schema: appSchema,
   hooks: {
-    receive: { pre: [validatePayload] },
+    beforeReceive: validatePayload,
   },
   on: {
     "*:success": [logToStdout],
   },
   observe: {
-    "mutable://app/*": notifyWebhook,
+    "mutable://open/app/*": notifyWebhook,
   },
 });
 
@@ -904,7 +997,7 @@ The rig satisfies `NodeProtocolInterface`. Anything that accepts a client also a
 ### Pass the rig where a client is expected
 
 ```typescript
-const rig = await Rig.init({ use: "memory://" });
+const rig = await Rig.init({ client });
 
 // Any function that takes NodeProtocolInterface works
 function processData(client: NodeProtocolInterface) {
@@ -923,8 +1016,8 @@ A rig can be a client inside another rig's routing table.
 
 ```typescript
 const innerRig = await Rig.init({
-  use: "memory://",
-  hooks: { receive: { pre: [validateInner] } },
+  client: new MemoryClient(),
+  hooks: { beforeReceive: validateInner },
 });
 
 const outerRig = await Rig.init({
@@ -972,12 +1065,12 @@ if (rig.canEncrypt) {
 ```typescript
 const info = rig.info();
 
-console.log(info.pubkey); // hex or null
-console.log(info.hasIdentity); // boolean
-console.log(info.canSign); // boolean
-console.log(info.canEncrypt); // boolean
-console.log(info.behavior.hooks); // { receive: { pre: 2, post: 1 }, ... }
-console.log(info.behavior.events); // { "send:success": 1, "*:error": 1 }
+console.log(info.pubkey);       // hex or null
+console.log(info.hasIdentity);  // boolean
+console.log(info.canSign);      // boolean
+console.log(info.canEncrypt);   // boolean
+console.log(info.behavior.hooks);     // ["beforeReceive", "afterRead", ...]
+console.log(info.behavior.events);    // { "send:success": 1, "*:error": 1 }
 console.log(info.behavior.observers); // 3
 ```
 
@@ -990,10 +1083,14 @@ console.log(info.behavior.observers); // 3
 A server node with schema validation, logging, and HTTP.
 
 ```typescript
-const rig = await Rig.init({
-  use: "postgresql://localhost:5432/app",
+const client = await createClientFromUrl("postgresql://localhost:5432/app", {
   schema: appSchema,
   executors: { postgres: pgFactory },
+});
+
+const rig = await Rig.init({
+  client,
+  schema: appSchema,
   on: {
     "*:success": [(e) => console.log(`[${e.op}] ${e.uri}`)],
     "*:error": [(e) => console.error(`[${e.op}] ${e.uri}: ${e.error}`)],
@@ -1009,7 +1106,7 @@ Deno.serve({ port: 9942 }, rig.handler());
 
 ```typescript
 const remote = new HttpClient({ url: "https://node.example.com" });
-const cache = new MemoryClient({ schema: {} });
+const cache = new MemoryClient();
 
 const id = Identity.fromExported(savedIdentity);
 
@@ -1055,6 +1152,7 @@ const fs = await createClientFromUrl("file:///var/data/blobs", {
 });
 
 const rig = await Rig.init({
+  schema: appSchema,
   clients: [
     withFilter(pg, {
       receive: ["mutable://*"],
@@ -1068,14 +1166,9 @@ const rig = await Rig.init({
     }),
   ],
   hooks: {
-    receive: {
-      pre: [
-        (ctx) => {
-          if (ctx.op !== "receive") return;
-          const size = JSON.stringify(ctx.data).length;
-          if (size > 1_000_000) throw new Error("payload too large");
-        },
-      ],
+    beforeReceive: (ctx) => {
+      const size = JSON.stringify(ctx.data).length;
+      if (size > 1_000_000) throw new Error("payload too large");
     },
   },
   on: {
@@ -1103,21 +1196,12 @@ import { assertEquals } from "@std/assert";
 Deno.test("app write and read round-trip", async () => {
   const events: string[] = [];
 
-  const rig = await Rig.init({
-    use: "memory://",
-    on: {
-      "receive:success": [
-        (e) => {
-          events.push(e.uri!);
-        },
-      ],
-    },
-    observe: {
-      "mutable://open/test/:key": (uri, data, { key }) => {
-        assertEquals(key, "hello");
-      },
-    },
-  });
+  const rig = await Rig.connect("memory://");
+  rig.on("receive:success", (e) => { events.push(e.uri!); });
+  rig.observe(
+    "mutable://open/test/:key",
+    (uri, data, { key }) => { assertEquals(key, "hello"); },
+  );
 
   await rig.receive(["mutable://open/test/hello", { msg: "world" }]);
 
@@ -1136,17 +1220,9 @@ Deno.test("app write and read round-trip", async () => {
 ### CLI tool backed by a rig
 
 ```typescript
-const rig = await Rig.init({
-  use: Deno.env.get("BACKEND_URL") || "memory://",
-  executors: { postgres: pgFactory },
-  on: {
-    "*:success": [
-      (e) => {
-        if (Deno.env.get("VERBOSE")) console.log(`${e.op} ${e.uri}`);
-      },
-    ],
-  },
-});
+const rig = await Rig.connect(
+  Deno.env.get("BACKEND_URL") || "memory://",
+);
 
 // All commands use the rig
 switch (command) {
@@ -1187,31 +1263,23 @@ await rig.send({ inputs: [], outputs: [["mutable://open/app/x", { v: 2 }]] });
 
 ---
 
-### Pre-hook throw vs post-hook throw
+### Before-hook throw vs after-hook throw
 
-Pre-hook throws prevent the operation. Post-hook throws are bugs — the operation already happened.
+Before-hook throws prevent the operation. After-hook throws are bugs — the operation already happened.
 
 ```typescript
-// Pre-hook: operation is rejected, client never called
+// Before-hook: operation is rejected, client never called
 hooks: {
-  receive: {
-    pre: [
-      (ctx) => {
-        throw new Error("nope");
-      },
-    ],
+  beforeReceive: (ctx) => {
+    throw new Error("nope");
   },
 }
 
-// Post-hook: operation already completed, throw = your bug
+// After-hook: operation already completed, throw = your bug
 hooks: {
-  receive: {
-    post: [
-      (ctx, result) => {
-        // Observe only. If you throw here, it's a violation
-        // of the post-hook contract (result is already committed).
-      },
-    ],
+  afterReceive: (ctx, result) => {
+    // Observe only. If you throw here, it's a violation
+    // of the after-hook contract (result is already committed).
   },
 }
 ```
@@ -1224,7 +1292,7 @@ Event handler errors are caught and logged. They never crash the caller.
 
 ```typescript
 const rig = await Rig.init({
-  use: "memory://",
+  client,
   on: {
     "receive:success": [
       async () => {
@@ -1316,26 +1384,27 @@ await rig.send({
 ## Summary: The Rig Mental Model
 
 ```
-┌─────────────────────────────────────────────┐
-│                    Rig                      │
-│                                             │
-│  ┌─────────┐  ┌──────┐  ┌─────────┐        │
-│  │  Hooks  │→ │ Core │→ │  Events │        │
-│  │ (pre)   │  │ Op   │  │ (async) │        │
-│  │ frozen  │  │      │  │         │        │
-│  └─────────┘  └──┬───┘  └─────────┘        │
-│                  │                          │
-│            ┌─────┴─────┐                    │
-│            │  Observe   │                    │
-│            │ (patterns) │                    │
-│            └───────────┘                    │
-│                  │                          │
-│    ┌─────────────┼─────────────┐            │
-│    │ accepts?    │ accepts?    │            │
-│    ▼             ▼             ▼            │
-│  Client A    Client B    Client C           │
-│  mutable://* local://*   hash://*           │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│                      Rig                        │
+│                                                 │
+│  Identity    Schema     Hooks      Events       │
+│  (sign)      (validate) (guard)    (notify)     │
+│                                                 │
+│           ┌────────────────┐                    │
+│           │  Core Operation │                   │
+│           └───────┬────────┘                    │
+│                   │                             │
+│             ┌─────┴─────┐                       │
+│             │  Observe   │                       │
+│             │ (patterns) │                       │
+│             └───────────┘                       │
+│                   │                             │
+│     ┌─────────────┼─────────────┐               │
+│     │ accepts?    │ accepts?    │               │
+│     ▼             ▼             ▼               │
+│   Client A    Client B    Client C              │
+│   (plumbing)  (plumbing)  (plumbing)            │
+└─────────────────────────────────────────────────┘
 ```
 
-The rig is the single entry point. Identity signs. Hooks guard. Clients route. Events notify. Observers react. Everything flows through one place.
+The rig is the single entry point. Identity signs. Schema validates. Hooks guard. Clients are pure plumbing — they store and retrieve, nothing more. Events notify. Observers react. Everything flows through one place.

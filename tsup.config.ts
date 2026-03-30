@@ -11,6 +11,9 @@ export default defineConfig({
     "clients/local-storage/mod": "./libs/b3nd-client-localstorage/mod.ts",
     "clients/websocket/mod": "./libs/b3nd-client-ws/mod.ts",
     "clients/memory/mod": "./libs/b3nd-client-memory/mod.ts",
+    "clients/console/mod": "./libs/b3nd-client-console/mod.ts",
+    "clients/s3/mod": "./libs/b3nd-client-s3/mod.ts",
+    "clients/elasticsearch/mod": "./libs/b3nd-client-elasticsearch/mod.ts",
     "wallet-server/mod": "./libs/b3nd-wallet-server/mod.ts",
     "wallet-server/adapters/browser":
       "./libs/b3nd-wallet-server/adapters/browser.ts",

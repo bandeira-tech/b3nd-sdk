@@ -438,6 +438,50 @@ export interface SqliteClientConfig {
 }
 
 /**
+ * Configuration for S3Client
+ */
+export interface S3ClientConfig {
+  /**
+   * S3 bucket name
+   */
+  bucket: string;
+
+  /**
+   * Optional key prefix for all objects (e.g., "b3nd/" or "prod/data/")
+   * Must end with "/" if provided.
+   */
+  prefix?: string;
+
+  /**
+   * Schema for validation - must be explicitly provided
+   */
+  schema: Schema;
+}
+
+/**
+ * Configuration for ConsoleClient
+ */
+export interface ConsoleClientConfig {
+  /**
+   * Schema mapping protocol://hostname to validators.
+   *
+   * Keys MUST be in format: "protocol://hostname"
+   * Examples: "mutable://accounts", "immutable://data"
+   */
+  schema: Schema;
+
+  /**
+   * Optional label prefix for console output (default: "b3nd")
+   */
+  label?: string;
+
+  /**
+   * Optional custom logger (defaults to console.log)
+   */
+  logger?: (message: string) => void;
+}
+
+/**
  * Structured error codes for programmatic error handling.
  * Callers can switch on `error.code` without string parsing.
  */

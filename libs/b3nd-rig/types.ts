@@ -78,6 +78,21 @@ export type IpfsExecutorFactory = (
 ) => import("../b3nd-client-ipfs/mod.ts").IpfsExecutor;
 
 /**
+ * Factory function for creating an S3 executor from a bucket URL.
+ */
+export type S3ExecutorFactory = (
+  bucket: string,
+  prefix: string,
+) => import("../b3nd-client-s3/mod.ts").S3Executor;
+
+/**
+ * Factory function for creating an Elasticsearch executor from an endpoint URL.
+ */
+export type ElasticsearchExecutorFactory = (
+  endpoint: string,
+) => import("../b3nd-client-elasticsearch/mod.ts").ElasticsearchExecutor;
+
+/**
  * Configuration for Rig.init().
  *
  * The rig is pure orchestration — build clients outside, hand them in.

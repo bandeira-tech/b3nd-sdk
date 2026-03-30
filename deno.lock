@@ -1522,6 +1522,16 @@
           "jsr:@std/encoding@1"
         ]
       },
+      "libs/b3nd-client-console": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-client-elasticsearch": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
       "libs/b3nd-client-http": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15"
@@ -1543,6 +1553,11 @@
         ]
       },
       "libs/b3nd-client-postgres": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "libs/b3nd-client-s3": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15"
         ]

@@ -9,6 +9,7 @@ import { createMongoExecutor } from "./mongo-executor.ts";
 import { createSqliteExecutor } from "./sqlite-executor.ts";
 import { createFsExecutor } from "./fs-executor.ts";
 import { createIpfsExecutor } from "./ipfs-executor.ts";
+import { createS3Executor } from "./s3-executor.ts";
 
 // ── Phase 1: Standard node from env vars ─────────────────────────────
 
@@ -52,6 +53,7 @@ const executors = {
   sqlite: createSqliteExecutor,
   fs: createFsExecutor,
   ipfs: createIpfsExecutor,
+  s3: createS3Executor,
 };
 
 const backends = await Promise.all(
@@ -248,6 +250,7 @@ if (OPERATOR_KEY) {
         sqlite: createSqliteExecutor,
         fs: createFsExecutor,
         ipfs: createIpfsExecutor,
+        s3: createS3Executor,
       },
     );
     const { pushClients, pullClients } = createPeerClients(config.peers ?? []);

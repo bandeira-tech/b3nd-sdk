@@ -2437,8 +2437,14 @@
                   "children": []
                 },
                 {
-                  "id": "connect-to-a-database-backend-directly",
-                  "title": "Connect to a database backend directly",
+                  "id": "build-a-client-from-a-database-url",
+                  "title": "Build a client from a database URL",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "rig-connect-vs-rig-init",
+                  "title": "`Rig.connect` vs `Rig.init`",
                   "level": 3,
                   "children": []
                 }
@@ -2500,6 +2506,31 @@
               ]
             },
             {
+              "id": "schema-application-level-validation",
+              "title": "Schema — Application-Level Validation",
+              "level": 2,
+              "children": [
+                {
+                  "id": "schema-is-a-rig-concern",
+                  "title": "Schema is a rig concern",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "schema-with-rig-connect",
+                  "title": "Schema with `Rig.connect`",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "schema-hooks-defense-in-depth",
+                  "title": "Schema + hooks = defense in depth",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
               "id": "encrypted-data",
               "title": "Encrypted Data",
               "level": 2,
@@ -2525,8 +2556,8 @@
               ]
             },
             {
-              "id": "hooks-synchronous-pipelines",
-              "title": "Hooks — Synchronous Pipelines",
+              "id": "hooks-flat-typed-single-function",
+              "title": "Hooks — Flat, Typed, Single-Function",
               "level": 2,
               "children": [
                 {
@@ -2554,14 +2585,26 @@
                   "children": []
                 },
                 {
-                  "id": "multiple-pre-hooks-pipeline",
-                  "title": "Multiple pre-hooks (pipeline)",
+                  "id": "rewrite-a-uri-in-a-before-hook",
+                  "title": "Rewrite a URI in a before-hook",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "compose-multiple-checks-in-one-hook",
+                  "title": "Compose multiple checks in one hook",
                   "level": 3,
                   "children": []
                 },
                 {
                   "id": "why-hooks-are-frozen",
                   "title": "Why hooks are frozen",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "the-hook-slots",
+                  "title": "The hook slots",
                   "level": 3,
                   "children": []
                 }
@@ -2665,8 +2708,8 @@
                   "children": []
                 },
                 {
-                  "id": "per-operation-routing-legacy-object-form",
-                  "title": "Per-operation routing (legacy object form)",
+                  "id": "per-operation-routing-object-form",
+                  "title": "Per-operation routing (object form)",
                   "level": 3,
                   "children": []
                 }
@@ -2815,8 +2858,8 @@
                   "children": []
                 },
                 {
-                  "id": "pre-hook-throw-vs-post-hook-throw",
-                  "title": "Pre-hook throw vs post-hook throw",
+                  "id": "before-hook-throw-vs-after-hook-throw",
+                  "title": "Before-hook throw vs after-hook throw",
                   "level": 3,
                   "children": []
                 },
@@ -2862,7 +2905,7 @@
           "uri": "mutable://open/rig/learn/chapters/rig-patterns/rig-patterns"
         }
       ],
-      "updatedAt": 1774866926180
+      "updatedAt": 1774870852775
     },
     {
       "key": "design-exchange",
@@ -4300,5 +4343,5 @@
       "updatedAt": 1773935908449
     }
   ],
-  "generatedAt": 1774866947153
+  "generatedAt": 1774870869017
 }
