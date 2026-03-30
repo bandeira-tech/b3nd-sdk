@@ -133,6 +133,7 @@ if (OPERATOR_KEY) {
   const { extractPublicKeyHex, pemToCryptoKey } = await import(
     "@bandeira-tech/b3nd-sdk/encrypt"
   );
+  const { Identity } = await import("@b3nd/rig");
   const {
     bestEffortClient,
     buildClientsFromSpec,
@@ -185,15 +186,15 @@ if (OPERATOR_KEY) {
     );
   }
 
-  // Set the node identity on the rig
-  rig.identity = await Identity.fromPem(
+  // Build the node identity (separate from the rig — rig is pure orchestration)
+  const nodeIdentity = await Identity.fromPem(
     NODE_PRIVATE_KEY_PEM,
     nodeId,
     NODE_ENCRYPTION_PRIVATE_KEY_HEX,
     encPubHex,
   );
 
-  const signer = rig.identity.signer;
+  const signer = nodeIdentity.signer;
 
   console.log(`[managed] Node ID: ${nodeId} (derived from PEM)`);
   console.log(`[managed] Operator: ${OPERATOR_KEY}`);
@@ -244,6 +245,7 @@ if (OPERATOR_KEY) {
     const localClients = await buildClientsFromSpec(
       config.backends,
       schemaToUse,
+      // deno-lint-ignore no-explicit-any
       {
         postgres: createPostgresExecutor,
         mongo: createMongoExecutor,
@@ -251,7 +253,7 @@ if (OPERATOR_KEY) {
         fs: createFsExecutor,
         ipfs: createIpfsExecutor,
         s3: createS3Executor,
-      },
+      } as any,
     );
     const { pushClients, pullClients } = createPeerClients(config.peers ?? []);
     return createValidatedClient({

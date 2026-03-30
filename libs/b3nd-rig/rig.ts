@@ -28,7 +28,6 @@ import { createClientFromUrl } from "./backend-factory.ts";
 import type { Schema } from "../b3nd-core/types.ts";
 import { msgSchema } from "../b3nd-compose/validators.ts";
 import type { Validator } from "../b3nd-compose/types.ts";
-import type { Identity } from "./identity.ts";
 import type {
   RigConfig,
   RigInfo,
@@ -67,27 +66,24 @@ interface OpClients {
 }
 
 /**
- * Rig — the single import for working with b3nd.
+ * Rig — pure orchestration for b3nd.
  *
- * Two core actions model network communication:
- * - `send({ inputs, outputs })` — send a structured envelope to the network
- * - `receive([uri, data])` — receive an external message into the rig
+ * The rig is identity-free — it routes, validates, and dispatches.
+ * For authenticated operations, use `identity.rig(rig)` to create
+ * an AuthenticatedRig session.
  *
- * Everything else is observation: read, list, watch, exists.
- *
- * Supports per-operation client routing, hooks, events, and observe:
- *
- * @example Basic
+ * @example Unsigned operations
  * ```typescript
- * import { Rig, Identity } from "@b3nd/rig";
+ * const rig = await Rig.connect("https://node.b3nd.net");
+ * await rig.receive(["mutable://open/app/x", data]);
+ * const result = await rig.readData("mutable://open/app/x");
+ * ```
  *
+ * @example Authenticated session
+ * ```typescript
  * const id = await Identity.fromSeed("my-secret");
- * const rig = await Rig.connect("https://node.b3nd.net", id);
- *
- * await rig.send({
- *   inputs: [],
- *   outputs: [["mutable://app/key", { hello: "world" }]],
- * });
+ * const session = id.rig(rig);
+ * await session.send({ inputs: [], outputs: [["mutable://app/key", data]] });
  * ```
  *
  * @example With schema, hooks, events, and observe
@@ -95,7 +91,6 @@ interface OpClients {
  * const rig = await Rig.init({
  *   client: new MemoryClient(),
  *   schema,
- *   identity: id,
  *   hooks: {
  *     beforeReceive: (ctx) => { rateLimit(ctx.uri); },
  *     afterRead: (ctx, result) => { audit(ctx.uri, result); },
@@ -112,9 +107,6 @@ interface OpClients {
  * ```
  */
 export class Rig {
-  /** The current identity. Swappable at any time. */
-  identity: Identity | null;
-
   // ── Internal state ──
   private readonly _clients: OpClients;
   private readonly _schema: Schema | null;
@@ -127,7 +119,6 @@ export class Rig {
 
   private constructor(
     clients: OpClients,
-    identity: Identity | null,
     schema: Schema | null,
     validator: Validator | null,
     hooks: RigHooks,
@@ -136,7 +127,6 @@ export class Rig {
     sseBaseUrl: string | null = null,
   ) {
     this._clients = clients;
-    this.identity = identity;
     this._schema = schema;
     this._validator = validator;
     this._hooks = hooks;
@@ -241,7 +231,6 @@ export class Rig {
 
     return new Rig(
       opClients,
-      config.identity ?? null,
       schema,
       validator,
       hooks,
@@ -254,45 +243,34 @@ export class Rig {
   // ── Core actions ──
 
   /**
-   * Send a structured envelope to the network.
+   * Send a pre-built MessageData envelope to the network.
    *
-   * Builds a MessageData envelope with auth (signed by the current identity),
-   * content-addresses it to `hash://sha256/{hex}`, and sends it. The receiving
-   * node unpacks the outputs and processes them according to its schema.
+   * Content-addresses the message to `hash://sha256/{hex}` and dispatches it.
+   * The rig does NOT sign — pass a pre-signed MessageData (use
+   * `identity.rig(rig).send()` or `identity.sign()` for signing).
    *
-   * This is the Rig's outward action — messages going into the network.
-   *
-   * @throws If no identity is set.
-   *
-   * @example
+   * @example Pre-signed via AuthenticatedRig
    * ```typescript
-   * await rig.send({
-   *   inputs: ["mutable://app/counter"],
-   *   outputs: [["mutable://app/counter", { value: 42 }]],
-   * });
+   * const session = identity.rig(rig);
+   * await session.send({ inputs: [], outputs: [["mutable://app/x", data]] });
+   * ```
+   *
+   * @example Manual signing
+   * ```typescript
+   * const payload = { inputs: [], outputs: [["mutable://app/x", data]] };
+   * const auth = [await identity.sign(payload)];
+   * await rig.send({ auth, payload });
    * ```
    */
   async send<V = unknown>(
-    data: { inputs: string[]; outputs: [uri: string, value: V][] },
+    data: MessageData<V>,
   ): Promise<SendResult> {
-    if (!this.identity) {
-      throw new Error(
-        "Rig.send: no identity set — cannot sign. Set rig.identity first.",
-      );
-    }
-
     // Before-hook — throw to reject
     const ctx: SendCtx = {
-      envelope: { inputs: data.inputs, outputs: data.outputs },
-      identity: this.identity,
+      message: data,
     };
     const sendCtx = await runBefore(this._hooks.beforeSend, ctx);
-    const envelope = sendCtx.envelope;
-
-    // Execute
-    const payload = { inputs: envelope.inputs, outputs: envelope.outputs };
-    const auth = [await this.identity.sign(payload)];
-    const messageData = { auth, payload } as MessageData<V>;
+    const messageData = sendCtx.message;
 
     let result: SendResult;
     try {
@@ -314,11 +292,11 @@ export class Rig {
       this._events.emit("send:success", {
         op: "send",
         uri: result.uri,
-        data: envelope,
+        data: messageData,
         result,
         ts: Date.now(),
       });
-      for (const [outputUri, outputData] of envelope.outputs) {
+      for (const [outputUri, outputData] of messageData.payload.outputs) {
         this._observers.match(outputUri, outputData);
       }
     } else {
@@ -668,68 +646,6 @@ export class Rig {
   }
 
   /**
-   * Send a signed envelope with encrypted output values.
-   *
-   * Each output value is JSON-serialized, encrypted to the specified
-   * recipient (defaults to self), and stored as an EncryptedPayload.
-   * The envelope is then signed and content-addressed, just like `send()`.
-   *
-   * Use `readEncrypted()` to read the values back.
-   *
-   * @param data - Inputs and outputs for the envelope.
-   * @param recipientEncPubkeyHex - Recipient's X25519 public key hex.
-   *   Defaults to this identity's own encryption public key (encrypt to self).
-   * @throws If no identity is set or identity lacks encryption keys.
-   *
-   * @example
-   * ```typescript
-   * // Encrypt to self
-   * await rig.sendEncrypted({
-   *   inputs: [],
-   *   outputs: [["mutable://accounts/:key/secrets", { apiKey: "sk-..." }]],
-   * });
-   *
-   * // Encrypt to another party
-   * await rig.sendEncrypted({
-   *   inputs: [],
-   *   outputs: [["mutable://shared/msg", { text: "hello" }]],
-   * }, recipientPubkey);
-   * ```
-   */
-  async sendEncrypted<V = unknown>(
-    data: { inputs: string[]; outputs: [uri: string, value: V][] },
-    recipientEncPubkeyHex?: string,
-  ): Promise<SendResult> {
-    if (!this.identity) {
-      throw new Error(
-        "Rig.sendEncrypted: no identity set — cannot sign or encrypt.",
-      );
-    }
-    if (!this.identity.canEncrypt) {
-      throw new Error(
-        "Rig.sendEncrypted: identity has no encryption keys.",
-      );
-    }
-
-    const recipient = recipientEncPubkeyHex || this.identity.encryptionPubkey;
-
-    // Encrypt each output value
-    const encryptedOutputs: [string, unknown][] = await Promise.all(
-      data.outputs.map(async ([uri, value]) => {
-        const plaintext = new TextEncoder().encode(JSON.stringify(value));
-        const encrypted = await this.identity!.encrypt(plaintext, recipient);
-        return [uri, encrypted] as [string, unknown];
-      }),
-    );
-
-    // Delegate to send() which handles hooks/events/observe
-    return this.send({
-      inputs: data.inputs,
-      outputs: encryptedOutputs,
-    });
-  }
-
-  /**
    * Count items under a URI prefix.
    *
    * Convenience for `listData(uri).length` — useful in dashboards,
@@ -744,88 +660,6 @@ export class Rig {
   async count(uri: string, options?: ListOptions): Promise<number> {
     const uris = await this.listData(uri, options);
     return uris.length;
-  }
-
-  /**
-   * Read and decrypt JSON data from a URI.
-   *
-   * Reads an EncryptedPayload from the backend, decrypts it with this
-   * identity's encryption private key, and parses the JSON. Returns `null`
-   * if the URI has no data.
-   *
-   * @throws If no identity is set or identity lacks decryption keys.
-   * @throws If the stored data is not a valid EncryptedPayload.
-   *
-   * @example
-   * ```typescript
-   * const secrets = await rig.readEncrypted<{ apiKey: string }>(
-   *   "mutable://accounts/:key/secrets",
-   * );
-   * if (secrets) {
-   *   console.log(secrets.apiKey);
-   * }
-   * ```
-   */
-  async readEncrypted<T = unknown>(uri: string): Promise<T | null> {
-    if (!this.identity) {
-      throw new Error("Rig.readEncrypted: no identity set.");
-    }
-    if (!this.identity.canEncrypt) {
-      throw new Error(
-        "Rig.readEncrypted: identity has no encryption/decryption keys.",
-      );
-    }
-
-    const result = await this.read(uri);
-    if (!result.success || !result.record) return null;
-
-    const payload = result.record.data;
-    if (
-      !payload || typeof payload !== "object" ||
-      !("data" in (payload as Record<string, unknown>)) ||
-      !("nonce" in (payload as Record<string, unknown>))
-    ) {
-      throw new Error(
-        `Rig.readEncrypted: data at ${uri} is not an EncryptedPayload`,
-      );
-    }
-
-    const decrypted = await this.identity.decrypt(
-      payload as import("../b3nd-encrypt/mod.ts").EncryptedPayload,
-    );
-    return JSON.parse(new TextDecoder().decode(decrypted)) as T;
-  }
-
-  /**
-   * Read and decrypt multiple URIs in parallel.
-   *
-   * Returns an array of results in the same order as the input URIs.
-   * Missing entries are returned as `null`.
-   *
-   * @throws If no identity is set or identity lacks decryption keys.
-   *
-   * @example
-   * ```typescript
-   * const [a, b] = await rig.readEncryptedMany<{ key: string }>([
-   *   "mutable://secrets/a",
-   *   "mutable://secrets/b",
-   * ]);
-   * ```
-   */
-  async readEncryptedMany<T = unknown>(
-    uris: readonly string[],
-  ): Promise<(T | null)[]> {
-    if (uris.length === 0) return [];
-    if (!this.identity) {
-      throw new Error("Rig.readEncryptedMany: no identity set.");
-    }
-    if (!this.identity.canEncrypt) {
-      throw new Error(
-        "Rig.readEncryptedMany: identity has no encryption/decryption keys.",
-      );
-    }
-
-    return Promise.all(uris.map((uri) => this.readEncrypted<T>(uri)));
   }
 
   /** Delete data at a URI. */
@@ -938,11 +772,6 @@ export class Rig {
     if (h.afterDelete) hooks.push("afterDelete");
 
     return {
-      pubkey: this.identity?.pubkey ?? null,
-      encryptionPubkey: this.identity?.encryptionPubkey ?? null,
-      canSign: this.canSign,
-      canEncrypt: this.canEncrypt,
-      hasIdentity: this.identity !== null,
       behavior: {
         hooks,
         events: this._events.counts(),
@@ -1005,43 +834,22 @@ export class Rig {
    * const data = await rig.read("mutable://open/key");
    * ```
    *
-   * @example With identity
+   * @example With authenticated session
    * ```typescript
+   * const rig = await Rig.connect("memory://");
    * const id = await Identity.fromSeed("my-secret");
-   * const rig = await Rig.connect("memory://", id);
-   * await rig.send({ inputs: [], outputs: [["mutable://open/x", 1]] });
+   * await id.rig(rig).send({ inputs: [], outputs: [["mutable://open/x", 1]] });
    * ```
    */
   static async connect(
     url: string,
-    identity?: Identity,
   ): Promise<Rig> {
     const client = await createClientFromUrl(url);
     const sseBaseUrl =
       url.startsWith("http://") || url.startsWith("https://")
         ? url.replace(/\/$/, "")
         : undefined;
-    return Rig.init({ client, identity, sseBaseUrl });
-  }
-
-  /**
-   * Check if this rig has a signing identity.
-   *
-   * Useful for UI logic that needs to know whether send
-   * is available without catching errors.
-   */
-  get canSign(): boolean {
-    return this.identity !== null && this.identity.canSign;
-  }
-
-  /**
-   * Check if this rig has an encryption-capable identity.
-   *
-   * Useful for UI logic that needs to know whether encrypt/decrypt
-   * operations are available.
-   */
-  get canEncrypt(): boolean {
-    return this.identity !== null && this.identity.canEncrypt;
+    return Rig.init({ client, sseBaseUrl });
   }
 
   // ── Runtime API: events, observe ──
@@ -1426,22 +1234,22 @@ export class Rig {
   }
 
   /**
-   * Send multiple envelopes in sequence.
+   * Send multiple pre-built MessageData envelopes in sequence.
    *
-   * Each entry becomes its own signed envelope with its own content hash.
-   * Useful when a single logical action requires multiple state transitions
-   * across different protocol domains.
+   * Each entry becomes its own content-hashed envelope. Use
+   * `session.sendMany()` (on AuthenticatedRig) for the signed convenience.
    *
    * @example
    * ```typescript
-   * const results = await rig.sendMany([
+   * const session = identity.rig(rig);
+   * const results = await session.sendMany([
    *   { inputs: [], outputs: [["mutable://app/counter", { value: 1 }]] },
    *   { inputs: [], outputs: [["mutable://app/log/1", { event: "init" }]] },
    * ]);
    * ```
    */
   async sendMany<V = unknown>(
-    envelopes: { inputs: string[]; outputs: [uri: string, value: V][] }[],
+    envelopes: MessageData<V>[],
   ): Promise<SendResult[]> {
     if (envelopes.length === 0) return [];
     const results: SendResult[] = [];

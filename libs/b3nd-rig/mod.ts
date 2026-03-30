@@ -10,16 +10,17 @@
  * ```typescript
  * import { Rig, Identity } from "@b3nd/rig";
  *
+ * const rig = await Rig.connect("https://node.b3nd.net");
  * const id = await Identity.fromSeed("my-secret");
- * const rig = await Rig.connect("https://node.b3nd.net", id);
  *
- * // Auto-signed send
- * await rig.send({
+ * // Identity drives, rig delivers
+ * const session = id.rig(rig);
+ * await session.send({
  *   inputs: [],
  *   outputs: [["mutable://app/key", { hello: "world" }]],
  * });
  *
- * // Read
+ * // Read (no identity needed)
  * const result = await rig.read("mutable://app/key");
  * ```
  */
@@ -27,6 +28,7 @@
 // Core
 export { Identity } from "./identity.ts";
 export type { ExportedIdentity } from "./identity.ts";
+export { AuthenticatedRig } from "./authenticated-rig.ts";
 export { Rig } from "./rig.ts";
 export type {
   HandlerOptions,

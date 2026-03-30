@@ -36,13 +36,14 @@ const data = await rig.readData("mutable://open/test/hello");
 
 ### Connect with identity
 
-Signed writes require an identity. Seed-based is deterministic — same seed, same keys.
+Signed writes require an identity. The rig is identity-free — identity drives authenticated operations via `identity.rig(rig)`.
 
 ```typescript
 const id = await Identity.fromSeed("alice-secret-seed-phrase");
-const rig = await Rig.connect("https://node.example.com", id);
+const rig = await Rig.connect("https://node.example.com");
+const session = id.rig(rig);
 
-await rig.send({
+await session.send({
   inputs: [],
   outputs: [["mutable://accounts/" + id.pubkey + "/app/profile", { name: "Alice" }]],
 });
@@ -61,14 +62,15 @@ console.log(id.pubkey);           // Ed25519 public key hex
 console.log(id.encryptionPubkey); // X25519 public key hex
 
 // Export for localStorage / secure storage
-const exported = id.export();
+const exported = await id.export();
 localStorage.setItem("identity", JSON.stringify(exported));
 
-// Later: restore
-const restored = Identity.fromExported(
+// Later: restore and create a session
+const restored = await Identity.fromExport(
   JSON.parse(localStorage.getItem("identity")!),
 );
-const rig = await Rig.connect("https://node.example.com", restored);
+const rig = await Rig.connect("https://node.example.com");
+const session = restored.rig(rig);
 ```
 
 ---
@@ -113,11 +115,11 @@ const rig = await Rig.init({ client, schema: appSchema });
 
 ```typescript
 // One-liner — builds HttpClient or MemoryClient for you
-const rig = await Rig.connect("https://node.example.com", identity);
+const rig = await Rig.connect("https://node.example.com");
 
 // Explicit — you bring the client
 const client = new HttpClient({ url: "https://node.example.com" });
-const rig = await Rig.init({ client, identity, schema: mySchema });
+const rig = await Rig.init({ client, schema: mySchema });
 ```
 
 ---
@@ -232,13 +234,14 @@ const results = await rig.deleteMany([
 
 ### Signed envelope (send)
 
-`send()` wraps outputs in a content-addressed, signed envelope. This is how you write to `accounts://` programs or any schema that requires identity.
+`session.send()` wraps outputs in a content-addressed, signed envelope. This is how you write to `accounts://` programs or any schema that requires identity. The identity signs; the rig delivers.
 
 ```typescript
 const id = await Identity.fromSeed("alice-secret");
-const rig = await Rig.connect("https://node.example.com", id);
+const rig = await Rig.connect("https://node.example.com");
+const session = id.rig(rig);
 
-await rig.send({
+await session.send({
   inputs: ["mutable://accounts/" + id.pubkey + "/app/balance"],
   outputs: [
     ["mutable://accounts/" + id.pubkey + "/app/balance", { amount: 100 }],
@@ -330,16 +333,17 @@ Store secrets only you can decrypt. The identity's X25519 key is used automatica
 
 ```typescript
 const id = await Identity.generate();
-const rig = await Rig.connect("memory://", id);
+const rig = await Rig.connect("memory://");
+const session = id.rig(rig);
 
-await rig.sendEncrypted({
+await session.sendEncrypted({
   inputs: [],
   outputs: [
     ["mutable://accounts/" + id.pubkey + "/secrets", { apiKey: "sk-abc123" }],
   ],
 });
 
-const secrets = await rig.readEncrypted<{ apiKey: string }>(
+const secrets = await session.readEncrypted<{ apiKey: string }>(
   "mutable://accounts/" + id.pubkey + "/secrets",
 );
 console.log(secrets?.apiKey); // "sk-abc123"
@@ -355,10 +359,11 @@ Send a message only the recipient can read.
 const alice = await Identity.generate();
 const bob = await Identity.generate();
 
-const rig = await Rig.connect("memory://", alice);
+const rig = await Rig.connect("memory://");
+const aliceSession = alice.rig(rig);
 
 // Alice encrypts to Bob's encryption public key
-await rig.sendEncrypted(
+await aliceSession.sendEncrypted(
   {
     inputs: [],
     outputs: [
@@ -368,9 +373,11 @@ await rig.sendEncrypted(
   bob.encryptionPubkey,
 );
 
-// Bob decrypts (needs his own rig with his identity)
-const bobRig = await Rig.connect("memory://", bob);
-// (assuming shared backend — in practice both point to the same node)
+// Bob decrypts (same rig, different identity session)
+const bobSession = bob.rig(rig);
+const msg = await bobSession.readEncrypted<{ text: string }>(
+  "mutable://inbox/" + bob.pubkey + "/msg/001",
+);
 ```
 
 ---
@@ -378,7 +385,8 @@ const bobRig = await Rig.connect("memory://", bob);
 ### Batch decrypt
 
 ```typescript
-const [secretA, secretB] = await rig.readEncryptedMany<{ key: string }>([
+const session = id.rig(rig);
+const [secretA, secretB] = await session.readEncryptedMany<{ key: string }>([
   "mutable://accounts/" + id.pubkey + "/secrets/a",
   "mutable://accounts/" + id.pubkey + "/secrets/b",
 ]);
@@ -1041,20 +1049,42 @@ const outerRig = await Rig.init({
 
 ## Identity Patterns
 
+### Identity drives, rig delivers
+
+The rig is identity-free — pure orchestration. Identity is external: you create a session with `identity.rig(rig)` for authenticated operations. Multiple identities can share the same rig.
+
+```typescript
+const rig = await Rig.connect("https://node.example.com");
+const alice = await Identity.fromSeed("alice-secret");
+const bob = await Identity.fromSeed("bob-secret");
+
+// Each identity gets its own session — same rig, different signers
+const aliceSession = alice.rig(rig);
+const bobSession = bob.rig(rig);
+
+await aliceSession.send({ inputs: [], outputs: [[aliceUri, data]] });
+await bobSession.send({ inputs: [], outputs: [[bobUri, data]] });
+```
+
+---
+
 ### Check capabilities before acting
 
 ```typescript
 const rig = await Rig.connect("https://node.example.com");
+const identity = getIdentityOrNull(); // your app logic
 
-if (rig.canSign) {
-  await rig.send({ inputs: [], outputs: [[uri, data]] });
+if (identity?.canSign) {
+  const session = identity.rig(rig);
+  await session.send({ inputs: [], outputs: [[uri, data]] });
 } else {
   // No identity — fall back to unsigned receive
   await rig.receive([uri, data]);
 }
 
-if (rig.canEncrypt) {
-  await rig.sendEncrypted({ inputs: [], outputs: [[uri, secret]] });
+if (identity?.canEncrypt) {
+  const session = identity.rig(rig);
+  await session.sendEncrypted({ inputs: [], outputs: [[uri, secret]] });
 }
 ```
 
@@ -1065,10 +1095,6 @@ if (rig.canEncrypt) {
 ```typescript
 const info = rig.info();
 
-console.log(info.pubkey);       // hex or null
-console.log(info.hasIdentity);  // boolean
-console.log(info.canSign);      // boolean
-console.log(info.canEncrypt);   // boolean
 console.log(info.behavior.hooks);     // ["beforeReceive", "afterRead", ...]
 console.log(info.behavior.events);    // { "send:success": 1, "*:error": 1 }
 console.log(info.behavior.observers); // 3
@@ -1108,10 +1134,7 @@ Deno.serve({ port: 9942 }, rig.handler());
 const remote = new HttpClient({ url: "https://node.example.com" });
 const cache = new MemoryClient();
 
-const id = Identity.fromExported(savedIdentity);
-
 const rig = await Rig.init({
-  identity: id,
   clients: [
     withFilter(remote, {
       receive: ["mutable://*", "hash://*"],
@@ -1133,6 +1156,10 @@ const rig = await Rig.init({
     },
   },
 });
+
+// Identity is separate — create a session for authenticated writes
+const id = await Identity.fromExport(savedIdentity);
+const session = id.rig(rig);
 ```
 
 ---
@@ -1247,18 +1274,24 @@ await rig.cleanup();
 
 ## Edge Cases and Gotchas
 
-### No identity + send = throw
+### Rig.send() requires pre-built MessageData
 
-`send()` requires an identity because it signs the envelope. Use `receive()` for unsigned writes.
+The rig's `send()` accepts pre-signed `MessageData` — it never signs. Use `session.send()` for the convenient sign-and-send workflow, or `rig.receive()` for unsigned writes.
 
 ```typescript
 const rig = await Rig.connect("memory://");
 
-// This works (unsigned)
+// Unsigned write — no identity needed
 await rig.receive(["mutable://open/app/x", { v: 1 }]);
 
-// This throws: "no identity set"
-await rig.send({ inputs: [], outputs: [["mutable://open/app/x", { v: 2 }]] });
+// Signed write — identity drives, rig delivers
+const session = id.rig(rig);
+await session.send({ inputs: [], outputs: [["mutable://open/app/x", { v: 2 }]] });
+
+// Manual signing — build MessageData yourself
+const payload = { inputs: [], outputs: [["mutable://open/app/x", { v: 3 }]] };
+const auth = [await id.sign(payload)];
+await rig.send({ auth, payload });
 ```
 
 ---
@@ -1366,16 +1399,17 @@ const required = await rig.readOrThrow<Profile>("mutable://open/app/profile");
 ### receive vs send
 
 `receive()` is the node's ingest — takes a `[uri, data]` tuple, no signature.
-`send()` is the identity's outbound — wraps outputs in a signed envelope.
+`session.send()` is the identity's outbound — signs and wraps outputs in a content-addressed envelope.
 
 ```typescript
 // receive: direct write, no identity needed
 await rig.receive(["mutable://open/app/x", data]);
 
-// send: signed envelope, identity required
-await rig.send({
+// send: signed envelope via identity session
+const session = id.rig(rig);
+await session.send({
   inputs: [],
-  outputs: [["mutable://accounts/:key/app/x", data]],
+  outputs: [["mutable://accounts/" + id.pubkey + "/app/x", data]],
 });
 ```
 
@@ -1384,27 +1418,27 @@ await rig.send({
 ## Summary: The Rig Mental Model
 
 ```
-┌─────────────────────────────────────────────────┐
-│                      Rig                        │
-│                                                 │
-│  Identity    Schema     Hooks      Events       │
-│  (sign)      (validate) (guard)    (notify)     │
-│                                                 │
-│           ┌────────────────┐                    │
-│           │  Core Operation │                   │
-│           └───────┬────────┘                    │
-│                   │                             │
-│             ┌─────┴─────┐                       │
-│             │  Observe   │                       │
-│             │ (patterns) │                       │
-│             └───────────┘                       │
-│                   │                             │
-│     ┌─────────────┼─────────────┐               │
-│     │ accepts?    │ accepts?    │               │
-│     ▼             ▼             ▼               │
-│   Client A    Client B    Client C              │
-│   (plumbing)  (plumbing)  (plumbing)            │
-└─────────────────────────────────────────────────┘
+  Identity                   Rig
+  (external)          ┌──────────────────────────────────────┐
+     │                │                                      │
+     │  .rig(rig)     │  Schema     Hooks      Events        │
+     └───────►        │  (validate) (guard)    (notify)      │
+  AuthenticatedRig    │                                      │
+  (sign, encrypt)     │         ┌────────────────┐           │
+     │                │         │  Core Operation │           │
+     │  .send()       │         └───────┬────────┘           │
+     └───────►        │                 │                    │
+                      │           ┌─────┴─────┐              │
+                      │           │  Observe   │              │
+                      │           │ (patterns) │              │
+                      │           └───────────┘              │
+                      │                 │                    │
+                      │   ┌─────────────┼─────────────┐      │
+                      │   │ accepts?    │ accepts?    │      │
+                      │   ▼             ▼             ▼      │
+                      │ Client A    Client B    Client C     │
+                      │ (plumbing)  (plumbing)  (plumbing)   │
+                      └──────────────────────────────────────┘
 ```
 
-The rig is the single entry point. Identity signs. Schema validates. Hooks guard. Clients are pure plumbing — they store and retrieve, nothing more. Events notify. Observers react. Everything flows through one place.
+The rig is pure orchestration — identity-free. Identity is the security principal: it signs and encrypts externally, then dispatches pre-signed messages through the rig. `identity.rig(rig)` creates an `AuthenticatedRig` session. Schema validates. Hooks guard. Clients are pure plumbing. Events notify. Observers react. A compromised rig can dispatch but cannot forge signatures — the security boundary is the identity, not the rig.

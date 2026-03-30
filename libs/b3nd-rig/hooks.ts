@@ -14,14 +14,13 @@
  */
 
 import type { ListOptions } from "../b3nd-core/types.ts";
-import type { Identity } from "./identity.ts";
+import type { MessageData } from "../b3nd-msg/data/types.ts";
 
 // ── Per-operation context types ──
 
-/** Context for a send hook. */
+/** Context for a send hook. Receives the pre-built MessageData. */
 export interface SendCtx {
-  envelope: { inputs: string[]; outputs: [string, unknown][] };
-  identity: Identity | null;
+  message: MessageData;
 }
 
 /** Context for a receive hook. */

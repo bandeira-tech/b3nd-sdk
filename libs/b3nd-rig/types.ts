@@ -102,9 +102,6 @@ export interface RigConfig {
   /** Pre-built client for all operations. */
   client?: NodeProtocolInterface;
 
-  /** Optional identity (can be set/swapped later). */
-  identity?: import("./identity.ts").Identity;
-
   /**
    * Application-level schema — validates URIs before they reach clients.
    * Maps program keys (e.g. `"mutable://open"`) to validation functions.
@@ -230,16 +227,6 @@ export interface RigConfig {
  * logging, and UI display of identity/capability status.
  */
 export interface RigInfo {
-  /** Ed25519 public key hex, or null if no identity. */
-  pubkey: string | null;
-  /** X25519 encryption public key hex, or null. */
-  encryptionPubkey: string | null;
-  /** Whether the rig can sign messages (has signing private key). */
-  canSign: boolean;
-  /** Whether the rig can encrypt/decrypt (has encryption keys). */
-  canEncrypt: boolean;
-  /** Whether an identity is attached at all. */
-  hasIdentity: boolean;
   /** Behavior layer counts — hooks, events, and observers registered. */
   behavior: {
     hooks: string[];
