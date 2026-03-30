@@ -12,10 +12,12 @@
  *   file://               → FilesystemClient (requires executor)
  *   ipfs://               → IpfsClient (requires executor)
  *   s3://                 → S3Client (requires executor)
+ *   elasticsearch://      → ElasticsearchClient (requires executor)
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
 import type {
+  ElasticsearchExecutorFactory,
   FsExecutorFactory,
   IpfsExecutorFactory,
   MongoExecutorFactory,
@@ -41,6 +43,7 @@ export const SUPPORTED_PROTOCOLS = [
   "file://",
   "ipfs://",
   "s3://",
+  "elasticsearch://",
 ] as const;
 
 /** Returns the list of supported backend URL protocols. */
@@ -71,6 +74,7 @@ export interface BackendFactoryOptions {
     fs?: FsExecutorFactory;
     ipfs?: IpfsExecutorFactory;
     s3?: S3ExecutorFactory;
+    elasticsearch?: ElasticsearchExecutorFactory;
   };
 }
 
@@ -254,6 +258,33 @@ export async function createClientFromUrl(
           bucket,
           prefix,
           schema,
+        },
+        executor,
+      );
+    }
+
+    case "elasticsearch:": {
+      if (!options.executors?.elasticsearch) {
+        throw new Error(
+          `Elasticsearch URL requires an executor factory. Pass executors.elasticsearch to Rig.init().`,
+        );
+      }
+      const esSchema = options.schema;
+      if (!esSchema) {
+        throw new Error("Elasticsearch backend requires a schema.");
+      }
+      // elasticsearch://host:port → endpoint = http://host:port
+      const endpoint = `http://${parsed.hostname}${
+        parsed.port ? ":" + parsed.port : ":9200"
+      }`;
+      const { ElasticsearchClient } = await import(
+        "../b3nd-client-elasticsearch/mod.ts"
+      );
+      const executor = options.executors.elasticsearch(endpoint);
+      return new ElasticsearchClient(
+        {
+          indexPrefix: "b3nd",
+          schema: esSchema,
         },
         executor,
       );

@@ -95,6 +95,11 @@ export { FilesystemClient } from "../libs/b3nd-client-fs/mod.ts";
 export { ConsoleClient } from "../libs/b3nd-client-console/mod.ts";
 export { S3Client } from "../libs/b3nd-client-s3/mod.ts";
 export type { S3Executor } from "../libs/b3nd-client-s3/mod.ts";
+export { ElasticsearchClient } from "../libs/b3nd-client-elasticsearch/mod.ts";
+export type {
+  ElasticsearchClientConfig,
+  ElasticsearchExecutor,
+} from "../libs/b3nd-client-elasticsearch/mod.ts";
 // Note: LocalStorageClient and IndexedDBClient are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 
@@ -202,6 +207,7 @@ export {
   SUPPORTED_PROTOCOLS,
 } from "../libs/b3nd-rig/mod.ts";
 export type {
+  ElasticsearchExecutorFactory,
   ExportedIdentity,
   HandlerOptions,
   MongoExecutor,

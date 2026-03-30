@@ -13,7 +13,8 @@
     "./client-fs": "./src/client-fs.ts",
     "./client-ipfs": "./src/client-ipfs.ts",
     "./client-s3": "./src/client-s3.ts",
-    "./client-console": "./src/client-console.ts"
+    "./client-console": "./src/client-console.ts",
+    "./client-elasticsearch": "./src/client-elasticsearch.ts"
   },
   "nodeModulesDir": "auto",
   "imports": {
@@ -93,6 +94,7 @@
     "libs/b3nd-wallet-server",
     "libs/b3nd-apps",
     "libs/b3nd-managed-node",
+    "libs/b3nd-client-elasticsearch",
     "libs/b3nd-rig",
     "libs/firecat-protocol",
     "apps/apps-node",
