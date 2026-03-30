@@ -79,31 +79,30 @@ export type IpfsExecutorFactory = (
 
 /**
  * Configuration for Rig.init().
+ *
+ * The rig is pure orchestration — build clients outside, hand them in.
+ * Use `Rig.connect(url)` for the common one-liner case.
  */
 export interface RigConfig {
-  /** URL(s) → client(s). Strings are auto-resolved by protocol. */
-  use?: string | string[];
-
-  /** Pre-built client — bypasses URL resolution entirely. */
+  /** Pre-built client for all operations. */
   client?: NodeProtocolInterface;
 
   /** Optional identity (can be set/swapped later). */
   identity?: import("./identity.ts").Identity;
 
-  /** Optional schema for local validation on server-side backends. */
+  /**
+   * Application-level schema — validates URIs before they reach clients.
+   * Maps program keys (e.g. `"mutable://open"`) to validation functions.
+   * The rig rejects unknown domains before the message ever touches a client.
+   */
   schema?: Schema;
 
   /**
-   * Executor factories for database backends.
-   * Required when using postgresql://, mongodb://, or sqlite:// URLs.
+   * SSE base URL for pattern subscriptions.
+   * Set automatically by `Rig.connect()` for HTTP URLs.
+   * Set explicitly when using `Rig.init({ client })` with an HTTP backend.
    */
-  executors?: {
-    postgres?: PostgresExecutorFactory;
-    mongo?: MongoExecutorFactory;
-    sqlite?: SqliteExecutorFactory;
-    fs?: FsExecutorFactory;
-    ipfs?: IpfsExecutorFactory;
-  };
+  sseBaseUrl?: string;
 
   /**
    * Clients to connect to the rig.
@@ -127,14 +126,14 @@ export interface RigConfig {
    * });
    * ```
    *
-   * **Object form (legacy):** Per-operation routing overrides.
-   * Each entry is either a pre-built client or URL string(s) to resolve.
+   * **Object form:** Per-operation routing with pre-built clients.
+   * Requires `client` as the default fallback.
    *
    * ```typescript
    * const rig = await Rig.init({
-   *   use: "postgresql://primary",
+   *   client: primaryClient,
    *   clients: {
-   *     read: ["redis://cache", "postgresql://primary"],
+   *     read: cacheClient,
    *   },
    * });
    * ```
@@ -142,12 +141,11 @@ export interface RigConfig {
   clients?:
     | (NodeProtocolInterface | FilteredClient)[]
     | {
-      send?: string[] | NodeProtocolInterface;
-      receive?: string[] | NodeProtocolInterface;
-      read?: string[] | NodeProtocolInterface;
-      list?: string[] | NodeProtocolInterface;
-      delete?: string[] | NodeProtocolInterface;
-      observe?: string[] | NodeProtocolInterface;
+      send?: NodeProtocolInterface;
+      receive?: NodeProtocolInterface;
+      read?: NodeProtocolInterface;
+      list?: NodeProtocolInterface;
+      delete?: NodeProtocolInterface;
     };
 
   /**

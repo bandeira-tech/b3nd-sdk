@@ -65,20 +65,15 @@ type TargetResult =
 
 function target(
   uri: string,
-  schema: Schema,
+  _schema: Schema,
   storage: MemoryClientStorage,
 ): TargetResult {
   const url = URL.parse(uri)!;
   const program = `${url.protocol}//${url.hostname}`;
 
-  if (!schema[program]) {
-    return { success: false, error: "Program not found" };
-  }
-
+  // Auto-create storage for any program — validation is the rig's concern.
   let node = storage.get(program);
   if (!node) {
-    // Lazy-init storage for programs that are in the schema but weren't
-    // pre-initialized (e.g., dynamic/proxy schemas).
     node = { children: new Map() };
     storage.set(program, node);
   }
@@ -145,19 +140,21 @@ export class MemoryClient implements NodeProtocolInterface {
     }
     const { program, node, parts } = result;
 
-    // Validate the write against the schema
+    // Validate the write against the schema (if a validator exists for this program)
     const validator = this.schema[program];
-    const validation = await validator({
-      uri,
-      value: data,
-      read: this.read.bind(this),
-      ...(this._messageContext ? { message: this._messageContext } : {}),
-    });
-    if (!validation.valid) {
-      return {
-        accepted: false,
-        error: validation.error || "Validation failed",
-      };
+    if (validator) {
+      const validation = await validator({
+        uri,
+        value: data,
+        read: this.read.bind(this),
+        ...(this._messageContext ? { message: this._messageContext } : {}),
+      });
+      if (!validation.valid) {
+        return {
+          accepted: false,
+          error: validation.error || "Validation failed",
+        };
+      }
     }
 
     // Store the data at this URI

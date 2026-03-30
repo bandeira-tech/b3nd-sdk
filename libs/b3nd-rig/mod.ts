@@ -11,10 +11,7 @@
  * import { Rig, Identity } from "@b3nd/rig";
  *
  * const id = await Identity.fromSeed("my-secret");
- * const rig = await Rig.init({
- *   identity: id,
- *   use: "https://node.b3nd.net",
- * });
+ * const rig = await Rig.connect("https://node.b3nd.net", id);
  *
  * // Auto-signed send
  * await rig.send({

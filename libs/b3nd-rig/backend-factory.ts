@@ -100,7 +100,7 @@ export async function createClientFromUrl(
     case "postgres:": {
       if (!options.executors?.postgres) {
         throw new Error(
-          `PostgreSQL URL requires an executor factory. Pass executors.postgres to Rig.init().`,
+          `PostgreSQL URL requires an executor factory. Pass executors.postgres to createClientFromUrl().`,
         );
       }
       const { PostgresClient } = await import("../b3nd-client-postgres/mod.ts");
@@ -127,7 +127,7 @@ export async function createClientFromUrl(
     case "mongodb+srv:": {
       if (!options.executors?.mongo) {
         throw new Error(
-          `MongoDB URL requires an executor factory. Pass executors.mongo to Rig.init().`,
+          `MongoDB URL requires an executor factory. Pass executors.mongo to createClientFromUrl().`,
         );
       }
       const schema = options.schema;
@@ -157,7 +157,7 @@ export async function createClientFromUrl(
     case "sqlite:": {
       if (!options.executors?.sqlite) {
         throw new Error(
-          `SQLite URL requires an executor factory. Pass executors.sqlite to Rig.init().`,
+          `SQLite URL requires an executor factory. Pass executors.sqlite to createClientFromUrl().`,
         );
       }
       const schema = options.schema;
@@ -183,7 +183,7 @@ export async function createClientFromUrl(
     case "file:": {
       if (!options.executors?.fs) {
         throw new Error(
-          `File URL requires an executor factory. Pass executors.fs to Rig.init().`,
+          `File URL requires an executor factory. Pass executors.fs to createClientFromUrl().`,
         );
       }
       const schema = options.schema;
@@ -206,7 +206,7 @@ export async function createClientFromUrl(
     case "ipfs:": {
       if (!options.executors?.ipfs) {
         throw new Error(
-          `IPFS URL requires an executor factory. Pass executors.ipfs to Rig.init().`,
+          `IPFS URL requires an executor factory. Pass executors.ipfs to createClientFromUrl().`,
         );
       }
       const schema = options.schema;

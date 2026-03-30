@@ -24,11 +24,10 @@ import type {
 import type { MessageData } from "../b3nd-msg/data/types.ts";
 import type { SendResult } from "../b3nd-msg/data/send.ts";
 import { send } from "../b3nd-msg/data/send.ts";
-import { parallelBroadcast } from "../b3nd-combinators/parallel-broadcast.ts";
-import { firstMatchSequence } from "../b3nd-combinators/first-match-sequence.ts";
-import { createValidatedClient } from "../b3nd-compose/validated-client.ts";
-import { msgSchema } from "../b3nd-compose/validators.ts";
 import { createClientFromUrl } from "./backend-factory.ts";
+import type { Schema } from "../b3nd-core/types.ts";
+import { msgSchema } from "../b3nd-compose/validators.ts";
+import type { Validator } from "../b3nd-compose/types.ts";
 import type { Identity } from "./identity.ts";
 import type {
   RigConfig,
@@ -76,10 +75,7 @@ interface OpClients {
  * import { Rig, Identity } from "@b3nd/rig";
  *
  * const id = await Identity.fromSeed("my-secret");
- * const rig = await Rig.init({
- *   identity: id,
- *   use: "https://node.b3nd.net",
- * });
+ * const rig = await Rig.connect("https://node.b3nd.net", id);
  *
  * await rig.send({
  *   inputs: [],
@@ -87,13 +83,14 @@ interface OpClients {
  * });
  * ```
  *
- * @example With hooks, events, and observe
+ * @example With schema, hooks, events, and observe
  * ```typescript
  * const rig = await Rig.init({
- *   use: "memory://",
+ *   client: new MemoryClient(),
+ *   schema,          // application-level validation — rejects unknown domains
  *   identity: id,
  *   hooks: {
- *     receive: { pre: [validateSchema] },
+ *     receive: { pre: [rateLimit] },
  *     read:    { post: [decrypt] },
  *   },
  *   on: {
@@ -113,6 +110,8 @@ export class Rig {
 
   // ── Internal state ──
   private readonly _clients: OpClients;
+  private readonly _schema: Schema | null;
+  private readonly _validator: Validator | null;
   private readonly _hooks: HookChains;
   private readonly _events: RigEventEmitter;
   private readonly _observers: ObserveRegistry;
@@ -122,6 +121,8 @@ export class Rig {
   private constructor(
     clients: OpClients,
     identity: Identity | null,
+    schema: Schema | null,
+    validator: Validator | null,
     hooks: HookChains,
     events: RigEventEmitter,
     observers: ObserveRegistry,
@@ -129,6 +130,8 @@ export class Rig {
   ) {
     this._clients = clients;
     this.identity = identity;
+    this._schema = schema;
+    this._validator = validator;
     this._hooks = hooks;
     this._events = events;
     this._observers = observers;
@@ -162,12 +165,13 @@ export class Rig {
   /**
    * Initialize a Rig from config.
    *
-   * - `use: "https://..."` → single HttpClient
-   * - `use: ["postgresql://...", "https://..."]` → parallelBroadcast writes, firstMatchSequence reads
-   * - `client: myClient` → use a pre-built client directly
+   * - `client: myClient` → single pre-built client for all operations
    * - `clients: [...]` → array of filtered clients, rig routes by `accepts()`
-   * - `clients: { read: [...], send: [...] }` → per-operation routing (legacy)
+   * - `clients: { read: client, send: client }` → per-operation routing
    * - `hooks`, `on`, `observe` → behavior layers
+   *
+   * The rig is pure orchestration — build clients outside, hand them in.
+   * Use `Rig.connect(url)` for the common one-liner case.
    */
   static async init(config: RigConfig): Promise<Rig> {
     let opClients: OpClients;
@@ -175,16 +179,36 @@ export class Rig {
     if (Array.isArray(config.clients)) {
       // Array form — clients declare what they accept via accepts()
       opClients = createDispatchClients(config.clients);
+    } else if (config.clients && !Array.isArray(config.clients)) {
+      // Object form — per-operation routing with pre-built clients
+      const defaultClient = config.client;
+      if (!defaultClient) {
+        throw new Error(
+          "Rig.init: `client` is required as default when using object-form `clients`",
+        );
+      }
+      opClients = resolveOpClients(config.clients, defaultClient);
+    } else if (config.client) {
+      // Single client for all operations
+      const c = config.client;
+      opClients = {
+        send: c,
+        receive: c,
+        read: c,
+        list: c,
+        delete: c,
+      };
     } else {
-      // Legacy form — use/client with optional per-op overrides
-      const defaultClient = await resolveDefaultClient(config);
-      opClients = await resolveOpClients(config, defaultClient);
+      throw new Error(
+        "Rig.init: either `client` or `clients` is required. " +
+          "Use Rig.connect(url) for URL-based setup.",
+      );
     }
 
-    // 3. Build hook chains (frozen — immutable after init)
+    // Build hook chains (frozen — immutable after init)
     const hooks = createHookChains(config.hooks);
 
-    // 4. Build event emitter
+    // Build event emitter
     const events = new RigEventEmitter();
     if (config.on) {
       for (const [name, handlers] of Object.entries(config.on)) {
@@ -196,7 +220,7 @@ export class Rig {
       }
     }
 
-    // 5. Build observe registry
+    // Build observe registry
     const observers = new ObserveRegistry();
     if (config.observe) {
       for (const [pattern, handler] of Object.entries(config.observe)) {
@@ -204,30 +228,19 @@ export class Rig {
       }
     }
 
-    // 6. Detect SSE base URL from config
-    let sseBaseUrl: string | null = null;
-    if (typeof config.use === "string") {
-      const url = config.use;
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        sseBaseUrl = url.replace(/\/$/, "");
-      }
-    } else if (Array.isArray(config.use)) {
-      // Use first HTTP URL if available
-      const httpUrl = config.use.find(
-        (u) =>
-          typeof u === "string" &&
-          (u.startsWith("http://") || u.startsWith("https://")),
-      );
-      if (httpUrl) sseBaseUrl = httpUrl.replace(/\/$/, "");
-    }
+    // Build schema validator (application-level gatekeeper)
+    const schema = config.schema ?? null;
+    const validator = schema ? msgSchema(schema) : null;
 
     return new Rig(
       opClients,
       config.identity ?? null,
+      schema,
+      validator,
       hooks,
       events,
       observers,
-      sseBaseUrl,
+      config.sseBaseUrl ?? null,
     );
   }
 
@@ -335,6 +348,25 @@ export class Rig {
     const recvCtx = await runPreHooks(this._hooks.receive.pre, ctx);
     const finalUri = recvCtx.op === "receive" ? recvCtx.uri : uri;
     const finalData = recvCtx.op === "receive" ? recvCtx.data : data;
+
+    // Schema validation — application-level gatekeeper
+    if (this._validator) {
+      const readFn = <T = unknown>(u: string) => this._clients.read.read<T>(u);
+      const validation = await this._validator(
+        [finalUri, finalData],
+        readFn,
+      );
+      if (!validation.valid) {
+        const error = validation.error || "Schema validation failed";
+        this._events.emit("receive:error", {
+          op: "receive",
+          uri: finalUri,
+          error,
+          ts: Date.now(),
+        });
+        return { accepted: false, error };
+      }
+    }
 
     // Execute
     let result: ReceiveResult;
@@ -917,8 +949,11 @@ export class Rig {
     return this._clients.read.health();
   }
 
-  /** Get the schema keys from the backend. */
+  /** Get the schema keys — returns rig schema if set, otherwise asks the backend. */
   getSchema(): Promise<string[]> {
+    if (this._schema) {
+      return Promise.resolve(Object.keys(this._schema));
+    }
     return this._clients.read.getSchema();
   }
 
@@ -952,6 +987,9 @@ export class Rig {
   /**
    * Quick connect to a single backend URL.
    *
+   * Resolves the URL to a client, then initializes the rig.
+   * For HTTP/HTTPS URLs, SSE subscriptions are automatically enabled.
+   *
    * @example
    * ```typescript
    * const rig = await Rig.connect("https://node.b3nd.net");
@@ -969,7 +1007,12 @@ export class Rig {
     url: string,
     identity?: Identity,
   ): Promise<Rig> {
-    return Rig.init({ use: url, identity });
+    const client = await createClientFromUrl(url);
+    const sseBaseUrl =
+      url.startsWith("http://") || url.startsWith("https://")
+        ? url.replace(/\/$/, "")
+        : undefined;
+    return Rig.init({ client, identity, sseBaseUrl });
   }
 
   /**
@@ -1467,122 +1510,18 @@ export class Rig {
 
 // ── Init helpers ──
 
-/** Resolve the default client from `use` or `client` config. */
-async function resolveDefaultClient(
-  config: RigConfig,
-): Promise<NodeProtocolInterface> {
-  if (config.client) {
-    return config.client;
-  }
-
-  if (config.use) {
-    const urls = Array.isArray(config.use) ? config.use : [config.use];
-    if (urls.length === 0) {
-      throw new Error("Rig.init: `use` must contain at least one URL");
-    }
-
-    const factoryOpts = {
-      schema: config.schema,
-      executors: config.executors,
-    };
-
-    const clients = await Promise.all(
-      urls.map((url) => createClientFromUrl(url, factoryOpts)),
-    );
-
-    if (clients.length === 1) {
-      if (config.schema) {
-        return createValidatedClient({
-          write: clients[0],
-          read: clients[0],
-          validate: msgSchema(config.schema),
-        });
-      }
-      return clients[0];
-    }
-
-    // Multi-backend
-    const write = parallelBroadcast(clients);
-    const read = firstMatchSequence(clients);
-
-    if (config.schema) {
-      return createValidatedClient({
-        write,
-        read,
-        validate: msgSchema(config.schema),
-      });
-    }
-
-    return {
-      receive: (msg) => write.receive(msg),
-      read: (uri) => read.read(uri),
-      readMulti: (uris) => read.readMulti(uris),
-      list: (uri, opts) => read.list(uri, opts),
-      delete: (uri) => write.delete(uri),
-      health: () => read.health(),
-      getSchema: () => read.getSchema(),
-      cleanup: async () => {
-        await write.cleanup();
-        await read.cleanup();
-      },
-    };
-  }
-
-  throw new Error("Rig.init: either `use` or `client` is required");
-}
-
-/** Resolve per-operation clients, falling back to the default. */
-async function resolveOpClients(
-  config: RigConfig,
+/** Resolve per-operation clients from object form, falling back to the default. */
+function resolveOpClients(
+  clientsConfig: Record<string, NodeProtocolInterface | undefined>,
   defaultClient: NodeProtocolInterface,
-): Promise<OpClients> {
-  const opClients: OpClients = {
-    send: defaultClient,
-    receive: defaultClient,
-    read: defaultClient,
-    list: defaultClient,
-    delete: defaultClient,
+): OpClients {
+  return {
+    send: (clientsConfig.send as NodeProtocolInterface) ?? defaultClient,
+    receive: (clientsConfig.receive as NodeProtocolInterface) ?? defaultClient,
+    read: (clientsConfig.read as NodeProtocolInterface) ?? defaultClient,
+    list: (clientsConfig.list as NodeProtocolInterface) ?? defaultClient,
+    delete: (clientsConfig.delete as NodeProtocolInterface) ?? defaultClient,
   };
-
-  // Only called for object-form config (array form uses createDispatchClients)
-  if (!config.clients || Array.isArray(config.clients)) return opClients;
-  const clientsConfig = config.clients;
-
-  const factoryOpts = {
-    schema: config.schema,
-    executors: config.executors,
-  };
-
-  // Write-like ops use parallelBroadcast, read-like use firstMatchSequence
-  const writeOps: (keyof OpClients)[] = ["send", "receive", "delete"];
-  const readOps: (keyof OpClients)[] = ["read", "list"];
-
-  for (const op of [...writeOps, ...readOps]) {
-    const entry = clientsConfig[op as keyof typeof clientsConfig] as
-      | string[]
-      | NodeProtocolInterface
-      | undefined;
-    if (!entry) continue;
-
-    if (Array.isArray(entry)) {
-      // URL strings — resolve and compose
-      const clients = await Promise.all(
-        entry.map((url: string) => createClientFromUrl(url, factoryOpts)),
-      );
-      if (clients.length === 1) {
-        opClients[op] = clients[0];
-      } else if (writeOps.includes(op)) {
-        opClients[op] = parallelBroadcast(clients);
-      } else {
-        opClients[op] = firstMatchSequence(clients);
-      }
-    } else {
-      // Pre-built client
-      opClients[op] = entry as NodeProtocolInterface;
-    }
-  }
-
-  return opClients;
 }
 
 /**

@@ -47,10 +47,7 @@ export async function getRig(
       }
     }
 
-    cachedRig = await Rig.init({
-      identity,
-      use: config.node,
-    });
+    cachedRig = await Rig.connect(config.node, identity ?? undefined);
 
     // Wire verbose logging through rig events
     if (logger) {

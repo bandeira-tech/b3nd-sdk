@@ -10,6 +10,7 @@
  */
 
 import { Rig } from "../libs/b3nd-rig/mod.ts";
+import { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
 import type { Schema } from "../libs/b3nd-core/types.ts";
 
 // Create a permissive schema that allows any program key
@@ -39,7 +40,7 @@ const testSchema = new Proxy(baseSchema, {
 
 // Create rig with in-memory backend + schema validation
 const rig = await Rig.init({
-  use: "memory://",
+  client: new MemoryClient({ schema: {} }),
   schema: testSchema,
 });
 
