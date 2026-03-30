@@ -13,6 +13,7 @@
 export type {
   B3ndError,
   ClientError,
+  ConsoleClientConfig,
   DeleteResult,
   HealthStatus,
   HttpClientConfig,
@@ -47,6 +48,7 @@ export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
 export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
 export { LocalStorageClient } from "../libs/b3nd-client-localstorage/mod.ts";
 export { IndexedDBClient } from "../libs/b3nd-client-indexeddb/mod.ts";
+export { ConsoleClient } from "../libs/b3nd-client-console/mod.ts";
 export { WalletClient } from "../libs/b3nd-wallet/mod.ts";
 export { AppsClient } from "../libs/b3nd-apps/mod.ts";
 

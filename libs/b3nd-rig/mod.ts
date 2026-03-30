@@ -35,6 +35,7 @@ export type {
   HandlerOptions,
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,
+  S3ExecutorFactory as S3Executor,
   RigConfig,
   RigInfo,
   ServeOptions,
