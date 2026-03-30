@@ -45,18 +45,17 @@ export type {
 
 // Hooks (immutable after init — throw to reject, observe to audit)
 export type {
-  DeleteHookContext,
-  HookableOp,
-  HookChains,
-  HookContext,
-  ListHookContext,
-  PostHook,
-  PreHook,
-  ReadHookContext,
-  ReceiveHookContext,
-  SendHookContext,
+  AfterHook,
+  BeforeHook,
+  DeleteCtx,
+  HooksConfig,
+  ListCtx,
+  ReadCtx,
+  ReceiveCtx,
+  RigHooks,
+  SendCtx,
 } from "./hooks.ts";
-export { createHookChains, runPostHooks, runPreHooks } from "./hooks.ts";
+export { resolveHooks, runAfter, runBefore } from "./hooks.ts";
 
 // Events
 export type { EventHandler, RigEvent, RigEventName } from "./events.ts";

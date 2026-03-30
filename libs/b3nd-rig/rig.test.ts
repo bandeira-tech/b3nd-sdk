@@ -2113,14 +2113,12 @@ Deno.test("Rig.sendMany - throws without identity", async () => {
 
 // ── Hooks integration tests ──
 
-Deno.test("Rig hooks - pre-hook throw rejects receive", async () => {
+Deno.test("Rig hooks - beforeReceive throw rejects receive", async () => {
   const rig = await Rig.init({
     client: new MemoryClient({ schema: {} }),
     hooks: {
-      receive: {
-        pre: [() => {
-          throw new Error("blocked");
-        }],
+      beforeReceive: () => {
+        throw new Error("blocked");
       },
     },
   });
@@ -2133,25 +2131,19 @@ Deno.test("Rig hooks - pre-hook throw rejects receive", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig hooks - pre-hook mutates receive context", async () => {
+Deno.test("Rig hooks - beforeReceive mutates context", async () => {
   const rig = await Rig.init({
     client: new MemoryClient({ schema: {} }),
     hooks: {
-      receive: {
-        pre: [(ctx) => {
-          if (ctx.op === "receive") {
-            return {
-              ctx: {
-                ...ctx,
-                data: {
-                  ...(ctx.data as Record<string, unknown>),
-                  injected: true,
-                },
-              },
-            };
-          }
-        }],
-      },
+      beforeReceive: (ctx) => ({
+        ctx: {
+          ...ctx,
+          data: {
+            ...(ctx.data as Record<string, unknown>),
+            injected: true,
+          },
+        },
+      }),
     },
   });
 
@@ -2161,15 +2153,13 @@ Deno.test("Rig hooks - pre-hook mutates receive context", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig hooks - post-hook observes read result without modifying", async () => {
+Deno.test("Rig hooks - afterRead observes result without modifying", async () => {
   const observed: unknown[] = [];
   const rig = await Rig.init({
     client: new MemoryClient({ schema: {} }),
     hooks: {
-      read: {
-        post: [(_ctx, result) => {
-          observed.push(result);
-        }],
+      afterRead: (_ctx, result) => {
+        observed.push(result);
       },
     },
   });
@@ -2177,20 +2167,17 @@ Deno.test("Rig hooks - post-hook observes read result without modifying", async 
   await rig.receive(["mutable://open/test", { x: 1 }]);
   const result = await rig.read("mutable://open/test");
   assertEquals(result.success, true);
-  // Result is unmodified — post-hooks cannot transform
   assertEquals((result.record?.data as Record<string, unknown>).x, 1);
   assertEquals(observed.length, 1);
   await rig.cleanup();
 });
 
-Deno.test("Rig hooks - post-hook throw propagates to caller", async () => {
+Deno.test("Rig hooks - afterRead throw propagates to caller", async () => {
   const rig = await Rig.init({
     client: new MemoryClient({ schema: {} }),
     hooks: {
-      read: {
-        post: [() => {
-          throw new Error("post-condition failed");
-        }],
+      afterRead: () => {
+        throw new Error("post-condition failed");
       },
     },
   });
@@ -2204,14 +2191,12 @@ Deno.test("Rig hooks - post-hook throw propagates to caller", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig hooks - pre-hook throw rejects delete", async () => {
+Deno.test("Rig hooks - beforeDelete throw rejects delete", async () => {
   const rig = await Rig.init({
     client: new MemoryClient({ schema: {} }),
     hooks: {
-      delete: {
-        pre: [() => {
-          throw new Error("no deletes");
-        }],
+      beforeDelete: () => {
+        throw new Error("no deletes");
       },
     },
   });
@@ -2229,16 +2214,14 @@ Deno.test("Rig hooks - pre-hook throw rejects delete", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig hooks - pre-hook throw rejects send", async () => {
+Deno.test("Rig hooks - beforeSend throw rejects send", async () => {
   const id = await Identity.generate();
   const rig = await Rig.init({
     client: new MemoryClient({ schema: {} }),
     identity: id,
     hooks: {
-      send: {
-        pre: [() => {
-          throw new Error("rate limited");
-        }],
+      beforeSend: () => {
+        throw new Error("rate limited");
       },
     },
   });
@@ -2395,12 +2378,11 @@ Deno.test("Rig hooks - immutable after init", async () => {
   const rig = await Rig.init({
     client: new MemoryClient({ schema: {} }),
     hooks: {
-      receive: { pre: [() => {}] },
+      beforeReceive: () => {},
     },
   });
 
   // Hooks are frozen — no runtime mutation possible
-  // (Rig no longer exposes a hook() method)
   // deno-lint-ignore no-explicit-any
   assertEquals(typeof (rig as any).hook, "undefined");
   await rig.cleanup();
@@ -2503,9 +2485,7 @@ Deno.test("Rig clients - rig schema still works with hooks", async () => {
     client: new MemoryClient({ schema: {} }),
     schema,
     hooks: {
-      receive: {
-        post: [() => {}], // observer hook
-      },
+      afterReceive: () => {}, // observer hook
     },
   });
 

@@ -4,7 +4,7 @@
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
-import type { HookableOp, PostHook, PreHook } from "./hooks.ts";
+import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
 import type { FilteredClient } from "./filter.ts";
@@ -149,26 +149,24 @@ export interface RigConfig {
     };
 
   /**
-   * Synchronous hook pipelines — frozen after init.
+   * Hooks — frozen after init, one function per slot.
    *
-   * Pre-hooks **throw** to reject an operation (no silent aborts).
-   * Post-hooks **observe** the result but cannot modify it (throw if violated).
-   * Hooks are immutable — want different hooks? Create a new rig.
+   * Before-hooks **throw** to reject (no silent aborts).
+   * After-hooks **observe** (cannot modify the result; throw if violated).
+   * Need composition? Compose on your end.
    *
    * @example
    * ```typescript
    * const rig = await Rig.init({
-   *   use: "memory://",
+   *   client,
    *   hooks: {
-   *     receive: { pre: [validateSchema] },
-   *     read:    { post: [auditRead] },
+   *     beforeReceive: (ctx) => { validate(ctx.uri); },
+   *     afterRead: (ctx, result) => { audit(ctx.uri, result); },
    *   },
    * });
    * ```
    */
-  hooks?: Partial<
-    Record<HookableOp, { pre?: PreHook[]; post?: PostHook[] }>
-  >;
+  hooks?: HooksConfig;
 
   /**
    * Async event handlers — fire-and-forget after operations complete.
@@ -229,7 +227,7 @@ export interface RigInfo {
   hasIdentity: boolean;
   /** Behavior layer counts — hooks, events, and observers registered. */
   behavior: {
-    hooks: Record<string, { pre: number; post: number }>;
+    hooks: string[];
     events: Record<string, number>;
     observers: number;
   };

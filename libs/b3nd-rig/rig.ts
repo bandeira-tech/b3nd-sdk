@@ -39,8 +39,15 @@ import type {
   WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";
-import type { HookChains, HookContext } from "./hooks.ts";
-import { createHookChains, runPostHooks, runPreHooks } from "./hooks.ts";
+import type {
+  DeleteCtx,
+  ListCtx,
+  ReadCtx,
+  ReceiveCtx,
+  RigHooks,
+  SendCtx,
+} from "./hooks.ts";
+import { resolveHooks, runAfter, runBefore } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import { RigEventEmitter } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
@@ -87,11 +94,11 @@ interface OpClients {
  * ```typescript
  * const rig = await Rig.init({
  *   client: new MemoryClient(),
- *   schema,          // application-level validation — rejects unknown domains
+ *   schema,
  *   identity: id,
  *   hooks: {
- *     receive: { pre: [rateLimit] },
- *     read:    { post: [decrypt] },
+ *     beforeReceive: (ctx) => { rateLimit(ctx.uri); },
+ *     afterRead: (ctx, result) => { audit(ctx.uri, result); },
  *   },
  *   on: {
  *     "send:success": [audit],
@@ -112,7 +119,7 @@ export class Rig {
   private readonly _clients: OpClients;
   private readonly _schema: Schema | null;
   private readonly _validator: Validator | null;
-  private readonly _hooks: HookChains;
+  private readonly _hooks: RigHooks;
   private readonly _events: RigEventEmitter;
   private readonly _observers: ObserveRegistry;
   /** Base URL for SSE subscriptions — set when init'd via HTTP URL. */
@@ -123,7 +130,7 @@ export class Rig {
     identity: Identity | null,
     schema: Schema | null,
     validator: Validator | null,
-    hooks: HookChains,
+    hooks: RigHooks,
     events: RigEventEmitter,
     observers: ObserveRegistry,
     sseBaseUrl: string | null = null,
@@ -205,8 +212,8 @@ export class Rig {
       );
     }
 
-    // Build hook chains (frozen — immutable after init)
-    const hooks = createHookChains(config.hooks);
+    // Build hooks (frozen — immutable after init)
+    const hooks = resolveHooks(config.hooks);
 
     // Build event emitter
     const events = new RigEventEmitter();
@@ -274,14 +281,13 @@ export class Rig {
       );
     }
 
-    // Pre-hooks — throw to reject
-    const ctx: HookContext = {
-      op: "send",
+    // Before-hook — throw to reject
+    const ctx: SendCtx = {
       envelope: { inputs: data.inputs, outputs: data.outputs },
       identity: this.identity,
     };
-    const sendCtx = await runPreHooks(this._hooks.send.pre, ctx);
-    const envelope = sendCtx.op === "send" ? sendCtx.envelope : data;
+    const sendCtx = await runBefore(this._hooks.beforeSend, ctx);
+    const envelope = sendCtx.envelope;
 
     // Execute
     const payload = { inputs: envelope.inputs, outputs: envelope.outputs };
@@ -300,8 +306,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks — observe only, cannot modify result
-    await runPostHooks(this._hooks.send.post, sendCtx, result);
+    // After-hook — observe only
+    await runAfter(this._hooks.afterSend, sendCtx, result);
 
     // Events + observe
     if (result.accepted) {
@@ -343,11 +349,11 @@ export class Rig {
   async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
     const [uri, data] = msg;
 
-    // Pre-hooks — throw to reject
-    const ctx: HookContext = { op: "receive", uri, data };
-    const recvCtx = await runPreHooks(this._hooks.receive.pre, ctx);
-    const finalUri = recvCtx.op === "receive" ? recvCtx.uri : uri;
-    const finalData = recvCtx.op === "receive" ? recvCtx.data : data;
+    // Before-hook — throw to reject
+    const ctx: ReceiveCtx = { uri, data };
+    const recvCtx = await runBefore(this._hooks.beforeReceive, ctx);
+    const finalUri = recvCtx.uri;
+    const finalData = recvCtx.data;
 
     // Schema validation — application-level gatekeeper
     if (this._validator) {
@@ -382,8 +388,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks — observe only
-    await runPostHooks(this._hooks.receive.post, recvCtx, result);
+    // After-hook — observe only
+    await runAfter(this._hooks.afterReceive, recvCtx, result);
 
     // Events + observe
     if (result.accepted) {
@@ -411,10 +417,10 @@ export class Rig {
 
   /** Read data from a URI. */
   async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
-    // Pre-hooks — throw to reject
-    const ctx: HookContext = { op: "read", uri };
-    const readCtx = await runPreHooks(this._hooks.read.pre, ctx);
-    const finalUri = readCtx.op === "read" ? readCtx.uri : uri;
+    // Before-hook — throw to reject
+    const ctx: ReadCtx = { uri };
+    const readCtx = await runBefore(this._hooks.beforeRead, ctx);
+    const finalUri = readCtx.uri;
 
     // Execute
     let result: ReadResult<T>;
@@ -430,8 +436,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks — observe only
-    await runPostHooks(this._hooks.read.post, readCtx, result);
+    // After-hook — observe only
+    await runAfter(this._hooks.afterRead, readCtx, result);
 
     // Events
     if (result.success) {
@@ -493,11 +499,11 @@ export class Rig {
 
   /** List items at a URI path. */
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
-    // Pre-hooks — throw to reject
-    const ctx: HookContext = { op: "list", uri, options };
-    const listCtx = await runPreHooks(this._hooks.list.pre, ctx);
-    const finalUri = listCtx.op === "list" ? listCtx.uri : uri;
-    const finalOpts = listCtx.op === "list" ? listCtx.options : options;
+    // Before-hook — throw to reject
+    const ctx: ListCtx = { uri, options };
+    const listCtx = await runBefore(this._hooks.beforeList, ctx);
+    const finalUri = listCtx.uri;
+    const finalOpts = listCtx.options;
 
     // Execute
     let result: ListResult;
@@ -513,8 +519,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks — observe only
-    await runPostHooks(this._hooks.list.post, listCtx, result);
+    // After-hook — observe only
+    await runAfter(this._hooks.afterList, listCtx, result);
 
     // Events
     if (result.success) {
@@ -824,10 +830,10 @@ export class Rig {
 
   /** Delete data at a URI. */
   async delete(uri: string): Promise<DeleteResult> {
-    // Pre-hooks — throw to reject
-    const ctx: HookContext = { op: "delete", uri };
-    const delCtx = await runPreHooks(this._hooks.delete.pre, ctx);
-    const finalUri = delCtx.op === "delete" ? delCtx.uri : uri;
+    // Before-hook — throw to reject
+    const ctx: DeleteCtx = { uri };
+    const delCtx = await runBefore(this._hooks.beforeDelete, ctx);
+    const finalUri = delCtx.uri;
 
     // Execute
     let result: DeleteResult;
@@ -843,8 +849,8 @@ export class Rig {
       throw err;
     }
 
-    // Post-hooks — observe only
-    await runPostHooks(this._hooks.delete.post, delCtx, result);
+    // After-hook — observe only
+    await runAfter(this._hooks.afterDelete, delCtx, result);
 
     // Events
     if (result.success) {
@@ -918,15 +924,18 @@ export class Rig {
    * ```
    */
   info(): RigInfo {
-    const hooks: Record<string, { pre: number; post: number }> = {};
-    for (
-      const op of ["send", "receive", "read", "list", "delete"] as const
-    ) {
-      const h = this._hooks[op];
-      if (h.pre.length > 0 || h.post.length > 0) {
-        hooks[op] = { pre: h.pre.length, post: h.post.length };
-      }
-    }
+    const hooks: string[] = [];
+    const h = this._hooks;
+    if (h.beforeSend) hooks.push("beforeSend");
+    if (h.afterSend) hooks.push("afterSend");
+    if (h.beforeReceive) hooks.push("beforeReceive");
+    if (h.afterReceive) hooks.push("afterReceive");
+    if (h.beforeRead) hooks.push("beforeRead");
+    if (h.afterRead) hooks.push("afterRead");
+    if (h.beforeList) hooks.push("beforeList");
+    if (h.afterList) hooks.push("afterList");
+    if (h.beforeDelete) hooks.push("beforeDelete");
+    if (h.afterDelete) hooks.push("afterDelete");
 
     return {
       pubkey: this.identity?.pubkey ?? null,
