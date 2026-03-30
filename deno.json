@@ -13,7 +13,8 @@
     "./client-fs": "./src/client-fs.ts",
     "./client-ipfs": "./src/client-ipfs.ts",
     "./client-s3": "./src/client-s3.ts",
-    "./client-console": "./src/client-console.ts"
+    "./client-console": "./src/client-console.ts",
+    "./client-graphql": "./src/client-graphql.ts"
   },
   "nodeModulesDir": "auto",
   "imports": {
@@ -80,6 +81,7 @@
     "libs/b3nd-client-sqlite",
     "libs/b3nd-client-fs",
     "libs/b3nd-client-ipfs",
+    "libs/b3nd-client-graphql",
     "libs/b3nd-client-indexeddb",
     "libs/b3nd-client-console",
     "libs/b3nd-client-s3",
