@@ -810,7 +810,7 @@
           "uri": "mutable://open/rig/learn/chapters/message-guide/16-cookbook"
         }
       ],
-      "updatedAt": 1772449682444
+      "updatedAt": 1773935908440
     },
     {
       "key": "b3nd",
@@ -853,7 +853,7 @@
           "uri": "mutable://open/rig/learn/chapters/b3nd/b3nd"
         }
       ],
-      "updatedAt": 1771886848908
+      "updatedAt": 1773935908508
     },
     {
       "key": "faq",
@@ -952,7 +952,7 @@
           "uri": "mutable://open/rig/learn/chapters/faq/faq"
         }
       ],
-      "updatedAt": 1771886855631
+      "updatedAt": 1773935908502
     },
     {
       "key": "firecat",
@@ -1228,7 +1228,7 @@
           "uri": "mutable://open/rig/learn/chapters/firecat/firecat"
         }
       ],
-      "updatedAt": 1771886854015
+      "updatedAt": 1773935908504
     },
     {
       "key": "framework",
@@ -1595,7 +1595,7 @@
           "uri": "mutable://open/rig/learn/chapters/framework/framework"
         }
       ],
-      "updatedAt": 1771886858169
+      "updatedAt": 1773935908505
     },
     {
       "key": "operators",
@@ -1982,7 +1982,7 @@
           "uri": "mutable://open/rig/learn/chapters/operators/operators"
         }
       ],
-      "updatedAt": 1771886860845
+      "updatedAt": 1773935908507
     },
     {
       "key": "app-cookbook",
@@ -2118,7 +2118,7 @@
           "uri": "mutable://open/rig/learn/chapters/app-cookbook/app-cookbook"
         }
       ],
-      "updatedAt": 1771886862233
+      "updatedAt": 1773935908500
     },
     {
       "key": "node-cookbook",
@@ -2287,7 +2287,7 @@
           "uri": "mutable://open/rig/learn/chapters/node-cookbook/node-cookbook"
         }
       ],
-      "updatedAt": 1771886865144
+      "updatedAt": 1773935908505
     },
     {
       "key": "protocol-cookbook",
@@ -2392,7 +2392,477 @@
           "uri": "mutable://open/rig/learn/chapters/protocol-cookbook/protocol-cookbook"
         }
       ],
-      "updatedAt": 1771886863675
+      "updatedAt": 1773935908508
+    },
+    {
+      "key": "rig-patterns",
+      "title": "Rig Patterns — A Visual Guide",
+      "label": "Rig Patterns",
+      "description": "Scrollable catalog of rig setups — connecting, hooks, events, observe, routing, encryption, subscriptions",
+      "tier": "cookbook",
+      "chapters": [
+        {
+          "key": "rig-patterns",
+          "number": 1,
+          "title": "Rig Patterns — A Visual Guide",
+          "part": "",
+          "sections": [
+            {
+              "id": "getting-connected",
+              "title": "Getting Connected",
+              "level": 2,
+              "children": [
+                {
+                  "id": "connect-to-a-remote-node",
+                  "title": "Connect to a remote node",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "connect-to-a-local-in-memory-backend",
+                  "title": "Connect to a local in-memory backend",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "connect-with-identity",
+                  "title": "Connect with identity",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "generate-a-fresh-identity",
+                  "title": "Generate a fresh identity",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "connect-to-a-database-backend-directly",
+                  "title": "Connect to a database backend directly",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "reading-and-writing",
+              "title": "Reading and Writing",
+              "level": 2,
+              "children": [
+                {
+                  "id": "basic-crud",
+                  "title": "Basic CRUD",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "read-with-error-handling",
+                  "title": "Read with error handling",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "check-existence-without-reading",
+                  "title": "Check existence without reading",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "batch-read",
+                  "title": "Batch read",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "read-all-items-under-a-prefix",
+                  "title": "Read all items under a prefix",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "count-items",
+                  "title": "Count items",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "batch-delete",
+                  "title": "Batch delete",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "signed-envelope-send",
+                  "title": "Signed envelope (send)",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "encrypted-data",
+              "title": "Encrypted Data",
+              "level": 2,
+              "children": [
+                {
+                  "id": "encrypt-to-self",
+                  "title": "Encrypt to self",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "encrypt-to-another-party",
+                  "title": "Encrypt to another party",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "batch-decrypt",
+                  "title": "Batch decrypt",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "hooks-synchronous-pipelines",
+              "title": "Hooks — Synchronous Pipelines",
+              "level": 2,
+              "children": [
+                {
+                  "id": "validate-on-receive",
+                  "title": "Validate on receive",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "rate-limit-writes",
+                  "title": "Rate-limit writes",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "audit-trail-on-reads",
+                  "title": "Audit trail on reads",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "restrict-deletes-to-admin-uris",
+                  "title": "Restrict deletes to admin URIs",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "multiple-pre-hooks-pipeline",
+                  "title": "Multiple pre-hooks (pipeline)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "why-hooks-are-frozen",
+                  "title": "Why hooks are frozen",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "events-async-fire-and-forget",
+              "title": "Events — Async Fire-and-Forget",
+              "level": 2,
+              "children": [
+                {
+                  "id": "log-every-operation",
+                  "title": "Log every operation",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "track-metrics",
+                  "title": "Track metrics",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "add-events-at-runtime",
+                  "title": "Add events at runtime",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "drain-pending-events-before-shutdown",
+                  "title": "Drain pending events before shutdown",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "observe-uri-pattern-reactions",
+              "title": "Observe — URI Pattern Reactions",
+              "level": 2,
+              "children": [
+                {
+                  "id": "react-to-user-profile-changes",
+                  "title": "React to user profile changes",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "wildcard-observe-all-writes-under-a-namespace",
+                  "title": "Wildcard — observe all writes under a namespace",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "add-observers-at-runtime",
+                  "title": "Add observers at runtime",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "hooks-vs-events-vs-observe",
+                  "title": "Hooks vs Events vs Observe",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "client-routing",
+              "title": "Client Routing",
+              "level": 2,
+              "children": [
+                {
+                  "id": "single-backend-most-common",
+                  "title": "Single backend (most common)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "filtered-clients-route-by-uri-pattern",
+                  "title": "Filtered clients — route by URI pattern",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-routing-works",
+                  "title": "How routing works",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "multiple-write-targets-replication",
+                  "title": "Multiple write targets (replication)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "unfiltered-clients-accept-everything",
+                  "title": "Unfiltered clients accept everything",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "per-operation-routing-legacy-object-form",
+                  "title": "Per-operation routing (legacy object form)",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "watching-and-subscribing",
+              "title": "Watching and Subscribing",
+              "level": 2,
+              "children": [
+                {
+                  "id": "watch-a-single-uri-for-changes",
+                  "title": "Watch a single URI for changes",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "watch-a-collection",
+                  "title": "Watch a collection",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "subscribe-to-a-single-uri-callback-style",
+                  "title": "Subscribe to a single URI (callback style)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "subscribe-to-a-uri-pattern",
+                  "title": "Subscribe to a URI pattern",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "serving-over-http",
+              "title": "Serving Over HTTP",
+              "level": 2,
+              "children": [
+                {
+                  "id": "expose-the-rig-as-an-http-endpoint",
+                  "title": "Expose the rig as an HTTP endpoint",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "what-the-handler-exposes",
+                  "title": "What the handler exposes",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "handler-with-hooks-and-events",
+                  "title": "Handler with hooks and events",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "the-rig-as-a-client",
+              "title": "The Rig as a Client",
+              "level": 2,
+              "children": [
+                {
+                  "id": "pass-the-rig-where-a-client-is-expected",
+                  "title": "Pass the rig where a client is expected",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "compose-rigs",
+                  "title": "Compose rigs",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "identity-patterns",
+              "title": "Identity Patterns",
+              "level": 2,
+              "children": [
+                {
+                  "id": "check-capabilities-before-acting",
+                  "title": "Check capabilities before acting",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "inspect-rig-state",
+                  "title": "Inspect rig state",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "full-init-examples",
+              "title": "Full Init Examples",
+              "level": 2,
+              "children": [
+                {
+                  "id": "minimal-app-backend",
+                  "title": "Minimal app backend",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "browser-app-with-local-cache-remote-sync",
+                  "title": "Browser app with local cache + remote sync",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "multi-protocol-node-with-hooks",
+                  "title": "Multi-protocol node with hooks",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "test-rig-with-assertions",
+                  "title": "Test rig with assertions",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "cli-tool-backed-by-a-rig",
+                  "title": "CLI tool backed by a rig",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "edge-cases-and-gotchas",
+              "title": "Edge Cases and Gotchas",
+              "level": 2,
+              "children": [
+                {
+                  "id": "no-identity-send-throw",
+                  "title": "No identity + send = throw",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "pre-hook-throw-vs-post-hook-throw",
+                  "title": "Pre-hook throw vs post-hook throw",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "event-handlers-that-fail",
+                  "title": "Event handlers that fail",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "no-accepting-client-for-a-uri",
+                  "title": "No accepting client for a URI",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "cleanup-order",
+                  "title": "Cleanup order",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "readdata-vs-read",
+                  "title": "readData vs read",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "receive-vs-send",
+                  "title": "receive vs send",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "summary-the-rig-mental-model",
+              "title": "Summary: The Rig Mental Model",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/rig-patterns/rig-patterns"
+        }
+      ],
+      "updatedAt": 1774866926180
     },
     {
       "key": "design-exchange",
@@ -2565,7 +3035,7 @@
           "uri": "mutable://open/rig/learn/chapters/design-exchange/design-exchange"
         }
       ],
-      "updatedAt": 1771886866335
+      "updatedAt": 1773935908501
     },
     {
       "key": "design-infrastructure",
@@ -2733,7 +3203,7 @@
           "uri": "mutable://open/rig/learn/chapters/design-infrastructure/design-infrastructure"
         }
       ],
-      "updatedAt": 1771886867522
+      "updatedAt": 1773935908501
     },
     {
       "key": "design-transport",
@@ -2832,7 +3302,7 @@
           "uri": "mutable://open/rig/learn/chapters/design-transport/design-transport"
         }
       ],
-      "updatedAt": 1771886868898
+      "updatedAt": 1773935908502
     },
     {
       "key": "bridge-token-movement",
@@ -3178,7 +3648,7 @@
           "uri": "mutable://open/rig/learn/chapters/bridge-token-movement/bridge-token-movement"
         }
       ],
-      "updatedAt": 1772449682463
+      "updatedAt": 1773935908447
     },
     {
       "key": "firecat-economic-model",
@@ -3555,7 +4025,7 @@
           "uri": "mutable://open/rig/learn/chapters/firecat-economic-model/firecat-economic-model"
         }
       ],
-      "updatedAt": 1771940787758
+      "updatedAt": 1773935908449
     },
     {
       "key": "tokenization-gas-semantics",
@@ -3827,8 +4297,8 @@
           "uri": "mutable://open/rig/learn/chapters/tokenization-gas-semantics/tokenization-gas-semantics"
         }
       ],
-      "updatedAt": 1771940510371
+      "updatedAt": 1773935908449
     }
   ],
-  "generatedAt": 1772456952231
+  "generatedAt": 1774866947153
 }
