@@ -35,7 +35,7 @@ export async function buildClientsFromSpec(
   for (const spec of backends) {
     switch (spec.type) {
       case "memory": {
-        clients.push(new MemoryClient({ schema }));
+        clients.push(new MemoryClient());
         break;
       }
 
@@ -50,8 +50,7 @@ export async function buildClientsFromSpec(
           {
             connection: spec.url,
             tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
-            schema,
-            poolSize: (spec.options?.poolSize as number) ?? 5,
+                        poolSize: (spec.options?.poolSize as number) ?? 5,
             connectionTimeout: (spec.options?.connectionTimeout as number) ?? 10_000,
           },
           executor as any,
@@ -77,8 +76,7 @@ export async function buildClientsFromSpec(
         const mongo = new MongoClient(
           {
             connectionString: spec.url,
-            schema,
-            collectionName,
+                        collectionName,
           },
           executor,
         );
@@ -97,8 +95,7 @@ export async function buildClientsFromSpec(
           new SqliteClient(
             {
               path: sqlitePath,
-              schema,
-              tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
+                            tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
             },
             executor,
           ),
@@ -117,8 +114,7 @@ export async function buildClientsFromSpec(
           new FilesystemClient(
             {
               rootDir,
-              schema,
-            },
+                          },
             executor,
           ),
         );

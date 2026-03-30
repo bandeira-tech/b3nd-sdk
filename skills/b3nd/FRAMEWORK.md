@@ -728,7 +728,7 @@ const schema = {
 };
 
 Deno.test("accepts valid account write", async () => {
-  const client = new MemoryClient({ schema });
+  const client = new MemoryClient({ programs: Object.keys(schema) });
   const result = await send({
     payload: {
       inputs: [],
@@ -740,7 +740,7 @@ Deno.test("accepts valid account write", async () => {
 });
 
 Deno.test("rejects invalid account write", async () => {
-  const client = new MemoryClient({ schema });
+  const client = new MemoryClient({ programs: Object.keys(schema) });
   const result = await send({
     payload: {
       inputs: [],
@@ -763,7 +763,7 @@ Deno.test("validator reads cross-program state", async () => {
     },
     "link://accounts": async () => ({ valid: true }),
   };
-  const client = new MemoryClient({ schema: crossSchema });
+  const client = new MemoryClient({ programs: Object.keys(crossSchema) });
 
   // Pre-populate: register the account
   await client.receive(["link://accounts/alice/auth", { active: true }]);
@@ -896,7 +896,7 @@ const publishingProtocol: Schema = {
 import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";
 
-const client = new MemoryClient({ schema: publishingProtocol });
+const client = new MemoryClient({ programs: Object.keys(publishingProtocol) });
 
 // 1. User publishes content
 const post = { title: "Hello World", body: "First post on B3nd" };
@@ -1074,7 +1074,7 @@ const schema: Schema = {
 import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
-const client = new MemoryClient({ schema });
+const client = new MemoryClient({ programs: Object.keys(schema) });
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(9942);
@@ -1563,7 +1563,7 @@ import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk
 import { Hono } from "hono";
 import schema from "./schema.ts";
 
-const client = new MemoryClient({ schema });
+const client = new MemoryClient({ programs: Object.keys(schema) });
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -1573,9 +1573,10 @@ node.listen(43100);
 ### Multi-Backend Composition
 
 ```typescript
+const programs = Object.keys(schema);
 const clients = [
-  new MemoryClient({ schema }),
-  new PostgresClient({ connection, schema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new MemoryClient({ programs }),
+  new PostgresClient({ connection, programs, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 
 const client = createValidatedClient({
@@ -1594,14 +1595,14 @@ createServerNode({ frontend, client });
 // Postgres
 const pg = new PostgresClient({
   connection: "postgresql://user:pass@localhost:5432/db",
-  schema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
+  programs, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
 }, executor);
 await pg.initializeSchema();
 
 // MongoDB
 const mongo = new MongoClient({
   connectionString: "mongodb://localhost:27017/mydb",
-  schema, collectionName: "b3nd_data",
+  programs, collectionName: "b3nd_data",
 }, executor);
 ```
 

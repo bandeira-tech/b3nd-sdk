@@ -30,15 +30,12 @@ import {
   createAuthenticatedMessageWithHex,
 } from "../../../libs/b3nd-encrypt/mod.ts";
 
-import {
-  MemoryClient,
-  createTestSchema,
-} from "../../../libs/b3nd-client-memory/mod.ts";
+import { MemoryClient } from "../../../libs/b3nd-client-memory/mod.ts";
 
 // --- Request-Response over MemoryClient ---
 
 Deno.test("listener: encrypted request-response round-trip", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   // Listener setup: has signing and encryption keypairs
   const listenerSigningKP = await generateSigningKeyPair();
@@ -153,7 +150,7 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
 // --- Listener as moderation service ---
 
 Deno.test("listener: moderation service writes signed flags", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   // Moderation listener setup
   const modSigningKP = await generateSigningKeyPair();
@@ -210,7 +207,7 @@ Deno.test("listener: moderation service writes signed flags", async () => {
 // --- Listener as indexing service ---
 
 Deno.test("listener: indexing service maintains queryable index", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   // Indexer listener setup
   const indexerSigningKP = await generateSigningKeyPair();
@@ -278,7 +275,7 @@ Deno.test("listener: indexing service maintains queryable index", async () => {
 // --- End-to-end: OAuth auth request via listener ---
 
 Deno.test("end-to-end: oauth auth request → HMAC response → identity derivation", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   // Listener setup
   const listenerSigningKP = await generateSigningKeyPair();

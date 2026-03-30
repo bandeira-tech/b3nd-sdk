@@ -518,7 +518,7 @@ function createMyService(client: NodeProtocolInterface, identity: Identity) {
 }
 
 // Development
-createMyService(new MemoryClient({ schema }), devIdentity);
+createMyService(new MemoryClient(), devIdentity);
 
 // Production — HTTP polling
 createMyService(new HttpClient({ url: PROD_URL }), prodIdentity);

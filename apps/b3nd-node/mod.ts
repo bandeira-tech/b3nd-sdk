@@ -57,7 +57,7 @@ const executors = {
 };
 
 const backends = await Promise.all(
-  backendSpecs.map((url) => createClientFromUrl(url, { schema, executors })),
+  backendSpecs.map((url) => createClientFromUrl(url, { executors })),
 );
 
 // Single backend → use directly; multi-backend → compose

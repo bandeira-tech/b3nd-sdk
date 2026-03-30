@@ -1,7 +1,7 @@
 /**
  * PostgresClient - PostgreSQL implementation of NodeProtocolInterface
  *
- * Stores data in PostgreSQL database with schema-based validation.
+ * Stores data in PostgreSQL database. Pure storage — validation is the rig's concern.
  * Uses connection pooling for performance and supports SSL connections.
  */
 
@@ -20,7 +20,6 @@ import {
   type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
-  type Schema,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -43,13 +42,11 @@ export interface SqlExecutor {
 
 export class PostgresClient implements NodeProtocolInterface {
   private readonly config: PostgresClientConfig;
-  private readonly schema: Schema;
   private readonly tablePrefix: string;
   private readonly executor: SqlExecutor;
   private connected = false;
 
   constructor(config: PostgresClientConfig, executor?: SqlExecutor) {
-    // Validate required configuration
     if (!config) {
       throw new Error("PostgresClientConfig is required");
     }
@@ -58,9 +55,6 @@ export class PostgresClient implements NodeProtocolInterface {
     }
     if (!config.tablePrefix) {
       throw new Error("tablePrefix is required in PostgresClientConfig");
-    }
-    if (!config.schema) {
-      throw new Error("schema is required in PostgresClientConfig");
     }
     if (config.poolSize == null) {
       throw new Error("poolSize is required in PostgresClientConfig");
@@ -73,17 +67,11 @@ export class PostgresClient implements NodeProtocolInterface {
     }
 
     this.config = config;
-    this.schema = config.schema;
     this.tablePrefix = config.tablePrefix;
     this.executor = executor;
     this.connected = true;
   }
 
-  /**
-   * Receive a message - the unified entry point for all state changes
-   * @param msg - Message tuple [uri, data]
-   * @returns ReceiveResult indicating acceptance
-   */
   async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
     return this.receiveWithExecutor(msg, this.executor);
   }
@@ -94,7 +82,6 @@ export class PostgresClient implements NodeProtocolInterface {
   ): Promise<ReceiveResult> {
     const [uri, data] = msg;
 
-    // Basic URI validation
     if (!uri || typeof uri !== "string") {
       return {
         accepted: false,
@@ -104,42 +91,6 @@ export class PostgresClient implements NodeProtocolInterface {
     }
 
     try {
-      // Extract program key (protocol://toplevel)
-      const programKey = this.extractProgramKey(uri);
-
-      // Find matching validation function
-      const validator = this.schema[programKey];
-
-      if (!validator) {
-        const msg = `No schema defined for program key: ${programKey}`;
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
-      // Validate the write — use the provided executor so reads within
-      // a transaction see the in-flight state, not the committed state.
-      const readFn = <T = unknown>(readUri: string): Promise<ReadResult<T>> =>
-        this.readWithExecutor<T>(readUri, executor);
-      const validation = await validator({
-        uri,
-        value: data,
-        read: readFn,
-      });
-
-      if (!validation.valid) {
-        const msg = validation.error || "Validation failed";
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
-      // Create record with timestamp
-      // Encode binary data for JSON storage
       const encodedData = encodeBinaryForJson(data);
       const record: PersistenceRecord<typeof encodedData> = {
         ts: Date.now(),
@@ -148,17 +99,14 @@ export class PostgresClient implements NodeProtocolInterface {
 
       const table = `${this.tablePrefix}_data`;
 
-      // If MessageData with multiple outputs, wrap in a transaction for atomicity
       if (isMessageData(data)) {
         await executor.transaction(async (tx) => {
-          // Store the envelope itself
           await tx.query(
             `INSERT INTO ${table} (uri, data, timestamp) VALUES ($1, $2::jsonb, $3)
              ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, timestamp = EXCLUDED.timestamp, updated_at = CURRENT_TIMESTAMP`,
             [uri, JSON.stringify(record.data), record.ts],
           );
 
-          // Store each output within the same transaction
           for (const [outputUri, outputValue] of data.payload.outputs) {
             const outputResult = await this.receiveWithExecutor(
               [outputUri, outputValue],
@@ -172,7 +120,6 @@ export class PostgresClient implements NodeProtocolInterface {
           }
         });
       } else {
-        // Single write — no transaction needed
         await executor.query(
           `INSERT INTO ${table} (uri, data, timestamp) VALUES ($1, $2::jsonb, $3)
            ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, timestamp = EXCLUDED.timestamp, updated_at = CURRENT_TIMESTAMP`,
@@ -216,7 +163,6 @@ export class PostgresClient implements NodeProtocolInterface {
       // pg driver auto-parses jsonb — row.data is already a native JS value.
       // Do NOT JSON.parse string values; that breaks scalar strings like "hello".
       const rawData = row.data;
-      // Decode binary data if encoded
       const decodedData = decodeBinaryFromJson(rawData) as T;
       const record: PersistenceRecord<T> = {
         ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
@@ -251,18 +197,15 @@ export class PostgresClient implements NodeProtocolInterface {
     }
 
     try {
-      // Single query using ANY($1) instead of N individual queries
       const table = `${this.tablePrefix}_data`;
       const res = await this.executor.query(
         `SELECT uri, data, timestamp as ts FROM ${table} WHERE uri = ANY($1)`,
         [uris],
       );
 
-      // Build a map of found records for O(1) lookup
       const found = new Map<string, PersistenceRecord<T>>();
       for (const raw of res.rows || []) {
         const row = raw as { uri: string; data: unknown; ts: unknown };
-        // pg driver auto-parses jsonb — no manual JSON.parse needed
         const decodedData = decodeBinaryFromJson(row.data) as T;
         found.set(row.uri, {
           ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
@@ -270,7 +213,6 @@ export class PostgresClient implements NodeProtocolInterface {
         });
       }
 
-      // Build results in the original URI order
       const results: ReadMultiResultItem<T>[] = [];
       let succeeded = 0;
 
@@ -294,7 +236,6 @@ export class PostgresClient implements NodeProtocolInterface {
         },
       };
     } catch (error) {
-      // Fallback to individual reads on query failure
       const results: ReadMultiResultItem<T>[] = await Promise.all(
         uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
           const result = await this.read<T>(uri);
@@ -338,18 +279,15 @@ export class PostgresClient implements NodeProtocolInterface {
         args.push(options.pattern);
       }
 
-      // Count total matching rows for pagination
       const countRes = await this.executor.query(
         `SELECT COUNT(*) as cnt FROM ${table} WHERE uri LIKE $1 || '%'${patternClause}`,
         args,
       );
       const total = Number((countRes.rows[0] as { cnt: unknown })?.cnt ?? 0);
 
-      // Determine ORDER BY column (whitelist to prevent SQL injection)
       const orderCol = options?.sortBy === "timestamp" ? "timestamp" : "uri";
       const orderDir = options?.sortOrder === "desc" ? "DESC" : "ASC";
 
-      // Build parameterized query with sort/limit/offset pushed to SQL
       const dataArgs = [...args, limit, offset];
       const limitIdx = args.length + 1;
       const offsetIdx = args.length + 2;
@@ -414,14 +352,12 @@ export class PostgresClient implements NodeProtocolInterface {
           message: "Not connected to PostgreSQL",
         };
       }
-      // Simple health check
       await this.executor.query("SELECT 1");
       return {
         status: "healthy",
         message: "PostgreSQL client is operational",
         details: {
           tablePrefix: this.tablePrefix,
-          schemaKeys: Object.keys(this.schema),
           connectionType: typeof this.config.connection === "string"
             ? "connection_string"
             : "config_object",
@@ -438,7 +374,7 @@ export class PostgresClient implements NodeProtocolInterface {
   }
 
   async getSchema(): Promise<string[]> {
-    return this.schema ? Object.keys(this.schema) : [];
+    return [];
   }
 
   async cleanup(): Promise<void> {
@@ -454,7 +390,6 @@ export class PostgresClient implements NodeProtocolInterface {
    */
   async initializeSchema(): Promise<void> {
     try {
-      // Generate schema SQL using the utility function
       const schemaSQL = generatePostgresSchema(this.tablePrefix);
       await this.executor.query(schemaSQL);
     } catch (error) {
@@ -467,22 +402,10 @@ export class PostgresClient implements NodeProtocolInterface {
   }
 
   /**
-   * Extract program key from URI (protocol://toplevel)
-   * Mirrors MemoryClient behavior:
-   *   "users://alice/profile" -> "users://alice"
-   *   "cache://session/123" -> "cache://session"
-   */
-  private extractProgramKey(uri: string): string {
-    const url = new URL(uri);
-    return `${url.protocol}//${url.hostname}`;
-  }
-
-  /**
    * Get connection info for logging/debugging
    */
   getConnectionInfo(): string {
     if (typeof this.config.connection === "string") {
-      // Mask password in connection string
       const masked = this.config.connection.replace(/:([^@]+)@/, ":****@");
       return masked;
     } else {

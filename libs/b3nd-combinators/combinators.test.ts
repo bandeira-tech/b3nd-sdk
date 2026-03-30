@@ -7,7 +7,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
+import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import { parallelBroadcast } from "./parallel-broadcast.ts";
 import { firstMatchSequence } from "./first-match-sequence.ts";
@@ -34,8 +34,8 @@ function rejectingClient(): NodeProtocolInterface {
 // --- parallelBroadcast tests ---
 
 Deno.test("parallelBroadcast - writes to all backends", async () => {
-  const a = new MemoryClient({ schema: createTestSchema() });
-  const b = new MemoryClient({ schema: createTestSchema() });
+  const a = new MemoryClient();
+  const b = new MemoryClient();
   const combined = parallelBroadcast([a, b]);
 
   const result = await combined.receive([
@@ -56,8 +56,8 @@ Deno.test("parallelBroadcast - writes to all backends", async () => {
 });
 
 Deno.test("parallelBroadcast - reads from first backend only", async () => {
-  const a = new MemoryClient({ schema: createTestSchema() });
-  const b = new MemoryClient({ schema: createTestSchema() });
+  const a = new MemoryClient();
+  const b = new MemoryClient();
 
   // Write directly to each backend with different data
   await a.receive(["mutable://data/test", { source: "a" }]);
@@ -75,8 +75,8 @@ Deno.test("parallelBroadcast - reads from first backend only", async () => {
 });
 
 Deno.test("parallelBroadcast - readMulti reads from first backend", async () => {
-  const a = new MemoryClient({ schema: createTestSchema() });
-  const b = new MemoryClient({ schema: createTestSchema() });
+  const a = new MemoryClient();
+  const b = new MemoryClient();
 
   await a.receive(["mutable://data/x", { from: "a" }]);
   await b.receive(["mutable://data/x", { from: "b" }]);
@@ -94,8 +94,8 @@ Deno.test("parallelBroadcast - readMulti reads from first backend", async () => 
 });
 
 Deno.test("parallelBroadcast - delete removes from all backends", async () => {
-  const a = new MemoryClient({ schema: createTestSchema() });
-  const b = new MemoryClient({ schema: createTestSchema() });
+  const a = new MemoryClient();
+  const b = new MemoryClient();
   const combined = parallelBroadcast([a, b]);
 
   await combined.receive(["mutable://data/temp", { v: 1 }]);
@@ -111,7 +111,7 @@ Deno.test("parallelBroadcast - delete removes from all backends", async () => {
 });
 
 Deno.test("parallelBroadcast - fails if any backend rejects write", async () => {
-  const a = new MemoryClient({ schema: createTestSchema() });
+  const a = new MemoryClient();
   const b = rejectingClient();
 
   const combined = parallelBroadcast([a, b]);
@@ -127,8 +127,8 @@ Deno.test("parallelBroadcast - fails if any backend rejects write", async () => 
 // --- firstMatchSequence tests ---
 
 Deno.test("firstMatchSequence - reads from first backend that has data", async () => {
-  const primary = new MemoryClient({ schema: createTestSchema() });
-  const fallback = new MemoryClient({ schema: createTestSchema() });
+  const primary = new MemoryClient();
+  const fallback = new MemoryClient();
 
   // Only fallback has the data
   await fallback.receive(["mutable://data/only-in-fallback", { found: true }]);
@@ -145,8 +145,8 @@ Deno.test("firstMatchSequence - reads from first backend that has data", async (
 });
 
 Deno.test("firstMatchSequence - prefers primary over fallback", async () => {
-  const primary = new MemoryClient({ schema: createTestSchema() });
-  const fallback = new MemoryClient({ schema: createTestSchema() });
+  const primary = new MemoryClient();
+  const fallback = new MemoryClient();
 
   await primary.receive(["mutable://data/both", { source: "primary" }]);
   await fallback.receive(["mutable://data/both", { source: "fallback" }]);
@@ -163,8 +163,8 @@ Deno.test("firstMatchSequence - prefers primary over fallback", async () => {
 });
 
 Deno.test("firstMatchSequence - returns failure when no backend has data", async () => {
-  const a = new MemoryClient({ schema: createTestSchema() });
-  const b = new MemoryClient({ schema: createTestSchema() });
+  const a = new MemoryClient();
+  const b = new MemoryClient();
 
   const combined = firstMatchSequence([a, b]);
   const result = await combined.read("mutable://data/nowhere");
@@ -177,7 +177,7 @@ Deno.test("firstMatchSequence - returns failure when no backend has data", async
 Deno.test("firstMatchSequence - write goes to first accepting backend", async () => {
   // primary rejects all writes
   const primary = rejectingClient();
-  const fallback = new MemoryClient({ schema: createTestSchema() });
+  const fallback = new MemoryClient();
 
   const combined = firstMatchSequence([primary, fallback]);
   const result = await combined.receive([
@@ -194,8 +194,8 @@ Deno.test("firstMatchSequence - write goes to first accepting backend", async ()
 });
 
 Deno.test("firstMatchSequence - readMulti falls through to fallback", async () => {
-  const primary = new MemoryClient({ schema: createTestSchema() });
-  const fallback = new MemoryClient({ schema: createTestSchema() });
+  const primary = new MemoryClient();
+  const fallback = new MemoryClient();
 
   await fallback.receive(["mutable://data/a", { v: 1 }]);
   await fallback.receive(["mutable://data/b", { v: 2 }]);
@@ -213,8 +213,8 @@ Deno.test("firstMatchSequence - readMulti falls through to fallback", async () =
 });
 
 Deno.test("firstMatchSequence - delete uses first matching backend", async () => {
-  const primary = new MemoryClient({ schema: createTestSchema() });
-  const fallback = new MemoryClient({ schema: createTestSchema() });
+  const primary = new MemoryClient();
+  const fallback = new MemoryClient();
 
   await primary.receive(["mutable://data/del", { v: 1 }]);
   await fallback.receive(["mutable://data/del", { v: 1 }]);
@@ -233,8 +233,8 @@ Deno.test("firstMatchSequence - delete uses first matching backend", async () =>
 });
 
 Deno.test("firstMatchSequence - list falls through to backend with data", async () => {
-  const primary = new MemoryClient({ schema: createTestSchema() });
-  const fallback = new MemoryClient({ schema: createTestSchema() });
+  const primary = new MemoryClient();
+  const fallback = new MemoryClient();
 
   await fallback.receive(["mutable://data/list-a/profile", { v: 1 }]);
   await fallback.receive(["mutable://data/list-b/profile", { v: 2 }]);

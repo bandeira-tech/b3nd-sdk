@@ -4,7 +4,7 @@ import { createTestSchema, MemoryClient } from "../libs/b3nd-client-memory/mod.t
 
 Deno.test("createRigHandler - health endpoint", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     schema: createTestSchema(),
   });
   const handler = rig.handler({ healthMeta: { test: true } });
@@ -17,7 +17,7 @@ Deno.test("createRigHandler - health endpoint", async () => {
 
 Deno.test("createRigHandler - receive/read/list round-trip", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     schema: createTestSchema(),
   });
   const handler = rig.handler();
@@ -51,7 +51,7 @@ Deno.test("createRigHandler - receive/read/list round-trip", async () => {
 
 Deno.test("createRigHandler - delete endpoint", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     schema: createTestSchema(),
   });
   const handler = rig.handler();
@@ -84,7 +84,7 @@ Deno.test("createRigHandler - delete endpoint", async () => {
 
 Deno.test("createRigHandler - unknown route returns 404", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     schema: createTestSchema(),
   });
   const handler = rig.handler();

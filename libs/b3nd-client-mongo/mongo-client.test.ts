@@ -10,7 +10,6 @@
 
 import { MongoClient } from "./mod.ts";
 import { runSharedSuite } from "../b3nd-testing/shared-suite.ts";
-import type { PersistenceRecord, Schema } from "../b3nd-core/types.ts";
 import type { MongoExecutor } from "./mod.ts";
 
 import { MongoClient as NativeMongoClient } from "npm:mongodb";
@@ -208,38 +207,15 @@ const mongoSetupPromise: Promise<MongoSetupResult> = (async () => {
   };
 })();
 
-function createSchema(
-  validator?: (value: unknown) => Promise<{ valid: boolean; error?: string }>,
-): Schema {
-  const defaultValidator = async (
-    { value, read }: { value: unknown; read: unknown },
-  ) => {
-    if (validator) {
-      return validator(value);
-    }
-    const _ = read as <T = unknown>(
-      uri: string,
-    ) => Promise<{ success: boolean; record?: PersistenceRecord<T> }>;
-    return { valid: true };
-  };
+const DEFAULT_PROGRAMS = ["store://users", "store://files", "store://pagination"];
 
-  return {
-    "store://users": defaultValidator,
-    "store://files": defaultValidator, // For binary tests
-    "store://pagination": defaultValidator, // For pagination tests
-  };
-}
-
-async function createClient(
-  schema: Schema,
-): Promise<MongoClient> {
+async function createClient(): Promise<MongoClient> {
   const { url, dbName, collectionName } = await mongoSetupPromise;
 
   const executor = new RealMongoExecutor(url, dbName, collectionName);
   const client = new MongoClient(
     {
       connectionString: url,
-      schema,
       collectionName,
     },
     executor,
@@ -249,18 +225,7 @@ async function createClient(
 }
 
 runSharedSuite("MongoClient", {
-  happy: () => createClient(createSchema()),
-
-  validationError: () =>
-    createClient(
-      createSchema(async (value) => {
-        const data = value as { name?: string };
-        if (!data.name) {
-          return { valid: false, error: "Name is required" };
-        }
-        return { valid: true };
-      }),
-    ),
+  happy: () => createClient(),
 });
 
 // Optional Docker cleanup (disabled by default to avoid conflicts in parallel runs)

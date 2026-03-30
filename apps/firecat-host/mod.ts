@@ -23,7 +23,7 @@ const config: HostConfig = {
 
 // ── Rig & Server ─────────────────────────────────────────────────────
 
-const rig = await Rig.connect(BACKEND_URL);
+const rig = await Rig.init({ url: BACKEND_URL });
 rig.on("read:error", (e) => {
   console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
 });

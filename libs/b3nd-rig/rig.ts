@@ -51,7 +51,7 @@ import type { EventHandler, RigEventName } from "./events.ts";
 import { RigEventEmitter } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
 import { ObserveRegistry } from "./observe.ts";
-import { clientAccepts } from "./filter.ts";
+import type { Subscription } from "./subscription.ts";
 import { createRigHandler } from "./http-handler.ts";
 import { openSseStream } from "../b3nd-client-http/sse.ts";
 import { matchPattern } from "./observe.ts";
@@ -74,7 +74,7 @@ interface OpClients {
  *
  * @example Unsigned operations
  * ```typescript
- * const rig = await Rig.connect("https://node.b3nd.net");
+ * const rig = await Rig.init({ url: "https://node.b3nd.net" });
  * await rig.receive(["mutable://open/app/x", data]);
  * const result = await rig.readData("mutable://open/app/x");
  * ```
@@ -140,8 +140,6 @@ export class Rig {
    *
    * Prefer passing the Rig itself (it satisfies `NodeProtocolInterface`).
    * This getter exists for third-party code that requires a plain object.
-   *
-   * @deprecated Pass the Rig instance directly instead.
    */
   get client(): NodeProtocolInterface {
     const c = this._clients;
@@ -162,29 +160,30 @@ export class Rig {
   /**
    * Initialize a Rig from config.
    *
+   * - `url: "memory://"` → resolve URL to a client automatically
    * - `client: myClient` → single pre-built client for all operations
    * - `clients: [...]` → array of filtered clients, rig routes by `accepts()`
    * - `clients: { read: client, send: client }` → per-operation routing
    * - `hooks`, `on`, `observe` → behavior layers
    *
    * The rig is pure orchestration — build clients outside, hand them in.
-   * Use `Rig.connect(url)` for the common one-liner case.
    */
   static async init(config: RigConfig): Promise<Rig> {
+    // Resolve URL to client if provided
+    if (config.url && !config.client) {
+      const client = await createClientFromUrl(config.url);
+      const sseBaseUrl = config.sseBaseUrl ??
+        (config.url.startsWith("http://") || config.url.startsWith("https://")
+          ? config.url.replace(/\/$/, "")
+          : undefined);
+      return Rig.init({ ...config, client, sseBaseUrl, url: undefined });
+    }
+
     let opClients: OpClients;
 
-    if (Array.isArray(config.clients)) {
-      // Array form — clients declare what they accept via accepts()
-      opClients = createDispatchClients(config.clients);
-    } else if (config.clients && !Array.isArray(config.clients)) {
-      // Object form — per-operation routing with pre-built clients
-      const defaultClient = config.client;
-      if (!defaultClient) {
-        throw new Error(
-          "Rig.init: `client` is required as default when using object-form `clients`",
-        );
-      }
-      opClients = resolveOpClients(config.clients, defaultClient);
+    if (config.subscriptions) {
+      // Subscription-based routing — the primary path
+      opClients = createSubscriptionDispatch(config.subscriptions);
     } else if (config.client) {
       // Single client for all operations
       const c = config.client;
@@ -197,8 +196,7 @@ export class Rig {
       };
     } else {
       throw new Error(
-        "Rig.init: either `client` or `clients` is required. " +
-          "Use Rig.connect(url) for URL-based setup.",
+        "Rig.init: `url`, `client`, or `subscriptions` is required.",
       );
     }
 
@@ -820,38 +818,6 @@ export class Rig {
     return this._events.pending();
   }
 
-  // ── Convenience factories ──
-
-  /**
-   * Quick connect to a single backend URL.
-   *
-   * Resolves the URL to a client, then initializes the rig.
-   * For HTTP/HTTPS URLs, SSE subscriptions are automatically enabled.
-   *
-   * @example
-   * ```typescript
-   * const rig = await Rig.connect("https://node.b3nd.net");
-   * const data = await rig.read("mutable://open/key");
-   * ```
-   *
-   * @example With authenticated session
-   * ```typescript
-   * const rig = await Rig.connect("memory://");
-   * const id = await Identity.fromSeed("my-secret");
-   * await id.rig(rig).send({ inputs: [], outputs: [["mutable://open/x", 1]] });
-   * ```
-   */
-  static async connect(
-    url: string,
-  ): Promise<Rig> {
-    const client = await createClientFromUrl(url);
-    const sseBaseUrl =
-      url.startsWith("http://") || url.startsWith("https://")
-        ? url.replace(/\/$/, "")
-        : undefined;
-    return Rig.init({ client, sseBaseUrl });
-  }
-
   // ── Runtime API: events, observe ──
   // Hooks are immutable after init — see createHookChains().
 
@@ -1328,75 +1294,56 @@ export class Rig {
 // ── Init helpers ──
 
 /** Resolve per-operation clients from object form, falling back to the default. */
-function resolveOpClients(
-  clientsConfig: Record<string, NodeProtocolInterface | undefined>,
-  defaultClient: NodeProtocolInterface,
-): OpClients {
-  return {
-    send: (clientsConfig.send as NodeProtocolInterface) ?? defaultClient,
-    receive: (clientsConfig.receive as NodeProtocolInterface) ?? defaultClient,
-    read: (clientsConfig.read as NodeProtocolInterface) ?? defaultClient,
-    list: (clientsConfig.list as NodeProtocolInterface) ?? defaultClient,
-    delete: (clientsConfig.delete as NodeProtocolInterface) ?? defaultClient,
-  };
-}
 
 /**
- * Build dispatch clients from a flat array.
+ * Build dispatch from subscriptions.
  *
- * Each operation is backed by a synthetic client that iterates all
- * clients in order, checking `accepts(operation, uri)`.
- *
- * - Writes (receive, delete): broadcast to ALL accepting clients.
- *   If none accept, returns an error.
- * - Reads (read, list): first-match — tries each accepting client
- *   in order, returns the first success.
- * - Send delegates to receive (the envelope is a receive to the network).
- *
- * Clients without `accepts()` accept everything (backwards compat).
+ * Each operation is routed through subscriptions:
+ * - Writes (receive, delete): broadcast to ALL matching subscriptions.
+ * - Reads (read, list): first-match in declaration order.
+ * - Health/schema/cleanup: aggregate across unique clients.
  */
-function createDispatchClients(
-  clients: NodeProtocolInterface[],
+function createSubscriptionDispatch(
+  subscriptions: Subscription[],
 ): OpClients {
-  if (clients.length === 0) {
-    throw new Error("Rig.init: `clients` array must not be empty");
+  if (subscriptions.length === 0) {
+    throw new Error("Rig.init: `subscriptions` array must not be empty");
   }
 
   const dispatch: NodeProtocolInterface = {
     async receive(msg) {
       const [uri] = msg;
-      const accepting = clients.filter((c) => clientAccepts(c, "receive", uri));
-      if (accepting.length === 0) {
+      const matching = subscriptions.filter((s) => s.accepts("receive", uri));
+      if (matching.length === 0) {
         return {
           accepted: false,
-          error: `No client accepts receive for ${uri}`,
+          error: `No subscription accepts receive for ${uri}`,
         };
       }
-      // Broadcast — all must accept
-      const results = await Promise.all(accepting.map((c) => c.receive(msg)));
+      const results = await Promise.all(
+        matching.map((s) => s.client.receive(msg)),
+      );
       const failed = results.find((r) => !r.accepted);
       if (failed) return failed;
       return results[0];
     },
 
     async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
-      // First match — try accepting clients in order
-      for (const c of clients) {
-        if (!clientAccepts(c, "read", uri)) continue;
-        const result = await c.read<T>(uri);
+      for (const s of subscriptions) {
+        if (!s.accepts("read", uri)) continue;
+        const result = await s.client.read<T>(uri);
         if (result.success) return result;
       }
-      return { success: false, error: `No client has data for ${uri}` };
+      return { success: false, error: `No subscription has data for ${uri}` };
     },
 
     async readMulti<T = unknown>(
       uris: string[],
     ): Promise<ReadMultiResult<T>> {
-      // Delegate each URI to the first accepting client
       const items = await Promise.all(uris.map(async (uri) => {
-        for (const c of clients) {
-          if (!clientAccepts(c, "read", uri)) continue;
-          const r = await c.read<T>(uri);
+        for (const s of subscriptions) {
+          if (!s.accepts("read", uri)) continue;
+          const r = await s.client.read<T>(uri);
           if (r.success && r.record) {
             return {
               uri,
@@ -1408,7 +1355,7 @@ function createDispatchClients(
         return {
           uri,
           success: false as const,
-          error: `No client has data for ${uri}`,
+          error: `No subscription has data for ${uri}`,
         };
       }));
       const succeeded = items.filter((r) => r.success).length;
@@ -1424,13 +1371,11 @@ function createDispatchClients(
     },
 
     async list(uri, options) {
-      // First non-empty — try accepting clients in order
-      for (const c of clients) {
-        if (!clientAccepts(c, "list", uri)) continue;
-        const result = await c.list(uri, options);
+      for (const s of subscriptions) {
+        if (!s.accepts("list", uri)) continue;
+        const result = await s.client.list(uri, options);
         if (result.success && result.data.length > 0) return result;
       }
-      // No data found — return empty success
       return {
         success: true,
         data: [],
@@ -1439,19 +1384,31 @@ function createDispatchClients(
     },
 
     async delete(uri) {
-      const accepting = clients.filter((c) => clientAccepts(c, "delete", uri));
-      if (accepting.length === 0) {
-        return { success: false, error: `No client accepts delete for ${uri}` };
+      const matching = subscriptions.filter((s) => s.accepts("delete", uri));
+      if (matching.length === 0) {
+        return {
+          success: false,
+          error: `No subscription accepts delete for ${uri}`,
+        };
       }
-      const results = await Promise.all(accepting.map((c) => c.delete(uri)));
+      const results = await Promise.all(
+        matching.map((s) => s.client.delete(uri)),
+      );
       const failed = results.find((r) => !r.success);
       if (failed) return failed;
       return results[0];
     },
 
     async health() {
-      // Aggregate health from all clients
-      const results = await Promise.all(clients.map((c) => c.health()));
+      const seen = new Set<NodeProtocolInterface>();
+      const unique: NodeProtocolInterface[] = [];
+      for (const s of subscriptions) {
+        if (!seen.has(s.client)) {
+          seen.add(s.client);
+          unique.push(s.client);
+        }
+      }
+      const results = await Promise.all(unique.map((c) => c.health()));
       const unhealthy = results.find((r) => r.status === "unhealthy");
       if (unhealthy) return unhealthy;
       const degraded = results.find((r) => r.status === "degraded");
@@ -1460,21 +1417,29 @@ function createDispatchClients(
     },
 
     async getSchema() {
-      // Union of all client schemas
+      const seen = new Set<NodeProtocolInterface>();
       const all = new Set<string>();
-      for (const c of clients) {
-        const schemas = await c.getSchema();
-        for (const s of schemas) all.add(s);
+      for (const s of subscriptions) {
+        if (!seen.has(s.client)) {
+          seen.add(s.client);
+          const schemas = await s.client.getSchema();
+          for (const k of schemas) all.add(k);
+        }
       }
       return [...all];
     },
 
     async cleanup() {
-      await Promise.all(clients.map((c) => c.cleanup()));
+      const seen = new Set<NodeProtocolInterface>();
+      for (const s of subscriptions) {
+        if (!seen.has(s.client)) {
+          seen.add(s.client);
+          await s.client.cleanup();
+        }
+      }
     },
   };
 
-  // All ops go through the same dispatch — filtering is per-call
   return {
     send: dispatch,
     receive: dispatch,
@@ -1483,6 +1448,7 @@ function createDispatchClients(
     delete: dispatch,
   };
 }
+
 
 // ── Compile-time assertion ──
 // Rig structurally satisfies NodeProtocolInterface, so it can be

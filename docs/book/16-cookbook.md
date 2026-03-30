@@ -376,14 +376,14 @@ Each event stores the hash of the previous event. Walk backward from "latest" to
 import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
-const schema = {
-  "mutable://open": { type: "mutable", access: "open" },
-  "mutable://accounts": { type: "mutable", access: "accounts" },
-  "immutable://inbox": { type: "immutable", access: "inbox" },
-  "hash://sha256": { type: "hash", access: "open" },
-};
+const programs = [
+  "mutable://open",
+  "mutable://accounts",
+  "immutable://inbox",
+  "hash://sha256",
+];
 
-const client = new MemoryClient({ schema });
+const client = new MemoryClient({ programs });
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -392,7 +392,7 @@ node.listen(43100);
 console.log("Post office open on port 43100");
 ```
 
-A node is a post office. The schema is the house rules. `listen()` means "open the doors." Thirteen lines of code.
+A node is a post office. The programs are the house rules. `listen()` means "open the doors." Thirteen lines of code.
 
 ---
 

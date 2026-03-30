@@ -90,7 +90,7 @@ The simplest deployment. The handler runs in the same process as the node.
 ```
 
 ```typescript
-const client = new MemoryClient({ schema });
+const client = new MemoryClient();
 const processor = respondTo(handler, { identity, client });
 const conn = connect(client, { prefix: INBOX, processor });
 conn.start();

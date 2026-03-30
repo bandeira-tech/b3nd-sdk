@@ -2,7 +2,7 @@
  * LocalStorageClient - Browser localStorage implementation of NodeProtocolInterface
  *
  * Provides persistent storage in browser environments using localStorage.
- * Supports schema validation and custom serialization.
+ * Supports custom serialization.
  */
 
 import type {
@@ -19,7 +19,6 @@ import type {
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
-  Schema,
 } from "../b3nd-core/types.ts";
 import { decodeBase64, encodeBase64 } from "../b3nd-core/encoding.ts";
 
@@ -52,7 +51,6 @@ export class LocalStorageClient implements NodeProtocolInterface {
       deserialize: (data: string) => unknown;
     };
   };
-  private schema: Schema;
   private storage: Storage;
 
   constructor(config: LocalStorageClientConfig) {
@@ -64,7 +62,6 @@ export class LocalStorageClient implements NodeProtocolInterface {
         ...config.serializer,
       },
     };
-    this.schema = config.schema || {};
 
     // Use injected storage or default to global localStorage
     this.storage = config.storage ||
@@ -81,38 +78,6 @@ export class LocalStorageClient implements NodeProtocolInterface {
    */
   private getKey(uri: string): string {
     return `${this.config.keyPrefix}${uri}`;
-  }
-
-  /**
-   * Validate write operation against schema
-   */
-  private async validateWrite(
-    uri: string,
-    value: unknown,
-  ): Promise<{ valid: boolean; error?: string }> {
-    // Find matching schema validation function
-    const programKey = this.findMatchingProgram(uri);
-    if (programKey && this.schema[programKey]) {
-      const validator = this.schema[programKey];
-      return await validator({ uri, value, read: this.read.bind(this) });
-    }
-
-    // No schema defined for this URI, allow write
-    return { valid: true };
-  }
-
-  /**
-   * Find matching program key for URI
-   */
-  private findMatchingProgram(uri: string): string | null {
-    // Look for prefix matches (e.g., "users://" matches "users://alice/profile")
-    for (const programKey of Object.keys(this.schema)) {
-      if (uri.startsWith(programKey)) {
-        return programKey;
-      }
-    }
-
-    return null;
   }
 
   /**
@@ -143,15 +108,6 @@ export class LocalStorageClient implements NodeProtocolInterface {
     }
 
     try {
-      // Validate against schema if present
-      const validation = await this.validateWrite(uri, data);
-      if (!validation.valid) {
-        return {
-          accepted: false,
-          error: validation.error || "Validation failed",
-        };
-      }
-
       const key = this.getKey(uri);
       const record: PersistenceRecord<unknown> = {
         ts: Date.now(),
@@ -445,7 +401,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
   }
 
   async getSchema(): Promise<string[]> {
-    return Object.keys(this.schema);
+    return [];
   }
 
   async cleanup(): Promise<void> {

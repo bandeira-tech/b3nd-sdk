@@ -1,13 +1,9 @@
 /**
  * IpfsClient - IPFS implementation of NodeProtocolInterface
  *
- * Stores data as JSON objects pinned to IPFS. Each record is serialized
- * as `{ ts, data }` and added via the IPFS API. The CID becomes the
- * content address. A local index maps URIs → CIDs for mutable lookups.
+ * Stores data as JSON objects pinned to IPFS. Pure storage — validation is the rig's concern.
  *
- * Uses an injected executor so the SDK does not depend on a specific
- * IPFS library. Works with Kubo HTTP RPC, Helia, or any wrapper that
- * implements the IpfsExecutor interface.
+ * Uses an injected executor so the SDK does not depend on a specific IPFS library.
  *
  * URL format: ipfs://localhost:5001 (Kubo API endpoint)
  */
@@ -26,7 +22,6 @@ import {
   type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
-  type Schema,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -34,59 +29,28 @@ import {
 } from "../b3nd-core/binary.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
-/**
- * Configuration for IpfsClient
- */
 export interface IpfsClientConfig {
-  /**
-   * IPFS API endpoint URL (e.g., "http://localhost:5001").
-   */
   apiUrl: string;
-
-  /**
-   * Schema for validation — must be explicitly provided.
-   */
-  schema: Schema;
 }
 
-/**
- * IPFS executor interface.
- * Abstracts the IPFS API so the client works with Kubo, Helia, or test stubs.
- */
 export interface IpfsExecutor {
-  /** Add content to IPFS and return the CID. */
   add: (content: string) => Promise<string>;
-  /** Retrieve content by CID. Returns the raw string. */
   cat: (cid: string) => Promise<string>;
-  /** Pin a CID so it isn't garbage-collected. */
   pin: (cid: string) => Promise<void>;
-  /** Unpin a CID. */
   unpin: (cid: string) => Promise<void>;
-  /** List all pinned CIDs. Returns an array of CID strings. */
   listPins: () => Promise<string[]>;
-  /** Check if the IPFS node is reachable. */
   isOnline: () => Promise<boolean>;
-  /** Optional cleanup (close connections, etc.) */
   cleanup?: () => Promise<void>;
 }
 
-/**
- * Internal index entry mapping a URI to its IPFS CID.
- */
 interface IndexEntry {
   cid: string;
   ts: number;
 }
 
 export class IpfsClient implements NodeProtocolInterface {
-  private readonly schema: Schema;
   private readonly apiUrl: string;
   private readonly executor: IpfsExecutor;
-
-  /**
-   * URI → CID index. Kept in memory and optionally persisted to IPFS
-   * itself (the index CID can be stored externally for recovery).
-   */
   private readonly index = new Map<string, IndexEntry>();
 
   constructor(config: IpfsClientConfig, executor?: IpfsExecutor) {
@@ -96,14 +60,10 @@ export class IpfsClient implements NodeProtocolInterface {
     if (!config.apiUrl) {
       throw new Error("apiUrl is required in IpfsClientConfig");
     }
-    if (!config.schema) {
-      throw new Error("schema is required in IpfsClientConfig");
-    }
     if (!executor) {
       throw new Error("executor is required");
     }
 
-    this.schema = config.schema;
     this.apiUrl = config.apiUrl.replace(/\/+$/, "");
     this.executor = executor;
   }
@@ -120,33 +80,6 @@ export class IpfsClient implements NodeProtocolInterface {
     }
 
     try {
-      const programKey = this.extractProgramKey(uri);
-      const validator = this.schema[programKey];
-
-      if (!validator) {
-        const msg = `No schema defined for program key: ${programKey}`;
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
-      const validation = await validator({
-        uri,
-        value: data,
-        read: this.read.bind(this),
-      });
-
-      if (!validation.valid) {
-        const msg = validation.error || "Validation failed";
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
       const encodedData = encodeBinaryForJson(data);
       const ts = Date.now();
       const record: PersistenceRecord = { ts, data: encodedData };
@@ -155,7 +88,6 @@ export class IpfsClient implements NodeProtocolInterface {
       const cid = await this.executor.add(content);
       await this.executor.pin(cid);
 
-      // Remove old pin if updating
       const existing = this.index.get(uri);
       if (existing) {
         try {
@@ -167,7 +99,6 @@ export class IpfsClient implements NodeProtocolInterface {
 
       this.index.set(uri, { cid, ts });
 
-      // If MessageData, also store each output at its own URI
       if (isMessageData(data)) {
         for (const [outputUri, outputValue] of data.payload.outputs) {
           const outputEncoded = encodeBinaryForJson(outputValue);
@@ -279,7 +210,6 @@ export class IpfsClient implements NodeProtocolInterface {
 
   async list(uri: string, options?: ListOptions): Promise<ListResult> {
     try {
-      // Filter index entries whose URIs start with the given prefix
       const prefix = uri.endsWith("/") ? uri : uri + "/";
       let items: ListItem[] = [];
 
@@ -289,13 +219,11 @@ export class IpfsClient implements NodeProtocolInterface {
         }
       }
 
-      // Apply pattern filter
       if (options?.pattern) {
         const regex = new RegExp(options.pattern);
         items = items.filter((item) => regex.test(item.uri));
       }
 
-      // Sort
       if (options?.sortBy === "timestamp") {
         items.sort((a, b) => {
           const aTs = this.index.get(a.uri)?.ts ?? 0;
@@ -370,7 +298,6 @@ export class IpfsClient implements NodeProtocolInterface {
         details: {
           apiUrl: this.apiUrl,
           indexedUris: this.index.size,
-          schemaKeys: Object.keys(this.schema),
         },
       };
     } catch (error) {
@@ -382,17 +309,12 @@ export class IpfsClient implements NodeProtocolInterface {
   }
 
   async getSchema(): Promise<string[]> {
-    return Object.keys(this.schema);
+    return [];
   }
 
   async cleanup(): Promise<void> {
     if (this.executor.cleanup) {
       await this.executor.cleanup();
     }
-  }
-
-  private extractProgramKey(uri: string): string {
-    const url = new URL(uri);
-    return `${url.protocol}//${url.hostname}`;
   }
 }

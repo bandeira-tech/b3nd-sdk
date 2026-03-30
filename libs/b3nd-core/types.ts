@@ -213,11 +213,6 @@ export interface ClientAccepts {
  */
 export interface MemoryClientConfig {
   /**
-   * Schema definition for the client
-   */
-  schema?: Schema;
-
-  /**
    * Optional pre-existing storage
    */
   storage?: Map<string, unknown>;
@@ -289,11 +284,6 @@ export interface LocalStorageClientConfig {
   keyPrefix?: string;
 
   /**
-   * Optional schema for validation (like MemoryClient)
-   */
-  schema?: Schema;
-
-  /**
    * Optional serialization functions
    */
   serializer?: {
@@ -327,11 +317,6 @@ export interface IndexedDBClientConfig {
   version?: number;
 
   /**
-   * Optional schema for validation
-   */
-  schema?: Schema;
-
-  /**
    * Optional injectable indexedDB dependency (defaults to global indexedDB)
    */
   // deno-lint-ignore no-explicit-any
@@ -356,11 +341,6 @@ export interface PostgresClientConfig {
     password: string;
     ssl?: boolean | object;
   };
-
-  /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
 
   /**
    * Table name prefix for b3nd data - must be explicitly provided
@@ -389,11 +369,6 @@ export interface MongoClientConfig {
   connectionString: string;
 
   /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
-
-  /**
    * Collection name for b3nd data - must be explicitly provided
    */
   collectionName: string;
@@ -408,11 +383,6 @@ export interface FsClientConfig {
    * All URI paths are stored relative to this root
    */
   rootDir: string;
-
-  /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
 }
 
 /**
@@ -424,11 +394,6 @@ export interface SqliteClientConfig {
    * Example: "/data/b3nd.db" or ":memory:"
    */
   path: string;
-
-  /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
 
   /**
    * Table name prefix for b3nd data tables
@@ -451,25 +416,12 @@ export interface S3ClientConfig {
    * Must end with "/" if provided.
    */
   prefix?: string;
-
-  /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
 }
 
 /**
  * Configuration for ConsoleClient
  */
 export interface ConsoleClientConfig {
-  /**
-   * Schema mapping protocol://hostname to validators.
-   *
-   * Keys MUST be in format: "protocol://hostname"
-   * Examples: "mutable://accounts", "immutable://data"
-   */
-  schema: Schema;
-
   /**
    * Optional label prefix for console output (default: "b3nd")
    */

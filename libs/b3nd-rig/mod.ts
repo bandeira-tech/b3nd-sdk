@@ -10,7 +10,7 @@
  * ```typescript
  * import { Rig, Identity } from "@b3nd/rig";
  *
- * const rig = await Rig.connect("https://node.b3nd.net");
+ * const rig = await Rig.init({ url: "https://node.b3nd.net" });
  * const id = await Identity.fromSeed("my-secret");
  *
  * // Identity drives, rig delivers
@@ -38,7 +38,7 @@ export type {
   S3ExecutorFactory as S3Executor,
   RigConfig,
   RigInfo,
-  ServeOptions,
+
   SubscribeHandler,
   SubscribeOptions,
   Unsubscribe,
@@ -69,9 +69,10 @@ export { RigEventEmitter } from "./events.ts";
 export type { ObserveHandler } from "./observe.ts";
 export { matchPattern, ObserveRegistry } from "./observe.ts";
 
-// Client filtering — declare what URIs each client accepts
-export { clientAccepts, withFilter } from "./filter.ts";
-export type { FilteredClient, FilterPatterns } from "./filter.ts";
+// Subscriptions — the single filtering primitive
+export { subscribe } from "./subscription.ts";
+export type { Subscription, SubscriptionPatterns } from "./subscription.ts";
+
 
 // HTTP handler — thin adapter for serving a rig over HTTP
 export { createRigHandler } from "./http-handler.ts";

@@ -52,12 +52,7 @@ Deno.test("generateSessionKeypair - creates unique keypairs", async () => {
 
 Deno.test("MemoryWalletClient - signup works with approved session", async () => {
   const appKey = await createTestAppKey();
-  const backend = new MemoryClient({
-    schema: {
-      "mutable://accounts": async () => ({ valid: true }),
-      "immutable://accounts": async () => ({ valid: true }),
-    },
-  });
+  const backend = new MemoryClient();
 
   const wallet = await MemoryWalletClient.create({ backend });
 
@@ -79,12 +74,7 @@ Deno.test("MemoryWalletClient - signup works with approved session", async () =>
 
 Deno.test("MemoryWalletClient - signup fails without session approval", async () => {
   const appKey = await createTestAppKey();
-  const backend = new MemoryClient({
-    schema: {
-      "mutable://accounts": async () => ({ valid: true }),
-      "immutable://accounts": async () => ({ valid: true }),
-    },
-  });
+  const backend = new MemoryClient();
 
   const wallet = await MemoryWalletClient.create({ backend });
 
@@ -107,12 +97,7 @@ Deno.test("MemoryWalletClient - signup fails without session approval", async ()
 
 Deno.test("MemoryWalletClient - login fails without session approval", async () => {
   const appKey = await createTestAppKey();
-  const backend = new MemoryClient({
-    schema: {
-      "mutable://accounts": async () => ({ valid: true }),
-      "immutable://accounts": async () => ({ valid: true }),
-    },
-  });
+  const backend = new MemoryClient();
 
   const wallet = await MemoryWalletClient.create({ backend });
 
@@ -148,12 +133,7 @@ Deno.test("MemoryWalletClient - login fails without session approval", async () 
 
 Deno.test("MemoryWalletClient - login succeeds with approved session", async () => {
   const appKey = await createTestAppKey();
-  const backend = new MemoryClient({
-    schema: {
-      "mutable://accounts": async () => ({ valid: true }),
-      "immutable://accounts": async () => ({ valid: true }),
-    },
-  });
+  const backend = new MemoryClient();
 
   const wallet = await MemoryWalletClient.create({ backend });
 
@@ -188,12 +168,7 @@ Deno.test("MemoryWalletClient - login succeeds with approved session", async () 
 
 Deno.test("MemoryWalletClient - login fails with revoked session", async () => {
   const appKey = await createTestAppKey();
-  const backend = new MemoryClient({
-    schema: {
-      "mutable://accounts": async () => ({ valid: true }),
-      "immutable://accounts": async () => ({ valid: true }),
-    },
-  });
+  const backend = new MemoryClient();
 
   const wallet = await MemoryWalletClient.create({ backend });
 
@@ -231,12 +206,7 @@ Deno.test("MemoryWalletClient - login fails with revoked session", async () => {
 
 Deno.test("MemoryWalletClient - login fails with wrong password", async () => {
   const appKey = await createTestAppKey();
-  const backend = new MemoryClient({
-    schema: {
-      "mutable://accounts": async () => ({ valid: true }),
-      "immutable://accounts": async () => ({ valid: true }),
-    },
-  });
+  const backend = new MemoryClient();
 
   const wallet = await MemoryWalletClient.create({ backend });
 
@@ -273,12 +243,7 @@ Deno.test("MemoryWalletClient - login fails with wrong password", async () => {
 
 Deno.test("MemoryWalletClient - session signature is validated", async () => {
   const appKey = await createTestAppKey();
-  const backend = new MemoryClient({
-    schema: {
-      "mutable://accounts": async () => ({ valid: true }),
-      "immutable://accounts": async () => ({ valid: true }),
-    },
-  });
+  const backend = new MemoryClient();
 
   const wallet = await MemoryWalletClient.create({ backend });
 
@@ -324,13 +289,7 @@ Deno.test("MemoryWalletClient - session signature is validated", async () => {
 
 Deno.test("MemoryWalletClient - proxyWrite/proxyRead work after login", async () => {
   const appKey = await createTestAppKey();
-  const backend = new MemoryClient({
-    schema: {
-      "mutable://accounts": async () => ({ valid: true }),
-      "immutable://accounts": async () => ({ valid: true }),
-      "mutable://data": async () => ({ valid: true }),
-    },
-  });
+  const backend = new MemoryClient();
 
   const wallet = await MemoryWalletClient.create({ backend });
 
@@ -393,12 +352,7 @@ Deno.test("createTestEnvironment - loginTestUser generates and approves session"
 
 Deno.test("session flow - full authentication cycle", async () => {
   const appKey = await createTestAppKey();
-  const backend = new MemoryClient({
-    schema: {
-      "mutable://accounts": async () => ({ valid: true }),
-      "immutable://accounts": async () => ({ valid: true }),
-    },
-  });
+  const backend = new MemoryClient();
 
   const wallet = await MemoryWalletClient.create({ backend });
 

@@ -7,6 +7,7 @@ import { assertEquals } from "@std/assert";
 import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
 import { send } from "@bandeira-tech/b3nd-sdk";
 import { generateSigningKeyPair, createAuthenticatedMessageWithHex } from "@bandeira-tech/b3nd-sdk/encrypt";
+import { createValidatedClient, msgSchema } from "../../libs/b3nd-compose/mod.ts";
 import schema from "./mod.ts";
 import {
   ROOT_KEY,
@@ -20,12 +21,17 @@ import {
 } from "./helpers.ts";
 
 function createClient() {
-  return new MemoryClient({ schema });
+  const mem = new MemoryClient();
+  return createValidatedClient({
+    write: mem,
+    read: mem,
+    validate: msgSchema(schema),
+  });
 }
 
 /** Claim genesis tokens, returns the balance UTXO URI */
 async function claimGenesis(
-  client: MemoryClient,
+  client: { receive: (msg: [string, unknown]) => Promise<any>; read: <T>(uri: string) => Promise<any> },
   pubkey: string,
 ): Promise<{ utxoUri: string }> {
   const envelope = buildGenesisEnvelope(pubkey, GENESIS_AMOUNT);
@@ -41,7 +47,7 @@ async function claimGenesis(
 
 /** Store content via send() and return the content hash */
 async function storeContent(
-  client: MemoryClient,
+  client: { receive: (msg: [string, unknown]) => Promise<any>; read: <T>(uri: string) => Promise<any> },
   content: unknown,
 ): Promise<string> {
   const envelope = {

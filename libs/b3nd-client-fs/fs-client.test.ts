@@ -10,7 +10,6 @@
 import { FilesystemClient, type FsExecutor } from "./mod.ts";
 import { runSharedSuite } from "../b3nd-testing/shared-suite.ts";
 import { runNodeSuite } from "../b3nd-testing/node-suite.ts";
-import type { PersistenceRecord, Schema } from "../b3nd-core/types.ts";
 import { join } from "jsr:@std/path@1";
 
 /**
@@ -79,66 +78,21 @@ class DenoFsExecutor implements FsExecutor {
   }
 }
 
-function createSchema(
-  validator?: (value: unknown) => Promise<{ valid: boolean; error?: string }>,
-): Schema {
-  const defaultValidator = async (
-    { value, read }: { value: unknown; read: unknown },
-  ) => {
-    if (validator) {
-      return validator(value);
-    }
-    const _ = read as <T = unknown>(
-      uri: string,
-    ) => Promise<{ success: boolean; record?: PersistenceRecord<T> }>;
-    return { valid: true };
-  };
-
-  return {
-    "store://users": defaultValidator,
-    "store://files": defaultValidator,
-    "store://pagination": defaultValidator,
-  };
-}
-
-async function createClient(schema: Schema): Promise<FilesystemClient> {
+async function createClient(): Promise<FilesystemClient> {
   const tmpDir = await Deno.makeTempDir({ prefix: "b3nd_fs_test_" });
   const executor = new DenoFsExecutor();
   return new FilesystemClient(
     {
       rootDir: tmpDir,
-      schema,
     },
     executor,
   );
 }
 
 runSharedSuite("FilesystemClient", {
-  happy: () => createClient(createSchema()),
-
-  validationError: () =>
-    createClient(
-      createSchema(async (value) => {
-        const data = value as { name?: string };
-        if (!data.name) {
-          return { valid: false, error: "Name is required" };
-        }
-        return { valid: true };
-      }),
-    ),
+  happy: () => createClient(),
 });
 
 runNodeSuite("FilesystemClient", {
-  happy: () => createClient(createSchema()),
-
-  validationError: () =>
-    createClient(
-      createSchema(async (value) => {
-        const data = value as { name?: string };
-        if (!data.name) {
-          return { valid: false, error: "Name is required" };
-        }
-        return { valid: true };
-      }),
-    ),
+  happy: () => createClient(),
 });

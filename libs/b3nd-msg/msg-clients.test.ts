@@ -22,7 +22,7 @@ function createTestSetup() {
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient({ schema });
+  const client = new MemoryClient();
 
   const node = createValidatedClient({
     write: client,

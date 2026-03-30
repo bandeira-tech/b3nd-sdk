@@ -32,7 +32,6 @@ import {
 
 import {
   MemoryClient,
-  createTestSchema,
 } from "../../../libs/b3nd-client-memory/mod.ts";
 
 // --- PKCE ---
@@ -107,7 +106,7 @@ Deno.test("pkce: challenge is SHA-256 of verifier in base64url", async () => {
 // --- PKCE + OAuth full flow ---
 
 Deno.test("pkce + oauth: SPA flow with custom node — end to end", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   // Node setup
   const nodeSecret = "node-hmac-secret-for-oauth";
@@ -199,7 +198,7 @@ Deno.test("password auth: derive keypair, write signed message, re-derive, read"
   const signingKeypair = await deriveSigningKeyPairFromSeed(seed);
 
   // Write signed message to a node
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
   const payload = { name: "Alice", bio: "Loves cooking" };
   const authedMessage = await createAuthenticatedMessageWithHex(
     payload,

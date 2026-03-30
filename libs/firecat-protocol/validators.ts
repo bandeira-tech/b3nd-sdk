@@ -180,7 +180,7 @@ export const genesisValidator: ValidationFn = async ({ uri, value, read }) => {
  * - Write-once: must not already exist
  * - Fee paid: immutable://balance/{ROOT_KEY}/{contentHash} must exist with value >= CONSENSUS_FEE
  */
-export const consensusRecordValidator: ValidationFn = async ({ uri, value, read }) => {
+export const consensusRecordValidator: ValidationFn = async ({ uri, value, read, message }) => {
   // Extract contentHash from URI: consensus://record/{contentHash}
   const url = URL.parse(uri);
   if (!url) return { valid: false, error: "Invalid consensus URI" };
@@ -208,9 +208,26 @@ export const consensusRecordValidator: ValidationFn = async ({ uri, value, read 
   }
 
   // Fee paid at ROOT_KEY keyed by content hash
+  // Check sibling outputs first (not yet written during validation), then storage
   const feeUri = `immutable://balance/${ROOT_KEY}/${contentHash}`;
-  const feeResult = await read<number>(feeUri);
-  if (!feeResult.success || typeof feeResult.record?.data !== "number" || feeResult.record.data < CONSENSUS_FEE) {
+  let feePaid = false;
+
+  if (message) {
+    const msg = message as MessageData;
+    const feeOutput = msg.payload.outputs.find(([u]) => u === feeUri);
+    if (feeOutput && typeof feeOutput[1] === "number" && feeOutput[1] >= CONSENSUS_FEE) {
+      feePaid = true;
+    }
+  }
+
+  if (!feePaid) {
+    const feeResult = await read<number>(feeUri);
+    if (feeResult.success && typeof feeResult.record?.data === "number" && feeResult.record.data >= CONSENSUS_FEE) {
+      feePaid = true;
+    }
+  }
+
+  if (!feePaid) {
     return { valid: false, error: `Gas fee not paid: expected ${CONSENSUS_FEE} at ${feeUri}` };
   }
 
