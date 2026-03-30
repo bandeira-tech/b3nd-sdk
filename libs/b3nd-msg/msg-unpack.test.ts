@@ -137,12 +137,17 @@ Deno.test("MemoryClient - plain data stored normally (no unpacking)", async () =
 });
 
 Deno.test("MemoryClient - fails if any output in MessageData fails", async () => {
-  const client = new MemoryClient({
-    schema: {
-      "mutable://open": async () => ({ valid: true }),
-      "msg://open": async () => ({ valid: true }),
-      // No schema for "unknown://program"
-    },
+  const schema: Schema = {
+    "mutable://open": async () => ({ valid: true }),
+    "msg://open": async () => ({ valid: true }),
+    // No schema for "unknown://program"
+  };
+  const raw = new MemoryClient({ schema });
+  // Wrap with validated client so schema is enforced (MemoryClient is a dumb pipe)
+  const client = createValidatedClient({
+    write: raw,
+    read: raw,
+    validate: msgSchema(schema),
   });
 
   const msgData: MessageData = {
