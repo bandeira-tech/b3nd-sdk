@@ -4,9 +4,10 @@
  */
 
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
-import type { HookableOp, PostHook, PreHook } from "./hooks.ts";
+import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
+import type { FilteredClient } from "./filter.ts";
 
 /**
  * Factory function for creating a PostgreSQL executor from a connection string.
@@ -93,84 +94,91 @@ export type ElasticsearchExecutorFactory = (
 
 /**
  * Configuration for Rig.init().
+ *
+ * The rig is pure orchestration — build clients outside, hand them in.
+ * Use `Rig.connect(url)` for the common one-liner case.
  */
 export interface RigConfig {
-  /** URL(s) → client(s). Strings are auto-resolved by protocol. */
-  use?: string | string[];
-
-  /** Pre-built client — bypasses URL resolution entirely. */
+  /** Pre-built client for all operations. */
   client?: NodeProtocolInterface;
 
-  /** Optional identity (can be set/swapped later). */
-  identity?: import("./identity.ts").Identity;
-
-  /** Optional schema for local validation on server-side backends. */
+  /**
+   * Application-level schema — validates URIs before they reach clients.
+   * Maps program keys (e.g. `"mutable://open"`) to validation functions.
+   * The rig rejects unknown domains before the message ever touches a client.
+   */
   schema?: Schema;
 
   /**
-   * Executor factories for database backends.
-   * Required when using postgresql://, mongodb://, sqlite://, or s3:// URLs.
+   * SSE base URL for pattern subscriptions.
+   * Set automatically by `Rig.connect()` for HTTP URLs.
+   * Set explicitly when using `Rig.init({ client })` with an HTTP backend.
    */
-  executors?: {
-    postgres?: PostgresExecutorFactory;
-    mongo?: MongoExecutorFactory;
-    sqlite?: SqliteExecutorFactory;
-    fs?: FsExecutorFactory;
-    ipfs?: IpfsExecutorFactory;
-    s3?: S3ExecutorFactory;
-    elasticsearch?: ElasticsearchExecutorFactory;
-  };
+  sseBaseUrl?: string;
 
   /**
-   * Per-operation client routing.
+   * Clients to connect to the rig.
    *
-   * Overrides the default `use`/`client` for specific operations.
-   * Each entry is either a pre-built client or URL string(s) to resolve.
+   * **Array form (recommended):** Clients with `accepts()` filters.
+   * The rig routes each operation to clients that accept the URI.
+   * Writes broadcast to all accepting clients; reads try first match.
    *
-   * - `send`, `receive`, `delete` → composed with parallelBroadcast (all must accept)
-   * - `read`, `list` → composed with firstMatchSequence (first success wins)
-   *
-   * @example
    * ```typescript
    * const rig = await Rig.init({
-   *   use: "postgresql://primary",
+   *   clients: [
+   *     withFilter(httpClient, {
+   *       receive: ["mutable://*", "hash://*"],
+   *       read: ["mutable://*", "hash://*"],
+   *     }),
+   *     withFilter(memoryClient, {
+   *       receive: ["local://*"],
+   *       read: ["local://*"],
+   *     }),
+   *   ],
+   * });
+   * ```
+   *
+   * **Object form:** Per-operation routing with pre-built clients.
+   * Requires `client` as the default fallback.
+   *
+   * ```typescript
+   * const rig = await Rig.init({
+   *   client: primaryClient,
    *   clients: {
-   *     read: ["redis://cache", "postgresql://primary"],
-   *     observe: ["wss://realtime"],
+   *     read: cacheClient,
    *   },
    * });
    * ```
    */
-  clients?: {
-    send?: string[] | NodeProtocolInterface;
-    receive?: string[] | NodeProtocolInterface;
-    read?: string[] | NodeProtocolInterface;
-    list?: string[] | NodeProtocolInterface;
-    delete?: string[] | NodeProtocolInterface;
-    observe?: string[] | NodeProtocolInterface;
-  };
+  clients?:
+    | (NodeProtocolInterface | FilteredClient)[]
+    | {
+      send?: NodeProtocolInterface;
+      receive?: NodeProtocolInterface;
+      read?: NodeProtocolInterface;
+      list?: NodeProtocolInterface;
+      delete?: NodeProtocolInterface;
+    };
 
   /**
-   * Synchronous hook pipelines — frozen after init.
+   * Hooks — frozen after init, one function per slot.
    *
-   * Pre-hooks **throw** to reject an operation (no silent aborts).
-   * Post-hooks **observe** the result but cannot modify it (throw if violated).
-   * Hooks are immutable — want different hooks? Create a new rig.
+   * Before-hooks **throw** to reject (no silent aborts).
+   * After-hooks **observe** (cannot modify the result; throw if violated).
+   * Need composition? Compose on your end.
    *
    * @example
    * ```typescript
    * const rig = await Rig.init({
-   *   use: "memory://",
+   *   client,
    *   hooks: {
-   *     receive: { pre: [validateSchema] },
-   *     read:    { post: [auditRead] },
+   *     beforeReceive: (ctx) => { validate(ctx.uri); },
+   *     afterRead: (ctx, result) => { audit(ctx.uri, result); },
    *   },
    * });
    * ```
    */
-  hooks?: Partial<
-    Record<HookableOp, { pre?: PreHook[]; post?: PostHook[] }>
-  >;
+  hooks?: HooksConfig;
 
   /**
    * Async event handlers — fire-and-forget after operations complete.
@@ -219,19 +227,9 @@ export interface RigConfig {
  * logging, and UI display of identity/capability status.
  */
 export interface RigInfo {
-  /** Ed25519 public key hex, or null if no identity. */
-  pubkey: string | null;
-  /** X25519 encryption public key hex, or null. */
-  encryptionPubkey: string | null;
-  /** Whether the rig can sign messages (has signing private key). */
-  canSign: boolean;
-  /** Whether the rig can encrypt/decrypt (has encryption keys). */
-  canEncrypt: boolean;
-  /** Whether an identity is attached at all. */
-  hasIdentity: boolean;
   /** Behavior layer counts — hooks, events, and observers registered. */
   behavior: {
-    hooks: Record<string, { pre: number; post: number }>;
+    hooks: string[];
     events: Record<string, number>;
     observers: number;
   };
@@ -273,6 +271,28 @@ export interface WatchAllSnapshot<T = unknown> {
  * Cleanup function returned by subscribe() — call to stop watching.
  */
 export type Unsubscribe = () => void;
+
+/**
+ * Handler for pattern-based subscriptions.
+ *
+ * Same shape as ObserveHandler — receives the URI, data, and extracted
+ * params from the pattern match.
+ */
+export type SubscribeHandler<T = unknown> = (
+  uri: string,
+  data: T,
+  params: Record<string, string>,
+) => void | Promise<void>;
+
+/**
+ * Options for pattern-based subscriptions.
+ */
+export interface SubscribeOptions {
+  /** Polling interval in ms (used as fallback when SSE is unavailable). Default: 2000. */
+  intervalMs?: number;
+  /** Abort signal to stop the subscription. */
+  signal?: AbortSignal;
+}
 
 /**
  * Options for rig.handler().

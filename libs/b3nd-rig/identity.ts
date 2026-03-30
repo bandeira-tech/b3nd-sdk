@@ -21,6 +21,7 @@ import {
   verify as edVerify,
 } from "../b3nd-encrypt/mod.ts";
 import { decodeHex, encodeHex } from "../b3nd-core/encoding.ts";
+import { AuthenticatedRig } from "./authenticated-rig.ts";
 
 /**
  * Portable identity data — JSON-serializable for persistence.
@@ -278,6 +279,29 @@ export class Identity {
     }
 
     return result;
+  }
+
+  /**
+   * Create an authenticated session bound to a rig.
+   *
+   * The identity drives signing and encryption; the rig delivers.
+   * This is the recommended way to perform authenticated operations.
+   *
+   * @example
+   * ```typescript
+   * const rig = await Rig.connect("https://node.b3nd.net");
+   * const alice = await Identity.fromSeed("alice-secret");
+   *
+   * const session = alice.rig(rig);
+   * await session.send({ inputs: [], outputs: [["mutable://app/x", data]] });
+   * await session.sendEncrypted({ ... }, bob.encryptionPubkey);
+   * const secret = await session.readEncrypted<T>(uri);
+   * ```
+   */
+  rig(
+    rig: import("./rig.ts").Rig,
+  ): AuthenticatedRig {
+    return new AuthenticatedRig(this, rig);
   }
 
   /**

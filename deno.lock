@@ -1527,6 +1527,11 @@
           "jsr:@std/assert@^1.0.15"
         ]
       },
+      "libs/b3nd-client-elasticsearch": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
       "libs/b3nd-client-http": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15"

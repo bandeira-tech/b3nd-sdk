@@ -1,15 +1,16 @@
-import { Identity, Rig } from "@b3nd/rig";
+import { AuthenticatedRig, Identity, Rig } from "@b3nd/rig";
 import { loadConfig } from "./config.ts";
 import { loadAccountKey, loadEncryptionKey } from "./keys.ts";
 import { Logger } from "./logger.ts";
 
 let cachedRig: Rig | null = null;
+let cachedIdentity: Identity | null = null;
 
 /**
  * Initialize and get a Rig instance from the CLI config.
  *
- * Lazily loads identity from the configured account key file.
- * The rig connects to the configured node URL.
+ * The rig is identity-free — pure orchestration. Use `getIdentity()`
+ * or `getSession()` for authenticated operations.
  */
 export async function getRig(
   logger?: Logger,
@@ -29,28 +30,24 @@ export async function getRig(
     logger?.info(`Connecting to ${config.node}`);
 
     // Build identity from account key if configured
-    let identity: Identity | undefined;
     if (config.account) {
       try {
         const accountKey = await loadAccountKey();
         const encKey = config.encrypt ? await loadEncryptionKey() : undefined;
 
-        identity = await Identity.fromPem(
+        cachedIdentity = await Identity.fromPem(
           accountKey.privateKeyPem,
           accountKey.publicKeyHex,
           encKey?.encryptionPrivateKeyHex || encKey?.privateKeyPem,
           encKey?.encryptionPublicKeyHex || encKey?.publicKeyHex,
         );
-        logger?.info(`Identity loaded: ${identity.pubkey.substring(0, 16)}...`);
+        logger?.info(`Identity loaded: ${cachedIdentity.pubkey.substring(0, 16)}...`);
       } catch (err) {
         logger?.info(`No identity loaded: ${(err as Error).message}`);
       }
     }
 
-    cachedRig = await Rig.init({
-      identity,
-      use: config.node,
-    });
+    cachedRig = await Rig.connect(config.node);
 
     // Wire verbose logging through rig events
     if (logger) {
@@ -99,6 +96,21 @@ export async function getRig(
   }
 }
 
+/** Get the loaded Identity (null if no account key configured). */
+export function getIdentity(): Identity | null {
+  return cachedIdentity;
+}
+
+/**
+ * Get an authenticated session (identity + rig).
+ *
+ * Returns null if no identity is loaded. Requires getRig() to have been called first.
+ */
+export function getSession(): AuthenticatedRig | null {
+  if (!cachedRig || !cachedIdentity) return null;
+  return cachedIdentity.rig(cachedRig);
+}
+
 /**
  * Close the cached rig connection
  */
@@ -106,5 +118,6 @@ export async function closeRig(logger?: Logger): Promise<void> {
   if (cachedRig) {
     await cachedRig.cleanup();
     cachedRig = null;
+    cachedIdentity = null;
   }
 }

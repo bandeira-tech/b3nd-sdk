@@ -2,76 +2,57 @@
  * Test HTTP Server for E2E Tests
  *
  * Simple in-memory HTTP server for testing the SDK's HTTP client and validation.
- * Starts on port 8000 and runs until interrupted.
+ * Uses the Rig as the single entry point — no direct b3nd-servers dependency.
  *
  * Usage:
  *   deno run --allow-net test-server.ts
  *   E2E_SERVER_PORT=8080 deno run --allow-net test-server.ts
  */
 
-import { httpServer } from "../libs/b3nd-servers/http.ts";
+import { Rig } from "../libs/b3nd-rig/mod.ts";
 import { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
 import type { Schema } from "../libs/b3nd-core/types.ts";
 
 // Create a permissive schema that allows any program key
 // The schema needs exact matches on "program key" format: protocol://domain
-// Create a base schema with common test keys and use a Proxy for dynamic keys
 const baseSchema: Schema = {
-  // Test protocol - all test domains
-  "test://write-test": async ({ uri, value }) => ({ valid: true }),
-  "test://read-test": async ({ uri, value }) => ({ valid: true }),
-  "test://list-test": async ({ uri, value }) => ({ valid: true }),
-  "test://auth-test": async ({ uri, value }) => ({ valid: true }),
-  "test://encrypt-test": async ({ uri, value }) => ({ valid: true }),
-  "test://signed-encrypted-test": async ({ uri, value }) => ({ valid: true }),
-
-  // Notes protocol (for fixtures)
-  "notes://alicedoe": async ({ uri, value }) => ({ valid: true }),
-
-  // Users protocol (for fixture profile)
-  "users://alicedoe": async ({ uri, value }) => ({ valid: true }),
-
-  // Example protocol
-  "example://demo": async ({ uri, value }) => ({ valid: true }),
+  "test://write-test": async () => ({ valid: true }),
+  "test://read-test": async () => ({ valid: true }),
+  "test://list-test": async () => ({ valid: true }),
+  "test://auth-test": async () => ({ valid: true }),
+  "test://encrypt-test": async () => ({ valid: true }),
+  "test://signed-encrypted-test": async () => ({ valid: true }),
+  "notes://alicedoe": async () => ({ valid: true }),
+  "users://alicedoe": async () => ({ valid: true }),
+  "example://demo": async () => ({ valid: true }),
 };
 
-// Create a schema proxy that allows any program key
-// If a key isn't explicitly defined, it returns a permissive validator
+// Proxy that allows any program key (permissive test schema)
 const testSchema = new Proxy(baseSchema, {
   get(target, prop: string | symbol) {
     if (typeof prop === "string") {
-      if (prop in target) {
-        return target[prop as keyof Schema];
-      }
-      // Default validator for any undefined program key
-      return async ({ uri, value }: { uri: string; value: unknown }) => ({
-        valid: true,
-      });
+      if (prop in target) return target[prop as keyof Schema];
+      return async () => ({ valid: true });
     }
-    // For symbol keys, return undefined or use Object.getOwnProperty
     return undefined;
   },
 }) as Schema;
 
-// Create in-memory backend
-const memoryClient = new MemoryClient({
+// Create rig with in-memory backend + schema validation
+const rig = await Rig.init({
+  client: new MemoryClient({ schema: {} }),
   schema: testSchema,
 });
 
-// Create Hono app
-import { Hono } from "hono";
-const app = new Hono();
-
-// Create HTTP server frontend and configure it
-const frontend = httpServer(app as any);
-frontend.configure({ client: memoryClient });
+// Get the HTTP handler from the rig
+const handler = rig.handler();
 
 // Start server
 const PORT = parseInt(Deno.env.get("E2E_SERVER_PORT") || "8000");
 console.log(`🚀 Test HTTP server starting on port ${PORT}...`);
 
 try {
-  Deno.serve({ port: PORT }, (req) => app.fetch(req));
+  Deno.serve({ port: PORT }, handler);
 } catch (error) {
   console.error(`❌ Failed to start server: ${error}`);
   Deno.exit(1);

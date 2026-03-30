@@ -183,6 +183,31 @@ export type NodeProtocolInterface =
   & NodeProtocolWriteInterface
   & NodeProtocolReadInterface;
 
+/** Operations that can be filtered by `accepts()`. */
+export type ClientOperation = "receive" | "read" | "list" | "delete";
+
+/**
+ * Optional per-operation URI acceptance.
+ *
+ * Clients can declare which URIs they handle for each operation.
+ * The rig uses this to route — only forwarding operations to clients
+ * that accept the URI. Clients without `accepts` accept everything.
+ *
+ * @example
+ * ```ts
+ * // A read-only cache
+ * client.accepts("read", "mutable://app/users/alice")   // true
+ * client.accepts("receive", "mutable://app/users/alice") // false
+ *
+ * // A write-only event sink
+ * client.accepts("receive", "rig://event/foo")  // true
+ * client.accepts("read", "rig://event/foo")     // false
+ * ```
+ */
+export interface ClientAccepts {
+  accepts(operation: ClientOperation, uri: string): boolean;
+}
+
 /**
  * Configuration for MemoryClient
  */
@@ -566,7 +591,6 @@ export interface ContentData<T = unknown> {
   encoding?: string;
   data: T;
 }
-
 
 /**
  * WebSocket protocol types for request/response communication

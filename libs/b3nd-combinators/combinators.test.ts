@@ -8,8 +8,28 @@
 
 import { assertEquals } from "@std/assert";
 import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import { parallelBroadcast } from "./parallel-broadcast.ts";
 import { firstMatchSequence } from "./first-match-sequence.ts";
+
+/** A client that rejects all receive() calls — for testing combinator error paths. */
+function rejectingClient(): NodeProtocolInterface {
+  const noop = async () => ({ success: false as const, error: "not supported" });
+  return {
+    receive: async () => ({ accepted: false, error: "rejected by policy" }),
+    read: noop as NodeProtocolInterface["read"],
+    readMulti: async (uris: string[]) => ({
+      success: false as const,
+      results: uris.map((uri) => ({ uri, success: false as const, error: "not supported" })),
+      summary: { total: uris.length, succeeded: 0, failed: uris.length },
+    }),
+    list: async () => ({ success: false as const, error: "not supported", data: [] }),
+    delete: noop as NodeProtocolInterface["delete"],
+    health: async () => ({ status: "unhealthy" as const }),
+    getSchema: async () => [],
+    cleanup: async () => {},
+  };
+}
 
 // --- parallelBroadcast tests ---
 
@@ -92,10 +112,7 @@ Deno.test("parallelBroadcast - delete removes from all backends", async () => {
 
 Deno.test("parallelBroadcast - fails if any backend rejects write", async () => {
   const a = new MemoryClient({ schema: createTestSchema() });
-  // b has no schema for mutable://data, so it will reject
-  const b = new MemoryClient({
-    schema: { "mutable://accounts": async () => ({ valid: true }) },
-  });
+  const b = rejectingClient();
 
   const combined = parallelBroadcast([a, b]);
   const result = await combined.receive([
@@ -158,10 +175,8 @@ Deno.test("firstMatchSequence - returns failure when no backend has data", async
 });
 
 Deno.test("firstMatchSequence - write goes to first accepting backend", async () => {
-  // primary rejects mutable://data writes
-  const primary = new MemoryClient({
-    schema: { "mutable://accounts": async () => ({ valid: true }) },
-  });
+  // primary rejects all writes
+  const primary = rejectingClient();
   const fallback = new MemoryClient({ schema: createTestSchema() });
 
   const combined = firstMatchSequence([primary, fallback]);
@@ -171,10 +186,8 @@ Deno.test("firstMatchSequence - write goes to first accepting backend", async ()
   ]);
   assertEquals(result.accepted, true);
 
-  // Primary should NOT have it (rejected), fallback should
-  const readPrimary = await primary.read("mutable://data/test");
+  // Primary rejected, so fallback should have the data
   const readFallback = await fallback.read("mutable://data/test");
-  assertEquals(readPrimary.success, false);
   assertEquals(readFallback.success, true);
 
   await combined.cleanup();

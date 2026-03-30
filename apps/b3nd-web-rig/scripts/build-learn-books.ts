@@ -87,6 +87,7 @@ const BOOK_META: Record<string, BookMeta> = {
   "APP_COOKBOOK.md": { key: "app-cookbook", label: "Building Firecat Apps", description: "Quick start, CRUD, browser apps, testing", tier: "cookbook" },
   "PROTOCOL_COOKBOOK.md": { key: "protocol-cookbook", label: "Designing Protocols", description: "Worked examples, packaging SDKs", tier: "cookbook" },
   "NODE_COOKBOOK.md": { key: "node-cookbook", label: "Running Nodes", description: "Deployment, Docker, monitoring", tier: "cookbook" },
+  "RIG_PATTERNS.md": { key: "rig-patterns", label: "Rig Patterns", description: "Scrollable catalog of rig setups — connecting, hooks, events, observe, routing, encryption, subscriptions", tier: "cookbook" },
   "DESIGN_EXCHANGE.md": { key: "design-exchange", label: "Exchange Patterns", description: "Trust models, party interactions, crypto guarantees", tier: "design" },
   "DESIGN_INFRASTRUCTURE.md": { key: "design-infrastructure", label: "Infrastructure", description: "Node requirements, deployment topologies, scaling", tier: "design" },
   "DESIGN_TRANSPORT.md": { key: "design-transport", label: "Transport", description: "WebSocket, WebRTC, SSE, and the subscribe primitive", tier: "design" },

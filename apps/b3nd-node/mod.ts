@@ -1,6 +1,8 @@
 /// <reference lib="deno.ns" />
-import { Identity, Rig } from "@b3nd/rig";
+import { createClientFromUrl, Rig } from "@b3nd/rig";
 import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
+import { parallelBroadcast } from "../../libs/b3nd-combinators/parallel-broadcast.ts";
+import { firstMatchSequence } from "../../libs/b3nd-combinators/first-match-sequence.ts";
 import firecatSchema from "@firecat/protocol";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
@@ -42,20 +44,45 @@ const backendSpecs = BACKEND_URL.split(",").map((s) => s.trim()).filter(
   Boolean,
 );
 
-// ── The Rig replaces: client construction, composition, and HTTP server setup ──
+// ── Build clients outside the rig — clients are pure plumbing ──
+
+const executors = {
+  postgres: createPostgresExecutor,
+  mongo: (connStr: string, dbName: string, collectionName: string) =>
+    createMongoExecutor(connStr, dbName, collectionName),
+  sqlite: createSqliteExecutor,
+  fs: createFsExecutor,
+  ipfs: createIpfsExecutor,
+  s3: createS3Executor,
+};
+
+const backends = await Promise.all(
+  backendSpecs.map((url) => createClientFromUrl(url, { schema, executors })),
+);
+
+// Single backend → use directly; multi-backend → compose
+const client = backends.length === 1
+  ? backends[0]
+  : {
+    receive: (msg: Parameters<typeof backends[0]["receive"]>[0]) =>
+      parallelBroadcast(backends).receive(msg),
+    read: <T = unknown>(uri: string) =>
+      firstMatchSequence(backends).read<T>(uri),
+    readMulti: <T = unknown>(uris: string[]) =>
+      firstMatchSequence(backends).readMulti<T>(uris),
+    list: (uri: string, opts?: Parameters<typeof backends[0]["list"]>[1]) =>
+      firstMatchSequence(backends).list(uri, opts),
+    delete: (uri: string) => parallelBroadcast(backends).delete(uri),
+    health: () => backends[0].health(),
+    getSchema: () => backends[0].getSchema(),
+    cleanup: () => Promise.all(backends.map((b) => b.cleanup())).then(() => {}),
+  };
+
+// ── The Rig: schema validation, events, hooks ──
 
 const rig = await Rig.init({
-  use: backendSpecs,
+  client,
   schema,
-  executors: {
-    postgres: createPostgresExecutor,
-    mongo: (connStr, dbName, collectionName) =>
-      createMongoExecutor(connStr, dbName, collectionName),
-    sqlite: createSqliteExecutor,
-    fs: createFsExecutor,
-    ipfs: createIpfsExecutor,
-    s3: createS3Executor,
-  },
   on: {
     "receive:error": [(e) => {
       console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
@@ -69,7 +96,7 @@ const rig = await Rig.init({
 const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
 
 // The rig produces a generic fetch handler — the app owns the server.
-const b3ndHandler = await rig.handler({
+const b3ndHandler = rig.handler({
   healthMeta: { backends: backendTypes },
 });
 
@@ -106,6 +133,7 @@ if (OPERATOR_KEY) {
   const { extractPublicKeyHex, pemToCryptoKey } = await import(
     "@bandeira-tech/b3nd-sdk/encrypt"
   );
+  const { Identity } = await import("@b3nd/rig");
   const {
     bestEffortClient,
     buildClientsFromSpec,
@@ -158,15 +186,15 @@ if (OPERATOR_KEY) {
     );
   }
 
-  // Set the node identity on the rig
-  rig.identity = await Identity.fromPem(
+  // Build the node identity (separate from the rig — rig is pure orchestration)
+  const nodeIdentity = await Identity.fromPem(
     NODE_PRIVATE_KEY_PEM,
     nodeId,
     NODE_ENCRYPTION_PRIVATE_KEY_HEX,
     encPubHex,
   );
 
-  const signer = rig.identity.signer;
+  const signer = nodeIdentity.signer;
 
   console.log(`[managed] Node ID: ${nodeId} (derived from PEM)`);
   console.log(`[managed] Operator: ${OPERATOR_KEY}`);
@@ -217,6 +245,7 @@ if (OPERATOR_KEY) {
     const localClients = await buildClientsFromSpec(
       config.backends,
       schemaToUse,
+      // deno-lint-ignore no-explicit-any
       {
         postgres: createPostgresExecutor,
         mongo: createMongoExecutor,
@@ -224,7 +253,7 @@ if (OPERATOR_KEY) {
         fs: createFsExecutor,
         ipfs: createIpfsExecutor,
         s3: createS3Executor,
-      },
+      } as any,
     );
     const { pushClients, pullClients } = createPeerClients(config.peers ?? []);
     return createValidatedClient({

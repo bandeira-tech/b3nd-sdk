@@ -1,5 +1,5 @@
 import { getConfigPath, loadConfig, updateConfig } from "./config.ts";
-import { closeRig, getRig } from "./client.ts";
+import { closeRig, getIdentity, getRig, getSession } from "./client.ts";
 import { createLogger, Logger } from "./logger.ts";
 import { dirname, parse } from "@std/path";
 import { ensureDir } from "@std/fs";
@@ -223,8 +223,8 @@ export async function confEncrypt(keyPath: string): Promise<void> {
 /**
  * Handle `bnd send` command — send data to the network via the rig.
  *
- * - With identity + encryption: rig.sendEncrypted() (auto-signs + encrypts)
- * - With identity: rig.send() (auto-signs, content-addressed envelope)
+ * - With identity + encryption: session.sendEncrypted() (signs + encrypts)
+ * - With identity: session.send() (signs, content-addressed envelope)
  * - Without identity: rig.receive() (raw message, for open URIs)
  *
  * The rig handles signing, encryption, and envelope construction.
@@ -272,26 +272,28 @@ export async function send(args: string[], verbose = false): Promise<void> {
   try {
     const config = await loadConfig();
     const rig = await getRig(logger);
+    const identity = getIdentity();
+    const session = getSession();
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      if (!rig.identity) {
+      if (!identity) {
         throw new Error(
           ":key placeholder requires an identity. Run: bnd account create",
         );
       }
-      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      uri = replaceKeyPlaceholder(uri, identity.pubkey);
       logger?.info(
-        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+        `Replaced :key → ${identity.pubkey.substring(0, 12)}...`,
       );
     }
 
-    // Delegate to the rig based on capabilities
-    if (rig.canSign) {
-      if (config.encrypt && rig.canEncrypt) {
+    // Delegate based on capabilities
+    if (session && identity?.canSign) {
+      if (config.encrypt && identity.canEncrypt) {
         // Signed + encrypted envelope
-        logger?.info("Sending encrypted envelope (rig.sendEncrypted)");
-        const result = await rig.sendEncrypted({
+        logger?.info("Sending encrypted envelope (session.sendEncrypted)");
+        const result = await session.sendEncrypted({
           inputs: [],
           outputs: [[uri, data]],
         });
@@ -301,8 +303,8 @@ export async function send(args: string[], verbose = false): Promise<void> {
         console.log(`  Value: ${JSON.stringify(data)}`);
       } else {
         // Signed envelope
-        logger?.info("Sending signed envelope (rig.send)");
-        const result = await rig.send({
+        logger?.info("Sending signed envelope (session.send)");
+        const result = await session.send({
           inputs: [],
           outputs: [[uri, data]],
         });
@@ -344,14 +346,15 @@ export async function read(uri: string, verbose = false): Promise<void> {
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      if (!rig.identity) {
+      const _id = getIdentity();
+      if (!_id) {
         throw new Error(
           ":key placeholder requires an identity. Run: bnd account create",
         );
       }
-      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      uri = replaceKeyPlaceholder(uri, _id.pubkey);
       logger?.info(
-        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+        `Replaced :key → ${_id.pubkey.substring(0, 12)}...`,
       );
     }
 
@@ -450,14 +453,15 @@ export async function list(
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      if (!rig.identity) {
+      const _id = getIdentity();
+      if (!_id) {
         throw new Error(
           ":key placeholder requires an identity. Run: bnd account create",
         );
       }
-      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      uri = replaceKeyPlaceholder(uri, _id.pubkey);
       logger?.info(
-        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+        `Replaced :key → ${_id.pubkey.substring(0, 12)}...`,
       );
     }
 
@@ -519,14 +523,15 @@ export async function del(uri: string, verbose = false): Promise<void> {
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      if (!rig.identity) {
+      const _id = getIdentity();
+      if (!_id) {
         throw new Error(
           ":key placeholder requires an identity. Run: bnd account create",
         );
       }
-      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      uri = replaceKeyPlaceholder(uri, _id.pubkey);
       logger?.info(
-        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+        `Replaced :key → ${_id.pubkey.substring(0, 12)}...`,
       );
     }
 
@@ -975,14 +980,15 @@ export async function watch(args: string[], verbose = false): Promise<void> {
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
-      if (!rig.identity) {
+      const _id = getIdentity();
+      if (!_id) {
         throw new Error(
           ":key placeholder requires an identity. Run: bnd account create",
         );
       }
-      uri = replaceKeyPlaceholder(uri, rig.identity.pubkey);
+      uri = replaceKeyPlaceholder(uri, _id.pubkey);
       logger?.info(
-        `Replaced :key → ${rig.identity.pubkey.substring(0, 12)}...`,
+        `Replaced :key → ${_id.pubkey.substring(0, 12)}...`,
       );
     }
 
@@ -1066,17 +1072,19 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
 
   try {
     const rig = await getRig(logger);
+    const identity = getIdentity();
+    const session = getSession();
 
-    if (!rig.canSign) {
+    if (!identity?.canSign || !session) {
       throw new Error(
         "Deploy requires an identity for signing. Run: bnd account create",
       );
     }
 
-    // Replace :key placeholder using rig identity
+    // Replace :key placeholder using identity
     const resolvedTarget = replaceKeyPlaceholder(
       targetUri,
-      rig.identity!.pubkey,
+      identity.pubkey,
     );
     logger?.info(`Target: ${resolvedTarget}`);
 
@@ -1154,14 +1162,14 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     );
     console.log("");
 
-    // Phase 2: Create authenticated links via rig.send()
+    // Phase 2: Create authenticated links via session.send()
     console.log("Phase 2: Sending links...");
     let linkCount = 0;
 
     for (const [relativePath, hashUri] of hashMap) {
       const linkUri = `${versionBase}${relativePath}`;
 
-      const result = await rig.send({
+      const result = await session.send({
         inputs: [],
         outputs: [[linkUri, hashUri]],
       });
@@ -1178,10 +1186,10 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     console.log(`  Sent ${linkCount} links at ${versionBase}`);
     console.log("");
 
-    // Phase 3: Update mutable pointer via rig.send()
+    // Phase 3: Update mutable pointer via session.send()
     console.log("Phase 3: Updating pointer...");
 
-    const pointerResult = await rig.send({
+    const pointerResult = await session.send({
       inputs: [],
       outputs: [[resolvedTarget, versionBase]],
     });

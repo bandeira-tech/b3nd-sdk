@@ -10,19 +10,17 @@
  * ```typescript
  * import { Rig, Identity } from "@b3nd/rig";
  *
+ * const rig = await Rig.connect("https://node.b3nd.net");
  * const id = await Identity.fromSeed("my-secret");
- * const rig = await Rig.init({
- *   identity: id,
- *   use: "https://node.b3nd.net",
- * });
  *
- * // Auto-signed send
- * await rig.send({
+ * // Identity drives, rig delivers
+ * const session = id.rig(rig);
+ * await session.send({
  *   inputs: [],
  *   outputs: [["mutable://app/key", { hello: "world" }]],
  * });
  *
- * // Read
+ * // Read (no identity needed)
  * const result = await rig.read("mutable://app/key");
  * ```
  */
@@ -30,6 +28,7 @@
 // Core
 export { Identity } from "./identity.ts";
 export type { ExportedIdentity } from "./identity.ts";
+export { AuthenticatedRig } from "./authenticated-rig.ts";
 export { Rig } from "./rig.ts";
 export type {
   HandlerOptions,
@@ -40,6 +39,8 @@ export type {
   RigConfig,
   RigInfo,
   ServeOptions,
+  SubscribeHandler,
+  SubscribeOptions,
   Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
@@ -48,18 +49,17 @@ export type {
 
 // Hooks (immutable after init — throw to reject, observe to audit)
 export type {
-  DeleteHookContext,
-  HookableOp,
-  HookChains,
-  HookContext,
-  ListHookContext,
-  PostHook,
-  PreHook,
-  ReadHookContext,
-  ReceiveHookContext,
-  SendHookContext,
+  AfterHook,
+  BeforeHook,
+  DeleteCtx,
+  HooksConfig,
+  ListCtx,
+  ReadCtx,
+  ReceiveCtx,
+  RigHooks,
+  SendCtx,
 } from "./hooks.ts";
-export { createHookChains, runPostHooks, runPreHooks } from "./hooks.ts";
+export { resolveHooks, runAfter, runBefore } from "./hooks.ts";
 
 // Events
 export type { EventHandler, RigEvent, RigEventName } from "./events.ts";
@@ -68,6 +68,14 @@ export { RigEventEmitter } from "./events.ts";
 // Observe
 export type { ObserveHandler } from "./observe.ts";
 export { matchPattern, ObserveRegistry } from "./observe.ts";
+
+// Client filtering — declare what URIs each client accepts
+export { clientAccepts, withFilter } from "./filter.ts";
+export type { FilteredClient, FilterPatterns } from "./filter.ts";
+
+// HTTP handler — thin adapter for serving a rig over HTTP
+export { createRigHandler } from "./http-handler.ts";
+export type { RigHandlerOptions } from "./http-handler.ts";
 
 // Backend factory
 export {
