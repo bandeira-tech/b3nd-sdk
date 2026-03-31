@@ -15,7 +15,7 @@
  *   elasticsearch://      → ElasticsearchClient (requires executor)
  */
 
-import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import type {
   ElasticsearchExecutorFactory,
   FsExecutorFactory,
@@ -51,22 +51,7 @@ export function getSupportedProtocols(): readonly string[] {
   return SUPPORTED_PROTOCOLS;
 }
 
-/** Default schema for memory:// backends — includes hash:// for MessageData envelopes. */
-function createRigTestSchema(): Schema {
-  const acceptAll = async () => ({ valid: true });
-  return {
-    "mutable://accounts": acceptAll,
-    "mutable://open": acceptAll,
-    "mutable://data": acceptAll,
-    "immutable://accounts": acceptAll,
-    "immutable://open": acceptAll,
-    "immutable://data": acceptAll,
-    "hash://sha256": acceptAll,
-  };
-}
-
 export interface BackendFactoryOptions {
-  schema?: Schema;
   executors?: {
     postgres?: PostgresExecutorFactory;
     mongo?: MongoExecutorFactory;
@@ -100,8 +85,7 @@ export async function createClientFromUrl(
     }
 
     case "memory:": {
-      const schema = options.schema || createRigTestSchema();
-      return new MemoryClient({ schema });
+      return new MemoryClient();
     }
 
     case "postgresql:":
@@ -112,15 +96,10 @@ export async function createClientFromUrl(
         );
       }
       const { PostgresClient } = await import("../b3nd-client-postgres/mod.ts");
-      const schema = options.schema;
-      if (!schema) {
-        throw new Error("PostgreSQL backend requires a schema.");
-      }
       const executor = await options.executors.postgres(url);
       const client = new PostgresClient(
         {
           connection: url,
-          schema,
           tablePrefix: "b3nd",
           poolSize: 5,
           connectionTimeout: 30000,
@@ -138,11 +117,6 @@ export async function createClientFromUrl(
           `MongoDB URL requires an executor factory. Pass executors.mongo to createClientFromUrl().`,
         );
       }
-      const schema = options.schema;
-      if (!schema) {
-        throw new Error("MongoDB backend requires a schema.");
-      }
-      // Parse db and collection from URL or use defaults
       const dbName = parsed.pathname.replace(/^\//, "") || "b3nd";
       const collectionName = "b3nd_data";
 
@@ -155,7 +129,6 @@ export async function createClientFromUrl(
       return new MongoClient(
         {
           connectionString: url,
-          schema,
           collectionName,
         },
         executor,
@@ -168,11 +141,6 @@ export async function createClientFromUrl(
           `SQLite URL requires an executor factory. Pass executors.sqlite to createClientFromUrl().`,
         );
       }
-      const schema = options.schema;
-      if (!schema) {
-        throw new Error("SQLite backend requires a schema.");
-      }
-      // sqlite://path/to/db.sqlite or sqlite://:memory:
       const path = parsed.pathname === "/:memory:"
         ? ":memory:"
         : parsed.pathname;
@@ -181,7 +149,6 @@ export async function createClientFromUrl(
       return new SqliteClient(
         {
           path,
-          schema,
           tablePrefix: "b3nd",
         },
         executor,
@@ -194,18 +161,12 @@ export async function createClientFromUrl(
           `File URL requires an executor factory. Pass executors.fs to createClientFromUrl().`,
         );
       }
-      const schema = options.schema;
-      if (!schema) {
-        throw new Error("Filesystem backend requires a schema.");
-      }
-      // file:///path/to/root → rootDir = /path/to/root
       const rootDir = parsed.pathname;
       const { FilesystemClient } = await import("../b3nd-client-fs/mod.ts");
       const executor = options.executors.fs(rootDir);
       return new FilesystemClient(
         {
           rootDir,
-          schema,
         },
         executor,
       );
@@ -217,11 +178,6 @@ export async function createClientFromUrl(
           `IPFS URL requires an executor factory. Pass executors.ipfs to createClientFromUrl().`,
         );
       }
-      const schema = options.schema;
-      if (!schema) {
-        throw new Error("IPFS backend requires a schema.");
-      }
-      // ipfs://host:port → apiUrl = http://host:port
       const apiUrl = `http://${parsed.hostname}${
         parsed.port ? ":" + parsed.port : ":5001"
       }${parsed.pathname}`;
@@ -230,7 +186,6 @@ export async function createClientFromUrl(
       return new IpfsClient(
         {
           apiUrl,
-          schema,
         },
         executor,
       );
@@ -239,17 +194,12 @@ export async function createClientFromUrl(
     case "s3:": {
       if (!options.executors?.s3) {
         throw new Error(
-          `S3 URL requires an executor factory. Pass executors.s3 to Rig.init().`,
+          `S3 URL requires an executor factory. Pass executors.s3 to createClientFromUrl().`,
         );
       }
-      const schema = options.schema;
-      if (!schema) {
-        throw new Error("S3 backend requires a schema.");
-      }
-      // s3://bucket-name/optional/prefix
       const bucket = parsed.hostname;
       const prefix = parsed.pathname.length > 1
-        ? parsed.pathname.substring(1) // strip leading "/"
+        ? parsed.pathname.substring(1)
         : "";
       const { S3Client } = await import("../b3nd-client-s3/mod.ts");
       const executor = options.executors.s3(bucket, prefix);
@@ -257,7 +207,6 @@ export async function createClientFromUrl(
         {
           bucket,
           prefix,
-          schema,
         },
         executor,
       );
@@ -266,14 +215,9 @@ export async function createClientFromUrl(
     case "elasticsearch:": {
       if (!options.executors?.elasticsearch) {
         throw new Error(
-          `Elasticsearch URL requires an executor factory. Pass executors.elasticsearch to Rig.init().`,
+          `Elasticsearch URL requires an executor factory. Pass executors.elasticsearch to createClientFromUrl().`,
         );
       }
-      const esSchema = options.schema;
-      if (!esSchema) {
-        throw new Error("Elasticsearch backend requires a schema.");
-      }
-      // elasticsearch://host:port → endpoint = http://host:port
       const endpoint = `http://${parsed.hostname}${
         parsed.port ? ":" + parsed.port : ":9200"
       }`;
@@ -284,7 +228,6 @@ export async function createClientFromUrl(
       return new ElasticsearchClient(
         {
           indexPrefix: "b3nd",
-          schema: esSchema,
         },
         executor,
       );

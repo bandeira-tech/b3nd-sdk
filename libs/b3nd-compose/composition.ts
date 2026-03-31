@@ -5,8 +5,8 @@
  * Build complex validation and processing pipelines from simple primitives.
  */
 
-import type { Message, ReadResult, ReceiveResult } from "../b3nd-core/types.ts";
-import type { Processor, ReadInterface, Validator } from "./types.ts";
+import type { Message, Output, ReadResult, ReceiveResult, Validator } from "../b3nd-core/types.ts";
+import type { Processor, ReadInterface } from "./types.ts";
 
 /**
  * Sequential validator composition
@@ -21,10 +21,10 @@ import type { Processor, ReadInterface, Validator } from "./types.ts";
  * )
  * ```
  */
-export function seq<D = unknown>(...validators: Validator<D>[]): Validator<D> {
-  return async (msg, read) => {
+export function seq<T = unknown>(...validators: Validator<T>[]): Validator<T> {
+  return async (output, upstream, read) => {
     for (const validator of validators) {
-      const result = await validator(msg, read);
+      const result = await validator(output, upstream, read);
       if (!result.valid) {
         return result;
       }
@@ -45,12 +45,12 @@ export function seq<D = unknown>(...validators: Validator<D>[]): Validator<D> {
  * )
  * ```
  */
-export function any<D = unknown>(...validators: Validator<D>[]): Validator<D> {
-  return async (msg, read) => {
+export function any<T = unknown>(...validators: Validator<T>[]): Validator<T> {
+  return async (output, upstream, read) => {
     const errors: string[] = [];
 
     for (const validator of validators) {
-      const result = await validator(msg, read);
+      const result = await validator(output, upstream, read);
       if (result.valid) {
         return { valid: true };
       }
@@ -79,10 +79,10 @@ export function any<D = unknown>(...validators: Validator<D>[]): Validator<D> {
  * )
  * ```
  */
-export function all<D = unknown>(...validators: Validator<D>[]): Validator<D> {
-  return async (msg, read) => {
+export function all<T = unknown>(...validators: Validator<T>[]): Validator<T> {
+  return async (output, upstream, read) => {
     const results = await Promise.all(
-      validators.map((v) => v(msg, read)),
+      validators.map((v) => v(output, upstream, read)),
     );
 
     const failures = results.filter((r) => !r.valid);

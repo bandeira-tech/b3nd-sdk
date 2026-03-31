@@ -1,10 +1,8 @@
 /**
  * SqliteClient - SQLite implementation of NodeProtocolInterface
  *
- * Stores data in a SQLite database with schema-based validation.
+ * Stores data in a SQLite database. Pure storage — validation is the rig's concern.
  * Uses an injected executor so the SDK does not depend on a specific SQLite driver.
- * Works with Deno's built-in SQLite, better-sqlite3, sql.js, or any wrapper
- * that implements the SqliteExecutor interface.
  */
 
 import {
@@ -21,7 +19,6 @@ import {
   type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
-  type Schema,
   type SqliteClientConfig,
 } from "../b3nd-core/types.ts";
 import {
@@ -37,16 +34,12 @@ export interface SqliteExecutorResult {
 }
 
 export interface SqliteExecutor {
-  /** Execute a SQL query with positional parameters */
   query: (sql: string, args?: unknown[]) => SqliteExecutorResult;
-  /** Run multiple statements within a transaction */
   transaction: <T>(fn: (tx: SqliteExecutor) => T) => T;
-  /** Clean up resources (close the database) */
   cleanup?: () => void;
 }
 
 export class SqliteClient implements NodeProtocolInterface {
-  private readonly schema: Schema;
   private readonly tablePrefix: string;
   private readonly tableName: string;
   private readonly executor: SqliteExecutor;
@@ -62,19 +55,14 @@ export class SqliteClient implements NodeProtocolInterface {
     if (!config.tablePrefix) {
       throw new Error("tablePrefix is required in SqliteClientConfig");
     }
-    if (!config.schema) {
-      throw new Error("schema is required in SqliteClientConfig");
-    }
     if (!executor) {
       throw new Error("executor is required");
     }
 
-    this.schema = config.schema;
     this.tablePrefix = config.tablePrefix;
     this.tableName = `${config.tablePrefix}_data`;
     this.executor = executor;
 
-    // Initialize schema
     const ddl = generateSqliteSchema(config.tablePrefix);
     for (const stmt of ddl.split(";").map((s) => s.trim()).filter(Boolean)) {
       this.executor.query(stmt);
@@ -95,38 +83,10 @@ export class SqliteClient implements NodeProtocolInterface {
     }
 
     try {
-      const programKey = this.extractProgramKey(uri);
-      const validator = this.schema[programKey];
-
-      if (!validator) {
-        const msg = `No schema defined for program key: ${programKey}`;
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
-      const validation = await validator({
-        uri,
-        value: data,
-        read: this.read.bind(this),
-      });
-
-      if (!validation.valid) {
-        const msg = validation.error || "Validation failed";
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
       const encodedData = encodeBinaryForJson(data);
       const ts = Date.now();
       const jsonData = JSON.stringify(encodedData);
 
-      // Use transaction for MessageData with outputs
       if (isMessageData(data)) {
         this.executor.transaction((tx) => {
           tx.query(
@@ -274,7 +234,6 @@ export class SqliteClient implements NodeProtocolInterface {
         },
       };
     } catch (error) {
-      // Fallback to individual reads
       const results: ReadMultiResultItem<T>[] = [];
       for (const uri of uris) {
         const result = await this.read<T>(uri);
@@ -310,31 +269,25 @@ export class SqliteClient implements NodeProtocolInterface {
       const limit = options?.limit ?? 50;
       const offset = (page - 1) * limit;
 
-      // Build WHERE clause
       const conditions = ["uri LIKE ?"];
       const params: unknown[] = [`${prefixBase}%`];
 
       if (options?.pattern) {
-        // SQLite doesn't have native regex — use GLOB for simple patterns
-        // For full regex, callers should filter client-side
         conditions.push("uri LIKE ?");
         params.push(`%${options.pattern}%`);
       }
 
       const where = conditions.join(" AND ");
 
-      // Sort
       const sortField = options?.sortBy === "timestamp" ? "timestamp" : "uri";
       const sortDir = options?.sortOrder === "desc" ? "DESC" : "ASC";
 
-      // Count total
       const countResult = this.executor.query(
         `SELECT COUNT(*) as cnt FROM ${this.tableName} WHERE ${where}`,
         params,
       );
       const total = Number((countResult.rows[0] as { cnt: number }).cnt);
 
-      // Fetch page
       const dataResult = this.executor.query(
         `SELECT uri FROM ${this.tableName} WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT ? OFFSET ?`,
         [...params, limit, offset],
@@ -392,7 +345,6 @@ export class SqliteClient implements NodeProtocolInterface {
         };
       }
 
-      // Simple health check — run a trivial query
       this.executor.query("SELECT 1");
 
       return {
@@ -400,7 +352,6 @@ export class SqliteClient implements NodeProtocolInterface {
         message: "SQLite client is operational",
         details: {
           tablePrefix: this.tablePrefix,
-          schemaKeys: Object.keys(this.schema),
         },
       };
     } catch (error) {
@@ -412,7 +363,7 @@ export class SqliteClient implements NodeProtocolInterface {
   }
 
   async getSchema(): Promise<string[]> {
-    return this.schema ? Object.keys(this.schema) : [];
+    return [];
   }
 
   async cleanup(): Promise<void> {
@@ -420,10 +371,5 @@ export class SqliteClient implements NodeProtocolInterface {
       this.executor.cleanup();
     }
     this.connected = false;
-  }
-
-  private extractProgramKey(uri: string): string {
-    const url = new URL(uri);
-    return `${url.protocol}//${url.hostname}`;
   }
 }

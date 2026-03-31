@@ -169,7 +169,7 @@ export async function createTestEnvironment(
   const serverKeys = config.serverKeys || (await generateTestServerKeys());
 
   // Create shared backend
-  const backend = new MemoryClient({ schema });
+  const backend = new MemoryClient();
 
   // Create wallet client with shared backend
   const walletConfig: MemoryWalletClientConfig = {

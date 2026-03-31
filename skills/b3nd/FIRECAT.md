@@ -643,7 +643,7 @@ import { Hono } from "hono";
 // Import or define the Firecat schema
 import firecatSchema from "./firecat-schema.ts";
 
-const client = new MemoryClient({ schema: firecatSchema });
+const client = new MemoryClient({ programs: Object.keys(firecatSchema) });
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -653,9 +653,10 @@ node.listen(43100);
 ### Multi-Backend Server
 
 ```typescript
+const firecatPrograms = Object.keys(firecatSchema);
 const clients = [
-  new MemoryClient({ schema: firecatSchema }),
-  new PostgresClient({ connection, schema: firecatSchema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new MemoryClient({ programs: firecatPrograms }),
+  new PostgresClient({ connection, programs: firecatPrograms, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 
 const client = createValidatedClient({
@@ -674,14 +675,14 @@ createServerNode({ frontend, client });
 // Postgres
 const pg = new PostgresClient({
   connection: "postgresql://user:pass@localhost:5432/db",
-  schema: firecatSchema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
+  programs: firecatPrograms, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
 }, executor);
 await pg.initializeSchema();
 
 // MongoDB
 const mongo = new MongoClient({
   connectionString: "mongodb://localhost:27017/mydb",
-  schema: firecatSchema, collectionName: "b3nd_data",
+  programs: firecatPrograms, collectionName: "b3nd_data",
 }, executor);
 ```
 
@@ -717,7 +718,6 @@ import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
 ```typescript
 const local = new LocalStorageClient({
   keyPrefix: "myapp_",
-  schema: {/* optional */},
 });
 ```
 
@@ -920,7 +920,7 @@ import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 import firecatSchema from "./firecat-schema.ts";
 
 Deno.test("send and read on Firecat schema", async () => {
-  const client = new MemoryClient({ schema: firecatSchema });
+  const client = new MemoryClient({ programs: Object.keys(firecatSchema) });
   const result = await send({
     payload: {
       inputs: [],
@@ -976,7 +976,7 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
   private client: MemoryClient;
   private storageKey: string;
 
-  constructor(config: { schema: Schema }, storageKey: string) {
+  constructor(config: { programs: string[] }, storageKey: string) {
     this.storageKey = storageKey;
     this.client = new MemoryClient(config);
     this.loadFromStorage();

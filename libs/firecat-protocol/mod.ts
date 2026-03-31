@@ -19,11 +19,11 @@ import {
 } from "./validators.ts";
 
 const schema: Schema = {
-  "mutable://open": () => Promise.resolve({ valid: true }),
-  "mutable://inbox": () => Promise.resolve({ valid: true }),
-  "immutable://inbox": () => Promise.resolve({ valid: true }),
+  "mutable://open": async () => ({ valid: true }),
+  "mutable://inbox": async () => ({ valid: true }),
+  "immutable://inbox": async () => ({ valid: true }),
 
-  "mutable://accounts": async ({ uri, value }) => {
+  "mutable://accounts": async ([uri, value]) => {
     try {
       const getAccess = createPubkeyBasedAccess();
       const validator = authValidation(getAccess);
@@ -42,12 +42,12 @@ const schema: Schema = {
     }
   },
 
-  "immutable://open": async ({ uri, value, read }) => {
+  "immutable://open": async ([uri], _upstream, read) => {
     const result = await read(uri);
-    return Promise.resolve({ valid: !result.success });
+    return { valid: !result.success };
   },
 
-  "immutable://accounts": async ({ uri, value, read }) => {
+  "immutable://accounts": async ([uri, value], _upstream, read) => {
     try {
       const getAccess = createPubkeyBasedAccess();
       const validator = authValidation(getAccess);
@@ -85,7 +85,7 @@ const schema: Schema = {
   "consensus://record": consensusRecordValidator,
 
   // Authenticated links (value is auth-wrapped URI)
-  "link://accounts": async ({ uri, value }) => {
+  "link://accounts": async ([uri, value]) => {
     try {
       // 1. Verify signature
       const getAccess = createPubkeyBasedAccess();
@@ -111,7 +111,7 @@ const schema: Schema = {
   },
 
   // Unauthenticated links (value is just a string URI)
-  "link://open": async ({ uri, value }) => {
+  "link://open": async ([_uri, value]) => {
     try {
       return validateLinkValue(value);
     } catch (error) {

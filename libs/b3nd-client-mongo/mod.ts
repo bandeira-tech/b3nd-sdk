@@ -1,7 +1,7 @@
 /**
  * MongoClient - MongoDB implementation of NodeProtocolInterface
  *
- * Stores data in a single MongoDB collection with schema-based validation.
+ * Stores data in a single MongoDB collection. Pure storage — validation is the rig's concern.
  * Uses an injected executor so the SDK does not depend on a specific driver.
  */
 
@@ -20,7 +20,6 @@ import {
   type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
-  type Schema,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -51,24 +50,14 @@ export interface MongoExecutor {
   deleteOne(
     filter: Record<string, unknown>,
   ): Promise<{ deletedCount?: number }>;
-  /**
-   * Count documents matching the filter.
-   * When not provided, list() falls back to a findMany count.
-   */
   countDocuments?: (filter: Record<string, unknown>) => Promise<number>;
   ping(): Promise<boolean>;
-  /**
-   * Run multiple operations atomically within a MongoDB session/transaction.
-   * When provided, MessageData envelopes and their outputs are stored together.
-   * If not implemented, outputs are stored sequentially without rollback guarantees.
-   */
   transaction?: <T>(fn: (executor: MongoExecutor) => Promise<T>) => Promise<T>;
   cleanup?: () => Promise<void>;
 }
 
 export class MongoClient implements NodeProtocolInterface {
   private readonly config: MongoClientConfig;
-  private readonly schema: Schema;
   private readonly collectionName: string;
   private readonly executor: MongoExecutor;
   private connected = false;
@@ -83,25 +72,16 @@ export class MongoClient implements NodeProtocolInterface {
     if (!config.collectionName) {
       throw new Error("collectionName is required in MongoClientConfig");
     }
-    if (!config.schema) {
-      throw new Error("schema is required in MongoClientConfig");
-    }
     if (!executor) {
       throw new Error("executor is required");
     }
 
     this.config = config;
-    this.schema = config.schema;
     this.collectionName = config.collectionName;
     this.executor = executor;
     this.connected = true;
   }
 
-  /**
-   * Receive a message - the unified entry point for all state changes
-   * @param msg - Message tuple [uri, data]
-   * @returns ReceiveResult indicating acceptance
-   */
   async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
     return this.receiveWithExecutor(msg, this.executor);
   }
@@ -112,7 +92,6 @@ export class MongoClient implements NodeProtocolInterface {
   ): Promise<ReceiveResult> {
     const [uri, data] = msg;
 
-    // Basic URI validation
     if (!uri || typeof uri !== "string") {
       return {
         accepted: false,
@@ -122,44 +101,14 @@ export class MongoClient implements NodeProtocolInterface {
     }
 
     try {
-      const programKey = this.extractProgramKey(uri);
-      const validator = this.schema[programKey];
-
-      if (!validator) {
-        const msg = `No schema defined for program key: ${programKey}`;
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
-      const validation = await validator({
-        uri,
-        value: data,
-        read: this.read.bind(this),
-      });
-
-      if (!validation.valid) {
-        const msg = validation.error || "Validation failed";
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
-      // Encode binary data for JSON storage
       const encodedData = encodeBinaryForJson(data);
       const record: PersistenceRecord<typeof encodedData> = {
         ts: Date.now(),
         data: encodedData,
       };
 
-      // If MessageData with outputs, wrap in a transaction for atomicity
       if (isMessageData(data) && executor.transaction) {
         await executor.transaction(async (tx) => {
-          // Store the envelope itself
           await tx.updateOne(
             { uri },
             {
@@ -177,7 +126,6 @@ export class MongoClient implements NodeProtocolInterface {
             { upsert: true },
           );
 
-          // Store each output within the same transaction
           for (const [outputUri, outputValue] of data.payload.outputs) {
             const outputResult = await this.receiveWithExecutor(
               [outputUri, outputValue],
@@ -191,7 +139,6 @@ export class MongoClient implements NodeProtocolInterface {
           }
         });
       } else {
-        // Single write or no transaction support — store envelope
         await executor.updateOne(
           { uri },
           {
@@ -209,7 +156,6 @@ export class MongoClient implements NodeProtocolInterface {
           { upsert: true },
         );
 
-        // Store outputs sequentially (no atomicity guarantees without transaction)
         if (isMessageData(data)) {
           for (const [outputUri, outputValue] of data.payload.outputs) {
             const outputResult = await this.receiveWithExecutor(
@@ -251,7 +197,6 @@ export class MongoClient implements NodeProtocolInterface {
 
       const tsValue = doc.timestamp;
       const dataValue = doc.data;
-      // Decode binary data if encoded
       const decodedData = decodeBinaryFromJson(dataValue) as T;
 
       const record: PersistenceRecord<T> = {
@@ -259,10 +204,7 @@ export class MongoClient implements NodeProtocolInterface {
         data: decodedData,
       };
 
-      return {
-        success: true,
-        record,
-      };
+      return { success: true, record };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return {
@@ -291,10 +233,8 @@ export class MongoClient implements NodeProtocolInterface {
     }
 
     try {
-      // Single query using $in instead of N individual findOne calls
       const docs = await this.executor.findMany({ uri: { $in: uris } });
 
-      // Build a map of found documents for O(1) lookup
       const found = new Map<string, PersistenceRecord<T>>();
       for (const doc of docs) {
         const docUri = typeof doc.uri === "string" ? doc.uri : undefined;
@@ -308,7 +248,6 @@ export class MongoClient implements NodeProtocolInterface {
         });
       }
 
-      // Build results in the original URI order
       const results: ReadMultiResultItem<T>[] = [];
       let succeeded = 0;
 
@@ -332,7 +271,6 @@ export class MongoClient implements NodeProtocolInterface {
         },
       };
     } catch (error) {
-      // Fallback to individual reads on query failure
       const results: ReadMultiResultItem<T>[] = await Promise.all(
         uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
           const result = await this.read<T>(uri);
@@ -369,7 +307,6 @@ export class MongoClient implements NodeProtocolInterface {
       const limit = options?.limit ?? 50;
       const offset = (page - 1) * limit;
 
-      // Build filter — combine prefix regex with optional pattern filter
       const filter: Record<string, unknown> = options?.pattern
         ? {
           $and: [
@@ -379,16 +316,13 @@ export class MongoClient implements NodeProtocolInterface {
         }
         : { uri: prefixRegex };
 
-      // Determine sort — push to MongoDB for server-side ordering
       const sortField = options?.sortBy === "timestamp" ? "timestamp" : "uri";
       const sortDir: 1 | -1 = options?.sortOrder === "desc" ? -1 : 1;
 
-      // Count total for pagination — prefer countDocuments, fall back to findMany length
       const total = this.executor.countDocuments
         ? await this.executor.countDocuments(filter)
         : (await this.executor.findMany(filter)).length;
 
-      // Fetch paginated results with server-side sort/skip/limit
       const docs = await this.executor.findMany(filter, {
         sort: { [sortField]: sortDir },
         skip: offset,
@@ -461,7 +395,6 @@ export class MongoClient implements NodeProtocolInterface {
         message: "MongoDB client is operational",
         details: {
           collectionName: this.collectionName,
-          schemaKeys: Object.keys(this.schema),
         },
       };
     } catch (error) {
@@ -473,7 +406,7 @@ export class MongoClient implements NodeProtocolInterface {
   }
 
   async getSchema(): Promise<string[]> {
-    return this.schema ? Object.keys(this.schema) : [];
+    return [];
   }
 
   async cleanup(): Promise<void> {
@@ -481,11 +414,6 @@ export class MongoClient implements NodeProtocolInterface {
       await this.executor.cleanup();
     }
     this.connected = false;
-  }
-
-  private extractProgramKey(uri: string): string {
-    const url = new URL(uri);
-    return `${url.protocol}//${url.hostname}`;
   }
 
   private escapeRegex(input: string): string {

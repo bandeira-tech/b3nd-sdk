@@ -1,13 +1,13 @@
 import { assertEquals } from "@std/assert";
 import { respondTo, connect, writeRequest, readResponse } from "./mod.ts";
-import { MemoryClient, createTestSchema } from "../b3nd-client-memory/mod.ts";
+import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 import {
   generateSigningKeyPair,
   generateEncryptionKeyPair,
 } from "../b3nd-encrypt/mod.ts";
 
 Deno.test("respondTo + connect: request-response round-trip", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   // Service identity
   const signing = await generateSigningKeyPair();
@@ -62,7 +62,7 @@ Deno.test("respondTo + connect: request-response round-trip", async () => {
 });
 
 Deno.test("connect: processes multiple requests in one poll", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   const signing = await generateSigningKeyPair();
   const enc = await generateEncryptionKeyPair();
@@ -98,7 +98,7 @@ Deno.test("connect: processes multiple requests in one poll", async () => {
 });
 
 Deno.test("respondTo: handles unsigned requests", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   const signing = await generateSigningKeyPair();
   const enc = await generateEncryptionKeyPair();
@@ -139,7 +139,7 @@ Deno.test("respondTo: handles unsigned requests", async () => {
 });
 
 Deno.test("connect: empty inbox returns 0", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   const signing = await generateSigningKeyPair();
   const enc = await generateEncryptionKeyPair();

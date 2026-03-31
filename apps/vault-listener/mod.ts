@@ -86,7 +86,7 @@ if (verifiers.size === 0) {
 
 // --- Client ---
 
-const rig = await Rig.connect(FIRECAT_URL);
+const rig = await Rig.init({ url: FIRECAT_URL });
 rig.on("receive:error", (e) => {
   console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
 });

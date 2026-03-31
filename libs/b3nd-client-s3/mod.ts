@@ -1,13 +1,9 @@
 /**
  * S3Client - Amazon S3 implementation of NodeProtocolInterface
  *
- * Stores data as JSON objects in an S3 bucket using the URI structure
- * as the object key layout. Each record becomes a `.json` object
- * containing `{ ts, data }`.
+ * Stores data as JSON objects in an S3 bucket. Pure storage — validation is the rig's concern.
  *
- * Uses an injected executor so the SDK does not depend on a specific
- * S3 library. Works with AWS SDK v3, minio-js, or any wrapper that
- * implements the S3Executor interface.
+ * Uses an injected executor so the SDK does not depend on a specific S3 library.
  */
 
 import {
@@ -24,7 +20,7 @@ import {
   type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
-  type Schema,
+  type S3ClientConfig,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -32,81 +28,15 @@ import {
 } from "../b3nd-core/binary.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
-/**
- * Configuration for S3Client
- */
-export interface S3ClientConfig {
-  /**
-   * S3 bucket name
-   */
-  bucket: string;
-
-  /**
-   * Optional key prefix for all objects (e.g., "b3nd/" or "prod/data/")
-   * Must end with "/" if provided.
-   */
-  prefix?: string;
-
-  /**
-   * Schema for validation — must be explicitly provided.
-   */
-  schema: Schema;
-}
-
-/**
- * S3 executor interface.
- * Abstracts S3 I/O so the client works with any S3-compatible SDK.
- */
 export interface S3Executor {
-  /**
-   * Put an object into the bucket.
-   * @param key - Object key
-   * @param body - Object body as a UTF-8 string
-   * @param contentType - MIME type (always "application/json")
-   */
   putObject: (key: string, body: string, contentType: string) => Promise<void>;
-
-  /**
-   * Get an object's body as a UTF-8 string.
-   * Returns null if the object does not exist.
-   */
   getObject: (key: string) => Promise<string | null>;
-
-  /**
-   * Delete an object.
-   * Should not throw if the object does not exist.
-   */
   deleteObject: (key: string) => Promise<void>;
-
-  /**
-   * List object keys under a prefix.
-   * Returns **full** object keys (not relative to the prefix).
-   * @param prefix - Key prefix to filter by
-   */
   listObjects: (prefix: string) => Promise<string[]>;
-
-  /**
-   * Check that the bucket is accessible.
-   * Returns true if healthy, false otherwise.
-   */
   headBucket: () => Promise<boolean>;
-
-  /** Optional cleanup (close connections, etc.) */
   cleanup?: () => Promise<void>;
 }
 
-/**
- * Validate schema key format.
- * Keys must be in format: "protocol://hostname"
- */
-function validateSchemaKey(key: string): boolean {
-  return /^[a-z]+:\/\/[a-z0-9-]+$/.test(key);
-}
-
-/**
- * Convert a b3nd URI to an S3 object key.
- * "mutable://accounts/alice/profile" → "mutable/accounts/alice/profile.json"
- */
 function uriToKey(uri: string): string {
   const clean = uri.replace("://", "/");
   const parts = clean.split("/").filter((p) => p !== ".." && p !== "." && p !== "");
@@ -114,7 +44,6 @@ function uriToKey(uri: string): string {
 }
 
 export class S3Client implements NodeProtocolInterface {
-  private readonly schema: Schema;
   private readonly bucket: string;
   private readonly prefix: string;
   private readonly executor: S3Executor;
@@ -126,26 +55,10 @@ export class S3Client implements NodeProtocolInterface {
     if (!config.bucket) {
       throw new Error("bucket is required in S3ClientConfig");
     }
-    if (!config.schema) {
-      throw new Error("schema is required in S3ClientConfig");
-    }
     if (!executor) {
       throw new Error("executor is required");
     }
 
-    const invalidKeys = Object.keys(config.schema).filter(
-      (key) => !validateSchemaKey(key),
-    );
-    if (invalidKeys.length > 0) {
-      throw new Error(
-        `Invalid schema key format: ${
-          invalidKeys.map((k) => `"${k}"`).join(", ")
-        }. ` +
-          `Keys must be in "protocol://hostname" format (e.g., "mutable://accounts", "immutable://data").`,
-      );
-    }
-
-    this.schema = config.schema;
     this.bucket = config.bucket;
     this.prefix = config.prefix ?? "";
     this.executor = executor;
@@ -163,33 +76,6 @@ export class S3Client implements NodeProtocolInterface {
     }
 
     try {
-      const programKey = this.extractProgramKey(uri);
-      const validator = this.schema[programKey];
-
-      if (!validator) {
-        const errMsg = `No schema defined for program key: ${programKey}`;
-        return {
-          accepted: false,
-          error: errMsg,
-          errorDetail: Errors.invalidSchema(uri, errMsg),
-        };
-      }
-
-      const validation = await validator({
-        uri,
-        value: data,
-        read: this.read.bind(this),
-      });
-
-      if (!validation.valid) {
-        const errMsg = validation.error || "Validation failed";
-        return {
-          accepted: false,
-          error: errMsg,
-          errorDetail: Errors.invalidSchema(uri, errMsg),
-        };
-      }
-
       const encodedData = encodeBinaryForJson(data);
       const ts = Date.now();
       const record: PersistenceRecord = { ts, data: encodedData };
@@ -201,7 +87,6 @@ export class S3Client implements NodeProtocolInterface {
         "application/json",
       );
 
-      // If MessageData, also store each output at its own URI
       if (isMessageData(data)) {
         for (const [outputUri, outputValue] of data.payload.outputs) {
           const outputEncoded = encodeBinaryForJson(outputValue);
@@ -274,7 +159,6 @@ export class S3Client implements NodeProtocolInterface {
       };
     }
 
-    // Parallelize reads — S3 is network-bound, sequential would be slow
     const settled = await Promise.all(
       uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
         const result = await this.read<T>(uri);
@@ -305,11 +189,9 @@ export class S3Client implements NodeProtocolInterface {
 
       const keys = await this.executor.listObjects(listPrefix);
 
-      // Convert S3 keys back to URIs
       let items: ListItem[] = keys
         .filter((k) => k.endsWith(".json"))
         .map((k) => {
-          // Strip prefix and .json, reconstruct URI
           const rel = k.startsWith(this.prefix)
             ? k.slice(this.prefix.length)
             : k;
@@ -321,13 +203,11 @@ export class S3Client implements NodeProtocolInterface {
           return { uri: `${protocol}://${hostname}/${path}` };
         });
 
-      // Apply pattern filter
       if (options?.pattern) {
         const regex = new RegExp(options.pattern);
         items = items.filter((item) => regex.test(item.uri));
       }
 
-      // Sort
       if (options?.sortBy === "name" || !options?.sortBy) {
         items.sort((a, b) => a.uri.localeCompare(b.uri));
       }
@@ -359,7 +239,6 @@ export class S3Client implements NodeProtocolInterface {
     try {
       const key = this.resolveKey(uri);
 
-      // Check existence first
       const content = await this.executor.getObject(key);
       if (content === null) {
         return {
@@ -397,7 +276,6 @@ export class S3Client implements NodeProtocolInterface {
         details: {
           bucket: this.bucket,
           prefix: this.prefix || "(none)",
-          schemaKeys: Object.keys(this.schema),
         },
       };
     } catch (error) {
@@ -409,18 +287,13 @@ export class S3Client implements NodeProtocolInterface {
   }
 
   getSchema(): Promise<string[]> {
-    return Promise.resolve(Object.keys(this.schema));
+    return Promise.resolve([]);
   }
 
   async cleanup(): Promise<void> {
     if (this.executor.cleanup) {
       await this.executor.cleanup();
     }
-  }
-
-  private extractProgramKey(uri: string): string {
-    const url = new URL(uri);
-    return `${url.protocol}//${url.hostname}`;
   }
 
   private resolveKey(uri: string): string {

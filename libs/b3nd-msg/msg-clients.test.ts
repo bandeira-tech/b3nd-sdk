@@ -15,14 +15,14 @@ import { createValidatedClient, msgSchema } from "../b3nd-compose/mod.ts";
 function createTestSetup() {
   const schema: Schema = {
     "mutable://open": async () => ({ valid: true }),
-    "immutable://open": async ({ uri, read }) => {
+    "immutable://open": async ([uri], _upstream, read) => {
       const existing = await read(uri);
       return { valid: !existing.success };
     },
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient({ schema });
+  const client = new MemoryClient();
 
   const node = createValidatedClient({
     write: client,

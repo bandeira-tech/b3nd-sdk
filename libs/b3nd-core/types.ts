@@ -108,20 +108,50 @@ export interface HealthStatus {
 }
 
 /**
- * Validation function for write operations
- * Returns an object with valid boolean and optional error message
+ * Output — the universal addressed-content primitive: [uri, data]
+ * Every message, every inner payload entry, every write — is an Output.
  */
-export type ValidationFn = (write: {
-  uri: string;
-  value: unknown;
-  read: <T = unknown>(uri: string) => Promise<ReadResult<T>>;
-  message?: unknown;
-}) => Promise<{ valid: boolean; error?: string }>;
+export type Output<T = unknown> = [uri: string, data: T];
 
 /**
- * Schema mapping program keys to validation functions
+ * Message — alias for Output. A message is an addressed output.
  */
-export type Schema = Record<string, ValidationFn>;
+export type Message<D = unknown> = Output<D>;
+
+/**
+ * Validation result
+ */
+export interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Read function for storage lookups during validation
+ */
+export type ReadFn = <T = unknown>(uri: string) => Promise<ReadResult<T>>;
+
+/**
+ * Validator — the single validation primitive.
+ *
+ * - `output`   — the [uri, data] being validated
+ * - `upstream` — the parent output that contains this one (undefined at top level)
+ * - `read`     — storage lookup (only committed data)
+ *
+ * A top-level message is validated as: `validator(msg, undefined, read)`
+ * An inner output within an envelope: `validator(inner, envelope, read)`
+ * Protocols can nest further:        `validator(deep, inner, read)`
+ */
+export type Validator<T = unknown> = (
+  output: Output<T>,
+  upstream: Output | undefined,
+  read: ReadFn,
+) => Promise<ValidationResult>;
+
+/**
+ * Schema mapping program keys to validators
+ */
+export type Schema = Record<string, Validator>;
 
 /**
  * Result of a receive operation.
@@ -133,11 +163,6 @@ export interface ReceiveResult {
   error?: string;
   errorDetail?: B3ndError;
 }
-
-/**
- * Message type — the minimal primitive: [uri, data]
- */
-export type Message<D = unknown> = [uri: string, data: D];
 
 /**
  * NodeProtocolInterface - The universal interface implemented by all clients
@@ -213,11 +238,6 @@ export interface ClientAccepts {
  */
 export interface MemoryClientConfig {
   /**
-   * Schema definition for the client
-   */
-  schema?: Schema;
-
-  /**
    * Optional pre-existing storage
    */
   storage?: Map<string, unknown>;
@@ -289,11 +309,6 @@ export interface LocalStorageClientConfig {
   keyPrefix?: string;
 
   /**
-   * Optional schema for validation (like MemoryClient)
-   */
-  schema?: Schema;
-
-  /**
    * Optional serialization functions
    */
   serializer?: {
@@ -327,11 +342,6 @@ export interface IndexedDBClientConfig {
   version?: number;
 
   /**
-   * Optional schema for validation
-   */
-  schema?: Schema;
-
-  /**
    * Optional injectable indexedDB dependency (defaults to global indexedDB)
    */
   // deno-lint-ignore no-explicit-any
@@ -356,11 +366,6 @@ export interface PostgresClientConfig {
     password: string;
     ssl?: boolean | object;
   };
-
-  /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
 
   /**
    * Table name prefix for b3nd data - must be explicitly provided
@@ -389,11 +394,6 @@ export interface MongoClientConfig {
   connectionString: string;
 
   /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
-
-  /**
    * Collection name for b3nd data - must be explicitly provided
    */
   collectionName: string;
@@ -408,11 +408,6 @@ export interface FsClientConfig {
    * All URI paths are stored relative to this root
    */
   rootDir: string;
-
-  /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
 }
 
 /**
@@ -424,11 +419,6 @@ export interface SqliteClientConfig {
    * Example: "/data/b3nd.db" or ":memory:"
    */
   path: string;
-
-  /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
 
   /**
    * Table name prefix for b3nd data tables
@@ -451,25 +441,12 @@ export interface S3ClientConfig {
    * Must end with "/" if provided.
    */
   prefix?: string;
-
-  /**
-   * Schema for validation - must be explicitly provided
-   */
-  schema: Schema;
 }
 
 /**
  * Configuration for ConsoleClient
  */
 export interface ConsoleClientConfig {
-  /**
-   * Schema mapping protocol://hostname to validators.
-   *
-   * Keys MUST be in format: "protocol://hostname"
-   * Examples: "mutable://accounts", "immutable://data"
-   */
-  schema: Schema;
-
   /**
    * Optional label prefix for console output (default: "b3nd")
    */

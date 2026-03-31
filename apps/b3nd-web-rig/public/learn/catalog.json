@@ -810,7 +810,7 @@
           "uri": "mutable://open/rig/learn/chapters/message-guide/16-cookbook"
         }
       ],
-      "updatedAt": 1773935908440
+      "updatedAt": 1774878804812
     },
     {
       "key": "b3nd",
@@ -952,7 +952,7 @@
           "uri": "mutable://open/rig/learn/chapters/faq/faq"
         }
       ],
-      "updatedAt": 1773935908502
+      "updatedAt": 1774963114127
     },
     {
       "key": "firecat",
@@ -1228,7 +1228,7 @@
           "uri": "mutable://open/rig/learn/chapters/firecat/firecat"
         }
       ],
-      "updatedAt": 1773935908504
+      "updatedAt": 1774878770156
     },
     {
       "key": "framework",
@@ -1382,8 +1382,8 @@
                   "children": []
                 },
                 {
-                  "id": "the-programvalidator-and-createoutputvalidator",
-                  "title": "The ProgramValidator and createOutputValidator",
+                  "id": "accessing-envelope-context-via-upstream",
+                  "title": "Accessing Envelope Context via `upstream`",
                   "level": 3,
                   "children": []
                 },
@@ -1595,7 +1595,7 @@
           "uri": "mutable://open/rig/learn/chapters/framework/framework"
         }
       ],
-      "updatedAt": 1773935908505
+      "updatedAt": 1774963311671
     },
     {
       "key": "operators",
@@ -2118,7 +2118,7 @@
           "uri": "mutable://open/rig/learn/chapters/app-cookbook/app-cookbook"
         }
       ],
-      "updatedAt": 1773935908500
+      "updatedAt": 1774878793998
     },
     {
       "key": "node-cookbook",
@@ -2392,7 +2392,7 @@
           "uri": "mutable://open/rig/learn/chapters/protocol-cookbook/protocol-cookbook"
         }
       ],
-      "updatedAt": 1773935908508
+      "updatedAt": 1774963109124
     },
     {
       "key": "rig-patterns",
@@ -2443,8 +2443,8 @@
                   "children": []
                 },
                 {
-                  "id": "rig-connect-vs-rig-init",
-                  "title": "`Rig.connect` vs `Rig.init`",
+                  "id": "url-vs-client",
+                  "title": "URL vs Client",
                   "level": 3,
                   "children": []
                 }
@@ -2517,8 +2517,8 @@
                   "children": []
                 },
                 {
-                  "id": "schema-with-rig-connect",
-                  "title": "Schema with `Rig.connect`",
+                  "id": "schema-with-url",
+                  "title": "Schema with URL",
                   "level": 3,
                   "children": []
                 },
@@ -2708,8 +2708,8 @@
                   "children": []
                 },
                 {
-                  "id": "per-operation-routing-object-form",
-                  "title": "Per-operation routing (object form)",
+                  "id": "per-operation-routing-subscriptions",
+                  "title": "Per-operation routing (subscriptions)",
                   "level": 3,
                   "children": []
                 }
@@ -2796,6 +2796,12 @@
               "level": 2,
               "children": [
                 {
+                  "id": "identity-drives-rig-delivers",
+                  "title": "Identity drives, rig delivers",
+                  "level": 3,
+                  "children": []
+                },
+                {
                   "id": "check-capabilities-before-acting",
                   "title": "Check capabilities before acting",
                   "level": 3,
@@ -2852,8 +2858,8 @@
               "level": 2,
               "children": [
                 {
-                  "id": "no-identity-send-throw",
-                  "title": "No identity + send = throw",
+                  "id": "rig-send-requires-pre-built-messagedata",
+                  "title": "Rig.send() requires pre-built MessageData",
                   "level": 3,
                   "children": []
                 },
@@ -2905,7 +2911,7 @@
           "uri": "mutable://open/rig/learn/chapters/rig-patterns/rig-patterns"
         }
       ],
-      "updatedAt": 1774870852775
+      "updatedAt": 1774963121514
     },
     {
       "key": "design-exchange",
@@ -3246,7 +3252,7 @@
           "uri": "mutable://open/rig/learn/chapters/design-infrastructure/design-infrastructure"
         }
       ],
-      "updatedAt": 1773935908501
+      "updatedAt": 1774878777352
     },
     {
       "key": "design-transport",
@@ -3345,7 +3351,7 @@
           "uri": "mutable://open/rig/learn/chapters/design-transport/design-transport"
         }
       ],
-      "updatedAt": 1773935908502
+      "updatedAt": 1774878774144
     },
     {
       "key": "bridge-token-movement",
@@ -4343,5 +4349,5 @@
       "updatedAt": 1773935908449
     }
   ],
-  "generatedAt": 1774870869017
+  "generatedAt": 1774963373249
 }

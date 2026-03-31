@@ -1,26 +1,9 @@
 import { assertEquals } from "jsr:@std/assert";
 import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
-import type { Schema } from "@bandeira-tech/b3nd-sdk";
 import { createHandler } from "../src/handler.ts";
 import type { HostConfig } from "../src/types.ts";
 
 // ── Test helpers ─────────────────────────────────────────────────────
-
-const acceptAll = async () => ({ valid: true });
-
-function testSchema(): Schema {
-  return {
-    "mutable://accounts": acceptAll,
-    "mutable://open": acceptAll,
-    "mutable://data": acceptAll,
-    "immutable://accounts": acceptAll,
-    "immutable://open": acceptAll,
-    "immutable://data": acceptAll,
-    "hash://sha256": acceptAll,
-    "link://accounts": acceptAll,
-    "link://open": acceptAll,
-  };
-}
 
 function makeConfig(overrides: Partial<HostConfig> = {}): HostConfig {
   return {
@@ -40,7 +23,7 @@ function req(path: string, host = "localhost:8080"): Request {
 // ── Tests ────────────────────────────────────────────────────────────
 
 Deno.test("health endpoint returns json with backend status", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   const config = makeConfig({ backendUrl: "http://localhost:1" });
   const handler = createHandler(client, config);
 
@@ -52,7 +35,7 @@ Deno.test("health endpoint returns json with backend status", async () => {
 });
 
 Deno.test("info endpoint returns type and version", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   const config = makeConfig();
   const handler = createHandler(client, config);
 
@@ -64,7 +47,7 @@ Deno.test("info endpoint returns type and version", async () => {
 });
 
 Deno.test("serve content from immutable:// target", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   await client.receive([
     "immutable://accounts/abc/site/v1/index.html",
     "<h1>Hello</h1>",
@@ -85,7 +68,7 @@ Deno.test("serve content from immutable:// target", async () => {
 });
 
 Deno.test("index.html fallback for directory paths", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   await client.receive([
     "immutable://accounts/abc/site/v1/index.html",
     "<h1>Root</h1>",
@@ -112,7 +95,7 @@ Deno.test("index.html fallback for directory paths", async () => {
 });
 
 Deno.test("mutable:// target pointer resolution", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
 
   // Mutable pointer → immutable version
   await client.receive([
@@ -135,7 +118,7 @@ Deno.test("mutable:// target pointer resolution", async () => {
 });
 
 Deno.test("link:// protocol following to hash://", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
 
   // Link points to a hash URI
   await client.receive([
@@ -162,7 +145,7 @@ Deno.test("link:// protocol following to hash://", async () => {
 });
 
 Deno.test("link:// chain following (link → link → hash)", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
 
   await client.receive([
     "link://accounts/abc/site/v1/style.css",
@@ -192,7 +175,7 @@ Deno.test("link:// chain following (link → link → hash)", async () => {
 });
 
 Deno.test("max link depth protection", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
 
   // Create a chain of 12 links (exceeds max depth of 10)
   for (let i = 0; i < 12; i++) {
@@ -212,7 +195,7 @@ Deno.test("max link depth protection", async () => {
 });
 
 Deno.test("custom domain lookup and serving", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
 
   // Register domain
   await client.receive([
@@ -233,7 +216,7 @@ Deno.test("custom domain lookup and serving", async () => {
 });
 
 Deno.test("custom domain with string mapping", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
 
   await client.receive([
     "mutable://open/domains/simple.com",
@@ -253,7 +236,7 @@ Deno.test("custom domain with string mapping", async () => {
 });
 
 Deno.test("domain-check returns 200 for registered domain", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   await client.receive([
     "mutable://open/domains/registered.com",
     { target: "immutable://accounts/xyz/site/", created: Date.now() },
@@ -269,7 +252,7 @@ Deno.test("domain-check returns 200 for registered domain", async () => {
 });
 
 Deno.test("domain-check returns 404 for unregistered domain", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   const config = makeConfig();
   const handler = createHandler(client, config);
 
@@ -280,7 +263,7 @@ Deno.test("domain-check returns 404 for unregistered domain", async () => {
 });
 
 Deno.test("MIME type detection for various extensions", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   const files: [string, string, string][] = [
     ["index.html", "<html></html>", "text/html; charset=utf-8"],
     ["style.css", "body{}", "text/css; charset=utf-8"],
@@ -310,7 +293,7 @@ Deno.test("MIME type detection for various extensions", async () => {
 });
 
 Deno.test("cache headers for fingerprinted assets", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   await client.receive([
     "immutable://accounts/abc/site/v1/app.a1b2c3d4.js",
     "// hashed",
@@ -340,7 +323,7 @@ Deno.test("cache headers for fingerprinted assets", async () => {
 });
 
 Deno.test("404 for missing content", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   const config = makeConfig({
     target: "immutable://accounts/abc/site/v1/",
   });
@@ -351,7 +334,7 @@ Deno.test("404 for missing content", async () => {
 });
 
 Deno.test("404 for unknown API endpoint", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   const config = makeConfig();
   const handler = createHandler(client, config);
 
@@ -360,7 +343,7 @@ Deno.test("404 for unknown API endpoint", async () => {
 });
 
 Deno.test("503 when no target configured", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   const config = makeConfig({ target: undefined });
   const handler = createHandler(client, config);
 
@@ -369,7 +352,7 @@ Deno.test("503 when no target configured", async () => {
 });
 
 Deno.test("unsupported protocol returns 400", async () => {
-  const client = new MemoryClient({ schema: testSchema() });
+  const client = new MemoryClient();
   const config = makeConfig({ target: "ftp://example.com/site/" });
   const handler = createHandler(client, config);
 

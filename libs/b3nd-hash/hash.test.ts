@@ -221,11 +221,11 @@ Deno.test("hashValidator — accepts valid write-once content", async () => {
   const uri = generateHashUri(hash);
 
   const validator = hashValidator();
-  const result = await validator({
-    uri,
-    value: data,
-    read: async (_uri: string) => ({ success: false }),
-  });
+  const result = await validator(
+    [uri, data],
+    undefined,
+    async (_uri: string) => ({ success: false }),
+  );
 
   assertEquals(result.valid, true);
 });
@@ -236,11 +236,11 @@ Deno.test("hashValidator — rejects duplicate write (write-once)", async () => 
   const uri = generateHashUri(hash);
 
   const validator = hashValidator();
-  const result = await validator({
-    uri,
-    value: data,
-    read: async (_uri: string) => ({ success: true }),
-  });
+  const result = await validator(
+    [uri, data],
+    undefined,
+    async (_uri: string) => ({ success: true }),
+  );
 
   assertEquals(result.valid, false);
   assertExists(result.error);
@@ -253,11 +253,11 @@ Deno.test("hashValidator — rejects content that doesn't match hash", async () 
   const uri = generateHashUri(hash);
 
   const validator = hashValidator();
-  const result = await validator({
-    uri,
-    value: { msg: "tampered" },
-    read: async (_uri: string) => ({ success: false }),
-  });
+  const result = await validator(
+    [uri, { msg: "tampered" }],
+    undefined,
+    async (_uri: string) => ({ success: false }),
+  );
 
   assertEquals(result.valid, false);
   assertExists(result.error);

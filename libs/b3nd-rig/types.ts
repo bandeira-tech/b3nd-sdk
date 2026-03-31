@@ -7,7 +7,7 @@ import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
 import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
-import type { FilteredClient } from "./filter.ts";
+import type { Subscription } from "./subscription.ts";
 
 /**
  * Factory function for creating a PostgreSQL executor from a connection string.
@@ -96,9 +96,19 @@ export type ElasticsearchExecutorFactory = (
  * Configuration for Rig.init().
  *
  * The rig is pure orchestration — build clients outside, hand them in.
- * Use `Rig.connect(url)` for the common one-liner case.
  */
 export interface RigConfig {
+  /**
+   * Backend URL — resolves to a client automatically.
+   * For HTTP/HTTPS URLs, SSE subscriptions are enabled automatically.
+   *
+   * ```typescript
+   * const rig = await Rig.init({ url: "memory://" });
+   * const rig = await Rig.init({ url: "https://node.b3nd.net", schema });
+   * ```
+   */
+  url?: string;
+
   /** Pre-built client for all operations. */
   client?: NodeProtocolInterface;
 
@@ -111,54 +121,35 @@ export interface RigConfig {
 
   /**
    * SSE base URL for pattern subscriptions.
-   * Set automatically by `Rig.connect()` for HTTP URLs.
+   * Set automatically when `url` is an HTTP URL.
    * Set explicitly when using `Rig.init({ client })` with an HTTP backend.
    */
   sseBaseUrl?: string;
 
   /**
-   * Clients to connect to the rig.
+   * Subscriptions — the single filtering primitive.
    *
-   * **Array form (recommended):** Clients with `accepts()` filters.
-   * The rig routes each operation to clients that accept the URI.
-   * Writes broadcast to all accepting clients; reads try first match.
+   * Each subscription wraps a client with URI patterns that control routing.
+   * Writes broadcast to all matching subscriptions; reads try first match.
+   * The same patterns can be published over the wire for remote filtering.
    *
    * ```typescript
    * const rig = await Rig.init({
-   *   clients: [
-   *     withFilter(httpClient, {
+   *   subscriptions: [
+   *     subscribe(httpClient, {
    *       receive: ["mutable://*", "hash://*"],
    *       read: ["mutable://*", "hash://*"],
    *     }),
-   *     withFilter(memoryClient, {
+   *     subscribe(memoryClient, {
    *       receive: ["local://*"],
    *       read: ["local://*"],
    *     }),
    *   ],
    * });
    * ```
-   *
-   * **Object form:** Per-operation routing with pre-built clients.
-   * Requires `client` as the default fallback.
-   *
-   * ```typescript
-   * const rig = await Rig.init({
-   *   client: primaryClient,
-   *   clients: {
-   *     read: cacheClient,
-   *   },
-   * });
-   * ```
    */
-  clients?:
-    | (NodeProtocolInterface | FilteredClient)[]
-    | {
-      send?: NodeProtocolInterface;
-      receive?: NodeProtocolInterface;
-      read?: NodeProtocolInterface;
-      list?: NodeProtocolInterface;
-      delete?: NodeProtocolInterface;
-    };
+  subscriptions?: Subscription[];
+
 
   /**
    * Hooks — frozen after init, one function per slot.
@@ -302,10 +293,3 @@ export interface HandlerOptions {
   healthMeta?: Record<string, unknown>;
 }
 
-/**
- * @deprecated Use HandlerOptions instead. The rig no longer owns the server.
- */
-export type ServeOptions = HandlerOptions & {
-  port: number;
-  cors?: string;
-};

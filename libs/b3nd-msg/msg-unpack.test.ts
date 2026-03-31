@@ -87,12 +87,7 @@ Deno.test("isMessageData - rejects plain objects (not MessageData)", () => {
 // =============================================================================
 
 Deno.test("MemoryClient - unpacks MessageData outputs on receive", async () => {
-  const client = new MemoryClient({
-    schema: {
-      "mutable://open": async () => ({ valid: true }),
-      "msg://open": async () => ({ valid: true }),
-    },
-  });
+  const client = new MemoryClient();
 
   const msgData: MessageData = {
     payload: {
@@ -122,11 +117,7 @@ Deno.test("MemoryClient - unpacks MessageData outputs on receive", async () => {
 });
 
 Deno.test("MemoryClient - plain data stored normally (no unpacking)", async () => {
-  const client = new MemoryClient({
-    schema: {
-      "mutable://open": async () => ({ valid: true }),
-    },
-  });
+  const client = new MemoryClient();
 
   const result = await client.receive(["mutable://open/z", { name: "Alice" }]);
   assertEquals(result.accepted, true);
@@ -142,7 +133,7 @@ Deno.test("MemoryClient - fails if any output in MessageData fails", async () =>
     "msg://open": async () => ({ valid: true }),
     // No schema for "unknown://program"
   };
-  const raw = new MemoryClient({ schema });
+  const raw = new MemoryClient();
   // Wrap with validated client so schema is enforced (MemoryClient is a dumb pipe)
   const client = createValidatedClient({
     write: raw,
@@ -187,7 +178,7 @@ Deno.test("msgSchema - validates each output against schema", async () => {
     },
   };
 
-  const result = await validator(["msg://open/test", msgData], read);
+  const result = await validator(["msg://open/test", msgData], undefined, read);
   assertEquals(result.valid, true);
 });
 
@@ -210,7 +201,7 @@ Deno.test("msgSchema - rejects if output program unknown", async () => {
     },
   };
 
-  const result = await validator(["msg://open/test", msgData], read);
+  const result = await validator(["msg://open/test", msgData], undefined, read);
   assertEquals(result.valid, false);
   assertEquals(result.error, "Unknown program: unknown://program");
 });
@@ -223,7 +214,7 @@ Deno.test("msgSchema - delegates non-MessageData to plain schema validation", as
   const validator = msgSchema(testSchema);
   const read = async () => ({ success: false as const, error: "not found" });
 
-  const result = await validator(["mutable://open/x", { name: "Alice" }], read);
+  const result = await validator(["mutable://open/x", { name: "Alice" }], undefined, read);
   assertEquals(result.valid, true);
 });
 
@@ -237,6 +228,7 @@ Deno.test("msgSchema - rejects non-MessageData with unknown program", async () =
 
   const result = await validator(
     ["unknown://program/x", { name: "Alice" }],
+    undefined,
     read,
   );
   assertEquals(result.valid, false);
@@ -253,7 +245,7 @@ Deno.test("integration - receive MessageData through node → client unpacks out
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient({ schema: testSchema });
+  const client = new MemoryClient();
 
   const node = createValidatedClient({
     write: client,
@@ -295,7 +287,7 @@ Deno.test("integration - plain messages still work alongside MessageData", async
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient({ schema: testSchema });
+  const client = new MemoryClient();
 
   const node = createValidatedClient({
     write: client,
@@ -331,14 +323,14 @@ Deno.test("integration - plain messages still work alongside MessageData", async
 Deno.test("integration - MessageData with mixed programs (mutable + immutable)", async () => {
   const testSchema: Schema = {
     "mutable://open": async () => ({ valid: true }),
-    "immutable://open": async ({ uri, read }) => {
+    "immutable://open": async ([uri], _upstream, read) => {
       const existing = await read(uri);
       return { valid: !existing.success };
     },
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient({ schema: testSchema });
+  const client = new MemoryClient();
 
   const node = createValidatedClient({
     write: client,
@@ -378,7 +370,7 @@ Deno.test("integration - msgSchema rejects invalid outputs before client sees th
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient({ schema: testSchema });
+  const client = new MemoryClient();
 
   const node = createValidatedClient({
     write: client,

@@ -2,7 +2,7 @@
  * IndexedDBClient - Browser IndexedDB implementation of NodeProtocolInterface
  *
  * Provides large-scale persistent storage in browser environments using IndexedDB.
- * Supports schema validation and efficient querying.
+ * Supports efficient querying.
  */
 
 /// <reference lib="dom" />
@@ -21,7 +21,6 @@ import type {
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
-  Schema,
 } from "../b3nd-core/types.ts";
 
 // Type definitions for IndexedDB (simplified for cross-platform compatibility)
@@ -92,7 +91,6 @@ export class IndexedDBClient implements NodeProtocolInterface {
     storeName: string;
     version: number;
   };
-  private schema: Schema;
   private db: IDBDatabase | null = null;
   private indexedDB: IDBFactory;
 
@@ -102,7 +100,6 @@ export class IndexedDBClient implements NodeProtocolInterface {
       storeName: config.storeName || "records",
       version: config.version || 1,
     };
-    this.schema = config.schema || {};
 
     // Use injected indexedDB or default to global indexedDB
     this.indexedDB = config.indexedDB ||
@@ -175,43 +172,6 @@ export class IndexedDBClient implements NodeProtocolInterface {
   }
 
   /**
-   * Validate write operation against schema
-   */
-  private async validateWrite(
-    uri: string,
-    value: unknown,
-  ): Promise<{ valid: boolean; error?: string }> {
-    // Find matching schema validation function
-    const programKey = this.findMatchingProgram(uri);
-    if (programKey && this.schema[programKey]) {
-      const validator = this.schema[programKey];
-      return await validator({ uri, value, read: this.read.bind(this) });
-    }
-
-    // No schema defined for this URI, allow write
-    return { valid: true };
-  }
-
-  /**
-   * Find matching program key for URI
-   */
-  private findMatchingProgram(uri: string): string | null {
-    // Look for exact matches first
-    if (this.schema[uri]) {
-      return uri;
-    }
-
-    // Look for prefix matches (e.g., "users://" matches "users://alice/profile")
-    for (const programKey of Object.keys(this.schema)) {
-      if (uri.startsWith(programKey)) {
-        return programKey;
-      }
-    }
-
-    return null;
-  }
-
-  /**
    * Get a transaction and object store
    */
   private async getStore(
@@ -236,15 +196,6 @@ export class IndexedDBClient implements NodeProtocolInterface {
     }
 
     try {
-      // Validate against schema if present
-      const validation = await this.validateWrite(uri, data);
-      if (!validation.valid) {
-        return {
-          accepted: false,
-          error: validation.error || "Validation failed",
-        };
-      }
-
       const store = await this.getStore("readwrite");
       const record: PersistenceRecord<D> = {
         ts: Date.now(),
@@ -662,7 +613,7 @@ export class IndexedDBClient implements NodeProtocolInterface {
   }
 
   async getSchema(): Promise<string[]> {
-    return Object.keys(this.schema);
+    return [];
   }
 
   async cleanup(): Promise<void> {

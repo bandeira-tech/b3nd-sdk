@@ -9,8 +9,7 @@ import {
   FunctionalClient,
   type FunctionalClientConfig,
 } from "../b3nd-core/functional-client.ts";
-import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
-import type { Validator } from "./types.ts";
+import type { NodeProtocolInterface, ReadResult, Validator } from "../b3nd-core/types.ts";
 
 /**
  * Create a FunctionalClient that validates before writing.
@@ -45,11 +44,11 @@ export function createValidatedClient(config: {
         return { accepted: false, error: "Message URI is required" };
       }
 
-      // Run validation
+      // Run validation — top-level message, no upstream
       try {
         const readFn = <T = unknown>(uri: string): Promise<ReadResult<T>> =>
           read.read<T>(uri);
-        const validationResult = await validate(msg, readFn);
+        const validationResult = await validate(msg, undefined, readFn);
         if (!validationResult.valid) {
           return {
             accepted: false,

@@ -10,7 +10,6 @@
 import { IpfsClient, type IpfsExecutor } from "./mod.ts";
 import { runSharedSuite } from "../b3nd-testing/shared-suite.ts";
 import { runNodeSuite } from "../b3nd-testing/node-suite.ts";
-import type { PersistenceRecord, Schema } from "../b3nd-core/types.ts";
 
 /**
  * In-memory IpfsExecutor that simulates IPFS behavior.
@@ -58,65 +57,20 @@ class MemoryIpfsExecutor implements IpfsExecutor {
   }
 }
 
-function createSchema(
-  validator?: (value: unknown) => Promise<{ valid: boolean; error?: string }>,
-): Schema {
-  const defaultValidator = async (
-    { value, read }: { value: unknown; read: unknown },
-  ) => {
-    if (validator) {
-      return validator(value);
-    }
-    const _ = read as <T = unknown>(
-      uri: string,
-    ) => Promise<{ success: boolean; record?: PersistenceRecord<T> }>;
-    return { valid: true };
-  };
-
-  return {
-    "store://users": defaultValidator,
-    "store://files": defaultValidator,
-    "store://pagination": defaultValidator,
-  };
-}
-
-function createClient(schema: Schema): IpfsClient {
+function createClient(): IpfsClient {
   const executor = new MemoryIpfsExecutor();
   return new IpfsClient(
     {
       apiUrl: "http://localhost:5001",
-      schema,
     },
     executor,
   );
 }
 
 runSharedSuite("IpfsClient", {
-  happy: () => createClient(createSchema()),
-
-  validationError: () =>
-    createClient(
-      createSchema(async (value) => {
-        const data = value as { name?: string };
-        if (!data.name) {
-          return { valid: false, error: "Name is required" };
-        }
-        return { valid: true };
-      }),
-    ),
+  happy: () => createClient(),
 });
 
 runNodeSuite("IpfsClient", {
-  happy: () => createClient(createSchema()),
-
-  validationError: () =>
-    createClient(
-      createSchema(async (value) => {
-        const data = value as { name?: string };
-        if (!data.name) {
-          return { valid: false, error: "Name is required" };
-        }
-        return { valid: true };
-      }),
-    ),
+  happy: () => createClient(),
 });

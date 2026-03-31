@@ -26,9 +26,7 @@ import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
 Deno.test("createMessageNode - accepts valid message", async () => {
   const validator: MessageValidator = async () => ({ valid: true });
 
-  const storage = new MemoryClient({
-    schema: { "msg://alice": async () => ({ valid: true }) },
-  });
+  const storage = new MemoryClient();
 
   const node = createMessageNode({
     validate: validator,
@@ -58,9 +56,7 @@ Deno.test("createMessageNode - rejects invalid message", async () => {
     error: "insufficient_balance",
   });
 
-  const storage = new MemoryClient({
-    schema: { "msg://alice": async () => ({ valid: true }) },
-  });
+  const storage = new MemoryClient();
 
   const node = createMessageNode({
     validate: validator,
@@ -84,12 +80,7 @@ Deno.test("createMessageNode - rejects invalid message", async () => {
 });
 
 Deno.test("createMessageNode - validator can read state", async () => {
-  const storage = new MemoryClient({
-    schema: {
-      "msg://alice": async () => ({ valid: true }),
-      "accounts://balances": async () => ({ valid: true }),
-    },
-  });
+  const storage = new MemoryClient();
 
   // Pre-populate balance
   await storage.receive(["accounts://balances/alice", { balance: 50 }]);
@@ -134,12 +125,8 @@ Deno.test("createMessageNode - validator can read state", async () => {
 });
 
 Deno.test("createMessageNode - propagates to multiple peers", async () => {
-  const peer1 = new MemoryClient({
-    schema: { "msg://alice": async () => ({ valid: true }) },
-  });
-  const peer2 = new MemoryClient({
-    schema: { "msg://alice": async () => ({ valid: true }) },
-  });
+  const peer1 = new MemoryClient();
+  const peer2 = new MemoryClient();
 
   const node = createMessageNode({
     validate: async () => ({ valid: true }),
@@ -167,9 +154,7 @@ Deno.test("createMessageNode - propagates to multiple peers", async () => {
 });
 
 Deno.test("createMessageNode - rejects message without URI", async () => {
-  const storage = new MemoryClient({
-    schema: { "msg://alice": async () => ({ valid: true }) },
-  });
+  const storage = new MemoryClient();
 
   const node = createMessageNode({
     validate: async () => ({ valid: true }),
@@ -391,13 +376,7 @@ Deno.test("combineValidators - all must pass", async () => {
 // =============================================================================
 
 Deno.test("integration - message node with output validator", async () => {
-  const storage = new MemoryClient({
-    schema: {
-      "msg://transfers": async () => ({ valid: true }),
-      "utxo://alice": async () => ({ valid: true }),
-      "utxo://bob": async () => ({ valid: true }),
-    },
-  });
+  const storage = new MemoryClient();
 
   // Pre-populate UTXOs
   await storage.receive(["utxo://alice/1", { amount: 100 }]);

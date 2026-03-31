@@ -76,7 +76,10 @@ export type {
   S3ClientConfig,
   Schema,
   SqliteClientConfig,
-  ValidationFn,
+  Output,
+  Validator,
+  ValidationResult,
+  ReadFn,
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
@@ -134,13 +137,10 @@ export { createValidatedClient } from "../libs/b3nd-compose/validated-client.ts"
 // Unified Node system (deprecated — use createValidatedClient instead)
 export { createNode } from "../libs/b3nd-compose/mod.ts";
 export type {
-  Message,
   Node,
   NodeConfig,
   Processor,
   ReadInterface,
-  ReceiveResult,
-  Validator,
 } from "../libs/b3nd-compose/mod.ts";
 export {
   // Built-in validators
@@ -210,7 +210,6 @@ export type {
   RigConfig,
   RigInfo,
   S3Executor as S3ExecutorFactory,
-  ServeOptions,
   Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,

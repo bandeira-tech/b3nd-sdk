@@ -32,7 +32,7 @@ const failWith = (msg: string): Validator => async () => ({
 
 Deno.test("seq - all pass → valid", async () => {
   const v = seq(pass, pass, pass);
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, true);
 });
 
@@ -45,7 +45,7 @@ Deno.test("seq - first failure stops", async () => {
   };
 
   const v = seq(pass, fail, third);
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, false);
   assertEquals(result.error, "failed");
   assertEquals(thirdCalled, false);
@@ -53,7 +53,7 @@ Deno.test("seq - first failure stops", async () => {
 
 Deno.test("seq - empty validators → valid", async () => {
   const v = seq();
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, true);
 });
 
@@ -61,20 +61,20 @@ Deno.test("seq - empty validators → valid", async () => {
 
 Deno.test("any - first pass wins", async () => {
   const v = any(failWith("a"), pass, failWith("c"));
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, true);
 });
 
 Deno.test("any - all fail → combined errors", async () => {
   const v = any(failWith("err-a"), failWith("err-b"));
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, false);
   assertEquals(result.error, "err-a; err-b");
 });
 
 Deno.test("any - empty validators → all failed message", async () => {
   const v = any();
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, false);
   assertEquals(result.error, "All validators failed");
 });
@@ -83,27 +83,27 @@ Deno.test("any - empty validators → all failed message", async () => {
 
 Deno.test("all - all pass → valid", async () => {
   const v = all(pass, pass, pass);
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, true);
 });
 
 Deno.test("all - one fail → invalid", async () => {
   const v = all(pass, failWith("nope"), pass);
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, false);
   assertEquals(result.error, "nope");
 });
 
 Deno.test("all - multiple failures → combined errors", async () => {
   const v = all(failWith("a"), pass, failWith("b"));
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, false);
   assertEquals(result.error, "a; b");
 });
 
 Deno.test("all - empty validators → valid", async () => {
   const v = all();
-  const result = await v(["mutable://x", {}], stubRead);
+  const result = await v(["mutable://x", {}], undefined, stubRead);
   assertEquals(result.valid, true);
 });
 
