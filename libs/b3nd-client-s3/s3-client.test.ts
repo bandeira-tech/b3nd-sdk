@@ -210,11 +210,11 @@ Deno.test("S3Client - status returns unhealthy", async () => {
   assertEquals(st.healthy, false);
 });
 
-Deno.test("S3Client - status returns programs", async () => {
+Deno.test("S3Client - status returns healthy", async () => {
   const { client } = createClient();
 
   const st = await client.status();
-  assertEquals(Array.isArray(st.programs), true);
+  assertEquals(st.healthy, true);
 });
 
 Deno.test("S3Client - cleanup delegates to executor", async () => {

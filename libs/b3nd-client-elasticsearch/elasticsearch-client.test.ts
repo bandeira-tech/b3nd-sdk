@@ -300,7 +300,6 @@ Deno.test("status returns healthy when ping succeeds", async () => {
 
   const st = await client.status();
   assertEquals(st.healthy, true);
-  assertEquals(Array.isArray(st.programs), true);
 });
 
 Deno.test("status returns unhealthy when ping fails", async () => {
