@@ -84,7 +84,6 @@ import { Rig, createClientFromUrl } from "@b3nd/rig";
 import { Pool } from "pg";
 
 const client = await createClientFromUrl("postgresql://localhost:5432/mydb", {
-  programs: Object.keys(appSchema),
   executors: {
     postgres: async (connStr) => {
       const pool = new Pool({ connectionString: connStr });
@@ -946,7 +945,6 @@ The rig has a built-in HTTP handler. Build the client outside, hand it to the ri
 
 ```typescript
 const client = await createClientFromUrl("postgresql://localhost:5432/mydb", {
-  programs: Object.keys(appSchema),
   executors: { postgres: pgFactory },
 });
 

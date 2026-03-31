@@ -611,7 +611,7 @@ import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 import firecatSchema from "./firecat-schema.ts";
 
 Deno.test("send and read on Firecat schema", async () => {
-  const client = new MemoryClient({ programs: Object.keys(firecatSchema) });
+  const client = new MemoryClient();
   const result = await send({
     payload: {
       inputs: [],
@@ -655,9 +655,9 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
   private client: MemoryClient;
   private storageKey: string;
 
-  constructor(config: { programs: string[] }, storageKey: string) {
+  constructor(storageKey: string) {
     this.storageKey = storageKey;
-    this.client = new MemoryClient(config);
+    this.client = new MemoryClient();
     this.loadFromStorage();
   }
 

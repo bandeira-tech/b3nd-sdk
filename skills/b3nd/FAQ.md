@@ -134,7 +134,7 @@ const schema: Schema = {
   },
 };
 
-const client = new MemoryClient({ programs: Object.keys(schema) });
+const client = new MemoryClient();
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(43100);
