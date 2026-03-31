@@ -1,11 +1,11 @@
 import type {
   DeleteResult,
-  HealthStatus,
   ListItem,
   ListOptions,
   ListResult,
   Message,
   NodeProtocolInterface,
+  NodeStatus,
   PersistenceRecord,
   ReadMultiResult,
   ReadMultiResultItem,
@@ -307,14 +307,11 @@ export class MemoryClient implements NodeProtocolInterface {
     });
   }
 
-  public health(): Promise<HealthStatus> {
+  public status(): Promise<NodeStatus> {
     return Promise.resolve({
-      status: "healthy",
+      healthy: true,
+      programs: [...this.storage.keys()],
     });
-  }
-
-  public getSchema(): Promise<string[]> {
-    return Promise.resolve([...this.storage.keys()]);
   }
 
   public cleanup(): Promise<void> {

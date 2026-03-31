@@ -55,12 +55,12 @@ Deno.test("ConsoleClient - delete logs to console", async () => {
   assertEquals(output[0], "[b3nd] DELETE store://logs/entry-1");
 });
 
-Deno.test("ConsoleClient - health returns healthy", async () => {
+Deno.test("ConsoleClient - status returns healthy", async () => {
   const { client } = createClient();
 
-  const result = await client.health();
+  const result = await client.status();
 
-  assertEquals(result.status, "healthy");
+  assertEquals(result.healthy, true);
 });
 
 Deno.test("ConsoleClient - cleanup resolves", async () => {

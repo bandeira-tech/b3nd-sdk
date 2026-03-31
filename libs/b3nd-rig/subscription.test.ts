@@ -302,11 +302,11 @@ Deno.test("single client via client still works (catch-all subscription)", async
   await rig.cleanup();
 });
 
-Deno.test("getSchema unions all subscription client schemas", async () => {
+Deno.test("status unions all subscription client info", async () => {
   const a = new MemoryClient();
   const b = new MemoryClient();
 
-  // Write some data so getSchema has something to report
+  // Write some data so status has something to report
   await a.receive(["mutable://open/x", "data"]);
   await b.receive(["local://app/y", "data"]);
 
@@ -317,13 +317,13 @@ Deno.test("getSchema unions all subscription client schemas", async () => {
     ],
   });
 
-  const schema = await rig.getSchema();
-  assertEquals(Array.isArray(schema), true);
+  const st = await rig.status();
+  assertEquals(Array.isArray(st.programs), true);
 
   await rig.cleanup();
 });
 
-Deno.test("health aggregates across all subscription clients", async () => {
+Deno.test("status aggregates across all subscription clients", async () => {
   const rig = await Rig.init({
     subscriptions: [
       subscribe(new MemoryClient(), { receive: ["mutable://*"] }),
@@ -331,8 +331,8 @@ Deno.test("health aggregates across all subscription clients", async () => {
     ],
   });
 
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
+  const st = await rig.status();
+  assertEquals(st.healthy, true);
 
   await rig.cleanup();
 });

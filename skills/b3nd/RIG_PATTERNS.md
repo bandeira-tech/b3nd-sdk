@@ -965,8 +965,7 @@ Bun.serve({ port: 9942, fetch: handler });
 
 | Route | Method | Description |
 | --- | --- | --- |
-| `/health` | GET | Health check |
-| `/schema` | GET | List registered programs |
+| `/status` | GET | Status (health + registered programs) |
 | `/receive` | POST | Write data |
 | `/read?uri=...` | GET | Read a URI |
 | `/list?uri=...` | GET | List URIs under prefix |
@@ -1265,7 +1264,7 @@ switch (command) {
     console.log(await rig.listData(args.uri));
     break;
   case "health":
-    console.log(await rig.health());
+    console.log(await rig.status());
     break;
 }
 

@@ -9,12 +9,12 @@
 import {
   Errors,
   type DeleteResult,
-  type HealthStatus,
   type ListItem,
   type ListOptions,
   type ListResult,
   type Message,
   type NodeProtocolInterface,
+  type NodeStatus,
   type PersistenceRecord,
   type ReadMultiResult,
   type ReadMultiResultItem,
@@ -260,34 +260,28 @@ export class S3Client implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       const ok = await this.executor.headBucket();
       if (!ok) {
         return {
-          status: "unhealthy",
+          healthy: false,
           message: `Bucket not accessible: ${this.bucket}`,
         };
       }
 
       return {
-        status: "healthy",
+        healthy: true,
         message: "S3 client is operational",
-        details: {
-          bucket: this.bucket,
-          prefix: this.prefix || "(none)",
-        },
+        bucket: this.bucket,
+        prefix: this.prefix || "(none)",
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  getSchema(): Promise<string[]> {
-    return Promise.resolve([]);
   }
 
   async cleanup(): Promise<void> {

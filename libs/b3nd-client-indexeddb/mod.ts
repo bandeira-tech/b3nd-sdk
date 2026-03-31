@@ -9,13 +9,13 @@
 
 import type {
   DeleteResult,
-  HealthStatus,
   IndexedDBClientConfig,
   ListItem,
   ListOptions,
   ListResult,
   Message,
   NodeProtocolInterface,
+  NodeStatus,
   PersistenceRecord,
   ReadMultiResult,
   ReadMultiResultItem,
@@ -542,33 +542,28 @@ export class IndexedDBClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       // Try to open the database
       const db = await this.initDB();
 
       if (!db) {
-        return {
-          status: "unhealthy",
-          message: "Failed to connect to IndexedDB",
-        };
+        return { healthy: false, message: "Failed to connect to IndexedDB" };
       }
 
       const stats = await this.getDatabaseStats();
 
       return {
-        status: "healthy",
+        healthy: true,
         message: "IndexedDB client is operational",
-        details: {
-          databaseName: this.config.databaseName,
-          storeName: this.config.storeName,
-          version: this.config.version,
-          ...stats,
-        },
+        databaseName: this.config.databaseName,
+        storeName: this.config.storeName,
+        version: this.config.version,
+        ...stats,
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
     }
@@ -610,10 +605,6 @@ export class IndexedDBClient implements NodeProtocolInterface {
         totalRecords: 0,
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
   }
 
   async cleanup(): Promise<void> {

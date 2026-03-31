@@ -8,13 +8,13 @@
 import {
   Errors,
   type DeleteResult,
-  type HealthStatus,
   type ListItem,
   type ListOptions,
   type ListResult,
   type Message,
   type MongoClientConfig,
   type NodeProtocolInterface,
+  type NodeStatus,
   type PersistenceRecord,
   type ReadMultiResult,
   type ReadMultiResultItem,
@@ -373,40 +373,28 @@ export class MongoClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       if (!this.connected) {
-        return {
-          status: "unhealthy",
-          message: "Not connected to MongoDB",
-        };
+        return { healthy: false, message: "Not connected to MongoDB" };
       }
 
       const ok = await this.executor.ping();
       if (!ok) {
-        return {
-          status: "unhealthy",
-          message: "MongoDB ping failed",
-        };
+        return { healthy: false, message: "MongoDB ping failed" };
       }
 
       return {
-        status: "healthy",
+        healthy: true,
         message: "MongoDB client is operational",
-        details: {
-          collectionName: this.collectionName,
-        },
+        collectionName: this.collectionName,
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
   }
 
   async cleanup(): Promise<void> {

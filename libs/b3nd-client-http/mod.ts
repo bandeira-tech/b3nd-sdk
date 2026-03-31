@@ -7,12 +7,12 @@
 
 import type {
   DeleteResult,
-  HealthStatus,
   HttpClientConfig,
   ListOptions,
   ListResult,
   Message,
   NodeProtocolInterface,
+  NodeStatus,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
@@ -353,51 +353,23 @@ export class HttpClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
-      const response = await this.request("/api/v1/health", {
+      const response = await this.request("/api/v1/status", {
         method: "GET",
       });
 
       if (!response.ok) {
-        return {
-          status: "unhealthy",
-          message: "Health check failed",
-        };
+        return { healthy: false, message: "Status check failed" };
       }
 
       const result = await response.json();
       return result;
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
-    }
-  }
-
-  async getSchema(): Promise<string[]> {
-    try {
-      const response = await this.request("/api/v1/schema", {
-        method: "GET",
-      });
-
-      if (!response.ok) {
-        return [];
-      }
-
-      const result = await response.json();
-
-      // API returns schema array directly
-      if (result.schema && Array.isArray(result.schema)) {
-        return result.schema;
-      }
-
-      // Fallback to empty array if schema not found
-      return [];
-    } catch (error) {
-      // Errors bubble but return empty array for graceful degradation
-      return [];
     }
   }
 

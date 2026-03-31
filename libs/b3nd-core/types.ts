@@ -108,6 +108,16 @@ export interface HealthStatus {
 }
 
 /**
+ * Node status — the single introspection endpoint for clients and rigs.
+ * Carries health, capabilities, and any relevant non-sensitive info.
+ */
+export interface NodeStatus {
+  healthy: boolean;
+  message?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Validation function for write operations
  * Returns an object with valid boolean and optional error message
  */
@@ -150,10 +160,8 @@ export interface NodeProtocolWriteInterface {
   receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
   /** Delete data at a URI */
   delete(uri: string): Promise<DeleteResult>;
-  /** Health status */
-  health(): Promise<HealthStatus>;
-  /** Supported program keys */
-  getSchema(): Promise<string[]>;
+  /** Node status — health, capabilities, config */
+  status(): Promise<NodeStatus>;
   /** Cleanup resources */
   cleanup(): Promise<void>;
 }
@@ -170,10 +178,8 @@ export interface NodeProtocolReadInterface {
   readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>>;
   /** List items at a URI path */
   list(uri: string, options?: ListOptions): Promise<ListResult>;
-  /** Health status */
-  health(): Promise<HealthStatus>;
-  /** Supported program keys */
-  getSchema(): Promise<string[]>;
+  /** Node status — health, capabilities, config */
+  status(): Promise<NodeStatus>;
   /** Cleanup resources */
   cleanup(): Promise<void>;
 }
@@ -555,8 +561,7 @@ export interface WebSocketRequest {
     | "readMulti"
     | "list"
     | "delete"
-    | "health"
-    | "getSchema";
+    | "status";
   payload: unknown;
 }
 

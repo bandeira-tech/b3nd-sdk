@@ -25,8 +25,7 @@ function rejectingClient(): NodeProtocolInterface {
     }),
     list: async () => ({ success: false as const, error: "not supported", data: [] }),
     delete: noop as NodeProtocolInterface["delete"],
-    health: async () => ({ status: "unhealthy" as const }),
-    getSchema: async () => [],
+    status: async () => ({ healthy: false, programs: [] }),
     cleanup: async () => {},
   };
 }

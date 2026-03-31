@@ -12,12 +12,12 @@
 import {
   Errors,
   type DeleteResult,
-  type HealthStatus,
   type ListItem,
   type ListOptions,
   type ListResult,
   type Message,
   type NodeProtocolInterface,
+  type NodeStatus,
   type PersistenceRecord,
   type ReadMultiResult,
   type ReadMultiResultItem,
@@ -298,33 +298,27 @@ export class ElasticsearchClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       const alive = await this.executor.ping();
       if (!alive) {
         return {
-          status: "unhealthy",
+          healthy: false,
           message: "Elasticsearch cluster is not reachable",
         };
       }
 
       return {
-        status: "healthy",
+        healthy: true,
         message: "Elasticsearch client is operational",
-        details: {
-          indexPrefix: this.indexPrefix,
-        },
+        indexPrefix: this.indexPrefix,
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  getSchema(): Promise<string[]> {
-    return Promise.resolve([]);
   }
 
   async cleanup(): Promise<void> {

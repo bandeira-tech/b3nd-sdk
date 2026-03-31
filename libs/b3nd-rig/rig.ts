@@ -12,11 +12,11 @@
 
 import type {
   DeleteResult,
-  HealthStatus,
   ListOptions,
   ListResult,
   Message,
   NodeProtocolInterface,
+  NodeStatus,
   ReadMultiResult,
   ReadResult,
   ReceiveResult,
@@ -149,8 +149,7 @@ export class Rig {
       readMulti: (uris) => c.read.readMulti(uris),
       list: (uri, opts) => c.list.list(uri, opts),
       delete: (uri) => c.delete.delete(uri),
-      health: () => c.read.health(),
-      getSchema: () => c.read.getSchema(),
+      status: () => this.status(),
       cleanup: () => this._cleanupAllClients(),
     };
   }
@@ -780,17 +779,26 @@ export class Rig {
 
   // ── Infrastructure ──
 
-  /** Health check. */
-  health(): Promise<HealthStatus> {
-    return this._clients.read.health();
-  }
+  /** Node status — health + programs (schema keys / subscription patterns). */
+  async status(): Promise<NodeStatus> {
+    // Collect health from underlying client(s)
+    const clientStatus = await this._clients.read.status();
 
-  /** Get the schema keys — returns rig schema if set, otherwise asks the backend. */
-  getSchema(): Promise<string[]> {
+    // Derive programs from local schema or client status
+    let programs: string[] | undefined;
     if (this._schema) {
-      return Promise.resolve(Object.keys(this._schema));
+      programs = Object.keys(this._schema);
+    } else if (
+      clientStatus.programs && Array.isArray(clientStatus.programs)
+    ) {
+      programs = clientStatus.programs as string[];
     }
-    return this._clients.read.getSchema();
+
+    return {
+      ...clientStatus,
+      healthy: clientStatus.healthy,
+      ...(programs ? { programs } : {}),
+    };
   }
 
   /** Clean up all backend resources. */
@@ -1272,7 +1280,7 @@ export class Rig {
    * ```
    */
   handler(options?: {
-    healthMeta?: Record<string, unknown>;
+    statusMeta?: Record<string, unknown>;
   }): (req: Request) => Promise<Response> {
     return createRigHandler(this, options);
   }
@@ -1399,7 +1407,7 @@ function createSubscriptionDispatch(
       return results[0];
     },
 
-    async health() {
+    async status() {
       const seen = new Set<NodeProtocolInterface>();
       const unique: NodeProtocolInterface[] = [];
       for (const s of subscriptions) {
@@ -1408,25 +1416,24 @@ function createSubscriptionDispatch(
           unique.push(s.client);
         }
       }
-      const results = await Promise.all(unique.map((c) => c.health()));
-      const unhealthy = results.find((r) => r.status === "unhealthy");
-      if (unhealthy) return unhealthy;
-      const degraded = results.find((r) => r.status === "degraded");
-      if (degraded) return degraded;
-      return results[0] ?? { status: "healthy" as const };
-    },
+      const results = await Promise.all(unique.map((c) => c.status()));
+      const healthy = results.every((r) => r.healthy);
 
-    async getSchema() {
-      const seen = new Set<NodeProtocolInterface>();
-      const all = new Set<string>();
+      // Union all programs from subscription patterns
+      const allPrograms = new Set<string>();
       for (const s of subscriptions) {
-        if (!seen.has(s.client)) {
-          seen.add(s.client);
-          const schemas = await s.client.getSchema();
-          for (const k of schemas) all.add(k);
+        for (const patterns of Object.values(s.patterns)) {
+          if (patterns) {
+            for (const p of patterns) allPrograms.add(p);
+          }
         }
       }
-      return [...all];
+
+      return {
+        healthy,
+        ...(results.find((r) => r.message) ? { message: results.find((r) => r.message)!.message } : {}),
+        ...(allPrograms.size > 0 ? { programs: [...allPrograms] } : {}),
+      };
     },
 
     async cleanup() {

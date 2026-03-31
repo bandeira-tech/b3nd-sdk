@@ -11,12 +11,12 @@
 import {
   Errors,
   type DeleteResult,
-  type HealthStatus,
   type ListItem,
   type ListOptions,
   type ListResult,
   type Message,
   type NodeProtocolInterface,
+  type NodeStatus,
   type PersistenceRecord,
   type ReadMultiResult,
   type ReadMultiResultItem,
@@ -282,34 +282,25 @@ export class IpfsClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       const online = await this.executor.isOnline();
       if (!online) {
-        return {
-          status: "unhealthy",
-          message: "IPFS node is not reachable",
-        };
+        return { healthy: false, message: "IPFS node is not reachable" };
       }
 
       return {
-        status: "healthy",
+        healthy: true,
         message: "IPFS client is operational",
-        details: {
-          apiUrl: this.apiUrl,
-          indexedUris: this.index.size,
-        },
+        apiUrl: this.apiUrl,
+        indexedUris: this.index.size,
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
   }
 
   async cleanup(): Promise<void> {

@@ -7,13 +7,13 @@
 
 import type {
   DeleteResult,
-  HealthStatus,
   ListItem,
   ListOptions,
   ListResult,
   LocalStorageClientConfig,
   Message,
   NodeProtocolInterface,
+  NodeStatus,
   PersistenceRecord,
   ReadMultiResult,
   ReadMultiResultItem,
@@ -321,7 +321,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       // Check if localStorage is accessible
       const testKey = `${this.config.keyPrefix}health-check`;
@@ -331,13 +331,13 @@ export class LocalStorageClient implements NodeProtocolInterface {
       const stats = this.getStorageStats();
 
       return {
-        status: "healthy",
+        healthy: true,
         message: "LocalStorage client is operational",
-        details: stats,
+        ...stats,
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
     }
@@ -398,10 +398,6 @@ export class LocalStorageClient implements NodeProtocolInterface {
     } catch {
       return 0;
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
   }
 
   async cleanup(): Promise<void> {

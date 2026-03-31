@@ -1,9 +1,9 @@
 import {
   Errors,
   type DeleteResult,
-  type HealthStatus,
   type Message,
   type NodeProtocolWriteInterface,
+  type NodeStatus,
   type ReceiveResult,
 } from "../b3nd-core/types.ts";
 
@@ -92,12 +92,8 @@ export class ConsoleClient implements NodeProtocolWriteInterface {
     return Promise.resolve({ success: true });
   }
 
-  public health(): Promise<HealthStatus> {
-    return Promise.resolve({ status: "healthy" });
-  }
-
-  public getSchema(): Promise<string[]> {
-    return Promise.resolve([]);
+  public status(): Promise<NodeStatus> {
+    return Promise.resolve({ healthy: true });
   }
 
   public cleanup(): Promise<void> {

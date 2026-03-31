@@ -666,7 +666,7 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
     this.persistStorage();
     return result;
   }
-  // read/list/delete/health/getSchema/cleanup delegate to this.client
+  // read/list/delete/status/cleanup delegate to this.client
 }
 ```
 

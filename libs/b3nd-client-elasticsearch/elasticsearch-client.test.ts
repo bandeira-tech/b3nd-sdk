@@ -295,46 +295,33 @@ Deno.test("delete non-existent document returns not found", async () => {
   assertEquals(result.errorDetail.code, "NOT_FOUND");
 });
 
-Deno.test("health returns healthy when ping succeeds", async () => {
+Deno.test("status returns healthy when ping succeeds", async () => {
   const { client } = createClient();
 
-  const status = await client.health();
-  assertEquals(status.status, "healthy");
-  assertExists(status.details);
-  assertEquals(
-    (status.details as Record<string, unknown>).indexPrefix,
-    "b3nd",
-  );
+  const st = await client.status();
+  assertEquals(st.healthy, true);
+  assertEquals(Array.isArray(st.programs), true);
 });
 
-Deno.test("health returns unhealthy when ping fails", async () => {
+Deno.test("status returns unhealthy when ping fails", async () => {
   const executor = new MockElasticsearchExecutor();
   // Override ping to return false
   executor.ping = () => Promise.resolve(false);
 
   const { client } = createClient(executor);
 
-  const status = await client.health();
-  assertEquals(status.status, "unhealthy");
+  const st = await client.status();
+  assertEquals(st.healthy, false);
 });
 
-Deno.test("health returns unhealthy when ping throws", async () => {
+Deno.test("status returns unhealthy when ping throws", async () => {
   const executor = new MockElasticsearchExecutor();
   executor.ping = () => Promise.reject(new Error("Connection refused"));
 
   const { client } = createClient(executor);
 
-  const status = await client.health();
-  assertEquals(status.status, "unhealthy");
-  assertExists(status.message);
-  assertEquals(status.message.includes("Connection refused"), true);
-});
-
-Deno.test("getSchema returns schema keys", async () => {
-  const { client } = createClient();
-
-  const keys = await client.getSchema();
-  assertEquals(keys, []);
+  const st = await client.status();
+  assertEquals(st.healthy, false);
 });
 
 Deno.test("cleanup delegates to executor", async () => {

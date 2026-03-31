@@ -190,14 +190,14 @@ Deno.test("S3Client - readMulti exceeds batch limit", async () => {
   assertEquals(result.summary.failed, 51);
 });
 
-Deno.test("S3Client - health returns healthy", async () => {
+Deno.test("S3Client - status returns healthy", async () => {
   const { client } = createClient();
 
-  const health = await client.health();
-  assertEquals(health.status, "healthy");
+  const st = await client.status();
+  assertEquals(st.healthy, true);
 });
 
-Deno.test("S3Client - health returns unhealthy", async () => {
+Deno.test("S3Client - status returns unhealthy", async () => {
   const executor = createMockExecutor();
   executor.headBucket = () => Promise.resolve(false);
 
@@ -206,15 +206,15 @@ Deno.test("S3Client - health returns unhealthy", async () => {
     executor,
   );
 
-  const health = await client.health();
-  assertEquals(health.status, "unhealthy");
+  const st = await client.status();
+  assertEquals(st.healthy, false);
 });
 
-Deno.test("S3Client - getSchema returns keys", async () => {
+Deno.test("S3Client - status returns programs", async () => {
   const { client } = createClient();
 
-  const schema = await client.getSchema();
-  assertEquals(schema, []);
+  const st = await client.status();
+  assertEquals(Array.isArray(st.programs), true);
 });
 
 Deno.test("S3Client - cleanup delegates to executor", async () => {

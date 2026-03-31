@@ -14,12 +14,12 @@ import {
   Errors,
   type DeleteResult,
   type FsClientConfig,
-  type HealthStatus,
   type ListItem,
   type ListOptions,
   type ListResult,
   type Message,
   type NodeProtocolInterface,
+  type NodeStatus,
   type PersistenceRecord,
   type ReadMultiResult,
   type ReadMultiResultItem,
@@ -259,33 +259,27 @@ export class FilesystemClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       const rootExists = await this.executor.exists(this.rootDir);
       if (!rootExists) {
         return {
-          status: "unhealthy",
+          healthy: false,
           message: `Root directory does not exist: ${this.rootDir}`,
         };
       }
 
       return {
-        status: "healthy",
+        healthy: true,
         message: "Filesystem client is operational",
-        details: {
-          rootDir: this.rootDir,
-        },
+        rootDir: this.rootDir,
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
   }
 
   async cleanup(): Promise<void> {

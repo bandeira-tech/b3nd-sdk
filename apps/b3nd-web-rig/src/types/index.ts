@@ -60,7 +60,7 @@ export interface BackendAdapter {
   ): Promise<PaginatedResponse<SearchResult>>;
 
   // Metadata
-  getSchema(): Promise<Record<string, string[]>>; // Schemas keyed by backend (single entry)
+  getStatus(): Promise<Record<string, string[]>>; // Programs keyed by backend (single entry)
   healthCheck(): Promise<boolean>;
 }
 

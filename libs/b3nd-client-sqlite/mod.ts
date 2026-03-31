@@ -8,12 +8,12 @@
 import {
   Errors,
   type DeleteResult,
-  type HealthStatus,
   type ListItem,
   type ListOptions,
   type ListResult,
   type Message,
   type NodeProtocolInterface,
+  type NodeStatus,
   type PersistenceRecord,
   type ReadMultiResult,
   type ReadMultiResultItem,
@@ -336,34 +336,25 @@ export class SqliteClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       if (!this.connected) {
-        return {
-          status: "unhealthy",
-          message: "Not connected to SQLite",
-        };
+        return { healthy: false, message: "Not connected to SQLite" };
       }
 
       this.executor.query("SELECT 1");
 
       return {
-        status: "healthy",
+        healthy: true,
         message: "SQLite client is operational",
-        details: {
-          tablePrefix: this.tablePrefix,
-        },
+        tablePrefix: this.tablePrefix,
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
   }
 
   async cleanup(): Promise<void> {

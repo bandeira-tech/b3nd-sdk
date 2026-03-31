@@ -212,8 +212,7 @@ interface NodeProtocolInterface {
   readMulti<T>(uris: string[]): Promise<ReadMultiResult<T>>;
   list(uri: string, options?: ListOptions): Promise<ListResult>;
   delete(uri: string): Promise<DeleteResult>;
-  health(): Promise<HealthStatus>;
-  getSchema(): Promise<string[]>;
+  status(): Promise<StatusResult>;
   cleanup(): Promise<void>;
 }
 ```
@@ -1724,8 +1723,7 @@ Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
 | `b3nd_read`                | Read data from URI                                |
 | `b3nd_list`                | List items at URI prefix                          |
 | `b3nd_delete`              | Delete data                                       |
-| `b3nd_health`              | Backend health check                              |
-| `b3nd_schema`              | Get available programs                            |
+| `b3nd_status`              | Backend status (health + programs)                |
 | `b3nd_backends_list`       | List configured backends                          |
 | `b3nd_backends_switch`     | Switch active backend                             |
 | `b3nd_backends_add`        | Add new backend                                   |

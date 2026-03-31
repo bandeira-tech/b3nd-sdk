@@ -252,8 +252,7 @@ rig.info();
 //   },
 // }
 
-await rig.health(); // HealthStatus
-await rig.getSchema(); // string[] (protocol keys)
+await rig.status(); // StatusResult { status, programs, ... }
 ```
 
 ## Initialization
@@ -292,7 +291,7 @@ const rig = await Rig.init({
 ## HTTP Handler
 
 ```typescript
-const handler = await rig.handler({ healthMeta: { version: "1.0" } });
+const handler = await rig.handler({ statusMeta: { version: "1.0" } });
 Deno.serve({ port: 3000 }, handler);
 ```
 

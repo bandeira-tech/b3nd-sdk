@@ -18,7 +18,7 @@ import type { Validator } from "./types.ts";
  * Wiring:
  * - receive → validate(msg, read.read) → write.receive(msg)
  * - read/readMulti/list → delegated to config.read
- * - delete/health/getSchema/cleanup → delegated to config.write
+ * - delete/status/cleanup → delegated to config.write
  *
  * @example
  * ```typescript
@@ -82,8 +82,7 @@ export function createValidatedClient(config: {
     readMulti: (uris) => read.readMulti(uris),
     list: (uri, options) => read.list(uri, options),
     delete: (uri) => write.delete(uri),
-    health: () => read.health(),
-    getSchema: () => read.getSchema(),
+    status: () => read.status(),
     async cleanup() {
       await write.cleanup();
       await read.cleanup();

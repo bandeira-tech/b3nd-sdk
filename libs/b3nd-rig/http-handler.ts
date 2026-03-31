@@ -6,8 +6,7 @@
  * no middleware, no state — just a `(Request) => Promise<Response>` function.
  *
  * Routes:
- *   GET  /api/v1/health           → rig.health()
- *   GET  /api/v1/schema           → rig.getSchema()
+ *   GET  /api/v1/status           → rig.status()
  *   POST /api/v1/receive          → rig.receive([uri, data])
  *   GET  /api/v1/read/:uri        → rig.read(uri)
  *   GET  /api/v1/list/:uri        → rig.list(uri, options)
@@ -23,8 +22,8 @@ import { matchPattern } from "./observe.ts";
 // ── Types ──
 
 export interface RigHandlerOptions {
-  /** Extra metadata merged into health responses. */
-  healthMeta?: Record<string, unknown>;
+  /** Extra metadata merged into status responses. */
+  statusMeta?: Record<string, unknown>;
 }
 
 // ── Binary deserialization ──
@@ -126,7 +125,7 @@ export function createRigHandler(
   rig: Rig,
   options?: RigHandlerOptions,
 ): (req: Request) => Promise<Response> {
-  const healthMeta = options?.healthMeta;
+  const statusMeta = options?.statusMeta;
 
   // ── SSE subscriber tracking ──
   // Each subscriber has a prefix and a write function.
@@ -161,17 +160,11 @@ export function createRigHandler(
     const path = url.pathname;
     const method = req.method;
 
-    // ── Health ──
-    if (method === "GET" && path === "/api/v1/health") {
-      const res = await rig.health();
-      const body = healthMeta ? { ...res, ...healthMeta } : res;
-      return json(body, res.status === "healthy" ? 200 : 503);
-    }
-
-    // ── Schema ──
-    if (method === "GET" && path === "/api/v1/schema") {
-      const keys = await rig.getSchema();
-      return json({ schema: keys });
+    // ── Status ──
+    if (method === "GET" && path === "/api/v1/status") {
+      const res = await rig.status();
+      const body = statusMeta ? { ...res, ...statusMeta } : res;
+      return json(body, res.healthy ? 200 : 503);
     }
 
     // ── Receive ──

@@ -2,15 +2,15 @@ import { assertEquals } from "@std/assert";
 import { Rig } from "../libs/b3nd-rig/mod.ts";
 import { createTestSchema, MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
 
-Deno.test("createRigHandler - health endpoint", async () => {
+Deno.test("createRigHandler - status endpoint", async () => {
   const rig = await Rig.init({
     client: new MemoryClient(),
     schema: createTestSchema(),
   });
-  const handler = rig.handler({ healthMeta: { test: true } });
-  const res = await handler(new Request("http://localhost/api/v1/health"));
+  const handler = rig.handler({ statusMeta: { test: true } });
+  const res = await handler(new Request("http://localhost/api/v1/status"));
   const body = await res.json();
-  assertEquals(body.status, "healthy");
+  assertEquals(body.healthy, true);
   assertEquals(body.test, true);
   await rig.cleanup();
 });

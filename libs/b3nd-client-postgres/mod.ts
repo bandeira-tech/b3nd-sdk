@@ -8,12 +8,12 @@
 import {
   Errors,
   type DeleteResult,
-  type HealthStatus,
   type ListItem,
   type ListOptions,
   type ListResult,
   type Message,
   type NodeProtocolInterface,
+  type NodeStatus,
   type PersistenceRecord,
   type PostgresClientConfig,
   type ReadMultiResult,
@@ -344,37 +344,28 @@ export class PostgresClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       if (!this.connected) {
-        return {
-          status: "unhealthy",
-          message: "Not connected to PostgreSQL",
-        };
+        return { healthy: false, message: "Not connected to PostgreSQL" };
       }
       await this.executor.query("SELECT 1");
       return {
-        status: "healthy",
+        healthy: true,
         message: "PostgreSQL client is operational",
-        details: {
-          tablePrefix: this.tablePrefix,
-          connectionType: typeof this.config.connection === "string"
-            ? "connection_string"
-            : "config_object",
-        },
+        tablePrefix: this.tablePrefix,
+        connectionType: typeof this.config.connection === "string"
+          ? "connection_string"
+          : "config_object",
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: `PostgreSQL health check failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
   }
 
   async cleanup(): Promise<void> {

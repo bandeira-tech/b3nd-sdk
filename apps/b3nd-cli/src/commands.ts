@@ -569,10 +569,10 @@ export async function health(verbose = false): Promise<void> {
     }
 
     const rig = await getRig(logger);
-    const endpoint = `${config.node}/api/v1/health`;
+    const endpoint = `${config.node}/api/v1/status`;
     logger?.http("GET", endpoint);
 
-    const result = await rig.health();
+    const result = await rig.status();
 
     console.log(`Node: ${config.node}`);
     console.log(`Status: ${result.status}`);
@@ -585,15 +585,12 @@ export async function health(verbose = false): Promise<void> {
       }
     }
 
-    // Also get schema
-    try {
-      const schema = await rig.getSchema();
-      console.log(`Protocols: ${schema.length}`);
-      for (const s of schema) {
+    // Also show programs from status
+    if (result.programs?.length) {
+      console.log(`Protocols: ${result.programs.length}`);
+      for (const s of result.programs) {
         console.log(`  - ${s}`);
       }
-    } catch {
-      // Schema might not be available
     }
   } finally {
     await closeRig(logger);
@@ -640,7 +637,7 @@ RIG OPERATIONS:
   list <uri>               List items at a URI
   watch <uri>              Watch a URI for changes (reactive polling)
   delete <uri>             Delete data at a URI
-  health                   Check node health and schema
+  health                   Check node status and programs
 
 CONTENT:
   upload <file>            Upload file (content-addressed)

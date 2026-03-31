@@ -359,32 +359,18 @@ export function runSharedSuite(
   });
 
   Deno.test({
-    name: `${suiteName} - health returns status`,
+    name: `${suiteName} - status returns NodeStatus`,
     sanitizeResources: false,
     sanitizeOps: false,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      const health = await client.health();
+      const st = await client.status();
 
-      assertEquals(typeof health.status, "string");
-      assertEquals(
-        ["healthy", "degraded", "unhealthy"].includes(health.status),
-        true,
-      );
+      assertEquals(typeof st.healthy, "boolean");
 
       await client.cleanup();
     },
-  });
-
-  Deno.test(`${suiteName} - getSchema returns array`, async () => {
-    const client = await Promise.resolve(factories.happy());
-
-    const schema = await client.getSchema();
-
-    assertEquals(Array.isArray(schema), true);
-
-    await client.cleanup();
   });
 
   Deno.test(`${suiteName} - cleanup does not throw`, async () => {

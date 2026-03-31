@@ -435,9 +435,9 @@ export const useAppStore = create<AppStore>()(
               );
             });
 
-            // Fetch schemas from backend (organized by instance) with timeout
+            // Fetch status from backend (programs organized by instance) with timeout
             const schemasByInstance = await Promise.race([
-              backend.adapter.getSchema(),
+              backend.adapter.getStatus(),
               timeoutPromise,
             ]);
             console.log("[loadSchemas] Raw response:", schemasByInstance);

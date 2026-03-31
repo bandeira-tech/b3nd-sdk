@@ -395,16 +395,16 @@ Deno.test("Rig.init -rejects unsupported protocol", async () => {
 
 Deno.test("Rig.init - with memory backend", async () => {
   const rig = await Rig.init({ url: "memory://" });
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
+  const st = await rig.status();
+  assertEquals(st.healthy, true);
   await rig.cleanup();
 });
 
 Deno.test("Rig.init - with pre-built client", async () => {
   const client = new MemoryClient();
   const rig = await Rig.init({ client });
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
+  const st = await rig.status();
+  assertEquals(st.healthy, true);
 });
 
 Deno.test("AuthenticatedRig - identity.rig(rig) creates session", async () => {
@@ -540,10 +540,10 @@ Deno.test("Rig.init - multi-client dispatch composes correctly", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.getSchema - returns schema keys", async () => {
+Deno.test("Rig.status - returns programs", async () => {
   const rig = await Rig.init({ url: "memory://" });
-  const schema = await rig.getSchema();
-  assertEquals(Array.isArray(schema), true);
+  const st = await rig.status();
+  assertEquals(Array.isArray(st.programs), true);
   await rig.cleanup();
 });
 
@@ -551,8 +551,8 @@ Deno.test("Rig.getSchema - returns schema keys", async () => {
 
 Deno.test("Rig.init -quick connect to memory backend", async () => {
   const rig = await Rig.init({ url: "memory://" });
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
+  const st = await rig.status();
+  assertEquals(st.healthy, true);
   await rig.cleanup();
 });
 
@@ -661,8 +661,8 @@ Deno.test("Rig.readMany - handles empty URI array", async () => {
 Deno.test("createClientFromUrl - creates memory client from URL", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
   const client = await createClientFromUrl("memory://");
-  const health = await client.health();
-  assertEquals(health.status, "healthy");
+  const st = await client.status();
+  assertEquals(st.healthy, true);
 
   // Write and read back
   await client.receive(["mutable://open/test", { val: 1 }]);
@@ -1228,17 +1228,17 @@ Deno.test("Rig.readAll - returns all items under prefix", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.health - returns healthy for memory backend", async () => {
+Deno.test("Rig.status - returns healthy for memory backend", async () => {
   const rig = await Rig.init({ url: "memory://" });
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
+  const st = await rig.status();
+  assertEquals(st.healthy, true);
   await rig.cleanup();
 });
 
-Deno.test("Rig.getSchema - returns schema keys for memory backend", async () => {
+Deno.test("Rig.status - returns programs for memory backend", async () => {
   const rig = await Rig.init({ url: "memory://" });
-  const keys = await rig.getSchema();
-  assertEquals(Array.isArray(keys), true);
+  const st = await rig.status();
+  assertEquals(Array.isArray(st.programs), true);
   await rig.cleanup();
 });
 
@@ -2407,9 +2407,10 @@ Deno.test("Rig dispatch - getSchema unions all clients", async () => {
     ],
   });
 
-  const schemas = await rig.getSchema();
-  assertEquals(schemas.includes("mutable://open"), true);
-  assertEquals(schemas.includes("hash://sha256"), true);
+  const st = await rig.status();
+  const programs = st.programs as string[];
+  assertEquals(programs.includes("mutable://*"), true);
+  assertEquals(programs.includes("hash://*"), true);
 
   await rig.cleanup();
 });
