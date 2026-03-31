@@ -22,7 +22,7 @@ async function main() {
   const serverKeys = loadServerKeys();
 
   // Use Rig instead of raw HttpClient — operations go through hooks/events
-  const rig = await Rig.connect(config.dataNodeUrl);
+  const rig = await Rig.init({ url: config.dataNodeUrl });
   rig.on("receive:error", (e) => {
     console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
   });

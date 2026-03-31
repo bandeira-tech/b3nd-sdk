@@ -119,10 +119,5 @@ export async function signConfig(config: ManagedNodeConfig): Promise<{
  * Uses mutable://accounts as the canonical program.
  */
 export function createPermissiveClient(): MemoryClient {
-  const acceptAll = async () => ({ valid: true });
-  return new MemoryClient({
-    schema: {
-      "mutable://accounts": acceptAll,
-    },
-  });
+  return new MemoryClient();
 }

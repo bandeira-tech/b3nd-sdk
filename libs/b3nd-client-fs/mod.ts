@@ -2,12 +2,10 @@
  * FilesystemClient - Filesystem implementation of NodeProtocolInterface
  *
  * Stores data as JSON files on disk using the URI structure as the
- * directory layout. Each record becomes a `.json` file containing
- * `{ ts, data }`.
+ * directory layout. Pure storage — validation is the rig's concern.
  *
  * Uses an injected executor so the SDK does not depend on a specific
- * filesystem API. Works with Deno, Node fs, or any wrapper that
- * implements the FsExecutor interface.
+ * filesystem API.
  *
  * URL format: file:///path/to/root
  */
@@ -15,18 +13,18 @@
 import {
   Errors,
   type DeleteResult,
-  type HealthStatus,
+  type FsClientConfig,
   type ListItem,
   type ListOptions,
   type ListResult,
   type Message,
   type NodeProtocolInterface,
+  type NodeStatus,
   type PersistenceRecord,
   type ReadMultiResult,
   type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
-  type Schema,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -34,59 +32,22 @@ import {
 } from "../b3nd-core/binary.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
-/**
- * Configuration for FilesystemClient
- */
-export interface FsClientConfig {
-  /**
-   * Root directory for data storage.
-   * All URI paths are stored relative to this root.
-   */
-  rootDir: string;
-
-  /**
-   * Schema for validation — must be explicitly provided.
-   */
-  schema: Schema;
-}
-
-/**
- * Filesystem executor interface.
- * Abstracts file I/O so the client works with Deno, Node, or test stubs.
- */
 export interface FsExecutor {
-  /** Read a file's contents as a UTF-8 string. Throws if not found. */
   readFile: (path: string) => Promise<string>;
-  /** Write a UTF-8 string to a file, creating parent dirs as needed. */
   writeFile: (path: string, content: string) => Promise<void>;
-  /** Delete a file. Throws if not found. */
   removeFile: (path: string) => Promise<void>;
-  /** Check if a path exists (file or directory). */
   exists: (path: string) => Promise<boolean>;
-  /**
-   * Recursively list all files under a directory.
-   * Returns paths relative to the given directory.
-   * Returns empty array if directory doesn't exist.
-   */
   listFiles: (dir: string) => Promise<string[]>;
-  /** Optional cleanup (close handles, etc.) */
   cleanup?: () => Promise<void>;
 }
 
-/**
- * Sanitize a URI into a safe filesystem path segment.
- * Replaces `://` with `/` and ensures no path traversal.
- */
 function uriToRelPath(uri: string): string {
-  // "mutable://accounts/alice/profile" → "mutable/accounts/alice/profile.json"
   const clean = uri.replace("://", "/");
-  // Prevent path traversal
   const parts = clean.split("/").filter((p) => p !== ".." && p !== "." && p !== "");
   return parts.join("/") + ".json";
 }
 
 export class FilesystemClient implements NodeProtocolInterface {
-  private readonly schema: Schema;
   private readonly rootDir: string;
   private readonly executor: FsExecutor;
 
@@ -97,15 +58,11 @@ export class FilesystemClient implements NodeProtocolInterface {
     if (!config.rootDir) {
       throw new Error("rootDir is required in FsClientConfig");
     }
-    if (!config.schema) {
-      throw new Error("schema is required in FsClientConfig");
-    }
     if (!executor) {
       throw new Error("executor is required");
     }
 
-    this.schema = config.schema;
-    this.rootDir = config.rootDir.replace(/\/+$/, ""); // strip trailing slashes
+    this.rootDir = config.rootDir.replace(/\/+$/, "");
     this.executor = executor;
   }
 
@@ -121,33 +78,6 @@ export class FilesystemClient implements NodeProtocolInterface {
     }
 
     try {
-      const programKey = this.extractProgramKey(uri);
-      const validator = this.schema[programKey];
-
-      if (!validator) {
-        const msg = `No schema defined for program key: ${programKey}`;
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
-      const validation = await validator({
-        uri,
-        value: data,
-        read: this.read.bind(this),
-      });
-
-      if (!validation.valid) {
-        const msg = validation.error || "Validation failed";
-        return {
-          accepted: false,
-          error: msg,
-          errorDetail: Errors.invalidSchema(uri, msg),
-        };
-      }
-
       const encodedData = encodeBinaryForJson(data);
       const ts = Date.now();
       const record: PersistenceRecord = { ts, data: encodedData };
@@ -155,7 +85,6 @@ export class FilesystemClient implements NodeProtocolInterface {
 
       await this.executor.writeFile(filePath, JSON.stringify(record));
 
-      // If MessageData, also store each output at its own URI
       if (isMessageData(data)) {
         for (const [outputUri, outputValue] of data.payload.outputs) {
           const outputEncoded = encodeBinaryForJson(outputValue);
@@ -260,31 +189,25 @@ export class FilesystemClient implements NodeProtocolInterface {
 
       const files = await this.executor.listFiles(dirPath);
 
-      // Convert file paths back to URIs
       let items: ListItem[] = files
         .filter((f) => f.endsWith(".json"))
         .map((f) => {
-          // relDir + "/" + f (minus .json) → reconstruct URI
           const fullRel = `${relDir}/${f}`.replace(/\.json$/, "");
           const parts = fullRel.split("/");
-          // First part is protocol, second is hostname, rest is path
           const protocol = parts[0];
           const hostname = parts[1];
           const path = parts.slice(2).join("/");
           return { uri: `${protocol}://${hostname}/${path}` };
         });
 
-      // Apply pattern filter
       if (options?.pattern) {
         const regex = new RegExp(options.pattern);
         items = items.filter((item) => regex.test(item.uri));
       }
 
-      // Sort
       if (options?.sortBy === "name" || !options?.sortBy) {
         items.sort((a, b) => a.uri.localeCompare(b.uri));
       } else if (options?.sortBy === "timestamp") {
-        // For timestamp sort we'd need to read each file — just sort by name
         items.sort((a, b) => a.uri.localeCompare(b.uri));
       }
 
@@ -336,45 +259,33 @@ export class FilesystemClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
       const rootExists = await this.executor.exists(this.rootDir);
       if (!rootExists) {
         return {
-          status: "unhealthy",
+          healthy: false,
           message: `Root directory does not exist: ${this.rootDir}`,
         };
       }
 
       return {
-        status: "healthy",
+        healthy: true,
         message: "Filesystem client is operational",
-        details: {
-          rootDir: this.rootDir,
-          schemaKeys: Object.keys(this.schema),
-        },
+        rootDir: this.rootDir,
       };
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return Object.keys(this.schema);
   }
 
   async cleanup(): Promise<void> {
     if (this.executor.cleanup) {
       await this.executor.cleanup();
     }
-  }
-
-  private extractProgramKey(uri: string): string {
-    const url = new URL(uri);
-    return `${url.protocol}//${url.hostname}`;
   }
 
   private resolvePath(uri: string): string {

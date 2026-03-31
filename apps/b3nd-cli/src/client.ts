@@ -47,7 +47,7 @@ export async function getRig(
       }
     }
 
-    cachedRig = await Rig.connect(config.node);
+    cachedRig = await Rig.init({ url: config.node });
 
     // Wire verbose logging through rig events
     if (logger) {
@@ -75,8 +75,8 @@ export async function getRig(
     }
 
     // Test connection
-    logger?.http("GET", `${config.node}/api/v1/health`);
-    const health = await cachedRig.health();
+    logger?.http("GET", `${config.node}/api/v1/status`);
+    const health = await cachedRig.status();
 
     if (health.status === "unhealthy") {
       console.warn("⚠ Warning: Node health is unhealthy");

@@ -643,7 +643,7 @@ import { Hono } from "hono";
 // Import or define the Firecat schema
 import firecatSchema from "./firecat-schema.ts";
 
-const client = new MemoryClient({ schema: firecatSchema });
+const client = new MemoryClient();
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -654,8 +654,8 @@ node.listen(43100);
 
 ```typescript
 const clients = [
-  new MemoryClient({ schema: firecatSchema }),
-  new PostgresClient({ connection, schema: firecatSchema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new MemoryClient(),
+  new PostgresClient({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 
 const client = createValidatedClient({
@@ -674,14 +674,14 @@ createServerNode({ frontend, client });
 // Postgres
 const pg = new PostgresClient({
   connection: "postgresql://user:pass@localhost:5432/db",
-  schema: firecatSchema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
+  tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
 }, executor);
 await pg.initializeSchema();
 
 // MongoDB
 const mongo = new MongoClient({
   connectionString: "mongodb://localhost:27017/mydb",
-  schema: firecatSchema, collectionName: "b3nd_data",
+  collectionName: "b3nd_data",
 }, executor);
 ```
 
@@ -717,7 +717,6 @@ import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
 ```typescript
 const local = new LocalStorageClient({
   keyPrefix: "myapp_",
-  schema: {/* optional */},
 });
 ```
 
@@ -920,7 +919,7 @@ import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 import firecatSchema from "./firecat-schema.ts";
 
 Deno.test("send and read on Firecat schema", async () => {
-  const client = new MemoryClient({ schema: firecatSchema });
+  const client = new MemoryClient();
   const result = await send({
     payload: {
       inputs: [],
@@ -976,9 +975,9 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
   private client: MemoryClient;
   private storageKey: string;
 
-  constructor(config: { schema: Schema }, storageKey: string) {
+  constructor(storageKey: string) {
     this.storageKey = storageKey;
-    this.client = new MemoryClient(config);
+    this.client = new MemoryClient();
     this.loadFromStorage();
   }
 
@@ -987,7 +986,7 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
     this.persistStorage();
     return result;
   }
-  // read/list/delete/health/getSchema/cleanup delegate to this.client
+  // read/list/delete/status/cleanup delegate to this.client
 }
 ```
 

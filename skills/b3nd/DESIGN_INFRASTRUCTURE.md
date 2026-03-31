@@ -20,8 +20,7 @@ interface. Handlers compose with these operations:
 │  read(uri)       ── fetch a single record                │
 │  list(uri, opts) ── enumerate records under a prefix     │
 │  delete(uri)     ── remove a record                      │
-│  health()        ── report node status                   │
-│  getSchema()     ── list accepted programs               │
+│  status()        ── report node status + list programs    │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -90,7 +89,7 @@ The simplest deployment. The handler runs in the same process as the node.
 ```
 
 ```typescript
-const client = new MemoryClient({ schema });
+const client = new MemoryClient();
 const processor = respondTo(handler, { identity, client });
 const conn = connect(client, { prefix: INBOX, processor });
 conn.start();
@@ -381,8 +380,8 @@ A production node deployment requires:
 │  └─────┬──────┘                              │
 │        │                                     │
 │  ┌─────▼──────┐  Health:                     │
-│  │  Backend   │  GET /api/v1/health          │
-│  │ (Postgres) │  → { status, uptime, ... }   │
+│  │  Backend   │  GET /api/v1/status           │
+│  │ (Postgres) │  → { status, programs, ... }  │
 │  └────────────┘                              │
 │                                              │
 │  ┌────────────┐  Monitoring:                 │
@@ -408,13 +407,13 @@ A production node deployment requires:
 
 ### Health Checks
 
-The `/api/v1/health` endpoint returns:
+The `/api/v1/status` endpoint returns:
 
 ```json
 {
   "status": "healthy",
   "uptime": 86400,
-  "schema": ["mutable://open", "mutable://accounts", "..."]
+  "programs": ["mutable://open", "mutable://accounts", "..."]
 }
 ```
 

@@ -147,7 +147,7 @@ async function createBackendFromUrl(
   baseUrl: string,
   isActive: boolean,
 ): Promise<{ backend: BackendConfig; rig: Rig }> {
-  const rig = await Rig.connect(baseUrl);
+  const rig = await Rig.init({ url: baseUrl });
 
   // Wire rig events → bottom-panel log
   rig.on("receive:success", (e) => {
@@ -370,7 +370,7 @@ export const useAppStore = create<AppStore>()(
           const baseUrl = backend.adapter.baseUrl || "";
           let rig: Rig | null = null;
           try {
-            rig = await Rig.connect(baseUrl);
+            rig = await Rig.init({ url: baseUrl });
             // Transfer existing identity to new rig
             if (state.rig?.identity) {
               rig.identity = state.rig.identity;
@@ -435,9 +435,9 @@ export const useAppStore = create<AppStore>()(
               );
             });
 
-            // Fetch schemas from backend (organized by instance) with timeout
+            // Fetch status from backend (programs organized by instance) with timeout
             const schemasByInstance = await Promise.race([
-              backend.adapter.getSchema(),
+              backend.adapter.getStatus(),
               timeoutPromise,
             ]);
             console.log("[loadSchemas] Raw response:", schemasByInstance);

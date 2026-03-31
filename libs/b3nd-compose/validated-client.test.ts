@@ -1,10 +1,10 @@
 import { assertEquals } from "@std/assert";
 import { createValidatedClient } from "./validated-client.ts";
-import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
+import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 import { accept, reject, requireFields } from "./validators.ts";
 
 function mem() {
-  return new MemoryClient({ schema: createTestSchema() });
+  return new MemoryClient();
 }
 
 // ── createValidatedClient ──

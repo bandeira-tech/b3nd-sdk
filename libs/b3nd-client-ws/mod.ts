@@ -7,11 +7,11 @@
 
 import type {
   DeleteResult,
-  HealthStatus,
   ListOptions,
   ListResult,
   Message,
   NodeProtocolInterface,
+  NodeStatus,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
@@ -374,24 +374,15 @@ export class WebSocketClient implements NodeProtocolInterface {
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<NodeStatus> {
     try {
-      const result = await this.sendRequest<HealthStatus>("health", {});
+      const result = await this.sendRequest<NodeStatus>("status", {});
       return result;
     } catch (error) {
       return {
-        status: "unhealthy",
+        healthy: false,
         message: error instanceof Error ? error.message : String(error),
       };
-    }
-  }
-
-  async getSchema(): Promise<string[]> {
-    try {
-      const result = await this.sendRequest<string[]>("getSchema", {});
-      return result;
-    } catch (error) {
-      return [];
     }
   }
 

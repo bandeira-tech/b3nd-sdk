@@ -9,7 +9,6 @@
 
 import { PostgresClient, type SqlExecutor } from "./mod.ts";
 import { runSharedSuite } from "../b3nd-testing/shared-suite.ts";
-import type { PersistenceRecord, Schema } from "../b3nd-core/types.ts";
 
 import { Client } from "npm:pg";
 
@@ -175,39 +174,15 @@ const postgresSetupPromise: Promise<PostgresSetupResult> = (async () => {
   return { url, containerName };
 })();
 
-function createSchema(
-  validator?: (value: unknown) => Promise<{ valid: boolean; error?: string }>,
-): Schema {
-  const defaultValidator = async (
-    { value, read }: { value: unknown; read: unknown },
-  ) => {
-    if (validator) {
-      return validator(value);
-    }
-    // Default happy-path validator
-    const _ = read as <T = unknown>(
-      uri: string,
-    ) => Promise<{ success: boolean; record?: PersistenceRecord<T> }>;
-    return { valid: true };
-  };
+const DEFAULT_PROGRAMS = ["store://users", "store://files", "store://pagination"];
 
-  return {
-    "store://users": defaultValidator,
-    "store://files": defaultValidator, // For binary tests
-    "store://pagination": defaultValidator, // For pagination tests
-  };
-}
-
-async function createClient(
-  schema: Schema,
-): Promise<PostgresClient> {
+async function createClient(): Promise<PostgresClient> {
   const { url } = await postgresSetupPromise;
 
   const executor = new RealSqlExecutor(url);
   const client = new PostgresClient(
     {
       connection: url,
-      schema,
       tablePrefix: "b3nd",
       poolSize: 1,
       connectionTimeout: 5000,
@@ -221,18 +196,7 @@ async function createClient(
 }
 
 runSharedSuite("PostgresClient", {
-  happy: () => createClient(createSchema()),
-
-  validationError: () =>
-    createClient(
-      createSchema(async (value) => {
-        const data = value as { name?: string };
-        if (!data.name) {
-          return { valid: false, error: "Name is required" };
-        }
-        return { valid: true };
-      }),
-    ),
+  happy: () => createClient(),
 });
 
 // Ensure Docker container is cleaned up when tests finish (if we created one)

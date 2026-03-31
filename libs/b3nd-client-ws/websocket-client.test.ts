@@ -174,21 +174,13 @@ class MockWebSocket {
           };
         }
       },
-      health: {
+      status: {
         id: request.id,
         success: true,
         data: {
-          status: "healthy" as const,
-          message: "WebSocket server is operational",
-          details: {
-            connectedClients: 1,
-          },
+          healthy: true,
+          programs: ["users://", "posts://"],
         },
-      },
-      getSchema: {
-        id: request.id,
-        success: true,
-        data: ["users://", "posts://"],
       },
     };
 

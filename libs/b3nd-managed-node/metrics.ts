@@ -128,8 +128,7 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
       },
       list: client.list.bind(client),
       delete: client.delete.bind(client),
-      health: client.health?.bind(client),
-      getSchema: client.getSchema?.bind(client),
+      status: client.status.bind(client),
     } as NodeProtocolInterface;
   }
 

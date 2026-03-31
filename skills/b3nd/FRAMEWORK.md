@@ -212,8 +212,7 @@ interface NodeProtocolInterface {
   readMulti<T>(uris: string[]): Promise<ReadMultiResult<T>>;
   list(uri: string, options?: ListOptions): Promise<ListResult>;
   delete(uri: string): Promise<DeleteResult>;
-  health(): Promise<HealthStatus>;
-  getSchema(): Promise<string[]>;
+  status(): Promise<StatusResult>;
   cleanup(): Promise<void>;
 }
 ```
@@ -728,7 +727,7 @@ const schema = {
 };
 
 Deno.test("accepts valid account write", async () => {
-  const client = new MemoryClient({ schema });
+  const client = new MemoryClient();
   const result = await send({
     payload: {
       inputs: [],
@@ -740,7 +739,7 @@ Deno.test("accepts valid account write", async () => {
 });
 
 Deno.test("rejects invalid account write", async () => {
-  const client = new MemoryClient({ schema });
+  const client = new MemoryClient();
   const result = await send({
     payload: {
       inputs: [],
@@ -763,7 +762,7 @@ Deno.test("validator reads cross-program state", async () => {
     },
     "link://accounts": async () => ({ valid: true }),
   };
-  const client = new MemoryClient({ schema: crossSchema });
+  const client = new MemoryClient();
 
   // Pre-populate: register the account
   await client.receive(["link://accounts/alice/auth", { active: true }]);
@@ -896,7 +895,7 @@ const publishingProtocol: Schema = {
 import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";
 
-const client = new MemoryClient({ schema: publishingProtocol });
+const client = new MemoryClient();
 
 // 1. User publishes content
 const post = { title: "Hello World", body: "First post on B3nd" };
@@ -1074,7 +1073,7 @@ const schema: Schema = {
 import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
-const client = new MemoryClient({ schema });
+const client = new MemoryClient();
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(9942);
@@ -1563,7 +1562,7 @@ import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk
 import { Hono } from "hono";
 import schema from "./schema.ts";
 
-const client = new MemoryClient({ schema });
+const client = new MemoryClient();
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -1574,8 +1573,8 @@ node.listen(43100);
 
 ```typescript
 const clients = [
-  new MemoryClient({ schema }),
-  new PostgresClient({ connection, schema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new MemoryClient(),
+  new PostgresClient({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 
 const client = createValidatedClient({
@@ -1594,14 +1593,14 @@ createServerNode({ frontend, client });
 // Postgres
 const pg = new PostgresClient({
   connection: "postgresql://user:pass@localhost:5432/db",
-  schema, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
+  tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
 }, executor);
 await pg.initializeSchema();
 
 // MongoDB
 const mongo = new MongoClient({
   connectionString: "mongodb://localhost:27017/mydb",
-  schema, collectionName: "b3nd_data",
+  collectionName: "b3nd_data",
 }, executor);
 ```
 
@@ -1724,8 +1723,7 @@ Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
 | `b3nd_read`                | Read data from URI                                |
 | `b3nd_list`                | List items at URI prefix                          |
 | `b3nd_delete`              | Delete data                                       |
-| `b3nd_health`              | Backend health check                              |
-| `b3nd_schema`              | Get available programs                            |
+| `b3nd_status`              | Backend status (health + programs)                |
 | `b3nd_backends_list`       | List configured backends                          |
 | `b3nd_backends_switch`     | Switch active backend                             |
 | `b3nd_backends_add`        | Add new backend                                   |

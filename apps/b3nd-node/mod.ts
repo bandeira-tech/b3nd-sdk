@@ -57,7 +57,7 @@ const executors = {
 };
 
 const backends = await Promise.all(
-  backendSpecs.map((url) => createClientFromUrl(url, { schema, executors })),
+  backendSpecs.map((url) => createClientFromUrl(url, { executors })),
 );
 
 // Single backend → use directly; multi-backend → compose
@@ -73,8 +73,7 @@ const client = backends.length === 1
     list: (uri: string, opts?: Parameters<typeof backends[0]["list"]>[1]) =>
       firstMatchSequence(backends).list(uri, opts),
     delete: (uri: string) => parallelBroadcast(backends).delete(uri),
-    health: () => backends[0].health(),
-    getSchema: () => backends[0].getSchema(),
+    status: () => backends[0].status(),
     cleanup: () => Promise.all(backends.map((b) => b.cleanup())).then(() => {}),
   };
 
@@ -97,7 +96,7 @@ const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
 
 // The rig produces a generic fetch handler — the app owns the server.
 const b3ndHandler = rig.handler({
-  healthMeta: { backends: backendTypes },
+  statusMeta: { backends: backendTypes },
 });
 
 // CORS and port binding are the app's responsibility.

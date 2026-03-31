@@ -32,13 +32,9 @@ function createStubClient(opts?: {
       calls.push(`delete:${uri}`);
       return { success: true };
     },
-    async health() {
-      calls.push("health");
-      return { status: "healthy" as const };
-    },
-    async getSchema() {
-      calls.push("getSchema");
-      return [];
+    async status() {
+      calls.push("status");
+      return { healthy: true, programs: [] };
     },
     async cleanup() {
       calls.push("cleanup");

@@ -40,8 +40,7 @@ Today, `connect()` uses HTTP polling. The handler's loop is:
 | `read(uri)`      | GET         | `/api/v1/read/{scheme}/{path}`  |
 | `list(uri, opts)`| GET         | `/api/v1/list/{scheme}/{path}`  |
 | `delete(uri)`    | DELETE      | `/api/v1/delete/{scheme}/{path}`|
-| `health()`       | GET         | `/api/v1/health`                |
-| `getSchema()`    | GET         | `/api/v1/schema`                |
+| `status()`       | GET         | `/api/v1/status`                |
 
 **Strengths:**
 - Works everywhere — browsers, servers, CLI, edge functions
@@ -324,7 +323,7 @@ connection.
 **Potential B3nd use cases:**
 - Stream 1: inbox notifications (push)
 - Stream 2: bulk data reads (bidirectional)
-- Stream 3: health/status updates (unidirectional)
+- Stream 3: status updates (unidirectional)
 - Datagrams: presence signals, typing indicators
 
 **Current status:** Browser support is growing (Chrome, Edge) but not
@@ -469,8 +468,7 @@ transport delivered the message.
                           │  read()          │
                           │  list()          │
                           │  delete()        │
-                          │  health()        │
-                          │  getSchema()     │
+                          │  status()        │
                           └────────┬─────────┘
                                    │
               ┌────────────────────┼────────────────────┐
@@ -518,7 +516,7 @@ function createMyService(client: NodeProtocolInterface, identity: Identity) {
 }
 
 // Development
-createMyService(new MemoryClient({ schema }), devIdentity);
+createMyService(new MemoryClient(), devIdentity);
 
 // Production — HTTP polling
 createMyService(new HttpClient({ url: PROD_URL }), prodIdentity);

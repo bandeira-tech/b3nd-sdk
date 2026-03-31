@@ -81,11 +81,8 @@ export function firstMatchSequence(
       return { success: false, error: "Not found" };
     },
 
-    async health() {
-      return clients[0].health();
-    },
-    async getSchema() {
-      return clients[0].getSchema();
+    async status() {
+      return clients[0].status();
     },
     async cleanup() {
       await Promise.all(clients.map((c) => c.cleanup()));

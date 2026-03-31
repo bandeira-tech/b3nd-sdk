@@ -13,7 +13,7 @@ Cards are grouped by theme. Start anywhere.
 You have a running b3nd node and just want to talk to it.
 
 ```typescript
-const rig = await Rig.connect("https://my-node.example.com");
+const rig = await Rig.init({ url: "https://my-node.example.com" });
 
 const result = await rig.read("mutable://open/app/status");
 ```
@@ -25,7 +25,7 @@ const result = await rig.read("mutable://open/app/status");
 Tests, prototypes, offline-first apps — no network needed.
 
 ```typescript
-const rig = await Rig.connect("memory://");
+const rig = await Rig.init({ url: "memory://" });
 
 await rig.receive(["mutable://open/test/hello", { msg: "works" }]);
 const data = await rig.readData("mutable://open/test/hello");
@@ -40,7 +40,7 @@ Signed writes require an identity. The rig is identity-free — identity drives 
 
 ```typescript
 const id = await Identity.fromSeed("alice-secret-seed-phrase");
-const rig = await Rig.connect("https://node.example.com");
+const rig = await Rig.init({ url: "https://node.example.com" });
 const session = id.rig(rig);
 
 await session.send({
@@ -69,7 +69,7 @@ localStorage.setItem("identity", JSON.stringify(exported));
 const restored = await Identity.fromExport(
   JSON.parse(localStorage.getItem("identity")!),
 );
-const rig = await Rig.connect("https://node.example.com");
+const rig = await Rig.init({ url: "https://node.example.com" });
 const session = restored.rig(rig);
 ```
 
@@ -84,7 +84,6 @@ import { Rig, createClientFromUrl } from "@b3nd/rig";
 import { Pool } from "pg";
 
 const client = await createClientFromUrl("postgresql://localhost:5432/mydb", {
-  schema: appSchema,
   executors: {
     postgres: async (connStr) => {
       const pool = new Pool({ connectionString: connStr });
@@ -109,13 +108,13 @@ const rig = await Rig.init({ client, schema: appSchema });
 
 ---
 
-### `Rig.connect` vs `Rig.init`
+### URL vs Client
 
-`connect(url)` is the one-liner — it builds a client internally. `init({...})` is the explicit path for when you build clients yourself.
+`url` is the one-liner — Rig builds a client internally. `client` is the explicit path for when you build clients yourself.
 
 ```typescript
 // One-liner — builds HttpClient or MemoryClient for you
-const rig = await Rig.connect("https://node.example.com");
+const rig = await Rig.init({ url: "https://node.example.com" });
 
 // Explicit — you bring the client
 const client = new HttpClient({ url: "https://node.example.com" });
@@ -238,7 +237,7 @@ const results = await rig.deleteMany([
 
 ```typescript
 const id = await Identity.fromSeed("alice-secret");
-const rig = await Rig.connect("https://node.example.com");
+const rig = await Rig.init({ url: "https://node.example.com" });
 const session = id.rig(rig);
 
 await session.send({
@@ -284,17 +283,16 @@ await rig.receive(["unknown://foo", { v: 1 }]);
 
 ---
 
-### Schema with `Rig.connect`
+### Schema with URL
 
-When using `Rig.connect`, the client is built internally. Pass schema to `Rig.init` for validation.
+Pass `schema` alongside `url` — Rig builds the client and wires validation.
 
 ```typescript
-// connect() is a shortcut — no schema validation
-const simple = await Rig.connect("memory://");
+// No schema validation
+const simple = await Rig.init({ url: "memory://" });
 
-// For schema validation, use init()
-const client = await createClientFromUrl("memory://");
-const validated = await Rig.init({ client, schema: mySchema });
+// With schema validation
+const validated = await Rig.init({ url: "memory://", schema: mySchema });
 ```
 
 ---
@@ -333,7 +331,7 @@ Store secrets only you can decrypt. The identity's X25519 key is used automatica
 
 ```typescript
 const id = await Identity.generate();
-const rig = await Rig.connect("memory://");
+const rig = await Rig.init({ url: "memory://" });
 const session = id.rig(rig);
 
 await session.sendEncrypted({
@@ -359,7 +357,7 @@ Send a message only the recipient can read.
 const alice = await Identity.generate();
 const bob = await Identity.generate();
 
-const rig = await Rig.connect("memory://");
+const rig = await Rig.init({ url: "memory://" });
 const aliceSession = alice.rig(rig);
 
 // Alice encrypts to Bob's encryption public key
@@ -598,7 +596,7 @@ const rig = await Rig.init({
 Unlike hooks, events can be registered and removed dynamically.
 
 ```typescript
-const rig = await Rig.connect("memory://");
+const rig = await Rig.init({ url: "memory://" });
 
 // Add
 const unsub = rig.on("receive:success", (e) => {
@@ -690,7 +688,7 @@ await rig.receive(["mutable://open/app/config", { theme: "dark" }]);
 ### Add observers at runtime
 
 ```typescript
-const rig = await Rig.connect("memory://");
+const rig = await Rig.init({ url: "memory://" });
 
 const unsub = rig.observe(
   "mutable://open/chat/rooms/:room/messages/:msgId",
@@ -727,7 +725,7 @@ unsub();
 One URL, one client, all operations go to the same place.
 
 ```typescript
-const rig = await Rig.connect("https://node.example.com");
+const rig = await Rig.init({ url: "https://node.example.com" });
 ```
 
 ---
@@ -737,7 +735,7 @@ const rig = await Rig.connect("https://node.example.com");
 Different URIs go to different backends. The rig inspects `accepts()` on each client and routes accordingly.
 
 ```typescript
-import { Rig, withFilter } from "@b3nd/rig";
+import { Rig, subscribe } from "@b3nd/rig";
 import { HttpClient } from "@b3nd/client-http";
 import { MemoryClient } from "@b3nd/client-memory";
 
@@ -745,14 +743,14 @@ const remote = new HttpClient({ url: "https://node.example.com" });
 const local = new MemoryClient();
 
 const rig = await Rig.init({
-  clients: [
-    withFilter(remote, {
+  subscriptions: [
+    subscribe(remote, {
       receive: ["mutable://*", "hash://*"],
       read: ["mutable://*", "hash://*"],
       list: ["mutable://*"],
       delete: ["mutable://*"],
     }),
-    withFilter(local, {
+    subscribe(local, {
       receive: ["local://*"],
       read: ["local://*"],
       list: ["local://*"],
@@ -797,12 +795,12 @@ const primary = new HttpClient({ url: "https://primary.example.com" });
 const replica = new HttpClient({ url: "https://replica.example.com" });
 
 const rig = await Rig.init({
-  clients: [
-    withFilter(primary, {
+  subscriptions: [
+    subscribe(primary, {
       receive: ["mutable://*"],
       read: ["mutable://*"],
     }),
-    withFilter(replica, {
+    subscribe(replica, {
       receive: ["mutable://*"],
       // no read — replica is write-only from the rig's perspective
     }),
@@ -824,8 +822,8 @@ A client without `accepts()` is treated as accepting all operations and URIs. Th
 
 ```typescript
 const rig = await Rig.init({
-  clients: [
-    withFilter(special, { receive: ["special://*"], read: ["special://*"] }),
+  subscriptions: [
+    subscribe(special, { receive: ["special://*"], read: ["special://*"] }),
     generalClient, // no filter — catches everything else
   ],
 });
@@ -833,22 +831,27 @@ const rig = await Rig.init({
 
 ---
 
-### Per-operation routing (object form)
+### Per-operation routing (subscriptions)
 
-Explicit per-operation client assignment with a default fallback. Less flexible than filtered clients but supported.
+Explicit per-operation routing via subscriptions. Each subscription declares which operations it handles.
 
 ```typescript
 const pgClient = await createClientFromUrl("postgresql://primary", {
-  schema: appSchema,
   executors: { postgres: pgFactory },
 });
 const cacheClient = new MemoryClient();
 
 const rig = await Rig.init({
-  client: pgClient,       // default for all operations
-  clients: {
-    read: cacheClient,    // reads go to cache
-  },
+  subscriptions: [
+    subscribe(cacheClient, { read: ["mutable://*", "hash://*"] }),
+    subscribe(pgClient, {
+      receive: ["mutable://*", "immutable://*", "hash://*"],
+      read: ["mutable://*", "immutable://*", "hash://*"],
+      list: ["mutable://*"],
+      delete: ["mutable://*"],
+    }),
+  ],
+  schema: appSchema,
 });
 ```
 
@@ -942,7 +945,6 @@ The rig has a built-in HTTP handler. Build the client outside, hand it to the ri
 
 ```typescript
 const client = await createClientFromUrl("postgresql://localhost:5432/mydb", {
-  schema: appSchema,
   executors: { postgres: pgFactory },
 });
 
@@ -963,8 +965,7 @@ Bun.serve({ port: 9942, fetch: handler });
 
 | Route | Method | Description |
 | --- | --- | --- |
-| `/health` | GET | Health check |
-| `/schema` | GET | List registered programs |
+| `/status` | GET | Status (health + registered programs) |
 | `/receive` | POST | Write data |
 | `/read?uri=...` | GET | Read a URI |
 | `/list?uri=...` | GET | List URIs under prefix |
@@ -1029,12 +1030,12 @@ const innerRig = await Rig.init({
 });
 
 const outerRig = await Rig.init({
-  clients: [
-    withFilter(innerRig, {
+  subscriptions: [
+    subscribe(innerRig, {
       receive: ["local://*"],
       read: ["local://*"],
     }),
-    withFilter(httpClient, {
+    subscribe(httpClient, {
       receive: ["mutable://*"],
       read: ["mutable://*"],
     }),
@@ -1054,7 +1055,7 @@ const outerRig = await Rig.init({
 The rig is identity-free — pure orchestration. Identity is external: you create a session with `identity.rig(rig)` for authenticated operations. Multiple identities can share the same rig.
 
 ```typescript
-const rig = await Rig.connect("https://node.example.com");
+const rig = await Rig.init({ url: "https://node.example.com" });
 const alice = await Identity.fromSeed("alice-secret");
 const bob = await Identity.fromSeed("bob-secret");
 
@@ -1071,7 +1072,7 @@ await bobSession.send({ inputs: [], outputs: [[bobUri, data]] });
 ### Check capabilities before acting
 
 ```typescript
-const rig = await Rig.connect("https://node.example.com");
+const rig = await Rig.init({ url: "https://node.example.com" });
 const identity = getIdentityOrNull(); // your app logic
 
 if (identity?.canSign) {
@@ -1135,12 +1136,12 @@ const remote = new HttpClient({ url: "https://node.example.com" });
 const cache = new MemoryClient();
 
 const rig = await Rig.init({
-  clients: [
-    withFilter(remote, {
+  subscriptions: [
+    subscribe(remote, {
       receive: ["mutable://*", "hash://*"],
       read: ["mutable://*", "hash://*"],
     }),
-    withFilter(cache, {
+    subscribe(cache, {
       receive: ["local://*"],
       read: ["local://*"],
       list: ["local://*"],
@@ -1180,14 +1181,14 @@ const fs = await createClientFromUrl("file:///var/data/blobs", {
 
 const rig = await Rig.init({
   schema: appSchema,
-  clients: [
-    withFilter(pg, {
+  subscriptions: [
+    subscribe(pg, {
       receive: ["mutable://*"],
       read: ["mutable://*"],
       list: ["mutable://*"],
       delete: ["mutable://*"],
     }),
-    withFilter(fs, {
+    subscribe(fs, {
       receive: ["hash://*"],
       read: ["hash://*"],
     }),
@@ -1223,7 +1224,7 @@ import { assertEquals } from "@std/assert";
 Deno.test("app write and read round-trip", async () => {
   const events: string[] = [];
 
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   rig.on("receive:success", (e) => { events.push(e.uri!); });
   rig.observe(
     "mutable://open/test/:key",
@@ -1247,9 +1248,9 @@ Deno.test("app write and read round-trip", async () => {
 ### CLI tool backed by a rig
 
 ```typescript
-const rig = await Rig.connect(
-  Deno.env.get("BACKEND_URL") || "memory://",
-);
+const rig = await Rig.init({
+  url: Deno.env.get("BACKEND_URL") || "memory://",
+});
 
 // All commands use the rig
 switch (command) {
@@ -1263,7 +1264,7 @@ switch (command) {
     console.log(await rig.listData(args.uri));
     break;
   case "health":
-    console.log(await rig.health());
+    console.log(await rig.status());
     break;
 }
 
@@ -1279,7 +1280,7 @@ await rig.cleanup();
 The rig's `send()` accepts pre-signed `MessageData` — it never signs. Use `session.send()` for the convenient sign-and-send workflow, or `rig.receive()` for unsigned writes.
 
 ```typescript
-const rig = await Rig.connect("memory://");
+const rig = await Rig.init({ url: "memory://" });
 
 // Unsigned write — no identity needed
 await rig.receive(["mutable://open/app/x", { v: 1 }]);
@@ -1348,8 +1349,8 @@ When using filtered clients, a URI that no client accepts returns an error resul
 
 ```typescript
 const rig = await Rig.init({
-  clients: [
-    withFilter(client, { receive: ["mutable://*"], read: ["mutable://*"] }),
+  subscriptions: [
+    subscribe(client, { receive: ["mutable://*"], read: ["mutable://*"] }),
   ],
 });
 

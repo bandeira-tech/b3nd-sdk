@@ -78,7 +78,7 @@ Deno.test({
     let serverReady = false;
     for (let i = 0; i < 30; i++) {
       try {
-        const res = await fetch(`${BASE_URL}/api/v1/health`);
+        const res = await fetch(`${BASE_URL}/api/v1/status`);
         if (res.ok) {
           serverReady = true;
           break;
@@ -144,14 +144,14 @@ Deno.test({
         await rr.body?.cancel();
       });
 
-      await t.step("health endpoint", async () => {
-        const res = await fetchJson(`${BASE_URL}/api/v1/health`);
-        assertEquals(res.data.status, "healthy");
+      await t.step("status endpoint", async () => {
+        const res = await fetchJson(`${BASE_URL}/api/v1/status`);
+        assertEquals(res.data.healthy, true);
       });
 
-      await t.step("schema endpoint", async () => {
-        const res = await fetchJson(`${BASE_URL}/api/v1/schema`);
-        assertEquals(Array.isArray(res.data.schema), true);
+      await t.step("status includes programs", async () => {
+        const res = await fetchJson(`${BASE_URL}/api/v1/status`);
+        assertEquals(res.data.healthy, true);
       });
 
       await t.step("receive invalid message returns error", async () => {

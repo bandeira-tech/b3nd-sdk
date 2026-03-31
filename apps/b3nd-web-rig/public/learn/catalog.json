@@ -2444,7 +2444,7 @@
                 },
                 {
                   "id": "rig-connect-vs-rig-init",
-                  "title": "`Rig.connect` vs `Rig.init`",
+                  "title": "URL vs Client",
                   "level": 3,
                   "children": []
                 }
@@ -2518,7 +2518,7 @@
                 },
                 {
                   "id": "schema-with-rig-connect",
-                  "title": "Schema with `Rig.connect`",
+                  "title": "Schema with URL",
                   "level": 3,
                   "children": []
                 },

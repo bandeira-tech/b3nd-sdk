@@ -1,11 +1,11 @@
 import type {
   DeleteResult,
-  HealthStatus,
   ListItem,
   ListOptions,
   ListResult,
   Message,
   NodeProtocolInterface,
+  NodeStatus,
   PersistenceRecord,
   ReadMultiResult,
   ReadMultiResultItem,
@@ -26,31 +26,7 @@ type MemoryClientStorage = Map<
 >;
 
 export interface MemoryClientConfig {
-  /**
-   * Schema mapping protocol://hostname to validators.
-   *
-   * Keys MUST be in format: "protocol://hostname"
-   * Examples: "mutable://accounts", "immutable://data", "mutable://open"
-   *
-   * @example
-   * ```typescript
-   * const schema = {
-   *   "mutable://accounts": async () => ({ valid: true }),
-   *   "immutable://accounts": async () => ({ valid: true }),
-   * };
-   * const client = new MemoryClient({ schema });
-   * ```
-   */
-  schema: Schema;
   storage?: MemoryClientStorage;
-}
-
-/**
- * Validate schema key format
- * Keys must be in format: "protocol://hostname"
- */
-function validateSchemaKey(key: string): boolean {
-  return /^[a-z]+:\/\/[a-z0-9-]+$/.test(key);
 }
 
 type TargetResult =
@@ -65,7 +41,6 @@ type TargetResult =
 
 function target(
   uri: string,
-  _schema: Schema,
   storage: MemoryClientStorage,
 ): TargetResult {
   const url = URL.parse(uri)!;
@@ -91,71 +66,25 @@ function target(
 
 export class MemoryClient implements NodeProtocolInterface {
   protected storage: MemoryClientStorage;
-  protected schema: Schema;
-  private _messageContext: unknown = undefined;
 
-  /**
-   * Create a new MemoryClient
-   *
-   * @param config - Configuration with schema mapping
-   * @throws Error if schema keys are not in "protocol://hostname" format
-   */
-  constructor(config: MemoryClientConfig) {
-    // Validate schema key format
-    const invalidKeys = Object.keys(config.schema).filter((key) =>
-      !validateSchemaKey(key)
-    );
-    if (invalidKeys.length > 0) {
-      throw new Error(
-        `Invalid schema key format: ${
-          invalidKeys.map((k) => `"${k}"`).join(", ")
-        }. ` +
-          `Keys must be in "protocol://hostname" format (e.g., "mutable://accounts", "immutable://data").`,
-      );
-    }
-
-    this.schema = config.schema!;
+  constructor(config: MemoryClientConfig = {}) {
     this.storage = config.storage || new Map();
-    this.cleanup();
   }
 
-  /**
-   * Receive a message - the unified entry point for all state changes
-   * @param msg - Message tuple [uri, data]
-   * @returns ReceiveResult indicating acceptance
-   */
   public async receive<D = unknown>(
     msg: Message<D>,
   ): Promise<ReceiveResult> {
     const [uri, data] = msg;
 
-    // Basic URI validation
     if (!uri || typeof uri !== "string") {
       return { accepted: false, error: "Message URI is required" };
     }
 
-    const result = target(uri, this.schema, this.storage);
+    const result = target(uri, this.storage);
     if (!result.success) {
       return { accepted: false, error: result.error };
     }
-    const { program, node, parts } = result;
-
-    // Validate the write against the schema (if a validator exists for this program)
-    const validator = this.schema[program];
-    if (validator) {
-      const validation = await validator({
-        uri,
-        value: data,
-        read: this.read.bind(this),
-        ...(this._messageContext ? { message: this._messageContext } : {}),
-      });
-      if (!validation.valid) {
-        return {
-          accepted: false,
-          error: validation.error || "Validation failed",
-        };
-      }
-    }
+    const { node, parts } = result;
 
     // Store the data at this URI
     const record = {
@@ -179,27 +108,22 @@ export class MemoryClient implements NodeProtocolInterface {
 
     // If MessageData, also store each output at its own URI
     if (isMessageData(data)) {
-      const prevContext = this._messageContext;
-      this._messageContext = data;
-      try {
-        for (const [outputUri, outputValue] of data.payload.outputs) {
-          const outputResult = await this.receive([outputUri, outputValue]);
-          if (!outputResult.accepted) {
-            return {
-              accepted: false,
-              error: outputResult.error || `Failed to store output: ${outputUri}`,
-            };
-          }
+      for (const [outputUri, outputValue] of data.payload.outputs) {
+        const outputResult = await this.receive([outputUri, outputValue]);
+        if (!outputResult.accepted) {
+          return {
+            accepted: false,
+            error: outputResult.error || `Failed to store output: ${outputUri}`,
+          };
         }
-      } finally {
-        this._messageContext = prevContext;
       }
     }
 
     return { accepted: true };
   }
+
   public read<T>(uri: string): Promise<ReadResult<T>> {
-    const result = target(uri, this.schema, this.storage);
+    const result = target(uri, this.storage);
     if (!result.success) {
       return Promise.resolve(result);
     }
@@ -241,7 +165,6 @@ export class MemoryClient implements NodeProtocolInterface {
       });
     }
 
-    // Enforce batch size limit
     if (uris.length > 50) {
       return Promise.resolve({
         success: false,
@@ -250,12 +173,11 @@ export class MemoryClient implements NodeProtocolInterface {
       });
     }
 
-    // Optimized: direct synchronous tree lookups, no async overhead
     const results: ReadMultiResultItem<T>[] = [];
     let succeeded = 0;
 
     for (const uri of uris) {
-      const result = target(uri, this.schema, this.storage);
+      const result = target(uri, this.storage);
       if (!result.success) {
         results.push({ uri, success: false, error: result.error });
         continue;
@@ -296,7 +218,7 @@ export class MemoryClient implements NodeProtocolInterface {
   }
 
   public list(uri: string, options?: ListOptions): Promise<ListResult> {
-    const result = target(uri, this.schema, this.storage);
+    const result = target(uri, this.storage);
     if (!result.success) {
       return Promise.resolve(result);
     }
@@ -327,7 +249,6 @@ export class MemoryClient implements NodeProtocolInterface {
       });
     }
 
-    // Recursively collect all leaf nodes (files) under this path
     const prefix = path.endsWith("/")
       ? `${program}${path}`
       : `${program}${path}/`;
@@ -385,24 +306,20 @@ export class MemoryClient implements NodeProtocolInterface {
       pagination: { page, limit, total: items.length },
     });
   }
-  public health(): Promise<HealthStatus> {
+
+  public status(): Promise<NodeStatus> {
     return Promise.resolve({
-      status: "healthy",
+      healthy: true,
+      programs: [...this.storage.keys()],
     });
   }
-  public getSchema(): Promise<string[]> {
-    return Promise.resolve(Object.keys(this.schema));
-  }
+
   public cleanup(): Promise<void> {
-    Object.keys(this.schema).forEach((program) => {
-      if (!this.storage.get(program)) {
-        this.storage.set(program, { children: new Map() });
-      }
-    });
     return Promise.resolve();
   }
+
   public delete(uri: string): Promise<DeleteResult> {
-    const result = target(uri, this.schema, this.storage);
+    const result = target(uri, this.storage);
     if (!result.success) {
       return Promise.resolve(result);
     }
@@ -417,7 +334,6 @@ export class MemoryClient implements NodeProtocolInterface {
       });
     }
 
-    // Navigate to parent node
     let current: MemoryClientStorageNode<unknown> | undefined = node;
     const lastPart = filteredParts.pop()!;
     for (const part of filteredParts) {
@@ -430,7 +346,6 @@ export class MemoryClient implements NodeProtocolInterface {
       }
     }
 
-    // Remove the target from parent's children
     if (!current.children?.has(lastPart)) {
       return Promise.resolve({
         success: false,
@@ -449,13 +364,7 @@ export class MemoryClient implements NodeProtocolInterface {
 /**
  * Default schema for testing that accepts all writes.
  * Includes common b3nd protocol prefixes.
- *
- * @example
- * ```typescript
- * import { MemoryClient, createTestSchema } from "@bandeira-tech/b3nd-web/clients/memory";
- *
- * const backend = new MemoryClient({ schema: createTestSchema() });
- * ```
+ * This is a rig-level schema (validators), not a client config.
  */
 export function createTestSchema(): Schema {
   const acceptAll = async () => ({ valid: true });

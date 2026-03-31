@@ -14,27 +14,7 @@ import { runNodeSuite } from "../b3nd-testing/node-suite.ts";
 // so binary tests are skipped as the HTTP transport layer is where binary
 // Content-Type detection happens.
 runSharedSuite("MemoryClient", {
-  happy: () =>
-    new MemoryClient({
-      schema: {
-        "store://users": async () => ({ valid: true }),
-        "store://files": async () => ({ valid: true }),
-        "store://pagination": async () => ({ valid: true }),
-      },
-    }),
-
-  validationError: () =>
-    new MemoryClient({
-      schema: {
-        "store://users": async ({ value }) => {
-          const data = value as any;
-          if (!data.name) {
-            return { valid: false, error: "Name is required" };
-          }
-          return { valid: true };
-        },
-      },
-    }),
+  happy: () => new MemoryClient(),
 
   // MemoryClient doesn't have HTTP-level binary Content-Type handling
   supportsBinary: false,
@@ -42,23 +22,5 @@ runSharedSuite("MemoryClient", {
 
 // Run node suite with MemoryClient factory functions
 runNodeSuite("MemoryClient", {
-  happy: () =>
-    new MemoryClient({
-      schema: {
-        "store://users": async () => ({ valid: true }),
-      },
-    }),
-
-  validationError: () =>
-    new MemoryClient({
-      schema: {
-        "store://users": async ({ value }) => {
-          const data = value as any;
-          if (!data.name) {
-            return { valid: false, error: "Name is required" };
-          }
-          return { valid: true };
-        },
-      },
-    }),
+  happy: () => new MemoryClient(),
 });

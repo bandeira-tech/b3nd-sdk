@@ -8,7 +8,7 @@ The universal harness for b3nd. One import, convention over configuration.
 import { Identity, Rig } from "@b3nd/rig";
 
 const id = await Identity.fromSeed("my-secret");
-const rig = await Rig.connect("https://node.b3nd.net", id);
+const rig = await Rig.init({ url: "https://node.b3nd.net" });
 
 await rig.send({
   inputs: [],
@@ -93,23 +93,23 @@ const unsub = rig.subscribe<T>(uri, (value) => render(value));
 unsub(); // stop
 ```
 
-## Client Filtering
+## Subscriptions
 
 Clients declare what URIs they accept per-operation. The rig routes
 automatically.
 
 ```typescript
-import { Rig, withFilter } from "@b3nd/rig";
+import { Rig, subscribe } from "@b3nd/rig";
 
 const rig = await Rig.init({
-  clients: [
+  subscriptions: [
     // Read-only cache (tried first for reads)
-    withFilter(redisClient, {
+    subscribe(redisClient, {
       read: ["mutable://accounts/:key/*", "hash://sha256/*"],
     }),
 
     // Primary storage (reads + writes)
-    withFilter(postgresClient, {
+    subscribe(postgresClient, {
       receive: ["mutable://*", "immutable://*", "hash://*", "link://*"],
       read: ["mutable://*", "immutable://*", "hash://*", "link://*"],
       list: ["mutable://*", "immutable://*"],
@@ -117,7 +117,7 @@ const rig = await Rig.init({
     }),
 
     // Local-only (never leaves the device)
-    withFilter(memoryClient, {
+    subscribe(memoryClient, {
       receive: ["local://*", "rig://*"],
       read: ["local://*", "rig://*"],
     }),
@@ -125,9 +125,9 @@ const rig = await Rig.init({
 });
 ```
 
-Writes broadcast to all accepting clients. Reads try accepting clients in order
-(first success wins — put cache before primary). Unfiltered clients accept
-everything (backwards compat).
+Writes broadcast to all accepting subscriptions. Reads try accepting
+subscriptions in order (first success wins — put cache before primary).
+Unfiltered clients accept everything (backwards compat).
 
 Patterns use the same Express-style matching as observe: `:param` captures a
 segment, `*` matches the rest.
@@ -252,16 +252,15 @@ rig.info();
 //   },
 // }
 
-await rig.health(); // HealthStatus
-await rig.getSchema(); // string[] (protocol keys)
+await rig.status(); // StatusResult { status, programs, ... }
 ```
 
 ## Initialization
 
 ```typescript
 // One-liner
-const rig = await Rig.connect("https://node.b3nd.net");
-const rig = await Rig.connect("https://node.b3nd.net", identity);
+const rig = await Rig.init({ url: "https://node.b3nd.net" });
+const rig = await Rig.init({ url: "https://node.b3nd.net", identity });
 
 // Full config
 const rig = await Rig.init({
@@ -272,7 +271,7 @@ const rig = await Rig.init({
   hooks: { ... },                           // frozen after init
   on: { ... },                              // event handlers
   observe: { ... },                         // URI pattern reactions
-  clients: [ ... ],                         // filtered client array
+  subscriptions: [ ... ],                    // subscribe() client array
 });
 ```
 
@@ -292,7 +291,7 @@ const rig = await Rig.init({
 ## HTTP Handler
 
 ```typescript
-const handler = await rig.handler({ healthMeta: { version: "1.0" } });
+const handler = await rig.handler({ statusMeta: { version: "1.0" } });
 Deno.serve({ port: 3000 }, handler);
 ```
 

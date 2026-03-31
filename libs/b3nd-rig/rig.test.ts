@@ -7,6 +7,7 @@ import {
 import { Rig } from "./rig.ts";
 import { AuthenticatedRig } from "./authenticated-rig.ts";
 import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
+import { subscribe } from "./subscription.ts";
 
 // ── Identity tests ──
 
@@ -382,9 +383,9 @@ Deno.test("SUPPORTED_PROTOCOLS - is a readonly array", () => {
   assertEquals(SUPPORTED_PROTOCOLS.length > 0, true);
 });
 
-Deno.test("Rig.connect - rejects unsupported protocol", async () => {
+Deno.test("Rig.init -rejects unsupported protocol", async () => {
   await assertRejects(
-    () => Rig.connect("ftp://example.com"),
+    () => Rig.init({ url: "ftp://example.com" }),
     Error,
     "Unsupported backend URL protocol",
   );
@@ -393,22 +394,22 @@ Deno.test("Rig.connect - rejects unsupported protocol", async () => {
 // ── Rig tests ──
 
 Deno.test("Rig.init - with memory backend", async () => {
-  const rig = await Rig.connect("memory://");
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
+  const rig = await Rig.init({ url: "memory://" });
+  const st = await rig.status();
+  assertEquals(st.healthy, true);
   await rig.cleanup();
 });
 
 Deno.test("Rig.init - with pre-built client", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
   const rig = await Rig.init({ client });
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
+  const st = await rig.status();
+  assertEquals(st.healthy, true);
 });
 
 Deno.test("AuthenticatedRig - identity.rig(rig) creates session", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
   assertEquals(session.pubkey, id.pubkey);
   assertEquals(session instanceof AuthenticatedRig, true);
@@ -419,12 +420,12 @@ Deno.test("Rig.init - rejects no client or clients", async () => {
   await assertRejects(
     () => Rig.init({}),
     Error,
-    "either `client` or `clients` is required",
+    "is required",
   );
 });
 
 Deno.test("Rig.receive - receives a message", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const result = await rig.receive(["mutable://open/test", { hello: "world" }]);
   assertEquals(result.accepted, true);
 
@@ -436,7 +437,7 @@ Deno.test("Rig.receive - receives a message", async () => {
 
 Deno.test("AuthenticatedRig.send - signs and sends via session", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const result = await session.send({
@@ -456,7 +457,7 @@ Deno.test("AuthenticatedRig.send - signs and sends via session", async () => {
 Deno.test("AuthenticatedRig - multiple identities on same rig", async () => {
   const alice = await Identity.generate();
   const bob = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
 
   const aliceSession = alice.rig(rig);
   const bobSession = bob.rig(rig);
@@ -480,7 +481,7 @@ Deno.test("AuthenticatedRig - multiple identities on same rig", async () => {
 });
 
 Deno.test("Rig.list - lists items", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/a", 1]);
   await rig.receive(["mutable://open/b", 2]);
 
@@ -493,7 +494,7 @@ Deno.test("Rig.list - lists items", async () => {
 });
 
 Deno.test("Rig.delete - deletes data", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/del", "bye"]);
   const delResult = await rig.delete("mutable://open/del");
   assertEquals(delResult.success, true);
@@ -504,7 +505,7 @@ Deno.test("Rig.delete - deletes data", async () => {
 });
 
 Deno.test("Rig.readMany - reads multiple URIs", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/m1", "a"]);
   await rig.receive(["mutable://open/m2", "b"]);
 
@@ -515,7 +516,7 @@ Deno.test("Rig.readMany - reads multiple URIs", async () => {
 });
 
 Deno.test("Rig.client - exposes underlying client", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   assertEquals(typeof rig.client.receive, "function");
   assertEquals(typeof rig.client.read, "function");
   await rig.cleanup();
@@ -523,9 +524,14 @@ Deno.test("Rig.client - exposes underlying client", async () => {
 
 Deno.test("Rig.init - multi-client dispatch composes correctly", async () => {
   // Two memory backends — writes should go to both, reads from first match
-  const clientA = new MemoryClient({ schema: createTestSchema() });
-  const clientB = new MemoryClient({ schema: createTestSchema() });
-  const rig = await Rig.init({ clients: [clientA, clientB] });
+  const clientA = new MemoryClient();
+  const clientB = new MemoryClient();
+  const rig = await Rig.init({
+    subscriptions: [
+      subscribe(clientA, { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+      subscribe(clientB, { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+    ],
+  });
   await rig.receive(["mutable://open/multi", "shared"]);
 
   const read = await rig.read("mutable://open/multi");
@@ -534,26 +540,25 @@ Deno.test("Rig.init - multi-client dispatch composes correctly", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.getSchema - returns schema keys", async () => {
-  const rig = await Rig.connect("memory://");
-  const schema = await rig.getSchema();
-  assertEquals(Array.isArray(schema), true);
-  assertEquals(schema.length > 0, true);
+Deno.test("Rig.status - returns programs", async () => {
+  const rig = await Rig.init({ url: "memory://" });
+  const st = await rig.status();
+  assertEquals(Array.isArray(st.programs), true);
   await rig.cleanup();
 });
 
-// ── Rig.connect tests ──
+// ── Rig.init tests ──
 
-Deno.test("Rig.connect - quick connect to memory backend", async () => {
-  const rig = await Rig.connect("memory://");
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
+Deno.test("Rig.init -quick connect to memory backend", async () => {
+  const rig = await Rig.init({ url: "memory://" });
+  const st = await rig.status();
+  assertEquals(st.healthy, true);
   await rig.cleanup();
 });
 
-Deno.test("Rig.connect - session.send round-trip", async () => {
+Deno.test("Rig.init -session.send round-trip", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const result = await session.send({
@@ -564,8 +569,8 @@ Deno.test("Rig.connect - session.send round-trip", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.connect - receive and read round-trip", async () => {
-  const rig = await Rig.connect("memory://");
+Deno.test("Rig.init -receive and read round-trip", async () => {
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/hello", "world"]);
   const read = await rig.read("mutable://open/hello");
   assertEquals(read.success, true);
@@ -577,7 +582,7 @@ Deno.test("Rig.connect - receive and read round-trip", async () => {
 
 Deno.test("AuthenticatedRig.canSign - true for full identity", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
   assertEquals(session.canSign, true);
   await rig.cleanup();
@@ -585,7 +590,7 @@ Deno.test("AuthenticatedRig.canSign - true for full identity", async () => {
 
 Deno.test("AuthenticatedRig.canSign - false for public-only identity", async () => {
   const publicId = Identity.publicOnly({ signing: "ab".repeat(32) });
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = publicId.rig(rig);
   assertEquals(session.canSign, false);
   await rig.cleanup();
@@ -593,7 +598,7 @@ Deno.test("AuthenticatedRig.canSign - false for public-only identity", async () 
 
 Deno.test("AuthenticatedRig.canEncrypt - true for full identity", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
   assertEquals(session.canEncrypt, true);
   await rig.cleanup();
@@ -607,20 +612,20 @@ Deno.test("AuthenticatedRig.canEncrypt - false for public-only identity", () => 
 // ── Rig.exists tests ──
 
 Deno.test("Rig.exists - returns true for existing data", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/check", { present: true }]);
   assertEquals(await rig.exists("mutable://open/check"), true);
   await rig.cleanup();
 });
 
 Deno.test("Rig.exists - returns false for missing data", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   assertEquals(await rig.exists("mutable://open/nonexistent"), false);
   await rig.cleanup();
 });
 
 Deno.test("Rig.exists - returns false after delete", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/ephemeral", "temp"]);
   assertEquals(await rig.exists("mutable://open/ephemeral"), true);
   await rig.delete("mutable://open/ephemeral");
@@ -631,7 +636,7 @@ Deno.test("Rig.exists - returns false after delete", async () => {
 // ── Rig.readMany edge cases ──
 
 Deno.test("Rig.readMany - handles mix of existing and missing URIs", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/yes", "found"]);
 
   const result = await rig.readMany([
@@ -645,7 +650,7 @@ Deno.test("Rig.readMany - handles mix of existing and missing URIs", async () =>
 });
 
 Deno.test("Rig.readMany - handles empty URI array", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const result = await rig.readMany([]);
   assertEquals(result.summary.total, 0);
   await rig.cleanup();
@@ -656,8 +661,8 @@ Deno.test("Rig.readMany - handles empty URI array", async () => {
 Deno.test("createClientFromUrl - creates memory client from URL", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
   const client = await createClientFromUrl("memory://");
-  const health = await client.health();
-  assertEquals(health.status, "healthy");
+  const st = await client.status();
+  assertEquals(st.healthy, true);
 
   // Write and read back
   await client.receive(["mutable://open/test", { val: 1 }]);
@@ -676,7 +681,7 @@ Deno.test("createClientFromUrl - rejects unknown protocol", async () => {
 });
 
 Deno.test("Rig.cleanup - can be called multiple times safely", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.cleanup();
   // Second cleanup should not throw
   await rig.cleanup();
@@ -685,7 +690,7 @@ Deno.test("Rig.cleanup - can be called multiple times safely", async () => {
 // ── Rig.readData tests ──
 
 Deno.test("Rig.readData - returns data for existing URI", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/profile", { name: "Alice", age: 30 }]);
 
   const data = await rig.readData<{ name: string; age: number }>(
@@ -696,14 +701,14 @@ Deno.test("Rig.readData - returns data for existing URI", async () => {
 });
 
 Deno.test("Rig.readData - returns null for missing URI", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const data = await rig.readData("mutable://open/ghost");
   assertEquals(data, null);
   await rig.cleanup();
 });
 
 Deno.test("Rig.readData - returns null after delete", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/temp", "value"]);
   assertEquals(await rig.readData("mutable://open/temp"), "value");
 
@@ -713,7 +718,7 @@ Deno.test("Rig.readData - returns null after delete", async () => {
 });
 
 Deno.test("Rig.readData - handles scalar values", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
 
   await rig.receive(["mutable://open/num", 42]);
   assertEquals(await rig.readData<number>("mutable://open/num"), 42);
@@ -730,7 +735,7 @@ Deno.test("Rig.readData - handles scalar values", async () => {
 // ── Rig.readOrThrow tests ──
 
 Deno.test("Rig.readOrThrow - returns data for existing URI", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/config", { debug: false }]);
 
   const config = await rig.readOrThrow<{ debug: boolean }>(
@@ -741,7 +746,7 @@ Deno.test("Rig.readOrThrow - returns data for existing URI", async () => {
 });
 
 Deno.test("Rig.readOrThrow - throws for missing URI", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await assertRejects(
     () => rig.readOrThrow("mutable://open/missing"),
     Error,
@@ -751,7 +756,7 @@ Deno.test("Rig.readOrThrow - throws for missing URI", async () => {
 });
 
 Deno.test("Rig.readOrThrow - throws after delete", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/once", "here"]);
   assertEquals(await rig.readOrThrow("mutable://open/once"), "here");
 
@@ -768,7 +773,7 @@ Deno.test("Rig.readOrThrow - throws after delete", async () => {
 
 Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const result = await session.send({
@@ -815,7 +820,7 @@ Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async ()
 Deno.test("AuthenticatedRig.send - different identities produce different signatures", async () => {
   const alice = await Identity.generate();
   const bob = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
 
   const r1 = await alice.rig(rig).send({
     inputs: [],
@@ -852,7 +857,7 @@ Deno.test("AuthenticatedRig.send - different identities produce different signat
 });
 
 Deno.test("Rig.readDataMany - returns map of existing data", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
 
   await rig.receive(["mutable://open/rdm/a", { name: "Alice" }]);
   await rig.receive(["mutable://open/rdm/b", { name: "Bob" }]);
@@ -869,7 +874,7 @@ Deno.test("Rig.readDataMany - returns map of existing data", async () => {
 });
 
 Deno.test("Rig.readDataMany - omits missing URIs from map", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
 
   await rig.receive(["mutable://open/rdm2/exists", { ok: true }]);
 
@@ -885,14 +890,14 @@ Deno.test("Rig.readDataMany - omits missing URIs from map", async () => {
 });
 
 Deno.test("Rig.readDataMany - returns empty map for empty input", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const data = await rig.readDataMany([]);
   assertEquals(data.size, 0);
   await rig.cleanup();
 });
 
 Deno.test("Rig.readDataMany - returns empty map when all URIs missing", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const data = await rig.readDataMany([
     "mutable://open/gone/a",
     "mutable://open/gone/b",
@@ -903,7 +908,7 @@ Deno.test("Rig.readDataMany - returns empty map when all URIs missing", async ()
 
 Deno.test("AuthenticatedRig.send - multiple outputs in single envelope", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const result = await session.send({
@@ -934,7 +939,7 @@ Deno.test("AuthenticatedRig.send - multiple outputs in single envelope", async (
 // ── Rig.deleteMany tests ──
 
 Deno.test("Rig.deleteMany - deletes multiple URIs", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/d1", "one"]);
   await rig.receive(["mutable://open/d2", "two"]);
   await rig.receive(["mutable://open/d3", "three"]);
@@ -955,14 +960,14 @@ Deno.test("Rig.deleteMany - deletes multiple URIs", async () => {
 });
 
 Deno.test("Rig.deleteMany - empty array returns empty results", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const results = await rig.deleteMany([]);
   assertEquals(results.length, 0);
   await rig.cleanup();
 });
 
 Deno.test("Rig.deleteMany - handles mix of existing and missing URIs", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/dm-exists", "here"]);
 
   const results = await rig.deleteMany([
@@ -977,7 +982,7 @@ Deno.test("Rig.deleteMany - handles mix of existing and missing URIs", async () 
 // ── Rig.listData tests ──
 
 Deno.test("Rig.listData - returns URI strings", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/ld/a", 1]);
   await rig.receive(["mutable://open/ld/b", 2]);
   await rig.receive(["mutable://open/ld/c", 3]);
@@ -991,14 +996,14 @@ Deno.test("Rig.listData - returns URI strings", async () => {
 });
 
 Deno.test("Rig.listData - returns empty array for empty prefix", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const uris = await rig.listData("mutable://open/nothing-here");
   assertEquals(uris.length, 0);
   await rig.cleanup();
 });
 
 Deno.test("Rig.listData - respects pagination options", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/pg/a", 1]);
   await rig.receive(["mutable://open/pg/b", 2]);
   await rig.receive(["mutable://open/pg/c", 3]);
@@ -1011,7 +1016,7 @@ Deno.test("Rig.listData - respects pagination options", async () => {
 // ── Rig.readAll tests ──
 
 Deno.test("Rig.readAll - reads all data under a prefix", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/ra/alice", { name: "Alice" }]);
   await rig.receive(["mutable://open/ra/bob", { name: "Bob" }]);
 
@@ -1023,14 +1028,14 @@ Deno.test("Rig.readAll - reads all data under a prefix", async () => {
 });
 
 Deno.test("Rig.readAll - returns empty map for empty prefix", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const data = await rig.readAll("mutable://open/empty-prefix");
   assertEquals(data.size, 0);
   await rig.cleanup();
 });
 
 Deno.test("Rig.readAll - works after writes and deletes", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/rd/x", 1]);
   await rig.receive(["mutable://open/rd/y", 2]);
   await rig.receive(["mutable://open/rd/z", 3]);
@@ -1047,7 +1052,7 @@ Deno.test("Rig.readAll - works after writes and deletes", async () => {
 });
 
 Deno.test("Rig.readAll - respects pagination options", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/rp/a", "a"]);
   await rig.receive(["mutable://open/rp/b", "b"]);
   await rig.receive(["mutable://open/rp/c", "c"]);
@@ -1058,7 +1063,7 @@ Deno.test("Rig.readAll - respects pagination options", async () => {
 });
 
 Deno.test("Rig.deleteAll - deletes all items under prefix", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/da/a", 1]);
   await rig.receive(["mutable://open/da/b", 2]);
   await rig.receive(["mutable://open/da/c", 3]);
@@ -1074,14 +1079,14 @@ Deno.test("Rig.deleteAll - deletes all items under prefix", async () => {
 });
 
 Deno.test("Rig.deleteAll - returns empty array for empty prefix", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const results = await rig.deleteAll("mutable://open/nothing-here");
   assertEquals(results.length, 0);
   await rig.cleanup();
 });
 
 Deno.test("Rig.deleteAll - does not affect other prefixes", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/da2/target/a", 1]);
   await rig.receive(["mutable://open/da2/target/b", 2]);
   await rig.receive(["mutable://open/da2/keep/x", 99]);
@@ -1099,7 +1104,7 @@ Deno.test("Rig.deleteAll - does not affect other prefixes", async () => {
 
 Deno.test("AuthenticatedRig.readEncrypted - returns null for missing URI", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const result = await session.readEncrypted("mutable://open/enc/missing");
@@ -1109,7 +1114,7 @@ Deno.test("AuthenticatedRig.readEncrypted - returns null for missing URI", async
 
 Deno.test("AuthenticatedRig.readEncrypted - throws for non-encrypted data", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   // Write plain (unencrypted) data
@@ -1126,7 +1131,7 @@ Deno.test("AuthenticatedRig.readEncrypted - throws for non-encrypted data", asyn
 
 Deno.test("AuthenticatedRig.readEncryptedMany - returns empty array for empty input", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const results = await session.readEncryptedMany([]);
@@ -1137,7 +1142,7 @@ Deno.test("AuthenticatedRig.readEncryptedMany - returns empty array for empty in
 
 Deno.test("AuthenticatedRig.readEncryptedMany - returns null for missing URIs", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   // Encrypt and receive one entry directly
@@ -1160,7 +1165,7 @@ Deno.test("AuthenticatedRig.readEncryptedMany - returns null for missing URIs", 
 
 Deno.test("Rig.info - returns behavior info", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     hooks: {
       beforeReceive: () => {},
       afterRead: () => {},
@@ -1182,7 +1187,7 @@ Deno.test("Rig.info - returns behavior info", async () => {
 });
 
 Deno.test("Rig.info - empty rig has empty behavior", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
 
   const info = rig.info();
   assertEquals(info.behavior.hooks.length, 0);
@@ -1191,7 +1196,7 @@ Deno.test("Rig.info - empty rig has empty behavior", async () => {
 });
 
 Deno.test("Rig.deleteMany - all missing URIs succeeds gracefully", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const results = await rig.deleteMany([
     "mutable://open/ghost1",
     "mutable://open/ghost2",
@@ -1203,14 +1208,14 @@ Deno.test("Rig.deleteMany - all missing URIs succeeds gracefully", async () => {
 });
 
 Deno.test("Rig.readAll - empty prefix returns empty map", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const result = await rig.readAll("mutable://open/empty-prefix");
   assertEquals(result.size, 0);
   await rig.cleanup();
 });
 
 Deno.test("Rig.readAll - returns all items under prefix", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/coll/a", { v: 1 }]);
   await rig.receive(["mutable://open/coll/b", { v: 2 }]);
   await rig.receive(["mutable://open/coll/c", { v: 3 }]);
@@ -1223,18 +1228,17 @@ Deno.test("Rig.readAll - returns all items under prefix", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.health - returns healthy for memory backend", async () => {
-  const rig = await Rig.connect("memory://");
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
+Deno.test("Rig.status - returns healthy for memory backend", async () => {
+  const rig = await Rig.init({ url: "memory://" });
+  const st = await rig.status();
+  assertEquals(st.healthy, true);
   await rig.cleanup();
 });
 
-Deno.test("Rig.getSchema - returns schema keys for memory backend", async () => {
-  const rig = await Rig.connect("memory://");
-  const keys = await rig.getSchema();
-  assertEquals(Array.isArray(keys), true);
-  assertEquals(keys.length > 0, true);
+Deno.test("Rig.status - returns programs for memory backend", async () => {
+  const rig = await Rig.init({ url: "memory://" });
+  const st = await rig.status();
+  assertEquals(Array.isArray(st.programs), true);
   await rig.cleanup();
 });
 
@@ -1245,7 +1249,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     const uri = "mutable://open/watch-test";
 
     const values: (number | null)[] = [];
@@ -1284,7 +1288,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     const uri = "mutable://open/watch-abort";
     const abort = new AbortController();
 
@@ -1312,7 +1316,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     const uri = "mutable://open/watch-dedup";
     await rig.receive([uri, "stable"]);
 
@@ -1357,7 +1361,7 @@ Deno.test({
 Deno.test("Rig.init - schema validates receive", async () => {
   const schema = createTestSchema();
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     schema,
   });
 
@@ -1373,7 +1377,7 @@ Deno.test("Rig.init - schema validates receive", async () => {
 Deno.test("Rig.init - schema rejects invalid domain", async () => {
   const schema = createTestSchema();
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     schema,
   });
 
@@ -1385,12 +1389,12 @@ Deno.test("Rig.init - schema rejects invalid domain", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.init - multi-client dispatch with schema validates receive", async () => {
+Deno.test("Rig.init - multi-subscription dispatch with schema validates receive", async () => {
   const schema = createTestSchema();
   const rig = await Rig.init({
-    clients: [
-      new MemoryClient({ schema: {} }),
-      new MemoryClient({ schema: {} }),
+    subscriptions: [
+      subscribe(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+      subscribe(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
     ],
     schema,
   });
@@ -1403,12 +1407,12 @@ Deno.test("Rig.init - multi-client dispatch with schema validates receive", asyn
   await rig.cleanup();
 });
 
-Deno.test("Rig.init - multi-client dispatch with schema rejects invalid domain", async () => {
+Deno.test("Rig.init - multi-subscription dispatch with schema rejects invalid domain", async () => {
   const schema = createTestSchema();
   const rig = await Rig.init({
-    clients: [
-      new MemoryClient({ schema: {} }),
-      new MemoryClient({ schema: {} }),
+    subscriptions: [
+      subscribe(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+      subscribe(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
     ],
     schema,
   });
@@ -1425,7 +1429,7 @@ Deno.test("Rig.init - schema with session allows send", async () => {
   };
   const id = await Identity.generate();
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     schema,
   });
   const session = id.rig(rig);
@@ -1444,7 +1448,7 @@ Deno.test("Rig.init - schema with session allows send", async () => {
 // ── Rig.count() tests ──
 
 Deno.test("Rig.count - returns count of items under prefix", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/cnt/a", 1]);
   await rig.receive(["mutable://open/cnt/b", 2]);
   await rig.receive(["mutable://open/cnt/c", 3]);
@@ -1455,14 +1459,14 @@ Deno.test("Rig.count - returns count of items under prefix", async () => {
 });
 
 Deno.test("Rig.count - returns 0 for empty prefix", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const count = await rig.count("mutable://open/empty-count");
   assertEquals(count, 0);
   await rig.cleanup();
 });
 
 Deno.test("Rig.count - reflects deletes", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/cnt2/a", 1]);
   await rig.receive(["mutable://open/cnt2/b", 2]);
   assertEquals(await rig.count("mutable://open/cnt2"), 2);
@@ -1473,7 +1477,7 @@ Deno.test("Rig.count - reflects deletes", async () => {
 });
 
 Deno.test("Rig.count - respects pagination limit", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   await rig.receive(["mutable://open/cnt3/a", 1]);
   await rig.receive(["mutable://open/cnt3/b", 2]);
   await rig.receive(["mutable://open/cnt3/c", 3]);
@@ -1487,7 +1491,7 @@ Deno.test("Rig.count - respects pagination limit", async () => {
 
 Deno.test("AuthenticatedRig.sendEncrypted - encrypt to self and read back", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const result = await session.sendEncrypted({
@@ -1507,7 +1511,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to self and read back", asyn
 
 Deno.test("AuthenticatedRig.sendEncrypted - stored data is actually encrypted (not plaintext)", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   await session.sendEncrypted({
@@ -1531,7 +1535,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - stored data is actually encrypted (n
 
 Deno.test("AuthenticatedRig.sendEncrypted - multiple encrypted outputs", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const result = await session.sendEncrypted({
@@ -1557,7 +1561,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - multiple encrypted outputs", async (
 Deno.test("AuthenticatedRig.sendEncrypted - encrypt to another party", async () => {
   const sender = await Identity.generate();
   const receiver = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
 
   const senderSession = sender.rig(rig);
   const receiverSession = receiver.rig(rig);
@@ -1588,7 +1592,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to another party", async () 
 
 Deno.test("AuthenticatedRig.sendEncrypted - throws for public-only identity", async () => {
   const id = Identity.publicOnly({ signing: "ab".repeat(32) });
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
   await assertRejects(
     () =>
@@ -1604,7 +1608,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - throws for public-only identity", as
 
 Deno.test("AuthenticatedRig.sendEncrypted - envelope is signed and verifiable", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const result = await session.sendEncrypted({
@@ -1679,7 +1683,7 @@ Deno.test("Identity.verify - rejects wrong pubkey signature", async () => {
 Deno.test({
   name: "Rig.watchAll - yields initial snapshot with all items",
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
     await rig.receive(["mutable://open/wacol/b", { n: 2 }]);
 
@@ -1710,7 +1714,7 @@ Deno.test({
 Deno.test({
   name: "Rig.watchAll - detects added items",
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
 
     const abort = new AbortController();
@@ -1744,7 +1748,7 @@ Deno.test({
 Deno.test({
   name: "Rig.watchAll - detects removed items",
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
     await rig.receive(["mutable://open/wacol/b", { n: 2 }]);
 
@@ -1779,7 +1783,7 @@ Deno.test({
 Deno.test({
   name: "Rig.watchAll - detects changed items",
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
 
     const abort = new AbortController();
@@ -1813,7 +1817,7 @@ Deno.test({
 Deno.test({
   name: "Rig.watchAll - skips emit when nothing changed",
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     await rig.receive(["mutable://open/wacol/a", { n: 1 }]);
 
     const abort = new AbortController();
@@ -1843,7 +1847,7 @@ Deno.test({
 Deno.test({
   name: "Rig.watchAll - empty collection yields initial empty snapshot",
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
 
     const abort = new AbortController();
     let snapshots = 0;
@@ -1870,7 +1874,7 @@ Deno.test({
 Deno.test({
   name: "Rig.subscribe - calls back on initial value",
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     await rig.receive(["mutable://open/wasub/key", { hello: "world" }]);
 
     const values: unknown[] = [];
@@ -1891,7 +1895,7 @@ Deno.test({
 Deno.test({
   name: "Rig.subscribe - calls back on changes",
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     await rig.receive(["mutable://open/wasub/key", { v: 1 }]);
 
     const values: unknown[] = [];
@@ -1922,7 +1926,7 @@ Deno.test({
 Deno.test({
   name: "Rig.subscribe - unsub stops watching",
   async fn() {
-    const rig = await Rig.connect("memory://");
+    const rig = await Rig.init({ url: "memory://" });
     await rig.receive(["mutable://open/wasub/stop", { v: 1 }]);
 
     let callCount = 0;
@@ -1947,7 +1951,7 @@ Deno.test({
 
 Deno.test("AuthenticatedRig.sendMany - sends multiple envelopes", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const results = await session.sendMany([
@@ -1970,7 +1974,7 @@ Deno.test("AuthenticatedRig.sendMany - sends multiple envelopes", async () => {
 
 Deno.test("AuthenticatedRig.sendMany - returns empty array for empty input", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const results = await session.sendMany([]);
@@ -1981,7 +1985,7 @@ Deno.test("AuthenticatedRig.sendMany - returns empty array for empty input", asy
 
 Deno.test("AuthenticatedRig.sendMany - each envelope gets its own hash", async () => {
   const id = await Identity.generate();
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const session = id.rig(rig);
 
   const results = await session.sendMany([
@@ -2001,7 +2005,7 @@ Deno.test("AuthenticatedRig.sendMany - each envelope gets its own hash", async (
 
 Deno.test("Rig hooks - beforeReceive throw rejects receive", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     hooks: {
       beforeReceive: () => {
         throw new Error("blocked");
@@ -2019,7 +2023,7 @@ Deno.test("Rig hooks - beforeReceive throw rejects receive", async () => {
 
 Deno.test("Rig hooks - beforeReceive mutates context", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     hooks: {
       beforeReceive: (ctx) => ({
         ctx: {
@@ -2042,7 +2046,7 @@ Deno.test("Rig hooks - beforeReceive mutates context", async () => {
 Deno.test("Rig hooks - afterRead observes result without modifying", async () => {
   const observed: unknown[] = [];
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     hooks: {
       afterRead: (_ctx, result) => {
         observed.push(result);
@@ -2060,7 +2064,7 @@ Deno.test("Rig hooks - afterRead observes result without modifying", async () =>
 
 Deno.test("Rig hooks - afterRead throw propagates to caller", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     hooks: {
       afterRead: () => {
         throw new Error("post-condition failed");
@@ -2079,7 +2083,7 @@ Deno.test("Rig hooks - afterRead throw propagates to caller", async () => {
 
 Deno.test("Rig hooks - beforeDelete throw rejects delete", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     hooks: {
       beforeDelete: () => {
         throw new Error("no deletes");
@@ -2103,7 +2107,7 @@ Deno.test("Rig hooks - beforeDelete throw rejects delete", async () => {
 Deno.test("Rig hooks - beforeSend throw rejects send", async () => {
   const id = await Identity.generate();
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     hooks: {
       beforeSend: () => {
         throw new Error("rate limited");
@@ -2129,7 +2133,7 @@ Deno.test("Rig hooks - beforeSend throw rejects send", async () => {
 Deno.test("Rig events - fires on receive success", async () => {
   const events: unknown[] = [];
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     on: {
       "receive:success": [(e) => {
         events.push(e);
@@ -2148,7 +2152,7 @@ Deno.test("Rig events - fires on receive success", async () => {
 Deno.test("Rig events - fires on receive error (schema rejection)", async () => {
   const errors: unknown[] = [];
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     schema: createTestSchema(),
     on: {
       "receive:error": [(e) => {
@@ -2168,7 +2172,7 @@ Deno.test("Rig events - fires on receive error (schema rejection)", async () => 
 Deno.test("Rig events - wildcard fires for all ops", async () => {
   const events: unknown[] = [];
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     on: {
       "*:success": [(e) => {
         events.push(e);
@@ -2191,7 +2195,7 @@ Deno.test("Rig events - wildcard fires for all ops", async () => {
 Deno.test("Rig observe - fires on receive matching pattern", async () => {
   const calls: { uri: string; params: Record<string, string> }[] = [];
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     observe: {
       "mutable://open/:key": (uri, _data, params) => {
         calls.push({ uri, params });
@@ -2212,7 +2216,7 @@ Deno.test("Rig observe - fires on send for each output", async () => {
   const id = await Identity.generate();
   const uris: string[] = [];
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     observe: {
       "mutable://open/:key": (uri) => {
         uris.push(uri);
@@ -2239,7 +2243,7 @@ Deno.test("Rig observe - fires on send for each output", async () => {
 Deno.test("Rig observe - does not fire on read", async () => {
   let called = false;
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     observe: {
       "mutable://open/:key": () => {
         called = true;
@@ -2262,7 +2266,7 @@ Deno.test("Rig observe - does not fire on read", async () => {
 
 Deno.test("Rig hooks - immutable after init", async () => {
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     hooks: {
       beforeReceive: () => {},
     },
@@ -2275,7 +2279,7 @@ Deno.test("Rig hooks - immutable after init", async () => {
 });
 
 Deno.test("Rig.on - runtime event handler works", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const events: unknown[] = [];
 
   const unsub = rig.on("receive:success", (e) => {
@@ -2295,7 +2299,7 @@ Deno.test("Rig.on - runtime event handler works", async () => {
 });
 
 Deno.test("Rig.off - removes event handler", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const events: unknown[] = [];
   const handler = (e: unknown) => {
     events.push(e);
@@ -2314,7 +2318,7 @@ Deno.test("Rig.off - removes event handler", async () => {
 });
 
 Deno.test("Rig.observe - runtime observe works", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
   const calls: string[] = [];
 
   const unsub = rig.observe("mutable://open/:key", (uri) => {
@@ -2333,20 +2337,20 @@ Deno.test("Rig.observe - runtime observe works", async () => {
   await rig.cleanup();
 });
 
-// ── Per-operation client routing tests ──
+// ── Per-operation subscription routing tests ──
 
-Deno.test("Rig clients - per-op routing uses separate backends", async () => {
-  const writeClient = new MemoryClient({ schema: createTestSchema() });
-  const readClient = new MemoryClient({ schema: createTestSchema() });
+Deno.test("Rig subscriptions - per-op routing uses separate backends", async () => {
+  const writeClient = new MemoryClient();
+  const readClient = new MemoryClient();
 
   // Write some data to readClient directly
   await readClient.receive(["mutable://open/cached", { from: "cache" }]);
 
   const rig = await Rig.init({
-    client: writeClient,
-    clients: {
-      read: readClient,
-    },
+    subscriptions: [
+      subscribe(writeClient, { receive: ["mutable://*", "immutable://*", "hash://*"] }),
+      subscribe(readClient, { read: ["mutable://*", "immutable://*", "hash://*"] }),
+    ],
   });
 
   // Read should come from readClient
@@ -2365,10 +2369,10 @@ Deno.test("Rig clients - per-op routing uses separate backends", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig clients - rig schema still works with hooks", async () => {
+Deno.test("Rig - schema still works with hooks", async () => {
   const schema = createTestSchema();
   const rig = await Rig.init({
-    client: new MemoryClient({ schema: {} }),
+    client: new MemoryClient(),
     schema,
     hooks: {
       afterReceive: () => {}, // observer hook
@@ -2387,138 +2391,26 @@ Deno.test("Rig clients - rig schema still works with hooks", async () => {
 
 // No hook chain replacement test — hooks are immutable after init.
 
-// ── Client array dispatch (accepts-based routing) ──
-
-import { withFilter } from "./filter.ts";
-
-Deno.test("Rig dispatch - routes receive to accepting clients only", async () => {
-  const schema = { "mutable://open": async () => ({ valid: true }) };
-  const b3ndClient = new MemoryClient({ schema });
-  const localClient = new MemoryClient({ schema });
-
-  const rig = await Rig.init({
-    clients: [
-      withFilter(b3ndClient, {
-        receive: ["mutable://*"],
-        read: ["mutable://*"],
-      }),
-      withFilter(localClient, {
-        receive: ["local://*"],
-        read: ["local://*"],
-      }),
-    ],
-  });
-
-  // Write to mutable — only b3ndClient should get it
-  await rig.receive(["mutable://open/test", { v: 1 }]);
-  const b3ndRead = await b3ndClient.read("mutable://open/test");
-  assertEquals(b3ndRead.success, true);
-  assertEquals(b3ndRead.record?.data, { v: 1 });
-
-  // localClient should NOT have it
-  const localRead = await localClient.read("mutable://open/test");
-  assertEquals(localRead.success, false);
-
-  await rig.cleanup();
-});
-
-Deno.test("Rig dispatch - routes read to accepting clients", async () => {
-  const schema = { "mutable://open": async () => ({ valid: true }) };
-  const primary = new MemoryClient({ schema });
-  const cache = new MemoryClient({ schema });
-
-  // Pre-populate cache
-  await cache.receive(["mutable://open/cached", { from: "cache" }]);
-  // Pre-populate primary with different data
-  await primary.receive(["mutable://open/cached", { from: "primary" }]);
-
-  const rig = await Rig.init({
-    clients: [
-      // Cache first (read-only)
-      withFilter(cache, {
-        read: ["mutable://*"],
-      }),
-      // Primary (read + write)
-      withFilter(primary, {
-        receive: ["mutable://*"],
-        read: ["mutable://*"],
-      }),
-    ],
-  });
-
-  // Read should hit cache first
-  const result = await rig.read("mutable://open/cached");
-  assertEquals(result.success, true);
-  assertEquals(result.record?.data, { from: "cache" });
-
-  await rig.cleanup();
-});
-
-Deno.test("Rig dispatch - unfiltered clients accept everything", async () => {
-  const rig = await Rig.init({
-    clients: [
-      new MemoryClient({
-        schema: { "mutable://open": async () => ({ valid: true }) },
-      }),
-    ],
-  });
-
-  // Unfiltered client accepts all URIs
-  const result = await rig.receive(["mutable://open/test", { v: 1 }]);
-  assertEquals(result.accepted, true);
-
-  const read = await rig.read("mutable://open/test");
-  assertEquals(read.success, true);
-
-  await rig.cleanup();
-});
-
-Deno.test("Rig dispatch - no accepting client returns error", async () => {
-  const rig = await Rig.init({
-    clients: [
-      withFilter(new MemoryClient({ schema: {} }), {
-        receive: ["local://*"],
-      }),
-    ],
-  });
-
-  // Nothing accepts mutable://
-  const result = await rig.receive(["mutable://open/test", { v: 1 }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error?.includes("No client accepts"), true);
-
-  await rig.cleanup();
-});
-
-Deno.test("Rig dispatch - health aggregates all clients", async () => {
-  const rig = await Rig.init({
-    clients: [
-      new MemoryClient({ schema: {} }),
-      new MemoryClient({ schema: {} }),
-    ],
-  });
-
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
-
-  await rig.cleanup();
-});
 
 Deno.test("Rig dispatch - getSchema unions all clients", async () => {
-  const c1 = new MemoryClient({
-    schema: { "mutable://open": async () => ({ valid: true }) },
-  });
-  const c2 = new MemoryClient({
-    schema: { "hash://sha256": async () => ({ valid: true }) },
-  });
+  const c1 = new MemoryClient();
+  const c2 = new MemoryClient();
+
+  // Write data so getSchema has storage keys to report
+  await c1.receive(["mutable://open/x", "data"]);
+  await c2.receive(["hash://sha256/abc", "data"]);
 
   const rig = await Rig.init({
-    clients: [c1, c2],
+    subscriptions: [
+      subscribe(c1, { receive: ["mutable://*"], read: ["mutable://*"] }),
+      subscribe(c2, { receive: ["hash://*"], read: ["hash://*"] }),
+    ],
   });
 
-  const schemas = await rig.getSchema();
-  assertEquals(schemas.includes("mutable://open"), true);
-  assertEquals(schemas.includes("hash://sha256"), true);
+  const st = await rig.status();
+  const programs = st.programs as string[];
+  assertEquals(programs.includes("mutable://*"), true);
+  assertEquals(programs.includes("hash://*"), true);
 
   await rig.cleanup();
 });
@@ -2532,7 +2424,7 @@ Deno.test({
   fn: async () => {
     // 1. Start a server rig with memory backend
     const serverRig = await Rig.init({
-      client: new MemoryClient({ schema: {} }),
+      client: new MemoryClient(),
     });
     const requestHandler = await serverRig.handler();
 
@@ -2549,9 +2441,9 @@ Deno.test({
 
     try {
       // 2. Create a subscriber rig pointing at the server
-      const subscriberRig = await Rig.connect(
-        `http://127.0.0.1:${port}`,
-      );
+      const subscriberRig = await Rig.init({
+        url: `http://127.0.0.1:${port}`,
+      });
 
       // 3. Subscribe to a pattern
       const received: {
@@ -2617,7 +2509,7 @@ Deno.test({
 });
 
 Deno.test("Rig subscribe - polling fallback for non-HTTP clients", async () => {
-  const rig = await Rig.connect("memory://");
+  const rig = await Rig.init({ url: "memory://" });
 
   // Write some data first
   await rig.receive(["mutable://open/items/a", { v: 1 }]);

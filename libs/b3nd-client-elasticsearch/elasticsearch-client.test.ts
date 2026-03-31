@@ -12,8 +12,6 @@ import {
   ElasticsearchClient,
   type ElasticsearchExecutor,
 } from "./mod.ts";
-import type { Schema } from "../b3nd-core/types.ts";
-
 // ---------------------------------------------------------------------------
 // Mock executor — in-memory Map simulating Elasticsearch
 // ---------------------------------------------------------------------------
@@ -102,24 +100,13 @@ class MockElasticsearchExecutor implements ElasticsearchExecutor {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createSchema(): Schema {
-  const acceptAll = () => Promise.resolve({ valid: true });
-  return {
-    "mutable://accounts": acceptAll,
-    "mutable://data": acceptAll,
-    "immutable://data": acceptAll,
-  };
-}
-
 function createClient(
   executor?: MockElasticsearchExecutor,
-  schema?: Schema,
 ): { client: ElasticsearchClient; executor: MockElasticsearchExecutor } {
   const exec = executor ?? new MockElasticsearchExecutor();
   const client = new ElasticsearchClient(
     {
       indexPrefix: "b3nd",
-      schema: schema ?? createSchema(),
     },
     exec,
   );
@@ -156,34 +143,14 @@ Deno.test("read returns not found for missing URI", async () => {
   assertEquals(result.errorDetail.code, "NOT_FOUND");
 });
 
-Deno.test("receive rejects unknown program key", async () => {
+Deno.test("receive accepts valid data", async () => {
   const { client } = createClient();
-
-  const result = await client.receive([
-    "unknown://foo/bar",
-    { value: 1 },
-  ]);
-  assertEquals(result.accepted, false);
-  assertExists(result.error);
-  assertEquals(result.error.includes("No schema defined"), true);
-});
-
-Deno.test("receive rejects on validation failure", async () => {
-  const rejectAll = () =>
-    Promise.resolve({ valid: false, error: "Rejected by validator" });
-
-  const schema: Schema = {
-    "mutable://accounts": rejectAll,
-  };
-
-  const { client } = createClient(undefined, schema);
 
   const result = await client.receive([
     "mutable://accounts/alice",
     { name: "Alice" },
   ]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "Rejected by validator");
+  assertEquals(result.accepted, true);
 });
 
 Deno.test("readMulti parallel reads", async () => {
@@ -328,50 +295,32 @@ Deno.test("delete non-existent document returns not found", async () => {
   assertEquals(result.errorDetail.code, "NOT_FOUND");
 });
 
-Deno.test("health returns healthy when ping succeeds", async () => {
+Deno.test("status returns healthy when ping succeeds", async () => {
   const { client } = createClient();
 
-  const status = await client.health();
-  assertEquals(status.status, "healthy");
-  assertExists(status.details);
-  assertEquals(
-    (status.details as Record<string, unknown>).indexPrefix,
-    "b3nd",
-  );
+  const st = await client.status();
+  assertEquals(st.healthy, true);
 });
 
-Deno.test("health returns unhealthy when ping fails", async () => {
+Deno.test("status returns unhealthy when ping fails", async () => {
   const executor = new MockElasticsearchExecutor();
   // Override ping to return false
   executor.ping = () => Promise.resolve(false);
 
   const { client } = createClient(executor);
 
-  const status = await client.health();
-  assertEquals(status.status, "unhealthy");
+  const st = await client.status();
+  assertEquals(st.healthy, false);
 });
 
-Deno.test("health returns unhealthy when ping throws", async () => {
+Deno.test("status returns unhealthy when ping throws", async () => {
   const executor = new MockElasticsearchExecutor();
   executor.ping = () => Promise.reject(new Error("Connection refused"));
 
   const { client } = createClient(executor);
 
-  const status = await client.health();
-  assertEquals(status.status, "unhealthy");
-  assertExists(status.message);
-  assertEquals(status.message.includes("Connection refused"), true);
-});
-
-Deno.test("getSchema returns schema keys", async () => {
-  const { client } = createClient();
-
-  const keys = await client.getSchema();
-  assertEquals(keys.sort(), [
-    "immutable://data",
-    "mutable://accounts",
-    "mutable://data",
-  ]);
+  const st = await client.status();
+  assertEquals(st.healthy, false);
 });
 
 Deno.test("cleanup delegates to executor", async () => {
@@ -446,36 +395,12 @@ Deno.test("read handles executor errors gracefully", async () => {
   assertEquals(result.error.includes("ES get failed"), true);
 });
 
-Deno.test("constructor rejects invalid schema keys", () => {
-  const executor = new MockElasticsearchExecutor();
-  let threw = false;
-  try {
-    new ElasticsearchClient(
-      {
-        indexPrefix: "b3nd",
-        schema: {
-          "invalid-key": () => Promise.resolve({ valid: true }),
-        } as Schema,
-      },
-      executor,
-    );
-  } catch (e) {
-    threw = true;
-    assertEquals(
-      (e as Error).message.includes("Invalid schema key format"),
-      true,
-    );
-  }
-  assertEquals(threw, true);
-});
-
 Deno.test("constructor requires executor", () => {
   let threw = false;
   try {
     new ElasticsearchClient(
       {
         indexPrefix: "b3nd",
-        schema: createSchema(),
       },
       // deno-lint-ignore no-explicit-any
       undefined as any,

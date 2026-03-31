@@ -21,17 +21,8 @@ import {
   type VaultAuthResponse,
 } from "./vault.ts";
 
-function createTestSchema() {
-  const acceptAll = async () => ({ valid: true });
-  return {
-    "mutable://accounts": acceptAll,
-    "mutable://open": acceptAll,
-    "mutable://data": acceptAll,
-  };
-}
-
 Deno.test("vault: end-to-end auth flow with mock verifier", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   // Vault identity
   const vaultSigning = await generateSigningKeyPair();
@@ -95,7 +86,7 @@ Deno.test("vault: end-to-end auth flow with mock verifier", async () => {
 });
 
 Deno.test("vault: same provider account always yields same identity", async () => {
-  const client = new MemoryClient({ schema: createTestSchema() });
+  const client = new MemoryClient();
 
   const vaultSigning = await generateSigningKeyPair();
   const vaultEnc = await generateEncryptionKeyPair();

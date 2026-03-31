@@ -51,16 +51,10 @@ Deno.test("FunctionalClient - delete defaults to not-implemented", async () => {
   assertEquals(result.error, "not implemented");
 });
 
-Deno.test("FunctionalClient - health defaults to healthy", async () => {
+Deno.test("FunctionalClient - status defaults to healthy", async () => {
   const client = new FunctionalClient({});
-  const result = await client.health();
-  assertEquals(result.status, "healthy");
-});
-
-Deno.test("FunctionalClient - getSchema defaults to empty array", async () => {
-  const client = new FunctionalClient({});
-  const result = await client.getSchema();
-  assertEquals(result, []);
+  const result = await client.status();
+  assertEquals(result.healthy, true);
 });
 
 Deno.test("FunctionalClient - cleanup defaults to no-op", async () => {
@@ -137,26 +131,17 @@ Deno.test("FunctionalClient - custom delete is called", async () => {
   assertEquals(deletedUri, "mutable://temp/file");
 });
 
-Deno.test("FunctionalClient - custom health is called", async () => {
+Deno.test("FunctionalClient - custom status is called", async () => {
   const client = new FunctionalClient({
-    health: async () => ({
-      status: "degraded",
-      message: "high latency",
+    status: async () => ({
+      healthy: true,
+      programs: ["mutable://accounts", "immutable://open"],
     }),
   });
 
-  const result = await client.health();
-  assertEquals(result.status, "degraded");
-  assertEquals(result.message, "high latency");
-});
-
-Deno.test("FunctionalClient - custom getSchema is called", async () => {
-  const client = new FunctionalClient({
-    getSchema: async () => ["mutable://accounts", "immutable://open"],
-  });
-
-  const result = await client.getSchema();
-  assertEquals(result, ["mutable://accounts", "immutable://open"]);
+  const result = await client.status();
+  assertEquals(result.healthy, true);
+  assertEquals(result.programs, ["mutable://accounts", "immutable://open"]);
 });
 
 Deno.test("FunctionalClient - custom cleanup is called", async () => {

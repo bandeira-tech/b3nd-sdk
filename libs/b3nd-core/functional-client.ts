@@ -8,11 +8,11 @@
 
 import type {
   DeleteResult,
-  HealthStatus,
   ListOptions,
   ListResult,
   Message,
   NodeProtocolInterface,
+  NodeStatus,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
@@ -31,8 +31,7 @@ export interface FunctionalClientConfig {
   readMulti?: <T = unknown>(uris: string[]) => Promise<ReadMultiResult<T>>;
   list?: (uri: string, options?: ListOptions) => Promise<ListResult>;
   delete?: (uri: string) => Promise<DeleteResult>;
-  health?: () => Promise<HealthStatus>;
-  getSchema?: () => Promise<string[]>;
+  status?: () => Promise<NodeStatus>;
   cleanup?: () => Promise<void>;
 }
 
@@ -45,8 +44,7 @@ export interface FunctionalClientConfig {
  * - readMulti → auto-derived from read if not provided
  * - list → { success: true, data: [], pagination: { page: 1, limit: 50, total: 0 } }
  * - delete → { success: false, error: "not implemented" }
- * - health → { status: "healthy" }
- * - getSchema → []
+ * - status → { healthy: true }
  * - cleanup → no-op
  *
  * @example
@@ -143,18 +141,11 @@ export class FunctionalClient implements NodeProtocolInterface {
     return Promise.resolve({ success: false, error: "not implemented" });
   }
 
-  health(): Promise<HealthStatus> {
-    if (this.config.health) {
-      return this.config.health();
+  status(): Promise<NodeStatus> {
+    if (this.config.status) {
+      return this.config.status();
     }
-    return Promise.resolve({ status: "healthy" });
-  }
-
-  getSchema(): Promise<string[]> {
-    if (this.config.getSchema) {
-      return this.config.getSchema();
-    }
-    return Promise.resolve([]);
+    return Promise.resolve({ healthy: true });
   }
 
   cleanup(): Promise<void> {

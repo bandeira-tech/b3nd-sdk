@@ -12,7 +12,7 @@ import type {
  * and b3nd URIs. Delegates all network operations to the provided client.
  *
  * The client can be a Rig's `.client` (NodeProtocolInterface), an HttpClient,
- * or any object with `list`, `read`, `getSchema`, and `health` methods.
+ * or any object with `list`, `read`, and `status` methods.
  */
 
 interface ClientLike {
@@ -21,8 +21,7 @@ interface ClientLike {
     options?: { page?: number; limit?: number },
   ): Promise<{ success: boolean; data: any[]; pagination?: any; error?: string }>;
   read(uri: string): Promise<{ success: boolean; record?: PersistenceRecord; error?: string }>;
-  getSchema(): Promise<string[]>;
-  health(): Promise<{ status: string }>;
+  status(): Promise<{ status: string; programs: string[] }>;
 }
 
 export class HttpAdapter implements BackendAdapter {
@@ -115,13 +114,13 @@ export class HttpAdapter implements BackendAdapter {
     };
   }
 
-  async getSchema(): Promise<Record<string, string[]>> {
-    const schemas = await this.client.getSchema();
-    return { default: schemas };
+  async getStatus(): Promise<Record<string, string[]>> {
+    const result = await this.client.status();
+    return { default: result.programs };
   }
 
   async healthCheck(): Promise<boolean> {
-    const result = await this.client.health();
+    const result = await this.client.status();
     return result.status === "healthy";
   }
 

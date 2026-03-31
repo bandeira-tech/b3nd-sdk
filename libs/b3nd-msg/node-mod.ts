@@ -45,9 +45,9 @@
  * // Create the node
  * const node = createMessageNode({
  *   validate: myValidator,
- *   read: createMemoryClient({ schema: { "hash://sha256": hashValidator() } }),
+ *   read: createMemoryClient(),
  *   peers: [
- *     createMemoryClient({ schema: { "hash://sha256": hashValidator() } })
+ *     createMemoryClient()
  *   ]
  * })
  *

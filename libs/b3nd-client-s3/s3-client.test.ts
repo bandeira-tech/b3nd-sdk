@@ -1,5 +1,4 @@
 import { assertEquals } from "@std/assert";
-import type { Schema } from "../b3nd-core/types.ts";
 import { S3Client, type S3Executor } from "./mod.ts";
 
 /**
@@ -33,15 +32,12 @@ function createMockExecutor(): S3Executor & { objects: Map<string, string> } {
   };
 }
 
-const acceptAll = () => Promise.resolve({ valid: true });
-
 function createClient(
-  schema: Schema = { "store://data": acceptAll },
   prefix?: string,
 ) {
   const executor = createMockExecutor();
   const client = new S3Client(
-    { bucket: "test-bucket", schema, prefix },
+    { bucket: "test-bucket", prefix },
     executor,
   );
   return { client, executor };
@@ -69,28 +65,11 @@ Deno.test("S3Client - read not found", async () => {
   assertEquals(read.error, "Not found: store://data/missing");
 });
 
-Deno.test("S3Client - receive rejects unknown program", async () => {
+Deno.test("S3Client - receive accepts known program", async () => {
   const { client } = createClient();
 
-  const result = await client.receive(["unknown://foo/bar", "data"]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "No schema defined for program key: unknown://foo");
-});
-
-Deno.test("S3Client - receive validates data", async () => {
-  const { client } = createClient({
-    "store://data": ({ value }) => {
-      const v = value as { name?: string };
-      if (!v?.name) {
-        return Promise.resolve({ valid: false, error: "name is required" });
-      }
-      return Promise.resolve({ valid: true });
-    },
-  });
-
   const result = await client.receive(["store://data/x", { age: 30 }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "name is required");
+  assertEquals(result.accepted, true);
 });
 
 Deno.test("S3Client - delete existing object", async () => {
@@ -211,34 +190,31 @@ Deno.test("S3Client - readMulti exceeds batch limit", async () => {
   assertEquals(result.summary.failed, 51);
 });
 
-Deno.test("S3Client - health returns healthy", async () => {
+Deno.test("S3Client - status returns healthy", async () => {
   const { client } = createClient();
 
-  const health = await client.health();
-  assertEquals(health.status, "healthy");
+  const st = await client.status();
+  assertEquals(st.healthy, true);
 });
 
-Deno.test("S3Client - health returns unhealthy", async () => {
+Deno.test("S3Client - status returns unhealthy", async () => {
   const executor = createMockExecutor();
   executor.headBucket = () => Promise.resolve(false);
 
   const client = new S3Client(
-    { bucket: "bad-bucket", schema: { "store://data": acceptAll } },
+    { bucket: "bad-bucket" },
     executor,
   );
 
-  const health = await client.health();
-  assertEquals(health.status, "unhealthy");
+  const st = await client.status();
+  assertEquals(st.healthy, false);
 });
 
-Deno.test("S3Client - getSchema returns keys", async () => {
-  const { client } = createClient({
-    "store://data": acceptAll,
-    "store://logs": acceptAll,
-  });
+Deno.test("S3Client - status returns healthy", async () => {
+  const { client } = createClient();
 
-  const schema = await client.getSchema();
-  assertEquals(schema, ["store://data", "store://logs"]);
+  const st = await client.status();
+  assertEquals(st.healthy, true);
 });
 
 Deno.test("S3Client - cleanup delegates to executor", async () => {
@@ -250,7 +226,7 @@ Deno.test("S3Client - cleanup delegates to executor", async () => {
   };
 
   const client = new S3Client(
-    { bucket: "b", schema: { "store://data": acceptAll } },
+    { bucket: "b" },
     executor,
   );
 
@@ -260,7 +236,6 @@ Deno.test("S3Client - cleanup delegates to executor", async () => {
 
 Deno.test("S3Client - prefix is applied to keys", async () => {
   const { client, executor } = createClient(
-    { "store://data": acceptAll },
     "prod/b3nd/",
   );
 
@@ -275,23 +250,11 @@ Deno.test("S3Client - prefix is applied to keys", async () => {
   assertEquals(read.record?.data, "value");
 });
 
-Deno.test("S3Client - constructor validates schema keys", () => {
-  let threw = false;
-  try {
-    new S3Client(
-      { bucket: "b", schema: { "bad-key": acceptAll } },
-      createMockExecutor(),
-    );
-  } catch {
-    threw = true;
-  }
-  assertEquals(threw, true);
-});
 
 Deno.test("S3Client - constructor requires executor", () => {
   let threw = false;
   try {
-    new S3Client({ bucket: "b", schema: { "store://data": acceptAll } });
+    new S3Client({ bucket: "b" });
   } catch {
     threw = true;
   }

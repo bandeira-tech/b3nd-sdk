@@ -1,25 +1,16 @@
 import {
   Errors,
   type DeleteResult,
-  type HealthStatus,
   type Message,
   type NodeProtocolWriteInterface,
+  type NodeStatus,
   type ReceiveResult,
-  type Schema,
 } from "../b3nd-core/types.ts";
 
 /**
  * Configuration for ConsoleClient
  */
 export interface ConsoleClientConfig {
-  /**
-   * Schema mapping protocol://hostname to validators.
-   *
-   * Keys MUST be in format: "protocol://hostname"
-   * Examples: "mutable://accounts", "immutable://data"
-   */
-  schema: Schema;
-
   /**
    * Optional label prefix for console output (default: "b3nd")
    */
@@ -29,14 +20,6 @@ export interface ConsoleClientConfig {
    * Optional custom logger (defaults to console.log)
    */
   logger?: (message: string) => void;
-}
-
-/**
- * Validate schema key format
- * Keys must be in format: "protocol://hostname"
- */
-function validateSchemaKey(key: string): boolean {
-  return /^[a-z]+:\/\/[a-z0-9-]+$/.test(key);
 }
 
 /**
@@ -55,41 +38,23 @@ function safeStringify(data: unknown): string {
  * ConsoleClient — a write-only client that logs received messages to the console.
  *
  * This client implements `NodeProtocolWriteInterface` and has no read capabilities.
- * It validates incoming messages against the schema and prints accepted data to stdout.
+ * It prints received data to stdout.
  *
  * Useful for debugging, auditing, and piping protocol traffic to the terminal.
  *
  * @example
  * ```typescript
- * const client = new ConsoleClient({
- *   schema: {
- *     "mutable://logs": async () => ({ valid: true }),
- *   },
- * });
+ * const client = new ConsoleClient({});
  *
  * await client.receive(["mutable://logs/entry-1", { level: "info", msg: "hello" }]);
  * // Console output: [b3nd] RECEIVE mutable://logs/entry-1 {"level":"info","msg":"hello"}
  * ```
  */
 export class ConsoleClient implements NodeProtocolWriteInterface {
-  private readonly schema: Schema;
   private readonly label: string;
   private readonly log: (message: string) => void;
 
   constructor(config: ConsoleClientConfig) {
-    const invalidKeys = Object.keys(config.schema).filter(
-      (key) => !validateSchemaKey(key),
-    );
-    if (invalidKeys.length > 0) {
-      throw new Error(
-        `Invalid schema key format: ${
-          invalidKeys.map((k) => `"${k}"`).join(", ")
-        }. ` +
-          `Keys must be in "protocol://hostname" format (e.g., "mutable://accounts", "immutable://data").`,
-      );
-    }
-
-    this.schema = config.schema;
     this.label = config.label ?? "b3nd";
     this.log = config.logger ?? console.log;
   }
@@ -104,48 +69,6 @@ export class ConsoleClient implements NodeProtocolWriteInterface {
         accepted: false,
         error: "Message URI is required",
         errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
-      };
-    }
-
-    const url = URL.parse(uri);
-    if (!url) {
-      return {
-        accepted: false,
-        error: "Invalid URI format",
-        errorDetail: Errors.invalidUri(uri, "Invalid URI format"),
-      };
-    }
-
-    const program = `${url.protocol}//${url.hostname}`;
-    const validator = this.schema[program];
-
-    if (!validator) {
-      return {
-        accepted: false,
-        error: "Program not found",
-        errorDetail: Errors.invalidSchema(uri, "Program not found"),
-      };
-    }
-
-    const validation = await validator({
-      uri,
-      value: data,
-      read: () =>
-        Promise.resolve({
-          success: false as const,
-          error: "ConsoleClient has no read capability",
-        }),
-    });
-
-    if (!validation.valid) {
-      const error = validation.error || "Validation failed";
-      this.log(
-        `[${this.label}] REJECTED ${uri} ${error}`,
-      );
-      return {
-        accepted: false,
-        error,
-        errorDetail: Errors.invalidSchema(uri, error),
       };
     }
 
@@ -165,34 +88,12 @@ export class ConsoleClient implements NodeProtocolWriteInterface {
       });
     }
 
-    const url = URL.parse(uri);
-    if (!url) {
-      return Promise.resolve({
-        success: false,
-        error: "Invalid URI format",
-        errorDetail: Errors.invalidUri(uri, "Invalid URI format"),
-      });
-    }
-
-    const program = `${url.protocol}//${url.hostname}`;
-    if (!this.schema[program]) {
-      return Promise.resolve({
-        success: false,
-        error: "Program not found",
-        errorDetail: Errors.invalidSchema(uri, "Program not found"),
-      });
-    }
-
     this.log(`[${this.label}] DELETE ${uri}`);
     return Promise.resolve({ success: true });
   }
 
-  public health(): Promise<HealthStatus> {
-    return Promise.resolve({ status: "healthy" });
-  }
-
-  public getSchema(): Promise<string[]> {
-    return Promise.resolve(Object.keys(this.schema));
+  public status(): Promise<NodeStatus> {
+    return Promise.resolve({ healthy: true });
   }
 
   public cleanup(): Promise<void> {
