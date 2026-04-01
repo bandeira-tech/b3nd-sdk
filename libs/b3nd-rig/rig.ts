@@ -50,7 +50,7 @@ import type { EventHandler, RigEventName } from "./events.ts";
 import { RigEventEmitter } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
 import { ObserveRegistry } from "./observe.ts";
-import type { Subscription } from "./subscription.ts";
+import type { Connection } from "./connection.ts";
 import { createRigHandler } from "./http-handler.ts";
 import { openSseStream } from "../b3nd-client-http/sse.ts";
 import { matchPattern } from "./observe.ts";
@@ -180,9 +180,9 @@ export class Rig {
 
     let opClients: OpClients;
 
-    if (config.subscriptions) {
-      // Subscription-based routing — the primary path
-      opClients = createSubscriptionDispatch(config.subscriptions);
+    if (config.connections) {
+      // Connection-based routing — the primary path
+      opClients = createConnectionDispatch(config.connections);
     } else if (config.client) {
       // Single client for all operations
       const c = config.client;
@@ -195,7 +195,7 @@ export class Rig {
       };
     } else {
       throw new Error(
-        "Rig.init: `url`, `client`, or `subscriptions` is required.",
+        "Rig.init: `url`, `client`, or `connections` is required.",
       );
     }
 
@@ -1296,28 +1296,28 @@ export class Rig {
 /** Resolve per-operation clients from object form, falling back to the default. */
 
 /**
- * Build dispatch from subscriptions.
+ * Build dispatch from connections.
  *
- * Each operation is routed through subscriptions:
- * - Writes (receive, delete): broadcast to ALL matching subscriptions.
+ * Each operation is routed through connections:
+ * - Writes (receive, delete): broadcast to ALL matching connections.
  * - Reads (read, list): first-match in declaration order.
  * - Health/schema/cleanup: aggregate across unique clients.
  */
-function createSubscriptionDispatch(
-  subscriptions: Subscription[],
+function createConnectionDispatch(
+  connections: Connection[],
 ): OpClients {
-  if (subscriptions.length === 0) {
-    throw new Error("Rig.init: `subscriptions` array must not be empty");
+  if (connections.length === 0) {
+    throw new Error("Rig.init: `connections` array must not be empty");
   }
 
   const dispatch: NodeProtocolInterface = {
     async receive(msg) {
       const [uri] = msg;
-      const matching = subscriptions.filter((s) => s.accepts("receive", uri));
+      const matching = connections.filter((s) => s.accepts("receive", uri));
       if (matching.length === 0) {
         return {
           accepted: false,
-          error: `No subscription accepts receive for ${uri}`,
+          error: `No connection accepts receive for ${uri}`,
         };
       }
       const results = await Promise.all(
@@ -1329,19 +1329,19 @@ function createSubscriptionDispatch(
     },
 
     async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
-      for (const s of subscriptions) {
+      for (const s of connections) {
         if (!s.accepts("read", uri)) continue;
         const result = await s.client.read<T>(uri);
         if (result.success) return result;
       }
-      return { success: false, error: `No subscription has data for ${uri}` };
+      return { success: false, error: `No connection has data for ${uri}` };
     },
 
     async readMulti<T = unknown>(
       uris: string[],
     ): Promise<ReadMultiResult<T>> {
       const items = await Promise.all(uris.map(async (uri) => {
-        for (const s of subscriptions) {
+        for (const s of connections) {
           if (!s.accepts("read", uri)) continue;
           const r = await s.client.read<T>(uri);
           if (r.success && r.record) {
@@ -1355,7 +1355,7 @@ function createSubscriptionDispatch(
         return {
           uri,
           success: false as const,
-          error: `No subscription has data for ${uri}`,
+          error: `No connection has data for ${uri}`,
         };
       }));
       const succeeded = items.filter((r) => r.success).length;
@@ -1371,7 +1371,7 @@ function createSubscriptionDispatch(
     },
 
     async list(uri, options) {
-      for (const s of subscriptions) {
+      for (const s of connections) {
         if (!s.accepts("list", uri)) continue;
         const result = await s.client.list(uri, options);
         if (result.success && result.data.length > 0) return result;
@@ -1384,11 +1384,11 @@ function createSubscriptionDispatch(
     },
 
     async delete(uri) {
-      const matching = subscriptions.filter((s) => s.accepts("delete", uri));
+      const matching = connections.filter((s) => s.accepts("delete", uri));
       if (matching.length === 0) {
         return {
           success: false,
-          error: `No subscription accepts delete for ${uri}`,
+          error: `No connection accepts delete for ${uri}`,
         };
       }
       const results = await Promise.all(
@@ -1402,7 +1402,7 @@ function createSubscriptionDispatch(
     async health() {
       const seen = new Set<NodeProtocolInterface>();
       const unique: NodeProtocolInterface[] = [];
-      for (const s of subscriptions) {
+      for (const s of connections) {
         if (!seen.has(s.client)) {
           seen.add(s.client);
           unique.push(s.client);
@@ -1419,7 +1419,7 @@ function createSubscriptionDispatch(
     async getSchema() {
       const seen = new Set<NodeProtocolInterface>();
       const all = new Set<string>();
-      for (const s of subscriptions) {
+      for (const s of connections) {
         if (!seen.has(s.client)) {
           seen.add(s.client);
           const schemas = await s.client.getSchema();
@@ -1431,7 +1431,7 @@ function createSubscriptionDispatch(
 
     async cleanup() {
       const seen = new Set<NodeProtocolInterface>();
-      for (const s of subscriptions) {
+      for (const s of connections) {
         if (!seen.has(s.client)) {
           seen.add(s.client);
           await s.client.cleanup();

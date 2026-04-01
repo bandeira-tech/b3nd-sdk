@@ -1,84 +1,84 @@
 /// <reference lib="deno.ns" />
 /**
- * Tests for the subscription primitive and its integration with the rig.
+ * Tests for the connection primitive and its integration with the rig.
  *
- * Covers: local routing, multi-subscription broadcast/first-match,
- * unsubscribed URI rejection, serialization for wire, best-effort
- * enforcement, and schema/subscription separation.
+ * Covers: local routing, multi-connection broadcast/first-match,
+ * unconnected URI rejection, serialization for wire, best-effort
+ * enforcement, and schema/connection separation.
  */
 
 import { assertEquals, assertNotEquals } from "@std/assert";
 import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
-import { subscribe } from "./subscription.ts";
+import { connection } from "./connection.ts";
 import { Rig } from "./rig.ts";
 import type { Schema } from "../b3nd-core/types.ts";
 
-// ── subscribe() unit tests ──
+// ── connection() unit tests ──
 
-Deno.test("subscribe - accepts matching URI", () => {
-  const sub = subscribe(new MemoryClient(), {
+Deno.test("connection - accepts matching URI", () => {
+  const conn = connection(new MemoryClient(), {
     receive: ["mutable://*"],
     read: ["mutable://*"],
   });
-  assertEquals(sub.accepts("receive", "mutable://open/app/x"), true);
-  assertEquals(sub.accepts("read", "mutable://open/app/x"), true);
+  assertEquals(conn.accepts("receive", "mutable://open/app/x"), true);
+  assertEquals(conn.accepts("read", "mutable://open/app/x"), true);
 });
 
-Deno.test("subscribe - rejects non-matching URI", () => {
-  const sub = subscribe(new MemoryClient(), {
+Deno.test("connection - rejects non-matching URI", () => {
+  const conn = connection(new MemoryClient(), {
     receive: ["mutable://*"],
   });
-  assertEquals(sub.accepts("receive", "hash://sha256/abc"), false);
+  assertEquals(conn.accepts("receive", "hash://sha256/abc"), false);
 });
 
-Deno.test("subscribe - rejects unlisted operation", () => {
-  const sub = subscribe(new MemoryClient(), {
+Deno.test("connection - rejects unlisted operation", () => {
+  const conn = connection(new MemoryClient(), {
     receive: ["mutable://*"],
   });
   // read not listed → not accepted
-  assertEquals(sub.accepts("read", "mutable://open/x"), false);
-  assertEquals(sub.accepts("delete", "mutable://open/x"), false);
-  assertEquals(sub.accepts("list", "mutable://open/x"), false);
+  assertEquals(conn.accepts("read", "mutable://open/x"), false);
+  assertEquals(conn.accepts("delete", "mutable://open/x"), false);
+  assertEquals(conn.accepts("list", "mutable://open/x"), false);
 });
 
-Deno.test("subscribe - patterns are serializable", () => {
-  const sub = subscribe(new MemoryClient(), {
+Deno.test("connection - patterns are serializable", () => {
+  const conn = connection(new MemoryClient(), {
     receive: ["mutable://*", "hash://*"],
     read: ["mutable://*"],
   });
-  const wire = JSON.stringify(sub.patterns);
+  const wire = JSON.stringify(conn.patterns);
   const parsed = JSON.parse(wire);
   assertEquals(parsed.receive, ["mutable://*", "hash://*"]);
   assertEquals(parsed.read, ["mutable://*"]);
 });
 
-Deno.test("subscribe - express-style param patterns", () => {
-  const sub = subscribe(new MemoryClient(), {
+Deno.test("connection - express-style param patterns", () => {
+  const conn = connection(new MemoryClient(), {
     read: ["mutable://accounts/:id/*"],
   });
-  assertEquals(sub.accepts("read", "mutable://accounts/alice/profile"), true);
-  assertEquals(sub.accepts("read", "mutable://accounts/bob/settings"), true);
-  assertEquals(sub.accepts("read", "mutable://open/anything"), false);
+  assertEquals(conn.accepts("read", "mutable://accounts/alice/profile"), true);
+  assertEquals(conn.accepts("read", "mutable://accounts/bob/settings"), true);
+  assertEquals(conn.accepts("read", "mutable://open/anything"), false);
 });
 
-Deno.test("subscribe - patterns are frozen", () => {
+Deno.test("connection - patterns are frozen", () => {
   const patterns = { receive: ["mutable://*"] };
-  const sub = subscribe(new MemoryClient(), patterns);
-  // Mutating the original doesn't affect the subscription
+  const conn = connection(new MemoryClient(), patterns);
+  // Mutating the original doesn't affect the connection
   patterns.receive.push("hash://*");
-  assertEquals(sub.patterns.receive, ["mutable://*"]);
+  assertEquals(conn.patterns.receive, ["mutable://*"]);
 });
 
-// ── Rig + subscriptions integration tests ──
+// ── Rig + connections integration tests ──
 
-Deno.test("rig routes receive to correct subscription", async () => {
+Deno.test("rig routes receive to correct connection", async () => {
   const remote = new MemoryClient();
   const local = new MemoryClient();
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(remote, { receive: ["mutable://*"], read: ["mutable://*"] }),
-      subscribe(local, { receive: ["local://*"], read: ["local://*"] }),
+    connections: [
+      connection(remote, { receive: ["mutable://*"], read: ["mutable://*"] }),
+      connection(local, { receive: ["local://*"], read: ["local://*"] }),
     ],
   });
 
@@ -100,7 +100,7 @@ Deno.test("rig routes receive to correct subscription", async () => {
   await rig.cleanup();
 });
 
-Deno.test("rig reads from first matching subscription", async () => {
+Deno.test("rig reads from first matching connection", async () => {
   const primary = new MemoryClient();
   const fallback = new MemoryClient();
 
@@ -108,9 +108,9 @@ Deno.test("rig reads from first matching subscription", async () => {
   await fallback.receive(["mutable://open/old", { from: "fallback" }]);
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(primary, { read: ["mutable://*"], receive: ["mutable://*"] }),
-      subscribe(fallback, { read: ["mutable://*"] }),
+    connections: [
+      connection(primary, { read: ["mutable://*"], receive: ["mutable://*"] }),
+      connection(fallback, { read: ["mutable://*"] }),
     ],
   });
 
@@ -130,14 +130,14 @@ Deno.test("rig reads from first matching subscription", async () => {
   await rig.cleanup();
 });
 
-Deno.test("rig broadcasts writes to all matching subscriptions", async () => {
+Deno.test("rig broadcasts writes to all matching connections", async () => {
   const primary = new MemoryClient();
   const mirror = new MemoryClient();
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(primary, { receive: ["mutable://*"], read: ["mutable://*"] }),
-      subscribe(mirror, { receive: ["mutable://*"] }),
+    connections: [
+      connection(primary, { receive: ["mutable://*"], read: ["mutable://*"] }),
+      connection(mirror, { receive: ["mutable://*"] }),
     ],
   });
 
@@ -152,10 +152,10 @@ Deno.test("rig broadcasts writes to all matching subscriptions", async () => {
   await rig.cleanup();
 });
 
-Deno.test("rig rejects receive for unsubscribed URI", async () => {
+Deno.test("rig rejects receive for unconnected URI", async () => {
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(new MemoryClient(), { receive: ["local://*"] }),
+    connections: [
+      connection(new MemoryClient(), { receive: ["local://*"] }),
     ],
   });
 
@@ -165,10 +165,10 @@ Deno.test("rig rejects receive for unsubscribed URI", async () => {
   await rig.cleanup();
 });
 
-Deno.test("rig rejects read for unsubscribed URI", async () => {
+Deno.test("rig rejects read for unconnected URI", async () => {
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(new MemoryClient(), { read: ["local://*"] }),
+    connections: [
+      connection(new MemoryClient(), { read: ["local://*"] }),
     ],
   });
 
@@ -178,10 +178,10 @@ Deno.test("rig rejects read for unsubscribed URI", async () => {
   await rig.cleanup();
 });
 
-Deno.test("rig rejects delete for unsubscribed URI", async () => {
+Deno.test("rig rejects delete for unconnected URI", async () => {
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(new MemoryClient(), { delete: ["local://*"] }),
+    connections: [
+      connection(new MemoryClient(), { delete: ["local://*"] }),
     ],
   });
 
@@ -191,17 +191,17 @@ Deno.test("rig rejects delete for unsubscribed URI", async () => {
   await rig.cleanup();
 });
 
-Deno.test("best-effort: local subscription enforces even if client accepts everything", async () => {
+Deno.test("best-effort: local connection enforces even if client accepts everything", async () => {
   // MemoryClient accepts anything — no internal filtering
   const client = new MemoryClient();
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(client, { receive: ["mutable://*"] }),
+    connections: [
+      connection(client, { receive: ["mutable://*"] }),
     ],
   });
 
-  // hash:// not in subscription → rejected by rig, even though client would accept it
+  // hash:// not in connection → rejected by rig, even though client would accept it
   const result = await rig.receive(["hash://sha256/abc", "some data"]);
   assertEquals(result.accepted, false);
 
@@ -212,7 +212,7 @@ Deno.test("best-effort: local subscription enforces even if client accepts every
   await rig.cleanup();
 });
 
-Deno.test("schema and subscriptions are separate concerns", async () => {
+Deno.test("schema and connections are separate concerns", async () => {
   const client = new MemoryClient();
 
   const schema: Schema = {
@@ -225,8 +225,8 @@ Deno.test("schema and subscriptions are separate concerns", async () => {
   };
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(client, {
+    connections: [
+      connection(client, {
         receive: ["mutable://*"],
         read: ["mutable://*"],
       }),
@@ -234,22 +234,22 @@ Deno.test("schema and subscriptions are separate concerns", async () => {
     schema,
   });
 
-  // Matches subscription + passes schema → accepted
+  // Matches connection + passes schema → accepted
   const r1 = await rig.receive(["mutable://open/x", { valid: true }]);
   assertEquals(r1.accepted, true);
 
-  // Matches subscription but fails schema → rejected with schema error
+  // Matches connection but fails schema → rejected with schema error
   const r2 = await rig.receive(["mutable://open/y", "not an object"]);
   assertEquals(r2.accepted, false);
 
-  // Doesn't match subscription → rejected before schema runs
+  // Doesn't match connection → rejected before schema runs
   const r3 = await rig.receive(["hash://sha256/abc", { valid: true }]);
   assertEquals(r3.accepted, false);
 
   await rig.cleanup();
 });
 
-Deno.test("schema validation runs after subscription routing", async () => {
+Deno.test("schema validation runs after connection routing", async () => {
   const client = new MemoryClient();
   let schemaCalledWith: string[] = [];
 
@@ -261,13 +261,13 @@ Deno.test("schema validation runs after subscription routing", async () => {
   };
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(client, { receive: ["mutable://*"] }),
+    connections: [
+      connection(client, { receive: ["mutable://*"] }),
     ],
     schema,
   });
 
-  // Unsubscribed URI → schema never called
+  // Unconnected URI → schema never called
   schemaCalledWith = [];
   await rig.receive(["hash://sha256/abc", "data"]);
   assertEquals(schemaCalledWith.length, 0);
@@ -279,7 +279,7 @@ Deno.test("schema validation runs after subscription routing", async () => {
   await rig.cleanup();
 });
 
-Deno.test("single client via url still works (catch-all subscription)", async () => {
+Deno.test("single client via url still works (catch-all connection)", async () => {
   const rig = await Rig.init({ url: "memory://" });
 
   // Everything accepted — no filtering
@@ -291,7 +291,7 @@ Deno.test("single client via url still works (catch-all subscription)", async ()
   await rig.cleanup();
 });
 
-Deno.test("single client via client still works (catch-all subscription)", async () => {
+Deno.test("single client via client still works (catch-all connection)", async () => {
   const rig = await Rig.init({ client: new MemoryClient() });
 
   const r = await rig.receive(["mutable://open/x", { v: 1 }]);
@@ -302,7 +302,7 @@ Deno.test("single client via client still works (catch-all subscription)", async
   await rig.cleanup();
 });
 
-Deno.test("getSchema unions all subscription client schemas", async () => {
+Deno.test("getSchema unions all connection client schemas", async () => {
   const a = new MemoryClient();
   const b = new MemoryClient();
 
@@ -311,9 +311,9 @@ Deno.test("getSchema unions all subscription client schemas", async () => {
   await b.receive(["local://app/y", "data"]);
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(a, { receive: ["mutable://*"], read: ["mutable://*"] }),
-      subscribe(b, { receive: ["local://*"], read: ["local://*"] }),
+    connections: [
+      connection(a, { receive: ["mutable://*"], read: ["mutable://*"] }),
+      connection(b, { receive: ["local://*"], read: ["local://*"] }),
     ],
   });
 
@@ -323,11 +323,11 @@ Deno.test("getSchema unions all subscription client schemas", async () => {
   await rig.cleanup();
 });
 
-Deno.test("health aggregates across all subscription clients", async () => {
+Deno.test("health aggregates across all connection clients", async () => {
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(new MemoryClient(), { receive: ["mutable://*"] }),
-      subscribe(new MemoryClient(), { receive: ["local://*"] }),
+    connections: [
+      connection(new MemoryClient(), { receive: ["mutable://*"] }),
+      connection(new MemoryClient(), { receive: ["local://*"] }),
     ],
   });
 
@@ -337,7 +337,7 @@ Deno.test("health aggregates across all subscription clients", async () => {
   await rig.cleanup();
 });
 
-Deno.test("cleanup runs on all subscription clients", async () => {
+Deno.test("cleanup runs on all connection clients", async () => {
   let cleanupCalls = 0;
   const client = new MemoryClient();
   const origCleanup = client.cleanup.bind(client);
@@ -347,8 +347,8 @@ Deno.test("cleanup runs on all subscription clients", async () => {
   };
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(client, { receive: ["mutable://*"] }),
+    connections: [
+      connection(client, { receive: ["mutable://*"] }),
     ],
   });
 
@@ -356,12 +356,12 @@ Deno.test("cleanup runs on all subscription clients", async () => {
   assertEquals(cleanupCalls, 1);
 });
 
-Deno.test("list routes through subscription", async () => {
+Deno.test("list routes through connection", async () => {
   const client = new MemoryClient();
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(client, {
+    connections: [
+      connection(client, {
         receive: ["mutable://*"],
         read: ["mutable://*"],
         list: ["mutable://*"],
@@ -381,7 +381,7 @@ Deno.test("list routes through subscription", async () => {
   await rig.cleanup();
 });
 
-Deno.test("delete broadcasts to matching subscriptions", async () => {
+Deno.test("delete broadcasts to matching connections", async () => {
   const a = new MemoryClient();
   const b = new MemoryClient();
 
@@ -390,9 +390,9 @@ Deno.test("delete broadcasts to matching subscriptions", async () => {
   await b.receive(["mutable://open/x", "data"]);
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(a, { delete: ["mutable://*"], read: ["mutable://*"] }),
-      subscribe(b, { delete: ["mutable://*"] }),
+    connections: [
+      connection(a, { delete: ["mutable://*"], read: ["mutable://*"] }),
+      connection(b, { delete: ["mutable://*"] }),
     ],
   });
 

@@ -69,9 +69,9 @@ export { RigEventEmitter } from "./events.ts";
 export type { ObserveHandler } from "./observe.ts";
 export { matchPattern, ObserveRegistry } from "./observe.ts";
 
-// Subscriptions — the single filtering primitive
-export { subscribe } from "./subscription.ts";
-export type { Subscription, SubscriptionPatterns } from "./subscription.ts";
+// Connections — the single filtering primitive
+export { connection } from "./connection.ts";
+export type { Connection, ConnectionPatterns } from "./connection.ts";
 
 
 // HTTP handler — thin adapter for serving a rig over HTTP

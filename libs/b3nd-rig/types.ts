@@ -7,7 +7,7 @@ import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
 import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
-import type { Subscription } from "./subscription.ts";
+import type { Connection } from "./connection.ts";
 
 /**
  * Factory function for creating a PostgreSQL executor from a connection string.
@@ -127,20 +127,20 @@ export interface RigConfig {
   sseBaseUrl?: string;
 
   /**
-   * Subscriptions — the single filtering primitive.
+   * Connections — the single filtering primitive.
    *
-   * Each subscription wraps a client with URI patterns that control routing.
-   * Writes broadcast to all matching subscriptions; reads try first match.
+   * Each connection wraps a client with URI patterns that control routing.
+   * Writes broadcast to all matching connections; reads try first match.
    * The same patterns can be published over the wire for remote filtering.
    *
    * ```typescript
    * const rig = await Rig.init({
-   *   subscriptions: [
-   *     subscribe(httpClient, {
+   *   connections: [
+   *     connection(httpClient, {
    *       receive: ["mutable://*", "hash://*"],
    *       read: ["mutable://*", "hash://*"],
    *     }),
-   *     subscribe(memoryClient, {
+   *     connection(memoryClient, {
    *       receive: ["local://*"],
    *       read: ["local://*"],
    *     }),
@@ -148,7 +148,7 @@ export interface RigConfig {
    * });
    * ```
    */
-  subscriptions?: Subscription[];
+  connections?: Connection[];
 
 
   /**

@@ -736,7 +736,7 @@ const rig = await Rig.init({ url: "https://node.example.com" });
 Different URIs go to different backends. The rig inspects `accepts()` on each client and routes accordingly.
 
 ```typescript
-import { Rig, subscribe } from "@b3nd/rig";
+import { Rig, connection } from "@b3nd/rig";
 import { HttpClient } from "@b3nd/client-http";
 import { MemoryClient } from "@b3nd/client-memory";
 
@@ -744,14 +744,14 @@ const remote = new HttpClient({ url: "https://node.example.com" });
 const local = new MemoryClient();
 
 const rig = await Rig.init({
-  subscriptions: [
-    subscribe(remote, {
+  connections: [
+    connection(remote, {
       receive: ["mutable://*", "hash://*"],
       read: ["mutable://*", "hash://*"],
       list: ["mutable://*"],
       delete: ["mutable://*"],
     }),
-    subscribe(local, {
+    connection(local, {
       receive: ["local://*"],
       read: ["local://*"],
       list: ["local://*"],
@@ -796,12 +796,12 @@ const primary = new HttpClient({ url: "https://primary.example.com" });
 const replica = new HttpClient({ url: "https://replica.example.com" });
 
 const rig = await Rig.init({
-  subscriptions: [
-    subscribe(primary, {
+  connections: [
+    connection(primary, {
       receive: ["mutable://*"],
       read: ["mutable://*"],
     }),
-    subscribe(replica, {
+    connection(replica, {
       receive: ["mutable://*"],
       // no read — replica is write-only from the rig's perspective
     }),
@@ -823,8 +823,8 @@ A client without `accepts()` is treated as accepting all operations and URIs. Th
 
 ```typescript
 const rig = await Rig.init({
-  subscriptions: [
-    subscribe(special, { receive: ["special://*"], read: ["special://*"] }),
+  connections: [
+    connection(special, { receive: ["special://*"], read: ["special://*"] }),
     generalClient, // no filter — catches everything else
   ],
 });
@@ -832,9 +832,9 @@ const rig = await Rig.init({
 
 ---
 
-### Per-operation routing (subscriptions)
+### Per-operation routing (connections)
 
-Explicit per-operation routing via subscriptions. Each subscription declares which operations it handles.
+Explicit per-operation routing via connections. Each connection declares which operations it handles.
 
 ```typescript
 const pgClient = await createClientFromUrl("postgresql://primary", {
@@ -843,9 +843,9 @@ const pgClient = await createClientFromUrl("postgresql://primary", {
 const cacheClient = new MemoryClient();
 
 const rig = await Rig.init({
-  subscriptions: [
-    subscribe(cacheClient, { read: ["mutable://*", "hash://*"] }),
-    subscribe(pgClient, {
+  connections: [
+    connection(cacheClient, { read: ["mutable://*", "hash://*"] }),
+    connection(pgClient, {
       receive: ["mutable://*", "immutable://*", "hash://*"],
       read: ["mutable://*", "immutable://*", "hash://*"],
       list: ["mutable://*"],
@@ -1033,12 +1033,12 @@ const innerRig = await Rig.init({
 });
 
 const outerRig = await Rig.init({
-  subscriptions: [
-    subscribe(innerRig, {
+  connections: [
+    connection(innerRig, {
       receive: ["local://*"],
       read: ["local://*"],
     }),
-    subscribe(httpClient, {
+    connection(httpClient, {
       receive: ["mutable://*"],
       read: ["mutable://*"],
     }),
@@ -1139,12 +1139,12 @@ const remote = new HttpClient({ url: "https://node.example.com" });
 const cache = new MemoryClient();
 
 const rig = await Rig.init({
-  subscriptions: [
-    subscribe(remote, {
+  connections: [
+    connection(remote, {
       receive: ["mutable://*", "hash://*"],
       read: ["mutable://*", "hash://*"],
     }),
-    subscribe(cache, {
+    connection(cache, {
       receive: ["local://*"],
       read: ["local://*"],
       list: ["local://*"],
@@ -1184,14 +1184,14 @@ const fs = await createClientFromUrl("file:///var/data/blobs", {
 
 const rig = await Rig.init({
   schema: appSchema,
-  subscriptions: [
-    subscribe(pg, {
+  connections: [
+    connection(pg, {
       receive: ["mutable://*"],
       read: ["mutable://*"],
       list: ["mutable://*"],
       delete: ["mutable://*"],
     }),
-    subscribe(fs, {
+    connection(fs, {
       receive: ["hash://*"],
       read: ["hash://*"],
     }),
@@ -1352,8 +1352,8 @@ When using filtered clients, a URI that no client accepts returns an error resul
 
 ```typescript
 const rig = await Rig.init({
-  subscriptions: [
-    subscribe(client, { receive: ["mutable://*"], read: ["mutable://*"] }),
+  connections: [
+    connection(client, { receive: ["mutable://*"], read: ["mutable://*"] }),
   ],
 });
 

@@ -7,7 +7,7 @@ import {
 import { Rig } from "./rig.ts";
 import { AuthenticatedRig } from "./authenticated-rig.ts";
 import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
-import { subscribe } from "./subscription.ts";
+import { connection } from "./connection.ts";
 
 // ── Identity tests ──
 
@@ -527,9 +527,9 @@ Deno.test("Rig.init - multi-client dispatch composes correctly", async () => {
   const clientA = new MemoryClient();
   const clientB = new MemoryClient();
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(clientA, { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
-      subscribe(clientB, { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+    connections: [
+      connection(clientA, { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+      connection(clientB, { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
     ],
   });
   await rig.receive(["mutable://open/multi", "shared"]);
@@ -1389,12 +1389,12 @@ Deno.test("Rig.init - schema rejects invalid domain", async () => {
   await rig.cleanup();
 });
 
-Deno.test("Rig.init - multi-subscription dispatch with schema validates receive", async () => {
+Deno.test("Rig.init - multi-connection dispatch with schema validates receive", async () => {
   const schema = createTestSchema();
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
-      subscribe(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+    connections: [
+      connection(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+      connection(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
     ],
     schema,
   });
@@ -1407,12 +1407,12 @@ Deno.test("Rig.init - multi-subscription dispatch with schema validates receive"
   await rig.cleanup();
 });
 
-Deno.test("Rig.init - multi-subscription dispatch with schema rejects invalid domain", async () => {
+Deno.test("Rig.init - multi-connection dispatch with schema rejects invalid domain", async () => {
   const schema = createTestSchema();
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
-      subscribe(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+    connections: [
+      connection(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
+      connection(new MemoryClient(), { receive: ["mutable://*", "immutable://*", "hash://*", "local://*"], read: ["mutable://*", "immutable://*", "hash://*", "local://*"] }),
     ],
     schema,
   });
@@ -2337,9 +2337,9 @@ Deno.test("Rig.observe - runtime observe works", async () => {
   await rig.cleanup();
 });
 
-// ── Per-operation subscription routing tests ──
+// ── Per-operation connection routing tests ──
 
-Deno.test("Rig subscriptions - per-op routing uses separate backends", async () => {
+Deno.test("Rig connections - per-op routing uses separate backends", async () => {
   const writeClient = new MemoryClient();
   const readClient = new MemoryClient();
 
@@ -2347,9 +2347,9 @@ Deno.test("Rig subscriptions - per-op routing uses separate backends", async () 
   await readClient.receive(["mutable://open/cached", { from: "cache" }]);
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(writeClient, { receive: ["mutable://*", "immutable://*", "hash://*"] }),
-      subscribe(readClient, { read: ["mutable://*", "immutable://*", "hash://*"] }),
+    connections: [
+      connection(writeClient, { receive: ["mutable://*", "immutable://*", "hash://*"] }),
+      connection(readClient, { read: ["mutable://*", "immutable://*", "hash://*"] }),
     ],
   });
 
@@ -2401,9 +2401,9 @@ Deno.test("Rig dispatch - getSchema unions all clients", async () => {
   await c2.receive(["hash://sha256/abc", "data"]);
 
   const rig = await Rig.init({
-    subscriptions: [
-      subscribe(c1, { receive: ["mutable://*"], read: ["mutable://*"] }),
-      subscribe(c2, { receive: ["hash://*"], read: ["hash://*"] }),
+    connections: [
+      connection(c1, { receive: ["mutable://*"], read: ["mutable://*"] }),
+      connection(c2, { receive: ["hash://*"], read: ["hash://*"] }),
     ],
   });
 

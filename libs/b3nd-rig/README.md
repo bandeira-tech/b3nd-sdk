@@ -93,23 +93,23 @@ const unsub = rig.subscribe<T>(uri, (value) => render(value));
 unsub(); // stop
 ```
 
-## Subscriptions
+## Connections
 
 Clients declare what URIs they accept per-operation. The rig routes
 automatically.
 
 ```typescript
-import { Rig, subscribe } from "@b3nd/rig";
+import { Rig, connection } from "@b3nd/rig";
 
 const rig = await Rig.init({
-  subscriptions: [
+  connections: [
     // Read-only cache (tried first for reads)
-    subscribe(redisClient, {
+    connection(redisClient, {
       read: ["mutable://accounts/:key/*", "hash://sha256/*"],
     }),
 
     // Primary storage (reads + writes)
-    subscribe(postgresClient, {
+    connection(postgresClient, {
       receive: ["mutable://*", "immutable://*", "hash://*", "link://*"],
       read: ["mutable://*", "immutable://*", "hash://*", "link://*"],
       list: ["mutable://*", "immutable://*"],
@@ -117,7 +117,7 @@ const rig = await Rig.init({
     }),
 
     // Local-only (never leaves the device)
-    subscribe(memoryClient, {
+    connection(memoryClient, {
       receive: ["local://*", "rig://*"],
       read: ["local://*", "rig://*"],
     }),
@@ -125,8 +125,8 @@ const rig = await Rig.init({
 });
 ```
 
-Writes broadcast to all accepting subscriptions. Reads try accepting
-subscriptions in order (first success wins — put cache before primary).
+Writes broadcast to all accepting connections. Reads try accepting
+connections in order (first success wins — put cache before primary).
 Unfiltered clients accept everything (backwards compat).
 
 Patterns use the same Express-style matching as observe: `:param` captures a
@@ -272,7 +272,7 @@ const rig = await Rig.init({
   hooks: { ... },                           // frozen after init
   on: { ... },                              // event handlers
   observe: { ... },                         // URI pattern reactions
-  subscriptions: [ ... ],                    // subscribe() client array
+  connections: [ ... ],                       // connection() client array
 });
 ```
 
