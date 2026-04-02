@@ -318,9 +318,9 @@ const TOOLS = [
     },
   },
   {
-    name: "b3nd_health",
+    name: "b3nd_status",
     description:
-      "Check the health status of the active B3nd backend (or a specific backend).",
+      "Get the status (health + available programs) of the active B3nd backend (or a specific backend).",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -328,21 +328,6 @@ const TOOLS = [
           type: "string",
           description:
             "Optional: specific backend to check (defaults to active backend)",
-        },
-      },
-    },
-  },
-  {
-    name: "b3nd_schema",
-    description:
-      "Get the schema (available protocols) from the active B3nd backend.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        backend: {
-          type: "string",
-          description:
-            "Optional: specific backend to query (defaults to active backend)",
         },
       },
     },
@@ -780,10 +765,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case "b3nd_health": {
+      case "b3nd_status": {
         const { backend: backendName } = args as { backend?: string };
         const { client, config } = getClient(backendName);
-        const result = await client.health();
+        const result = await client.status();
         return {
           content: [
             {
@@ -793,30 +778,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   backend: config.name,
                   url: config.url,
                   status: result.status,
+                  programs: result.programs,
                   message: result.message,
                   details: result.details,
-                },
-                null,
-                2,
-              ),
-            },
-          ],
-        };
-      }
-
-      case "b3nd_schema": {
-        const { backend: backendName } = args as { backend?: string };
-        const { client, config } = getClient(backendName);
-        const schemas = await client.getSchema();
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  backend: config.name,
-                  url: config.url,
-                  protocols: schemas,
                 },
                 null,
                 2,
@@ -1063,8 +1027,8 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
   }
 
   try {
-    const schemas = await active.client.getSchema();
-    const resources = schemas.map((protocol) => ({
+    const statusResult = await active.client.status();
+    const resources = statusResult.programs.map((protocol: string) => ({
       uri: `b3nd://${active.config.name}/${protocol}`,
       name: `${protocol} (${active.config.name})`,
       description: `B3nd protocol: ${protocol} on ${active.config.name}`,

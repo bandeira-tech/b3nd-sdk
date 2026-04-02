@@ -25,7 +25,7 @@
 
 ### How Indexers Fit into the Existing B3nd Node Architecture
 
-B3nd nodes today implement `NodeProtocolInterface` with six operations: `receive`, `read`, `readMulti`, `list`, `delete`, and `health`. All state changes flow through `receive(msg)`, where `msg` is a `[uri, data]` tuple. Nodes validate messages against a schema, then persist them to one or more backends (Memory, Postgres, MongoDB, HTTP) via compositors like `parallelBroadcast` and `firstMatchSequence`.
+B3nd nodes today implement `NodeProtocolInterface` with operations: `receive`, `read`, `readMulti`, `list`, `delete`, and `status`. All state changes flow through `receive(msg)`, where `msg` is a `[uri, data]` tuple. Nodes validate messages against a schema, then persist them to one or more backends (Memory, Postgres, MongoDB, HTTP) via compositors like `parallelBroadcast` and `firstMatchSequence`.
 
 An **Indexer** is a separate process that:
 
@@ -740,8 +740,7 @@ export class HttpIndexerClient implements IndexerClientInterface {
   readMulti<T>(uris: string[]) { return this.nodeClient.readMulti<T>(uris); }
   list(uri: string, opts?: ListOptions) { return this.nodeClient.list(uri, opts); }
   delete(uri: string) { return this.nodeClient.delete(uri); }
-  health() { return this.nodeClient.health(); }
-  getSchema() { return this.nodeClient.getSchema(); }
+  status() { return this.nodeClient.status(); }
   cleanup() { return this.nodeClient.cleanup(); }
 
   // Indexer-specific operations
@@ -1153,8 +1152,7 @@ const smartClient = new FunctionalClient({
     return nodeClient.list(uri, options);
   },
   delete: (uri) => nodeClient.delete(uri),
-  health: () => nodeClient.health(),
-  getSchema: () => nodeClient.getSchema(),
+  status: () => nodeClient.status(),
   cleanup: () => nodeClient.cleanup(),
 });
 ```
