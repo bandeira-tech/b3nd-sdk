@@ -12,7 +12,7 @@ Deno.test("createRigHandler - status endpoint", async () => {
     ],
     schema: createTestSchema(),
   });
-  const handler = rig.handler({ healthMeta: { test: true } });
+  const handler = rig.handler({ statusMeta: { test: true } });
   const res = await handler(new Request("http://localhost/api/v1/status"));
   const body = await res.json();
   assertEquals(body.status, "healthy");

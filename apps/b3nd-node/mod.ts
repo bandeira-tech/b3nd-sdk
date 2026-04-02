@@ -88,7 +88,7 @@ const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
 
 // The rig produces a generic fetch handler — the app owns the server.
 const b3ndHandler = rig.handler({
-  healthMeta: { backends: backendTypes },
+  statusMeta: { backends: backendTypes },
 });
 
 // CORS and port binding are the app's responsibility.

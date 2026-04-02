@@ -262,7 +262,7 @@ const rig = new Rig({
 ## HTTP Handler
 
 ```typescript
-const handler = rig.handler({ healthMeta: { version: "1.0" } });
+const handler = rig.handler({ statusMeta: { version: "1.0" } });
 Deno.serve({ port: 3000 }, handler);
 ```
 

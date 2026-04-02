@@ -540,8 +540,9 @@ export async function del(uri: string, verbose = false): Promise<void> {
     // } else {
     //   throw new Error(result.error || "Delete failed");
     // }
-    console.log(`Delete is not yet supported in the new rig API`);
-    console.log(`  URI: ${uri}`);
+    console.error(`Delete is not yet supported in the new rig API`);
+    console.error(`  URI: ${uri}`);
+    Deno.exit(1);
   } finally {
     await closeRig(logger);
   }

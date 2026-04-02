@@ -20,7 +20,7 @@ import type { RigEvent } from "./events.ts";
 
 export interface RigHandlerOptions {
   /** Extra metadata merged into status responses. */
-  healthMeta?: Record<string, unknown>;
+  statusMeta?: Record<string, unknown>;
 }
 
 // ── Binary deserialization ──
@@ -122,7 +122,7 @@ export function createRigHandler(
   rig: Rig,
   options?: RigHandlerOptions,
 ): (req: Request) => Promise<Response> {
-  const healthMeta = options?.healthMeta;
+  const statusMeta = options?.statusMeta;
 
   // ── SSE subscriber tracking ──
   // Each subscriber has a prefix and a write function.
@@ -163,7 +163,7 @@ export function createRigHandler(
       (path === "/api/v1/status" || path === "/api/v1/health")
     ) {
       const res = await rig.status();
-      const body = healthMeta ? { ...res, ...healthMeta } : res;
+      const body = statusMeta ? { ...res, ...statusMeta } : res;
       return json(body, res.status === "healthy" ? 200 : 503);
     }
 

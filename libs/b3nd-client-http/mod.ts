@@ -262,8 +262,10 @@ export class HttpClient implements NodeProtocolInterface {
   private async _list<T>(uri: string): Promise<ReadResult<T>[]> {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
-      const pathPart = path === "/" ? "" : path;
-      const requestPath = `/api/v1/list/${protocol}/${domain}${pathPart}`;
+      // Use trailing-slash read endpoint — returns ReadResult[] directly,
+      // avoiding the N+1 round-trip of the old /api/v1/list/ + re-fetch pattern.
+      const trailingPath = path.endsWith("/") ? path : `${path}/`;
+      const requestPath = `/api/v1/read/${protocol}/${domain}${trailingPath}`;
 
       const response = await this.request(requestPath, {
         method: "GET",
@@ -274,22 +276,11 @@ export class HttpClient implements NodeProtocolInterface {
         return [];
       }
 
-      const result = await response.json();
+      const results = await response.json();
 
-      // API returns { data: [{ uri }] } — fetch each entry
-      if (result.data && Array.isArray(result.data)) {
-        const results: ReadResult<T>[] = [];
-        for (const item of result.data) {
-          const readResult = await this._readOne<T>(item.uri);
-          if (readResult.success && readResult.record) {
-            results.push({
-              success: true,
-              uri: item.uri,
-              record: readResult.record,
-            });
-          }
-        }
-        return results;
+      // Server returns ReadResult[] for trailing-slash reads
+      if (Array.isArray(results)) {
+        return results as ReadResult<T>[];
       }
 
       return [];

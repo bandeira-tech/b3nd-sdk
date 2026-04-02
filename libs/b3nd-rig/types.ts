@@ -268,6 +268,6 @@ export interface SubscribeOptions {
  * Options for rig.handler().
  */
 export interface HandlerOptions {
-  /** Extra metadata to include in health response. */
-  healthMeta?: Record<string, unknown>;
+  /** Extra metadata to include in status response. */
+  statusMeta?: Record<string, unknown>;
 }

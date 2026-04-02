@@ -344,7 +344,8 @@ export class Rig {
     // After-hook + events per result
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
-      const uri = finalUris[Math.min(i, finalUris.length - 1)];
+      const requestUri = finalUris[Math.min(i, finalUris.length - 1)];
+      const uri = result.uri ?? requestUri;
       await runAfter(this._hooks.afterRead, { uri }, result);
 
       if (result.success) {
@@ -407,7 +408,7 @@ export class Rig {
   async count(uri: string): Promise<number> {
     const prefix = uri.endsWith("/") ? uri : `${uri}/`;
     const results = await this.read(prefix);
-    return results.length;
+    return results.filter((r) => r.success).length;
   }
 
   /**
@@ -939,7 +940,7 @@ export class Rig {
    * ```
    */
   handler(options?: {
-    healthMeta?: Record<string, unknown>;
+    statusMeta?: Record<string, unknown>;
   }): (req: Request) => Promise<Response> {
     return createRigHandler(this, options);
   }
