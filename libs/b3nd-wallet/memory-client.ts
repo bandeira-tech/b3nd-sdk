@@ -16,7 +16,7 @@
  * });
  *
  * // Tests - share same backend between wallet and direct operations
- * const backend = new MemoryClient({ programs: ["mutable://accounts", "immutable://accounts"] });
+ * const backend = new MemoryClient();
  * const wallet = await MemoryWalletClient.create({ backend });
  *
  * // Same API works for both
@@ -77,7 +77,7 @@ export interface MemoryWalletClientConfig {
    *
    * @example
    * ```typescript
-   * const backend = new MemoryClient({ programs: [...] });
+   * const backend = new MemoryClient();
    * const wallet = await MemoryWalletClient.create({ backend });
    *
    * // Both use the same storage

@@ -211,24 +211,21 @@ All clients implement:
 ```typescript
 interface NodeProtocolInterface {
   receive<D>(msg: Message<D>): Promise<ReceiveResult>;
-  read<T>(uri: string): Promise<ReadResult<T>>;
-  readMulti<T>(uris: string[]): Promise<ReadMultiResult<T>>;
-  list(uri: string, options?: ListOptions): Promise<ListResult>;
-  delete(uri: string): Promise<DeleteResult>;
-  health(): Promise<HealthStatus>;
-  getSchema(): Promise<string[]>;
-  cleanup(): Promise<void>;
+  read<T>(uri: string | string[]): Promise<ReadResult<T>[]>;
+  status(): Promise<StatusResult>;
 }
 ```
 
 `receive()` is the fundamental write operation — every state change flows
 through it. This is the unidirectional flow: messages go in, state comes out.
 
-`list()` returns flat results — all URIs matching the prefix:
+`read()` accepts a single URI string or an array of URI strings and always
+returns `ReadResult[]`. A trailing slash on the URI acts as a list/prefix
+query — `client.read("mutable://open/my-app/")` returns all children under
+that prefix.
 
-```typescript
-interface ListItem { uri: string; }
-```
+`status()` returns node health information and the available schema (program
+keys).
 
 ### Basic Operations
 
@@ -243,15 +240,18 @@ const client = new HttpClient({ url: "http://localhost:9942" });
 // Write — single message
 await client.receive(["mutable://open/my-app/config", { theme: "dark" }]);
 
-// Read
-const result = await client.read("mutable://open/my-app/config");
+// Read (always returns ReadResult[])
+const [result] = await client.read("mutable://open/my-app/config");
 console.log(result.record?.data); // { theme: "dark" }
 
-// List
-const items = await client.list("mutable://open/my-app/");
+// List (trailing slash = prefix query)
+const items = await client.read("mutable://open/my-app/");
 
-// Delete
-await client.delete("mutable://open/my-app/config");
+// Read multiple URIs at once
+const results = await client.read([
+  "mutable://open/my-app/config",
+  "mutable://open/my-app/status",
+]);
 ```
 
 ### The send() and message() API
@@ -379,14 +379,14 @@ const client = createValidatedClient({
 const client = new FunctionalClient({
   receive: async (msg) => backend.receive(msg),
   read: async (uri) => backend.read(uri),
-  list: async (uri, options) => backend.list(uri, options),
 });
 ```
 
 ### URI Design
 
 URI paths work like filesystem directories. Data at a leaf URI is a resource.
-Prefix listing (`client.list("prefix/")`) enumerates children.
+Prefix listing (`client.read("prefix/")`) enumerates children (trailing slash
+signals a list query).
 
 ### Privacy Levels
 
@@ -737,7 +737,7 @@ const schema: Schema = {
 };
 
 Deno.test("accepts valid account write", async () => {
-  const client = new MemoryClient({ programs: Object.keys(schema) });
+  const client = new MemoryClient();
   const result = await send({
     payload: {
       inputs: [],
@@ -745,11 +745,10 @@ Deno.test("accepts valid account write", async () => {
     },
   }, client);
   assertEquals(result.accepted, true);
-  await client.cleanup();
 });
 
 Deno.test("rejects invalid account write", async () => {
-  const client = new MemoryClient({ programs: Object.keys(schema) });
+  const client = new MemoryClient();
   const result = await send({
     payload: {
       inputs: [],
@@ -758,7 +757,6 @@ Deno.test("rejects invalid account write", async () => {
   }, client);
   assertEquals(result.accepted, false);
   assertEquals(result.error, "mutable://accounts: Value must be an object");
-  await client.cleanup();
 });
 
 // Test cross-program reads: pre-populate state, then validate against it
@@ -772,16 +770,15 @@ Deno.test("validator reads cross-program state", async () => {
     },
     "link://accounts": async () => ({ valid: true }),
   };
-  const client = new MemoryClient({ programs: Object.keys(crossSchema) });
+  const client = new MemoryClient();
 
   // Pre-populate: register the account
   await client.receive(["link://accounts/alice/auth", { active: true }]);
 
   // Now the balance write should succeed (cross-program read finds the auth)
   await client.receive(["mutable://balances/alice/balance", { amount: 100 }]);
-  const result = await client.read("mutable://balances/alice/balance");
+  const [result] = await client.read("mutable://balances/alice/balance");
   assertEquals(result.record?.data, { amount: 100 });
-  await client.cleanup();
 });
 ```
 
@@ -905,7 +902,7 @@ const publishingProtocol: Schema = {
 import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";
 
-const client = new MemoryClient({ programs: Object.keys(publishingProtocol) });
+const client = new MemoryClient();
 
 // 1. User publishes content
 const post = { title: "Hello World", body: "First post on B3nd" };
@@ -924,8 +921,8 @@ await send({
 }, client);
 
 // 2. Read the latest post via the link
-const link = await client.read<string>("link://posts/latest");
-const content = await client.read(link.record!.data);
+const [link] = await client.read<string>("link://posts/latest");
+const [content] = await client.read(link.record!.data);
 // content.record?.data = { title: "Hello World", body: "First post on B3nd" }
 ```
 
@@ -1083,7 +1080,7 @@ const schema: Schema = {
 import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
-const client = new MemoryClient({ programs: Object.keys(schema) });
+const client = new MemoryClient();
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(9942);
@@ -1094,7 +1091,7 @@ createServerNode({ frontend, client }).listen(9942);
 ```typescript
 const client = new HttpClient({ url: "http://localhost:9942" });
 await client.receive(["mutable://open/notes/1", { text: "Hello world" }]);
-const result = await client.read("mutable://open/notes/1");
+const [result] = await client.read("mutable://open/notes/1");
 ```
 
 This is the "Hello World" of B3nd protocols. Useful for prototyping and local
@@ -1419,9 +1416,10 @@ await send({
 }, client);
 
 // Walk the chain backward from the head
-let current = (await client.read<string>("link://open/chain/head")).record?.data;
+let [head] = await client.read<string>("link://open/chain/head");
+let current = head.record?.data;
 while (current) {
-  const entry = await client.read(current);
+  const [entry] = await client.read(current);
   console.log(entry.record?.data);
   current = entry.record?.data?.previous;
 }
@@ -1524,7 +1522,7 @@ await send({
 }, client);
 
 // Verify: is the user's post confirmed?
-const confirmation = await client.read(
+const [confirmation] = await client.read(
   `link://accounts/confirmer_pubkey_1/confirmed/${userResult.uri}`,
 );
 console.log(confirmation.success); // true — post is confirmed
@@ -1568,7 +1566,7 @@ import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk
 import { Hono } from "hono";
 import schema from "./schema.ts";
 
-const client = new MemoryClient({ programs: Object.keys(schema) });
+const client = new MemoryClient();
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -1580,7 +1578,7 @@ node.listen(43100);
 ```typescript
 const programs = Object.keys(schema);
 const clients = [
-  new MemoryClient({ programs }),
+  new MemoryClient(),
   new PostgresClient({ connection, programs, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 
@@ -1727,11 +1725,8 @@ Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
 | Tool                       | Description                                       |
 | -------------------------- | ------------------------------------------------- |
 | `b3nd_receive`             | Submit message `[uri, data]`                      |
-| `b3nd_read`                | Read data from URI                                |
-| `b3nd_list`                | List items at URI prefix                          |
-| `b3nd_delete`              | Delete data                                       |
-| `b3nd_health`              | Backend health check                              |
-| `b3nd_schema`              | Get available programs                            |
+| `b3nd_read`                | Read data from URI (trailing slash = list)        |
+| `b3nd_status`              | Backend status + available programs               |
 | `b3nd_backends_list`       | List configured backends                          |
 | `b3nd_backends_switch`     | Switch active backend                             |
 | `b3nd_backends_add`        | Add new backend                                   |
@@ -1747,7 +1742,7 @@ Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 
 ```bash
 ./apps/b3nd-cli/bnd read mutable://accounts/{pubkey}/profile
-./apps/b3nd-cli/bnd list mutable://accounts/{pubkey}/
+./apps/b3nd-cli/bnd read mutable://accounts/{pubkey}/   # trailing slash = list
 ./apps/b3nd-cli/bnd config
 ./apps/b3nd-cli/bnd conf node http://localhost:9942
 ```

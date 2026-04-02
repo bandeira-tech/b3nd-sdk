@@ -166,6 +166,20 @@ const appIdentity = await encrypt.deriveKeyFromSeed(appKey, APP_SALT, 100000);
 // App owns: mutable://accounts/{appPubkey}/public-resources
 ```
 
+## Node Protocol Interface
+
+The `NodeProtocolInterface` has 3 methods:
+
+| Method      | Signature                                          | Description                                    |
+| ----------- | -------------------------------------------------- | ---------------------------------------------- |
+| `receive`   | `receive(msg: Message<D>): Promise<ReceiveResult>` | Accept and validate a message                  |
+| `read`      | `read(uri: string \| string[]): Promise<ReadResult[]>` | Read records; trailing slash = list         |
+| `status`    | `status(): Promise<StatusResult>`                  | Node health, schema, and capabilities          |
+
+`read()` accepts a single URI string or an array of URIs. It always returns
+`ReadResult[]`. A trailing slash on a URI (e.g. `"mutable://open/my-app/pages/"`)
+triggers list behavior, returning all records under that prefix.
+
 ## Node Operator Responsibility
 
 Firecat nodes accept messages that pass schema validation. What happens after
@@ -247,7 +261,9 @@ immutable://inbox/{recipientKey}/my-app/notifications/{timestamp}
 
 ### CRUD Operations
 
-Every data operation maps to a client method:
+Every data operation maps to a client method. Note: there is no `delete()`
+method — the protocol does not support deletion. To "remove" data, overwrite
+with a tombstone value or use immutable URIs that are written once.
 
 ```typescript
 import { HttpClient, send } from "@bandeira-tech/b3nd-web";
@@ -261,40 +277,24 @@ await client.receive(["mutable://open/my-app/pages/about", {
   updatedAt: Date.now(),
 }]);
 
-// READ — fetch a single record
-const result = await client.read("mutable://open/my-app/pages/about");
-if (result.success) {
-  console.log(result.record?.data); // { title: "About Us", body: "...", ... }
+// READ — fetch a single record (returns ReadResult[])
+const results = await client.read("mutable://open/my-app/pages/about");
+if (results.length > 0) {
+  console.log(results[0].record?.data); // { title: "About Us", body: "...", ... }
 }
 
-// LIST — enumerate items under a path
-const list = await client.list("mutable://open/my-app/pages/", {
-  limit: 20,
-  page: 1,
-  sortBy: "timestamp",
-  sortOrder: "desc",
-});
-if (list.success) {
-  for (const item of list.data) {
-    console.log(item.uri); // "mutable://open/my-app/pages/about", ...
-  }
-  console.log(list.pagination); // { page: 1, limit: 20, total: 5 }
+// LIST — use a trailing slash to enumerate items under a path
+const listResults = await client.read("mutable://open/my-app/pages/");
+for (const item of listResults) {
+  console.log(item.uri); // "mutable://open/my-app/pages/about", ...
 }
 
-// DELETE — remove a record
-const del = await client.delete("mutable://open/my-app/pages/about");
-console.log(del.success); // true
+// BATCH READ — pass an array of URIs
+const batchResults = await client.read([
+  "mutable://open/my-app/pages/about",
+  "mutable://open/my-app/pages/home",
+]);
 ```
-
-**List options:**
-
-| Option      | Type                     | Description                        |
-| ----------- | ------------------------ | ---------------------------------- |
-| `page`      | `number`                 | Page number (default: 1)           |
-| `limit`     | `number`                 | Items per page (default: 50)       |
-| `pattern`   | `string`                 | Regex filter on URI                |
-| `sortBy`    | `"name" \| "timestamp"` | Sort field                         |
-| `sortOrder` | `"asc" \| "desc"`       | Sort direction                     |
 
 ### Authenticated CRUD (User-Owned Content)
 
@@ -333,8 +333,8 @@ const post = await client.read(
   `mutable://accounts/${user.publicKeyHex}/my-app/posts/my-first-post`,
 );
 
-// LIST all posts by this user
-const posts = await client.list(
+// LIST all posts by this user (trailing slash)
+const posts = await client.read(
   `mutable://accounts/${user.publicKeyHex}/my-app/posts/`,
 );
 
@@ -348,11 +348,6 @@ await client.receive([
   `mutable://accounts/${user.publicKeyHex}/my-app/posts/my-first-post`,
   updated,
 ]);
-
-// DELETE
-await client.delete(
-  `mutable://accounts/${user.publicKeyHex}/my-app/posts/my-first-post`,
-);
 ```
 
 ### Batch Writes with Envelopes
@@ -404,10 +399,9 @@ async function createPage(slug: string, title: string, body: string) {
   await client.receive([pageUri(slug), { title, body, updatedAt: Date.now() }]);
 }
 
-// List all public pages
+// List all public pages (trailing slash = list)
 async function listPages() {
-  const result = await client.list(`mutable://open/${APP}/pages/`);
-  return result.success ? result.data : [];
+  return await client.read(`mutable://open/${APP}/pages/`);
 }
 
 // Create a user post (signed)
@@ -422,16 +416,15 @@ async function createPost(
   await client.receive([postUri(userKey, slug), signed]);
 }
 
-// List all posts by a user
+// List all posts by a user (trailing slash = list)
 async function listUserPosts(userKey: string) {
-  const result = await client.list(postsListUri(userKey));
-  return result.success ? result.data : [];
+  return await client.read(postsListUri(userKey));
 }
 
 // Read a single post
 async function getPost(userKey: string, slug: string) {
-  const result = await client.read(postUri(userKey, slug));
-  return result.success ? result.record?.data : null;
+  const results = await client.read(postUri(userKey, slug));
+  return results.length > 0 ? results[0].record?.data : null;
 }
 
 // Save user profile (signed)
@@ -463,22 +456,20 @@ export function useRecord(uri: string) {
   return useQuery({
     queryKey: ["record", uri],
     queryFn: async () => {
-      const result = await client.read(uri);
-      if (!result.success) throw new Error(result.error);
-      return result.record?.data;
+      const results = await client.read(uri);
+      if (results.length === 0) throw new Error("Not found");
+      return results[0].record?.data;
     },
     enabled: !!uri,
   });
 }
 
-// List records under a URI path
-export function useList(uri: string, options?: { page?: number; limit?: number }) {
+// List records under a URI path (trailing slash)
+export function useList(uri: string) {
   return useQuery({
-    queryKey: ["list", uri, options],
+    queryKey: ["list", uri],
     queryFn: async () => {
-      const result = await client.list(uri, options);
-      if (!result.success) throw new Error(result.error);
-      return result;
+      return await client.read(uri);
     },
     enabled: !!uri,
   });
@@ -521,23 +512,6 @@ export function useSignedWrite(userKey: string, userPrivKey: string) {
     },
   });
 }
-
-// Delete a record
-export function useDelete() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (uri: string) => {
-      const result = await client.delete(uri);
-      if (!result.success) throw new Error(result.error);
-      return result;
-    },
-    onSuccess: (_, uri) => {
-      qc.invalidateQueries({ queryKey: ["record", uri] });
-      const parentUri = uri.substring(0, uri.lastIndexOf("/") + 1);
-      qc.invalidateQueries({ queryKey: ["list", parentUri] });
-    },
-  });
-}
 ```
 
 ### Example: Posts List Component
@@ -546,14 +520,13 @@ export function useDelete() {
 function PostsList({ userKey }: { userKey: string }) {
   const { data, isLoading } = useList(
     `mutable://accounts/${userKey}/my-app/posts/`,
-    { limit: 20 },
   );
 
   if (isLoading) return <div>Loading...</div>;
 
   return (
     <div className="space-y-4">
-      {data?.data.map((item) => (
+      {data?.map((item) => (
         <PostCard key={item.uri} uri={item.uri} />
       ))}
     </div>
@@ -628,45 +601,44 @@ schema above.
 { "imports": { "@bandeira-tech/b3nd-sdk": "jsr:@bandeira-tech/b3nd-sdk" } }
 
 import {
-  createServerNode, createValidatedClient, firstMatchSequence,
-  FunctionalClient, HttpClient, MemoryClient, MongoClient, msgSchema,
-  parallelBroadcast, PostgresClient, send, servers,
+  connection, HttpClient, MemoryClient, MongoClient, msgSchema,
+  PostgresClient, Rig, send, servers,
 } from "@bandeira-tech/b3nd-sdk";
 ```
 
 ### HTTP Server with Hono
 
 ```typescript
-import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
+import { connection, MemoryClient, Rig, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
 // Import or define the Firecat schema
 import firecatSchema from "./firecat-schema.ts";
 
-const client = new MemoryClient({ programs: Object.keys(firecatSchema) });
+const client = new MemoryClient();
 const app = new Hono();
 const frontend = servers.httpServer(app);
-const node = createServerNode({ frontend, client });
-node.listen(43100);
+const rig = new Rig({
+  connections: [connection(client, { receive: ["*"], read: ["*"] })],
+  schema: firecatSchema,
+  frontend,
+});
+rig.listen(43100);
 ```
 
 ### Multi-Backend Server
 
 ```typescript
-const firecatPrograms = Object.keys(firecatSchema);
 const clients = [
-  new MemoryClient({ programs: firecatPrograms }),
-  new PostgresClient({ connection, programs: firecatPrograms, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new MemoryClient(),
+  new PostgresClient({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 
-const client = createValidatedClient({
-  receive: parallelBroadcast(clients),
-  read: firstMatchSequence(clients),
-  validate: msgSchema(firecatSchema),
+const rig = new Rig({
+  connections: clients.map((c) => connection(c, { receive: ["*"], read: ["*"] })),
+  schema: firecatSchema,
+  frontend: servers.httpServer(app),
 });
-
-const frontend = servers.httpServer(app);
-createServerNode({ frontend, client });
 ```
 
 ### PostgreSQL / MongoDB Setup
@@ -675,14 +647,14 @@ createServerNode({ frontend, client });
 // Postgres
 const pg = new PostgresClient({
   connection: "postgresql://user:pass@localhost:5432/db",
-  programs: firecatPrograms, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
+  tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
 }, executor);
 await pg.initializeSchema();
 
 // MongoDB
 const mongo = new MongoClient({
   connectionString: "mongodb://localhost:27017/mydb",
-  programs: firecatPrograms, collectionName: "b3nd_data",
+  collectionName: "b3nd_data",
 }, executor);
 ```
 
@@ -790,20 +762,18 @@ export function useRecord(uri: string) {
   return useQuery({
     queryKey: ["record", uri],
     queryFn: async () => {
-      const result = await client.read(uri);
-      if (!result.success) throw new Error(result.error);
-      return result.record;
+      const results = await client.read(uri);
+      if (results.length === 0) throw new Error("Not found");
+      return results[0].record;
     },
   });
 }
 
-export function useList(uri: string, options?: { page?: number; limit?: number }) {
+export function useList(uri: string) {
   return useQuery({
-    queryKey: ["list", uri, options],
+    queryKey: ["list", uri],
     queryFn: async () => {
-      const result = await client.list(uri, options);
-      if (!result.success) throw new Error(result.error);
-      return result;
+      return await client.read(uri);
     },
   });
 }
@@ -889,18 +859,25 @@ async function main() {
   const command = Deno.args[0];
   switch (command) {
     case "read": {
-      const result = await client.read(Deno.args[1]);
-      if (result.success) console.log(JSON.stringify(result.record?.data, null, 2));
-      else console.error(result.error);
+      const results = await client.read(Deno.args[1]);
+      if (results.length > 0) console.log(JSON.stringify(results[0].record?.data, null, 2));
+      else console.error("Not found");
       break;
     }
     case "list": {
-      const result = await client.list(Deno.args[1], { limit: 10 });
-      if (result.success) console.log(result.data);
+      // Trailing slash triggers list behavior
+      const uri = Deno.args[1].endsWith("/") ? Deno.args[1] : Deno.args[1] + "/";
+      const results = await client.read(uri);
+      console.log(results);
+      break;
+    }
+    case "status": {
+      const status = await client.status();
+      console.log(status);
       break;
     }
     default:
-      console.log("Usage: cli.ts <read|list> <uri>");
+      console.log("Usage: cli.ts <read|list|status> <uri>");
   }
 }
 main();
@@ -920,7 +897,7 @@ import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 import firecatSchema from "./firecat-schema.ts";
 
 Deno.test("send and read on Firecat schema", async () => {
-  const client = new MemoryClient({ programs: Object.keys(firecatSchema) });
+  const client = new MemoryClient();
   const result = await send({
     payload: {
       inputs: [],
@@ -928,9 +905,8 @@ Deno.test("send and read on Firecat schema", async () => {
     },
   }, client);
   assertEquals(result.accepted, true);
-  const read = await client.read("mutable://open/my-app/item1");
-  assertEquals(read.record?.data, { name: "Test" });
-  await client.cleanup();
+  const results = await client.read("mutable://open/my-app/item1");
+  assertEquals(results[0].record?.data, { name: "Test" });
 });
 ```
 
@@ -976,9 +952,9 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
   private client: MemoryClient;
   private storageKey: string;
 
-  constructor(config: { programs: string[] }, storageKey: string) {
+  constructor(storageKey: string) {
     this.storageKey = storageKey;
-    this.client = new MemoryClient(config);
+    this.client = new MemoryClient();
     this.loadFromStorage();
   }
 
@@ -987,7 +963,7 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
     this.persistStorage();
     return result;
   }
-  // read/list/delete/health/getSchema/cleanup delegate to this.client
+  // read/status delegate to this.client
 }
 ```
 

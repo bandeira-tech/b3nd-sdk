@@ -24,12 +24,12 @@ await client.receive([
 ]);
 
 // Anyone can read it
-const result = await client.read("mutable://open/my-app/announcements/hello");
-console.log(result.record?.data);
+const results = await client.read("mutable://open/my-app/announcements/hello");
+console.log(results[0]?.record?.data);
 // → { text: "Hello everyone!", postedAt: 1708700000000 }
 
-// Anyone can browse all announcements
-const list = await client.list("mutable://open/my-app/announcements/");
+// Anyone can browse all announcements (trailing slash = list)
+const all = await client.read("mutable://open/my-app/announcements/");
 ```
 
 No signature needed. No identity required. Open address, open content. Like a public chalkboard.
@@ -124,11 +124,11 @@ await client.receive([
   request
 ]);
 
-// Bob checks his inbox
-const items = await client.list(`immutable://inbox/${bob.publicKeyHex}/orders/`);
+// Bob checks his inbox (trailing slash = list)
+const items = await client.read(`immutable://inbox/${bob.publicKeyHex}/orders/`);
 
 // Bob reads the request
-const msg = await client.read(items.data[0].uri);
+const msg = (await client.read(items[0].uri!))[0];
 
 // Bob sends a reply to Alice's inbox
 const response = await encrypt.createAuthenticatedMessageWithHex(
@@ -142,8 +142,7 @@ await client.receive([
   response
 ]);
 
-// Cleanup
-await client.delete(items.data[0].uri);
+// Message processed — move on to the next
 ```
 
 Two messages. Two inboxes. A complete request-response dialogue.
@@ -383,7 +382,7 @@ const programs = [
   "hash://sha256",
 ];
 
-const client = new MemoryClient({ programs });
+const client = new MemoryClient();
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -406,17 +405,17 @@ A node is a post office. The programs are the house rules. `listen()` means "ope
 
 ```typescript
 // Find the last known good state
-const trail = await client.read(`link://accounts/${auditorKey}/trail/latest`);
-let cursor = trail.record?.data.ref;
+const trail = (await client.read(`link://accounts/${auditorKey}/trail/latest`))[0];
+let cursor = trail?.record?.data.ref;
 
 // Walk backward to find the checkpoint
 while (cursor) {
-  const entry = await client.read(cursor);
-  if (entry.record?.data.type === "checkpoint") {
+  const entry = (await client.read(cursor))[0];
+  if (entry?.record?.data.type === "checkpoint") {
     console.log("Found checkpoint:", entry.record.data);
     break;
   }
-  cursor = entry.record?.data.previous
+  cursor = entry?.record?.data.previous
     ? `hash://sha256/${entry.record.data.previous}`
     : null;
 }
@@ -454,7 +453,7 @@ const [readA, readB] = await Promise.all([
   nodeB.read("mutable://open/test/consistency-check"),
 ]);
 
-console.log("Consistent:", JSON.stringify(readA.record?.data) === JSON.stringify(readB.record?.data));
+console.log("Consistent:", JSON.stringify(readA[0]?.record?.data) === JSON.stringify(readB[0]?.record?.data));
 ```
 
 Same input, two nodes. Compare outputs. If they disagree, investigate.

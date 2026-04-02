@@ -60,6 +60,11 @@ perspective it *receives* a message. The fundamental write operation is called
 higher-level helper that batches multiple writes into a single content-addressed
 envelope.
 
+**Node interface:** `NodeProtocolInterface` exposes exactly 3 methods:
+- `receive(message)` — write data to a URI
+- `read(uri)` — fetch one or more records; accepts `string | string[]`, always returns `ReadResult[]`; a trailing slash means "list" (e.g. `"mutable://open/my-app/pages/"`)
+- `status()` — returns node health, capabilities, and schema
+
 ---
 
 ## URI Design for App Entities
@@ -95,7 +100,10 @@ immutable://inbox/{recipientKey}/my-app/notifications/{timestamp}
 
 ## CRUD Operations
 
-Every data operation maps to a client method:
+Every data operation maps to a client method. The node interface has 3
+methods: `receive`, `read`, and `status`. `read()` accepts `string | string[]`
+and always returns `ReadResult[]`. A URI with a trailing slash is a list
+operation.
 
 ```typescript
 import { HttpClient, send } from "@bandeira-tech/b3nd-web";
@@ -109,40 +117,27 @@ await client.receive(["mutable://open/my-app/pages/about", {
   updatedAt: Date.now(),
 }]);
 
-// READ — fetch a single record
-const result = await client.read("mutable://open/my-app/pages/about");
-if (result.success) {
-  console.log(result.record?.data); // { title: "About Us", body: "...", ... }
+// READ — fetch a single record (returns ReadResult[])
+const results = await client.read("mutable://open/my-app/pages/about");
+const record = results[0];
+if (record?.success) {
+  console.log(record.record?.data); // { title: "About Us", body: "...", ... }
 }
 
-// LIST — enumerate items under a path
-const list = await client.list("mutable://open/my-app/pages/", {
-  limit: 20,
-  page: 1,
-  sortBy: "timestamp",
-  sortOrder: "desc",
-});
-if (list.success) {
-  for (const item of list.data) {
-    console.log(item.uri); // "mutable://open/my-app/pages/about", ...
-  }
-  console.log(list.pagination); // { page: 1, limit: 20, total: 5 }
+// LIST — pass a URI with a trailing slash (returns ReadResult[])
+const list = await client.read("mutable://open/my-app/pages/");
+for (const item of list) {
+  console.log(item.uri); // "mutable://open/my-app/pages/about", ...
 }
 
-// DELETE — remove a record
-const del = await client.delete("mutable://open/my-app/pages/about");
-console.log(del.success); // true
+// STATUS — node health, capabilities, schema
+const status = await client.status();
+console.log(status);
 ```
 
-**List options:**
-
-| Option      | Type                     | Description                        |
-| ----------- | ------------------------ | ---------------------------------- |
-| `page`      | `number`                 | Page number (default: 1)           |
-| `limit`     | `number`                 | Items per page (default: 50)       |
-| `pattern`   | `string`                 | Regex filter on URI                |
-| `sortBy`    | `"name" \| "timestamp"` | Sort field                         |
-| `sortOrder` | `"asc" \| "desc"`       | Sort direction                     |
+> **Note:** `delete` has been removed from the node interface. To logically
+> delete a record, write a tombstone value or use an application-level
+> soft-delete pattern.
 
 ---
 
@@ -179,12 +174,13 @@ await client.receive([
 ]);
 
 // READ — works the same as open (no auth needed to read)
-const post = await client.read(
+const results = await client.read(
   `mutable://accounts/${user.publicKeyHex}/my-app/posts/my-first-post`,
 );
+const post = results[0];
 
-// LIST all posts by this user
-const posts = await client.list(
+// LIST all posts by this user (trailing slash = list)
+const posts = await client.read(
   `mutable://accounts/${user.publicKeyHex}/my-app/posts/`,
 );
 
@@ -198,12 +194,10 @@ await client.receive([
   `mutable://accounts/${user.publicKeyHex}/my-app/posts/my-first-post`,
   updated,
 ]);
-
-// DELETE
-await client.delete(
-  `mutable://accounts/${user.publicKeyHex}/my-app/posts/my-first-post`,
-);
 ```
+
+> **Note:** `delete` has been removed from the node interface. Use a
+> signed tombstone write for soft-delete.
 
 ---
 
@@ -258,10 +252,9 @@ async function createPage(slug: string, title: string, body: string) {
   await client.receive([pageUri(slug), { title, body, updatedAt: Date.now() }]);
 }
 
-// List all public pages
+// List all public pages (trailing slash = list, returns ReadResult[])
 async function listPages() {
-  const result = await client.list(`mutable://open/${APP}/pages/`);
-  return result.success ? result.data : [];
+  return await client.read(`mutable://open/${APP}/pages/`);
 }
 
 // Create a user post (signed)
@@ -276,16 +269,15 @@ async function createPost(
   await client.receive([postUri(userKey, slug), signed]);
 }
 
-// List all posts by a user
+// List all posts by a user (trailing slash = list)
 async function listUserPosts(userKey: string) {
-  const result = await client.list(postsListUri(userKey));
-  return result.success ? result.data : [];
+  return await client.read(postsListUri(userKey));
 }
 
 // Read a single post
 async function getPost(userKey: string, slug: string) {
-  const result = await client.read(postUri(userKey, slug));
-  return result.success ? result.record?.data : null;
+  const results = await client.read(postUri(userKey, slug));
+  return results[0]?.success ? results[0].record?.data : null;
 }
 
 // Save user profile (signed)
@@ -314,27 +306,27 @@ import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 
 const client = new HttpClient({ url: config.backend });
 
-// Read a single record by URI
+// Read a single record by URI (read returns ReadResult[])
 export function useRecord(uri: string) {
   return useQuery({
     queryKey: ["record", uri],
     queryFn: async () => {
-      const result = await client.read(uri);
-      if (!result.success) throw new Error(result.error);
+      const results = await client.read(uri);
+      const result = results[0];
+      if (!result?.success) throw new Error(result?.error ?? "not found");
       return result.record?.data;
     },
     enabled: !!uri,
   });
 }
 
-// List records under a URI path
-export function useList(uri: string, options?: { page?: number; limit?: number }) {
+// List records under a URI path (trailing slash = list)
+export function useList(uri: string) {
   return useQuery({
-    queryKey: ["list", uri, options],
+    queryKey: ["list", uri],
     queryFn: async () => {
-      const result = await client.list(uri, options);
-      if (!result.success) throw new Error(result.error);
-      return result;
+      const results = await client.read(uri); // uri must end with "/"
+      return results;
     },
     enabled: !!uri,
   });
@@ -376,23 +368,6 @@ export function useSignedWrite(userKey: string, userPrivKey: string) {
     },
   });
 }
-
-// Delete a record
-export function useDelete() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (uri: string) => {
-      const result = await client.delete(uri);
-      if (!result.success) throw new Error(result.error);
-      return result;
-    },
-    onSuccess: (_, uri) => {
-      qc.invalidateQueries({ queryKey: ["record", uri] });
-      const parentUri = uri.substring(0, uri.lastIndexOf("/") + 1);
-      qc.invalidateQueries({ queryKey: ["list", parentUri] });
-    },
-  });
-}
 ```
 
 ### Example: Posts List Component
@@ -401,14 +376,13 @@ export function useDelete() {
 function PostsList({ userKey }: { userKey: string }) {
   const { data, isLoading } = useList(
     `mutable://accounts/${userKey}/my-app/posts/`,
-    { limit: 20 },
   );
 
   if (isLoading) return <div>Loading...</div>;
 
   return (
     <div className="space-y-4">
-      {data?.data.map((item) => (
+      {data?.map((item) => (
         <PostCard key={item.uri} uri={item.uri} />
       ))}
     </div>
@@ -550,20 +524,21 @@ export function useRecord(uri: string) {
   return useQuery({
     queryKey: ["record", uri],
     queryFn: async () => {
-      const result = await client.read(uri);
-      if (!result.success) throw new Error(result.error);
+      const results = await client.read(uri);
+      const result = results[0];
+      if (!result?.success) throw new Error(result?.error ?? "not found");
       return result.record;
     },
   });
 }
 
-export function useList(uri: string, options?: { page?: number; limit?: number }) {
+// List: pass a URI with trailing slash — read() returns ReadResult[]
+export function useList(uri: string) {
   return useQuery({
-    queryKey: ["list", uri, options],
+    queryKey: ["list", uri],
     queryFn: async () => {
-      const result = await client.list(uri, options);
-      if (!result.success) throw new Error(result.error);
-      return result;
+      const results = await client.read(uri); // uri must end with "/"
+      return results;
     },
   });
 }
@@ -608,10 +583,8 @@ function RecordViewer({ uri }: { uri: string }) {
 import { assertEquals } from "@std/assert";
 import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 
-import firecatSchema from "./firecat-schema.ts";
-
 Deno.test("send and read on Firecat schema", async () => {
-  const client = new MemoryClient({ programs: Object.keys(firecatSchema) });
+  const client = new MemoryClient();
   const result = await send({
     payload: {
       inputs: [],
@@ -619,9 +592,8 @@ Deno.test("send and read on Firecat schema", async () => {
     },
   }, client);
   assertEquals(result.accepted, true);
-  const read = await client.read("mutable://open/my-app/item1");
-  assertEquals(read.record?.data, { name: "Test" });
-  await client.cleanup();
+  const results = await client.read("mutable://open/my-app/item1");
+  assertEquals(results[0]?.record?.data, { name: "Test" });
 });
 ```
 
@@ -655,9 +627,9 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
   private client: MemoryClient;
   private storageKey: string;
 
-  constructor(config: { programs: string[] }, storageKey: string) {
+  constructor(storageKey: string) {
     this.storageKey = storageKey;
-    this.client = new MemoryClient(config);
+    this.client = new MemoryClient();
     this.loadFromStorage();
   }
 
@@ -666,7 +638,8 @@ export class PersistedMemoryClient implements NodeProtocolInterface {
     this.persistStorage();
     return result;
   }
-  // read/list/delete/health/getSchema/cleanup delegate to this.client
+  // read/status delegate to this.client
+  // (3 methods: receive, read, status)
 }
 ```
 

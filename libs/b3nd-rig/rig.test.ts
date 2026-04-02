@@ -388,14 +388,14 @@ Deno.test("SUPPORTED_PROTOCOLS - is a readonly array", () => {
 
 // ── Rig tests ──
 
-Deno.test("Rig.init - with memory backend", async () => {
+Deno.test("Rig -with memory backend", async () => {
   const rig = new Rig({ connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })] });
   const health = await rig.status();
   assertEquals(health.status, "healthy");
 
 });
 
-Deno.test("Rig.init - with pre-built client", async () => {
+Deno.test("Rig -with pre-built client", async () => {
   const client = new MemoryClient();
   const rig = new Rig({ connections: [connection(client, { receive: ["*"], read: ["*"] })] });
   const health = await rig.status();
@@ -500,7 +500,7 @@ Deno.test("Rig.client - exposes underlying client", async () => {
 
 });
 
-Deno.test("Rig.init - multi-client dispatch composes correctly", async () => {
+Deno.test("Rig -multi-client dispatch composes correctly", async () => {
   // Two memory backends — writes should go to both, reads from first match
   const clientA = new MemoryClient();
   const clientB = new MemoryClient();
@@ -525,16 +525,16 @@ Deno.test("Rig.status - returns schema keys", async () => {
   assertEquals(status.status, "healthy");
 });
 
-// ── Rig.init tests ──
+// ── Rig constructor tests ──
 
-Deno.test("Rig.init -quick connect to memory backend", async () => {
+Deno.test("Rig -quick connect to memory backend", async () => {
   const rig = new Rig({ connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })] });
   const health = await rig.status();
   assertEquals(health.status, "healthy");
 
 });
 
-Deno.test("Rig.init -session.send round-trip", async () => {
+Deno.test("Rig -session.send round-trip", async () => {
   const id = await Identity.generate();
   const rig = new Rig({ connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })] });
   const session = id.rig(rig);
@@ -547,7 +547,7 @@ Deno.test("Rig.init -session.send round-trip", async () => {
 
 });
 
-Deno.test("Rig.init -receive and read round-trip", async () => {
+Deno.test("Rig -receive and read round-trip", async () => {
   const rig = new Rig({ connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })] });
   await rig.receive(["mutable://open/hello", "world"]);
   const reads = await rig.read("mutable://open/hello");
@@ -1171,7 +1171,7 @@ Deno.test({
 // ── Schema-validated Rig tests ──
 // Schema is a rig concern — clients are pure plumbing.
 
-Deno.test("Rig.init - schema validates receive", async () => {
+Deno.test("Rig -schema validates receive", async () => {
   const schema = createTestSchema();
   const rig = new Rig({
     connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
@@ -1187,7 +1187,7 @@ Deno.test("Rig.init - schema validates receive", async () => {
 
 });
 
-Deno.test("Rig.init - schema rejects invalid domain", async () => {
+Deno.test("Rig -schema rejects invalid domain", async () => {
   const schema = createTestSchema();
   const rig = new Rig({
     connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
@@ -1202,7 +1202,7 @@ Deno.test("Rig.init - schema rejects invalid domain", async () => {
 
 });
 
-Deno.test("Rig.init - multi-connection dispatch with schema validates receive", async () => {
+Deno.test("Rig -multi-connection dispatch with schema validates receive", async () => {
   const schema = createTestSchema();
   const rig = new Rig({
     connections: [
@@ -1220,7 +1220,7 @@ Deno.test("Rig.init - multi-connection dispatch with schema validates receive", 
 
 });
 
-Deno.test("Rig.init - multi-connection dispatch with schema rejects invalid domain", async () => {
+Deno.test("Rig -multi-connection dispatch with schema rejects invalid domain", async () => {
   const schema = createTestSchema();
   const rig = new Rig({
     connections: [
@@ -1235,7 +1235,7 @@ Deno.test("Rig.init - multi-connection dispatch with schema rejects invalid doma
 
 });
 
-Deno.test("Rig.init - schema with session allows send", async () => {
+Deno.test("Rig -schema with session allows send", async () => {
   const schema = {
     ...createTestSchema(),
     "hash://sha256": async () => ({ valid: true }),
