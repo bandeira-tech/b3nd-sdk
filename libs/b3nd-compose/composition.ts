@@ -228,43 +228,26 @@ export function pipeline<D = unknown>(
  */
 export function firstMatch(...readers: ReadInterface[]): ReadInterface {
   return {
-    async read<T>(uri: string): Promise<ReadResult<T>> {
-      for (const reader of readers) {
-        const result = await reader.read<T>(uri);
-        if (result.success) {
-          return result;
-        }
-      }
-      return { success: false, error: "Not found in any reader" };
-    },
+    async read<T>(uris: string | string[]): Promise<ReadResult<T>[]> {
+      const uriList = Array.isArray(uris) ? uris : [uris];
+      const allResults: ReadResult<T>[] = [];
 
-    async readMulti<T>(uris: string[]) {
-      // For simplicity, use first reader that has any results
-      for (const reader of readers) {
-        const result = await reader.readMulti<T>(uris);
-        if (result.success && result.summary.succeeded > 0) {
-          return result;
+      for (const uri of uriList) {
+        let found = false;
+        for (const reader of readers) {
+          const results = await reader.read<T>(uri);
+          if (results.length > 0 && results.some((r) => r.success)) {
+            allResults.push(...results);
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          allResults.push({ success: false, error: "Not found in any reader" });
         }
       }
-      // Fall back to first reader's response
-      if (readers.length > 0) {
-        return readers[0].readMulti<T>(uris);
-      }
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    },
 
-    async list(uri, options) {
-      for (const reader of readers) {
-        const result = await reader.list(uri, options);
-        if (result.success) {
-          return result;
-        }
-      }
-      return { success: false, error: "Not found in any reader" };
+      return allResults;
     },
   };
 }

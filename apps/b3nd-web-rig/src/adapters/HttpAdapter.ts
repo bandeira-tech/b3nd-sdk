@@ -16,13 +16,8 @@ import type {
  */
 
 interface ClientLike {
-  list(
-    uri: string,
-    options?: { page?: number; limit?: number },
-  ): Promise<{ success: boolean; data: any[]; pagination?: any; error?: string }>;
-  read(uri: string): Promise<{ success: boolean; record?: PersistenceRecord; error?: string }>;
-  getSchema(): Promise<string[]>;
-  health(): Promise<{ status: string }>;
+  read(uri: string): Promise<{ success: boolean; record?: PersistenceRecord; error?: string }[]>;
+  status(): Promise<{ status: string; schema?: string[] }>;
 }
 
 export class HttpAdapter implements BackendAdapter {
@@ -56,22 +51,25 @@ export class HttpAdapter implements BackendAdapter {
     // Support protocol root: "/test/" -> "test://"
     const uri = this.pathToUri(path);
 
-    // Use sdk HttpClient to list
+    // Use read with trailing slash for listing
     let listUri = uri;
     // Avoid breaking protocol roots like "test://" (would become "test:/")
-    if (!listUri.endsWith("://")) {
-      listUri = listUri.replace(/\/$/, "");
+    if (!listUri.endsWith("://") && !listUri.endsWith("/")) {
+      listUri = listUri + "/";
     }
-    const result = await this.client.list(listUri, options);
+    const results = await this.client.read(listUri);
+    const result = results[0];
 
     // Handle error response
-    if (!result.success) {
-      throw new Error(`Failed to list ${path}: ${result.error}`);
+    if (!result?.success) {
+      throw new Error(`Failed to list ${path}: ${result?.error ?? "no result"}`);
     }
 
     // Transform API response to Explorer format
+    const data = result.record?.data;
+    const items: any[] = Array.isArray(data) ? data : [];
     return {
-      data: result.data.map((item: any) => {
+      data: items.map((item: any) => {
         const itemPath = this.uriToPath(item.uri);
         // Extract name from URI (last segment of path)
         const name = this.extractNameFromUri(item.uri);
@@ -82,7 +80,7 @@ export class HttpAdapter implements BackendAdapter {
           children: undefined, // Lazy load
         };
       }),
-      pagination: result.pagination,
+      pagination: undefined,
     };
   }
 
@@ -91,9 +89,10 @@ export class HttpAdapter implements BackendAdapter {
     const uri = this.pathToUri(path);
 
     // Use sdk HttpClient to read
-    const result = await this.client.read(uri);
+    const results = await this.client.read(uri);
+    const result = results[0];
 
-    if (!result.success || !result.record) {
+    if (!result?.success || !result.record) {
       throw new Error(`Record not found: ${path}`);
     }
 
@@ -116,12 +115,12 @@ export class HttpAdapter implements BackendAdapter {
   }
 
   async getSchema(): Promise<Record<string, string[]>> {
-    const schemas = await this.client.getSchema();
-    return { default: schemas };
+    const s = await this.client.status();
+    return { default: s.schema ?? [] };
   }
 
   async healthCheck(): Promise<boolean> {
-    const result = await this.client.health();
+    const result = await this.client.status();
     return result.status === "healthy";
   }
 

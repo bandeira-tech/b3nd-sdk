@@ -16,8 +16,7 @@ import type { NodeProtocolInterface, ReadResult, Validator } from "../b3nd-core/
  *
  * Wiring:
  * - receive → validate(msg, read.read) → write.receive(msg)
- * - read/readMulti/list → delegated to config.read
- * - delete/health/getSchema/cleanup → delegated to config.write
+ * - read/status → delegated to config.read
  *
  * @example
  * ```typescript
@@ -46,8 +45,10 @@ export function createValidatedClient(config: {
 
       // Run validation — top-level message, no upstream
       try {
-        const readFn = <T = unknown>(uri: string): Promise<ReadResult<T>> =>
-          read.read<T>(uri);
+        const readFn = async <T = unknown>(u: string): Promise<ReadResult<T>> => {
+          const results = await read.read<T>(u);
+          return results[0] ?? { success: false, error: "No results" } as ReadResult<T>;
+        };
         const validationResult = await validate(msg, undefined, readFn);
         if (!validationResult.valid) {
           return {
@@ -77,16 +78,8 @@ export function createValidatedClient(config: {
       }
     },
 
-    read: (uri) => read.read(uri),
-    readMulti: (uris) => read.readMulti(uris),
-    list: (uri, options) => read.list(uri, options),
-    delete: (uri) => write.delete(uri),
-    health: () => read.health(),
-    getSchema: () => read.getSchema(),
-    async cleanup() {
-      await write.cleanup();
-      await read.cleanup();
-    },
+    read: (uris) => read.read(uris),
+    status: () => read.status(),
   };
 
   return new FunctionalClient(fnConfig);

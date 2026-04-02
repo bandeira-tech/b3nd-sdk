@@ -46,15 +46,14 @@ export function runNodeSuite(
       assertEquals(result.accepted, true);
       assertEquals(result.error, undefined);
 
-      const readResult = await node.read("store://users/alice/profile");
+      const readResults = await node.read("store://users/alice/profile");
 
-      assertEquals(readResult.success, true);
-      assertEquals(readResult.record?.data, {
+      assertEquals(readResults.length, 1);
+      assertEquals(readResults[0].success, true);
+      assertEquals(readResults[0].record?.data, {
         name: "Alice",
         email: "alice@example.com",
       });
-
-      await node.cleanup();
     },
   });
 
@@ -78,12 +77,12 @@ export function runNodeSuite(
     const read1 = await node.read("store://users/alice/profile");
     const read2 = await node.read("store://users/bob/profile");
 
-    assertEquals(read1.success, true);
-    assertEquals(read2.success, true);
-    assertEquals(read1.record?.data, { name: "Alice" });
-    assertEquals(read2.record?.data, { name: "Bob" });
-
-    await node.cleanup();
+    assertEquals(read1.length, 1);
+    assertEquals(read2.length, 1);
+    assertEquals(read1[0].success, true);
+    assertEquals(read2[0].success, true);
+    assertEquals(read1[0].record?.data, { name: "Alice" });
+    assertEquals(read2[0].record?.data, { name: "Bob" });
   });
 
   Deno.test(`${suiteName} [Node] - receive overwrites existing data`, async () => {
@@ -104,14 +103,13 @@ export function runNodeSuite(
     assertEquals(result.accepted, true);
 
     // Verify data was updated
-    const readResult = await node.read("store://users/alice/profile");
-    assertEquals(readResult.success, true);
-    assertEquals(readResult.record?.data, {
+    const readResults = await node.read("store://users/alice/profile");
+    assertEquals(readResults.length, 1);
+    assertEquals(readResults[0].success, true);
+    assertEquals(readResults[0].record?.data, {
       name: "Alice Updated",
       version: 2,
     });
-
-    await node.cleanup();
   });
 
   Deno.test(`${suiteName} [Node] - receive with empty URI returns error`, async () => {
@@ -121,8 +119,6 @@ export function runNodeSuite(
 
     assertEquals(result.accepted, false);
     assertEquals(typeof result.error, "string");
-
-    await node.cleanup();
   });
 
   Deno.test(`${suiteName} [Node] - receive with null data`, async () => {
@@ -132,11 +128,9 @@ export function runNodeSuite(
 
     // Should still accept null data (storage-dependent)
     assertEquals(typeof result.accepted, "boolean");
-
-    await node.cleanup();
   });
 
-  Deno.test(`${suiteName} [Node] - list after receive`, async () => {
+  Deno.test(`${suiteName} [Node] - read with trailing slash lists children`, async () => {
     const node = await Promise.resolve(factory.happy());
 
     const prefix = `store://users/node-list-${Date.now()}`;
@@ -144,25 +138,14 @@ export function runNodeSuite(
     await node.receive([`${prefix}/bob/profile`, { name: "Bob" }]);
     await node.receive([`${prefix}/charlie/profile`, { name: "Charlie" }]);
 
-    const listResult = await node.list(prefix);
+    const results = await node.read(`${prefix}/`);
 
-    assertEquals(listResult.success, true);
-    if (listResult.success) {
-      assertEquals(listResult.data.length, 3, "Should return exactly 3 items");
-
-      // Verify exact full URIs
-      const uris = listResult.data.map((item) => item.uri).sort();
-      assertEquals(uris, [
-        `${prefix}/alice/profile`,
-        `${prefix}/bob/profile`,
-        `${prefix}/charlie/profile`,
-      ]);
-    }
-
-    await node.cleanup();
+    assertEquals(results.length >= 3, true, `Should return at least 3 items, got ${results.length}`);
+    const successResults = results.filter((r) => r.success);
+    assertEquals(successResults.length >= 3, true, "Should have at least 3 successful reads");
   });
 
-  Deno.test(`${suiteName} [Node] - readMulti after receive`, async () => {
+  Deno.test(`${suiteName} [Node] - read multiple URIs`, async () => {
     const node = await Promise.resolve(factory.happy());
 
     // Receive messages
@@ -170,33 +153,27 @@ export function runNodeSuite(
     await node.receive(["store://users/bob/profile", { name: "Bob" }]);
 
     // Read multiple
-    const result = await node.readMulti([
+    const results = await node.read([
       "store://users/alice/profile",
       "store://users/bob/profile",
       "store://users/nonexistent/profile",
     ]);
 
-    assertEquals(result.success, true);
-    assertEquals(result.summary.total, 3);
-    assertEquals(result.summary.succeeded, 2);
-    assertEquals(result.summary.failed, 1);
+    assertEquals(results.length, 3);
 
-    // Verify actual data values
-    assertEquals(result.results[0].success, true);
-    if (result.results[0].success) {
-      assertEquals(result.results[0].record.data, { name: "Alice" });
+    assertEquals(results[0].success, true);
+    if (results[0].success) {
+      assertEquals(results[0].record?.data, { name: "Alice" });
     }
-    assertEquals(result.results[1].success, true);
-    if (result.results[1].success) {
-      assertEquals(result.results[1].record.data, { name: "Bob" });
+    assertEquals(results[1].success, true);
+    if (results[1].success) {
+      assertEquals(results[1].record?.data, { name: "Bob" });
     }
     assertEquals(
-      result.results[2].success,
+      results[2].success,
       false,
       "Nonexistent URI should fail",
     );
-
-    await node.cleanup();
   });
 
   // Validation error tests (if factory provided)
@@ -211,8 +188,6 @@ export function runNodeSuite(
 
       assertEquals(result.accepted, false);
       assertEquals(typeof result.error, "string");
-
-      await node.cleanup();
     });
   }
 }

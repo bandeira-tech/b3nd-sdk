@@ -1,4 +1,4 @@
-import { AuthenticatedRig, Identity, Rig } from "@b3nd/rig";
+import { AuthenticatedRig, connection, createClientFromUrl, Identity, Rig } from "@b3nd/rig";
 import { loadConfig } from "./config.ts";
 import { loadAccountKey, loadEncryptionKey } from "./keys.ts";
 import { Logger } from "./logger.ts";
@@ -47,7 +47,12 @@ export async function getRig(
       }
     }
 
-    cachedRig = await Rig.init({ url: config.node });
+    const client = await createClientFromUrl(config.node);
+    const isHttp = config.node.startsWith("http://") || config.node.startsWith("https://");
+    cachedRig = new Rig({
+      connections: [connection(client, { receive: ["*"], read: ["*"] })],
+      ...(isHttp ? { sseBaseUrl: config.node.replace(/\/$/, "") } : {}),
+    });
 
     // Wire verbose logging through rig events
     if (logger) {
@@ -63,26 +68,17 @@ export async function getRig(
       cachedRig.on("read:error", (e) => {
         logger.error(`✗ read failed: ${e.uri ?? "unknown"} — ${e.error}`);
       });
-      cachedRig.on("list:success", (e) => {
-        logger.info(`✓ list ok: ${e.uri}`);
-      });
-      cachedRig.on("delete:success", (e) => {
-        logger.info(`✓ delete ok: ${e.uri}`);
-      });
-      cachedRig.on("delete:error", (e) => {
-        logger.error(`✗ delete failed: ${e.uri ?? "unknown"} — ${e.error}`);
-      });
     }
 
     // Test connection
-    logger?.http("GET", `${config.node}/api/v1/health`);
-    const health = await cachedRig.health();
+    logger?.http("GET", `${config.node}/api/v1/status`);
+    const st = await cachedRig.status();
 
-    if (health.status === "unhealthy") {
-      console.warn("⚠ Warning: Node health is unhealthy");
-      console.warn(`  Status: ${health.message}`);
+    if (st.status === "unhealthy") {
+      console.warn("⚠ Warning: Node status is unhealthy");
+      console.warn(`  Status: ${st.message}`);
     } else {
-      logger?.info(`✓ Connected (${health.status})`);
+      logger?.info(`✓ Connected (${st.status})`);
     }
 
     return cachedRig;
@@ -116,7 +112,6 @@ export function getSession(): AuthenticatedRig | null {
  */
 export async function closeRig(logger?: Logger): Promise<void> {
   if (cachedRig) {
-    await cachedRig.cleanup();
     cachedRig = null;
     cachedIdentity = null;
   }

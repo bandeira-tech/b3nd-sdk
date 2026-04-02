@@ -139,7 +139,10 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
             await (validate as unknown as typeof validate)(
               msg as unknown as Message<D>,
               undefined,
-              read.read.bind(read),
+              async <T = unknown>(u: string) => {
+                const results = await read.read<T>(u);
+                return results[0] ?? { success: false, error: "No results" } as import("../b3nd-core/types.ts").ReadResult<T>;
+              },
             );
 
           if (!validationResult.valid) {

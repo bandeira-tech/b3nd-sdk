@@ -6,17 +6,13 @@
  */
 
 import type {
-  DeleteResult,
-  HealthStatus,
   HttpClientConfig,
-  ListOptions,
-  ListResult,
   Message,
   NodeProtocolInterface,
-  ReadMultiResult,
-  ReadMultiResultItem,
+  PersistenceRecord,
   ReadResult,
   ReceiveResult,
+  StatusResult,
 } from "../b3nd-core/types.ts";
 import { encodeBase64 } from "../b3nd-core/encoding.ts";
 
@@ -139,7 +135,75 @@ export class HttpClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+
+    // Batch optimization: use read-multi endpoint for multiple non-list URIs
+    const listUris = uriList.filter((u) => u.endsWith("/"));
+    const singleUris = uriList.filter((u) => !u.endsWith("/"));
+
+    const results: ReadResult<T>[] = [];
+
+    // Handle list URIs individually
+    for (const uri of listUris) {
+      results.push(...await this._list<T>(uri));
+    }
+
+    // Handle single URIs — use batch endpoint when multiple
+    if (singleUris.length === 1) {
+      results.push(await this._readOne<T>(singleUris[0]));
+    } else if (singleUris.length > 1) {
+      try {
+        const response = await this.request("/api/v1/read-multi", {
+          method: "POST",
+          body: JSON.stringify({ uris: singleUris }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            // Consume the 404 body to avoid resource leaks
+            await response.body?.cancel();
+            // Fallback to individual reads if endpoint not available
+            for (const uri of singleUris) {
+              results.push(await this._readOne<T>(uri));
+            }
+          } else {
+            await response.text();
+            for (const uri of singleUris) {
+              results.push({
+                success: false,
+                error: `Read failed: ${response.statusText}`,
+              });
+            }
+          }
+        } else {
+          const batchResult = await response.json();
+          // read-multi returns { results: [{ uri, success, record?, error? }] }
+          if (batchResult.results && Array.isArray(batchResult.results)) {
+            for (const item of batchResult.results) {
+              if (item.success && item.record) {
+                results.push({ success: true, record: item.record });
+              } else {
+                results.push({
+                  success: false,
+                  error: item.error || "Read failed",
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        // Fallback to individual reads on error
+        for (const uri of singleUris) {
+          results.push(await this._readOne<T>(uri));
+        }
+      }
+    }
+
+    return results;
+  }
+
+  private async _readOne<T>(uri: string): Promise<ReadResult<T>> {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
       const requestPath = `/api/v1/read/${protocol}/${domain}${path}`;
@@ -195,165 +259,46 @@ export class HttpClient implements NodeProtocolInterface {
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
-
-    // Enforce batch size limit
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
-    try {
-      const response = await this.request("/api/v1/read-multi", {
-        method: "POST",
-        body: JSON.stringify({ uris }),
-      });
-
-      if (!response.ok) {
-        // Fallback to individual reads if endpoint not available
-        if (response.status === 404) {
-          return this.readMultiFallback<T>(uris);
-        }
-        return {
-          success: false,
-          results: uris.map((uri) => ({
-            uri,
-            success: false,
-            error: response.statusText,
-          })),
-          summary: { total: uris.length, succeeded: 0, failed: uris.length },
-        };
-      }
-
-      return await response.json();
-    } catch (error) {
-      // Fallback to individual reads on error
-      return this.readMultiFallback<T>(uris);
-    }
-  }
-
-  private async readMultiFallback<T = unknown>(
-    uris: string[],
-  ): Promise<ReadMultiResult<T>> {
-    const results: ReadMultiResultItem<T>[] = await Promise.all(
-      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-        const result = await this.read<T>(uri);
-        if (result.success && result.record) {
-          return { uri, success: true, record: result.record };
-        }
-        return { uri, success: false, error: result.error || "Read failed" };
-      }),
-    );
-
-    const succeeded = results.filter((r) => r.success).length;
-    return {
-      success: succeeded > 0,
-      results,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    };
-  }
-
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
+  private async _list<T>(uri: string): Promise<ReadResult<T>[]> {
     try {
       const { protocol, domain, path } = this.parseUri(uri);
-
-      const params = new URLSearchParams();
-      if (options?.page) {
-        params.set("page", options.page.toString());
-      }
-      if (options?.limit) {
-        params.set("limit", options.limit.toString());
-      }
-      if (options?.pattern) {
-        params.set("pattern", options.pattern);
-      }
-      if (options?.sortBy) {
-        params.set("sortBy", options.sortBy);
-      }
-      if (options?.sortOrder) {
-        params.set("sortOrder", options.sortOrder);
-      }
-
-      const queryString = params.toString();
       const pathPart = path === "/" ? "" : path;
-      const requestPath = `/api/v1/list/${protocol}/${domain}${pathPart}${
-        queryString ? `?${queryString}` : ""
-      }`;
+      const requestPath = `/api/v1/list/${protocol}/${domain}${pathPart}`;
 
       const response = await this.request(requestPath, {
         method: "GET",
       });
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() =>
-          response.statusText
-        );
-        return {
-          success: false,
-          error: `List failed (${response.status}): ${errorText}`,
-        };
+        await response.text();
+        return [];
       }
 
       const result = await response.json();
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        error: `List failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      };
-    }
-  }
 
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const { protocol, domain, path } = this.parseUri(uri);
-
-      const requestPath = `/api/v1/delete/${protocol}/${domain}${path}`;
-
-      const response = await this.request(requestPath, {
-        method: "DELETE",
-      });
-
-      // Always consume the response body
-      const result = response.ok
-        ? await response.json()
-        : { error: await response.text() };
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error: `Delete failed: ${result.error}`,
-        };
+      // API returns { data: [{ uri }] } — fetch each entry
+      if (result.data && Array.isArray(result.data)) {
+        const results: ReadResult<T>[] = [];
+        for (const item of result.data) {
+          const readResult = await this._readOne<T>(item.uri);
+          if (readResult.success && readResult.record) {
+            results.push({
+              success: true,
+              uri: item.uri,
+              record: readResult.record,
+            });
+          }
+        }
+        return results;
       }
 
-      return {
-        success: true,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+      return [];
+    } catch {
+      return [];
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<StatusResult> {
     try {
       const response = await this.request("/api/v1/health", {
         method: "GET",
@@ -366,42 +311,34 @@ export class HttpClient implements NodeProtocolInterface {
         };
       }
 
-      const result = await response.json();
-      return result;
+      const healthResult = await response.json();
+      const status: StatusResult = {
+        status: healthResult.status ?? "healthy",
+        message: healthResult.message,
+        details: healthResult.details,
+      };
+
+      // Try to fetch schema info
+      try {
+        const schemaResponse = await this.request("/api/v1/schema", {
+          method: "GET",
+        });
+        if (schemaResponse.ok) {
+          const schemaResult = await schemaResponse.json();
+          if (schemaResult.schema && Array.isArray(schemaResult.schema)) {
+            status.schema = schemaResult.schema;
+          }
+        }
+      } catch {
+        // Schema endpoint optional — ignore errors
+      }
+
+      return status;
     } catch (error) {
       return {
         status: "unhealthy",
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    try {
-      const response = await this.request("/api/v1/schema", {
-        method: "GET",
-      });
-
-      if (!response.ok) {
-        return [];
-      }
-
-      const result = await response.json();
-
-      // API returns schema array directly
-      if (result.schema && Array.isArray(result.schema)) {
-        return result.schema;
-      }
-
-      // Fallback to empty array if schema not found
-      return [];
-    } catch (error) {
-      // Errors bubble but return empty array for graceful degradation
-      return [];
-    }
-  }
-
-  async cleanup(): Promise<void> {
-    // No cleanup needed for HTTP client
   }
 }

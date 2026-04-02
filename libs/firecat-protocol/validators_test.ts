@@ -31,7 +31,7 @@ function createClient() {
 
 /** Claim genesis tokens, returns the balance UTXO URI */
 async function claimGenesis(
-  client: { receive: (msg: [string, unknown]) => Promise<any>; read: <T>(uri: string) => Promise<any> },
+  client: { receive: (msg: [string, unknown]) => Promise<any>; read: <T>(uri: string) => Promise<any[]> },
   pubkey: string,
 ): Promise<{ utxoUri: string }> {
   const envelope = buildGenesisEnvelope(pubkey, GENESIS_AMOUNT);
@@ -47,7 +47,7 @@ async function claimGenesis(
 
 /** Store content via send() and return the content hash */
 async function storeContent(
-  client: { receive: (msg: [string, unknown]) => Promise<any>; read: <T>(uri: string) => Promise<any> },
+  client: { receive: (msg: [string, unknown]) => Promise<any>; read: <T>(uri: string) => Promise<any[]> },
   content: unknown,
 ): Promise<string> {
   const envelope = {
@@ -71,7 +71,7 @@ Deno.test("genesis: claim tokens creates balance", async () => {
 
   const { utxoUri } = await claimGenesis(client, keys.publicKeyHex);
 
-  const result = await client.read<number>(utxoUri);
+  const [result] = await client.read<number>(utxoUri);
   assertEquals(result.success, true);
   assertEquals(result.record?.data, GENESIS_AMOUNT);
 });
@@ -95,7 +95,7 @@ Deno.test("balance: read returns number", async () => {
 
   const { utxoUri } = await claimGenesis(client, keys.publicKeyHex);
 
-  const result = await client.read<number>(utxoUri);
+  const [result] = await client.read<number>(utxoUri);
   assertEquals(result.success, true);
   assertEquals(typeof result.record?.data, "number");
   assertEquals(result.record?.data, GENESIS_AMOUNT);
@@ -122,18 +122,18 @@ Deno.test("consensus: create record with gas payment", async () => {
   assertEquals(result.accepted, true, `Consensus send failed: ${result.error}`);
 
   // Consensus record exists with hash URI value
-  const recordResult = await client.read<string>(`consensus://record/${contentHash}`);
+  const [recordResult] = await client.read<string>(`consensus://record/${contentHash}`);
   assertEquals(recordResult.success, true);
   assertEquals(recordResult.record?.data, `hash://sha256/${contentHash}`);
 
   // Consumed marker exists referencing the input balance
   const consumedUri = `immutable://consumed/${utxoUri.replace("immutable://balance/", "")}`;
-  const consumedResult = await client.read<string>(consumedUri);
+  const [consumedResult] = await client.read<string>(consumedUri);
   assertEquals(consumedResult.success, true);
   assertEquals(consumedResult.record?.data, utxoUri);
 
   // Fee balance at ROOT_KEY keyed by content hash
-  const feeResult = await client.read<number>(`immutable://balance/${ROOT_KEY}/${contentHash}`);
+  const [feeResult] = await client.read<number>(`immutable://balance/${ROOT_KEY}/${contentHash}`);
   assertEquals(feeResult.success, true);
   assertEquals(feeResult.record?.data, CONSENSUS_FEE);
 });
@@ -281,7 +281,7 @@ Deno.test("regular firecat: mutable://open writes work without gas", async () =>
   ]);
   assertEquals(result.accepted, true);
 
-  const readResult = await client.read("mutable://open/my-app/hello");
+  const [readResult] = await client.read("mutable://open/my-app/hello");
   assertEquals(readResult.success, true);
   if (readResult.success) {
     assertEquals((readResult.record?.data as any).message, "works");
@@ -301,7 +301,7 @@ Deno.test("genesis: envelopes mint tokens without conservation", async () => {
   const utxoOutput = envelope.payload.outputs.find(([uri]) =>
     uri.startsWith(`immutable://balance/${keys.publicKeyHex}/`)
   );
-  const utxoResult = await client.read<number>(utxoOutput![0]);
+  const [utxoResult] = await client.read<number>(utxoOutput![0]);
   assertEquals(utxoResult.success, true);
   assertEquals(utxoResult.record?.data, GENESIS_AMOUNT);
 });

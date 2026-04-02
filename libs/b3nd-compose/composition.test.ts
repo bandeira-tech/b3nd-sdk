@@ -8,7 +8,7 @@ import {
   seq,
 } from "./composition.ts";
 import type { Validator } from "./types.ts";
-import type { ListResult, ReadResult } from "../b3nd-core/types.ts";
+import type { ReadResult } from "../b3nd-core/types.ts";
 
 // ── Helpers ──
 
@@ -195,82 +195,51 @@ Deno.test("pipeline - empty → success", async () => {
 // ── firstMatch() (reader) ──
 
 Deno.test("firstMatch - returns first successful read", async () => {
-  const failResult: ListResult = { success: false, error: "empty" };
   const emptyReader = {
     // deno-lint-ignore require-await
-    read: async () => ({ success: false as const, error: "empty" }),
-    // deno-lint-ignore require-await
-    readMulti: async (uris: string[]) => ({
-      success: false as const,
-      results: [] as never[],
-      summary: { total: uris.length, succeeded: 0, failed: uris.length },
-    }),
-    // deno-lint-ignore require-await
-    list: async (): Promise<ListResult> => failResult,
+    read: async <T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> => {
+      const uriList = Array.isArray(uris) ? uris : [uris];
+      return uriList.map(() => ({ success: false as const, error: "empty" }));
+    },
   };
 
-  const okList: ListResult = {
-    success: true,
-    data: [{ uri: "mutable://x/a" }],
-    pagination: { page: 1, limit: 100 },
-  };
   const dataReader = {
     // deno-lint-ignore require-await
-    read: async <T>(): Promise<ReadResult<T>> => ({
-      success: true as const,
-      record: { data: { name: "Alice" } as T, ts: 1 },
-    }),
-    // deno-lint-ignore require-await
-    readMulti: async <T>(uris: string[]) => ({
-      success: true as const,
-      results: uris.map((u) => ({
-        uri: u,
+    read: async <T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> => {
+      const uriList = Array.isArray(uris) ? uris : [uris];
+      return uriList.map((uri) => ({
         success: true as const,
+        uri,
         record: { data: { name: "Alice" } as T, ts: 1 },
-      })),
-      summary: { total: uris.length, succeeded: uris.length, failed: 0 },
-    }),
-    // deno-lint-ignore require-await
-    list: async (): Promise<ListResult> => okList,
+      }));
+    },
   };
 
   const composite = firstMatch(emptyReader, dataReader);
 
   const readResult = await composite.read("mutable://x/a");
-  assertEquals(readResult.success, true);
-
-  const listResult = await composite.list("mutable://x/");
-  assertEquals(listResult.success, true);
+  assertEquals(readResult[0].success, true);
 });
 
 Deno.test("firstMatch - all fail → not found", async () => {
-  const failList: ListResult = { success: false, error: "gone" };
   const failReader = {
     // deno-lint-ignore require-await
-    read: async () => ({ success: false as const, error: "gone" }),
-    // deno-lint-ignore require-await
-    readMulti: async (uris: string[]) => ({
-      success: false as const,
-      results: [] as never[],
-      summary: { total: uris.length, succeeded: 0, failed: uris.length },
-    }),
-    // deno-lint-ignore require-await
-    list: async (): Promise<ListResult> => failList,
+    read: async <T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> => {
+      const uriList = Array.isArray(uris) ? uris : [uris];
+      return uriList.map(() => ({ success: false as const, error: "gone" }));
+    },
   };
 
   const composite = firstMatch(failReader);
 
   const readResult = await composite.read("mutable://x/a");
-  assertEquals(readResult.success, false);
-
-  const listResult = await composite.list("mutable://x/");
-  assertEquals(listResult.success, false);
+  assertEquals(readResult[0].success, false);
 });
 
 Deno.test("firstMatch - empty readers → not found", async () => {
   const composite = firstMatch();
 
   const readResult = await composite.read("mutable://x");
-  assertEquals(readResult.success, false);
-  assertEquals(readResult.error, "Not found in any reader");
+  assertEquals(readResult[0].success, false);
+  assertEquals(readResult[0].error, "Not found in any reader");
 });

@@ -15,12 +15,12 @@
  * await client.receive(["mutable://users/alice", { name: "Alice", age: 30 }]);
  *
  * // Read data
- * const result = await client.read("mutable://users/alice");
- * console.log(result.record?.data); // { name: "Alice", age: 30 }
+ * const results = await client.read("mutable://users/alice");
+ * console.log(results[0]?.record?.data); // { name: "Alice", age: 30 }
  *
- * // List items
- * const list = await client.list("mutable://users");
- * console.log(list.data); // [{ uri: "mutable://users/alice", ... }]
+ * // List items (trailing slash)
+ * const list = await client.read("mutable://users/");
+ * console.log(list.map(r => r.uri)); // ["mutable://users/alice"]
  * ```
  *
  * @example Using HttpClient with a remote backend
@@ -73,8 +73,10 @@ export type {
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
+  ReceiveResult,
   S3ClientConfig,
   Schema,
+  StatusResult,
   SqliteClientConfig,
   Output,
   Validator,

@@ -6,24 +6,20 @@
  * no middleware, no state — just a `(Request) => Promise<Response>` function.
  *
  * Routes:
- *   GET  /api/v1/health           → rig.health()
- *   GET  /api/v1/schema           → rig.getSchema()
- *   POST /api/v1/receive          → rig.receive([uri, data])
- *   GET  /api/v1/read/:uri        → rig.read(uri)
- *   GET  /api/v1/list/:uri        → rig.list(uri, options)
- *   DELETE /api/v1/delete/:uri    → rig.delete(uri)
- *   GET  /api/v1/subscribe/:uri   → SSE stream from rig events
+ *   GET  /api/v1/status            → rig.status()
+ *   POST /api/v1/receive           → rig.receive([uri, data])
+ *   GET  /api/v1/read/:uri         → rig.read(uri)
+ *   GET  /api/v1/subscribe/:uri    → SSE stream from rig events
  */
 
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
 import type { Rig } from "./rig.ts";
 import type { RigEvent } from "./events.ts";
-import { matchPattern } from "./observe.ts";
 
 // ── Types ──
 
 export interface RigHandlerOptions {
-  /** Extra metadata merged into health responses. */
+  /** Extra metadata merged into status responses. */
   healthMeta?: Record<string, unknown>;
 }
 
@@ -52,7 +48,7 @@ function extractUri(path: string, prefix: string): string | null {
   if (!rest) return null;
   const parts = rest.split("/").filter(Boolean);
   if (parts.length < 2) {
-    // protocol-only: /api/v1/list/mutable → mutable://
+    // protocol-only: /api/v1/read/mutable → mutable://
     return parts.length === 1 ? `${parts[0]}://` : null;
   }
   const protocol = parts[0];
@@ -117,7 +113,7 @@ function json(data: unknown, status = 200): Response {
  * import { Rig } from "@b3nd/rig";
  * import { createRigHandler } from "@b3nd/rig/http-handler";
  *
- * const rig = await Rig.init({ use: "memory://" });
+ * const rig = new Rig({ connections: [connection(client, { receive: ["*"], read: ["*"] })] });
  * const handler = createRigHandler(rig);
  * Deno.serve({ port: 3000 }, handler);
  * ```
@@ -161,17 +157,17 @@ export function createRigHandler(
     const path = url.pathname;
     const method = req.method;
 
-    // ── Health ──
-    if (method === "GET" && path === "/api/v1/health") {
-      const res = await rig.health();
+    // ── Status (replaces health + schema) ──
+    if (method === "GET" && (path === "/api/v1/status" || path === "/api/v1/health")) {
+      const res = await rig.status();
       const body = healthMeta ? { ...res, ...healthMeta } : res;
       return json(body, res.status === "healthy" ? 200 : 503);
     }
 
-    // ── Schema ──
+    // ── Schema (derived from status) ──
     if (method === "GET" && path === "/api/v1/schema") {
-      const keys = await rig.getSchema();
-      return json({ schema: keys });
+      const res = await rig.status();
+      return json({ schema: res.schema ?? [] });
     }
 
     // ── Receive ──
@@ -204,12 +200,22 @@ export function createRigHandler(
     }
 
     // ── Read ──
+    // Supports both exact reads and trailing-slash list reads
     if (method === "GET" && path.startsWith("/api/v1/read/")) {
       const uri = extractUri(path, "/api/v1/read/");
       if (!uri) return json({ error: "Invalid URI" }, 400);
-      const res = await rig.read(uri);
-      if (!res.success || !res.record) {
-        return json({ error: res.error || "Not found" }, 404);
+
+      const results = await rig.read(uri);
+
+      // Trailing slash = list mode → return all results
+      if (uri.endsWith("/")) {
+        return json(results);
+      }
+
+      // Single read
+      const res = results[0];
+      if (!res?.success || !res.record) {
+        return json({ error: res?.error || "Not found" }, 404);
       }
       // Binary data → raw bytes
       if (res.record.data instanceof Uint8Array) {
@@ -224,37 +230,19 @@ export function createRigHandler(
       return json(res.record);
     }
 
-    // ── List ──
+    // ── List (convenience alias for read with trailing slash) ──
     if (method === "GET" && path.startsWith("/api/v1/list/")) {
       const uri = extractUri(path, "/api/v1/list/");
       if (!uri) return json({ error: "Invalid URI" }, 400);
-      const opts = {
-        page: url.searchParams.has("page")
-          ? Number(url.searchParams.get("page"))
-          : undefined,
-        limit: url.searchParams.has("limit")
-          ? Number(url.searchParams.get("limit"))
-          : undefined,
-        pattern: url.searchParams.get("pattern") || undefined,
-        sortBy: url.searchParams.get("sortBy") as
-          | "name"
-          | "timestamp"
-          | undefined,
-        sortOrder: url.searchParams.get("sortOrder") as
-          | "asc"
-          | "desc"
-          | undefined,
-      };
-      const res = await rig.list(uri, opts);
-      return json(res);
-    }
-
-    // ── Delete ──
-    if (method === "DELETE" && path.startsWith("/api/v1/delete/")) {
-      const uri = extractUri(path, "/api/v1/delete/");
-      if (!uri) return json({ error: "Invalid URI" }, 400);
-      const res = await rig.delete(uri);
-      return json(res, res.success ? 200 : 404);
+      const listUri = uri.endsWith("/") ? uri : `${uri}/`;
+      const results = await rig.read(listUri);
+      // Return as array of { uri, record } for backwards compat
+      return json({
+        success: true,
+        data: results
+          .filter((r) => r.success)
+          .map((r) => ({ uri: r.uri, ...r.record })),
+      });
     }
 
     // ── SSE Subscribe ──
@@ -286,29 +274,26 @@ export function createRigHandler(
           };
           subscribers.add(sub);
 
-          // Send backlog (items since timestamp)
+          // Send backlog (items since timestamp) via trailing-slash read
           (async () => {
             try {
-              const listResult = await rig.list(uri);
-              if (listResult.success) {
-                for (const item of listResult.data) {
-                  if (sub.closed) break;
-                  const itemTs = (item as { ts?: number }).ts ?? 0;
-                  if (itemTs <= effectiveSince) continue;
-                  const readResult = await rig.read(item.uri);
-                  if (readResult.success && readResult.record) {
-                    const event = {
-                      uri: item.uri,
-                      data: readResult.record.data,
-                      ts: readResult.record.ts,
-                    };
-                    sub.write(
-                      `id: ${event.ts}\nevent: write\ndata: ${
-                        JSON.stringify(event)
-                      }\n\n`,
-                    );
-                  }
-                }
+              const listUri = uri.endsWith("/") ? uri : `${uri}/`;
+              const results = await rig.read(listUri);
+              for (const item of results) {
+                if (sub.closed) break;
+                if (!item.success || !item.record || !item.uri) continue;
+                const itemTs = item.record.ts ?? 0;
+                if (itemTs <= effectiveSince) continue;
+                const event = {
+                  uri: item.uri,
+                  data: item.record.data,
+                  ts: item.record.ts,
+                };
+                sub.write(
+                  `id: ${event.ts}\nevent: write\ndata: ${
+                    JSON.stringify(event)
+                  }\n\n`,
+                );
               }
             } catch {
               // Backlog failed — continue with live events

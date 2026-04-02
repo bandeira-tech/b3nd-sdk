@@ -50,30 +50,24 @@ Deno.test({
 
 // HttpClient-specific tests
 Deno.test("HttpClient - custom headers configuration", () => {
-  const client = new HttpClient({
+  // Validate construction doesn't throw
+  new HttpClient({
     url: "https://api.example.com",
     headers: { "X-Custom": "value", "Authorization": "Bearer token" },
   });
-
-  // Validate construction doesn't throw
-  client.cleanup();
 });
 
 Deno.test("HttpClient - instance ID configuration", () => {
-  const client = new HttpClient({
+  // Validate construction doesn't throw
+  new HttpClient({
     url: "https://api.example.com",
   });
-
-  // Validate construction doesn't throw
-  client.cleanup();
 });
 
 Deno.test("HttpClient - timeout configuration", () => {
-  const client = new HttpClient({
+  // Validate construction doesn't throw
+  new HttpClient({
     url: "https://api.example.com",
     timeout: 5000,
   });
-
-  // Validate construction doesn't throw
-  client.cleanup();
 });

@@ -6,19 +6,13 @@
  */
 
 import type {
-  DeleteResult,
-  HealthStatus,
-  ListItem,
-  ListOptions,
-  ListResult,
   LocalStorageClientConfig,
   Message,
   NodeProtocolInterface,
   PersistenceRecord,
-  ReadMultiResult,
-  ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
+  StatusResult,
 } from "../b3nd-core/types.ts";
 import { decodeBase64, encodeBase64 } from "../b3nd-core/encoding.ts";
 
@@ -126,7 +120,22 @@ export class LocalStorageClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  public read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        results.push(...this._list<T>(uri));
+      } else {
+        results.push(this._readOne<T>(uri));
+      }
+    }
+
+    return Promise.resolve(results);
+  }
+
+  private _readOne<T>(uri: string): ReadResult<T> {
     try {
       const key = this.getKey(uri);
       const serialized = this.storage.getItem(key);
@@ -155,269 +164,36 @@ export class LocalStorageClient implements NodeProtocolInterface {
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
+  private _list<T>(uri: string): ReadResult<T>[] {
+    const results: ReadResult<T>[] = [];
+    const prefix = this.getKey(uri);
 
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
-    // Optimized: direct synchronous getItem calls, no async overhead
-    const results: ReadMultiResultItem<T>[] = [];
-    let succeeded = 0;
-
-    for (const uri of uris) {
-      try {
-        const key = this.getKey(uri);
-        const serialized = this.storage.getItem(key);
-
-        if (serialized === null) {
-          results.push({ uri, success: false, error: "Not found" });
-        } else {
-          const raw = this.deserialize(serialized) as PersistenceRecord<unknown>;
-          const record: PersistenceRecord<T> = {
-            ts: raw.ts,
-            data: deserializeData(raw.data) as T,
-          };
-          results.push({ uri, success: true, record });
-          succeeded++;
-        }
-      } catch (error) {
-        results.push({
-          uri,
-          success: false,
-          error: error instanceof Error ? error.message : "Read failed",
-        });
+    for (let i = 0; i < this.storage.length; i++) {
+      const key = this.storage.key(i);
+      if (key && key.startsWith(prefix)) {
+        const childUri = key.substring(this.config.keyPrefix.length);
+        results.push(this._readOne<T>(childUri));
       }
     }
 
-    return {
-      success: succeeded > 0,
-      results,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    };
+    return results;
   }
 
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
+  public status(): Promise<StatusResult> {
     try {
-      const {
-        page = 1,
-        limit = 50,
-        pattern,
-        sortBy = "name",
-        sortOrder = "asc",
-      } = options || {};
-
-      const items: ListItem[] = [];
-      const prefix = this.getKey(uri);
-
-      // Iterate through all localStorage keys
-      for (let i = 0; i < this.storage.length; i++) {
-        const key = this.storage.key(i);
-        if (key && key.startsWith(prefix)) {
-          const uri = key.substring(this.config.keyPrefix.length);
-
-          // Apply pattern filter if specified
-          if (pattern && !uri.includes(pattern)) {
-            continue;
-          }
-
-          items.push({
-            uri,
-          });
-        }
-      }
-
-      // Sort items
-      items.sort((a, b) => {
-        let comparison = 0;
-        if (sortBy === "name") {
-          comparison = a.uri.localeCompare(b.uri);
-        } else if (sortBy === "timestamp") {
-          // Get timestamps from stored data for comparison
-          const aData = this.getStoredData(a.uri);
-          const bData = this.getStoredData(b.uri);
-          const aTs = aData?.ts || 0;
-          const bTs = bData?.ts || 0;
-          comparison = aTs - bTs;
-        }
-
-        return sortOrder === "asc" ? comparison : -comparison;
-      });
-
-      // Apply pagination
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const paginatedItems = items.slice(startIndex, endIndex);
-
-      return {
-        success: true,
-        data: paginatedItems,
-        pagination: {
-          page,
-          limit,
-          total: items.length,
-        },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  /**
-   * Get stored data for a URI (for timestamp sorting)
-   */
-  private getStoredData(uri: string): PersistenceRecord | null {
-    try {
-      const key = this.getKey(uri);
-      const serialized = this.storage.getItem(key);
-      if (serialized) {
-        return this.deserialize(serialized) as PersistenceRecord;
-      }
-    } catch {
-      // Ignore errors, return null
-    }
-    return null;
-  }
-
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const key = this.getKey(uri);
-      const exists = this.storage.getItem(key) !== null;
-
-      if (!exists) {
-        return {
-          success: false,
-          error: "Not found",
-        };
-      }
-
-      this.storage.removeItem(key);
-      return {
-        success: true,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  async health(): Promise<HealthStatus> {
-    try {
-      // Check if localStorage is accessible
       const testKey = `${this.config.keyPrefix}health-check`;
       this.storage.setItem(testKey, "test");
       this.storage.removeItem(testKey);
 
-      const stats = this.getStorageStats();
-
-      return {
+      return Promise.resolve({
         status: "healthy",
-        message: "LocalStorage client is operational",
-        details: stats,
-      };
-    } catch (error) {
-      return {
+        schema: [],
+      });
+    } catch {
+      return Promise.resolve({
         status: "unhealthy",
-        message: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  /**
-   * Get localStorage usage statistics
-   */
-  private getStorageStats(): Record<string, unknown> {
-    try {
-      let totalKeys = 0;
-      let b3ndKeys = 0;
-      let totalSize = 0;
-
-      for (let i = 0; i < this.storage.length; i++) {
-        const key = this.storage.key(i);
-        if (key) {
-          totalKeys++;
-          const value = this.storage.getItem(key) || "";
-          totalSize += key.length + value.length;
-
-          if (key.startsWith(this.config.keyPrefix)) {
-            b3ndKeys++;
-          }
-        }
-      }
-
-      return {
-        totalKeys,
-        b3ndKeys,
-        totalSize,
-        keyPrefix: this.config.keyPrefix,
-        estimatedRemainingSpace: this.estimateRemainingSpace(),
-      };
-    } catch {
-      return {};
-    }
-  }
-
-  /**
-   * Estimate remaining localStorage space (rough approximation)
-   */
-  private estimateRemainingSpace(): number {
-    try {
-      // This is a rough estimate - localStorage limit is typically 5-10MB
-      const typicalLimit = 5 * 1024 * 1024; // 5MB
-      let currentSize = 0;
-
-      for (let i = 0; i < this.storage.length; i++) {
-        const key = this.storage.key(i);
-        if (key) {
-          const value = this.storage.getItem(key) || "";
-          currentSize += key.length + value.length;
-        }
-      }
-
-      return Math.max(0, typicalLimit - currentSize);
-    } catch {
-      return 0;
-    }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
-  }
-
-  async cleanup(): Promise<void> {
-    // Remove all keys with our prefix
-    const keysToRemove: string[] = [];
-
-    for (let i = 0; i < this.storage.length; i++) {
-      const key = this.storage.key(i);
-      if (key && key.startsWith(this.config.keyPrefix)) {
-        keysToRemove.push(key);
-      }
-    }
-
-    // Remove the keys
-    for (const key of keysToRemove) {
-      this.storage.removeItem(key);
+        schema: [],
+      });
     }
   }
 }

@@ -183,9 +183,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       try {
         const base = b3ndUri.replace(/\/$/, "");
         const resultsUri = `${base}/results`;
-        const readResult = await rigClient.read(resultsUri);
+        const readResults = await rigClient.read(resultsUri);
+        const readResult = readResults[0];
 
-        if (readResult.success && readResult.record) {
+        if (readResult?.success && readResult.record) {
           const staticData: StaticTestData = readResult.record.data;
 
           // Skip update if data hasn't changed
@@ -194,8 +195,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
           let rawLogs = "";
           try {
             const logsUri = `${base}/logs`;
-            const logsResult = await rigClient.read(logsUri);
-            if (logsResult.success && logsResult.record) {
+            const logsResults = await rigClient.read(logsUri);
+            const logsResult = logsResults[0];
+            if (logsResult?.success && logsResult.record) {
               const logsData = logsResult.record.data;
               rawLogs = Array.isArray(logsData?.lines)
                 ? logsData.lines.join("\n")

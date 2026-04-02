@@ -34,7 +34,7 @@
 
 import type {
   NodeProtocolInterface,
-  ListItem,
+  ReadResult,
 } from "../b3nd-core/types.ts";
 import {
   encrypt,
@@ -246,24 +246,28 @@ export function connect(
   const processed = new Set<string>();
 
   async function poll(): Promise<number> {
-    const listResult = await client.list(prefix);
-    if (!listResult.success) return 0;
+    // Trailing-slash read = list all under prefix
+    const listPrefix = prefix.endsWith("/") ? prefix : prefix + "/";
+    const listResults = await client.read(listPrefix);
 
     let count = 0;
-    for (const item of (listResult as { success: true; data: ListItem[] }).data) {
-      if (processed.has(item.uri)) continue;
+    for (const item of listResults) {
+      const itemUri = item.uri;
+      if (!itemUri || !item.success) continue;
+      if (processed.has(itemUri)) continue;
 
-      const readResult = await client.read(item.uri);
-      if (!readResult.success || !readResult.record) continue;
+      const readResults = await client.read(itemUri);
+      const readResult = readResults[0];
+      if (!readResult?.success || !readResult.record) continue;
 
       try {
-        const result = await processor([item.uri, readResult.record.data]);
+        const result = await processor([itemUri, readResult.record.data]);
         if (result.success) {
-          processed.add(item.uri);
+          processed.add(itemUri);
           count++;
         }
       } catch (err) {
-        onError?.(err instanceof Error ? err : new Error(String(err)), item.uri);
+        onError?.(err instanceof Error ? err : new Error(String(err)), itemUri);
       }
     }
     return count;
@@ -347,8 +351,9 @@ export async function readResponse<T>(params: {
 }): Promise<{ data: T; verified: boolean } | null> {
   const { client, responseUri, clientEncryptionPrivateKey, listenerPublicKeyHex } = params;
 
-  const readResult = await client.read(responseUri);
-  if (!readResult.success || !readResult.record) return null;
+  const readResults = await client.read(responseUri);
+  const readResult = readResults[0];
+  if (!readResult?.success || !readResult.record) return null;
 
   const raw = readResult.record.data;
 

@@ -7,7 +7,7 @@
  *
  * @example
  * ```typescript
- * const rig = await Rig.init({ url: "https://node.b3nd.net" });
+ * const rig = new Rig({ connections: [connection(client, { receive: ["*"], read: ["*"] })] });
  * const alice = await Identity.fromSeed("alice-secret");
  *
  * const session = alice.rig(rig);
@@ -145,8 +145,9 @@ export class AuthenticatedRig {
       );
     }
 
-    const result = await this.rig.read(uri);
-    if (!result.success || !result.record) return null;
+    const results = await this.rig.read(uri);
+    const result = results[0];
+    if (!result?.success || !result.record) return null;
 
     const payload = result.record.data;
     if (

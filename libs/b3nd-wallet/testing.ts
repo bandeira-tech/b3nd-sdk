@@ -251,7 +251,6 @@ export async function createTestEnvironment(
     },
 
     async cleanup(): Promise<void> {
-      await backend.cleanup();
       wallet.logout();
     },
   };

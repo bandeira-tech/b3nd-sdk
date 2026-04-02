@@ -38,9 +38,10 @@ export async function loadConfig(
   options?: ConfigLoaderOptions,
 ): Promise<LoadedConfig> {
   const uri = nodeConfigUri(operatorPubKeyHex, nodeId);
-  const result = await configClient.read(uri);
+  const results = await configClient.read(uri);
+  const result = results[0];
 
-  if (!result.success || !result.record) {
+  if (!result?.success || !result.record) {
     throw new Error(`Config not found at ${uri}`);
   }
 

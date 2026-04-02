@@ -10,18 +10,12 @@
 
 import {
   Errors,
-  type DeleteResult,
-  type HealthStatus,
-  type ListItem,
-  type ListOptions,
-  type ListResult,
   type Message,
   type NodeProtocolInterface,
   type PersistenceRecord,
-  type ReadMultiResult,
-  type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
+  type StatusResult,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -133,7 +127,22 @@ export class IpfsClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        results.push(...this._list<T>(uri));
+      } else {
+        results.push(await this._readOne<T>(uri));
+      }
+    }
+
+    return results;
+  }
+
+  private async _readOne<T>(uri: string): Promise<ReadResult<T>> {
     try {
       const entry = this.index.get(uri);
 
@@ -163,126 +172,29 @@ export class IpfsClient implements NodeProtocolInterface {
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
+  private _list<T>(uri: string): ReadResult<T>[] {
+    const prefix = uri.endsWith("/") ? uri : uri + "/";
+    const results: ReadResult<T>[] = [];
 
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
-    const results: ReadMultiResultItem<T>[] = [];
-    let succeeded = 0;
-
-    for (const uri of uris) {
-      const result = await this.read<T>(uri);
-      if (result.success && result.record) {
-        results.push({ uri, success: true, record: result.record });
-        succeeded++;
-      } else {
+    for (const [indexUri, entry] of this.index) {
+      if (indexUri.startsWith(prefix) || indexUri === uri.replace(/\/$/, "")) {
+        // We can't async-fetch content here synchronously, so return index metadata
+        // For list, we include the URI in the record for identification
         results.push({
-          uri,
-          success: false,
-          error: result.error || "Read failed",
+          success: true,
+          record: {
+            ts: entry.ts,
+            data: undefined as unknown as T,
+            uri: indexUri,
+          } as PersistenceRecord<T>,
         });
       }
     }
 
-    return {
-      success: succeeded > 0,
-      results,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    };
+    return results;
   }
 
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
-    try {
-      const prefix = uri.endsWith("/") ? uri : uri + "/";
-      let items: ListItem[] = [];
-
-      for (const [indexUri] of this.index) {
-        if (indexUri.startsWith(prefix) || indexUri === uri) {
-          items.push({ uri: indexUri });
-        }
-      }
-
-      if (options?.pattern) {
-        const regex = new RegExp(options.pattern);
-        items = items.filter((item) => regex.test(item.uri));
-      }
-
-      if (options?.sortBy === "timestamp") {
-        items.sort((a, b) => {
-          const aTs = this.index.get(a.uri)?.ts ?? 0;
-          const bTs = this.index.get(b.uri)?.ts ?? 0;
-          return aTs - bTs;
-        });
-      } else {
-        items.sort((a, b) => a.uri.localeCompare(b.uri));
-      }
-
-      if (options?.sortOrder === "desc") {
-        items.reverse();
-      }
-
-      const total = items.length;
-      const page = options?.page ?? 1;
-      const limit = options?.limit ?? 50;
-      const offset = (page - 1) * limit;
-      const paginated = items.slice(offset, offset + limit);
-
-      return {
-        success: true,
-        data: paginated,
-        pagination: { page, limit, total },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const entry = this.index.get(uri);
-
-      if (!entry) {
-        return {
-          success: false,
-          error: "Not found",
-          errorDetail: Errors.notFound(uri),
-        };
-      }
-
-      await this.executor.unpin(entry.cid);
-      this.index.delete(uri);
-      return { success: true };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
-      };
-    }
-  }
-
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<StatusResult> {
     try {
       const online = await this.executor.isOnline();
       if (!online) {
@@ -292,9 +204,20 @@ export class IpfsClient implements NodeProtocolInterface {
         };
       }
 
+      // Derive schema from indexed URIs
+      const programs = new Set<string>();
+      for (const uri of this.index.keys()) {
+        try {
+          const url = new URL(uri);
+          programs.add(`${url.protocol}//${url.hostname}`);
+        } catch {
+          // skip malformed URIs
+        }
+      }
+
       return {
         status: "healthy",
-        message: "IPFS client is operational",
+        schema: [...programs],
         details: {
           apiUrl: this.apiUrl,
           indexedUris: this.index.size,
@@ -305,16 +228,6 @@ export class IpfsClient implements NodeProtocolInterface {
         status: "unhealthy",
         message: error instanceof Error ? error.message : String(error),
       };
-    }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
-  }
-
-  async cleanup(): Promise<void> {
-    if (this.executor.cleanup) {
-      await this.executor.cleanup();
     }
   }
 }

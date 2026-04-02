@@ -71,7 +71,7 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
   assertEquals(writeResult.accepted, true);
 
   // Step 2: Listener reads and decrypts the request
-  const inboxRead = await client.read(inboxUri);
+  const [inboxRead] = await client.read(inboxUri);
   assertEquals(inboxRead.success, true);
 
   if (inboxRead.success) {
@@ -118,7 +118,7 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
   }
 
   // Step 4: Client reads and decrypts the response
-  const outboxRead = await client.read(outboxUri);
+  const [outboxRead] = await client.read(outboxUri);
   assertEquals(outboxRead.success, true);
 
   if (outboxRead.success) {
@@ -168,7 +168,7 @@ Deno.test("listener: moderation service writes signed flags", async () => {
   await client.receive([postUri, signedPost]);
 
   // Moderator reads the post
-  const postRead = await client.read(postUri);
+  const [postRead] = await client.read(postUri);
   assertEquals(postRead.success, true);
 
   // Moderator evaluates and writes a moderation flag
@@ -188,7 +188,7 @@ Deno.test("listener: moderation service writes signed flags", async () => {
   assertEquals(flagResult.accepted, true);
 
   // Anyone can read and verify the moderation flag
-  const flagRead = await client.read(moderationUri);
+  const [flagRead] = await client.read(moderationUri);
   assertEquals(flagRead.success, true);
 
   if (flagRead.success) {
@@ -257,7 +257,7 @@ Deno.test("listener: indexing service maintains queryable index", async () => {
   await client.receive([indexUri, signedIndex]);
 
   // Any client can read the index
-  const indexRead = await client.read(indexUri);
+  const [indexRead] = await client.read(indexUri);
   assertEquals(indexRead.success, true);
 
   if (indexRead.success) {
@@ -307,7 +307,7 @@ Deno.test("end-to-end: oauth auth request → HMAC response → identity derivat
   await client.receive([inboxUri, encryptedRequest]);
 
   // Step 2: Listener reads, decrypts, processes
-  const reqRead = await client.read(inboxUri);
+  const [reqRead] = await client.read(inboxUri);
   assertEquals(reqRead.success, true);
 
   if (reqRead.success) {
@@ -337,7 +337,7 @@ Deno.test("end-to-end: oauth auth request → HMAC response → identity derivat
   }
 
   // Step 3: Client reads response, decrypts, derives identity
-  const respRead = await client.read(outboxUri);
+  const [respRead] = await client.read(outboxUri);
   assertEquals(respRead.success, true);
 
   if (respRead.success) {

@@ -49,9 +49,6 @@ export type MongoExecutorFactory = (
   findMany: (
     filter: Record<string, unknown>,
   ) => Promise<Record<string, unknown>[]>;
-  deleteOne: (
-    filter: Record<string, unknown>,
-  ) => Promise<{ deletedCount?: number }>;
   ping: () => Promise<boolean>;
   cleanup?: () => Promise<void>;
 }>;
@@ -93,39 +90,12 @@ export type ElasticsearchExecutorFactory = (
 ) => import("../b3nd-client-elasticsearch/mod.ts").ElasticsearchExecutor;
 
 /**
- * Configuration for Rig.init().
+ * Configuration for `new Rig()`.
  *
- * The rig is pure orchestration — build clients outside, hand them in.
+ * The rig is pure orchestration — build clients outside, hand them in
+ * as connections. Connections are the only way to wire clients.
  */
 export interface RigConfig {
-  /**
-   * Backend URL — resolves to a client automatically.
-   * For HTTP/HTTPS URLs, SSE subscriptions are enabled automatically.
-   *
-   * ```typescript
-   * const rig = await Rig.init({ url: "memory://" });
-   * const rig = await Rig.init({ url: "https://node.b3nd.net", schema });
-   * ```
-   */
-  url?: string;
-
-  /** Pre-built client for all operations. */
-  client?: NodeProtocolInterface;
-
-  /**
-   * Application-level schema — validates URIs before they reach clients.
-   * Maps program keys (e.g. `"mutable://open"`) to validation functions.
-   * The rig rejects unknown domains before the message ever touches a client.
-   */
-  schema?: Schema;
-
-  /**
-   * SSE base URL for pattern subscriptions.
-   * Set automatically when `url` is an HTTP URL.
-   * Set explicitly when using `Rig.init({ client })` with an HTTP backend.
-   */
-  sseBaseUrl?: string;
-
   /**
    * Connections — the single filtering primitive.
    *
@@ -134,7 +104,7 @@ export interface RigConfig {
    * The same patterns can be published over the wire for remote filtering.
    *
    * ```typescript
-   * const rig = await Rig.init({
+   * const rig = new Rig({
    *   connections: [
    *     connection(httpClient, {
    *       receive: ["mutable://*", "hash://*"],
@@ -148,20 +118,31 @@ export interface RigConfig {
    * });
    * ```
    */
-  connections?: Connection[];
-
+  connections: Connection[];
 
   /**
-   * Hooks — frozen after init, one function per slot.
+   * Application-level schema — validates URIs before they reach clients.
+   * Maps program keys (e.g. `"mutable://open"`) to validation functions.
+   * The rig rejects unknown domains before the message ever touches a client.
+   */
+  schema?: Schema;
+
+  /**
+   * SSE base URL for pattern subscriptions.
+   * Set explicitly when the first connection is backed by an HTTP client.
+   */
+  sseBaseUrl?: string;
+
+  /**
+   * Hooks — frozen after construction, one function per slot.
    *
    * Before-hooks **throw** to reject (no silent aborts).
    * After-hooks **observe** (cannot modify the result; throw if violated).
-   * Need composition? Compose on your end.
    *
    * @example
    * ```typescript
-   * const rig = await Rig.init({
-   *   client,
+   * const rig = new Rig({
+   *   connections: [...],
    *   hooks: {
    *     beforeReceive: (ctx) => { validate(ctx.uri); },
    *     afterRead: (ctx, result) => { audit(ctx.uri, result); },
@@ -179,8 +160,8 @@ export interface RigConfig {
    *
    * @example
    * ```typescript
-   * const rig = await Rig.init({
-   *   use: "memory://",
+   * const rig = new Rig({
+   *   connections: [...],
    *   on: {
    *     "send:success": [audit, notifyPeers],
    *     "*:error": [alertOps],
@@ -198,8 +179,8 @@ export interface RigConfig {
    *
    * @example
    * ```typescript
-   * const rig = await Rig.init({
-   *   use: "memory://",
+   * const rig = new Rig({
+   *   connections: [...],
    *   observe: {
    *     "mutable://app/users/:id": (uri, data, { id }) => {
    *       console.log(`User ${id} updated`);
@@ -240,8 +221,6 @@ export interface WatchOptions {
  * Options for rig.watchAll() — reactive collection watching.
  */
 export interface WatchAllOptions extends WatchOptions {
-  /** List options (e.g. limit) passed to listData on each poll. */
-  listOptions?: import("../b3nd-core/types.ts").ListOptions;
 }
 
 /**

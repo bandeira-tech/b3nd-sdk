@@ -98,7 +98,7 @@ async function waitForHealth(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`http://127.0.0.1:${port}/api/v1/health`);
+      const res = await fetch(`http://127.0.0.1:${port}/api/v1/status`);
       if (res.ok) {
         await res.body?.cancel();
         return;
@@ -188,7 +188,7 @@ Deno.test("phase1: boots with memory backend, health returns ok", async () => {
   });
 
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/api/v1/health`);
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/status`);
     const body = await res.json();
     assertEquals(res.status, 200);
     assertEquals(body.status, "healthy");
@@ -285,43 +285,6 @@ Deno.test("phase1: list returns items after write", async () => {
   }
 });
 
-Deno.test("phase1: delete removes item", async () => {
-  const port = randomPort();
-  const node = await startNode({
-    PORT: String(port),
-    BACKEND_URL: "memory://",
-    CORS_ORIGIN: "*",
-  });
-
-  try {
-    const uri = "mutable://test/delete/target";
-
-    // Write
-    const writeRes = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([uri, { data: "delete-me" }]),
-    });
-    await writeRes.body?.cancel();
-
-    // Delete
-    const delRes = await fetch(
-      `http://127.0.0.1:${port}/api/v1/delete/mutable/test/delete/target`,
-      { method: "DELETE" },
-    );
-    assertEquals((await delRes.json()).success, true);
-
-    // Read should 404
-    const readRes = await fetch(
-      `http://127.0.0.1:${port}/api/v1/read/mutable/test/delete/target`,
-    );
-    assertEquals(readRes.status, 404);
-    await readRes.json(); // drain
-  } finally {
-    await killNode(node);
-  }
-});
-
 Deno.test("phase1: schema endpoint returns array", async () => {
   const port = randomPort();
   const node = await startNode({
@@ -373,7 +336,7 @@ Deno.test("phase2: config not available, node boots with Phase 1 backends", asyn
 
   try {
     // Node should be healthy and serving via Phase 1 backends
-    const res = await fetch(`http://127.0.0.1:${port}/api/v1/health`);
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/status`);
     const body = await res.json();
     assertEquals(res.status, 200);
     assertEquals(body.status, "healthy");
@@ -575,7 +538,7 @@ Deno.test("phase2: self-hosting — managed node loads config from its own backe
 
   try {
     // Node is up with Phase 1 backends (Phase 2 gracefully degraded)
-    const healthRes = await fetch(`http://127.0.0.1:${port}/api/v1/health`);
+    const healthRes = await fetch(`http://127.0.0.1:${port}/api/v1/status`);
     assertEquals((await healthRes.json()).status, "healthy");
 
     // Push the signed config to itself

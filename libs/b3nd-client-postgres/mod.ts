@@ -7,19 +7,13 @@
 
 import {
   Errors,
-  type DeleteResult,
-  type HealthStatus,
-  type ListItem,
-  type ListOptions,
-  type ListResult,
   type Message,
   type NodeProtocolInterface,
   type PersistenceRecord,
   type PostgresClientConfig,
-  type ReadMultiResult,
-  type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
+  type StatusResult,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -138,17 +132,25 @@ export class PostgresClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
-    return this.readWithExecutor<T>(uri, this.executor);
+  async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        results.push(...await this._list<T>(uri));
+      } else {
+        results.push(await this._readOne<T>(uri));
+      }
+    }
+
+    return results;
   }
 
-  private async readWithExecutor<T = unknown>(
-    uri: string,
-    executor: SqlExecutor,
-  ): Promise<ReadResult<T>> {
+  private async _readOne<T = unknown>(uri: string): Promise<ReadResult<T>> {
     try {
       const table = `${this.tablePrefix}_data`;
-      const res = await executor.query(
+      const res = await this.executor.query(
         `SELECT data, timestamp as ts FROM ${table} WHERE uri = $1`,
         [uri],
       );
@@ -179,172 +181,41 @@ export class PostgresClient implements NodeProtocolInterface {
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
-
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
-    try {
-      const table = `${this.tablePrefix}_data`;
-      const res = await this.executor.query(
-        `SELECT uri, data, timestamp as ts FROM ${table} WHERE uri = ANY($1)`,
-        [uris],
-      );
-
-      const found = new Map<string, PersistenceRecord<T>>();
-      for (const raw of res.rows || []) {
-        const row = raw as { uri: string; data: unknown; ts: unknown };
-        const decodedData = decodeBinaryFromJson(row.data) as T;
-        found.set(row.uri, {
-          ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
-          data: decodedData,
-        });
-      }
-
-      const results: ReadMultiResultItem<T>[] = [];
-      let succeeded = 0;
-
-      for (const uri of uris) {
-        const record = found.get(uri);
-        if (record) {
-          results.push({ uri, success: true, record });
-          succeeded++;
-        } else {
-          results.push({ uri, success: false, error: `Not found: ${uri}` });
-        }
-      }
-
-      return {
-        success: succeeded > 0,
-        results,
-        summary: {
-          total: uris.length,
-          succeeded,
-          failed: uris.length - succeeded,
-        },
-      };
-    } catch (error) {
-      const results: ReadMultiResultItem<T>[] = await Promise.all(
-        uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-          const result = await this.read<T>(uri);
-          if (result.success && result.record) {
-            return { uri, success: true, record: result.record };
-          }
-          return {
-            uri,
-            success: false,
-            error: result.error || "Read failed",
-          };
-        }),
-      );
-
-      const succeeded = results.filter((r) => r.success).length;
-      return {
-        success: succeeded > 0,
-        results,
-        summary: {
-          total: uris.length,
-          succeeded,
-          failed: uris.length - succeeded,
-        },
-      };
-    }
-  }
-
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
+  private async _list<T = unknown>(uri: string): Promise<ReadResult<T>[]> {
     try {
       const table = `${this.tablePrefix}_data`;
       const prefix = uri.endsWith("/") ? uri : `${uri}/`;
-      const page = options?.page ?? 1;
-      const limit = options?.limit ?? 50;
-      const offset = (page - 1) * limit;
 
-      const args: unknown[] = [prefix];
-      let patternClause = "";
-
-      if (options?.pattern) {
-        patternClause = ` AND uri ~ $2`;
-        args.push(options.pattern);
-      }
-
-      const countRes = await this.executor.query(
-        `SELECT COUNT(*) as cnt FROM ${table} WHERE uri LIKE $1 || '%'${patternClause}`,
-        args,
-      );
-      const total = Number((countRes.rows[0] as { cnt: unknown })?.cnt ?? 0);
-
-      const orderCol = options?.sortBy === "timestamp" ? "timestamp" : "uri";
-      const orderDir = options?.sortOrder === "desc" ? "DESC" : "ASC";
-
-      const dataArgs = [...args, limit, offset];
-      const limitIdx = args.length + 1;
-      const offsetIdx = args.length + 2;
-
-      const rowsRes = await this.executor.query(
-        `SELECT uri FROM ${table} WHERE uri LIKE $1 || '%'${patternClause} ORDER BY ${orderCol} ${orderDir} LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-        dataArgs,
-      );
-
-      const data: ListItem[] = [];
-      for (const raw of rowsRes.rows || []) {
-        const row = raw as { uri?: unknown };
-        if (typeof row.uri === "string") {
-          data.push({ uri: row.uri });
-        }
-      }
-
-      return {
-        success: true,
-        data,
-        pagination: { page, limit, total },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const table = `${this.tablePrefix}_data`;
       const res = await this.executor.query(
-        `DELETE FROM ${table} WHERE uri = $1`,
-        [uri],
+        `SELECT uri, data, timestamp as ts FROM ${table} WHERE uri LIKE $1 || '%'`,
+        [prefix],
       );
-      const affected = typeof res.rowCount === "number" ? res.rowCount : 0;
-      if (affected === 0) {
-        return {
-          success: false,
-          error: "Not found",
-          errorDetail: Errors.notFound(uri),
-        };
+
+      if (!res.rows || res.rows.length === 0) {
+        return [];
       }
-      return { success: true };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
-      };
+
+      const results: ReadResult<T>[] = [];
+      for (const raw of res.rows) {
+        const row = raw as { uri: string; data: unknown; ts: unknown };
+        const decodedData = decodeBinaryFromJson(row.data) as T;
+        results.push({
+          success: true,
+          record: {
+            ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
+            data: decodedData,
+            uri: row.uri,
+          } as PersistenceRecord<T>,
+        });
+      }
+
+      return results;
+    } catch (_error) {
+      return [];
     }
   }
 
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<StatusResult> {
     try {
       if (!this.connected) {
         return {
@@ -355,6 +226,7 @@ export class PostgresClient implements NodeProtocolInterface {
       await this.executor.query("SELECT 1");
       return {
         status: "healthy",
+        schema: [],
         message: "PostgreSQL client is operational",
         details: {
           tablePrefix: this.tablePrefix,
@@ -371,17 +243,6 @@ export class PostgresClient implements NodeProtocolInterface {
         }`,
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
-  }
-
-  async cleanup(): Promise<void> {
-    if (this.executor.cleanup) {
-      await this.executor.cleanup();
-    }
-    this.connected = false;
   }
 
   /**

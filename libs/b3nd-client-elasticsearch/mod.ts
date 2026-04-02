@@ -11,18 +11,12 @@
 
 import {
   Errors,
-  type DeleteResult,
-  type HealthStatus,
-  type ListItem,
-  type ListOptions,
-  type ListResult,
   type Message,
   type NodeProtocolInterface,
   type PersistenceRecord,
-  type ReadMultiResult,
-  type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
+  type StatusResult,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -45,7 +39,6 @@ export interface ElasticsearchExecutor {
     index: string,
     id: string,
   ) => Promise<Record<string, unknown> | null>;
-  delete: (index: string, id: string) => Promise<void>;
   search: (
     index: string,
     body: Record<string, unknown>,
@@ -143,7 +136,22 @@ export class ElasticsearchClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        results.push(...await this._list<T>(uri));
+      } else {
+        results.push(await this._readOne<T>(uri));
+      }
+    }
+
+    return results;
+  }
+
+  private async _readOne<T = unknown>(uri: string): Promise<ReadResult<T>> {
     try {
       const { index, docId } = uriToIndexAndDocId(uri, this.indexPrefix);
       const doc = await this.executor.get(index, docId);
@@ -151,6 +159,7 @@ export class ElasticsearchClient implements NodeProtocolInterface {
       if (!doc) {
         return {
           success: false,
+          uri,
           error: `Not found: ${uri}`,
           errorDetail: Errors.notFound(uri),
         };
@@ -161,74 +170,24 @@ export class ElasticsearchClient implements NodeProtocolInterface {
 
       return {
         success: true,
+        uri,
         record: { ts: record.ts, data: decodedData },
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
+        uri,
         error: msg,
         errorDetail: Errors.storageError(msg, uri),
       };
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
-
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
-    const readPromises = uris.map((uri) => this.read<T>(uri));
-    const readResults = await Promise.all(readPromises);
-
-    const results: ReadMultiResultItem<T>[] = [];
-    let succeeded = 0;
-
-    for (let i = 0; i < uris.length; i++) {
-      const uri = uris[i];
-      const result = readResults[i];
-      if (result.success && result.record) {
-        results.push({ uri, success: true, record: result.record });
-        succeeded++;
-      } else {
-        results.push({
-          uri,
-          success: false,
-          error: result.error || "Read failed",
-        });
-      }
-    }
-
-    return {
-      success: succeeded > 0,
-      results,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    };
-  }
-
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
+  private async _list<T = unknown>(uri: string): Promise<ReadResult<T>[]> {
     try {
       const { index, docId } = uriToIndexAndDocId(uri, this.indexPrefix);
       const pathPrefix = docId;
-
-      const page = options?.page ?? 1;
-      const limit = options?.limit ?? 50;
 
       const searchBody: Record<string, unknown> = {
         query: { prefix: { _id: pathPrefix } },
@@ -237,68 +196,29 @@ export class ElasticsearchClient implements NodeProtocolInterface {
 
       const searchResult = await this.executor.search(index, searchBody);
 
-      let items: ListItem[] = searchResult.hits.map((hit) =>
-        ({ uri: indexAndDocIdToUri(index, this.indexPrefix, hit._id) })
-      );
-
-      if (options?.pattern) {
-        const regex = new RegExp(options.pattern);
-        items = items.filter((item) => regex.test(item.uri));
+      if (!searchResult.hits.length) {
+        return [];
       }
 
-      if (options?.sortBy === "name" || !options?.sortBy) {
-        items.sort((a, b) => a.uri.localeCompare(b.uri));
-      } else if (options?.sortBy === "timestamp") {
-        items.sort((a, b) => a.uri.localeCompare(b.uri));
+      const results: ReadResult<T>[] = [];
+      for (const hit of searchResult.hits) {
+        const hitUri = indexAndDocIdToUri(index, this.indexPrefix, hit._id);
+        const record = hit._source as unknown as PersistenceRecord;
+        const decodedData = decodeBinaryFromJson(record.data) as T;
+        results.push({
+          success: true,
+          uri: hitUri,
+          record: { ts: record.ts, data: decodedData },
+        });
       }
 
-      if (options?.sortOrder === "desc") {
-        items.reverse();
-      }
-
-      const total = items.length;
-      const offset = (page - 1) * limit;
-      const paginated = items.slice(offset, offset + limit);
-
-      return {
-        success: true,
-        data: paginated,
-        pagination: { page, limit, total },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+      return results;
+    } catch (_error) {
+      return [];
     }
   }
 
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const { index, docId } = uriToIndexAndDocId(uri, this.indexPrefix);
-
-      const doc = await this.executor.get(index, docId);
-      if (!doc) {
-        return {
-          success: false,
-          error: "Not found",
-          errorDetail: Errors.notFound(uri),
-        };
-      }
-
-      await this.executor.delete(index, docId);
-      return { success: true };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
-      };
-    }
-  }
-
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<StatusResult> {
     try {
       const alive = await this.executor.ping();
       if (!alive) {
@@ -310,6 +230,7 @@ export class ElasticsearchClient implements NodeProtocolInterface {
 
       return {
         status: "healthy",
+        schema: [],
         message: "Elasticsearch client is operational",
         details: {
           indexPrefix: this.indexPrefix,
@@ -320,16 +241,6 @@ export class ElasticsearchClient implements NodeProtocolInterface {
         status: "unhealthy",
         message: error instanceof Error ? error.message : String(error),
       };
-    }
-  }
-
-  getSchema(): Promise<string[]> {
-    return Promise.resolve([]);
-  }
-
-  async cleanup(): Promise<void> {
-    if (this.executor.cleanup) {
-      await this.executor.cleanup();
     }
   }
 }

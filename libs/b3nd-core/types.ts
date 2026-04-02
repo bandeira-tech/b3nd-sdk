@@ -21,10 +21,12 @@ export interface WriteResult<T = unknown> {
 }
 
 /**
- * Result of a read operation
+ * Result of a read operation.
+ * `uri` is present when the result comes from a list (trailing-slash read).
  */
 export interface ReadResult<T> {
   success: boolean;
+  uri?: string;
   record?: PersistenceRecord<T>;
   error?: string;
   errorDetail?: B3ndError;
@@ -108,6 +110,18 @@ export interface HealthStatus {
 }
 
 /**
+ * Status response — replaces health() + getSchema().
+ * Each client reports its health + capabilities.
+ * The rig aggregates and adds schema info.
+ */
+export interface StatusResult {
+  status: "healthy" | "degraded" | "unhealthy";
+  message?: string;
+  schema?: string[];
+  details?: Record<string, unknown>;
+}
+
+/**
  * Output — the universal addressed-content primitive: [uri, data]
  * Every message, every inner payload entry, every write — is an Output.
  */
@@ -127,7 +141,8 @@ export interface ValidationResult {
 }
 
 /**
- * Read function for storage lookups during validation
+ * Read function for storage lookups during validation.
+ * Single-URI convenience — returns first result from read().
  */
 export type ReadFn = <T = unknown>(uri: string) => Promise<ReadResult<T>>;
 
@@ -165,51 +180,47 @@ export interface ReceiveResult {
 }
 
 /**
- * NodeProtocolInterface - The universal interface implemented by all clients
+ * NodeProtocolInterface — the universal interface implemented by all clients.
+ *
+ * Three primitives:
+ * - `receive` — all state changes (writes)
+ * - `read`    — all queries (single, multi, list via trailing slash)
+ * - `status`  — health + capabilities
  *
  * All B3nd clients (Memory, HTTP, WebSocket, Postgres, IndexedDB, etc.)
  * implement this interface, enabling recursive composition and uniform usage.
  */
-export interface NodeProtocolWriteInterface {
-  /** Receive a message - the unified entry point for all state changes */
+export interface NodeProtocolInterface {
+  /** Receive a message — the unified entry point for all state changes. */
   receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
-  /** Delete data at a URI */
-  delete(uri: string): Promise<DeleteResult>;
-  /** Health status */
-  health(): Promise<HealthStatus>;
-  /** Supported program keys */
-  getSchema(): Promise<string[]>;
-  /** Cleanup resources */
-  cleanup(): Promise<void>;
-}
 
-export interface NodeProtocolReadInterface {
-  /** Read data from a URI */
-  read<T = unknown>(uri: string): Promise<ReadResult<T>>;
   /**
-   * Read multiple URIs in a single operation.
-   * Implementations may optimize for batch reads (e.g., SQL IN clause).
-   * @param uris - Array of URIs to read (max 50)
-   * @returns ReadMultiResult with per-URI results and summary
+   * Read data from one or more URIs.
+   *
+   * - Single URI: `read("mutable://open/users/alice")` → one result
+   * - Multiple URIs: `read(["mutable://x", "hash://y"])` → batch results
+   * - Trailing slash: `read("mutable://open/users/")` → list all under path
+   *
+   * Always returns an array of results, one per resolved URI.
    */
-  readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>>;
-  /** List items at a URI path */
-  list(uri: string, options?: ListOptions): Promise<ListResult>;
-  /** Health status */
-  health(): Promise<HealthStatus>;
-  /** Supported program keys */
-  getSchema(): Promise<string[]>;
-  /** Cleanup resources */
-  cleanup(): Promise<void>;
+  read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]>;
+
+  /**
+   * Status — health + capabilities.
+   * Clients report health. The rig aggregates and adds schema.
+   */
+  status(): Promise<StatusResult>;
 }
 
-// Backward-compatible alias for existing clients and tests
-export type NodeProtocolInterface =
-  & NodeProtocolWriteInterface
-  & NodeProtocolReadInterface;
+// ── Deprecated interfaces (transitional) ──
+
+/** @deprecated Use NodeProtocolInterface directly */
+export type NodeProtocolWriteInterface = NodeProtocolInterface;
+/** @deprecated Use NodeProtocolInterface directly */
+export type NodeProtocolReadInterface = NodeProtocolInterface;
 
 /** Operations that can be filtered by `accepts()`. */
-export type ClientOperation = "receive" | "read" | "list" | "delete";
+export type ClientOperation = "receive" | "read";
 
 /**
  * Optional per-operation URI acceptance.
@@ -577,11 +588,7 @@ export interface WebSocketRequest {
   type:
     | "receive"
     | "read"
-    | "readMulti"
-    | "list"
-    | "delete"
-    | "health"
-    | "getSchema";
+    | "status";
   payload: unknown;
 }
 

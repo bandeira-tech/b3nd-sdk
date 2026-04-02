@@ -45,26 +45,27 @@ Deno.test("ConsoleClient - rejects invalid URI", async () => {
   assertEquals(result.error, "Message URI is required");
 });
 
-Deno.test("ConsoleClient - delete logs to console", async () => {
-  const { client, output } = createClient();
-
-  const result = await client.delete("store://logs/entry-1");
-
-  assertEquals(result.success, true);
-  assertEquals(output.length, 1);
-  assertEquals(output[0], "[b3nd] DELETE store://logs/entry-1");
-});
-
-Deno.test("ConsoleClient - health returns healthy", async () => {
+Deno.test("ConsoleClient - read returns empty results", async () => {
   const { client } = createClient();
 
-  const result = await client.health();
+  const results = await client.read("store://logs/entry-1");
+
+  assertEquals(results.length, 0);
+});
+
+Deno.test("ConsoleClient - read with array returns empty results", async () => {
+  const { client } = createClient();
+
+  const results = await client.read(["store://a", "store://b"]);
+
+  assertEquals(results.length, 0);
+});
+
+Deno.test("ConsoleClient - status returns healthy", async () => {
+  const { client } = createClient();
+
+  const result = await client.status();
 
   assertEquals(result.status, "healthy");
+  assertEquals(Array.isArray(result.schema), true);
 });
-
-Deno.test("ConsoleClient - cleanup resolves", async () => {
-  const { client } = createClient();
-  await client.cleanup();
-});
-

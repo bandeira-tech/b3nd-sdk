@@ -43,9 +43,9 @@ Deno.test("createMessageNode - accepts valid message", async () => {
   assertEquals(result.error, undefined);
 
   // Verify message was stored
-  const stored = await storage.read("msg://alice/transfer/42");
-  assertEquals(stored.success, true);
-  assertEquals(stored.record?.data, { amount: 100 });
+  const results = await storage.read("msg://alice/transfer/42");
+  assertEquals(results[0].success, true);
+  assertEquals(results[0].record?.data, { amount: 100 });
 
   await node.cleanup();
 });
@@ -73,8 +73,8 @@ Deno.test("createMessageNode - rejects invalid message", async () => {
   assertEquals(result.error, "insufficient_balance");
 
   // Verify message was NOT stored
-  const stored = await storage.read("msg://alice/transfer/42");
-  assertEquals(stored.success, false);
+  const results = await storage.read("msg://alice/transfer/42");
+  assertEquals(results[0].success, false);
 
   await node.cleanup();
 });
@@ -142,13 +142,13 @@ Deno.test("createMessageNode - propagates to multiple peers", async () => {
   assertEquals(result.accepted, true);
 
   // Verify both peers received the message
-  const stored1 = await peer1.read("msg://alice/transfer/42");
-  const stored2 = await peer2.read("msg://alice/transfer/42");
+  const results1 = await peer1.read("msg://alice/transfer/42");
+  const results2 = await peer2.read("msg://alice/transfer/42");
 
-  assertEquals(stored1.success, true);
-  assertEquals(stored2.success, true);
-  assertEquals(stored1.record?.data, { amount: 100 });
-  assertEquals(stored2.record?.data, { amount: 100 });
+  assertEquals(results1[0].success, true);
+  assertEquals(results2[0].success, true);
+  assertEquals(results1[0].record?.data, { amount: 100 });
+  assertEquals(results2[0].record?.data, { amount: 100 });
 
   await node.cleanup();
 });

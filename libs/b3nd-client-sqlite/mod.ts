@@ -7,19 +7,13 @@
 
 import {
   Errors,
-  type DeleteResult,
-  type HealthStatus,
-  type ListItem,
-  type ListOptions,
-  type ListResult,
   type Message,
   type NodeProtocolInterface,
   type PersistenceRecord,
-  type ReadMultiResult,
-  type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
   type SqliteClientConfig,
+  type StatusResult,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -136,7 +130,22 @@ export class SqliteClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        results.push(...this._list<T>(uri));
+      } else {
+        results.push(this._readOne<T>(uri));
+      }
+    }
+
+    return results;
+  }
+
+  private _readOne<T = unknown>(uri: string): ReadResult<T> {
     try {
       const result = this.executor.query(
         `SELECT data, timestamp FROM ${this.tableName} WHERE uri = ?`,
@@ -174,33 +183,21 @@ export class SqliteClient implements NodeProtocolInterface {
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
-
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
+  private _list<T = unknown>(uri: string): ReadResult<T>[] {
     try {
-      const placeholders = uris.map(() => "?").join(", ");
+      const prefixBase = uri.endsWith("/") ? uri : `${uri}/`;
+
       const result = this.executor.query(
-        `SELECT uri, data, timestamp FROM ${this.tableName} WHERE uri IN (${placeholders})`,
-        uris,
+        `SELECT uri, data, timestamp FROM ${this.tableName} WHERE uri LIKE ?`,
+        [`${prefixBase}%`],
       );
 
-      const found = new Map<string, PersistenceRecord<T>>();
+      if (!result.rows.length) {
+        return [];
+      }
+
+      const results: ReadResult<T>[] = [];
       for (const row of result.rows) {
-        const docUri = row.uri as string;
         const rawData = typeof row.data === "string"
           ? JSON.parse(row.data as string)
           : row.data;
@@ -208,135 +205,23 @@ export class SqliteClient implements NodeProtocolInterface {
         const ts = typeof row.timestamp === "string"
           ? Number(row.timestamp)
           : Number(row.timestamp);
-        found.set(docUri, { ts, data: decodedData });
+        results.push({
+          success: true,
+          record: {
+            ts,
+            data: decodedData,
+            uri: row.uri as string,
+          } as PersistenceRecord<T>,
+        });
       }
 
-      const results: ReadMultiResultItem<T>[] = [];
-      let succeeded = 0;
-
-      for (const uri of uris) {
-        const record = found.get(uri);
-        if (record) {
-          results.push({ uri, success: true, record });
-          succeeded++;
-        } else {
-          results.push({ uri, success: false, error: `Not found: ${uri}` });
-        }
-      }
-
-      return {
-        success: succeeded > 0,
-        results,
-        summary: {
-          total: uris.length,
-          succeeded,
-          failed: uris.length - succeeded,
-        },
-      };
-    } catch (error) {
-      const results: ReadMultiResultItem<T>[] = [];
-      for (const uri of uris) {
-        const result = await this.read<T>(uri);
-        if (result.success && result.record) {
-          results.push({ uri, success: true, record: result.record });
-        } else {
-          results.push({
-            uri,
-            success: false,
-            error: result.error || "Read failed",
-          });
-        }
-      }
-
-      const succeeded = results.filter((r) => r.success).length;
-      return {
-        success: succeeded > 0,
-        results,
-        summary: {
-          total: uris.length,
-          succeeded,
-          failed: uris.length - succeeded,
-        },
-      };
+      return results;
+    } catch (_error) {
+      return [];
     }
   }
 
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
-    try {
-      const prefixBase = uri.endsWith("/") ? uri : `${uri}/`;
-
-      const page = options?.page ?? 1;
-      const limit = options?.limit ?? 50;
-      const offset = (page - 1) * limit;
-
-      const conditions = ["uri LIKE ?"];
-      const params: unknown[] = [`${prefixBase}%`];
-
-      if (options?.pattern) {
-        conditions.push("uri LIKE ?");
-        params.push(`%${options.pattern}%`);
-      }
-
-      const where = conditions.join(" AND ");
-
-      const sortField = options?.sortBy === "timestamp" ? "timestamp" : "uri";
-      const sortDir = options?.sortOrder === "desc" ? "DESC" : "ASC";
-
-      const countResult = this.executor.query(
-        `SELECT COUNT(*) as cnt FROM ${this.tableName} WHERE ${where}`,
-        params,
-      );
-      const total = Number((countResult.rows[0] as { cnt: number }).cnt);
-
-      const dataResult = this.executor.query(
-        `SELECT uri FROM ${this.tableName} WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT ? OFFSET ?`,
-        [...params, limit, offset],
-      );
-
-      const data: ListItem[] = dataResult.rows.map((row) => ({
-        uri: row.uri as string,
-      }));
-
-      return {
-        success: true,
-        data,
-        pagination: { page, limit, total },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const result = this.executor.query(
-        `DELETE FROM ${this.tableName} WHERE uri = ?`,
-        [uri],
-      );
-
-      const deleted = (result.rowCount ?? 0) > 0;
-      if (!deleted) {
-        return {
-          success: false,
-          error: "Not found",
-          errorDetail: Errors.notFound(uri),
-        };
-      }
-      return { success: true };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
-      };
-    }
-  }
-
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<StatusResult> {
     try {
       if (!this.connected) {
         return {
@@ -349,6 +234,7 @@ export class SqliteClient implements NodeProtocolInterface {
 
       return {
         status: "healthy",
+        schema: [],
         message: "SQLite client is operational",
         details: {
           tablePrefix: this.tablePrefix,
@@ -360,16 +246,5 @@ export class SqliteClient implements NodeProtocolInterface {
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
-  }
-
-  async cleanup(): Promise<void> {
-    if (this.executor.cleanup) {
-      this.executor.cleanup();
-    }
-    this.connected = false;
   }
 }

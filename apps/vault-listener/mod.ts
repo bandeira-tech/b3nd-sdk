@@ -25,7 +25,7 @@ import {
   generateSigningKeyPair,
 } from "@b3nd/encrypt";
 import { verifyGoogleIdToken } from "@b3nd/google-oauth";
-import { Rig } from "@b3nd/rig";
+import { connection as rigConnection, createClientFromUrl, Rig } from "@b3nd/rig";
 import { createVaultHandler, type TokenVerifier } from "./vault.ts";
 
 // --- Configuration ---
@@ -86,7 +86,12 @@ if (verifiers.size === 0) {
 
 // --- Client ---
 
-const rig = await Rig.init({ url: FIRECAT_URL });
+const firecatClient = await createClientFromUrl(FIRECAT_URL);
+const isHttp = FIRECAT_URL.startsWith("http://") || FIRECAT_URL.startsWith("https://");
+const rig = new Rig({
+  connections: [rigConnection(firecatClient, { receive: ["*"], read: ["*"] })],
+  ...(isHttp ? { sseBaseUrl: FIRECAT_URL.replace(/\/$/, "") } : {}),
+});
 rig.on("receive:error", (e) => {
   console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
 });

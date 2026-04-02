@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Identity, Rig } from "@bandeira-tech/b3nd-web";
+import { connection, createClientFromUrl, Identity, Rig } from "@bandeira-tech/b3nd-web";
 import {
   migrateKeyBundle,
   restoreIdentity,
@@ -147,7 +147,11 @@ async function createBackendFromUrl(
   baseUrl: string,
   isActive: boolean,
 ): Promise<{ backend: BackendConfig; rig: Rig }> {
-  const rig = await Rig.init({ url: baseUrl });
+  const client = await createClientFromUrl(baseUrl);
+  const rig = new Rig({
+    connections: [connection(client, { receive: ["*"], read: ["*"] })],
+    sseBaseUrl: baseUrl.replace(/\/$/, ""),
+  });
 
   // Wire rig events → bottom-panel log
   rig.on("receive:success", (e) => {
@@ -370,7 +374,11 @@ export const useAppStore = create<AppStore>()(
           const baseUrl = backend.adapter.baseUrl || "";
           let rig: Rig | null = null;
           try {
-            rig = await Rig.init({ url: baseUrl });
+            const newClient = await createClientFromUrl(baseUrl);
+            rig = new Rig({
+              connections: [connection(newClient, { receive: ["*"], read: ["*"] })],
+              sseBaseUrl: baseUrl.replace(/\/$/, ""),
+            });
             // Transfer existing identity to new rig
             if (state.rig?.identity) {
               rig.identity = state.rig.identity;

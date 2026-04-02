@@ -12,19 +12,13 @@
 
 import {
   Errors,
-  type DeleteResult,
   type FsClientConfig,
-  type HealthStatus,
-  type ListItem,
-  type ListOptions,
-  type ListResult,
   type Message,
   type NodeProtocolInterface,
   type PersistenceRecord,
-  type ReadMultiResult,
-  type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
+  type StatusResult,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -106,7 +100,23 @@ export class FilesystemClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  public async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        const listed = await this._list<T>(uri);
+        results.push(...listed);
+      } else {
+        results.push(await this._readOne<T>(uri));
+      }
+    }
+
+    return results;
+  }
+
+  private async _readOne<T>(uri: string): Promise<ReadResult<T>> {
     try {
       const filePath = this.resolvePath(uri);
       const fileExists = await this.executor.exists(filePath);
@@ -137,160 +147,49 @@ export class FilesystemClient implements NodeProtocolInterface {
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
-
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
-    const results: ReadMultiResultItem<T>[] = [];
-    let succeeded = 0;
-
-    for (const uri of uris) {
-      const result = await this.read<T>(uri);
-      if (result.success && result.record) {
-        results.push({ uri, success: true, record: result.record });
-        succeeded++;
-      } else {
-        results.push({
-          uri,
-          success: false,
-          error: result.error || "Read failed",
-        });
-      }
-    }
-
-    return {
-      success: succeeded > 0,
-      results,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    };
-  }
-
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
+  private async _list<T>(uri: string): Promise<ReadResult<T>[]> {
     try {
       const relDir = uriToRelPath(uri).replace(/\.json$/, "");
       const dirPath = `${this.rootDir}/${relDir}`;
 
       const files = await this.executor.listFiles(dirPath);
 
-      let items: ListItem[] = files
-        .filter((f) => f.endsWith(".json"))
-        .map((f) => {
-          const fullRel = `${relDir}/${f}`.replace(/\.json$/, "");
-          const parts = fullRel.split("/");
-          const protocol = parts[0];
-          const hostname = parts[1];
-          const path = parts.slice(2).join("/");
-          return { uri: `${protocol}://${hostname}/${path}` };
-        });
-
-      if (options?.pattern) {
-        const regex = new RegExp(options.pattern);
-        items = items.filter((item) => regex.test(item.uri));
+      const results: ReadResult<T>[] = [];
+      for (const f of files.filter((f) => f.endsWith(".json"))) {
+        const fullRel = `${relDir}/${f}`.replace(/\.json$/, "");
+        const parts = fullRel.split("/");
+        const protocol = parts[0];
+        const hostname = parts[1];
+        const path = parts.slice(2).join("/");
+        const childUri = `${protocol}://${hostname}/${path}`;
+        results.push(await this._readOne<T>(childUri));
       }
 
-      if (options?.sortBy === "name" || !options?.sortBy) {
-        items.sort((a, b) => a.uri.localeCompare(b.uri));
-      } else if (options?.sortBy === "timestamp") {
-        items.sort((a, b) => a.uri.localeCompare(b.uri));
-      }
-
-      if (options?.sortOrder === "desc") {
-        items.reverse();
-      }
-
-      const total = items.length;
-      const page = options?.page ?? 1;
-      const limit = options?.limit ?? 50;
-      const offset = (page - 1) * limit;
-      const paginated = items.slice(offset, offset + limit);
-
-      return {
-        success: true,
-        data: paginated,
-        pagination: { page, limit, total },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+      return results;
+    } catch {
+      return [];
     }
   }
 
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const filePath = this.resolvePath(uri);
-      const fileExists = await this.executor.exists(filePath);
-
-      if (!fileExists) {
-        return {
-          success: false,
-          error: "Not found",
-          errorDetail: Errors.notFound(uri),
-        };
-      }
-
-      await this.executor.removeFile(filePath);
-      return { success: true };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
-      };
-    }
-  }
-
-  async health(): Promise<HealthStatus> {
+  public async status(): Promise<StatusResult> {
     try {
       const rootExists = await this.executor.exists(this.rootDir);
       if (!rootExists) {
         return {
           status: "unhealthy",
-          message: `Root directory does not exist: ${this.rootDir}`,
+          schema: [],
         };
       }
 
       return {
         status: "healthy",
-        message: "Filesystem client is operational",
-        details: {
-          rootDir: this.rootDir,
-        },
+        schema: [],
       };
-    } catch (error) {
+    } catch {
       return {
         status: "unhealthy",
-        message: error instanceof Error ? error.message : String(error),
+        schema: [],
       };
-    }
-  }
-
-  async getSchema(): Promise<string[]> {
-    return [];
-  }
-
-  async cleanup(): Promise<void> {
-    if (this.executor.cleanup) {
-      await this.executor.cleanup();
     }
   }
 

@@ -1,18 +1,14 @@
 import type {
-  DeleteResult,
-  ListOptions,
-  ListResult,
   Message,
-  NodeProtocolReadInterface,
-  NodeProtocolWriteInterface,
-  ReadMultiResult,
+  NodeProtocolInterface,
   ReadResult,
   ReceiveResult,
+  StatusResult,
 } from "../b3nd-core/types.ts";
 
 export function firstMatchSequence(
-  clients: (NodeProtocolWriteInterface & NodeProtocolReadInterface)[],
-): NodeProtocolWriteInterface & NodeProtocolReadInterface {
+  clients: NodeProtocolInterface[],
+): NodeProtocolInterface {
   if (!clients || clients.length === 0) {
     throw new Error("clients array is required and cannot be empty");
   }
@@ -32,63 +28,30 @@ export function firstMatchSequence(
       };
     },
 
-    async read<T>(uri: string): Promise<ReadResult<T>> {
-      for (const c of clients) {
-        const res = await c.read<T>(uri);
-        if (res.success) return res;
+    async read<T>(uris: string | string[]): Promise<ReadResult<T>[]> {
+      const uriList = Array.isArray(uris) ? uris : [uris];
+      const allResults: ReadResult<T>[] = [];
+
+      for (const uri of uriList) {
+        let found = false;
+        for (const c of clients) {
+          const results = await c.read<T>(uri);
+          if (results.length > 0 && results.some((r) => r.success)) {
+            allResults.push(...results);
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          allResults.push({ success: false, error: `Not found: ${uri}` });
+        }
       }
-      return { success: false, error: `Not found: ${uri}` };
+
+      return allResults;
     },
 
-    async readMulti<T>(uris: string[]): Promise<ReadMultiResult<T>> {
-      // Try first client that returns any results
-      for (const c of clients) {
-        const res = await c.readMulti<T>(uris);
-        if (res.success) return res;
-      }
-      return {
-        success: false,
-        results: uris.map((uri) => ({
-          uri,
-          success: false as const,
-          error: "No client returned results",
-        })),
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    },
-
-    async list(uri: string, options?: ListOptions): Promise<ListResult> {
-      for (const c of clients) {
-        const res = await c.list(uri, options);
-        if (res.success && res.data.length > 0) return res;
-      }
-      return {
-        success: true,
-        data: [],
-        pagination: {
-          page: options?.page ?? 1,
-          limit: options?.limit ?? 50,
-          total: 0,
-        },
-      };
-    },
-
-    async delete(uri: string): Promise<DeleteResult> {
-      for (const c of clients) {
-        const res = await c.delete(uri);
-        if (res.success) return res;
-      }
-      return { success: false, error: "Not found" };
-    },
-
-    async health() {
-      return clients[0].health();
-    },
-    async getSchema() {
-      return clients[0].getSchema();
-    },
-    async cleanup() {
-      await Promise.all(clients.map((c) => c.cleanup()));
+    async status(): Promise<StatusResult> {
+      return clients[0].status();
     },
   };
 }

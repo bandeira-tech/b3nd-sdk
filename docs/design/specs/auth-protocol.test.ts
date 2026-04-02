@@ -145,7 +145,7 @@ Deno.test("pkce + oauth: SPA flow with custom node — end to end", async () => 
   await client.receive([authUri, encryptedAuth]);
 
   // Step 4: Node processes (simulate)
-  const reqRead = await client.read(authUri);
+  const [reqRead] = await client.read(authUri);
   assertEquals(reqRead.success, true);
 
   const decryptedAuth = JSON.parse(
@@ -164,7 +164,7 @@ Deno.test("pkce + oauth: SPA flow with custom node — end to end", async () => 
   await client.receive([responseUri, encryptedResponse]);
 
   // Step 5: SPA reads response and derives identity
-  const respRead = await client.read(responseUri);
+  const [respRead] = await client.read(responseUri);
   assertEquals(respRead.success, true);
 
   const decryptedResp = JSON.parse(
@@ -218,7 +218,7 @@ Deno.test("password auth: derive keypair, write signed message, re-derive, read"
   assertEquals(signingKeypair.publicKeyHex, signingKeypair2.publicKeyHex);
 
   // Read back the data
-  const readResult = await client.read(uri);
+  const [readResult] = await client.read(uri);
   assertEquals(readResult.success, true);
   if (readResult.success) {
     const stored = readResult.record!.data as typeof authedMessage;

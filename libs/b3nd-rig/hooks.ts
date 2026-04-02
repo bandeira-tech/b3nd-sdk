@@ -13,7 +13,6 @@
  * Pure module — no Rig dependency, testable in isolation.
  */
 
-import type { ListOptions } from "../b3nd-core/types.ts";
 import type { MessageData } from "../b3nd-msg/data/types.ts";
 
 // ── Per-operation context types ──
@@ -31,17 +30,6 @@ export interface ReceiveCtx {
 
 /** Context for a read hook. */
 export interface ReadCtx {
-  uri: string;
-}
-
-/** Context for a list hook. */
-export interface ListCtx {
-  uri: string;
-  options?: ListOptions;
-}
-
-/** Context for a delete hook. */
-export interface DeleteCtx {
   uri: string;
 }
 
@@ -79,10 +67,6 @@ export interface RigHooks {
   readonly afterReceive: AfterHook<ReceiveCtx> | null;
   readonly beforeRead: BeforeHook<ReadCtx> | null;
   readonly afterRead: AfterHook<ReadCtx> | null;
-  readonly beforeList: BeforeHook<ListCtx> | null;
-  readonly afterList: AfterHook<ListCtx> | null;
-  readonly beforeDelete: BeforeHook<DeleteCtx> | null;
-  readonly afterDelete: AfterHook<DeleteCtx> | null;
 }
 
 /** Config shape for hooks on RigConfig. */
@@ -93,10 +77,6 @@ export interface HooksConfig {
   afterReceive?: AfterHook<ReceiveCtx>;
   beforeRead?: BeforeHook<ReadCtx>;
   afterRead?: AfterHook<ReadCtx>;
-  beforeList?: BeforeHook<ListCtx>;
-  afterList?: AfterHook<ListCtx>;
-  beforeDelete?: BeforeHook<DeleteCtx>;
-  afterDelete?: AfterHook<DeleteCtx>;
 }
 
 // ── Factory ──
@@ -110,10 +90,6 @@ export function resolveHooks(config?: HooksConfig): RigHooks {
     afterReceive: config?.afterReceive ?? null,
     beforeRead: config?.beforeRead ?? null,
     afterRead: config?.afterRead ?? null,
-    beforeList: config?.beforeList ?? null,
-    afterList: config?.afterList ?? null,
-    beforeDelete: config?.beforeDelete ?? null,
-    afterDelete: config?.afterDelete ?? null,
   });
 }
 

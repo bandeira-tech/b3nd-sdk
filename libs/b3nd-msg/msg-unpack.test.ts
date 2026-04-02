@@ -104,16 +104,16 @@ Deno.test("MemoryClient - unpacks MessageData outputs on receive", async () => {
 
   // Verify envelope was stored
   const envelope = await client.read("msg://open/test");
-  assertEquals(envelope.success, true);
+  assertEquals(envelope[0].success, true);
 
   // Verify each output was stored
   const readX = await client.read("mutable://open/x");
-  assertEquals(readX.success, true);
-  assertEquals(readX.record?.data, { value: 1 });
+  assertEquals(readX[0].success, true);
+  assertEquals(readX[0].record?.data, { value: 1 });
 
   const readY = await client.read("mutable://open/y");
-  assertEquals(readY.success, true);
-  assertEquals(readY.record?.data, { value: 2 });
+  assertEquals(readY[0].success, true);
+  assertEquals(readY[0].record?.data, { value: 2 });
 });
 
 Deno.test("MemoryClient - plain data stored normally (no unpacking)", async () => {
@@ -123,8 +123,8 @@ Deno.test("MemoryClient - plain data stored normally (no unpacking)", async () =
   assertEquals(result.accepted, true);
 
   const read = await client.read("mutable://open/z");
-  assertEquals(read.success, true);
-  assertEquals(read.record?.data, { name: "Alice" });
+  assertEquals(read[0].success, true);
+  assertEquals(read[0].record?.data, { name: "Alice" });
 });
 
 Deno.test("MemoryClient - fails if any output in MessageData fails", async () => {
@@ -268,17 +268,17 @@ Deno.test("integration - receive MessageData through node → client unpacks out
 
   // Envelope stored
   const storedMsg = await client.read("msg://open/test-1");
-  assertEquals(storedMsg.success, true);
-  assertEquals(storedMsg.record?.data, msgData);
+  assertEquals(storedMsg[0].success, true);
+  assertEquals(storedMsg[0].record?.data, msgData);
 
   // Outputs stored by client
   const readX = await client.read("mutable://open/x");
-  assertEquals(readX.success, true);
-  assertEquals(readX.record?.data, { value: 1 });
+  assertEquals(readX[0].success, true);
+  assertEquals(readX[0].record?.data, { value: 1 });
 
   const readY = await client.read("mutable://open/y");
-  assertEquals(readY.success, true);
-  assertEquals(readY.record?.data, { value: 2 });
+  assertEquals(readY[0].success, true);
+  assertEquals(readY[0].record?.data, { value: 2 });
 });
 
 Deno.test("integration - plain messages still work alongside MessageData", async () => {
@@ -302,8 +302,8 @@ Deno.test("integration - plain messages still work alongside MessageData", async
   assertEquals(plainResult.accepted, true);
 
   const readPlain = await client.read("mutable://open/plain");
-  assertEquals(readPlain.success, true);
-  assertEquals(readPlain.record?.data, { name: "Alice" });
+  assertEquals(readPlain[0].success, true);
+  assertEquals(readPlain[0].record?.data, { name: "Alice" });
 
   // MessageData
   const msgData: MessageData = {
@@ -316,8 +316,8 @@ Deno.test("integration - plain messages still work alongside MessageData", async
   assertEquals(msgResult.accepted, true);
 
   const readFromMsg = await client.read("mutable://open/from-msg");
-  assertEquals(readFromMsg.success, true);
-  assertEquals(readFromMsg.record?.data, { value: 42 });
+  assertEquals(readFromMsg[0].success, true);
+  assertEquals(readFromMsg[0].record?.data, { value: 42 });
 });
 
 Deno.test("integration - MessageData with mixed programs (mutable + immutable)", async () => {
@@ -352,12 +352,12 @@ Deno.test("integration - MessageData with mixed programs (mutable + immutable)",
   assertEquals(result.accepted, true);
 
   const readA = await client.read("mutable://open/a");
-  assertEquals(readA.success, true);
-  assertEquals(readA.record?.data, { mutable: true });
+  assertEquals(readA[0].success, true);
+  assertEquals(readA[0].record?.data, { mutable: true });
 
   const readB = await client.read("immutable://open/b");
-  assertEquals(readB.success, true);
-  assertEquals(readB.record?.data, { immutable: true });
+  assertEquals(readB[0].success, true);
+  assertEquals(readB[0].record?.data, { immutable: true });
 });
 
 Deno.test("integration - msgSchema rejects invalid outputs before client sees them", async () => {
@@ -394,8 +394,8 @@ Deno.test("integration - msgSchema rejects invalid outputs before client sees th
 
   // Nothing stored — validation rejected before processing
   const readOk = await client.read("mutable://open/ok");
-  assertEquals(readOk.success, false);
+  assertEquals(readOk[0].success, false);
 
   const readNope = await client.read("mutable://restricted/nope");
-  assertEquals(readNope.success, false);
+  assertEquals(readNope[0].success, false);
 });

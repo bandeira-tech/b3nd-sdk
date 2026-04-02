@@ -1,5 +1,5 @@
 /// <reference lib="deno.ns" />
-import { Rig } from "@b3nd/rig";
+import { connection, createClientFromUrl, Rig } from "@b3nd/rig";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createHandler } from "./src/handler.ts";
@@ -23,7 +23,12 @@ const config: HostConfig = {
 
 // ── Rig & Server ─────────────────────────────────────────────────────
 
-const rig = await Rig.init({ url: BACKEND_URL });
+const backendClient = await createClientFromUrl(BACKEND_URL);
+const isHttp = BACKEND_URL.startsWith("http://") || BACKEND_URL.startsWith("https://");
+const rig = new Rig({
+  connections: [connection(backendClient, { receive: ["*"], read: ["*"] })],
+  ...(isHttp ? { sseBaseUrl: BACKEND_URL.replace(/\/$/, "") } : {}),
+});
 rig.on("read:error", (e) => {
   console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
 });

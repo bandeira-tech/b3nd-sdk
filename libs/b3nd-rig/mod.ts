@@ -8,11 +8,14 @@
  *
  * @example
  * ```typescript
- * import { Rig, Identity } from "@b3nd/rig";
+ * import { Rig, Identity, connection, createClientFromUrl } from "@b3nd/rig";
  *
- * const rig = await Rig.init({ url: "https://node.b3nd.net" });
+ * const client = await createClientFromUrl("https://node.b3nd.net");
+ * const rig = new Rig({
+ *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
+ * });
+ *
  * const id = await Identity.fromSeed("my-secret");
- *
  * // Identity drives, rig delivers
  * const session = id.rig(rig);
  * await session.send({
@@ -21,7 +24,7 @@
  * });
  *
  * // Read (no identity needed)
- * const result = await rig.read("mutable://app/key");
+ * const results = await rig.read("mutable://app/key");
  * ```
  */
 
@@ -51,9 +54,7 @@ export type {
 export type {
   AfterHook,
   BeforeHook,
-  DeleteCtx,
   HooksConfig,
-  ListCtx,
   ReadCtx,
   ReceiveCtx,
   RigHooks,

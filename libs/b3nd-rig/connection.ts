@@ -38,7 +38,7 @@
  * });
  *
  * // Rig routes to the right connections automatically
- * const rig = await Rig.init({
+ * const rig = new Rig({
  *   connections: [node, mirror, cache],
  *   schema: mySchema,
  * });
@@ -57,8 +57,6 @@ import { matchPattern } from "./observe.ts";
 export interface ConnectionPatterns {
   receive?: string[];
   read?: string[];
-  list?: string[];
-  delete?: string[];
 }
 
 /** A connection: a client wrapped with routing patterns. */
@@ -73,8 +71,6 @@ export interface Connection {
   readonly patterns: Readonly<{
     receive?: readonly string[];
     read?: readonly string[];
-    list?: readonly string[];
-    delete?: readonly string[];
   }>;
 
   /** Check if this connection accepts an operation on a URI. */
@@ -117,7 +113,7 @@ export function connection(
 ): Connection {
   // Pre-compile patterns for fast matching
   const compiled: Partial<Record<ClientOperation, CompiledPattern[]>> = {};
-  for (const op of ["receive", "read", "list", "delete"] as const) {
+  for (const op of ["receive", "read"] as const) {
     if (patterns[op]) {
       compiled[op] = compilePatterns(patterns[op]!);
     }
@@ -127,8 +123,6 @@ export function connection(
   const frozenPatterns = Object.freeze({
     ...(patterns.receive ? { receive: Object.freeze([...patterns.receive]) } : {}),
     ...(patterns.read ? { read: Object.freeze([...patterns.read]) } : {}),
-    ...(patterns.list ? { list: Object.freeze([...patterns.list]) } : {}),
-    ...(patterns.delete ? { delete: Object.freeze([...patterns.delete]) } : {}),
   });
 
   return {

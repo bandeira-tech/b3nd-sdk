@@ -7,7 +7,7 @@
  * enforcement, and schema/connection separation.
  */
 
-import { assertEquals, assertNotEquals } from "@std/assert";
+import { assertEquals } from "@std/assert";
 import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
 import { connection } from "./connection.ts";
 import { Rig } from "./rig.ts";
@@ -37,8 +37,6 @@ Deno.test("connection - rejects unlisted operation", () => {
   });
   // read not listed → not accepted
   assertEquals(conn.accepts("read", "mutable://open/x"), false);
-  assertEquals(conn.accepts("delete", "mutable://open/x"), false);
-  assertEquals(conn.accepts("list", "mutable://open/x"), false);
 });
 
 Deno.test("connection - patterns are serializable", () => {
@@ -75,7 +73,7 @@ Deno.test("rig routes receive to correct connection", async () => {
   const remote = new MemoryClient();
   const local = new MemoryClient();
 
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(remote, { receive: ["mutable://*"], read: ["mutable://*"] }),
       connection(local, { receive: ["local://*"], read: ["local://*"] }),
@@ -86,18 +84,16 @@ Deno.test("rig routes receive to correct connection", async () => {
   await rig.receive(["local://app/y", { v: 2 }]);
 
   // remote has mutable data, local doesn't
-  const r1 = await remote.read("mutable://open/x");
+  const r1 = (await remote.read("mutable://open/x"))[0];
   assertEquals(r1.success, true);
-  const r2 = await local.read("mutable://open/x");
+  const r2 = (await local.read("mutable://open/x"))[0];
   assertEquals(r2.success, false);
 
   // local has local data, remote doesn't
-  const r3 = await local.read("local://app/y");
+  const r3 = (await local.read("local://app/y"))[0];
   assertEquals(r3.success, true);
-  const r4 = await remote.read("local://app/y");
+  const r4 = (await remote.read("local://app/y"))[0];
   assertEquals(r4.success, false);
-
-  await rig.cleanup();
 });
 
 Deno.test("rig reads from first matching connection", async () => {
@@ -107,7 +103,7 @@ Deno.test("rig reads from first matching connection", async () => {
   // Write directly to fallback (simulating pre-existing data)
   await fallback.receive(["mutable://open/old", { from: "fallback" }]);
 
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(primary, { read: ["mutable://*"], receive: ["mutable://*"] }),
       connection(fallback, { read: ["mutable://*"] }),
@@ -118,23 +114,23 @@ Deno.test("rig reads from first matching connection", async () => {
   await rig.receive(["mutable://open/new", { from: "primary" }]);
 
   // Read "new" → primary has it (first match)
-  const r1 = await rig.read("mutable://open/new");
+  const results1 = await rig.read("mutable://open/new");
+  const r1 = results1[0];
   assertEquals(r1.success, true);
   assertEquals(r1.record?.data, { from: "primary" });
 
   // Read "old" → primary doesn't have it, falls through to fallback
-  const r2 = await rig.read("mutable://open/old");
+  const results2 = await rig.read("mutable://open/old");
+  const r2 = results2[0];
   assertEquals(r2.success, true);
   assertEquals(r2.record?.data, { from: "fallback" });
-
-  await rig.cleanup();
 });
 
 Deno.test("rig broadcasts writes to all matching connections", async () => {
   const primary = new MemoryClient();
   const mirror = new MemoryClient();
 
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(primary, { receive: ["mutable://*"], read: ["mutable://*"] }),
       connection(mirror, { receive: ["mutable://*"] }),
@@ -144,16 +140,14 @@ Deno.test("rig broadcasts writes to all matching connections", async () => {
   await rig.receive(["mutable://open/x", { v: 1 }]);
 
   // Both have the data
-  const r1 = await primary.read("mutable://open/x");
+  const r1 = (await primary.read("mutable://open/x"))[0];
   assertEquals(r1.success, true);
-  const r2 = await mirror.read("mutable://open/x");
+  const r2 = (await mirror.read("mutable://open/x"))[0];
   assertEquals(r2.success, true);
-
-  await rig.cleanup();
 });
 
 Deno.test("rig rejects receive for unconnected URI", async () => {
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(new MemoryClient(), { receive: ["local://*"] }),
     ],
@@ -161,41 +155,25 @@ Deno.test("rig rejects receive for unconnected URI", async () => {
 
   const result = await rig.receive(["mutable://open/x", { v: 1 }]);
   assertEquals(result.accepted, false);
-
-  await rig.cleanup();
 });
 
 Deno.test("rig rejects read for unconnected URI", async () => {
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(new MemoryClient(), { read: ["local://*"] }),
     ],
   });
 
-  const result = await rig.read("mutable://open/x");
+  const results = await rig.read("mutable://open/x");
+  const result = results[0];
   assertEquals(result.success, false);
-
-  await rig.cleanup();
-});
-
-Deno.test("rig rejects delete for unconnected URI", async () => {
-  const rig = await Rig.init({
-    connections: [
-      connection(new MemoryClient(), { delete: ["local://*"] }),
-    ],
-  });
-
-  const result = await rig.delete("mutable://open/x");
-  assertEquals(result.success, false);
-
-  await rig.cleanup();
 });
 
 Deno.test("best-effort: local connection enforces even if client accepts everything", async () => {
   // MemoryClient accepts anything — no internal filtering
   const client = new MemoryClient();
 
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(client, { receive: ["mutable://*"] }),
     ],
@@ -206,10 +184,8 @@ Deno.test("best-effort: local connection enforces even if client accepts everyth
   assertEquals(result.accepted, false);
 
   // Verify nothing was written
-  const read = await client.read("hash://sha256/abc");
-  assertEquals(read.success, false);
-
-  await rig.cleanup();
+  const readResults = await client.read("hash://sha256/abc");
+  assertEquals(readResults[0].success, false);
 });
 
 Deno.test("schema and connections are separate concerns", async () => {
@@ -224,7 +200,7 @@ Deno.test("schema and connections are separate concerns", async () => {
     },
   };
 
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(client, {
         receive: ["mutable://*"],
@@ -245,8 +221,6 @@ Deno.test("schema and connections are separate concerns", async () => {
   // Doesn't match connection → rejected before schema runs
   const r3 = await rig.receive(["hash://sha256/abc", { valid: true }]);
   assertEquals(r3.accepted, false);
-
-  await rig.cleanup();
 });
 
 Deno.test("schema validation runs after connection routing", async () => {
@@ -260,7 +234,7 @@ Deno.test("schema validation runs after connection routing", async () => {
     },
   };
 
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(client, { receive: ["mutable://*"] }),
     ],
@@ -275,96 +249,70 @@ Deno.test("schema validation runs after connection routing", async () => {
   // Subscribed URI → schema IS called
   await rig.receive(["mutable://open/x", "data"]);
   assertEquals(schemaCalledWith.length, 1);
-
-  await rig.cleanup();
 });
 
-Deno.test("single client via url still works (catch-all connection)", async () => {
-  const rig = await Rig.init({ url: "memory://" });
+Deno.test("single client via catch-all connection", async () => {
+  const rig = new Rig({
+    connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+  });
 
   // Everything accepted — no filtering
   const r1 = await rig.receive(["mutable://open/x", { v: 1 }]);
   assertEquals(r1.accepted, true);
   const r2 = await rig.receive(["hash://sha256/whatever", "data"]);
   assertEquals(r2.accepted, true);
-
-  await rig.cleanup();
 });
 
-Deno.test("single client via client still works (catch-all connection)", async () => {
-  const rig = await Rig.init({ client: new MemoryClient() });
+Deno.test("single client via explicit connection still works (catch-all)", async () => {
+  const rig = new Rig({
+    connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+  });
 
   const r = await rig.receive(["mutable://open/x", { v: 1 }]);
   assertEquals(r.accepted, true);
-  const read = await rig.read("mutable://open/x");
-  assertEquals(read.success, true);
-
-  await rig.cleanup();
+  const readResults = await rig.read("mutable://open/x");
+  assertEquals(readResults[0].success, true);
 });
 
-Deno.test("getSchema unions all connection client schemas", async () => {
+Deno.test("status().schema unions all connection client schemas", async () => {
   const a = new MemoryClient();
   const b = new MemoryClient();
 
-  // Write some data so getSchema has something to report
+  // Write some data so status has something to report
   await a.receive(["mutable://open/x", "data"]);
   await b.receive(["local://app/y", "data"]);
 
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(a, { receive: ["mutable://*"], read: ["mutable://*"] }),
       connection(b, { receive: ["local://*"], read: ["local://*"] }),
     ],
   });
 
-  const schema = await rig.getSchema();
-  assertEquals(Array.isArray(schema), true);
-
-  await rig.cleanup();
+  const status = await rig.status();
+  assertEquals(Array.isArray(status.schema), true);
 });
 
-Deno.test("health aggregates across all connection clients", async () => {
-  const rig = await Rig.init({
+Deno.test("status aggregates across all connection clients", async () => {
+  const rig = new Rig({
     connections: [
       connection(new MemoryClient(), { receive: ["mutable://*"] }),
       connection(new MemoryClient(), { receive: ["local://*"] }),
     ],
   });
 
-  const health = await rig.health();
-  assertEquals(health.status, "healthy");
-
-  await rig.cleanup();
+  const status = await rig.status();
+  assertEquals(status.status, "healthy");
 });
 
-Deno.test("cleanup runs on all connection clients", async () => {
-  let cleanupCalls = 0;
-  const client = new MemoryClient();
-  const origCleanup = client.cleanup.bind(client);
-  client.cleanup = async () => {
-    cleanupCalls++;
-    return origCleanup();
-  };
-
-  const rig = await Rig.init({
-    connections: [
-      connection(client, { receive: ["mutable://*"] }),
-    ],
-  });
-
-  await rig.cleanup();
-  assertEquals(cleanupCalls, 1);
-});
-
-Deno.test("list routes through connection", async () => {
+Deno.test("list via trailing-slash read routes through connection", async () => {
   const client = new MemoryClient();
 
-  const rig = await Rig.init({
+  const rig = new Rig({
     connections: [
       connection(client, {
         receive: ["mutable://*"],
         read: ["mutable://*"],
-        list: ["mutable://*"],
       }),
     ],
   });
@@ -372,36 +320,7 @@ Deno.test("list routes through connection", async () => {
   await rig.receive(["mutable://open/a", "one"]);
   await rig.receive(["mutable://open/b", "two"]);
 
-  const result = await rig.list("mutable://open");
-  assertEquals(result.success, true);
-  if (result.success) {
-    assertEquals(result.data.length >= 2, true);
-  }
-
-  await rig.cleanup();
-});
-
-Deno.test("delete broadcasts to matching connections", async () => {
-  const a = new MemoryClient();
-  const b = new MemoryClient();
-
-  // Write directly to both
-  await a.receive(["mutable://open/x", "data"]);
-  await b.receive(["mutable://open/x", "data"]);
-
-  const rig = await Rig.init({
-    connections: [
-      connection(a, { delete: ["mutable://*"], read: ["mutable://*"] }),
-      connection(b, { delete: ["mutable://*"] }),
-    ],
-  });
-
-  await rig.delete("mutable://open/x");
-
-  const r1 = await a.read("mutable://open/x");
-  assertEquals(r1.success, false);
-  const r2 = await b.read("mutable://open/x");
-  assertEquals(r2.success, false);
-
-  await rig.cleanup();
+  const results = await rig.read("mutable://open/");
+  const successful = results.filter((r) => r.success);
+  assertEquals(successful.length >= 2, true);
 });

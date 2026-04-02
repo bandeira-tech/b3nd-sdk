@@ -6,9 +6,6 @@
  */
 
 import type {
-  ListOptions,
-  ListResult,
-  ReadMultiResult,
   ReadResult,
   Message,
   Validator,
@@ -25,12 +22,11 @@ export type {
 } from "../b3nd-core/types.ts";
 
 /**
- * Read interface - subset of node capabilities for reading state
+ * Read interface - subset of node capabilities for reading state.
+ * Matches the `read` method of `NodeProtocolInterface`.
  */
 export interface ReadInterface {
-  read<T = unknown>(uri: string): Promise<ReadResult<T>>;
-  readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>>;
-  list(uri: string, options?: ListOptions): Promise<ListResult>;
+  read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]>;
 }
 
 /**

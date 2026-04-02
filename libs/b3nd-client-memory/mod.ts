@@ -1,17 +1,11 @@
 import type {
-  DeleteResult,
-  HealthStatus,
-  ListItem,
-  ListOptions,
-  ListResult,
   Message,
   NodeProtocolInterface,
   PersistenceRecord,
-  ReadMultiResult,
-  ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
   Schema,
+  StatusResult,
 } from "../b3nd-core/types.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
@@ -122,144 +116,80 @@ export class MemoryClient implements NodeProtocolInterface {
     return { accepted: true };
   }
 
-  public read<T>(uri: string): Promise<ReadResult<T>> {
+  public read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      // Trailing slash = list mode
+      if (uri.endsWith("/")) {
+        results.push(...this._list<T>(uri));
+      } else {
+        results.push(this._readOne<T>(uri));
+      }
+    }
+
+    return Promise.resolve(results);
+  }
+
+  private _readOne<T>(uri: string): ReadResult<T> {
     const result = target(uri, this.storage);
     if (!result.success) {
-      return Promise.resolve(result);
+      return { success: false, error: result.error };
     }
-    const { node, parts } = result;
+    const { parts, node } = result;
 
     let current: MemoryClientStorageNode<unknown> | undefined = node;
-
     for (const part of parts.filter(Boolean)) {
       current = current?.children?.get(part);
       if (!current) {
-        return Promise.resolve({
-          success: false,
-          error: `Path not found: ${part}`,
-        });
+        return { success: false, error: `Path not found: ${part}` };
       }
     }
 
     if (!current.value) {
-      return Promise.resolve({
-        success: false,
-        error: "Not found",
-      });
+      return { success: false, error: "Not found" };
     }
 
-    return Promise.resolve({
+    return {
       success: true,
       record: current.value as PersistenceRecord<T>,
-    });
+    };
   }
 
-  public readMulti<T = unknown>(
-    uris: string[],
-  ): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return Promise.resolve({
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      });
-    }
-
-    if (uris.length > 50) {
-      return Promise.resolve({
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      });
-    }
-
-    const results: ReadMultiResultItem<T>[] = [];
-    let succeeded = 0;
-
-    for (const uri of uris) {
-      const result = target(uri, this.storage);
-      if (!result.success) {
-        results.push({ uri, success: false, error: result.error });
-        continue;
-      }
-
-      let current: MemoryClientStorageNode<unknown> | undefined = result.node;
-      let found = true;
-
-      for (const part of result.parts.filter(Boolean)) {
-        current = current?.children?.get(part);
-        if (!current) {
-          found = false;
-          break;
-        }
-      }
-
-      if (found && current?.value) {
-        results.push({
-          uri,
-          success: true,
-          record: current.value as PersistenceRecord<T>,
-        });
-        succeeded++;
-      } else {
-        results.push({ uri, success: false, error: "Not found" });
-      }
-    }
-
-    return Promise.resolve({
-      success: succeeded > 0,
-      results,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    });
-  }
-
-  public list(uri: string, options?: ListOptions): Promise<ListResult> {
+  private _list<T>(uri: string): ReadResult<T>[] {
     const result = target(uri, this.storage);
     if (!result.success) {
-      return Promise.resolve(result);
+      return [{ success: false, error: result.error }];
     }
     const { node, parts, program, path } = result;
     let current: MemoryClientStorageNode<unknown> | undefined = node;
 
     const filteredParts = parts.filter(Boolean);
-
     for (const part of filteredParts) {
       current = current?.children?.get(part);
       if (!current) {
-        return Promise.resolve({
-          success: false,
-          error: `Path not found: ${part}`,
-        });
+        return [];
       }
     }
 
     if (!current.children?.size) {
-      return Promise.resolve({
-        success: true,
-        data: [],
-        pagination: {
-          page: options?.page ?? 1,
-          limit: options?.limit ?? 50,
-          total: 0,
-        },
-      });
+      return [];
     }
 
-    const prefix = path.endsWith("/")
-      ? `${program}${path}`
-      : `${program}${path}/`;
-    let items: ListItem[] = [];
+    const prefix = `${program}${path}`;
+    const results: ReadResult<T>[] = [];
 
     function collectLeaves(
       node: MemoryClientStorageNode<unknown>,
       currentUri: string,
     ) {
       if (node.value !== undefined) {
-        items.push({ uri: currentUri });
+        results.push({
+          success: true,
+          uri: currentUri,
+          record: node.value as PersistenceRecord<T>,
+        });
       }
       if (node.children) {
         for (const [key, child] of node.children) {
@@ -272,94 +202,13 @@ export class MemoryClient implements NodeProtocolInterface {
       collectLeaves(child, `${prefix}${key}`);
     }
 
-    if (options?.pattern) {
-      const regex = new RegExp(options.pattern);
-      items = items.filter((item) => regex.test(item.uri));
-    }
-
-    if (options?.sortBy === "name") {
-      items.sort((a, b) => a.uri.localeCompare(b.uri));
-    } else if (options?.sortBy === "timestamp") {
-      items.sort((a, b) => {
-        const aTs =
-          (current.children?.get(a.uri.split("/").pop()!)?.value as any)?.ts ??
-            0;
-        const bTs =
-          (current.children?.get(b.uri.split("/").pop()!)?.value as any)?.ts ??
-            0;
-        return aTs - bTs;
-      });
-    }
-
-    if (options?.sortOrder === "desc") {
-      items.reverse();
-    }
-
-    const page = options?.page ?? 1;
-    const limit = options?.limit ?? 50;
-    const offset = (page - 1) * limit;
-    const paginated = items.slice(offset, offset + limit);
-
-    return Promise.resolve({
-      success: true,
-      data: paginated,
-      pagination: { page, limit, total: items.length },
-    });
+    return results;
   }
 
-  public health(): Promise<HealthStatus> {
+  public status(): Promise<StatusResult> {
     return Promise.resolve({
       status: "healthy",
-    });
-  }
-
-  public getSchema(): Promise<string[]> {
-    return Promise.resolve([...this.storage.keys()]);
-  }
-
-  public cleanup(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  public delete(uri: string): Promise<DeleteResult> {
-    const result = target(uri, this.storage);
-    if (!result.success) {
-      return Promise.resolve(result);
-    }
-    const { node, parts } = result;
-
-    const filteredParts = parts.filter(Boolean);
-
-    if (filteredParts.length === 0) {
-      return Promise.resolve({
-        success: false,
-        error: "Cannot delete root path",
-      });
-    }
-
-    let current: MemoryClientStorageNode<unknown> | undefined = node;
-    const lastPart = filteredParts.pop()!;
-    for (const part of filteredParts) {
-      current = current?.children?.get(part);
-      if (!current) {
-        return Promise.resolve({
-          success: false,
-          error: `Path not found: ${part}`,
-        });
-      }
-    }
-
-    if (!current.children?.has(lastPart)) {
-      return Promise.resolve({
-        success: false,
-        error: `Item not found: ${lastPart}`,
-      });
-    }
-
-    current.children.delete(lastPart);
-
-    return Promise.resolve({
-      success: true,
+      schema: [...this.storage.keys()],
     });
   }
 }

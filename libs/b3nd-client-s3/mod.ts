@@ -8,19 +8,13 @@
 
 import {
   Errors,
-  type DeleteResult,
-  type HealthStatus,
-  type ListItem,
-  type ListOptions,
-  type ListResult,
   type Message,
   type NodeProtocolInterface,
   type PersistenceRecord,
-  type ReadMultiResult,
-  type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
   type S3ClientConfig,
+  type StatusResult,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -112,7 +106,22 @@ export class S3Client implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        results.push(...await this._list<T>(uri));
+      } else {
+        results.push(await this._readOne<T>(uri));
+      }
+    }
+
+    return results;
+  }
+
+  private async _readOne<T>(uri: string): Promise<ReadResult<T>> {
     try {
       const key = this.resolveKey(uri);
       const content = await this.executor.getObject(key);
@@ -130,137 +139,60 @@ export class S3Client implements NodeProtocolInterface {
 
       return {
         success: true,
+        uri,
         record: { ts: record.ts, data: decodedData },
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
+        uri,
         error: msg,
         errorDetail: Errors.storageError(msg, uri),
       };
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
-
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
-    const settled = await Promise.all(
-      uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-        const result = await this.read<T>(uri);
-        if (result.success && result.record) {
-          return { uri, success: true, record: result.record };
-        }
-        return { uri, success: false, error: result.error || "Read failed" };
-      }),
-    );
-
-    const succeeded = settled.filter((r) => r.success).length;
-
-    return {
-      success: succeeded > 0,
-      results: settled,
-      summary: {
-        total: uris.length,
-        succeeded,
-        failed: uris.length - succeeded,
-      },
-    };
-  }
-
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
+  private async _list<T>(uri: string): Promise<ReadResult<T>[]> {
     try {
       const relKey = uriToKey(uri).replace(/\.json$/, "");
       const listPrefix = `${this.prefix}${relKey}/`;
 
       const keys = await this.executor.listObjects(listPrefix);
 
-      let items: ListItem[] = keys
-        .filter((k) => k.endsWith(".json"))
-        .map((k) => {
-          const rel = k.startsWith(this.prefix)
-            ? k.slice(this.prefix.length)
-            : k;
-          const withoutExt = rel.replace(/\.json$/, "");
-          const parts = withoutExt.split("/");
-          const protocol = parts[0];
-          const hostname = parts[1];
-          const path = parts.slice(2).join("/");
-          return { uri: `${protocol}://${hostname}/${path}` };
-        });
+      const results: ReadResult<T>[] = [];
+      for (const k of keys.filter((k) => k.endsWith(".json"))) {
+        const rel = k.startsWith(this.prefix) ? k.slice(this.prefix.length) : k;
+        const withoutExt = rel.replace(/\.json$/, "");
+        const parts = withoutExt.split("/");
+        const protocol = parts[0];
+        const hostname = parts[1];
+        const path = parts.slice(2).join("/");
+        const itemUri = `${protocol}://${hostname}/${path}`;
 
-      if (options?.pattern) {
-        const regex = new RegExp(options.pattern);
-        items = items.filter((item) => regex.test(item.uri));
+        const content = await this.executor.getObject(k);
+        if (content !== null) {
+          try {
+            const record = JSON.parse(content) as PersistenceRecord;
+            const decodedData = decodeBinaryFromJson(record.data) as T;
+            results.push({
+              success: true,
+              uri: itemUri,
+              record: { ts: record.ts, data: decodedData },
+            });
+          } catch {
+            // Skip malformed records
+          }
+        }
       }
 
-      if (options?.sortBy === "name" || !options?.sortBy) {
-        items.sort((a, b) => a.uri.localeCompare(b.uri));
-      }
-
-      if (options?.sortOrder === "desc") {
-        items.reverse();
-      }
-
-      const total = items.length;
-      const page = options?.page ?? 1;
-      const limit = options?.limit ?? 50;
-      const offset = (page - 1) * limit;
-      const paginated = items.slice(offset, offset + limit);
-
-      return {
-        success: true,
-        data: paginated,
-        pagination: { page, limit, total },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+      return results;
+    } catch {
+      return [];
     }
   }
 
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const key = this.resolveKey(uri);
-
-      const content = await this.executor.getObject(key);
-      if (content === null) {
-        return {
-          success: false,
-          error: "Not found",
-          errorDetail: Errors.notFound(uri),
-        };
-      }
-
-      await this.executor.deleteObject(key);
-      return { success: true };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
-      };
-    }
-  }
-
-  async health(): Promise<HealthStatus> {
+  async status(): Promise<StatusResult> {
     try {
       const ok = await this.executor.headBucket();
       if (!ok) {
@@ -270,9 +202,20 @@ export class S3Client implements NodeProtocolInterface {
         };
       }
 
+      // List top-level prefixes as schema
+      const keys = await this.executor.listObjects(this.prefix);
+      const programs = new Set<string>();
+      for (const k of keys.filter((k) => k.endsWith(".json"))) {
+        const rel = k.startsWith(this.prefix) ? k.slice(this.prefix.length) : k;
+        const parts = rel.split("/");
+        if (parts.length >= 2) {
+          programs.add(`${parts[0]}://${parts[1]}`);
+        }
+      }
+
       return {
         status: "healthy",
-        message: "S3 client is operational",
+        schema: [...programs],
         details: {
           bucket: this.bucket,
           prefix: this.prefix || "(none)",
@@ -283,16 +226,6 @@ export class S3Client implements NodeProtocolInterface {
         status: "unhealthy",
         message: error instanceof Error ? error.message : String(error),
       };
-    }
-  }
-
-  getSchema(): Promise<string[]> {
-    return Promise.resolve([]);
-  }
-
-  async cleanup(): Promise<void> {
-    if (this.executor.cleanup) {
-      await this.executor.cleanup();
     }
   }
 

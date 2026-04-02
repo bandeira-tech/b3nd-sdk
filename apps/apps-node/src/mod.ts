@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Context } from "hono";
-import { Rig } from "@b3nd/rig";
+import { connection, createClientFromUrl, Rig } from "@b3nd/rig";
 
 import { loadConfig } from "./config.ts";
 import { loadServerKeys } from "./server-keys.ts";
@@ -22,7 +22,12 @@ async function main() {
   const serverKeys = loadServerKeys();
 
   // Use Rig instead of raw HttpClient — operations go through hooks/events
-  const rig = await Rig.init({ url: config.dataNodeUrl });
+  const rawClient = await createClientFromUrl(config.dataNodeUrl);
+  const isHttp = config.dataNodeUrl.startsWith("http://") || config.dataNodeUrl.startsWith("https://");
+  const rig = new Rig({
+    connections: [connection(rawClient, { receive: ["*"], read: ["*"] })],
+    ...(isHttp ? { sseBaseUrl: config.dataNodeUrl.replace(/\/$/, "") } : {}),
+  });
   rig.on("receive:error", (e) => {
     console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
   });

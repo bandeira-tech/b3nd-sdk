@@ -33,7 +33,7 @@
  * });
  *
  * // Rig routes to the right clients automatically
- * const rig = await Rig.init({ clients: [cache, node, console] });
+ * const rig = new Rig({ connections: [cache, node, console] });
  * ```
  */
 

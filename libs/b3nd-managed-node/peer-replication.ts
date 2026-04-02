@@ -55,12 +55,7 @@ export function bestEffortClient(
         return { accepted: true };
       }
     },
-    read: (uri) => client.read(uri),
-    readMulti: (uris) => client.readMulti(uris),
-    list: (uri, options) => client.list(uri, options),
-    delete: (uri) => client.delete(uri),
-    health: () => client.health(),
-    getSchema: () => client.getSchema(),
-    cleanup: () => client.cleanup(),
+    read: (uris) => client.read(uris),
+    status: () => client.status(),
   };
 }

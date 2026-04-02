@@ -115,10 +115,10 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
           throw err;
         }
       },
-      read: async (...args: Parameters<NodeProtocolInterface["read"]>) => {
+      async read<T = unknown>(uris: string | string[]): Promise<import("../b3nd-core/types.ts").ReadResult<T>[]> {
         const start = performance.now();
         try {
-          const result = await client.read(...args);
+          const result = await client.read<T>(uris);
           collector.recordRead(performance.now() - start);
           return result;
         } catch (err) {
@@ -126,11 +126,8 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
           throw err;
         }
       },
-      list: client.list.bind(client),
-      delete: client.delete.bind(client),
-      health: client.health?.bind(client),
-      getSchema: client.getSchema?.bind(client),
-    } as NodeProtocolInterface;
+      status: () => client.status(),
+    };
   }
 
   const collector: MetricsCollector = {

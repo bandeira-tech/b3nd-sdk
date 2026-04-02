@@ -130,12 +130,13 @@ export function EditorMainContent({
 
     setDecrypting(true);
     try {
-      const hashRead = await rig.read(hashUri);
-      if (!hashRead.success || !hashRead.record) {
+      const hashResults = await rig.read(hashUri);
+      const hashRead = hashResults[0];
+      if (!hashRead?.success || !hashRead.record) {
         addLogEntry({
           source: "editor",
           message: `Failed to read encrypted content for decryption: ${
-            hashRead.error || "not found"
+            hashRead?.error || "not found"
           }`,
           level: "error",
         });
@@ -192,7 +193,7 @@ export function EditorMainContent({
     } finally {
       setDecrypting(false);
     }
-  }, [hasKeyAccount, rigIdentity, getBackendClient, addLogEntry]);
+  }, [hasKeyAccount, rigIdentity, rig, addLogEntry]);
 
   const handleSave = useCallback(async () => {
     if (!activeDoc) return;
@@ -284,8 +285,9 @@ export function EditorMainContent({
         // Read-back confirmation — success logged here for context,
         // failures handled by rig "read:error" event
         try {
-          const hashRead = await rig.read(hashUri);
-          if (hashRead.success && hashRead.record) {
+          const hashResults = await rig.read(hashUri);
+          const hashRead = hashResults[0];
+          if (hashRead?.success && hashRead.record) {
             addLogEntry({
               source: "editor",
               message: `Read-back confirmed: ${
@@ -316,7 +318,7 @@ export function EditorMainContent({
     activeDoc,
     title,
     body,
-    getBackendClient,
+    rig,
     activeAccount,
     hasKeyAccount,
     canEncrypt,

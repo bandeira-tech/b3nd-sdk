@@ -362,9 +362,10 @@ export async function read(uri: string, verbose = false): Promise<void> {
     const endpoint = `${config.node}/api/v1/read/${protocol}/${domain}${path}`;
     logger?.http("GET", endpoint);
 
-    const result = await rig.read(uri);
+    const results = await rig.read(uri);
+    const result = results[0];
 
-    if (result.success && result.record) {
+    if (result?.success && result.record) {
       console.log(`✓ Read successful`);
       console.log(`  URI: ${uri}`);
 
@@ -423,7 +424,7 @@ export async function read(uri: string, verbose = false): Promise<void> {
       }
 
       console.log(`  Timestamp: ${new Date(result.record.ts).toISOString()}`);
-    } else if (!result.success) {
+    } else if (result && !result.success) {
       throw new Error(result.error || "Read failed");
     } else {
       console.log(`✓ Read complete, but no data found at ${uri}`);
@@ -473,35 +474,26 @@ export async function list(
     }`;
     logger?.http("GET", endpoint);
 
-    const result = await rig.list(uri, options);
+    // list() is now read() with trailing slash convention
+    const listUri = uri.endsWith("/") ? uri : uri + "/";
+    const results = await rig.read(listUri);
 
-    if (result.success) {
+    if (results.length > 0) {
       console.log(`✓ List successful`);
       console.log(`  URI: ${uri}`);
-      console.log(
-        `  Total: ${result.pagination.total || result.data.length} items`,
-      );
-      console.log(
-        `  Page: ${result.pagination.page}/${
-          Math.ceil(
-            (result.pagination.total || 0) / (result.pagination.limit || 50),
-          )
-        }`,
-      );
+      console.log(`  Total: ${results.length} items`);
       console.log("");
       console.log("Items:");
-      for (const item of result.data) {
-        const itemName = ((item as unknown) as Record<string, unknown>).name ||
-          item.uri || "unknown";
-        const itemTime =
-          ((item as unknown) as Record<string, unknown>).timestamp ||
-          ((item as unknown) as Record<string, unknown>).ts || Date.now();
+      for (const item of results) {
+        const record = item.record;
+        const itemName = item.uri || "unknown";
+        const itemTime = record?.ts || Date.now();
         console.log(
           `  - ${itemName} (${new Date(Number(itemTime)).toISOString()})`,
         );
       }
     } else {
-      throw new Error(result.error || "List failed");
+      console.log(`No items found at ${uri}`);
     }
   } finally {
     await closeRig(logger);
@@ -535,20 +527,21 @@ export async function del(uri: string, verbose = false): Promise<void> {
       );
     }
 
-    const { protocol, domain, path } = parseUri(uri);
-    const config = await loadConfig();
-    const endpoint =
-      `${config.node}/api/v1/delete/${protocol}/${domain}${path}`;
-    logger?.http("DELETE", endpoint);
-
-    const result = await rig.delete(uri);
-
-    if (result.success) {
-      console.log(`✓ Delete successful`);
-      console.log(`  URI: ${uri}`);
-    } else {
-      throw new Error(result.error || "Delete failed");
-    }
+    // TODO: delete() is no longer on the rig interface — needs new API
+    // const { protocol, domain, path } = parseUri(uri);
+    // const config = await loadConfig();
+    // const endpoint =
+    //   `${config.node}/api/v1/delete/${protocol}/${domain}${path}`;
+    // logger?.http("DELETE", endpoint);
+    // const result = await rig.delete(uri);
+    // if (result.success) {
+    //   console.log(`✓ Delete successful`);
+    //   console.log(`  URI: ${uri}`);
+    // } else {
+    //   throw new Error(result.error || "Delete failed");
+    // }
+    console.log(`Delete is not yet supported in the new rig API`);
+    console.log(`  URI: ${uri}`);
   } finally {
     await closeRig(logger);
   }
@@ -572,7 +565,7 @@ export async function health(verbose = false): Promise<void> {
     const endpoint = `${config.node}/api/v1/health`;
     logger?.http("GET", endpoint);
 
-    const result = await rig.health();
+    const result = await rig.status();
 
     console.log(`Node: ${config.node}`);
     console.log(`Status: ${result.status}`);
@@ -585,9 +578,9 @@ export async function health(verbose = false): Promise<void> {
       }
     }
 
-    // Also get schema
+    // Also get schema from status
     try {
-      const schema = await rig.getSchema();
+      const schema = result.schema ?? [];
       console.log(`Protocols: ${schema.length}`);
       for (const s of schema) {
         console.log(`  - ${s}`);

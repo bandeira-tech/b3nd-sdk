@@ -26,7 +26,8 @@ Deno.test("heartbeat: writes status on start", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const result = await client.read(uri);
+  const results = await client.read(uri);
+  const result = results[0];
   assertEquals(result.success, true);
 
   const data = (result as any).record.data;
@@ -66,7 +67,8 @@ Deno.test("heartbeat: degraded status when backend has error", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const result = await client.read(uri);
+  const results = await client.read(uri);
+  const result = results[0];
   assertEquals(result.success, true);
 
   const status = (result as any).record.data.payload;
@@ -92,7 +94,8 @@ Deno.test("heartbeat: signed envelope has correct pubkey", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const result = await client.read(uri);
+  const results = await client.read(uri);
+  const result = results[0];
   const data = (result as any).record.data;
 
   assertEquals(data.auth.length, 1);
@@ -128,7 +131,8 @@ Deno.test("heartbeat: includes metrics when getMetrics provided", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const result = await client.read(uri);
+  const results = await client.read(uri);
+  const result = results[0];
   const status = (result as any).record.data.payload;
 
   assertEquals(status.metrics.writeLatencyP50, 1.0);

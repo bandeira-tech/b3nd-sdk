@@ -25,9 +25,9 @@ Deno.test("createValidatedClient - accept validator allows writes", async () => 
   ]);
   assertEquals(result.accepted, true);
 
-  const read = await client.read("mutable://data/alice");
-  assertEquals(read.success, true);
-  assertEquals((read.record?.data as Record<string, unknown>)?.name, "Alice");
+  const readResults = await client.read("mutable://data/alice");
+  assertEquals(readResults[0].success, true);
+  assertEquals((readResults[0].record?.data as Record<string, unknown>)?.name, "Alice");
 });
 
 Deno.test("createValidatedClient - reject validator blocks writes", async () => {
@@ -43,8 +43,8 @@ Deno.test("createValidatedClient - reject validator blocks writes", async () => 
   assertEquals(result.error, "not allowed");
 
   // Data should NOT be written
-  const read = await client.read("mutable://data/x");
-  assertEquals(read.success, false);
+  const readResults = await client.read("mutable://data/x");
+  assertEquals(readResults[0].success, false);
 });
 
 Deno.test("createValidatedClient - requireFields blocks invalid data", async () => {
@@ -84,7 +84,7 @@ Deno.test("createValidatedClient - rejects empty URI", async () => {
   assertEquals(result.error, "Message URI is required");
 });
 
-Deno.test("createValidatedClient - read/list delegate to read backend", async () => {
+Deno.test("createValidatedClient - read delegates to read backend", async () => {
   const writeMem = mem();
   const readMem = mem();
 
@@ -98,28 +98,13 @@ Deno.test("createValidatedClient - read/list delegate to read backend", async ()
     validate: accept(),
   });
 
-  const read = await client.read("mutable://data/a");
-  assertEquals(read.success, true);
+  const readResults = await client.read("mutable://data/a");
+  assertEquals(readResults[0].success, true);
 
-  const list = await client.list("mutable://data/");
-  assertEquals(list.success, true);
-});
-
-Deno.test("createValidatedClient - delete delegates to write backend", async () => {
-  const m = mem();
-  await m.receive(["mutable://data/a", { val: 1 }]);
-
-  const client = createValidatedClient({
-    write: m,
-    read: m,
-    validate: accept(),
-  });
-
-  const del = await client.delete("mutable://data/a");
-  assertEquals(del.success, true);
-
-  const read = await client.read("mutable://data/a");
-  assertEquals(read.success, false);
+  // List via trailing slash
+  const listResults = await client.read("mutable://data/");
+  assertEquals(listResults.length, 2);
+  assertEquals(listResults.every((r) => r.success), true);
 });
 
 Deno.test("createValidatedClient - handles validator that throws", async () => {

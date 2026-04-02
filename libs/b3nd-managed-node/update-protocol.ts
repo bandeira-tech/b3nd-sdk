@@ -43,8 +43,9 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
     const uri = nodeUpdateUri(opts.operatorPubKeyHex, opts.nodeId);
 
     try {
-      const result = await opts.client.read(uri);
-      if (!result.success || !result.record) {
+      const results = await opts.client.read(uri);
+      const result = results[0];
+      if (!result?.success || !result.record) {
         return { available: false };
       }
 

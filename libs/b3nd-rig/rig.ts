@@ -11,20 +11,15 @@
  */
 
 import type {
-  DeleteResult,
-  HealthStatus,
-  ListOptions,
-  ListResult,
   Message,
   NodeProtocolInterface,
-  ReadMultiResult,
   ReadResult,
   ReceiveResult,
+  StatusResult,
 } from "../b3nd-core/types.ts";
 import type { MessageData } from "../b3nd-msg/data/types.ts";
 import type { SendResult } from "../b3nd-msg/data/send.ts";
 import { send } from "../b3nd-msg/data/send.ts";
-import { createClientFromUrl } from "./backend-factory.ts";
 import type { Schema, Validator } from "../b3nd-core/types.ts";
 import { msgSchema } from "../b3nd-compose/validators.ts";
 import type {
@@ -38,8 +33,6 @@ import type {
   WatchOptions,
 } from "./types.ts";
 import type {
-  DeleteCtx,
-  ListCtx,
   ReadCtx,
   ReceiveCtx,
   RigHooks,
@@ -55,15 +48,6 @@ import { createRigHandler } from "./http-handler.ts";
 import { openSseStream } from "../b3nd-client-http/sse.ts";
 import { matchPattern } from "./observe.ts";
 
-/** Per-operation client map. */
-interface OpClients {
-  send: NodeProtocolInterface;
-  receive: NodeProtocolInterface;
-  read: NodeProtocolInterface;
-  list: NodeProtocolInterface;
-  delete: NodeProtocolInterface;
-}
-
 /**
  * Rig — pure orchestration for b3nd.
  *
@@ -73,7 +57,9 @@ interface OpClients {
  *
  * @example Unsigned operations
  * ```typescript
- * const rig = await Rig.init({ url: "https://node.b3nd.net" });
+ * const rig = new Rig({
+ *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
+ * });
  * await rig.receive(["mutable://open/app/x", data]);
  * const result = await rig.readData("mutable://open/app/x");
  * ```
@@ -87,8 +73,8 @@ interface OpClients {
  *
  * @example With schema, hooks, events, and observe
  * ```typescript
- * const rig = await Rig.init({
- *   client: new MemoryClient(),
+ * const rig = new Rig({
+ *   connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
  *   schema,
  *   hooks: {
  *     beforeReceive: (ctx) => { rateLimit(ctx.uri); },
@@ -107,31 +93,45 @@ interface OpClients {
  */
 export class Rig {
   // ── Internal state ──
-  private readonly _clients: OpClients;
+  private readonly _dispatch: NodeProtocolInterface;
   private readonly _schema: Schema | null;
   private readonly _validator: Validator | null;
   private readonly _hooks: RigHooks;
   private readonly _events: RigEventEmitter;
   private readonly _observers: ObserveRegistry;
-  /** Base URL for SSE subscriptions — set when init'd via HTTP URL. */
+  /** Base URL for SSE subscriptions. */
   private readonly _sseBaseUrl: string | null;
 
-  private constructor(
-    clients: OpClients,
-    schema: Schema | null,
-    validator: Validator | null,
-    hooks: RigHooks,
-    events: RigEventEmitter,
-    observers: ObserveRegistry,
-    sseBaseUrl: string | null = null,
-  ) {
-    this._clients = clients;
-    this._schema = schema;
-    this._validator = validator;
-    this._hooks = hooks;
-    this._events = events;
-    this._observers = observers;
-    this._sseBaseUrl = sseBaseUrl;
+  constructor(config: RigConfig) {
+    if (!config.connections || config.connections.length === 0) {
+      throw new Error("Rig: `connections` array is required and must not be empty.");
+    }
+
+    this._dispatch = createConnectionDispatch(config.connections);
+    this._schema = config.schema ?? null;
+    this._validator = this._schema ? msgSchema(this._schema) : null;
+    this._hooks = resolveHooks(config.hooks);
+    this._sseBaseUrl = config.sseBaseUrl ?? null;
+
+    // Build event emitter
+    this._events = new RigEventEmitter();
+    if (config.on) {
+      for (const [name, handlers] of Object.entries(config.on)) {
+        if (handlers) {
+          for (const handler of handlers) {
+            this._events.on(name as RigEventName, handler);
+          }
+        }
+      }
+    }
+
+    // Build observe registry
+    this._observers = new ObserveRegistry();
+    if (config.observe) {
+      for (const [pattern, handler] of Object.entries(config.observe)) {
+        this._observers.add(pattern, handler);
+      }
+    }
   }
 
   /**
@@ -141,100 +141,12 @@ export class Rig {
    * This getter exists for third-party code that requires a plain object.
    */
   get client(): NodeProtocolInterface {
-    const c = this._clients;
+    const d = this._dispatch;
     return {
-      receive: (msg) => c.receive.receive(msg),
-      read: (uri) => c.read.read(uri),
-      readMulti: (uris) => c.read.readMulti(uris),
-      list: (uri, opts) => c.list.list(uri, opts),
-      delete: (uri) => c.delete.delete(uri),
-      health: () => c.read.health(),
-      getSchema: () => c.read.getSchema(),
-      cleanup: () => this._cleanupAllClients(),
+      receive: (msg) => d.receive(msg),
+      read: (uris) => d.read(uris),
+      status: () => d.status(),
     };
-  }
-
-  // ── Init ──
-
-  /**
-   * Initialize a Rig from config.
-   *
-   * - `url: "memory://"` → resolve URL to a client automatically
-   * - `client: myClient` → single pre-built client for all operations
-   * - `clients: [...]` → array of filtered clients, rig routes by `accepts()`
-   * - `clients: { read: client, send: client }` → per-operation routing
-   * - `hooks`, `on`, `observe` → behavior layers
-   *
-   * The rig is pure orchestration — build clients outside, hand them in.
-   */
-  static async init(config: RigConfig): Promise<Rig> {
-    // Resolve URL to client if provided
-    if (config.url && !config.client) {
-      const client = await createClientFromUrl(config.url);
-      const sseBaseUrl = config.sseBaseUrl ??
-        (config.url.startsWith("http://") || config.url.startsWith("https://")
-          ? config.url.replace(/\/$/, "")
-          : undefined);
-      return Rig.init({ ...config, client, sseBaseUrl, url: undefined });
-    }
-
-    let opClients: OpClients;
-
-    if (config.connections) {
-      // Connection-based routing — the primary path
-      opClients = createConnectionDispatch(config.connections);
-    } else if (config.client) {
-      // Single client for all operations
-      const c = config.client;
-      opClients = {
-        send: c,
-        receive: c,
-        read: c,
-        list: c,
-        delete: c,
-      };
-    } else {
-      throw new Error(
-        "Rig.init: `url`, `client`, or `connections` is required.",
-      );
-    }
-
-    // Build hooks (frozen — immutable after init)
-    const hooks = resolveHooks(config.hooks);
-
-    // Build event emitter
-    const events = new RigEventEmitter();
-    if (config.on) {
-      for (const [name, handlers] of Object.entries(config.on)) {
-        if (handlers) {
-          for (const handler of handlers) {
-            events.on(name as RigEventName, handler);
-          }
-        }
-      }
-    }
-
-    // Build observe registry
-    const observers = new ObserveRegistry();
-    if (config.observe) {
-      for (const [pattern, handler] of Object.entries(config.observe)) {
-        observers.add(pattern, handler);
-      }
-    }
-
-    // Build schema validator (application-level gatekeeper)
-    const schema = config.schema ?? null;
-    const validator = schema ? msgSchema(schema) : null;
-
-    return new Rig(
-      opClients,
-      schema,
-      validator,
-      hooks,
-      events,
-      observers,
-      config.sseBaseUrl ?? null,
-    );
   }
 
   // ── Core actions ──
@@ -271,7 +183,7 @@ export class Rig {
 
     let result: SendResult;
     try {
-      result = await send(messageData, this._clients.send);
+      result = await send(messageData, this._dispatch);
     } catch (err) {
       this._events.emit("send:error", {
         op: "send",
@@ -332,7 +244,10 @@ export class Rig {
 
     // Schema validation — application-level gatekeeper
     if (this._validator) {
-      const readFn = <T = unknown>(u: string) => this._clients.read.read<T>(u);
+      const readFn = async <T = unknown>(u: string) => {
+        const results = await this._dispatch.read<T>(u);
+        return results[0] ?? { success: false, error: "No results" } as import("../b3nd-core/types.ts").ReadResult<T>;
+      };
       const validation = await this._validator(
         [finalUri, finalData],
         undefined,
@@ -353,7 +268,7 @@ export class Rig {
     // Execute
     let result: ReceiveResult;
     try {
-      result = await this._clients.receive.receive([finalUri, finalData]);
+      result = await this._dispatch.receive([finalUri, finalData]);
     } catch (err) {
       this._events.emit("receive:error", {
         op: "receive",
@@ -391,237 +306,85 @@ export class Rig {
 
   // ── Observation ──
 
-  /** Read data from a URI. */
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
-    // Before-hook — throw to reject
-    const ctx: ReadCtx = { uri };
-    const readCtx = await runBefore(this._hooks.beforeRead, ctx);
-    const finalUri = readCtx.uri;
+  /**
+   * Read data from one or more URIs.
+   *
+   * - Single URI: returns array with one result
+   * - Multiple URIs: returns array with one result per URI
+   * - Trailing slash: lists all items under path
+   */
+  async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+
+    // Before-hook on each URI
+    const finalUris: string[] = [];
+    for (const uri of uriList) {
+      const ctx: ReadCtx = { uri };
+      const readCtx = await runBefore(this._hooks.beforeRead, ctx);
+      finalUris.push(readCtx.uri);
+    }
 
     // Execute
-    let result: ReadResult<T>;
+    let results: ReadResult<T>[];
     try {
-      result = await this._clients.read.read<T>(finalUri);
+      results = await this._dispatch.read<T>(finalUris);
     } catch (err) {
-      this._events.emit("read:error", {
-        op: "read",
-        uri: finalUri,
-        error: err instanceof Error ? err.message : String(err),
-        ts: Date.now(),
-      });
+      for (const uri of finalUris) {
+        this._events.emit("read:error", {
+          op: "read",
+          uri,
+          error: err instanceof Error ? err.message : String(err),
+          ts: Date.now(),
+        });
+      }
       throw err;
     }
 
-    // After-hook — observe only
-    await runAfter(this._hooks.afterRead, readCtx, result);
+    // After-hook + events per result
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const uri = finalUris[Math.min(i, finalUris.length - 1)];
+      await runAfter(this._hooks.afterRead, { uri }, result);
 
-    // Events
-    if (result.success) {
-      this._events.emit("read:success", {
-        op: "read",
-        uri: finalUri,
-        result,
-        ts: Date.now(),
-      });
-    } else {
-      this._events.emit("read:error", {
-        op: "read",
-        uri: finalUri,
-        error: result.error,
-        ts: Date.now(),
-      });
-    }
-
-    return result;
-  }
-
-  /** Batch read multiple URIs. Fires read events per-URI. */
-  async readMany<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    const result = await this._clients.read.readMulti<T>(uris);
-
-    // Fire events for each URI result
-    for (const item of result.results) {
-      if (item.success) {
+      if (result.success) {
         this._events.emit("read:success", {
           op: "read",
-          uri: item.uri,
-          result: item,
+          uri,
+          result,
           ts: Date.now(),
         });
       } else {
         this._events.emit("read:error", {
           op: "read",
-          uri: item.uri,
-          error: "error" in item
-            ? (item as { error?: string }).error
-            : undefined,
+          uri,
+          error: result.error,
           ts: Date.now(),
         });
       }
     }
 
-    return result;
+    return results;
   }
 
   /**
-   * Alias for `readMany` — satisfies `NodeProtocolInterface.readMulti`.
-   *
-   * The Rig structurally implements `NodeProtocolInterface`, so it can be
-   * passed directly to any function that expects a client.
-   */
-  readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    return this.readMany<T>(uris);
-  }
-
-  /** List items at a URI path. */
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
-    // Before-hook — throw to reject
-    const ctx: ListCtx = { uri, options };
-    const listCtx = await runBefore(this._hooks.beforeList, ctx);
-    const finalUri = listCtx.uri;
-    const finalOpts = listCtx.options;
-
-    // Execute
-    let result: ListResult;
-    try {
-      result = await this._clients.list.list(finalUri, finalOpts);
-    } catch (err) {
-      this._events.emit("list:error", {
-        op: "list",
-        uri: finalUri,
-        error: err instanceof Error ? err.message : String(err),
-        ts: Date.now(),
-      });
-      throw err;
-    }
-
-    // After-hook — observe only
-    await runAfter(this._hooks.afterList, listCtx, result);
-
-    // Events
-    if (result.success) {
-      this._events.emit("list:success", {
-        op: "list",
-        uri: finalUri,
-        result,
-        ts: Date.now(),
-      });
-    } else {
-      this._events.emit("list:error", {
-        op: "list",
-        uri: finalUri,
-        error: "error" in result
-          ? (result as { error?: string }).error
-          : undefined,
-        ts: Date.now(),
-      });
-    }
-
-    return result;
-  }
-
-  /**
-   * List URIs at a path, returning just the URI strings.
-   *
-   * Returns an empty array if the list fails.
-   *
-   * @example
-   * ```typescript
-   * const uris = await rig.listData("mutable://app/users");
-   * for (const uri of uris) {
-   *   const user = await rig.readData(uri);
-   *   console.log(user);
-   * }
-   * ```
-   */
-  async listData(uri: string, options?: ListOptions): Promise<string[]> {
-    const result = await this.list(uri, options);
-    if (!result.success) return [];
-    return result.data.map((item) => item.uri);
-  }
-
-  /**
-   * Read all data under a URI prefix.
-   *
-   * Combines `list()` + `readDataMany()` into a single call.
-   * Returns a Map of URI → data for all items under the prefix.
-   *
-   * @example
-   * ```typescript
-   * const users = await rig.readAll<UserProfile>("mutable://app/users");
-   * for (const [uri, profile] of users) {
-   *   console.log(`${uri}: ${profile.name}`);
-   * }
-   * ```
-   */
-  async readAll<T = unknown>(
-    uri: string,
-    options?: ListOptions,
-  ): Promise<Map<string, T>> {
-    const uris = await this.listData(uri, options);
-    if (uris.length === 0) return new Map();
-    return this.readDataMany<T>(uris);
-  }
-
-  /**
-   * Read just the data from a URI, returning `null` if not found.
-   *
-   * @example
-   * ```typescript
-   * const profile = await rig.readData<UserProfile>("mutable://app/users/alice");
-   * if (profile) {
-   *   console.log(profile.name);
-   * }
-   * ```
+   * Read just the data from a single URI, returning `null` if not found.
    */
   async readData<T = unknown>(uri: string): Promise<T | null> {
-    const result = await this.read<T>(uri);
-    return result.success && result.record ? result.record.data : null;
+    const results = await this.read<T>(uri);
+    const result = results[0];
+    return result?.success && result.record ? result.record.data : null;
   }
 
   /**
-   * Batch read data values for multiple URIs.
-   *
-   * Returns a Map of URI → data for all URIs that had data.
-   * Missing URIs are silently omitted from the map.
-   *
-   * @example
-   * ```typescript
-   * const data = await rig.readDataMany<UserProfile>([
-   *   "mutable://app/users/alice",
-   *   "mutable://app/users/bob",
-   * ]);
-   * console.log(data.get("mutable://app/users/alice")?.name);
-   * ```
-   */
-  async readDataMany<T = unknown>(uris: string[]): Promise<Map<string, T>> {
-    if (uris.length === 0) return new Map();
-    const multi = await this.readMany<T>(uris);
-    const map = new Map<string, T>();
-    for (const item of multi.results) {
-      if (item.success) {
-        map.set(item.uri, item.record.data);
-      }
-    }
-    return map;
-  }
-
-  /**
-   * Read data from a URI, throwing if not found.
-   *
-   * @throws {Error} If the URI has no data or the read fails.
-   *
-   * @example
-   * ```typescript
-   * const config = await rig.readOrThrow<AppConfig>("mutable://app/config");
-   * ```
+   * Read data from a single URI, throwing if not found.
    */
   async readOrThrow<T = unknown>(uri: string): Promise<T> {
-    const result = await this.read<T>(uri);
-    if (!result.success || !result.record) {
+    const results = await this.read<T>(uri);
+    const result = results[0];
+    if (!result?.success || !result.record) {
       throw new Error(
         `Rig.readOrThrow: no data at ${uri}${
-          result.error ? ` (${result.error})` : ""
+          result?.error ? ` (${result.error})` : ""
         }`,
       );
     }
@@ -630,114 +393,33 @@ export class Rig {
 
   /**
    * Check if data exists at a URI.
-   *
-   * @example
-   * ```typescript
-   * if (await rig.exists("mutable://app/user/alice")) {
-   *   // user exists
-   * }
-   * ```
    */
   async exists(uri: string): Promise<boolean> {
-    const result = await this.read(uri);
-    return result.success;
+    const results = await this.read(uri);
+    return results[0]?.success ?? false;
   }
 
   /**
    * Count items under a URI prefix.
-   *
-   * Convenience for `listData(uri).length` — useful in dashboards,
-   * pagination, and conditional logic without fetching all data.
-   *
-   * @example
-   * ```typescript
-   * const userCount = await rig.count("mutable://app/users");
-   * console.log(`${userCount} users registered`);
-   * ```
+   * Uses trailing-slash read to list items.
    */
-  async count(uri: string, options?: ListOptions): Promise<number> {
-    const uris = await this.listData(uri, options);
-    return uris.length;
-  }
-
-  /** Delete data at a URI. */
-  async delete(uri: string): Promise<DeleteResult> {
-    // Before-hook — throw to reject
-    const ctx: DeleteCtx = { uri };
-    const delCtx = await runBefore(this._hooks.beforeDelete, ctx);
-    const finalUri = delCtx.uri;
-
-    // Execute
-    let result: DeleteResult;
-    try {
-      result = await this._clients.delete.delete(finalUri);
-    } catch (err) {
-      this._events.emit("delete:error", {
-        op: "delete",
-        uri: finalUri,
-        error: err instanceof Error ? err.message : String(err),
-        ts: Date.now(),
-      });
-      throw err;
-    }
-
-    // After-hook — observe only
-    await runAfter(this._hooks.afterDelete, delCtx, result);
-
-    // Events
-    if (result.success) {
-      this._events.emit("delete:success", {
-        op: "delete",
-        uri: finalUri,
-        result,
-        ts: Date.now(),
-      });
-    } else {
-      this._events.emit("delete:error", {
-        op: "delete",
-        uri: finalUri,
-        error: result.error,
-        ts: Date.now(),
-      });
-    }
-
-    return result;
+  async count(uri: string): Promise<number> {
+    const prefix = uri.endsWith("/") ? uri : `${uri}/`;
+    const results = await this.read(prefix);
+    return results.length;
   }
 
   /**
-   * Batch delete multiple URIs in parallel.
-   *
-   * @example
-   * ```typescript
-   * const results = await rig.deleteMany([
-   *   "mutable://app/users/alice",
-   *   "mutable://app/users/bob",
-   * ]);
-   * ```
+   * List URIs under a prefix — convenience for read with trailing slash.
+   * Returns URI strings extracted from successful results.
    */
-  async deleteMany(uris: string[]): Promise<DeleteResult[]> {
-    if (uris.length === 0) return [];
-    return Promise.all(uris.map((uri) => this.delete(uri)));
-  }
-
-  /**
-   * Delete all items under a URI prefix.
-   *
-   * Combines `listData()` + `deleteMany()` into a single call.
-   *
-   * @example
-   * ```typescript
-   * const results = await rig.deleteAll("mutable://app/sessions");
-   * console.log(`Deleted ${results.length} sessions`);
-   * ```
-   */
-  async deleteAll(
-    uri: string,
-    options?: ListOptions,
-  ): Promise<DeleteResult[]> {
-    const uris = await this.listData(uri, options);
-    if (uris.length === 0) return [];
-    return this.deleteMany(uris);
+  private async listData(prefix: string): Promise<string[]> {
+    const listUri = prefix.endsWith("/") ? prefix : `${prefix}/`;
+    const results = await this.read(listUri);
+    return results
+      .filter((r) => r.success)
+      .map((r) => r.uri ?? "")
+      .filter(Boolean);
   }
 
   // ── Inspection ──
@@ -764,10 +446,6 @@ export class Rig {
     if (h.afterReceive) hooks.push("afterReceive");
     if (h.beforeRead) hooks.push("beforeRead");
     if (h.afterRead) hooks.push("afterRead");
-    if (h.beforeList) hooks.push("beforeList");
-    if (h.afterList) hooks.push("afterList");
-    if (h.beforeDelete) hooks.push("beforeDelete");
-    if (h.afterDelete) hooks.push("afterDelete");
 
     return {
       behavior: {
@@ -780,39 +458,20 @@ export class Rig {
 
   // ── Infrastructure ──
 
-  /** Health check. */
-  health(): Promise<HealthStatus> {
-    return this._clients.read.health();
-  }
-
-  /** Get the schema keys — returns rig schema if set, otherwise asks the backend. */
-  getSchema(): Promise<string[]> {
+  /**
+   * Status — health + schema.
+   * Aggregates client status and includes rig schema if set.
+   */
+  async status(): Promise<StatusResult> {
+    const clientStatus = await this._dispatch.status();
     if (this._schema) {
-      return Promise.resolve(Object.keys(this._schema));
+      return { ...clientStatus, schema: Object.keys(this._schema) };
     }
-    return this._clients.read.getSchema();
-  }
-
-  /** Clean up all backend resources. */
-  cleanup(): Promise<void> {
-    return this._cleanupAllClients();
+    return clientStatus;
   }
 
   /**
    * Return any in-flight event handler promises and clear the queue.
-   *
-   * Call before cleanup when you need to ensure event handlers complete:
-   *
-   * @example
-   * ```typescript
-   * await Promise.allSettled(rig.drain()); // wait for audit events
-   * await rig.cleanup();
-   * ```
-   *
-   * @example Fire-and-forget (default — just ignore pending events)
-   * ```typescript
-   * await rig.cleanup(); // pending events are abandoned
-   * ```
    */
   drain(): Promise<void>[] {
     return this._events.pending();
@@ -950,7 +609,14 @@ export class Rig {
     let lastItems = new Map<string, string>(); // uri → JSON
 
     while (!signal?.aborted) {
-      const items = await this.readAll<T>(prefix, options?.listOptions);
+      const listPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
+      const results = await this.read<T>(listPrefix);
+      const items = new Map<string, T>();
+      for (const r of results) {
+        if (r.success && r.record && r.uri) {
+          items.set(r.uri, r.record.data);
+        }
+      }
       const currentJson = new Map<string, string>();
       for (const [uri, data] of items) {
         currentJson.set(uri, JSON.stringify(data));
@@ -1277,40 +943,22 @@ export class Rig {
     return createRigHandler(this, options);
   }
 
-  // ── Private ──
-
-  /** Cleanup all unique clients (deduplicates if same client used for multiple ops). */
-  private async _cleanupAllClients(): Promise<void> {
-    const seen = new Set<NodeProtocolInterface>();
-    for (const client of Object.values(this._clients)) {
-      if (!seen.has(client)) {
-        seen.add(client);
-        await client.cleanup();
-      }
-    }
-  }
 }
 
 // ── Init helpers ──
-
-/** Resolve per-operation clients from object form, falling back to the default. */
 
 /**
  * Build dispatch from connections.
  *
  * Each operation is routed through connections:
- * - Writes (receive, delete): broadcast to ALL matching connections.
- * - Reads (read, list): first-match in declaration order.
- * - Health/schema/cleanup: aggregate across unique clients.
+ * - Writes (receive): broadcast to ALL matching connections.
+ * - Reads (read): first-match in declaration order.
+ * - Status: aggregate across unique clients.
  */
 function createConnectionDispatch(
   connections: Connection[],
-): OpClients {
-  if (connections.length === 0) {
-    throw new Error("Rig.init: `connections` array must not be empty");
-  }
-
-  const dispatch: NodeProtocolInterface = {
+): NodeProtocolInterface {
+  return {
     async receive(msg) {
       const [uri] = msg;
       const matching = connections.filter((s) => s.accepts("receive", uri));
@@ -1328,78 +976,40 @@ function createConnectionDispatch(
       return results[0];
     },
 
-    async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
-      for (const s of connections) {
-        if (!s.accepts("read", uri)) continue;
-        const result = await s.client.read<T>(uri);
-        if (result.success) return result;
-      }
-      return { success: false, error: `No connection has data for ${uri}` };
-    },
+    async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+      const uriList = Array.isArray(uris) ? uris : [uris];
+      const allResults: ReadResult<T>[] = [];
 
-    async readMulti<T = unknown>(
-      uris: string[],
-    ): Promise<ReadMultiResult<T>> {
-      const items = await Promise.all(uris.map(async (uri) => {
+      for (const uri of uriList) {
+        // Strip trailing slash for pattern matching (read patterns cover both)
+        const isList = uri.endsWith("/");
+        const matchUri = isList ? uri.slice(0, -1) : uri;
+        let found = false;
         for (const s of connections) {
-          if (!s.accepts("read", uri)) continue;
-          const r = await s.client.read<T>(uri);
-          if (r.success && r.record) {
-            return {
-              uri,
-              success: true as const,
-              record: r.record,
-            };
+          if (!s.accepts("read", matchUri)) continue;
+          const results = await s.client.read<T>(uri);
+          // For list (trailing-slash) reads, an empty array is a valid result
+          // meaning "prefix exists but has no items" — don't fall through to error.
+          if (isList) {
+            allResults.push(...results);
+            found = true;
+            break;
+          }
+          if (results.length > 0 && results.some((r) => r.success)) {
+            allResults.push(...results);
+            found = true;
+            break;
           }
         }
-        return {
-          uri,
-          success: false as const,
-          error: `No connection has data for ${uri}`,
-        };
-      }));
-      const succeeded = items.filter((r) => r.success).length;
-      return {
-        success: succeeded > 0,
-        results: items as ReadMultiResult<T>["results"],
-        summary: {
-          total: uris.length,
-          succeeded,
-          failed: uris.length - succeeded,
-        },
-      };
-    },
-
-    async list(uri, options) {
-      for (const s of connections) {
-        if (!s.accepts("list", uri)) continue;
-        const result = await s.client.list(uri, options);
-        if (result.success && result.data.length > 0) return result;
+        if (!found) {
+          allResults.push({ success: false, error: `No connection has data for ${uri}` });
+        }
       }
-      return {
-        success: true,
-        data: [],
-        pagination: { page: 1, limit: options?.limit ?? 50, total: 0 },
-      } as ListResult;
+
+      return allResults;
     },
 
-    async delete(uri) {
-      const matching = connections.filter((s) => s.accepts("delete", uri));
-      if (matching.length === 0) {
-        return {
-          success: false,
-          error: `No connection accepts delete for ${uri}`,
-        };
-      }
-      const results = await Promise.all(
-        matching.map((s) => s.client.delete(uri)),
-      );
-      const failed = results.find((r) => !r.success);
-      if (failed) return failed;
-      return results[0];
-    },
-
-    async health() {
+    async status(): Promise<StatusResult> {
       const seen = new Set<NodeProtocolInterface>();
       const unique: NodeProtocolInterface[] = [];
       for (const s of connections) {
@@ -1408,44 +1018,19 @@ function createConnectionDispatch(
           unique.push(s.client);
         }
       }
-      const results = await Promise.all(unique.map((c) => c.health()));
+      const results = await Promise.all(unique.map((c) => c.status()));
+      const allSchema = new Set<string>();
+      for (const r of results) {
+        if (r.schema) {
+          for (const k of r.schema) allSchema.add(k);
+        }
+      }
       const unhealthy = results.find((r) => r.status === "unhealthy");
-      if (unhealthy) return unhealthy;
+      if (unhealthy) return { ...unhealthy, schema: [...allSchema] };
       const degraded = results.find((r) => r.status === "degraded");
-      if (degraded) return degraded;
-      return results[0] ?? { status: "healthy" as const };
+      if (degraded) return { ...degraded, schema: [...allSchema] };
+      return { status: "healthy", schema: [...allSchema] };
     },
-
-    async getSchema() {
-      const seen = new Set<NodeProtocolInterface>();
-      const all = new Set<string>();
-      for (const s of connections) {
-        if (!seen.has(s.client)) {
-          seen.add(s.client);
-          const schemas = await s.client.getSchema();
-          for (const k of schemas) all.add(k);
-        }
-      }
-      return [...all];
-    },
-
-    async cleanup() {
-      const seen = new Set<NodeProtocolInterface>();
-      for (const s of connections) {
-        if (!seen.has(s.client)) {
-          seen.add(s.client);
-          await s.client.cleanup();
-        }
-      }
-    },
-  };
-
-  return {
-    send: dispatch,
-    receive: dispatch,
-    read: dispatch,
-    list: dispatch,
-    delete: dispatch,
   };
 }
 

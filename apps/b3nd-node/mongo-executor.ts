@@ -37,10 +37,6 @@ export async function createMongoExecutor(
       const docs = await collection.find(filter).toArray();
       return docs as Record<string, unknown>[];
     },
-    async deleteOne(filter) {
-      const res = await collection.deleteOne(filter);
-      return { deletedCount: res.deletedCount };
-    },
     async ping() {
       await db.command({ ping: 1 });
       return true;
