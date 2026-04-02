@@ -2440,6 +2440,7 @@ Deno.test({
       const httpClient = await createClientFromUrl(`http://127.0.0.1:${port}`);
       const subscriberRig = new Rig({
         connections: [connection(httpClient, { receive: ["*"], read: ["*"] })],
+        sseBaseUrl: `http://127.0.0.1:${port}`,
       });
 
       // 3. Subscribe to a pattern
