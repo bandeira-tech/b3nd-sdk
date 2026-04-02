@@ -44,8 +44,10 @@ function deserializeBinary(data: unknown): unknown {
 /** Extract a b3nd URI from the request path after a prefix. */
 function extractUri(path: string, prefix: string): string | null {
   // /api/v1/read/mutable/open/test → mutable://open/test
+  // /api/v1/read/mutable/open/test/ → mutable://open/test/ (trailing slash preserved)
   const rest = path.slice(prefix.length);
   if (!rest) return null;
+  const hasTrailingSlash = rest.endsWith("/");
   const parts = rest.split("/").filter(Boolean);
   if (parts.length < 2) {
     // protocol-only: /api/v1/read/mutable → mutable://
@@ -54,9 +56,10 @@ function extractUri(path: string, prefix: string): string | null {
   const protocol = parts[0];
   const domain = parts[1];
   const subpath = parts.slice(2).join("/");
-  return subpath
+  const uri = subpath
     ? `${protocol}://${domain}/${subpath}`
     : `${protocol}://${domain}`;
+  return hasTrailingSlash ? `${uri}/` : uri;
 }
 
 /** Guess MIME type from URI file extension. */

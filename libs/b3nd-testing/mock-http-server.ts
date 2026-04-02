@@ -168,11 +168,27 @@ export class MockHttpServer {
 
   private handleRead(url: URL): Response {
     // Parse URI from path: /api/v1/read/{protocol}/{domain}{path}
-    const parts = url.pathname.split("/").slice(4); // Skip /api/v1/read/
+    const hasTrailingSlash = url.pathname.endsWith("/");
+    const parts = url.pathname.split("/").slice(4).filter(Boolean); // Skip /api/v1/read/
     const protocol = parts[0];
     const domain = parts[1];
-    const path = "/" + parts.slice(2).join("/");
-    const uri = `${protocol}://${domain}${path}`;
+    const subpath = parts.slice(2).join("/");
+    const uri = subpath
+      ? `${protocol}://${domain}/${subpath}`
+      : `${protocol}://${domain}`;
+
+    // Trailing slash = list mode → return ReadResult[] for all matching keys
+    if (hasTrailingSlash) {
+      const prefix = uri.endsWith("/") ? uri : uri;
+      const results = Array.from(this.storage.entries())
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, record]) => ({
+          success: true,
+          uri: key,
+          record,
+        }));
+      return Response.json(results);
+    }
 
     const record = this.storage.get(uri);
 

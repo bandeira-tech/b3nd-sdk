@@ -54,32 +54,25 @@ Deno.test("read trailing slash: returns empty on network error", async () => {
 });
 
 Deno.test("read trailing slash: returns results on HTTP 200", async () => {
-  // The HttpClient._list expects { data: [{ uri }] } from the server,
-  // then fetches each URI individually via _readOne. Mock both calls.
-  let callCount = 0;
-  const { client, server } = createClientWithServer((req) => {
-    callCount++;
-    if (callCount === 1) {
-      // First call: list endpoint returns URIs
-      const mockData = {
-        data: [
-          { uri: "mutable://open/test/item1" },
-          { uri: "mutable://open/test/item2" },
-        ],
-      };
-      return new Response(JSON.stringify(mockData), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    // Subsequent calls: _readOne for each URI
-    return new Response(
-      JSON.stringify({ data: { value: callCount }, ts: Date.now() }),
+  // The HttpClient._list hits /api/v1/read/ with trailing slash.
+  // Server returns ReadResult[] directly for trailing-slash reads.
+  const { client, server } = createClientWithServer(() => {
+    const mockResults = [
       {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
+        success: true,
+        uri: "mutable://open/test/item1",
+        record: { data: { value: 1 }, ts: Date.now() },
       },
-    );
+      {
+        success: true,
+        uri: "mutable://open/test/item2",
+        record: { data: { value: 2 }, ts: Date.now() },
+      },
+    ];
+    return new Response(JSON.stringify(mockResults), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   });
 
   try {
