@@ -48,14 +48,22 @@ import { deriveObfuscatedPath } from "./utils.ts";
 
 Deno.test("generateSigningKeyPair — produces valid Ed25519 keypair", async () => {
   const pair = await generateSigningKeyPair();
-  assertEquals(pair.publicKeyHex.length, 64, "Ed25519 public key = 32 bytes = 64 hex");
+  assertEquals(
+    pair.publicKeyHex.length,
+    64,
+    "Ed25519 public key = 32 bytes = 64 hex",
+  );
   assertEquals(/^[a-f0-9]+$/.test(pair.publicKeyHex), true);
   assertEquals(pair.privateKeyHex.length > 0, true);
 });
 
 Deno.test("generateEncryptionKeyPair — produces valid X25519 keypair", async () => {
   const pair = await generateEncryptionKeyPair();
-  assertEquals(pair.publicKeyHex.length, 64, "X25519 public key = 32 bytes = 64 hex");
+  assertEquals(
+    pair.publicKeyHex.length,
+    64,
+    "X25519 public key = 32 bytes = 64 hex",
+  );
   assertEquals(/^[a-f0-9]+$/.test(pair.publicKeyHex), true);
 });
 
@@ -123,7 +131,11 @@ Deno.test("encrypt + decrypt — roundtrip succeeds", async () => {
   assertEquals(encrypted.nonce.length > 0, true);
   assertEquals(typeof encrypted.ephemeralPublicKey, "string");
 
-  const decrypted = await decrypt(encrypted, encPair.privateKey, encPair.publicKeyHex);
+  const decrypted = await decrypt(
+    encrypted,
+    encPair.privateKey,
+    encPair.publicKeyHex,
+  );
   assertEquals(new TextDecoder().decode(decrypted), "secret message");
 });
 
@@ -134,7 +146,11 @@ Deno.test("encrypt — produces different ciphertext each time (ephemeral keys)"
   const enc1 = await encrypt(plaintext, encPair.publicKeyHex);
   const enc2 = await encrypt(plaintext, encPair.publicKeyHex);
 
-  assertNotEquals(enc1.data, enc2.data, "ephemeral key means different ciphertext");
+  assertNotEquals(
+    enc1.data,
+    enc2.data,
+    "ephemeral key means different ciphertext",
+  );
   assertNotEquals(enc1.ephemeralPublicKey, enc2.ephemeralPublicKey);
 });
 
@@ -143,7 +159,10 @@ Deno.test("decryptWithHex — convenience wrapper works", async () => {
   const plaintext = new TextEncoder().encode("via hex");
 
   const encrypted = await encrypt(plaintext, pair.publicKey.publicKeyHex);
-  const decrypted = await decryptWithHex(encrypted, pair.privateKey.privateKeyHex);
+  const decrypted = await decryptWithHex(
+    encrypted,
+    pair.privateKey.privateKeyHex,
+  );
   assertEquals(new TextDecoder().decode(decrypted), "via hex");
 });
 
@@ -154,7 +173,11 @@ Deno.test("encryptSymmetric + decryptSymmetric — roundtrip", async () => {
   const plaintext = new TextEncoder().encode("symmetric secret");
 
   const encrypted = await encryptSymmetric(plaintext, keyHex);
-  assertEquals(encrypted.ephemeralPublicKey, undefined, "symmetric has no ephemeral key");
+  assertEquals(
+    encrypted.ephemeralPublicKey,
+    undefined,
+    "symmetric has no ephemeral key",
+  );
 
   const decrypted = await decryptSymmetric(encrypted, keyHex);
   assertEquals(new TextDecoder().decode(decrypted), "symmetric secret");
@@ -222,14 +245,22 @@ Deno.test("deriveEncryptionKeyPairFromSeed — can encrypt/decrypt", async () =>
   const pair = await deriveEncryptionKeyPairFromSeed("enc-seed");
   const plaintext = new TextEncoder().encode("derived encryption");
   const encrypted = await encrypt(plaintext, pair.publicKeyHex);
-  const decrypted = await decrypt(encrypted, pair.privateKey, pair.publicKeyHex);
+  const decrypted = await decrypt(
+    encrypted,
+    pair.privateKey,
+    pair.publicKeyHex,
+  );
   assertEquals(new TextDecoder().decode(decrypted), "derived encryption");
 });
 
 Deno.test("signing and encryption seeds produce different keys from same seed", async () => {
   const signing = await deriveSigningKeyPairFromSeed("same-seed");
   const encryption = await deriveEncryptionKeyPairFromSeed("same-seed");
-  assertNotEquals(signing.publicKeyHex, encryption.publicKeyHex, "domain separation");
+  assertNotEquals(
+    signing.publicKeyHex,
+    encryption.publicKeyHex,
+    "domain separation",
+  );
 });
 
 // ---------- IdentityKey class ----------
@@ -276,7 +307,8 @@ Deno.test("PrivateEncryptionKey.generatePair — encrypt/decrypt roundtrip", asy
 });
 
 Deno.test("PrivateEncryptionKey.fromHex — restore from hex", async () => {
-  const { privateKey: orig, publicKey } = await PrivateEncryptionKey.generatePair();
+  const { privateKey: orig, publicKey } = await PrivateEncryptionKey
+    .generatePair();
   const restored = await PrivateEncryptionKey.fromHex({
     privateKeyHex: orig.privateKeyHex,
     publicKeyHex: orig.publicKeyHex,
@@ -342,8 +374,14 @@ Deno.test("createAuthenticatedMessage — sign with multiple signers", async () 
   assertEquals(msg.payload, payload);
 
   // Both signatures verify
-  assertEquals(await verify(pair1.publicKeyHex, msg.auth[0].signature, payload), true);
-  assertEquals(await verify(pair2.publicKeyHex, msg.auth[1].signature, payload), true);
+  assertEquals(
+    await verify(pair1.publicKeyHex, msg.auth[0].signature, payload),
+    true,
+  );
+  assertEquals(
+    await verify(pair2.publicKeyHex, msg.auth[1].signature, payload),
+    true,
+  );
 });
 
 Deno.test("createAuthenticatedMessageWithHex — convenience wrapper", async () => {
@@ -358,7 +396,10 @@ Deno.test("createAuthenticatedMessageWithHex — convenience wrapper", async () 
 
   assertEquals(msg.auth.length, 1);
   assertEquals(msg.auth[0].pubkey, pair.publicKeyHex);
-  assertEquals(await verify(pair.publicKeyHex, msg.auth[0].signature, payload), true);
+  assertEquals(
+    await verify(pair.publicKeyHex, msg.auth[0].signature, payload),
+    true,
+  );
 });
 
 Deno.test("verifyPayload — validates all signers", async () => {
@@ -384,7 +425,10 @@ Deno.test("verifyPayload — detects tampered payload", async () => {
     { privateKey: pair.privateKey, publicKeyHex: pair.publicKeyHex },
   ]);
 
-  const result = await verifyPayload({ payload: { data: "tampered" }, auth: msg.auth });
+  const result = await verifyPayload({
+    payload: { data: "tampered" },
+    auth: msg.auth,
+  });
   assertEquals(result.verified, false);
   assertEquals(result.signers.length, 0);
 });
@@ -412,7 +456,10 @@ Deno.test("createSignedEncryptedMessage + verifyAndDecryptMessage — full workf
   assertEquals(typeof msg.payload.data, "string");
   assertEquals(typeof msg.payload.nonce, "string");
 
-  const result = await verifyAndDecryptMessage({ message: msg, encryptionKey: encKey });
+  const result = await verifyAndDecryptMessage({
+    message: msg,
+    encryptionKey: encKey,
+  });
   assertEquals(result.verified, true);
   assertEquals(result.signers.length, 1);
   assertEquals(new TextDecoder().decode(result.data), "confidential payload");
@@ -469,7 +516,11 @@ Deno.test("hmac — different data produce different results", async () => {
 Deno.test("generateCodeVerifier — produces base64url string", () => {
   const verifier = generateCodeVerifier();
   assertEquals(verifier.length, 43);
-  assertEquals(/^[A-Za-z0-9\-_]+$/.test(verifier), true, "base64url chars only");
+  assertEquals(
+    /^[A-Za-z0-9\-_]+$/.test(verifier),
+    true,
+    "base64url chars only",
+  );
   assertEquals(verifier.includes("="), false, "no padding");
   assertEquals(verifier.includes("+"), false, "no + (base64url)");
   assertEquals(verifier.includes("/"), false, "no / (base64url)");
@@ -537,5 +588,9 @@ Deno.test("pemToCryptoKey — rejects empty PEM", async () => {
 Deno.test("verify — handles corrupt signature gracefully", async () => {
   const pair = await generateSigningKeyPair();
   const valid = await verify(pair.publicKeyHex, "not-hex", { test: true });
-  assertEquals(valid, false, "corrupt signature should return false, not throw");
+  assertEquals(
+    valid,
+    false,
+    "corrupt signature should return false, not throw",
+  );
 });

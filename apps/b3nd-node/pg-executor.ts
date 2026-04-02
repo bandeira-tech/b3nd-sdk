@@ -26,7 +26,10 @@ export async function createPostgresExecutor(
         const txExecutor: SqlExecutor = {
           query: async (sql, args) => {
             const res = await client.query(sql, args as unknown[]);
-            return { rows: res.rows as unknown[], rowCount: (res as any).rowCount };
+            return {
+              rows: res.rows as unknown[],
+              rowCount: (res as any).rowCount,
+            };
           },
           transaction: () => {
             throw new Error("Nested transactions not supported");

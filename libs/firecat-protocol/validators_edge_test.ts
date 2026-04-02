@@ -13,7 +13,10 @@ import {
   createAuthenticatedMessageWithHex,
   generateSigningKeyPair,
 } from "@bandeira-tech/b3nd-sdk/encrypt";
-import { createValidatedClient, msgSchema } from "../../libs/b3nd-compose/mod.ts";
+import {
+  createValidatedClient,
+  msgSchema,
+} from "../../libs/b3nd-compose/mod.ts";
 import schema from "./mod.ts";
 import { CONSENSUS_FEE, GENESIS_AMOUNT, ROOT_KEY } from "./constants.ts";
 import {
@@ -22,7 +25,10 @@ import {
   generateUtxoId,
 } from "./helpers.ts";
 
-type Client = { receive: (msg: [string, unknown]) => Promise<any>; read: <T>(uri: string) => Promise<any> };
+type Client = {
+  receive: (msg: [string, unknown]) => Promise<any>;
+  read: <T>(uri: string) => Promise<any>;
+};
 
 function createClient() {
   const mem = new MemoryClient();

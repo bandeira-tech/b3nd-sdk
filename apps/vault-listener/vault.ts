@@ -19,7 +19,9 @@ import { hmac } from "@b3nd/encrypt";
  */
 export interface TokenVerifier {
   /** Verify a token and return the stable subject identifier */
-  verify(token: string): Promise<{ sub: string; provider: string; email?: string }>;
+  verify(
+    token: string,
+  ): Promise<{ sub: string; provider: string; email?: string }>;
 }
 
 /**
@@ -82,7 +84,9 @@ export function createVaultHandler(
 ): (request: HandlerRequest<VaultAuthRequest>) => Promise<VaultAuthResponse> {
   const { nodeSecret, verifiers } = config;
 
-  return async (request: HandlerRequest<VaultAuthRequest>): Promise<VaultAuthResponse> => {
+  return async (
+    request: HandlerRequest<VaultAuthRequest>,
+  ): Promise<VaultAuthResponse> => {
     const { provider, token } = request.data;
 
     // Find the verifier for this provider

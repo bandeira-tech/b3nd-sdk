@@ -1,10 +1,16 @@
 // React import not needed with react-jsx runtime
 import { Fragment, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppStore, useActiveBackend } from "../../stores/appStore";
-import { RIG_EXPLORER_BASE_PATH, cn, routeForExplorerPath, sanitizePath, joinPath } from "../../utils";
+import { useActiveBackend, useAppStore } from "../../stores/appStore";
+import {
+  cn,
+  joinPath,
+  RIG_EXPLORER_BASE_PATH,
+  routeForExplorerPath,
+  sanitizePath,
+} from "../../utils";
 import { ContentViewer } from "./ContentViewer";
-import { FileText, User, Database, ChevronRight, KeyRound } from "lucide-react";
+import { ChevronRight, Database, FileText, KeyRound, User } from "lucide-react";
 import type { NavigationNode } from "../../types";
 
 export function ExplorerMainContent() {
@@ -97,7 +103,9 @@ export function ExplorerMainContent() {
       </div>
 
       <div className="flex-1">
-        {explorerSection === "account" ? renderAccountContent() : renderIndexContent()}
+        {explorerSection === "account"
+          ? renderAccountContent()
+          : renderIndexContent()}
       </div>
     </div>
   );
@@ -183,10 +191,11 @@ function AccountBreadcrumb(
             <Fragment key={pathTo}>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
               <button
-                onClick={() => navigate(routeForExplorerPath(pathTo, {
-                  section: "account",
-                  accountKey: accountKey ?? undefined,
-                }))}
+                onClick={() =>
+                  navigate(routeForExplorerPath(pathTo, {
+                    section: "account",
+                    accountKey: accountKey ?? undefined,
+                  }))}
                 className={cn(
                   "px-2 py-1 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
                   isLast
@@ -208,9 +217,12 @@ function AccountScopeEmptyState() {
   return (
     <div className="p-6 text-center text-muted-foreground space-y-2">
       <KeyRound className="h-10 w-10 mx-auto mb-2 opacity-60" />
-      <p className="text-sm text-foreground">Provide an account public key to browse scoped data.</p>
+      <p className="text-sm text-foreground">
+        Provide an account public key to browse scoped data.
+      </p>
       <p className="text-sm">
-        Use the right panel or visit a URL like <code className="font-mono">/explorer/account/&lt;pubkey&gt;</code>.
+        Use the right panel or visit a URL like{" "}
+        <code className="font-mono">/explorer/account/&lt;pubkey&gt;</code>.
       </p>
     </div>
   );
@@ -225,7 +237,9 @@ function AccountRootDirectory(
   const activeBackend = useActiveBackend();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<Array<NavigationNode & { protocol: "mutable" | "immutable" }>>([]);
+  const [items, setItems] = useState<
+    Array<NavigationNode & { protocol: "mutable" | "immutable" }>
+  >([]);
 
   useEffect(() => {
     const load = async () => {
@@ -237,11 +251,19 @@ function AccountRootDirectory(
       setLoading(true);
       setError(null);
       try {
-        const targets: Array<"mutable" | "immutable"> = ["mutable", "immutable"];
-        const results: Array<NavigationNode & { protocol: "mutable" | "immutable" }> = [];
+        const targets: Array<"mutable" | "immutable"> = [
+          "mutable",
+          "immutable",
+        ];
+        const results: Array<
+          NavigationNode & { protocol: "mutable" | "immutable" }
+        > = [];
         for (const protocol of targets) {
           const basePath = joinPath(protocol, "accounts", accountKey);
-          const response = await activeBackend.adapter.listPath(basePath, { page: 1, limit: 50 });
+          const response = await activeBackend.adapter.listPath(basePath, {
+            page: 1,
+            limit: 50,
+          });
           for (const node of response.data) {
             results.push({ ...node, protocol });
           }
@@ -296,13 +318,22 @@ function AccountRootDirectory(
         {sorted.map((item) => (
           <button
             key={`${item.protocol}-${item.path}`}
-            onClick={() => onNavigate(relativeAccountPath(accountKey, item.path))}
+            onClick={() =>
+              onNavigate(relativeAccountPath(accountKey, item.path))}
             className="w-full flex items-center space-x-3 p-3 rounded-lg border border-border hover:border-primary hover:bg-accent transition-colors text-left"
           >
             <div className="flex-shrink-0">
               {item.protocol === "immutable"
-                ? <span className="text-xs px-2 py-1 rounded bg-indigo-500/10 text-indigo-700 border border-indigo-500/30">immutable</span>
-                : <span className="text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-500/30">mutable</span>}
+                ? (
+                  <span className="text-xs px-2 py-1 rounded bg-indigo-500/10 text-indigo-700 border border-indigo-500/30">
+                    immutable
+                  </span>
+                )
+                : (
+                  <span className="text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-500/30">
+                    mutable
+                  </span>
+                )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{item.name}</div>
@@ -315,7 +346,8 @@ function AccountRootDirectory(
 }
 
 function SearchView() {
-  const { searchQuery, setSearchQuery, addToSearchHistory, searchHistory } = useAppStore();
+  const { searchQuery, setSearchQuery, addToSearchHistory, searchHistory } =
+    useAppStore();
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -384,7 +416,6 @@ function relativeAccountPath(accountKey: string, targetPath: string): string {
   }
   return "/" + parts.join("/");
 }
-
 
 function SearchResults() {
   return (

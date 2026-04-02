@@ -5,20 +5,16 @@
  * Re-exports core types and defines compose-specific helpers.
  */
 
-import type {
-  ReadResult,
-  Message,
-  Validator,
-} from "../b3nd-core/types.ts";
+import type { Message, ReadResult, Validator } from "../b3nd-core/types.ts";
 
 // Re-export core validation types as canonical
 export type {
-  Output,
   Message,
-  Validator,
-  ValidationResult,
+  Output,
   ReadFn,
   Schema,
+  ValidationResult,
+  Validator,
 } from "../b3nd-core/types.ts";
 
 /**
@@ -42,7 +38,9 @@ export type Processor<D = unknown> = (
  * @deprecated Use `NodeProtocolInterface` from b3nd-core instead.
  */
 export interface Node {
-  receive<D = unknown>(msg: Message<D>): Promise<{ accepted: boolean; error?: string }>;
+  receive<D = unknown>(
+    msg: Message<D>,
+  ): Promise<{ accepted: boolean; error?: string }>;
   cleanup(): Promise<void>;
 }
 

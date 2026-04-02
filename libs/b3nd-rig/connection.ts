@@ -121,7 +121,9 @@ export function connection(
 
   // Deep-copy and freeze patterns so they're safe to serialize
   const frozenPatterns = Object.freeze({
-    ...(patterns.receive ? { receive: Object.freeze([...patterns.receive]) } : {}),
+    ...(patterns.receive
+      ? { receive: Object.freeze([...patterns.receive]) }
+      : {}),
     ...(patterns.read ? { read: Object.freeze([...patterns.read]) } : {}),
   });
 

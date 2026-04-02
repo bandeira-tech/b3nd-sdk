@@ -29,11 +29,17 @@
         --surface: #f8fafc;
         --white: #ffffff;
         --code-bg: #0c0b18;
-        --code-surface: rgba(255,255,255,0.04);
+        --code-surface: rgba(255, 255, 255, 0.04);
       }
 
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html { scroll-behavior: smooth; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
 
       body {
         font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -58,8 +64,10 @@
          ============================================================ */
       nav {
         position: fixed;
-        top: 0; left: 0; right: 0;
-        background: rgba(255,255,255,0.92);
+        top: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255, 255, 255, 0.92);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border-bottom: 1px solid var(--border);
@@ -81,7 +89,9 @@
         letter-spacing: -0.02em;
       }
 
-      .logo span { color: var(--accent); }
+      .logo span {
+        color: var(--accent);
+      }
 
       .nav-links {
         display: flex;
@@ -99,7 +109,9 @@
         transition: color 0.15s;
       }
 
-      .nav-links a:hover { color: var(--text); }
+      .nav-links a:hover {
+        color: var(--text);
+      }
 
       .nav-cta {
         background: var(--primary) !important;
@@ -114,7 +126,9 @@
         background: var(--secondary) !important;
       }
 
-      .mobile-cta { display: none; }
+      .mobile-cta {
+        display: none;
+      }
 
       /* ============================================================
          HERO — Quiet confidence
@@ -124,7 +138,12 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #1a1747 0%, #2a2668 60%, #171440 100%);
+        background: linear-gradient(
+          135deg,
+          #1a1747 0%,
+          #2a2668 60%,
+          #171440 100%
+        );
         padding: 100px 24px 60px;
         text-align: center;
         position: relative;
@@ -134,7 +153,9 @@
       .hero::after {
         content: "";
         position: absolute;
-        top: 0; left: 0; right: 0;
+        top: 0;
+        left: 0;
+        right: 0;
         height: 3px;
         background: var(--accent);
       }
@@ -153,12 +174,14 @@
         margin-bottom: 20px;
       }
 
-      .hero h1 .accent-dot { color: var(--accent); }
+      .hero h1 .accent-dot {
+        color: var(--accent);
+      }
 
       .hero .tagline {
         font-family: "JetBrains Mono", monospace;
         font-size: clamp(16px, 2.5vw, 22px);
-        color: rgba(255,255,255,0.5);
+        color: rgba(255, 255, 255, 0.5);
         letter-spacing: 0.15em;
         text-transform: lowercase;
         margin-bottom: 16px;
@@ -166,7 +189,7 @@
 
       .hero .subtitle {
         font-size: clamp(14px, 2vw, 17px);
-        color: rgba(255,255,255,0.7);
+        color: rgba(255, 255, 255, 0.7);
         max-width: 520px;
         margin: 0 auto;
         line-height: 1.7;
@@ -177,7 +200,9 @@
       /* ============================================================
          SECTIONS — Generous whitespace
          ============================================================ */
-      section { padding: 80px 0; }
+      section {
+        padding: 80px 0;
+      }
 
       .section-label {
         font-family: "JetBrains Mono", monospace;
@@ -211,7 +236,9 @@
       /* ============================================================
          PROTOCOL SECTION
          ============================================================ */
-      .protocol { background: var(--surface); }
+      .protocol {
+        background: var(--surface);
+      }
 
       .uri-anatomy {
         background: var(--white);
@@ -229,10 +256,20 @@
         line-height: 2.4;
       }
 
-      .uri-scheme { color: var(--secondary); font-weight: 600; }
-      .uri-host { color: var(--accent); font-weight: 600; }
-      .uri-path { color: var(--text); }
-      .uri-sep { color: var(--faint); }
+      .uri-scheme {
+        color: var(--secondary);
+        font-weight: 600;
+      }
+      .uri-host {
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .uri-path {
+        color: var(--text);
+      }
+      .uri-sep {
+        color: var(--faint);
+      }
 
       .uri-labels {
         display: flex;
@@ -257,9 +294,15 @@
         margin-bottom: 2px;
       }
 
-      .uri-label strong.scheme-label { color: var(--secondary); }
-      .uri-label strong.host-label { color: var(--accent); }
-      .uri-label strong.path-label { color: var(--text); }
+      .uri-label strong.scheme-label {
+        color: var(--secondary);
+      }
+      .uri-label strong.host-label {
+        color: var(--accent);
+      }
+      .uri-label strong.path-label {
+        color: var(--text);
+      }
 
       /* Operations row */
       .ops-grid {
@@ -322,7 +365,9 @@
       /* ============================================================
          CODE SECTION — Show don't tell
          ============================================================ */
-      .code-section { background: var(--white); }
+      .code-section {
+        background: var(--white);
+      }
 
       .code-flow {
         display: grid;
@@ -335,7 +380,7 @@
         background: var(--code-bg);
         border-radius: 10px;
         overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.06);
+        border: 1px solid rgba(255, 255, 255, 0.06);
       }
 
       .terminal-bar {
@@ -346,16 +391,29 @@
         gap: 6px;
       }
 
-      .dot { width: 10px; height: 10px; border-radius: 50%; }
-      .dot.r { background: #ef4444; opacity: 0.7; }
-      .dot.y { background: #f59e0b; opacity: 0.7; }
-      .dot.g { background: #10b981; opacity: 0.7; }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+      .dot.r {
+        background: #ef4444;
+        opacity: 0.7;
+      }
+      .dot.y {
+        background: #f59e0b;
+        opacity: 0.7;
+      }
+      .dot.g {
+        background: #10b981;
+        opacity: 0.7;
+      }
 
       .terminal-label {
         margin-left: 10px;
         font-family: "JetBrains Mono", monospace;
         font-size: 11px;
-        color: rgba(255,255,255,0.3);
+        color: rgba(255, 255, 255, 0.3);
         letter-spacing: 0.05em;
       }
 
@@ -367,15 +425,25 @@
         font-family: "JetBrains Mono", monospace;
         font-size: 13px;
         line-height: 1.8;
-        color: rgba(255,255,255,0.85);
+        color: rgba(255, 255, 255, 0.85);
         overflow-x: auto;
       }
 
-      .kw { color: #c084fc; }
-      .str { color: #86efac; }
-      .fn { color: #93c5fd; }
-      .cm { color: rgba(255,255,255,0.25); }
-      .num { color: #fbbf24; }
+      .kw {
+        color: #c084fc;
+      }
+      .str {
+        color: #86efac;
+      }
+      .fn {
+        color: #93c5fd;
+      }
+      .cm {
+        color: rgba(255, 255, 255, 0.25);
+      }
+      .num {
+        color: #fbbf24;
+      }
 
       .flow-connector {
         display: flex;
@@ -384,14 +452,17 @@
       }
 
       .flow-connector svg {
-        width: 20px; height: 20px;
+        width: 20px;
+        height: 20px;
         opacity: 0.3;
       }
 
       /* ============================================================
          OWNERSHIP SECTION
          ============================================================ */
-      .ownership { background: var(--surface); }
+      .ownership {
+        background: var(--surface);
+      }
 
       .ownership-comparison {
         display: grid;
@@ -435,7 +506,8 @@
       }
 
       .entity {
-        width: 56px; height: 56px;
+        width: 56px;
+        height: 56px;
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -447,19 +519,19 @@
       .entity.user {
         border: 2px solid var(--secondary);
         color: var(--secondary);
-        background: rgba(67,56,202,0.05);
+        background: rgba(67, 56, 202, 0.05);
       }
 
       .entity.platform {
         border: 2px solid var(--accent);
         color: var(--accent);
-        background: rgba(249,115,22,0.08);
+        background: rgba(249, 115, 22, 0.08);
       }
 
       .entity.data {
         border: 2px solid var(--emerald);
         color: var(--emerald);
-        background: rgba(16,185,129,0.08);
+        background: rgba(16, 185, 129, 0.08);
       }
 
       .arrow {
@@ -472,7 +544,10 @@
         color: var(--muted);
       }
 
-      .compare-caption.good { color: var(--emerald); font-weight: 500; }
+      .compare-caption.good {
+        color: var(--emerald);
+        font-weight: 500;
+      }
 
       .own-explain {
         text-align: center;
@@ -486,7 +561,9 @@
       /* ============================================================
          PRIVACY SECTION
          ============================================================ */
-      .privacy { background: var(--white); }
+      .privacy {
+        background: var(--white);
+      }
 
       .privacy-flow {
         display: flex;
@@ -507,7 +584,7 @@
       }
 
       .flow-step.encrypt-step {
-        background: rgba(249,115,22,0.06);
+        background: rgba(249, 115, 22, 0.06);
         border-color: var(--accent);
       }
 
@@ -563,7 +640,9 @@
       /* ============================================================
          RUN YOUR OWN
          ============================================================ */
-      .run-own { background: var(--surface); }
+      .run-own {
+        background: var(--surface);
+      }
 
       .run-own-content {
         text-align: center;
@@ -579,7 +658,8 @@
       }
 
       .node {
-        width: 64px; height: 64px;
+        width: 64px;
+        height: 64px;
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -589,10 +669,11 @@
       }
 
       .node.your-node {
-        width: 80px; height: 80px;
+        width: 80px;
+        height: 80px;
         border: 2px solid var(--secondary);
         color: var(--secondary);
-        background: rgba(67,56,202,0.06);
+        background: rgba(67, 56, 202, 0.06);
         font-weight: 600;
         font-size: 12px;
       }
@@ -623,7 +704,9 @@
       /* ============================================================
          START BUILDING
          ============================================================ */
-      .start { background: var(--white); }
+      .start {
+        background: var(--white);
+      }
 
       .cards-grid {
         display: grid;
@@ -645,7 +728,7 @@
       .card:hover {
         border-color: var(--secondary);
         transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(79,70,229,0.10);
+        box-shadow: 0 8px 24px rgba(79, 70, 229, 0.10);
       }
 
       .card h3 {
@@ -679,7 +762,7 @@
       }
 
       .bridge p {
-        color: rgba(255,255,255,0.4);
+        color: rgba(255, 255, 255, 0.4);
         font-size: 14px;
         line-height: 1.8;
         max-width: 480px;
@@ -692,14 +775,16 @@
         font-weight: 500;
       }
 
-      .bridge a:hover { text-decoration: underline; }
+      .bridge a:hover {
+        text-decoration: underline;
+      }
 
       /* ============================================================
          FOOTER
          ============================================================ */
       footer {
         background: var(--primary);
-        color: rgba(255,255,255,0.5);
+        color: rgba(255, 255, 255, 0.5);
         padding: 48px 0 32px;
       }
 
@@ -723,7 +808,7 @@
       }
 
       footer h4 {
-        color: rgba(255,255,255,0.8);
+        color: rgba(255, 255, 255, 0.8);
         font-size: 12px;
         font-weight: 600;
         letter-spacing: 0.05em;
@@ -731,39 +816,55 @@
         margin-bottom: 12px;
       }
 
-      footer ul { list-style: none; }
-      footer li { margin-bottom: 6px; }
+      footer ul {
+        list-style: none;
+      }
+      footer li {
+        margin-bottom: 6px;
+      }
 
       footer a {
-        color: rgba(255,255,255,0.5);
+        color: rgba(255, 255, 255, 0.5);
         text-decoration: none;
         font-size: 13px;
         transition: color 0.15s;
       }
 
-      footer a:hover { color: var(--accent); }
+      footer a:hover {
+        color: var(--accent);
+      }
 
       .footer-bottom {
-        border-top: 1px solid rgba(255,255,255,0.08);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
         padding-top: 20px;
         font-size: 12px;
         display: flex;
         justify-content: space-between;
       }
 
-      .footer-bottom a { color: var(--accent); }
+      .footer-bottom a {
+        color: var(--accent);
+      }
 
       /* ============================================================
          RESPONSIVE
          ============================================================ */
       @media (max-width: 1024px) {
-        .ownership-comparison { grid-template-columns: 1fr; }
-        .cards-grid { grid-template-columns: repeat(2, 1fr); }
-        .footer-grid { grid-template-columns: 1fr; }
+        .ownership-comparison {
+          grid-template-columns: 1fr;
+        }
+        .cards-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .footer-grid {
+          grid-template-columns: 1fr;
+        }
       }
 
       @media (max-width: 768px) {
-        .nav-links { display: none; }
+        .nav-links {
+          display: none;
+        }
 
         .mobile-cta {
           display: inline-flex;
@@ -776,10 +877,18 @@
           text-decoration: none;
         }
 
-        section { padding: 72px 0; }
-        .ops-grid { grid-template-columns: repeat(2, 1fr); }
-        .privacy-levels { grid-template-columns: 1fr; }
-        .cards-grid { grid-template-columns: 1fr; }
+        section {
+          padding: 72px 0;
+        }
+        .ops-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .privacy-levels {
+          grid-template-columns: 1fr;
+        }
+        .cards-grid {
+          grid-template-columns: 1fr;
+        }
 
         .privacy-flow {
           flex-direction: column;
@@ -798,19 +907,22 @@
     </style>
   </head>
   <body>
-
     <!-- Navigation -->
     <nav>
       <div class="container">
         <a href="#" class="logo">b3nd<span>.</span></a>
-        <a href="https://github.com/bandeira-tech/b3nd" class="mobile-cta">GitHub</a>
+        <a href="https://github.com/bandeira-tech/b3nd" class="mobile-cta"
+        >GitHub</a>
         <ul class="nav-links">
           <li><a href="#protocol">Protocol</a></li>
           <li><a href="#code">Code</a></li>
           <li><a href="#ownership">Ownership</a></li>
           <li><a href="#privacy">Privacy</a></li>
           <li><a href="#resources">Resources</a></li>
-          <li><a href="https://github.com/bandeira-tech/b3nd" class="nav-cta">GitHub</a></li>
+          <li>
+            <a href="https://github.com/bandeira-tech/b3nd" class="nav-cta"
+            >GitHub</a>
+          </li>
         </ul>
       </div>
     </nav>
@@ -821,8 +933,8 @@
         <p class="tagline">the data protocol</p>
         <h1>B3ND<span class="accent-dot">.</span></h1>
         <p class="subtitle">
-          A URI-based protocol for data that belongs to you.
-          Four operations. Client-side encryption. Schema-agnostic.
+          A URI-based protocol for data that belongs to you. Four operations.
+          Client-side encryption. Schema-agnostic.
         </p>
       </div>
     </section>
@@ -834,14 +946,16 @@
         <h2 class="section-title">A small protocol with a large guarantee.</h2>
         <p class="section-desc">
           Four operations over URI-addressed data. Think HTTP, but for data you
-          actually control. Schema-agnostic by design — B3nd doesn't care what your
-          data looks like. It cares who it belongs to.
+          actually control. Schema-agnostic by design — B3nd doesn't care what
+          your data looks like. It cares who it belongs to.
         </p>
 
         <!-- URI Anatomy -->
         <div class="uri-anatomy">
           <div class="uri-display">
-            <span class="uri-scheme">mutable://</span><span class="uri-host">accounts</span><span class="uri-sep">/</span><span class="uri-path">{pubkey}/profile</span>
+            <span class="uri-scheme">mutable://</span><span class="uri-host"
+            >accounts</span><span class="uri-sep">/</span><span class="uri-path"
+            >{pubkey}/profile</span>
           </div>
           <div class="uri-labels">
             <div class="uri-label">
@@ -925,7 +1039,8 @@
               <span class="terminal-label">write</span>
             </div>
             <div class="code-body">
-              <pre><span class="cm">// Store data at a URI you control</span>
+              <pre>
+<span class="cm">// Store data at a URI you control</span>
 <span class="kw">await</span> client.<span class="fn">receive</span>([
   <span class="str">"mutable://accounts/alice/profile"</span>,
   { name: <span class="str">"Alice"</span>, bio: <span class="str">"Builder"</span> }
@@ -935,8 +1050,13 @@
 
           <div class="flow-connector">
             <svg viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12l7 7 7-7" stroke="var(--accent)"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path
+                d="M12 5v14M5 12l7 7 7-7"
+                stroke="var(--accent)"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </div>
 
@@ -949,7 +1069,8 @@
               <span class="terminal-label">read</span>
             </div>
             <div class="code-body">
-              <pre><span class="cm">// Read it back — any app, same address</span>
+              <pre>
+<span class="cm">// Read it back — any app, same address</span>
 <span class="kw">const</span> result = <span class="kw">await</span> client.<span class="fn">read</span>(
   <span class="str">"mutable://accounts/alice/profile"</span>
 );
@@ -961,8 +1082,13 @@ console.<span class="fn">log</span>(result.record.data);
 
           <div class="flow-connector">
             <svg viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12l7 7 7-7" stroke="var(--accent)"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path
+                d="M12 5v14M5 12l7 7 7-7"
+                stroke="var(--accent)"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </div>
 
@@ -975,7 +1101,8 @@ console.<span class="fn">log</span>(result.record.data);
               <span class="terminal-label">any app, same data</span>
             </div>
             <div class="code-body">
-              <pre><span class="cm">// A completely different app, same URI</span>
+              <pre>
+<span class="cm">// A completely different app, same URI</span>
 <span class="kw">const</span> other = <span class="kw">new</span> <span class="fn">HttpClient</span>({ url: <span class="str">"https://..."</span> });
 <span class="kw">const</span> profile = <span class="kw">await</span> other.<span class="fn">read</span>(
   <span class="str">"mutable://accounts/alice/profile"</span>
@@ -991,12 +1118,14 @@ console.<span class="fn">log</span>(result.record.data);
     <section class="ownership" id="ownership">
       <div class="container">
         <p class="section-label">Ownership</p>
-        <h2 class="section-title">Ownership is not a feature. It's the protocol.</h2>
+        <h2 class="section-title">
+          Ownership is not a feature. It's the protocol.
+        </h2>
         <p class="section-desc">
-          Most platforms promise you own your data, then store it behind
-          their access controls. B3nd takes a different approach: client-side
-          encryption means your data is unreadable without your keys.
-          Ownership isn't enforced by policy. It's enforced by math.
+          Most platforms promise you own your data, then store it behind their
+          access controls. B3nd takes a different approach: client-side
+          encryption means your data is unreadable without your keys. Ownership
+          isn't enforced by policy. It's enforced by math.
         </p>
 
         <div class="ownership-comparison">
@@ -1027,8 +1156,8 @@ console.<span class="fn">log</span>(result.record.data);
 
         <p class="own-explain">
           Traditional platforms sit between users and their data. B3nd puts data
-          at URI addresses you control — any application can read the same address,
-          and switching apps doesn't mean starting over.
+          at URI addresses you control — any application can read the same
+          address, and switching apps doesn't mean starting over.
         </p>
       </div>
     </section>
@@ -1037,10 +1166,12 @@ console.<span class="fn">log</span>(result.record.data);
     <section class="privacy" id="privacy">
       <div class="container">
         <p class="section-label">Privacy</p>
-        <h2 class="section-title">Privacy through encryption, not permission.</h2>
+        <h2 class="section-title">
+          Privacy through encryption, not permission.
+        </h2>
         <p class="section-desc">
-          Data is encrypted on the client before it leaves your device.
-          The server stores ciphertext. It cannot read what it cannot decrypt.
+          Data is encrypted on the client before it leaves your device. The
+          server stores ciphertext. It cannot read what it cannot decrypt.
         </p>
 
         <div class="privacy-flow">
@@ -1105,7 +1236,9 @@ console.<span class="fn">log</span>(result.record.data);
             <div class="node peer">Node</div>
           </div>
 
-          <div class="code-inline">new HttpClient({ url: "https://your-node.example.com" })</div>
+          <div class="code-inline">
+            new HttpClient({ url: "https://your-node.example.com" })
+          </div>
         </div>
       </div>
     </section>
@@ -1131,12 +1264,18 @@ console.<span class="fn">log</span>(result.record.data);
             <p>Deno / server package</p>
             <span class="link">@bandeira-tech/b3nd-sdk</span>
           </a>
-          <a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web" class="card">
+          <a
+            href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web"
+            class="card"
+          >
             <h3>NPM</h3>
             <p>Browser / React package</p>
             <span class="link">@bandeira-tech/b3nd-web</span>
           </a>
-          <a href="https://github.com/bandeira-tech/b3nd#claude-code-plugin" class="card">
+          <a
+            href="https://github.com/bandeira-tech/b3nd#claude-code-plugin"
+            class="card"
+          >
             <h3>Claude Code</h3>
             <p>AI agent plugin</p>
             <span class="link">b3nd skill</span>
@@ -1150,8 +1289,8 @@ console.<span class="fn">log</span>(result.record.data);
       <div class="container">
         <p>
           Looking for the public network?
-          <a href="/firecat-website/">Firecat</a> is the canonical network
-          built on B3nd — live on testnet and open to builders.
+          <a href="/firecat-website/">Firecat</a> is the canonical network built
+          on B3nd — live on testnet and open to builders.
         </p>
       </div>
     </div>
@@ -1162,14 +1301,25 @@ console.<span class="fn">log</span>(result.record.data);
         <div class="footer-grid">
           <div class="footer-brand">
             <a href="#" class="logo">b3nd<span>.</span></a>
-            <p>A URI-based data protocol. Four operations. Client-side encryption. Open source.</p>
+            <p>
+              A URI-based data protocol. Four operations. Client-side
+              encryption. Open source.
+            </p>
           </div>
           <div>
             <h4>Build</h4>
             <ul>
-              <li><a href="https://github.com/bandeira-tech/b3nd#readme">Documentation</a></li>
-              <li><a href="https://github.com/bandeira-tech/b3nd">GitHub</a></li>
-              <li><a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web">NPM</a></li>
+              <li>
+                <a href="https://github.com/bandeira-tech/b3nd#readme"
+                >Documentation</a>
+              </li>
+              <li>
+                <a href="https://github.com/bandeira-tech/b3nd">GitHub</a>
+              </li>
+              <li>
+                <a href="https://www.npmjs.com/package/@bandeira-tech/b3nd-web"
+                >NPM</a>
+              </li>
               <li><a href="https://jsr.io/@bandeira-tech/b3nd-sdk">JSR</a></li>
             </ul>
           </div>
@@ -1183,10 +1333,10 @@ console.<span class="fn">log</span>(result.record.data);
         </div>
         <div class="footer-bottom">
           <span>B3nd is open source — MIT License</span>
-          <span>Built by <a href="https://bandeira.tech">Bandeira Tech</a></span>
+          <span>Built by <a href="https://bandeira.tech"
+            >Bandeira Tech</a></span>
         </div>
       </div>
     </footer>
-
   </body>
 </html>

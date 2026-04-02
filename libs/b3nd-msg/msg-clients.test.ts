@@ -98,7 +98,6 @@ Deno.test("MemoryClient - list outputs under a parent URI via trailing slash", a
   ]);
 });
 
-
 // =============================================================================
 // MemoryClient: read multiple output URIs
 // =============================================================================
@@ -160,7 +159,9 @@ Deno.test("MemoryClient - message envelope is stored alongside outputs", async (
     "msg://open/envelope-test",
   );
   assertEquals(envelope[0].success, true);
-  assertEquals(envelope[0].record?.data.payload.inputs, ["mutable://open/ref/1"]);
+  assertEquals(envelope[0].record?.data.payload.inputs, [
+    "mutable://open/ref/1",
+  ]);
   assertEquals(envelope[0].record?.data.payload.outputs.length, 1);
 
   // The output is also stored individually

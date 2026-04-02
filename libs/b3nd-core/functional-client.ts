@@ -62,7 +62,9 @@ export class FunctionalClient implements NodeProtocolInterface {
     }
     const uriList = Array.isArray(uris) ? uris : [uris];
     return Promise.resolve(
-      uriList.map(() => ({ success: false, error: "not implemented" }) as ReadResult<T>),
+      uriList.map(() =>
+        ({ success: false, error: "not implemented" }) as ReadResult<T>
+      ),
     );
   }
 

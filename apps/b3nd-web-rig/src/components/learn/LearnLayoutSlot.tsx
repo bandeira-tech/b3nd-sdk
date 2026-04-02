@@ -1,12 +1,24 @@
-import { useEffect, useRef, type ComponentPropsWithoutRef } from "react";
+import { type ComponentPropsWithoutRef, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { BookOpen, ChefHat, Compass, Lightbulb, Loader2, Library, ChevronRight } from "lucide-react";
 import {
-  TIER_ORDER, booksByTier, findBook,
-  type LearnBook, type LearnCatalog, type LearnChapterMeta,
+  BookOpen,
+  ChefHat,
+  ChevronRight,
+  Compass,
+  Library,
+  Lightbulb,
+  Loader2,
+} from "lucide-react";
+import {
+  booksByTier,
+  findBook,
+  type LearnBook,
+  type LearnCatalog,
+  type LearnChapterMeta,
+  TIER_ORDER,
 } from "./skillContent";
 import { useLearnStore } from "./useLearnStore";
 import { useRead } from "./useRead";
@@ -39,7 +51,9 @@ export function LearnLayoutSlot() {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">Loading learn catalog...</span>
+        <span className="ml-2 text-sm text-muted-foreground">
+          Loading learn catalog...
+        </span>
       </div>
     );
   }
@@ -47,7 +61,9 @@ export function LearnLayoutSlot() {
   if (error || !catalog) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-sm text-destructive">{error ?? "No catalog found."}</p>
+        <p className="text-sm text-destructive">
+          {error ?? "No catalog found."}
+        </p>
       </div>
     );
   }
@@ -93,7 +109,11 @@ function IndexView({ catalog }: { catalog: LearnCatalog }) {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {tierBooks.map((book) => (
-                <BookCard key={book.key} book={book} onClick={() => openBook(book.key)} />
+                <BookCard
+                  key={book.key}
+                  book={book}
+                  onClick={() => openBook(book.key)}
+                />
               ))}
             </div>
           </section>
@@ -163,7 +183,9 @@ function ChapterIndexView({ book }: { book: LearnBook }) {
   return (
     <div className="max-w-3xl mx-auto px-8 py-10 h-full overflow-y-auto custom-scrollbar">
       <h1 className="text-2xl font-bold text-foreground">{book.title}</h1>
-      <p className="text-sm text-muted-foreground mt-1 mb-8">{book.description}</p>
+      <p className="text-sm text-muted-foreground mt-1 mb-8">
+        {book.description}
+      </p>
 
       {parts.map(([partName, chapters]) => (
         <section key={partName} className="mb-8">
@@ -216,7 +238,9 @@ function ChapterReaderView({ uri }: { uri: string }) {
     if (!container || !content) return;
 
     const onScroll = () => {
-      const headings = container.querySelectorAll<HTMLElement>("h2[id], h3[id]");
+      const headings = container.querySelectorAll<HTMLElement>(
+        "h2[id], h3[id]",
+      );
       const offset = container.getBoundingClientRect().top;
       let active: string | null = null;
       for (const h of headings) {
@@ -242,7 +266,9 @@ function ChapterReaderView({ uri }: { uri: string }) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">Loading chapter...</span>
+        <span className="ml-2 text-sm text-muted-foreground">
+          Loading chapter...
+        </span>
       </div>
     );
   }
@@ -284,7 +310,11 @@ function MarkdownContent({ content }: { content: string }) {
           const text = extractText(props.children);
           return <h3 id={slugify(text)} {...props} />;
         },
-        code: ({ className, children, ...rest }: ComponentPropsWithoutRef<"code"> & { className?: string }) => {
+        code: (
+          { className, children, ...rest }: ComponentPropsWithoutRef<"code"> & {
+            className?: string;
+          },
+        ) => {
           const match = className?.match(/language-(\w+)/);
           if (match) {
             return (
@@ -292,13 +322,18 @@ function MarkdownContent({ content }: { content: string }) {
                 style={oneDark}
                 language={match[1]}
                 PreTag="div"
-                customStyle={{ margin: 0, borderRadius: "0.375rem", fontSize: "0.8125rem" }}
+                customStyle={{
+                  margin: 0,
+                  borderRadius: "0.375rem",
+                  fontSize: "0.8125rem",
+                }}
               >
                 {String(children).replace(/\n$/, "")}
               </SyntaxHighlighter>
             );
           }
-          return <code className="skill-inline-code" {...rest}>{children}</code>;
+          return <code className="skill-inline-code" {...rest}>{children}
+          </code>;
         },
       }}
     >
@@ -309,7 +344,9 @@ function MarkdownContent({ content }: { content: string }) {
 
 /* -- Helpers ------------------------------------------------------------- */
 
-function groupByPart(chapters: LearnChapterMeta[]): [string, LearnChapterMeta[]][] {
+function groupByPart(
+  chapters: LearnChapterMeta[],
+): [string, LearnChapterMeta[]][] {
   const map = new Map<string, LearnChapterMeta[]>();
   for (const ch of chapters) {
     const list = map.get(ch.part) || [];
@@ -323,7 +360,9 @@ function extractText(children: unknown): string {
   if (typeof children === "string") return children;
   if (Array.isArray(children)) return children.map(extractText).join("");
   if (children && typeof children === "object" && "props" in children) {
-    return extractText((children as { props: { children: unknown } }).props.children);
+    return extractText(
+      (children as { props: { children: unknown } }).props.children,
+    );
   }
   return "";
 }

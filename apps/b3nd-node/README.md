@@ -13,12 +13,12 @@ Set these required environment variables (or use a `.env` file):
   - `memory://` — in-memory backend using `MemoryClient`.
   - `postgres://...` — PostgreSQL connection string (e.g.
     `postgres://user:pass@host:5432/db`).
-  - `mongodb://...` — MongoDB connection string with database in the path
-    (e.g. `mongodb://user:pass@host:27017/appdb`).
+  - `mongodb://...` — MongoDB connection string with database in the path (e.g.
+    `mongodb://user:pass@host:27017/appdb`).
   - `sqlite://path/to/db.sqlite` — SQLite file-based database. Use
     `sqlite://:memory:` for an in-memory SQLite instance.
-  - `file:///path/to/root` — Filesystem backend storing each record as a
-    JSON file under the given root directory.
+  - `file:///path/to/root` — Filesystem backend storing each record as a JSON
+    file under the given root directory.
 
 - `SCHEMA_MODULE` (optional): Path or URL to a module exporting a default
   `Schema` object. Defaults to the Firecat protocol schema.
@@ -39,13 +39,13 @@ Set these required environment variables (or use a `.env` file):
 
 ## Supported backends
 
-| Protocol | Client | Notes |
-|----------|--------|-------|
-| `memory://` | MemoryClient | In-memory, no persistence across restarts |
-| `postgres://` | PostgresClient | JSONB storage, table prefix `b3nd` |
-| `mongodb://` | MongoClient | Collection `b3nd_data`, DB from URL path |
-| `sqlite://` | SqliteClient | WAL mode, file or `:memory:` |
-| `file://` | FilesystemClient | One JSON file per record, recursive dirs |
+| Protocol      | Client           | Notes                                     |
+| ------------- | ---------------- | ----------------------------------------- |
+| `memory://`   | MemoryClient     | In-memory, no persistence across restarts |
+| `postgres://` | PostgresClient   | JSONB storage, table prefix `b3nd`        |
+| `mongodb://`  | MongoClient      | Collection `b3nd_data`, DB from URL path  |
+| `sqlite://`   | SqliteClient     | WAL mode, file or `:memory:`              |
+| `file://`     | FilesystemClient | One JSON file per record, recursive dirs  |
 
 ## Quick start
 

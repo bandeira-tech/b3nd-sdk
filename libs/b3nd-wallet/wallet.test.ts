@@ -12,7 +12,11 @@ import { assertEquals, assertExists, assertRejects } from "@std/assert";
 import { generateTestServerKeys, MemoryWalletClient } from "./memory-client.ts";
 import { generateSessionKeypair } from "./client.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
-import { generateSigningKeyPair, signWithHex, verify } from "../b3nd-encrypt/mod.ts";
+import {
+  generateSigningKeyPair,
+  signWithHex,
+  verify,
+} from "../b3nd-encrypt/mod.ts";
 import { createTestEnvironment } from "./testing.ts";
 
 // Test app key (generated once for all tests)
@@ -58,7 +62,8 @@ Deno.test("MemoryWalletClient - signup works with approved session", async () =>
 
   // Generate and approve session before signup
   const sessionKeypair = await generateSessionKeypair();
-  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  const sessionUri =
+    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
   await backend.receive([sessionUri, 1]);
 
   const session = await wallet.signup(appKey, sessionKeypair, {
@@ -152,7 +157,8 @@ Deno.test("MemoryWalletClient - login succeeds with approved session", async () 
 
   // Generate session and approve it
   const sessionKeypair = await generateSessionKeypair();
-  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  const sessionUri =
+    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
   await backend.receive([sessionUri, 1]); // Approve session
 
   // Login should succeed
@@ -187,7 +193,8 @@ Deno.test("MemoryWalletClient - login fails with revoked session", async () => {
 
   // Generate session and set it as revoked (0)
   const sessionKeypair = await generateSessionKeypair();
-  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  const sessionUri =
+    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
   await backend.receive([sessionUri, 0]); // Revoked session
 
   // Login should fail - session revoked
@@ -225,7 +232,8 @@ Deno.test("MemoryWalletClient - login fails with wrong password", async () => {
 
   // Generate and approve session
   const sessionKeypair = await generateSessionKeypair();
-  const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+  const sessionUri =
+    `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
   await backend.receive([sessionUri, 1]);
 
   // Login should fail - wrong password
@@ -265,7 +273,8 @@ Deno.test("MemoryWalletClient - session signature is validated", async () => {
   const sessionKeypair2 = await generateSessionKeypair();
 
   // Only approve session1
-  const sessionUri1 = `mutable://accounts/${appKey}/sessions/${sessionKeypair1.publicKeyHex}`;
+  const sessionUri1 =
+    `mutable://accounts/${appKey}/sessions/${sessionKeypair1.publicKeyHex}`;
   await backend.receive([sessionUri1, 1]);
 
   // Try to login with session1's pubkey but session2's private key (wrong signature)

@@ -48,7 +48,9 @@ export interface MetricsCollector {
   wrapClient(client: NodeProtocolInterface): NodeProtocolInterface;
 }
 
-export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCollector {
+export function createMetricsCollector(
+  opts: MetricsCollectorOptions,
+): MetricsCollector {
   let timer: ReturnType<typeof setInterval> | null = null;
   const writes: LatencyBucket = { values: [], errors: 0 };
   const reads: LatencyBucket = { values: [], errors: 0 };
@@ -75,7 +77,10 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
     const metrics = snapshot();
 
     try {
-      let message: SignedEncryptedMessage | { auth: Array<{ pubkey: string; signature: string }>; payload: NodeMetrics };
+      let message: SignedEncryptedMessage | {
+        auth: Array<{ pubkey: string; signature: string }>;
+        payload: NodeMetrics;
+      };
 
       if (opts.operatorEncryptionPubKeyHex) {
         message = await createSignedEncryptedMessage(
@@ -84,7 +89,9 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
           opts.operatorEncryptionPubKeyHex,
         );
       } else {
-        const { createAuthenticatedMessage } = await import("@bandeira-tech/b3nd-sdk/encrypt");
+        const { createAuthenticatedMessage } = await import(
+          "@bandeira-tech/b3nd-sdk/encrypt"
+        );
         message = await createAuthenticatedMessage(metrics, [opts.signer]);
       }
 
@@ -104,7 +111,9 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
 
   function wrapClient(client: NodeProtocolInterface): NodeProtocolInterface {
     return {
-      receive: async (...args: Parameters<NodeProtocolInterface["receive"]>) => {
+      receive: async (
+        ...args: Parameters<NodeProtocolInterface["receive"]>
+      ) => {
         const start = performance.now();
         try {
           const result = await client.receive(...args);
@@ -115,7 +124,9 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
           throw err;
         }
       },
-      async read<T = unknown>(uris: string | string[]): Promise<import("../b3nd-core/types.ts").ReadResult<T>[]> {
+      async read<T = unknown>(
+        uris: string | string[],
+      ): Promise<import("../b3nd-core/types.ts").ReadResult<T>[]> {
         const start = performance.now();
         try {
           const result = await client.read<T>(uris);

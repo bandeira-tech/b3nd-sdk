@@ -19,7 +19,16 @@ import { AccountsLayoutSlot } from "./slots/AccountsLayoutSlot";
 import { SimpleLeftSlot } from "./slots/SimpleLeftSlot";
 import type { AppMode } from "../../types";
 
-type LayoutSlotKey = "settings" | "accounts" | "editor" | "writer" | "explorer" | "dashboard" | "nodes" | "learn" | "api-docs";
+type LayoutSlotKey =
+  | "settings"
+  | "accounts"
+  | "editor"
+  | "writer"
+  | "explorer"
+  | "dashboard"
+  | "nodes"
+  | "learn"
+  | "api-docs";
 
 type LayoutSlot = {
   Left: ComponentType;

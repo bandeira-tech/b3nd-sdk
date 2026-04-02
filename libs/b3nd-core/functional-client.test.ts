@@ -7,11 +7,7 @@
 
 import { assertEquals } from "@std/assert";
 import { FunctionalClient } from "./functional-client.ts";
-import type {
-  Message,
-  ReadResult,
-  ReceiveResult,
-} from "./types.ts";
+import type { Message, ReadResult, ReceiveResult } from "./types.ts";
 
 // ============================================================================
 // Default behavior (no config functions provided)
@@ -60,7 +56,9 @@ Deno.test("FunctionalClient - custom receive is called", async () => {
 
 Deno.test("FunctionalClient - custom read is called", async () => {
   const client = new FunctionalClient({
-    read: async <T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> => {
+    read: async <T = unknown>(
+      uris: string | string[],
+    ): Promise<ReadResult<T>[]> => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map(() => ({
         success: true,
@@ -100,7 +98,9 @@ Deno.test("FunctionalClient - read with multiple URIs", async () => {
   };
 
   const client = new FunctionalClient({
-    read: async <T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> => {
+    read: async <T = unknown>(
+      uris: string | string[],
+    ): Promise<ReadResult<T>[]> => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map((uri) => {
         if (uri in store) {
@@ -111,7 +111,11 @@ Deno.test("FunctionalClient - read with multiple URIs", async () => {
     },
   });
 
-  const results = await client.read(["mutable://a", "mutable://b", "mutable://missing"]);
+  const results = await client.read([
+    "mutable://a",
+    "mutable://b",
+    "mutable://missing",
+  ]);
 
   assertEquals(results.length, 3);
   assertEquals(results[0].success, true);
@@ -138,7 +142,9 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
       store.set(uri, { ts: Date.now(), data });
       return { accepted: true };
     },
-    read: async <T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> => {
+    read: async <T = unknown>(
+      uris: string | string[],
+    ): Promise<ReadResult<T>[]> => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map((uri) => {
         if (uri.endsWith("/")) {

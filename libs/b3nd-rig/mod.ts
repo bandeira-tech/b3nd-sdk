@@ -34,14 +34,13 @@ export type { ExportedIdentity } from "./identity.ts";
 export { AuthenticatedRig } from "./authenticated-rig.ts";
 export { Rig } from "./rig.ts";
 export type {
-  HandlerOptions,
   ElasticsearchExecutorFactory,
+  HandlerOptions,
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,
-  S3ExecutorFactory as S3Executor,
   RigConfig,
   RigInfo,
-
+  S3ExecutorFactory as S3Executor,
   SubscribeHandler,
   SubscribeOptions,
   Unsubscribe,
@@ -73,7 +72,6 @@ export { matchPattern, ObserveRegistry } from "./observe.ts";
 // Connections — the single filtering primitive
 export { connection } from "./connection.ts";
 export type { Connection, ConnectionPatterns } from "./connection.ts";
-
 
 // HTTP handler — thin adapter for serving a rig over HTTP
 export { createRigHandler } from "./http-handler.ts";

@@ -14,7 +14,10 @@ Deno.test("heartbeat: writes status on start", async () => {
     name: "Heartbeat Node",
     port: 8080,
     intervalMs: 60000, // long interval - we test immediate write
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [{ type: "memory", status: "connected" }],
   });
 
@@ -55,7 +58,10 @@ Deno.test("heartbeat: degraded status when backend has error", async () => {
     name: "Degraded Node",
     port: 8081,
     intervalMs: 60000,
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [
       { type: "memory", status: "connected" },
       { type: "postgresql", status: "error" },
@@ -85,7 +91,10 @@ Deno.test("heartbeat: signed envelope has correct pubkey", async () => {
     name: "Signed Node",
     port: 8082,
     intervalMs: 60000,
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [{ type: "memory", status: "connected" }],
   });
 
@@ -114,7 +123,10 @@ Deno.test("heartbeat: includes metrics when getMetrics provided", async () => {
     name: "Metrics Node",
     port: 8083,
     intervalMs: 60000,
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [{ type: "memory", status: "connected" }],
     getMetrics: () => ({
       writeLatencyP50: 1.0,
@@ -155,7 +167,10 @@ Deno.test("heartbeat: stop prevents further writes", async () => {
     name: "Stop Node",
     port: 8084,
     intervalMs: 50, // short interval
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [{ type: "memory", status: "connected" }],
   });
 

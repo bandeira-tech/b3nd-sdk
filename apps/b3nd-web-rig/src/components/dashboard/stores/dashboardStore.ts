@@ -1,12 +1,12 @@
 import { create } from "zustand";
 import type {
-  DashboardState,
+  ContentMode,
   DashboardActions,
+  DashboardState,
+  FacetGroup,
+  StaticTestData,
   TestResult,
   TestRunSummary,
-  FacetGroup,
-  ContentMode,
-  StaticTestData,
 } from "../types";
 import { useAppStore } from "../../../stores/appStore";
 
@@ -19,7 +19,12 @@ const DEFAULT_STATUS_FACETS: FacetGroup = {
   facets: [
     { id: "status:passed", type: "status", label: "Passed", value: "passed" },
     { id: "status:failed", type: "status", label: "Failed", value: "failed" },
-    { id: "status:skipped", type: "status", label: "Skipped", value: "skipped" },
+    {
+      id: "status:skipped",
+      type: "status",
+      label: "Skipped",
+      value: "skipped",
+    },
   ],
 };
 
@@ -29,14 +34,29 @@ const DEFAULT_THEME_FACETS: FacetGroup = {
   type: "theme",
   expanded: true,
   facets: [
-    { id: "theme:sdk-core", type: "theme", label: "SDK Core", value: "sdk-core" },
+    {
+      id: "theme:sdk-core",
+      type: "theme",
+      label: "SDK Core",
+      value: "sdk-core",
+    },
     { id: "theme:network", type: "theme", label: "Network", value: "network" },
-    { id: "theme:database", type: "theme", label: "Database", value: "database" },
+    {
+      id: "theme:database",
+      type: "theme",
+      label: "Database",
+      value: "database",
+    },
     { id: "theme:auth", type: "theme", label: "Auth", value: "auth" },
     { id: "theme:binary", type: "theme", label: "Binary", value: "binary" },
     { id: "theme:e2e", type: "theme", label: "E2E", value: "e2e" },
     { id: "theme:browser", type: "theme", label: "Browser", value: "browser" },
-    { id: "theme:managed-node", type: "theme", label: "Managed Node", value: "managed-node" },
+    {
+      id: "theme:managed-node",
+      type: "theme",
+      label: "Managed Node",
+      value: "managed-node",
+    },
   ],
 };
 
@@ -48,7 +68,12 @@ const DEFAULT_BACKEND_FACETS: FacetGroup = {
   facets: [
     { id: "backend:memory", type: "backend", label: "Memory", value: "memory" },
     { id: "backend:http", type: "backend", label: "HTTP", value: "http" },
-    { id: "backend:postgres", type: "backend", label: "PostgreSQL", value: "postgres" },
+    {
+      id: "backend:postgres",
+      type: "backend",
+      label: "PostgreSQL",
+      value: "postgres",
+    },
     { id: "backend:mongo", type: "backend", label: "MongoDB", value: "mongo" },
   ],
 };
@@ -60,13 +85,18 @@ const initialState: DashboardState = {
   contentMode: "results",
   testResults: new Map(),
   runSummary: null,
-  facetGroups: [DEFAULT_STATUS_FACETS, DEFAULT_THEME_FACETS, DEFAULT_BACKEND_FACETS],
+  facetGroups: [
+    DEFAULT_STATUS_FACETS,
+    DEFAULT_THEME_FACETS,
+    DEFAULT_BACKEND_FACETS,
+  ],
   activeFacets: new Set(),
   customKeywords: [],
   expandedTests: new Set(),
   rawLogs: "",
   dataSource: "static",
-  b3ndUri: localStorage.getItem("dashboard:b3ndUri") ?? "mutable://open/local/inspector",
+  b3ndUri: localStorage.getItem("dashboard:b3ndUri") ??
+    "mutable://open/local/inspector",
 };
 
 export interface DashboardStore extends DashboardState, DashboardActions {}
@@ -84,7 +114,7 @@ const DEFAULT_FACETS_BY_GROUP: Record<string, FacetGroup> = {
  */
 function updateFacetCounts(
   groups: FacetGroup[],
-  results: TestResult[]
+  results: TestResult[],
 ): FacetGroup[] {
   const statusCounts: Record<string, number> = {};
   const themeCounts: Record<string, number> = {};
@@ -97,14 +127,13 @@ function updateFacetCounts(
   }
 
   return groups.map((group) => {
-    const countsMap =
-      group.type === "status"
-        ? statusCounts
-        : group.type === "theme"
-          ? themeCounts
-          : group.type === "backend"
-            ? backendCounts
-            : {};
+    const countsMap = group.type === "status"
+      ? statusCounts
+      : group.type === "theme"
+      ? themeCounts
+      : group.type === "backend"
+      ? backendCounts
+      : {};
 
     // Start from default facets for known groups to restore any that were lost
     const defaults = DEFAULT_FACETS_BY_GROUP[group.id];
@@ -190,7 +219,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
           const staticData: StaticTestData = readResult.record.data;
 
           // Skip update if data hasn't changed
-          if (isRefresh && staticData.generatedAt === prev.staticData?.generatedAt) return;
+          if (
+            isRefresh && staticData.generatedAt === prev.staticData?.generatedAt
+          ) return;
 
           let rawLogs = "";
           try {
@@ -201,7 +232,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
               const logsData = logsResult.record.data;
               rawLogs = Array.isArray(logsData?.lines)
                 ? logsData.lines.join("\n")
-                : typeof logsData === "string" ? logsData : "";
+                : typeof logsData === "string"
+                ? logsData
+                : "";
             }
           } catch {
             // Logs are optional
@@ -232,10 +265,14 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     // Static file fallback
     try {
       const resultsRes = await fetch("/dashboard/test-results.json");
-      if (!resultsRes.ok) throw new Error(`Failed to load test results: ${resultsRes.status}`);
+      if (!resultsRes.ok) {
+        throw new Error(`Failed to load test results: ${resultsRes.status}`);
+      }
       const staticData: StaticTestData = await resultsRes.json();
 
-      if (isRefresh && staticData.generatedAt === prev.staticData?.generatedAt) return;
+      if (
+        isRefresh && staticData.generatedAt === prev.staticData?.generatedAt
+      ) return;
 
       let rawLogs = "";
       try {
@@ -307,7 +344,12 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
               ...g,
               facets: [
                 ...g.facets,
-                { id: `keyword:${trimmed}`, type: "keyword" as const, label: trimmed, value: trimmed },
+                {
+                  id: `keyword:${trimmed}`,
+                  type: "keyword" as const,
+                  label: trimmed,
+                  value: trimmed,
+                },
               ],
             };
           }
@@ -320,7 +362,12 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
             label: "Keywords",
             type: "keyword" as const,
             expanded: true,
-            facets: [{ id: `keyword:${trimmed}`, type: "keyword" as const, label: trimmed, value: trimmed }],
+            facets: [{
+              id: `keyword:${trimmed}`,
+              type: "keyword" as const,
+              label: trimmed,
+              value: trimmed,
+            }],
           },
           ...state.facetGroups,
         ];
@@ -419,15 +466,25 @@ export function useFilteredResults() {
 
   for (const facetId of activeFacets) {
     if (facetId.startsWith("theme:")) activeThemes.push(facetId.slice(6));
-    else if (facetId.startsWith("backend:")) activeBackends.push(facetId.slice(8));
-    else if (facetId.startsWith("status:")) activeStatuses.push(facetId.slice(7));
-    else if (facetId.startsWith("keyword:")) activeKeywords.push(facetId.slice(8));
+    else if (facetId.startsWith("backend:")) {
+      activeBackends.push(facetId.slice(8));
+    } else if (facetId.startsWith("status:")) {
+      activeStatuses.push(facetId.slice(7));
+    } else if (facetId.startsWith("keyword:")) {
+      activeKeywords.push(facetId.slice(8));
+    }
   }
 
   return results.filter((result) => {
-    if (activeThemes.length > 0 && !activeThemes.includes(result.theme)) return false;
-    if (activeBackends.length > 0 && !activeBackends.includes(result.backend)) return false;
-    if (activeStatuses.length > 0 && !activeStatuses.includes(result.status)) return false;
+    if (activeThemes.length > 0 && !activeThemes.includes(result.theme)) {
+      return false;
+    }
+    if (activeBackends.length > 0 && !activeBackends.includes(result.backend)) {
+      return false;
+    }
+    if (activeStatuses.length > 0 && !activeStatuses.includes(result.status)) {
+      return false;
+    }
 
     if (activeKeywords.length > 0) {
       const searchText = `${result.name} ${result.file}`.toLowerCase();

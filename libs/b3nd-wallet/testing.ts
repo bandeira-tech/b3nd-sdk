@@ -203,7 +203,8 @@ export async function createTestEnvironment(
       };
 
       // Approve the session by writing to the backend (simulates app approval)
-      const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+      const sessionUri =
+        `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
       await backend.receive([sessionUri, 1]);
 
       // Now signup with the approved session
@@ -236,7 +237,8 @@ export async function createTestEnvironment(
       };
 
       // Approve the session by writing to the backend (simulates app approval)
-      const sessionUri = `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
+      const sessionUri =
+        `mutable://accounts/${appKey}/sessions/${sessionKeypair.publicKeyHex}`;
       await backend.receive([sessionUri, 1]);
 
       // Now login with the approved session

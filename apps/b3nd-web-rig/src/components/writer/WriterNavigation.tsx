@@ -1,5 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import { Server, ShieldCheck, Play, Settings, FileText, Upload } from "lucide-react";
+import {
+  FileText,
+  Play,
+  Server,
+  Settings,
+  ShieldCheck,
+  Upload,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import type { WriterSection } from "../../types";
 import { useAppStore } from "../../stores/appStore";
@@ -73,16 +80,16 @@ export function WriterNavigation() {
         {primarySections.map((section) => (
           <NavButton
             key={section.key}
-          active={writerSection === section.key}
-          onClick={() => {
-            setWriterSection(section.key);
-            navigate(`/writer/${section.key}`);
-          }}
-          icon={section.icon}
-          label={section.label}
-          description={section.description}
-        />
-      ))}
+            active={writerSection === section.key}
+            onClick={() => {
+              setWriterSection(section.key);
+              navigate(`/writer/${section.key}`);
+            }}
+            icon={section.icon}
+            label={section.label}
+            description={section.description}
+          />
+        ))}
       </div>
 
       <div className="space-y-2">
@@ -92,15 +99,15 @@ export function WriterNavigation() {
         {appSections.map((section) => (
           <NavButton
             key={section.key}
-          active={writerSection === section.key}
-          onClick={() => {
-            setWriterSection(section.key);
-            navigate(`/writer/${section.key}`);
-          }}
-          icon={section.icon}
-          label={section.label}
-          description={section.description}
-        />
+            active={writerSection === section.key}
+            onClick={() => {
+              setWriterSection(section.key);
+              navigate(`/writer/${section.key}`);
+            }}
+            icon={section.icon}
+            label={section.label}
+            description={section.description}
+          />
         ))}
       </div>
     </div>

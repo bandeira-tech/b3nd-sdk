@@ -7,9 +7,7 @@
  * - Validation errors (schema validation failures)
  */
 
-import type {
-  PersistenceRecord,
-} from "../b3nd-core/types.ts";
+import type { PersistenceRecord } from "../b3nd-core/types.ts";
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**

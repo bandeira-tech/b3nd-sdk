@@ -8,31 +8,29 @@
  * Expected: All tests fail (functions not implemented)
  */
 
-import { assertEquals, assertNotEquals, assertMatch } from "@std/assert";
+import { assertEquals, assertMatch, assertNotEquals } from "@std/assert";
 
 // Proposed API — these don't exist yet
 import {
-  deriveSigningKeyPairFromSeed,
   deriveEncryptionKeyPairFromSeed,
-  hmac,
-  generateCodeVerifier,
+  deriveSigningKeyPairFromSeed,
   generateCodeChallenge,
+  generateCodeVerifier,
+  hmac,
 } from "../../../libs/b3nd-encrypt/mod.ts";
 
 // Existing API
 import {
+  createAuthenticatedMessageWithHex,
+  decrypt,
   deriveKeyFromSeed,
+  encrypt,
+  generateEncryptionKeyPair,
   sign,
   verify,
-  encrypt,
-  decrypt,
-  generateEncryptionKeyPair,
-  createAuthenticatedMessageWithHex,
 } from "../../../libs/b3nd-encrypt/mod.ts";
 
-import {
-  MemoryClient,
-} from "../../../libs/b3nd-client-memory/mod.ts";
+import { MemoryClient } from "../../../libs/b3nd-client-memory/mod.ts";
 
 // --- PKCE ---
 
@@ -98,7 +96,10 @@ Deno.test("pkce: challenge is SHA-256 of verifier in base64url", async () => {
 
   // base64url encode (no padding)
   const base64 = btoa(String.fromCharCode(...hashArray));
-  const expected = base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const expected = base64.replace(/\+/g, "-").replace(/\//g, "_").replace(
+    /=+$/,
+    "",
+  );
 
   assertEquals(challenge, expected);
 });
@@ -174,7 +175,9 @@ Deno.test("pkce + oauth: SPA flow with custom node — end to end", async () => 
   ) as { secret: string };
 
   const signingKP = await deriveSigningKeyPairFromSeed(decryptedResp.secret);
-  const encryptionKP = await deriveEncryptionKeyPairFromSeed(decryptedResp.secret);
+  const encryptionKP = await deriveEncryptionKeyPairFromSeed(
+    decryptedResp.secret,
+  );
 
   assertEquals(signingKP.publicKeyHex.length, 64);
   assertEquals(encryptionKP.publicKeyHex.length, 64);
@@ -354,7 +357,10 @@ Deno.test("password and oauth produce independent identities by design", async (
   const appSalt = "my-app";
 
   // Password identity
-  const passwordSeed = await deriveKeyFromSeed(password, `${appSalt}-${username}`);
+  const passwordSeed = await deriveKeyFromSeed(
+    password,
+    `${appSalt}-${username}`,
+  );
   const passwordKeypair = await deriveSigningKeyPairFromSeed(passwordSeed);
 
   // OAuth identity (same user, same app, but via Google)

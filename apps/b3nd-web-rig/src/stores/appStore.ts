@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { connection, createClientFromUrl, Identity, Rig } from "@bandeira-tech/b3nd-web";
+import {
+  connection,
+  createClientFromUrl,
+  Identity,
+  Rig,
+} from "@bandeira-tech/b3nd-web";
 import {
   migrateKeyBundle,
   restoreIdentity,
@@ -376,7 +381,9 @@ export const useAppStore = create<AppStore>()(
           try {
             const newClient = await createClientFromUrl(baseUrl);
             rig = new Rig({
-              connections: [connection(newClient, { receive: ["*"], read: ["*"] })],
+              connections: [
+                connection(newClient, { receive: ["*"], read: ["*"] }),
+              ],
               sseBaseUrl: baseUrl.replace(/\/$/, ""),
             });
             // Transfer existing identity to new rig

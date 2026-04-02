@@ -152,7 +152,6 @@ Deno.test("S3Client - prefix is applied to keys", async () => {
   assertEquals(results[0].record?.data, "value");
 });
 
-
 Deno.test("S3Client - constructor requires executor", () => {
   let threw = false;
   try {

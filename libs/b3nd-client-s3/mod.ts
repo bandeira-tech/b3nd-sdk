@@ -33,7 +33,9 @@ export interface S3Executor {
 
 function uriToKey(uri: string): string {
   const clean = uri.replace("://", "/");
-  const parts = clean.split("/").filter((p) => p !== ".." && p !== "." && p !== "");
+  const parts = clean.split("/").filter((p) =>
+    p !== ".." && p !== "." && p !== ""
+  );
   return parts.join("/") + ".json";
 }
 
@@ -85,7 +87,10 @@ export class S3Client implements NodeProtocolInterface {
         for (const [outputUri, outputValue] of data.payload.outputs) {
           const outputEncoded = encodeBinaryForJson(outputValue);
           const outputTs = Date.now();
-          const outputRecord: PersistenceRecord = { ts: outputTs, data: outputEncoded };
+          const outputRecord: PersistenceRecord = {
+            ts: outputTs,
+            data: outputEncoded,
+          };
           const outputKey = this.resolveKey(outputUri);
           await this.executor.putObject(
             outputKey,

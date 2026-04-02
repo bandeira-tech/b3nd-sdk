@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Navigate,
+  Route,
+  Routes,
+} from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAppStore } from "./stores/appStore";
 import { AppLayout } from "./components/layout/AppLayout";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
-import {
-  RIG_EXPLORER_BASE_PATH,
-} from "./utils";
+import { RIG_EXPLORER_BASE_PATH } from "./utils";
 import "./index.css";
 
 // Create a query client for React Query
@@ -20,10 +23,18 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const { theme, setTheme, backendsReady, backends, loadEndpoints } = useAppStore();
+  const { theme, setTheme, backendsReady, backends, loadEndpoints } =
+    useAppStore();
   const [isHydrating, setIsHydrating] = useState(true);
 
-  console.log("[App] Render. backendsReady:", backendsReady, "backends.length:", backends.length, "isHydrating:", isHydrating);
+  console.log(
+    "[App] Render. backendsReady:",
+    backendsReady,
+    "backends.length:",
+    backends.length,
+    "isHydrating:",
+    isHydrating,
+  );
 
   // Initialize keyboard shortcuts
   useKeyboardShortcuts();
@@ -49,7 +60,12 @@ function App() {
 
   // Wait for store hydration
   useEffect(() => {
-    console.log("[App:useEffect] backendsReady:", backendsReady, "backends.length:", backends.length);
+    console.log(
+      "[App:useEffect] backendsReady:",
+      backendsReady,
+      "backends.length:",
+      backends.length,
+    );
     if (backendsReady) {
       console.log("[App:useEffect] Hydration complete!");
       setIsHydrating(false);
@@ -66,8 +82,11 @@ function App() {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg text-muted-foreground mb-4">Initializing Rig...</div>
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="text-lg text-muted-foreground mb-4">
+            Initializing Rig...
+          </div>
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto">
+          </div>
         </div>
       </div>
     );
@@ -87,7 +106,10 @@ function App() {
             <Route path="/writer/*" element={<AppLayout />} />
             <Route path="/accounts" element={<AppLayout />} />
             <Route path="/settings" element={<AppLayout />} />
-            <Route path="*" element={<Navigate to={RIG_EXPLORER_BASE_PATH} replace />} />
+            <Route
+              path="*"
+              element={<Navigate to={RIG_EXPLORER_BASE_PATH} replace />}
+            />
           </Routes>
         </div>
       </Router>

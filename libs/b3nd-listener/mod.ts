@@ -32,18 +32,15 @@
  * ```
  */
 
-import type {
-  NodeProtocolInterface,
-  ReadResult,
-} from "../b3nd-core/types.ts";
+import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
 import {
-  encrypt,
-  decrypt,
-  verify,
   createAuthenticatedMessageWithHex,
+  decrypt,
+  encrypt,
   type EncryptedPayload,
-  type KeyPair,
   type EncryptionKeyPair,
+  type KeyPair,
+  verify,
 } from "../b3nd-encrypt/mod.ts";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -139,7 +136,9 @@ export function respondTo<TReq = unknown, TRes = unknown>(
 ): (msg: [string, unknown]) => Promise<{ success: boolean; error?: string }> {
   const { identity, client } = config;
 
-  return async (msg: [string, unknown]): Promise<{ success: boolean; error?: string }> => {
+  return async (
+    msg: [string, unknown],
+  ): Promise<{ success: boolean; error?: string }> => {
     const [uri, raw] = msg;
 
     // 1. Extract encrypted payload (handle signed or unsigned)
@@ -163,7 +162,10 @@ export function respondTo<TReq = unknown, TRes = unknown>(
     } else if (isEncryptedPayload(raw)) {
       encryptedPayload = raw as EncryptedPayload;
     } else {
-      return { success: false, error: "Message is neither signed nor encrypted" };
+      return {
+        success: false,
+        error: "Message is neither signed nor encrypted",
+      };
     }
 
     // 2. Decrypt
@@ -237,7 +239,9 @@ export function connect(
   client: NodeProtocolInterface,
   config: {
     prefix: string;
-    processor: (msg: [string, unknown]) => Promise<{ success: boolean; error?: string }>;
+    processor: (
+      msg: [string, unknown],
+    ) => Promise<{ success: boolean; error?: string }>;
     pollIntervalMs?: number;
     onError?: (error: Error, uri: string) => void;
   },
@@ -285,7 +289,9 @@ export function connect(
         await new Promise((r) => setTimeout(r, pollIntervalMs));
       }
     })();
-    return () => { running = false; };
+    return () => {
+      running = false;
+    };
   }
 
   return { poll, start };
@@ -349,7 +355,12 @@ export async function readResponse<T>(params: {
   clientEncryptionPrivateKey: CryptoKey;
   listenerPublicKeyHex?: string;
 }): Promise<{ data: T; verified: boolean } | null> {
-  const { client, responseUri, clientEncryptionPrivateKey, listenerPublicKeyHex } = params;
+  const {
+    client,
+    responseUri,
+    clientEncryptionPrivateKey,
+    listenerPublicKeyHex,
+  } = params;
 
   const readResults = await client.read(responseUri);
   const readResult = readResults[0];

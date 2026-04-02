@@ -38,12 +38,12 @@ import type { Node, NodeConfig } from "./types.ts";
 
 // Re-export types
 export type {
-  Output,
   Message,
-  Validator,
-  ValidationResult,
+  Output,
   ReadFn,
   Schema,
+  ValidationResult,
+  Validator,
 } from "../b3nd-core/types.ts";
 export type {
   /** @deprecated */
@@ -124,7 +124,9 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
   const { read, validate, process } = config;
 
   return {
-    async receive<T = unknown>(msg: Message<T>): Promise<{ accepted: boolean; error?: string }> {
+    async receive<T = unknown>(
+      msg: Message<T>,
+    ): Promise<{ accepted: boolean; error?: string }> {
       const [uri] = msg;
 
       // 1. Basic URI validation
@@ -141,7 +143,11 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
               undefined,
               async <T = unknown>(u: string) => {
                 const results = await read.read<T>(u);
-                return results[0] ?? { success: false, error: "No results" } as import("../b3nd-core/types.ts").ReadResult<T>;
+                return results[0] ??
+                  {
+                    success: false,
+                    error: "No results",
+                  } as import("../b3nd-core/types.ts").ReadResult<T>;
               },
             );
 

@@ -8,10 +8,7 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals, assertExists } from "@std/assert";
-import {
-  ElasticsearchClient,
-  type ElasticsearchExecutor,
-} from "./mod.ts";
+import { ElasticsearchClient, type ElasticsearchExecutor } from "./mod.ts";
 // ---------------------------------------------------------------------------
 // Mock executor — in-memory Map simulating Elasticsearch
 // ---------------------------------------------------------------------------
@@ -172,7 +169,9 @@ Deno.test("read with trailing slash lists children", async () => {
   const { client } = createClient();
 
   await client.receive(["mutable://accounts/alice/profile", { name: "Alice" }]);
-  await client.receive(["mutable://accounts/alice/settings", { theme: "dark" }]);
+  await client.receive(["mutable://accounts/alice/settings", {
+    theme: "dark",
+  }]);
   await client.receive(["mutable://accounts/bob/profile", { name: "Bob" }]);
 
   const results = await client.read("mutable://accounts/alice/");

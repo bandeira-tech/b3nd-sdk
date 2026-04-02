@@ -181,7 +181,9 @@ export async function proxyRead(
               encryptedPayload,
               privateKey,
             );
-            const decrypted = JSON.parse(new TextDecoder().decode(decryptedBytes));
+            const decrypted = JSON.parse(
+              new TextDecoder().decode(decryptedBytes),
+            );
             return {
               ...response,
               decrypted,
@@ -300,8 +302,13 @@ export async function proxyReadMulti(
                     nonce: payload.nonce as string,
                     ephemeralPublicKey: payload.ephemeralPublicKey as string,
                   };
-                  const decryptedBytes = await decrypt(encryptedPayload, privateKey);
-                  const decrypted = JSON.parse(new TextDecoder().decode(decryptedBytes));
+                  const decryptedBytes = await decrypt(
+                    encryptedPayload,
+                    privateKey,
+                  );
+                  const decrypted = JSON.parse(
+                    new TextDecoder().decode(decryptedBytes),
+                  );
                   return { ...result, decrypted };
                 }
               }

@@ -9,7 +9,11 @@ import {
   FunctionalClient,
   type FunctionalClientConfig,
 } from "../b3nd-core/functional-client.ts";
-import type { NodeProtocolInterface, ReadResult, Validator } from "../b3nd-core/types.ts";
+import type {
+  NodeProtocolInterface,
+  ReadResult,
+  Validator,
+} from "../b3nd-core/types.ts";
 
 /**
  * Create a FunctionalClient that validates before writing.
@@ -45,9 +49,12 @@ export function createValidatedClient(config: {
 
       // Run validation — top-level message, no upstream
       try {
-        const readFn = async <T = unknown>(u: string): Promise<ReadResult<T>> => {
+        const readFn = async <T = unknown>(
+          u: string,
+        ): Promise<ReadResult<T>> => {
           const results = await read.read<T>(u);
-          return results[0] ?? { success: false, error: "No results" } as ReadResult<T>;
+          return results[0] ??
+            { success: false, error: "No results" } as ReadResult<T>;
         };
         const validationResult = await validate(msg, undefined, readFn);
         if (!validationResult.valid) {

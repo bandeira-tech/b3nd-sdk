@@ -12,19 +12,19 @@ import { assertEquals, assertNotEquals } from "@std/assert";
 
 // Proposed API — these don't exist yet in b3nd-encrypt/mod.ts
 import {
-  deriveSigningKeyPairFromSeed,
   deriveEncryptionKeyPairFromSeed,
+  deriveSigningKeyPairFromSeed,
   hmac,
 } from "../../../libs/b3nd-encrypt/mod.ts";
 
 // Existing API — these already work
 import {
+  decrypt,
   deriveKeyFromSeed,
+  encrypt,
+  generateEncryptionKeyPair,
   sign,
   verify,
-  encrypt,
-  decrypt,
-  generateEncryptionKeyPair,
 } from "../../../libs/b3nd-encrypt/mod.ts";
 
 // --- Signing keypair derivation ---
@@ -108,8 +108,13 @@ Deno.test("deriveEncryptionKeyPairFromSeed: encrypt and decrypt round-trip", asy
 
   const plaintext = { secret: "deterministic encryption works", count: 42 };
   const encoder = new TextEncoder();
-  const encrypted = await encrypt(encoder.encode(JSON.stringify(plaintext)), keypair.publicKeyHex);
-  const decrypted = JSON.parse(new TextDecoder().decode(await decrypt(encrypted, keypair.privateKey)));
+  const encrypted = await encrypt(
+    encoder.encode(JSON.stringify(plaintext)),
+    keypair.publicKeyHex,
+  );
+  const decrypted = JSON.parse(
+    new TextDecoder().decode(await decrypt(encrypted, keypair.privateKey)),
+  );
 
   assertEquals(decrypted, plaintext);
 });
@@ -181,8 +186,15 @@ Deno.test("full flow: password credentials → deterministic identity → sign �
 
   // Step 6: Encrypt something to ourselves
   const secret = { ingredients: ["guanciale", "pecorino", "eggs"] };
-  const encrypted = await encrypt(new TextEncoder().encode(JSON.stringify(secret)), encryptionKeypair.publicKeyHex);
-  const decrypted = JSON.parse(new TextDecoder().decode(await decrypt(encrypted, encryptionKeypair.privateKey)));
+  const encrypted = await encrypt(
+    new TextEncoder().encode(JSON.stringify(secret)),
+    encryptionKeypair.publicKeyHex,
+  );
+  const decrypted = JSON.parse(
+    new TextDecoder().decode(
+      await decrypt(encrypted, encryptionKeypair.privateKey),
+    ),
+  );
   assertEquals(decrypted, secret);
 
   // Step 7: Re-derive on "new device" — same identity
@@ -194,6 +206,10 @@ Deno.test("full flow: password credentials → deterministic identity → sign �
   assertEquals(encryptionKeypair.publicKeyHex, encryptionKeypair2.publicKeyHex);
 
   // Step 8: New device can verify old signature
-  const stillValid = await verify(signingKeypair2.publicKeyHex, signature, payload);
+  const stillValid = await verify(
+    signingKeypair2.publicKeyHex,
+    signature,
+    payload,
+  );
   assertEquals(stillValid, true);
 });

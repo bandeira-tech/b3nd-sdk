@@ -253,7 +253,9 @@ Deno.test("schema validation runs after connection routing", async () => {
 
 Deno.test("single client via catch-all connection", async () => {
   const rig = new Rig({
-    connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+    connections: [
+      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    ],
   });
 
   // Everything accepted — no filtering
@@ -265,7 +267,9 @@ Deno.test("single client via catch-all connection", async () => {
 
 Deno.test("single client via explicit connection still works (catch-all)", async () => {
   const rig = new Rig({
-    connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+    connections: [
+      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    ],
   });
 
   const r = await rig.receive(["mutable://open/x", { v: 1 }]);

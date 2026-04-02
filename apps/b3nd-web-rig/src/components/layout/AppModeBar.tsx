@@ -1,10 +1,17 @@
 // React import not needed with react-jsx runtime
-import { useAppStore } from '../../stores/appStore';
-import { FolderTree, Search, Eye, PanelLeftOpen, PanelBottomOpen, PanelRightOpen } from 'lucide-react';
-import { cn } from '../../utils';
-import type { AppMode } from '../../types';
-import type { ReactNode } from 'react';
-import { useLayoutSlots } from './useLayoutSlots';
+import { useAppStore } from "../../stores/appStore";
+import {
+  Eye,
+  FolderTree,
+  PanelBottomOpen,
+  PanelLeftOpen,
+  PanelRightOpen,
+  Search,
+} from "lucide-react";
+import { cn } from "../../utils";
+import type { AppMode } from "../../types";
+import type { ReactNode } from "react";
+import { useLayoutSlots } from "./useLayoutSlots";
 
 export function AppModeBar() {
   const {
@@ -18,18 +25,18 @@ export function AppModeBar() {
 
   const modes: Array<{ key: AppMode; label: string; icon: ReactNode }> = [
     {
-      key: 'filesystem',
-      label: 'Navigate',
+      key: "filesystem",
+      label: "Navigate",
       icon: <FolderTree className="h-4 w-4" />,
     },
     {
-      key: 'search',
-      label: 'Search',
+      key: "search",
+      label: "Search",
       icon: <Search className="h-4 w-4" />,
     },
     {
-      key: 'watched',
-      label: 'Watched',
+      key: "watched",
+      label: "Watched",
       icon: <Eye className="h-4 w-4" />,
     },
   ];
@@ -39,11 +46,11 @@ export function AppModeBar() {
       {/* Left: panel toggles */}
       <div className="flex items-center space-x-1">
         <button
-          onClick={() => togglePanel('left')}
+          onClick={() => togglePanel("left")}
           className={cn(
             "p-2 rounded hover:bg-accent transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            panels.left && "bg-accent"
+            panels.left && "bg-accent",
           )}
           title="Toggle navigation panel (Ctrl+B)"
         >
@@ -51,11 +58,11 @@ export function AppModeBar() {
         </button>
 
         <button
-          onClick={() => togglePanel('bottom')}
+          onClick={() => togglePanel("bottom")}
           className={cn(
             "p-2 rounded hover:bg-accent transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            panels.bottom && "bg-accent"
+            panels.bottom && "bg-accent",
           )}
           title="Toggle bottom panel (Ctrl+Shift+B)"
         >
@@ -65,7 +72,7 @@ export function AppModeBar() {
 
       {/* Center: contextual modes */}
       <div className="flex items-center space-x-2">
-        {activeApp === 'explorer' && (
+        {activeApp === "explorer" && (
           <div className="hidden md:flex items-center bg-muted rounded-lg p-1">
             {modes.map(({ key, label, icon }) => (
               <button
@@ -76,7 +83,7 @@ export function AppModeBar() {
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   mode === key
                     ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50",
                 )}
               >
                 {icon}
@@ -91,11 +98,11 @@ export function AppModeBar() {
       <div className="flex items-center space-x-1">
         {rightPanelToggleVisible && (
           <button
-            onClick={() => togglePanel('right')}
+            onClick={() => togglePanel("right")}
             className={cn(
               "p-2 rounded hover:bg-accent transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              panels.right && "bg-accent"
+              panels.right && "bg-accent",
             )}
             title="Toggle right panel"
           >

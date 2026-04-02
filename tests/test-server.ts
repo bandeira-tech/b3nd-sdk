@@ -40,7 +40,9 @@ const testSchema = new Proxy(baseSchema, {
 
 // Create rig with in-memory backend + schema validation
 const rig = new Rig({
-  connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+  connections: [
+    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+  ],
   schema: testSchema,
 });
 

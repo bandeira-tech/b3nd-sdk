@@ -2,15 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Code, FormInput, Loader2, Plus, Send, Trash2, X } from "lucide-react";
 import { cn } from "../../utils";
 import {
-  useNodesStore,
   type BackendSpec,
   type ManagedNodeConfig,
   type NetworkNodeEntry,
+  useNodesStore,
 } from "./stores/nodesStore";
 import { useAppStore } from "../../stores/appStore";
-import {
-  signAppPayload,
-} from "../../services/writer/writerService";
+import { signAppPayload } from "../../services/writer/writerService";
 
 interface Props {
   entry: NetworkNodeEntry;
@@ -46,7 +44,7 @@ export function ConfigEditor({ entry, networkId }: Props) {
     (updater: (config: ManagedNodeConfig) => ManagedNodeConfig) => {
       setConfigDraft(entry.nodeId, updater(draft));
     },
-    [draft, entry.nodeId, setConfigDraft]
+    [draft, entry.nodeId, setConfigDraft],
   );
 
   const handleJsonChange = (text: string) => {
@@ -71,12 +69,14 @@ export function ConfigEditor({ entry, networkId }: Props) {
       const account = accounts.find((a) => a.id === activeAccountId);
       if (!account || account.type === "application-user") {
         throw new Error(
-          "Select an account or application key to sign config pushes"
+          "Select an account or application key to sign config pushes",
         );
       }
       const rig = useAppStore.getState().rig;
       if (!rig) throw new Error("No rig instance available");
-      if (!rig.identity) throw new Error("No identity set — select an account first");
+      if (!rig.identity) {
+        throw new Error("No identity set — select an account first");
+      }
 
       // Sign config with operator key
       const signed = await signAppPayload({
@@ -85,7 +85,8 @@ export function ConfigEditor({ entry, networkId }: Props) {
       });
 
       // Write to correct URI
-      const uri = `mutable://accounts/${rig.identity.pubkey}/nodes/${entry.nodeId}/config`;
+      const uri =
+        `mutable://accounts/${rig.identity.pubkey}/nodes/${entry.nodeId}/config`;
       const result = await rig.client.receive([uri, signed]);
 
       if (!result.accepted) {
@@ -93,8 +94,8 @@ export function ConfigEditor({ entry, networkId }: Props) {
       }
 
       // Update local state on success
-      const { addNodeToNetwork, removeNodeFromNetwork } =
-        useNodesStore.getState();
+      const { addNodeToNetwork, removeNodeFromNetwork } = useNodesStore
+        .getState();
       removeNodeFromNetwork(networkId, entry.nodeId);
       addNodeToNetwork(networkId, { ...entry, config: draft });
       clearConfigDraft(entry.nodeId);
@@ -119,7 +120,7 @@ export function ConfigEditor({ entry, networkId }: Props) {
               "flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors",
               configEditorMode === "form"
                 ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <FormInput className="w-3 h-3" />
@@ -131,7 +132,7 @@ export function ConfigEditor({ entry, networkId }: Props) {
               "flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors",
               configEditorMode === "json"
                 ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Code className="w-3 h-3" />
@@ -156,14 +157,12 @@ export function ConfigEditor({ entry, networkId }: Props) {
               "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded transition-colors",
               isDirty
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "bg-muted text-muted-foreground"
+                : "bg-muted text-muted-foreground",
             )}
           >
-            {pushingConfig ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <Send className="w-3 h-3" />
-            )}
+            {pushingConfig
+              ? <Loader2 className="w-3 h-3 animate-spin" />
+              : <Send className="w-3 h-3" />}
             Push Config
           </button>
         </div>
@@ -178,15 +177,15 @@ export function ConfigEditor({ entry, networkId }: Props) {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        {configEditorMode === "form" ? (
-          <FormMode draft={draft} updateDraft={updateDraft} />
-        ) : (
-          <JsonMode
-            jsonText={jsonText}
-            jsonError={jsonError}
-            onChange={handleJsonChange}
-          />
-        )}
+        {configEditorMode === "form"
+          ? <FormMode draft={draft} updateDraft={updateDraft} />
+          : (
+            <JsonMode
+              jsonText={jsonText}
+              jsonError={jsonError}
+              onChange={handleJsonChange}
+            />
+          )}
       </div>
     </div>
   );
@@ -210,8 +209,7 @@ function FormMode({
             type="text"
             value={draft.name}
             onChange={(e) =>
-              updateDraft((c) => ({ ...c, name: e.target.value }))
-            }
+              updateDraft((c) => ({ ...c, name: e.target.value }))}
             className="field-input"
           />
         </Field>
@@ -236,8 +234,7 @@ function FormMode({
                 updateDraft((c) => ({
                   ...c,
                   server: { ...c.server, port: Number(e.target.value) },
-                }))
-              }
+                }))}
               className="field-input"
             />
           </Field>
@@ -249,8 +246,7 @@ function FormMode({
                 updateDraft((c) => ({
                   ...c,
                   server: { ...c.server, corsOrigin: e.target.value },
-                }))
-              }
+                }))}
               className="field-input"
             />
           </Field>
@@ -267,14 +263,12 @@ function FormMode({
               updateDraft((c) => ({
                 ...c,
                 backends: c.backends.map((b, j) => (j === i ? updated : b)),
-              }))
-            }
+              }))}
             onRemove={() =>
               updateDraft((c) => ({
                 ...c,
                 backends: c.backends.filter((_, j) => j !== i),
-              }))
-            }
+              }))}
           />
         ))}
         <button
@@ -282,8 +276,7 @@ function FormMode({
             updateDraft((c) => ({
               ...c,
               backends: [...c.backends, { type: "memory", url: "memory://" }],
-            }))
-          }
+            }))}
           className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 mt-2"
         >
           <Plus className="w-3 h-3" />
@@ -301,8 +294,7 @@ function FormMode({
               updateDraft((c) => ({
                 ...c,
                 schemaModuleUrl: e.target.value || undefined,
-              }))
-            }
+              }))}
             placeholder="https://example.com/schema.ts"
             className="field-input"
           />
@@ -323,8 +315,7 @@ function FormMode({
                     ...c.monitoring,
                     heartbeatIntervalMs: Number(e.target.value),
                   },
-                }))
-              }
+                }))}
               className="field-input"
             />
           </Field>
@@ -339,8 +330,7 @@ function FormMode({
                     ...c.monitoring,
                     configPollIntervalMs: Number(e.target.value),
                   },
-                }))
-              }
+                }))}
               className="field-input"
             />
           </Field>
@@ -357,8 +347,7 @@ function FormMode({
                   ...c.monitoring,
                   metricsEnabled: e.target.checked,
                 },
-              }))
-            }
+              }))}
             className="rounded border-border"
           />
           <label htmlFor="metricsEnabled" className="text-xs">
@@ -402,7 +391,7 @@ function JsonMode({
         className={cn(
           "flex-1 w-full font-mono text-xs p-4 bg-muted/30 border border-border rounded-lg resize-none",
           "focus:outline-none focus:ring-1 focus:ring-primary",
-          jsonError && "rounded-t-none border-t-0"
+          jsonError && "rounded-t-none border-t-0",
         )}
         spellCheck={false}
       />
@@ -412,7 +401,9 @@ function JsonMode({
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section(
+  { title, children }: { title: string; children: React.ReactNode },
+) {
   return (
     <div>
       <h3 className="text-sm font-medium mb-3">{title}</h3>
@@ -421,10 +412,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field(
+  { label, children }: { label: string; children: React.ReactNode },
+) {
   return (
     <div>
-      <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
+      <label className="text-xs text-muted-foreground mb-1 block">
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -444,8 +439,7 @@ function BackendRow({
       <select
         value={backend.type}
         onChange={(e) =>
-          onChange({ ...backend, type: e.target.value as BackendSpec["type"] })
-        }
+          onChange({ ...backend, type: e.target.value as BackendSpec["type"] })}
         className="px-2 py-1.5 text-xs bg-background border border-border rounded"
       >
         <option value="memory">Memory</option>
@@ -491,12 +485,15 @@ function TagsEditor({
     <div className="space-y-2">
       {Object.entries(tags).map(([k, v]) => (
         <div key={k} className="flex items-center gap-2">
-          <span className="text-xs font-mono bg-muted px-2 py-1 rounded">{k}</span>
+          <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
+            {k}
+          </span>
           <span className="text-xs">=</span>
           <input
             type="text"
             value={v}
-            onChange={(e) => onChange({ ...tags, [k]: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...tags, [k]: e.target.value })}
             className="flex-1 field-input"
           />
           <button

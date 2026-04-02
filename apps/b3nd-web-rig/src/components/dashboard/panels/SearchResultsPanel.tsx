@@ -1,17 +1,20 @@
 import { useMemo } from "react";
 import {
   Check,
-  X,
-  SkipForward,
-  ChevronRight,
   ChevronDown,
+  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   Clock,
-  Filter,
   FileCode,
+  Filter,
+  SkipForward,
+  X,
 } from "lucide-react";
-import { useDashboardStore, useFilteredResults } from "../stores/dashboardStore";
+import {
+  useDashboardStore,
+  useFilteredResults,
+} from "../stores/dashboardStore";
 import { cn } from "../../../utils";
 import type { TestResult } from "../types";
 
@@ -23,11 +26,49 @@ const statusIcon: Record<string, { icon: typeof Check; color: string }> = {
 
 // Simple TypeScript syntax highlighting
 const TS_KEYWORDS = new Set([
-  "import", "export", "from", "const", "let", "var", "function", "async", "await",
-  "return", "if", "else", "for", "while", "class", "extends", "implements",
-  "interface", "type", "enum", "new", "this", "super", "throw", "try", "catch",
-  "finally", "typeof", "instanceof", "in", "of", "true", "false", "null", "undefined",
-  "void", "never", "any", "string", "number", "boolean", "Promise", "default",
+  "import",
+  "export",
+  "from",
+  "const",
+  "let",
+  "var",
+  "function",
+  "async",
+  "await",
+  "return",
+  "if",
+  "else",
+  "for",
+  "while",
+  "class",
+  "extends",
+  "implements",
+  "interface",
+  "type",
+  "enum",
+  "new",
+  "this",
+  "super",
+  "throw",
+  "try",
+  "catch",
+  "finally",
+  "typeof",
+  "instanceof",
+  "in",
+  "of",
+  "true",
+  "false",
+  "null",
+  "undefined",
+  "void",
+  "never",
+  "any",
+  "string",
+  "number",
+  "boolean",
+  "Promise",
+  "default",
 ]);
 
 function highlightLine(line: string): JSX.Element[] {
@@ -48,7 +89,7 @@ function highlightLine(line: string): JSX.Element[] {
       parts.push(
         <span key={i} className="text-green-600 dark:text-green-400">
           {line.slice(i, end)}
-        </span>
+        </span>,
       );
       i = end;
       continue;
@@ -59,7 +100,7 @@ function highlightLine(line: string): JSX.Element[] {
       parts.push(
         <span key={i} className="text-muted-foreground/60 italic">
           {line.slice(i)}
-        </span>
+        </span>,
       );
       break;
     }
@@ -71,7 +112,7 @@ function highlightLine(line: string): JSX.Element[] {
       parts.push(
         <span key={i} className="text-amber-600 dark:text-amber-400">
           {line.slice(i, end)}
-        </span>
+        </span>,
       );
       i = end;
       continue;
@@ -84,15 +125,18 @@ function highlightLine(line: string): JSX.Element[] {
       const word = line.slice(i, end);
       if (TS_KEYWORDS.has(word)) {
         parts.push(
-          <span key={i} className="text-purple-600 dark:text-purple-400 font-medium">
+          <span
+            key={i}
+            className="text-purple-600 dark:text-purple-400 font-medium"
+          >
             {word}
-          </span>
+          </span>,
         );
       } else if (word[0] === word[0].toUpperCase() && /[a-z]/.test(word)) {
         parts.push(
           <span key={i} className="text-blue-600 dark:text-blue-400">
             {word}
-          </span>
+          </span>,
         );
       } else {
         parts.push(<span key={i}>{word}</span>);
@@ -108,7 +152,13 @@ function highlightLine(line: string): JSX.Element[] {
   return parts;
 }
 
-function SourceCodeBlock({ source, sourceFile, startLine = 1 }: { source: string; sourceFile?: string; startLine?: number }) {
+function SourceCodeBlock(
+  { source, sourceFile, startLine = 1 }: {
+    source: string;
+    sourceFile?: string;
+    startLine?: number;
+  },
+) {
   const lines = source.split("\n");
   const fileName = sourceFile?.split("/").pop() || "";
   const maxLineNum = startLine + lines.length - 1;
@@ -119,7 +169,9 @@ function SourceCodeBlock({ source, sourceFile, startLine = 1 }: { source: string
       {sourceFile && (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border-b border-border/30">
           <FileCode className="w-3 h-3 text-muted-foreground" />
-          <span className="font-mono text-[11px] text-muted-foreground">{fileName}:{startLine}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {fileName}:{startLine}
+          </span>
         </div>
       )}
       <div className="overflow-x-auto bg-muted/20">
@@ -177,13 +229,19 @@ function TestDetailExpansion({ result }: { result: TestResult }) {
         </div>
       )}
 
-      {result.source ? (
-        <SourceCodeBlock source={result.source} sourceFile={result.sourceFile} startLine={result.sourceStartLine} />
-      ) : (
-        <div className="mt-2 text-muted-foreground italic text-[11px]">
-          Source available after next test run completes.
-        </div>
-      )}
+      {result.source
+        ? (
+          <SourceCodeBlock
+            source={result.source}
+            sourceFile={result.sourceFile}
+            startLine={result.sourceStartLine}
+          />
+        )
+        : (
+          <div className="mt-2 text-muted-foreground italic text-[11px]">
+            Source available after next test run completes.
+          </div>
+        )}
     </div>
   );
 }
@@ -202,7 +260,7 @@ export function SearchResultsPanel() {
 
   const failedCount = useMemo(
     () => filteredResults.filter((r) => r.status === "failed").length,
-    [filteredResults]
+    [filteredResults],
   );
 
   const hasFilters = activeFacets.size > 0;
@@ -253,56 +311,63 @@ export function SearchResultsPanel() {
 
       {/* Results list */}
       <div className="flex-1 overflow-auto custom-scrollbar">
-        {filteredResults.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            No test results match the current filters.
-          </div>
-        ) : (
-          <div>
-            {filteredResults.map((result) => {
-              const testKey = `${result.file}::${result.name}`;
-              const isExpanded = expandedTests.has(testKey);
-              const config = statusIcon[result.status] || statusIcon.passed;
-              const StatusIcon = config.icon;
+        {filteredResults.length === 0
+          ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+              No test results match the current filters.
+            </div>
+          )
+          : (
+            <div>
+              {filteredResults.map((result) => {
+                const testKey = `${result.file}::${result.name}`;
+                const isExpanded = expandedTests.has(testKey);
+                const config = statusIcon[result.status] || statusIcon.passed;
+                const StatusIcon = config.icon;
 
-              return (
-                <div key={testKey}>
-                  <button
-                    onClick={() => toggleTestExpansion(testKey)}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors text-left",
-                      "hover:bg-accent/40",
-                      isExpanded && "bg-accent/20",
-                      result.status === "failed" && "bg-red-500/5"
-                    )}
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <StatusIcon
-                      className={cn("w-3.5 h-3.5 flex-shrink-0", config.color)}
-                    />
-                    <span className="flex-1 font-mono text-xs truncate">
-                      {result.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground font-mono flex-shrink-0">
-                      {result.file}
-                    </span>
-                    {result.duration !== undefined && (
-                      <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0 w-12 text-right">
-                        {result.duration}ms
+                return (
+                  <div key={testKey}>
+                    <button
+                      onClick={() => toggleTestExpansion(testKey)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors text-left",
+                        "hover:bg-accent/40",
+                        isExpanded && "bg-accent/20",
+                        result.status === "failed" && "bg-red-500/5",
+                      )}
+                    >
+                      {isExpanded
+                        ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        )
+                        : (
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        )}
+                      <StatusIcon
+                        className={cn(
+                          "w-3.5 h-3.5 flex-shrink-0",
+                          config.color,
+                        )}
+                      />
+                      <span className="flex-1 font-mono text-xs truncate">
+                        {result.name}
                       </span>
-                    )}
-                  </button>
+                      <span className="text-xs text-muted-foreground font-mono flex-shrink-0">
+                        {result.file}
+                      </span>
+                      {result.duration !== undefined && (
+                        <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0 w-12 text-right">
+                          {result.duration}ms
+                        </span>
+                      )}
+                    </button>
 
-                  {isExpanded && <TestDetailExpansion result={result} />}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                    {isExpanded && <TestDetailExpansion result={result} />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
       </div>
     </div>
   );

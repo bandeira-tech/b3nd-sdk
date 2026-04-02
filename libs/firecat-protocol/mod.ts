@@ -13,9 +13,9 @@ import {
 import { hashValidator, validateLinkValue } from "@bandeira-tech/b3nd-sdk/hash";
 import {
   balanceValidator,
+  consensusRecordValidator,
   consumedValidator,
   genesisValidator,
-  consensusRecordValidator,
 } from "./validators.ts";
 
 const schema: Schema = {

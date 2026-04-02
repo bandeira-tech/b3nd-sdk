@@ -1,10 +1,15 @@
 import { assertEquals } from "@std/assert";
 import { connection, Rig } from "../libs/b3nd-rig/mod.ts";
-import { createTestSchema, MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
+import {
+  createTestSchema,
+  MemoryClient,
+} from "../libs/b3nd-client-memory/mod.ts";
 
 Deno.test("createRigHandler - status endpoint", async () => {
   const rig = new Rig({
-    connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+    connections: [
+      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    ],
     schema: createTestSchema(),
   });
   const handler = rig.handler({ healthMeta: { test: true } });
@@ -16,7 +21,9 @@ Deno.test("createRigHandler - status endpoint", async () => {
 
 Deno.test("createRigHandler - receive/read/list round-trip", async () => {
   const rig = new Rig({
-    connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+    connections: [
+      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    ],
     schema: createTestSchema(),
   });
   const handler = rig.handler();
@@ -49,7 +56,9 @@ Deno.test("createRigHandler - receive/read/list round-trip", async () => {
 
 Deno.test("createRigHandler - unknown route returns 404", async () => {
   const rig = new Rig({
-    connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+    connections: [
+      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    ],
     schema: createTestSchema(),
   });
   const handler = rig.handler();

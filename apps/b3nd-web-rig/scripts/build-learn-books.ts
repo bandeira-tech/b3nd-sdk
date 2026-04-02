@@ -79,22 +79,100 @@ const PROPOSALS_DIR = "docs/proposals";
 const BOOK_DIR = "docs/book";
 
 const BOOK_META: Record<string, BookMeta> = {
-  "SKILL.md": { key: "b3nd", label: "B3nd Overview", description: "What B3nd is and how it works", tier: "documentation" },
-  "FIRECAT.md": { key: "firecat", label: "Firecat Reference", description: "Schema, URIs, auth, visibility", tier: "documentation" },
-  "FRAMEWORK.md": { key: "framework", label: "Framework Reference", description: "Protocol design, dispatch, primitives", tier: "documentation" },
-  "OPERATORS.md": { key: "operators", label: "Operators Guide", description: "Architecture, backends, managed mode", tier: "documentation" },
-  "FAQ.md": { key: "faq", label: "Design Decisions", description: "Why things work the way they do", tier: "documentation" },
-  "APP_COOKBOOK.md": { key: "app-cookbook", label: "Building Firecat Apps", description: "Quick start, CRUD, browser apps, testing", tier: "cookbook" },
-  "PROTOCOL_COOKBOOK.md": { key: "protocol-cookbook", label: "Designing Protocols", description: "Worked examples, packaging SDKs", tier: "cookbook" },
-  "NODE_COOKBOOK.md": { key: "node-cookbook", label: "Running Nodes", description: "Deployment, Docker, monitoring", tier: "cookbook" },
-  "RIG_PATTERNS.md": { key: "rig-patterns", label: "Rig Patterns", description: "Scrollable catalog of rig setups — connecting, hooks, events, observe, routing, encryption, subscriptions", tier: "cookbook" },
-  "DESIGN_EXCHANGE.md": { key: "design-exchange", label: "Exchange Patterns", description: "Trust models, party interactions, crypto guarantees", tier: "design" },
-  "DESIGN_INFRASTRUCTURE.md": { key: "design-infrastructure", label: "Infrastructure", description: "Node requirements, deployment topologies, scaling", tier: "design" },
-  "DESIGN_TRANSPORT.md": { key: "design-transport", label: "Transport", description: "WebSocket, WebRTC, SSE, and the subscribe primitive", tier: "design" },
+  "SKILL.md": {
+    key: "b3nd",
+    label: "B3nd Overview",
+    description: "What B3nd is and how it works",
+    tier: "documentation",
+  },
+  "FIRECAT.md": {
+    key: "firecat",
+    label: "Firecat Reference",
+    description: "Schema, URIs, auth, visibility",
+    tier: "documentation",
+  },
+  "FRAMEWORK.md": {
+    key: "framework",
+    label: "Framework Reference",
+    description: "Protocol design, dispatch, primitives",
+    tier: "documentation",
+  },
+  "OPERATORS.md": {
+    key: "operators",
+    label: "Operators Guide",
+    description: "Architecture, backends, managed mode",
+    tier: "documentation",
+  },
+  "FAQ.md": {
+    key: "faq",
+    label: "Design Decisions",
+    description: "Why things work the way they do",
+    tier: "documentation",
+  },
+  "APP_COOKBOOK.md": {
+    key: "app-cookbook",
+    label: "Building Firecat Apps",
+    description: "Quick start, CRUD, browser apps, testing",
+    tier: "cookbook",
+  },
+  "PROTOCOL_COOKBOOK.md": {
+    key: "protocol-cookbook",
+    label: "Designing Protocols",
+    description: "Worked examples, packaging SDKs",
+    tier: "cookbook",
+  },
+  "NODE_COOKBOOK.md": {
+    key: "node-cookbook",
+    label: "Running Nodes",
+    description: "Deployment, Docker, monitoring",
+    tier: "cookbook",
+  },
+  "RIG_PATTERNS.md": {
+    key: "rig-patterns",
+    label: "Rig Patterns",
+    description:
+      "Scrollable catalog of rig setups — connecting, hooks, events, observe, routing, encryption, subscriptions",
+    tier: "cookbook",
+  },
+  "DESIGN_EXCHANGE.md": {
+    key: "design-exchange",
+    label: "Exchange Patterns",
+    description: "Trust models, party interactions, crypto guarantees",
+    tier: "design",
+  },
+  "DESIGN_INFRASTRUCTURE.md": {
+    key: "design-infrastructure",
+    label: "Infrastructure",
+    description: "Node requirements, deployment topologies, scaling",
+    tier: "design",
+  },
+  "DESIGN_TRANSPORT.md": {
+    key: "design-transport",
+    label: "Transport",
+    description: "WebSocket, WebRTC, SSE, and the subscribe primitive",
+    tier: "design",
+  },
   // Proposals
-  "tokenization-gas-semantics.md": { key: "tokenization-gas-semantics", label: "Tokenization & Gas Semantics", description: "Economic layer proposals for B3nd message passing", tier: "proposals" },
-  "firecat-economic-model.md": { key: "firecat-economic-model", label: "Firecat Economic Model", description: "Full economic vision: subsidies, ads, node operators, DePIN template", tier: "proposals" },
-  "bridge-token-movement.md": { key: "bridge-token-movement", label: "Token Movement", description: "Layers, options, and engagement patterns for cross-chain token flow", tier: "proposals" },
+  "tokenization-gas-semantics.md": {
+    key: "tokenization-gas-semantics",
+    label: "Tokenization & Gas Semantics",
+    description: "Economic layer proposals for B3nd message passing",
+    tier: "proposals",
+  },
+  "firecat-economic-model.md": {
+    key: "firecat-economic-model",
+    label: "Firecat Economic Model",
+    description:
+      "Full economic vision: subsidies, ads, node operators, DePIN template",
+    tier: "proposals",
+  },
+  "bridge-token-movement.md": {
+    key: "bridge-token-movement",
+    label: "Token Movement",
+    description:
+      "Layers, options, and engagement patterns for cross-chain token flow",
+    tier: "proposals",
+  },
 };
 
 // Part assignments for multi-chapter book chapters
@@ -144,7 +222,12 @@ function parseSections(markdown: string): Section[] {
       sections.push(currentH2);
     } else if (h3Match && currentH2) {
       const title = h3Match[1];
-      currentH2.children.push({ id: slugify(title), title, level: 3, children: [] });
+      currentH2.children.push({
+        id: slugify(title),
+        title,
+        level: 3,
+        children: [],
+      });
     }
   }
 
@@ -161,7 +244,10 @@ function extractTitle(markdown: string, filename: string): string {
 // Single-file book reading — produces a one-chapter book
 // ---------------------------------------------------------------------------
 
-async function readSingleFileBook(filePath: string, filename: string): Promise<{ book: LearnBook; chapter: CollectedChapter } | null> {
+async function readSingleFileBook(
+  filePath: string,
+  filename: string,
+): Promise<{ book: LearnBook; chapter: CollectedChapter } | null> {
   const meta = BOOK_META[filename];
   if (!meta) {
     console.warn(`  Skipping unknown file: ${filename}`);
@@ -205,7 +291,9 @@ async function readSingleFileBook(filePath: string, filename: string): Promise<{
 // Multi-chapter book reading (docs/book/)
 // ---------------------------------------------------------------------------
 
-async function readMultiChapterBook(): Promise<{ book: LearnBook; chapters: CollectedChapter[] } | null> {
+async function readMultiChapterBook(): Promise<
+  { book: LearnBook; chapters: CollectedChapter[] } | null
+> {
   const bookKey = "message-guide";
   const uriBase = `mutable://open/rig/learn/chapters/${bookKey}`;
 
@@ -216,12 +304,16 @@ async function readMultiChapterBook(): Promise<{ book: LearnBook; chapters: Coll
     console.warn(`  No README.md found in ${BOOK_DIR}`);
   }
 
-  const bookTitle = extractTitle(readmeMarkdown, "README.md") || "What's in a Message";
+  const bookTitle = extractTitle(readmeMarkdown, "README.md") ||
+    "What's in a Message";
 
   const chapterFiles: string[] = [];
   try {
     for await (const entry of Deno.readDir(BOOK_DIR)) {
-      if (!entry.isFile || !entry.name.endsWith(".md") || entry.name === "README.md") continue;
+      if (
+        !entry.isFile || !entry.name.endsWith(".md") ||
+        entry.name === "README.md"
+      ) continue;
       chapterFiles.push(entry.name);
     }
   } catch (e) {
@@ -262,7 +354,8 @@ async function readMultiChapterBook(): Promise<{ book: LearnBook; chapters: Coll
     key: bookKey,
     title: bookTitle,
     label: "What's in a Message",
-    description: "A design guide teaching b3nd through dialogue, letters, and digital messages",
+    description:
+      "A design guide teaching b3nd through dialogue, letters, and digital messages",
     tier: "guide",
     chapters: chapters.map((c) => c.meta),
     updatedAt: latestMtime || Date.now(),
@@ -275,7 +368,9 @@ async function readMultiChapterBook(): Promise<{ book: LearnBook; chapters: Coll
 // Collect all books
 // ---------------------------------------------------------------------------
 
-async function collectBooks(): Promise<{ books: LearnBook[]; allChapters: CollectedChapter[] }> {
+async function collectBooks(): Promise<
+  { books: LearnBook[]; allChapters: CollectedChapter[] }
+> {
   const books: LearnBook[] = [];
   const allChapters: CollectedChapter[] = [];
 
@@ -285,14 +380,19 @@ async function collectBooks(): Promise<{ books: LearnBook[]; allChapters: Collec
   if (multiBook) {
     books.push(multiBook.book);
     allChapters.push(...multiBook.chapters);
-    console.log(`  "${multiBook.book.label}" (${multiBook.chapters.length} chapters)`);
+    console.log(
+      `  "${multiBook.book.label}" (${multiBook.chapters.length} chapters)`,
+    );
   }
 
   // Single-file books from skills/b3nd/
   console.log(`Reading ${SKILLS_DIR}/...`);
   for await (const entry of Deno.readDir(SKILLS_DIR)) {
     if (!entry.isFile || !entry.name.endsWith(".md")) continue;
-    const result = await readSingleFileBook(`${SKILLS_DIR}/${entry.name}`, entry.name);
+    const result = await readSingleFileBook(
+      `${SKILLS_DIR}/${entry.name}`,
+      entry.name,
+    );
     if (result) {
       books.push(result.book);
       allChapters.push(result.chapter);
@@ -304,7 +404,10 @@ async function collectBooks(): Promise<{ books: LearnBook[]; allChapters: Collec
   try {
     for await (const entry of Deno.readDir(PROPOSALS_DIR)) {
       if (!entry.isFile || !entry.name.endsWith(".md")) continue;
-      const result = await readSingleFileBook(`${PROPOSALS_DIR}/${entry.name}`, entry.name);
+      const result = await readSingleFileBook(
+        `${PROPOSALS_DIR}/${entry.name}`,
+        entry.name,
+      );
       if (result) {
         books.push(result.book);
         allChapters.push(result.chapter);
@@ -315,7 +418,13 @@ async function collectBooks(): Promise<{ books: LearnBook[]; allChapters: Collec
   }
 
   // Sort by tier order then key
-  const tierOrder: Record<string, number> = { guide: 0, documentation: 1, cookbook: 2, design: 3, proposals: 4 };
+  const tierOrder: Record<string, number> = {
+    guide: 0,
+    documentation: 1,
+    cookbook: 2,
+    design: 3,
+    proposals: 4,
+  };
   books.sort((a, b) => {
     const ta = tierOrder[a.tier] ?? 99;
     const tb = tierOrder[b.tier] ?? 99;
@@ -330,7 +439,11 @@ async function collectBooks(): Promise<{ books: LearnBook[]; allChapters: Collec
 // B3nd upload
 // ---------------------------------------------------------------------------
 
-async function uploadToB3nd(nodeUrl: string, catalog: LearnCatalog, chapters: CollectedChapter[]): Promise<boolean> {
+async function uploadToB3nd(
+  nodeUrl: string,
+  catalog: LearnCatalog,
+  chapters: CollectedChapter[],
+): Promise<boolean> {
   console.log(`\nUploading to B3nd at ${nodeUrl}...`);
 
   try {
@@ -338,7 +451,9 @@ async function uploadToB3nd(nodeUrl: string, catalog: LearnCatalog, chapters: Co
     const catalogRes = await fetch(`${nodeUrl}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tx: ["mutable://open/rig/learn/catalog", catalog] }),
+      body: JSON.stringify({
+        tx: ["mutable://open/rig/learn/catalog", catalog],
+      }),
     });
     if (!catalogRes.ok) {
       console.warn(`  Catalog upload failed: ${catalogRes.status}`);
@@ -356,7 +471,9 @@ async function uploadToB3nd(nodeUrl: string, catalog: LearnCatalog, chapters: Co
       if (res.ok) {
         console.log(`  Chapter "${chapter.meta.key}" → ${chapter.meta.uri}`);
       } else {
-        console.warn(`  Chapter "${chapter.meta.key}" upload failed: ${res.status}`);
+        console.warn(
+          `  Chapter "${chapter.meta.key}" upload failed: ${res.status}`,
+        );
       }
     }
 
@@ -372,23 +489,36 @@ async function uploadToB3nd(nodeUrl: string, catalog: LearnCatalog, chapters: Co
 // ---------------------------------------------------------------------------
 
 async function ensureDir(dir: string): Promise<void> {
-  try { await Deno.mkdir(dir, { recursive: true }); } catch { /* exists */ }
+  try {
+    await Deno.mkdir(dir, { recursive: true });
+  } catch { /* exists */ }
 }
 
-async function writeStaticFiles(outputPath: string, catalog: LearnCatalog, chapters: CollectedChapter[]): Promise<void> {
+async function writeStaticFiles(
+  outputPath: string,
+  catalog: LearnCatalog,
+  chapters: CollectedChapter[],
+): Promise<void> {
   const dir = outputPath.substring(0, outputPath.lastIndexOf("/"));
   await ensureDir(dir);
 
   const json = JSON.stringify(catalog, null, 2);
   await Deno.writeTextFile(outputPath, json);
-  console.log(`\nStatic catalog written to ${outputPath} (${(json.length / 1024).toFixed(1)} KB)`);
+  console.log(
+    `\nStatic catalog written to ${outputPath} (${
+      (json.length / 1024).toFixed(1)
+    } KB)`,
+  );
 
   // All chapter content as individual static files
   const chaptersDir = `${dir}/chapters`;
   await ensureDir(chaptersDir);
   for (const chapter of chapters) {
     const chapterPath = `${chaptersDir}/${chapter.meta.key}.json`;
-    await Deno.writeTextFile(chapterPath, JSON.stringify(chapter.content, null, 2));
+    await Deno.writeTextFile(
+      chapterPath,
+      JSON.stringify(chapter.content, null, 2),
+    );
   }
   console.log(`  ${chapters.length} chapter files written to ${chaptersDir}/`);
 }
@@ -401,14 +531,19 @@ async function main() {
   console.log("=== B3nd Learn Book Builder ===\n");
 
   const { books, allChapters } = await collectBooks();
-  console.log(`\nCollected ${books.length} books, ${allChapters.length} total chapters:`);
+  console.log(
+    `\nCollected ${books.length} books, ${allChapters.length} total chapters:`,
+  );
   for (const b of books) {
-    console.log(`  [${b.tier}] ${b.key} — "${b.label}" (${b.chapters.length} ch)`);
+    console.log(
+      `  [${b.tier}] ${b.key} — "${b.label}" (${b.chapters.length} ch)`,
+    );
   }
 
   const catalog: LearnCatalog = { books, generatedAt: Date.now() };
 
-  const staticPath = Deno.env.get("LEARN_OUTPUT_STATIC") ?? "apps/b3nd-web-rig/public/learn/catalog.json";
+  const staticPath = Deno.env.get("LEARN_OUTPUT_STATIC") ??
+    "apps/b3nd-web-rig/public/learn/catalog.json";
   await writeStaticFiles(staticPath, catalog, allChapters);
 
   const nodeUrl = Deno.env.get("B3ND_NODE_URL") ?? "http://localhost:9942";

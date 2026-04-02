@@ -262,7 +262,8 @@ export class WebSocketClient implements NodeProtocolInterface {
     try {
       // Encode binary data for JSON transport
       const encodedMsg: Message = [uri, encodeBinaryForJson(msg[1])];
-      const result = await this.sendRequest<ReceiveResult>("receive",
+      const result = await this.sendRequest<ReceiveResult>(
+        "receive",
         encodedMsg,
       );
       return result;
@@ -291,7 +292,9 @@ export class WebSocketClient implements NodeProtocolInterface {
 
   private async _readOne<T>(uri: string): Promise<ReadResult<T>> {
     try {
-      const result = await this.sendRequest<ReadResult<T>>("read", { uris: [uri] });
+      const result = await this.sendRequest<ReadResult<T>>("read", {
+        uris: [uri],
+      });
       // Server returns array for read — take the first item
       const items = Array.isArray(result) ? result : [result];
       const item = items[0];
@@ -309,7 +312,9 @@ export class WebSocketClient implements NodeProtocolInterface {
 
   private async _list<T>(uri: string): Promise<ReadResult<T>[]> {
     try {
-      const results = await this.sendRequest<ReadResult<T>[]>("read", { uris: [uri] });
+      const results = await this.sendRequest<ReadResult<T>[]>("read", {
+        uris: [uri],
+      });
       const items = Array.isArray(results) ? results : [results];
       for (const item of items) {
         if (item.success && item.record) {

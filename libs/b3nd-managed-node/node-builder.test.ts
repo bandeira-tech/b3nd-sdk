@@ -22,7 +22,9 @@ Deno.test("node-builder: memory backend returns a working client", async () => {
   ]);
   assertEquals(result.accepted, true);
 
-  const readResults = await clients[0].read("mutable://accounts/abc/nodes/n1/config");
+  const readResults = await clients[0].read(
+    "mutable://accounts/abc/nodes/n1/config",
+  );
   assertEquals(readResults[0].success, true);
 });
 

@@ -1,9 +1,9 @@
 import { BarChart3, Clock, Zap } from "lucide-react";
 import { cn } from "../../utils";
 import {
-  useNodesStore,
   type NetworkManifest,
   type NodeMetrics,
+  useNodesStore,
 } from "./stores/nodesStore";
 
 interface Props {
@@ -36,9 +36,18 @@ export function BenchmarkComparison({ network }: Props) {
     );
   }
 
-  const maxOps = Math.max(...nodesWithMetrics.map((n) => n.metrics!.opsPerSecond), 1);
-  const maxWriteP99 = Math.max(...nodesWithMetrics.map((n) => n.metrics!.writeLatencyP99), 1);
-  const maxReadP99 = Math.max(...nodesWithMetrics.map((n) => n.metrics!.readLatencyP99), 1);
+  const maxOps = Math.max(
+    ...nodesWithMetrics.map((n) => n.metrics!.opsPerSecond),
+    1,
+  );
+  const maxWriteP99 = Math.max(
+    ...nodesWithMetrics.map((n) => n.metrics!.writeLatencyP99),
+    1,
+  );
+  const maxReadP99 = Math.max(
+    ...nodesWithMetrics.map((n) => n.metrics!.readLatencyP99),
+    1,
+  );
 
   return (
     <div className="p-4 space-y-6 max-w-4xl">
@@ -102,13 +111,25 @@ export function BenchmarkComparison({ network }: Props) {
               <tr key={n.nodeId} className="border-t border-border">
                 <td className="px-3 py-2 font-medium">{n.name}</td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  {n.config.backends.map((b) => b.type).join(", ")}
+                  {n.config.backends.map((b) =>
+                    b.type
+                  ).join(", ")}
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">{n.metrics!.opsPerSecond}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n.metrics!.writeLatencyP50}ms</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n.metrics!.writeLatencyP99}ms</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n.metrics!.readLatencyP50}ms</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n.metrics!.readLatencyP99}ms</td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {n.metrics!.opsPerSecond}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {n.metrics!.writeLatencyP50}ms
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {n.metrics!.writeLatencyP99}ms
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {n.metrics!.readLatencyP50}ms
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {n.metrics!.readLatencyP99}ms
+                </td>
                 <td className="px-3 py-2 text-right tabular-nums">
                   {(n.metrics!.errorRate * 100).toFixed(2)}%
                 </td>
@@ -133,7 +154,14 @@ function MetricChart({
 }: {
   title: string;
   icon: React.ReactNode;
-  nodes: Array<{ nodeId: string; name: string; metrics?: NodeMetrics; config: { backends: { type: string }[] } }>;
+  nodes: Array<
+    {
+      nodeId: string;
+      name: string;
+      metrics?: NodeMetrics;
+      config: { backends: { type: string }[] };
+    }
+  >;
   getValue: (m: NodeMetrics) => number;
   formatValue: (v: number) => string;
   maxValue: number;
@@ -159,12 +187,19 @@ function MetricChart({
           const isBest = i === 0;
           return (
             <div key={n.nodeId} className="flex items-center gap-3">
-              <span className={cn("w-32 text-xs truncate", isBest && "font-medium")}>
+              <span
+                className={cn("w-32 text-xs truncate", isBest && "font-medium")}
+              >
                 {n.name}
               </span>
               <div className="flex-1 h-5 bg-muted/30 rounded overflow-hidden">
                 <div
-                  className={cn("h-full rounded transition-all", colorClass, isBest && "opacity-100", !isBest && "opacity-60")}
+                  className={cn(
+                    "h-full rounded transition-all",
+                    colorClass,
+                    isBest && "opacity-100",
+                    !isBest && "opacity-60",
+                  )}
                   style={{ width: `${Math.max(width, 2)}%` }}
                 />
               </div>

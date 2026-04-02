@@ -37,7 +37,9 @@ export interface FsExecutor {
 
 function uriToRelPath(uri: string): string {
   const clean = uri.replace("://", "/");
-  const parts = clean.split("/").filter((p) => p !== ".." && p !== "." && p !== "");
+  const parts = clean.split("/").filter((p) =>
+    p !== ".." && p !== "." && p !== ""
+  );
   return parts.join("/") + ".json";
 }
 
@@ -83,9 +85,15 @@ export class FilesystemClient implements NodeProtocolInterface {
         for (const [outputUri, outputValue] of data.payload.outputs) {
           const outputEncoded = encodeBinaryForJson(outputValue);
           const outputTs = Date.now();
-          const outputRecord: PersistenceRecord = { ts: outputTs, data: outputEncoded };
+          const outputRecord: PersistenceRecord = {
+            ts: outputTs,
+            data: outputEncoded,
+          };
           const outputPath = this.resolvePath(outputUri);
-          await this.executor.writeFile(outputPath, JSON.stringify(outputRecord));
+          await this.executor.writeFile(
+            outputPath,
+            JSON.stringify(outputRecord),
+          );
         }
       }
 
@@ -100,7 +108,9 @@ export class FilesystemClient implements NodeProtocolInterface {
     }
   }
 
-  public async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+  public async read<T = unknown>(
+    uris: string | string[],
+  ): Promise<ReadResult<T>[]> {
     const uriList = Array.isArray(uris) ? uris : [uris];
     const results: ReadResult<T>[] = [];
 

@@ -97,7 +97,10 @@ export class IpfsClient implements NodeProtocolInterface {
         for (const [outputUri, outputValue] of data.payload.outputs) {
           const outputEncoded = encodeBinaryForJson(outputValue);
           const outputTs = Date.now();
-          const outputRecord: PersistenceRecord = { ts: outputTs, data: outputEncoded };
+          const outputRecord: PersistenceRecord = {
+            ts: outputTs,
+            data: outputEncoded,
+          };
           const outputContent = JSON.stringify(outputRecord);
 
           const outputCid = await this.executor.add(outputContent);

@@ -31,7 +31,11 @@ function stubRead(
 
 Deno.test("accept - always returns valid", async () => {
   const v = accept();
-  const result = await v(["mutable://anything", { x: 1 }], undefined, stubRead());
+  const result = await v(
+    ["mutable://anything", { x: 1 }],
+    undefined,
+    stubRead(),
+  );
   assertEquals(result.valid, true);
 });
 
@@ -61,7 +65,11 @@ Deno.test("reject - uses custom message", async () => {
 
 Deno.test("format - passes when check returns true", async () => {
   const v = format(() => true);
-  const result = await v(["mutable://x", { name: "Alice" }], undefined, stubRead());
+  const result = await v(
+    ["mutable://x", { name: "Alice" }],
+    undefined,
+    stubRead(),
+  );
   assertEquals(result.valid, true);
 });
 
@@ -179,7 +187,11 @@ Deno.test("requireFields - lists all missing fields", async () => {
 
 Deno.test("requireFields - empty fields array always passes for objects", async () => {
   const v = requireFields([]);
-  const result = await v(["mutable://x", { anything: true }], undefined, stubRead());
+  const result = await v(
+    ["mutable://x", { anything: true }],
+    undefined,
+    stubRead(),
+  );
   assertEquals(result.valid, true);
 });
 

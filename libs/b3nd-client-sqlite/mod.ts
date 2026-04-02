@@ -94,7 +94,9 @@ export class SqliteClient implements NodeProtocolInterface {
           );
 
           for (const [outputUri, outputValue] of data.payload.outputs) {
-            const outputEncoded = JSON.stringify(encodeBinaryForJson(outputValue));
+            const outputEncoded = JSON.stringify(
+              encodeBinaryForJson(outputValue),
+            );
             const outputTs = Date.now();
             tx.query(
               `INSERT INTO ${this.tableName} (uri, data, timestamp, updated_at)

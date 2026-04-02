@@ -77,7 +77,10 @@ export class ElasticsearchClient implements NodeProtocolInterface {
   private readonly indexPrefix: string;
   private readonly executor: ElasticsearchExecutor;
 
-  constructor(config: ElasticsearchClientConfig, executor: ElasticsearchExecutor) {
+  constructor(
+    config: ElasticsearchClientConfig,
+    executor: ElasticsearchExecutor,
+  ) {
     if (!config) {
       throw new Error("ElasticsearchClientConfig is required");
     }

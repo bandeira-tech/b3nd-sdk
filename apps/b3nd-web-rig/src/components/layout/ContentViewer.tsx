@@ -1,22 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { routeForExplorerPath } from "../../utils";
 import { useActiveBackend } from "../../stores/appStore";
 import type {
-  PersistenceRecord,
   NavigationNode,
   PaginatedResponse,
+  PersistenceRecord,
 } from "../../types";
 import {
-  Copy,
-  Download,
   Calendar,
   ChevronDown,
   ChevronRight,
-  Folder,
+  Copy,
+  Download,
   FileText,
+  Folder,
   Link as LinkIcon,
 } from "lucide-react";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
@@ -29,7 +29,9 @@ interface ContentViewerProps {
 
 export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
   const [record, setRecord] = useState<PersistenceRecord | null>(null);
-  const [directoryContents, setDirectoryContents] = useState<NavigationNode[]>([]);
+  const [directoryContents, setDirectoryContents] = useState<NavigationNode[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeBackend = useActiveBackend();
@@ -60,15 +62,24 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
 
       // Handle root path specially - use schema-driven rootNodes
       if (path === "/" || path === "") {
-        console.log("ContentViewer: showing root nodes from schema:", rootNodes); // Debug
+        console.log(
+          "ContentViewer: showing root nodes from schema:",
+          rootNodes,
+        ); // Debug
         setDirectoryContents(rootNodes);
         setLoading(false);
         return;
       }
 
       console.log("ContentViewer: loading list for path:", path); // Debug
-      const listResponse: PaginatedResponse<NavigationNode> = await activeBackend.adapter.listPath(path, { page: 1, limit: 50 });
-      console.log("ContentViewer: listResponse for", path, "data length:", listResponse.data.length); // Debug
+      const listResponse: PaginatedResponse<NavigationNode> =
+        await activeBackend.adapter.listPath(path, { page: 1, limit: 50 });
+      console.log(
+        "ContentViewer: listResponse for",
+        path,
+        "data length:",
+        listResponse.data.length,
+      ); // Debug
 
       // Detection logic: if listPath returns empty data (length === 0), it's a file - call readRecord
       if (listResponse.data.length === 0) {
@@ -76,8 +87,8 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
           "ContentViewer: detected file (empty list), loading record for",
           path,
         ); // Debug
-        const fileRecord: PersistenceRecord =
-          await activeBackend.adapter.readRecord(path);
+        const fileRecord: PersistenceRecord = await activeBackend.adapter
+          .readRecord(path);
         setRecord(fileRecord);
         console.log("ContentViewer: file record loaded:", fileRecord); // Debug
       } else {
@@ -131,17 +142,18 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
   }
 
   if (record) {
-    const readUrl =
-      activeBackend?.adapter instanceof HttpAdapter
-        ? activeBackend.adapter.getReadUrl(path)
-        : undefined;
+    const readUrl = activeBackend?.adapter instanceof HttpAdapter
+      ? activeBackend.adapter.getReadUrl(path)
+      : undefined;
     return (
       <FileViewer record={record} onCopy={copyToClipboard} readUrl={readUrl} />
     );
   }
 
   if (directoryContents.length > 0) {
-    return <DirectoryViewer contents={directoryContents} buildRoute={resolveRoute} />;
+    return (
+      <DirectoryViewer contents={directoryContents} buildRoute={resolveRoute} />
+    );
   }
 
   return (
@@ -175,8 +187,9 @@ function FileViewer({
         setCopyState("idle");
       }, 2000);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to copy JSON";
+      const message = error instanceof Error
+        ? error.message
+        : "Failed to copy JSON";
       setCopyError(message);
       setCopyState("error");
       setTimeout(() => {
@@ -199,8 +212,9 @@ function FileViewer({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to download JSON";
+      const message = error instanceof Error
+        ? error.message
+        : "Failed to download JSON";
       setCopyError(message);
       setCopyState("error");
       setTimeout(() => {
@@ -211,20 +225,27 @@ function FileViewer({
   };
 
   const formatData = (data: any, level = 0): ReactNode => {
-    if (data === null || data === undefined)
+    if (data === null || data === undefined) {
       return <span className="json-null">null</span>;
-    if (typeof data === "string")
+    }
+    if (typeof data === "string") {
       return <span className="json-string">"{data}"</span>;
-    if (typeof data === "number")
+    }
+    if (typeof data === "number") {
       return <span className="json-number">{data}</span>;
-    if (typeof data === "boolean")
+    }
+    if (typeof data === "boolean") {
       return <span className="json-boolean">{String(data)}</span>;
+    }
     if (Array.isArray(data)) {
       return (
         <div className="ml-4">
           [<br />
           {data.map((item, i) => (
-            <div key={`arr-${level}-${i}`} style={{ paddingLeft: `${level * 2 + 1}rem` }}>
+            <div
+              key={`arr-${level}-${i}`}
+              style={{ paddingLeft: `${level * 2 + 1}rem` }}
+            >
               {formatData(item, level + 1)}
               {i < data.length - 1 && ","}
             </div>
@@ -319,7 +340,10 @@ function FileViewer({
 }
 
 function DirectoryViewer(
-  { contents, buildRoute }: { contents: NavigationNode[]; buildRoute: (path: string) => string },
+  { contents, buildRoute }: {
+    contents: NavigationNode[];
+    buildRoute: (path: string) => string;
+  },
 ) {
   const navigate = useNavigate();
 
@@ -347,11 +371,9 @@ function DirectoryViewer(
             }}
           >
             <div className="flex-shrink-0">
-              {item.type === "directory" ? (
-                <Folder className="h-5 w-5 text-blue-500" />
-              ) : (
-                <FileText className="h-5 w-5 text-muted-foreground" />
-              )}
+              {item.type === "directory"
+                ? <Folder className="h-5 w-5 text-blue-500" />
+                : <FileText className="h-5 w-5 text-muted-foreground" />}
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{item.name}</div>

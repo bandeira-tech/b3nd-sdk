@@ -1,8 +1,9 @@
 # B3nd Indexer System -- Technical Design Document
 
-**Date:** 2026-02-21
-**Status:** Proposal
-**Context:** Addresses the #1 gap identified in the [Firecat App Exploration PRD](./PRD-Firecat-App-Exploration.md) -- no server-side querying or aggregation.
+**Date:** 2026-02-21 **Status:** Proposal **Context:** Addresses the #1 gap
+identified in the
+[Firecat App Exploration PRD](./PRD-Firecat-App-Exploration.md) -- no
+server-side querying or aggregation.
 
 ---
 
@@ -25,55 +26,75 @@
 
 ### How Indexers Fit into the Existing B3nd Node Architecture
 
-B3nd nodes today implement `NodeProtocolInterface` with operations: `receive`, `read`, `readMulti`, `list`, `delete`, and `status`. All state changes flow through `receive(msg)`, where `msg` is a `[uri, data]` tuple. Nodes validate messages against a schema, then persist them to one or more backends (Memory, Postgres, MongoDB, HTTP) via compositors like `parallelBroadcast` and `firstMatchSequence`.
+B3nd nodes today implement `NodeProtocolInterface` with operations: `receive`,
+`read`, `readMulti`, `list`, `delete`, and `status`. All state changes flow
+through `receive(msg)`, where `msg` is a `[uri, data]` tuple. Nodes validate
+messages against a schema, then persist them to one or more backends (Memory,
+Postgres, MongoDB, HTTP) via compositors like `parallelBroadcast` and
+`firstMatchSequence`.
 
 An **Indexer** is a separate process that:
 
 1. **Observes** the stream of accepted messages flowing through a node.
-2. **Transforms** message data into derived views (search indexes, counters, aggregations, filtered lists).
+2. **Transforms** message data into derived views (search indexes, counters,
+   aggregations, filtered lists).
 3. **Serves** queries against those derived views through an extended API.
 
-Indexers do not modify or intercept the core write path. They are **read-side projections** -- materialized views built from the event stream of accepted messages.
+Indexers do not modify or intercept the core write path. They are **read-side
+projections** -- materialized views built from the event stream of accepted
+messages.
 
 ### Relationship Between Nodes, Indexers, and App Clients
 
 ```
-                          +-----------------+
-                          |   App Client    |
-                          |  (Browser/CLI)  |
-                          +--------+--------+
-                                   |
-                     +-------------+-------------+
-                     |                           |
-              write / read               query (indexed)
-                     |                           |
-              +------+------+            +-------+-------+
-              |  B3nd Node  |---feed---->|    Indexer     |
-              | (validated  |            | (projections,  |
-              |  storage)   |            |  search, agg)  |
-              +------+------+            +-------+-------+
-                     |                           |
-              +------+------+            +-------+-------+
-              |   Backend   |            |  Index Store  |
-              | (Postgres,  |            | (Postgres FTS,|
-              |  Memory...) |            |  ES, SQLite,  |
-              +-------------+            |  Redis, etc.) |
-                                         +---------------+
+            +-----------------+
+            |   App Client    |
+            |  (Browser/CLI)  |
+            +--------+--------+
+                     |
+       +-------------+-------------+
+       |                           |
+write / read               query (indexed)
+       |                           |
++------+------+            +-------+-------+
+|  B3nd Node  |---feed---->|    Indexer     |
+| (validated  |            | (projections,  |
+|  storage)   |            |  search, agg)  |
++------+------+            +-------+-------+
+       |                           |
++------+------+            +-------+-------+
+|   Backend   |            |  Index Store  |
+| (Postgres,  |            | (Postgres FTS,|
+|  Memory...) |            |  ES, SQLite,  |
++-------------+            |  Redis, etc.) |
+                           +---------------+
 ```
 
-The app client uses the standard `NodeProtocolInterface` for writes and basic reads. For queries that go beyond URI-prefix listing, it calls the Indexer's query API. The Indexer receives a feed of accepted messages from the node and builds projections in technology-appropriate stores.
+The app client uses the standard `NodeProtocolInterface` for writes and basic
+reads. For queries that go beyond URI-prefix listing, it calls the Indexer's
+query API. The Indexer receives a feed of accepted messages from the node and
+builds projections in technology-appropriate stores.
 
 ### Deployment Topology
 
 Indexers support three deployment modes:
 
-**Sidecar (same process).** The indexer runs as a processor in the node's `receive` pipeline. Wired into `parallelBroadcast` alongside the storage backend. The node process owns both the storage and the index.
+**Sidecar (same process).** The indexer runs as a processor in the node's
+`receive` pipeline. Wired into `parallelBroadcast` alongside the storage
+backend. The node process owns both the storage and the index.
 
-**Sidecar (separate process, same machine).** The indexer runs as a standalone process on the same host. The node pushes accepted messages to the indexer via a local socket, HTTP POST, or shared message queue. The indexer has its own process, memory, and failure domain.
+**Sidecar (separate process, same machine).** The indexer runs as a standalone
+process on the same host. The node pushes accepted messages to the indexer via a
+local socket, HTTP POST, or shared message queue. The indexer has its own
+process, memory, and failure domain.
 
-**Remote service.** The indexer runs on a different machine, receiving messages via HTTP webhook or a pull-based polling loop. Most decoupled model, suitable for third-party indexer operators and for scaling indexer compute independently of node compute.
+**Remote service.** The indexer runs on a different machine, receiving messages
+via HTTP webhook or a pull-based polling loop. Most decoupled model, suitable
+for third-party indexer operators and for scaling indexer compute independently
+of node compute.
 
-All three modes use the same `IndexerDefinition` API. The deployment topology is a wiring concern, not an API concern.
+All three modes use the same `IndexerDefinition` API. The deployment topology is
+a wiring concern, not an API concern.
 
 ---
 
@@ -81,7 +102,8 @@ All three modes use the same `IndexerDefinition` API. The deployment topology is
 
 ### The Indexer "Program"
 
-An indexer is defined by a **view definition** -- a set of functions that map incoming messages to operations on a derived view. The core abstraction:
+An indexer is defined by a **view definition** -- a set of functions that map
+incoming messages to operations on a derived view. The core abstraction:
 
 ```typescript
 // libs/b3nd-indexer/types.ts
@@ -122,7 +144,12 @@ export type IndexOperation =
   | { type: "delete"; key: string }
   | { type: "increment"; key: string; field: string; amount: number }
   | { type: "append"; key: string; value: unknown }
-  | { type: "fts_upsert"; key: string; text: string; metadata?: Record<string, unknown> }
+  | {
+    type: "fts_upsert";
+    key: string;
+    text: string;
+    metadata?: Record<string, unknown>;
+  }
   | { type: "fts_delete"; key: string }
   | { type: "sql"; statement: string; params: unknown[] };
 
@@ -177,7 +204,12 @@ export interface IndexQuery {
 
 export type AggregationStage =
   | { $match: Record<string, unknown> }
-  | { $group: { _id: string | null; [field: string]: AggregationOp | string | null } }
+  | {
+    $group: {
+      _id: string | null;
+      [field: string]: AggregationOp | string | null;
+    };
+  }
   | { $sort: Record<string, 1 | -1> }
   | { $limit: number }
   | { $project: Record<string, 0 | 1 | string> };
@@ -203,7 +235,8 @@ export const recipeTagCounter: IndexerDefinition<RecipeData> = {
   name: "recipe-tag-counter",
   version: 1,
 
-  filter: (uri) => uri.startsWith("mutable://accounts/") && uri.includes("/recipes/"),
+  filter: (uri) =>
+    uri.startsWith("mutable://accounts/") && uri.includes("/recipes/"),
 
   async setup(backend) {
     await backend.raw(`
@@ -224,7 +257,12 @@ export const recipeTagCounter: IndexerDefinition<RecipeData> = {
     const ops: IndexOperation[] = [];
     if (content.tags) {
       for (const tag of content.tags) {
-        ops.push({ type: "increment", key: `tag:${tag}`, field: "count", amount: 1 });
+        ops.push({
+          type: "increment",
+          key: `tag:${tag}`,
+          field: "count",
+          amount: 1,
+        });
       }
     }
     return ops;
@@ -274,8 +312,12 @@ export const recipeSearch: IndexerDefinition = {
           tags = EXCLUDED.tags, search_vector = EXCLUDED.search_vector
       `,
       params: [
-        uri, content.title || "", content.description || "",
-        content.tags || [], ctx.uri.split("/")[3], ctx.timestamp,
+        uri,
+        content.title || "",
+        content.description || "",
+        content.tags || [],
+        ctx.uri.split("/")[3],
+        ctx.timestamp,
       ],
     }];
   },
@@ -325,8 +367,14 @@ export const revenueAggregation: IndexerDefinition = {
           client_name = EXCLUDED.client_name, paid_at = EXCLUDED.paid_at
       `,
       params: [
-        uri, invoice.amount, invoice.currency || "USD", invoice.status,
-        invoice.clientName, invoice.issuedAt, invoice.dueAt, invoice.paidAt,
+        uri,
+        invoice.amount,
+        invoice.currency || "USD",
+        invoice.status,
+        invoice.clientName,
+        invoice.issuedAt,
+        invoice.dueAt,
+        invoice.paidAt,
       ],
     }];
   },
@@ -339,7 +387,8 @@ export const revenueAggregation: IndexerDefinition = {
 
 ### (a) In-Process Hook (Sidecar Mode)
 
-The indexer is wired as a processor in the node's pipeline using the existing `emit` processor:
+The indexer is wired as a processor in the node's pipeline using the existing
+`emit` processor:
 
 ```typescript
 import { createIndexerProcessor } from "@bandeira-tech/b3nd-indexer";
@@ -368,7 +417,9 @@ export interface IndexerProcessorConfig {
   synchronous?: boolean;
 }
 
-export function createIndexerProcessor(config: IndexerProcessorConfig): Processor {
+export function createIndexerProcessor(
+  config: IndexerProcessorConfig,
+): Processor {
   const { indexers, backend, read, decrypt, synchronous } = config;
 
   return async (msg: Message) => {
@@ -380,7 +431,8 @@ export function createIndexerProcessor(config: IndexerProcessorConfig): Processo
         if (!indexer.filter(uri)) continue;
 
         const ctx: IndexerContext = {
-          read: read || (async () => ({ success: false, error: "no read handle" })),
+          read: read ||
+            (async () => ({ success: false, error: "no read handle" })),
           decrypt,
           uri,
           timestamp,
@@ -392,7 +444,10 @@ export function createIndexerProcessor(config: IndexerProcessorConfig): Processo
             await backend.apply(ops);
           }
         } catch (err) {
-          console.error(`[indexer:${indexer.name}] Error processing ${uri}:`, err);
+          console.error(
+            `[indexer:${indexer.name}] Error processing ${uri}:`,
+            err,
+          );
           // Indexer errors are non-fatal -- they don't reject the message
         }
       }
@@ -439,7 +494,8 @@ GET /api/v1/feed?since={cursor}&limit=100
 
 ### Backfill (Indexing Historical Data)
 
-When an indexer starts for the first time (or after a schema version change), it needs to process all existing data:
+When an indexer starts for the first time (or after a schema version change), it
+needs to process all existing data:
 
 ```typescript
 // libs/b3nd-indexer/backfill.ts
@@ -454,8 +510,11 @@ export interface BackfillConfig {
   onProgress?: (processed: number, total: number) => void;
 }
 
-export async function backfill(config: BackfillConfig): Promise<{ processed: number }> {
-  const { source, indexer, backend, prefixes, decrypt, batchSize = 50 } = config;
+export async function backfill(
+  config: BackfillConfig,
+): Promise<{ processed: number }> {
+  const { source, indexer, backend, prefixes, decrypt, batchSize = 50 } =
+    config;
   let processed = 0;
 
   for (const prefix of prefixes) {
@@ -513,11 +572,13 @@ export interface CursorStore {
 }
 
 // Simple implementation using the B3nd node itself as the cursor store
-export function createNodeCursorStore(client: NodeProtocolInterface): CursorStore {
+export function createNodeCursorStore(
+  client: NodeProtocolInterface,
+): CursorStore {
   return {
     async get(indexerName: string) {
       const result = await client.read<IndexerCursor>(
-        `mutable://open/_indexer/cursors/${indexerName}`
+        `mutable://open/_indexer/cursors/${indexerName}`,
       );
       return result.success ? result.record!.data : null;
     },
@@ -537,11 +598,16 @@ export function createNodeCursorStore(client: NodeProtocolInterface): CursorStor
 
 ### The Problem
 
-B3nd data can be encrypted client-side. An indexer cannot build useful views from ciphertext. It needs plaintext. But giving the indexer the user's master encryption key would give it full access to everything. We need a **scoped delegation mechanism**.
+B3nd data can be encrypted client-side. An indexer cannot build useful views
+from ciphertext. It needs plaintext. But giving the indexer the user's master
+encryption key would give it full access to everything. We need a **scoped
+delegation mechanism**.
 
 ### View Keys
 
-A **view key** is a symmetric AES-256 key derived specifically for use by indexers. It is scoped to a URI prefix and purpose. The user derives the view key and shares it with a trusted indexer operator.
+A **view key** is a symmetric AES-256 key derived specifically for use by
+indexers. It is scoped to a URI prefix and purpose. The user derives the view
+key and shares it with a trusted indexer operator.
 
 ```typescript
 import { deriveKeyFromSeed } from "@bandeira-tech/b3nd-sdk/encrypt";
@@ -577,7 +643,8 @@ export async function deriveViewKey(params: {
 
 ### How the User Delegates
 
-1. The app developer or user generates a view key scoped to the data they want indexed.
+1. The app developer or user generates a view key scoped to the data they want
+   indexed.
 2. They encrypt the view key to the indexer operator's X25519 public key.
 3. They write this encrypted delegation to a well-known URI:
 
@@ -606,7 +673,9 @@ const delegation = await encrypt.encrypt(
 
 // 3. Write the delegation to the user's account
 const signed = await encrypt.createAuthenticatedMessageWithHex(
-  delegation, userPubkey, userPrivkey,
+  delegation,
+  userPubkey,
+  userPrivkey,
 );
 await client.receive([
   `mutable://accounts/${userPubkey}/_indexer/delegations/${indexerOperatorPubkey}`,
@@ -616,7 +685,8 @@ await client.receive([
 
 ### Encryption Flow for Indexed Data
 
-The app uses the **view key as the encryption key** for data that is intended to be indexed. Both the user and the indexer derive the same symmetric key:
+The app uses the **view key as the encryption key** for data that is intended to
+be indexed. Both the user and the indexer derive the same symmetric key:
 
 ```typescript
 // App side: encrypt with view key
@@ -630,17 +700,24 @@ const decrypted = await viewKey.decrypt(encrypted);
 
 ### Scoping View Keys
 
-- **URI prefix scope**: The `uriPrefix` parameter binds the key to a specific path.
-- **Field-level scope**: The app can encrypt different fields with different view keys. The indexer only receives the view key for the fields it needs.
-- **Time scope**: The delegation includes `expiresAt`. The indexer must re-request delegation after expiry.
+- **URI prefix scope**: The `uriPrefix` parameter binds the key to a specific
+  path.
+- **Field-level scope**: The app can encrypt different fields with different
+  view keys. The indexer only receives the view key for the fields it needs.
+- **Time scope**: The delegation includes `expiresAt`. The indexer must
+  re-request delegation after expiry.
 
 ### Compromised Indexer
 
 If an indexer operator is compromised:
 
-1. **Blast radius**: The attacker gains access to plaintext of data encrypted with view keys delegated to that indexer. They cannot access data encrypted with the user's master key or data from other URI prefixes.
-2. **Revocation**: The user deletes the delegation record and stops encrypting new data with the compromised view key.
-3. **Rotation**: The user derives a new view key with a different `indexerPubkey`, re-encrypts their data, and writes new delegations.
+1. **Blast radius**: The attacker gains access to plaintext of data encrypted
+   with view keys delegated to that indexer. They cannot access data encrypted
+   with the user's master key or data from other URI prefixes.
+2. **Revocation**: The user deletes the delegation record and stops encrypting
+   new data with the compromised view key.
+3. **Rotation**: The user derives a new view key with a different
+   `indexerPubkey`, re-encrypts their data, and writes new delegations.
 
 ### Key Rotation
 
@@ -675,7 +752,8 @@ async function rotateViewKey(params: {
 
 ### IndexerClient
 
-The `IndexerClient` implements a superset of `NodeProtocolInterface`, adding query and aggregation methods:
+The `IndexerClient` implements a superset of `NodeProtocolInterface`, adding
+query and aggregation methods:
 
 ```typescript
 // libs/b3nd-indexer/client.ts
@@ -735,13 +813,27 @@ export class HttpIndexerClient implements IndexerClientInterface {
   }
 
   // Standard CRUD: proxy to node
-  receive<D>(msg: Message<D>) { return this.nodeClient.receive(msg); }
-  read<T>(uri: string) { return this.nodeClient.read<T>(uri); }
-  readMulti<T>(uris: string[]) { return this.nodeClient.readMulti<T>(uris); }
-  list(uri: string, opts?: ListOptions) { return this.nodeClient.list(uri, opts); }
-  delete(uri: string) { return this.nodeClient.delete(uri); }
-  status() { return this.nodeClient.status(); }
-  cleanup() { return this.nodeClient.cleanup(); }
+  receive<D>(msg: Message<D>) {
+    return this.nodeClient.receive(msg);
+  }
+  read<T>(uri: string) {
+    return this.nodeClient.read<T>(uri);
+  }
+  readMulti<T>(uris: string[]) {
+    return this.nodeClient.readMulti<T>(uris);
+  }
+  list(uri: string, opts?: ListOptions) {
+    return this.nodeClient.list(uri, opts);
+  }
+  delete(uri: string) {
+    return this.nodeClient.delete(uri);
+  }
+  status() {
+    return this.nodeClient.status();
+  }
+  cleanup() {
+    return this.nodeClient.cleanup();
+  }
 
   // Indexer-specific operations
   async query<T>(query: IndexQuery): Promise<IndexQueryResult<T>> {
@@ -753,7 +845,10 @@ export class HttpIndexerClient implements IndexerClientInterface {
     return res.json();
   }
 
-  async aggregate<T>(view: string, pipeline: AggregationStage[]): Promise<AggregationResult<T>> {
+  async aggregate<T>(
+    view: string,
+    pipeline: AggregationStage[],
+  ): Promise<AggregationResult<T>> {
     const res = await fetch(`${this.indexerUrl}/api/v1/indexer/aggregate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -763,7 +858,10 @@ export class HttpIndexerClient implements IndexerClientInterface {
   }
 
   async search<T>(params: {
-    view: string; query: string; limit?: number; offset?: number;
+    view: string;
+    query: string;
+    limit?: number;
+    offset?: number;
     filter?: Record<string, unknown>;
   }): Promise<IndexQueryResult<T>> {
     const res = await fetch(`${this.indexerUrl}/api/v1/indexer/search`, {
@@ -807,7 +905,12 @@ export function useIndexedQuery<T = unknown>(
  */
 export function useIndexedSearch<T = unknown>(
   client: IndexerClientInterface,
-  params: { view: string; query: string; limit?: number; filter?: Record<string, unknown> },
+  params: {
+    view: string;
+    query: string;
+    limit?: number;
+    filter?: Record<string, unknown>;
+  },
   options?: { enabled?: boolean },
 ) {
   return useQuery<IndexQueryResult<T>>({
@@ -848,14 +951,14 @@ export function useIndexerHealth(client: IndexerClientInterface) {
 
 ### Indexer Service HTTP Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/v1/indexer/query` | Query a view with filters/pagination |
-| POST | `/api/v1/indexer/search` | Full-text search |
-| POST | `/api/v1/indexer/aggregate` | Run aggregation pipeline |
-| GET | `/api/v1/indexer/health` | Indexer freshness status |
-| POST | `/api/v1/indexer/feed` | Receive message from node (webhook mode) |
-| GET | `/api/v1/indexer/views` | List available views |
+| Method | Path                        | Description                              |
+| ------ | --------------------------- | ---------------------------------------- |
+| POST   | `/api/v1/indexer/query`     | Query a view with filters/pagination     |
+| POST   | `/api/v1/indexer/search`    | Full-text search                         |
+| POST   | `/api/v1/indexer/aggregate` | Run aggregation pipeline                 |
+| GET    | `/api/v1/indexer/health`    | Indexer freshness status                 |
+| POST   | `/api/v1/indexer/feed`      | Receive message from node (webhook mode) |
+| GET    | `/api/v1/indexer/views`     | List available views                     |
 
 ---
 
@@ -863,24 +966,29 @@ export function useIndexerHealth(client: IndexerClientInterface) {
 
 ### What is a "View"?
 
-A view is a named, typed projection of B3nd data optimized for a specific query pattern. Views are defined by `IndexerDefinition` objects and materialized by the indexer runtime into the chosen backend.
+A view is a named, typed projection of B3nd data optimized for a specific query
+pattern. Views are defined by `IndexerDefinition` objects and materialized by
+the indexer runtime into the chosen backend.
 
-Views are analogous to materialized views in a database, or to projections in event sourcing. They are derived data -- always rebuildable from the source messages.
+Views are analogous to materialized views in a database, or to projections in
+event sourcing. They are derived data -- always rebuildable from the source
+messages.
 
 ### Projection Types
 
-| Type | IndexOperation | Use Case |
-|------|---------------|----------|
-| **Table** | `sql` | Relational queries, joins, aggregations, full-text search |
-| **Key-Value** | `put` / `delete` | Fast lookups by key |
-| **Counter** | `increment` | Aggregation counters |
-| **Full-Text Search** | `fts_upsert` / `fts_delete` | Search indexes |
+| Type                 | IndexOperation              | Use Case                                                  |
+| -------------------- | --------------------------- | --------------------------------------------------------- |
+| **Table**            | `sql`                       | Relational queries, joins, aggregations, full-text search |
+| **Key-Value**        | `put` / `delete`            | Fast lookups by key                                       |
+| **Counter**          | `increment`                 | Aggregation counters                                      |
+| **Full-Text Search** | `fts_upsert` / `fts_delete` | Search indexes                                            |
 
 ### Schema Evolution
 
 When an indexer definition's `version` changes, the runtime:
 
-1. Detects the version mismatch between the stored cursor metadata and the new definition.
+1. Detects the version mismatch between the stored cursor metadata and the new
+   definition.
 2. Calls `teardown` on the old version (drops tables/indexes).
 3. Calls `setup` on the new version (creates new tables/indexes).
 4. Runs a full backfill with the new `map` function.
@@ -889,12 +997,18 @@ When an indexer definition's `version` changes, the runtime:
 ```typescript
 // libs/b3nd-indexer/runtime.ts
 
-export async function initializeIndexer(config: IndexerRuntimeConfig): Promise<void> {
+export async function initializeIndexer(
+  config: IndexerRuntimeConfig,
+): Promise<void> {
   const { definition, backend, cursorStore, source } = config;
   const existingCursor = await cursorStore.get(definition.name);
 
-  if (!existingCursor || (existingCursor as any).version !== definition.version) {
-    console.log(`[indexer:${definition.name}] Initializing v${definition.version}...`);
+  if (
+    !existingCursor || (existingCursor as any).version !== definition.version
+  ) {
+    console.log(
+      `[indexer:${definition.name}] Initializing v${definition.version}...`,
+    );
 
     if (existingCursor && definition.teardown) {
       await definition.teardown(backend);
@@ -940,7 +1054,8 @@ export const followGraph: IndexerDefinition = {
     const followed = parts[parts.length - 1];
     return [{
       type: "sql",
-      statement: "INSERT INTO follows (follower, followed) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+      statement:
+        "INSERT INTO follows (follower, followed) VALUES ($1, $2) ON CONFLICT DO NOTHING",
       params: [follower, followed],
     }];
   },
@@ -972,10 +1087,17 @@ export const postIndex: IndexerDefinition = {
     const author = uri.split("/")[3];
     return [{
       type: "sql",
-      statement: `INSERT INTO posts (uri, author, title, body, created_at, search_vector)
+      statement:
+        `INSERT INTO posts (uri, author, title, body, created_at, search_vector)
                   VALUES ($1, $2, $3, $4, $5, to_tsvector('english', COALESCE($3,'') || ' ' || COALESCE($4,'')))
                   ON CONFLICT (uri) DO UPDATE SET title=EXCLUDED.title, body=EXCLUDED.body`,
-      params: [uri, author, content.title || "", content.body || "", ctx.timestamp],
+      params: [
+        uri,
+        author,
+        content.title || "",
+        content.body || "",
+        ctx.timestamp,
+      ],
     }];
   },
 };
@@ -995,24 +1117,28 @@ export const postIndex: IndexerDefinition = {
 
 Indexers provide **eventual consistency**. Lag depends on the feed mechanism:
 
-| Feed Mode | Typical Lag | Guaranteed |
-|-----------|------------|------------|
-| In-process (sync) | < 1ms | Same-transaction |
-| In-process (async) | < 10ms | Within event loop turn |
-| Webhook push | 50-500ms | Delivery + processing |
-| Pull polling | Up to poll interval | At-least-once |
+| Feed Mode          | Typical Lag         | Guaranteed             |
+| ------------------ | ------------------- | ---------------------- |
+| In-process (sync)  | < 1ms               | Same-transaction       |
+| In-process (async) | < 10ms              | Within event loop turn |
+| Webhook push       | 50-500ms            | Delivery + processing  |
+| Pull polling       | Up to poll interval | At-least-once          |
 
 ### Freshness Reporting
 
-Every `IndexerClient` exposes `indexerHealth()` which returns the indexer's lag. The app can use this to display a freshness indicator:
+Every `IndexerClient` exposes `indexerHealth()` which returns the indexer's lag.
+The app can use this to display a freshness indicator:
 
 ```typescript
 function FreshnessIndicator({ client }: { client: IndexerClientInterface }) {
   const { data } = useIndexerHealth(client);
   if (!data) return null;
 
-  const label = data.lag < 1000 ? "Live" :
-                data.lag < 10000 ? "Updating..." : "Stale";
+  const label = data.lag < 1000
+    ? "Live"
+    : data.lag < 10000
+    ? "Updating..."
+    : "Stale";
 
   return <span className="text-sm text-gray-500">{label}</span>;
 }
@@ -1020,7 +1146,10 @@ function FreshnessIndicator({ client }: { client: IndexerClientInterface }) {
 
 ### Ordering Guarantees
 
-Messages are processed in the order they were accepted by the node. The indexer maintains a monotonic cursor and does not skip messages. If the indexer crashes mid-batch, it resumes from the last committed cursor position. Index operations must be idempotent (the `ON CONFLICT DO UPDATE` pattern ensures this).
+Messages are processed in the order they were accepted by the node. The indexer
+maintains a monotonic cursor and does not skip messages. If the indexer crashes
+mid-batch, it resumes from the last committed cursor position. Index operations
+must be idempotent (the `ON CONFLICT DO UPDATE` pattern ensures this).
 
 ---
 
@@ -1028,15 +1157,18 @@ Messages are processed in the order they were accepted by the node. The indexer 
 
 ### What a Compromised Indexer Can Leak
 
-1. **Plaintext of view-key-encrypted data** -- any data the indexer has been delegated a view key for.
+1. **Plaintext of view-key-encrypted data** -- any data the indexer has been
+   delegated a view key for.
 2. **Query patterns** -- which queries the app makes, leaking user behavior.
-3. **URI metadata** -- URIs, timestamps, and data sizes are visible even without view keys.
+3. **URI metadata** -- URIs, timestamps, and data sizes are visible even without
+   view keys.
 
 ### What a Compromised Indexer CANNOT Leak
 
 1. Data encrypted with keys not delegated to it.
 2. Private keys or signing keys -- never shared with the indexer.
-3. The user's password or master secret -- view key derivation is computationally irreversible.
+3. The user's password or master secret -- view key derivation is
+   computationally irreversible.
 
 ### Verifying Indexer Results (Spot-Check)
 
@@ -1078,7 +1210,11 @@ async function verifyIndexerResult(
 The indexer can sign query results with its operator key for non-repudiation:
 
 ```typescript
-const response = { data: queryResults, cursor: currentCursor, timestamp: Date.now() };
+const response = {
+  data: queryResults,
+  cursor: currentCursor,
+  timestamp: Date.now(),
+};
 const signature = await indexerIdentity.sign(response);
 return { ...response, attestation: { pubkey: indexerPubkey, signature } };
 ```
@@ -1092,7 +1228,9 @@ return { ...response, attestation: { pubkey: indexerPubkey, signature } };
 The `IndexerClient` implements `NodeProtocolInterface`, so it drops in anywhere:
 
 ```typescript
-const nodeClient = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+const nodeClient = new HttpClient({
+  url: "https://testnet-evergreen.fire.cat",
+});
 const indexerClient = new HttpIndexerClient({
   nodeClient,
   indexerUrl: "https://indexer.my-app.com",
@@ -1127,7 +1265,8 @@ const client = createValidatedClient({
 
 ### Smart Routing (Transparent Query Upgrade)
 
-A `FunctionalClient` can transparently route list operations to the indexer when filter parameters are provided:
+A `FunctionalClient` can transparently route list operations to the indexer when
+filter parameters are provided:
 
 ```typescript
 const smartClient = new FunctionalClient({
@@ -1135,7 +1274,10 @@ const smartClient = new FunctionalClient({
   read: (uri) => nodeClient.read(uri),
   readMulti: (uris) => nodeClient.readMulti(uris),
   list: async (uri, options) => {
-    if ((options as IndexedListOptions)?.search || (options as IndexedListOptions)?.where) {
+    if (
+      (options as IndexedListOptions)?.search ||
+      (options as IndexedListOptions)?.where
+    ) {
       const result = await indexerClient.query({
         view: inferViewFromUri(uri),
         search: (options as IndexedListOptions).search,
@@ -1146,7 +1288,11 @@ const smartClient = new FunctionalClient({
       return {
         success: true,
         data: result.data.map((item: any) => ({ uri: item.uri })),
-        pagination: { page: options?.page || 1, limit: options?.limit || 50, total: result.total },
+        pagination: {
+          page: options?.page || 1,
+          limit: options?.limit || 50,
+          total: result.total,
+        },
       };
     }
     return nodeClient.list(uri, options);
@@ -1163,7 +1309,7 @@ Mount indexer routes alongside standard B3nd routes:
 
 ```typescript
 import { Hono } from "hono";
-import { servers, createServerNode } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, servers } from "@bandeira-tech/b3nd-sdk";
 import { mountIndexerRoutes } from "@bandeira-tech/b3nd-indexer/server";
 
 const app = new Hono();
@@ -1191,7 +1337,9 @@ mountIndexerRoutes(app, {
 
 ```typescript
 // App setup
-const nodeClient = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+const nodeClient = new HttpClient({
+  url: "https://testnet-evergreen.fire.cat",
+});
 const client = new HttpIndexerClient({
   nodeClient,
   indexerUrl: "https://recipe-indexer.my-app.com",
@@ -1219,12 +1367,18 @@ function RecipeSearch() {
 
   return (
     <div>
-      <input value={query} onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search recipes..." />
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search recipes..."
+      />
       <div className="flex gap-2 mt-2">
         {["italian", "vegan", "quick"].map((t) => (
-          <button key={t} onClick={() => setTag(tag === t ? null : t)}
-            className={tag === t ? "bg-blue-600 text-white" : "bg-gray-200"}>
+          <button
+            key={t}
+            onClick={() => setTag(tag === t ? null : t)}
+            className={tag === t ? "bg-blue-600 text-white" : "bg-gray-200"}
+          >
             {t}
           </button>
         ))}
@@ -1247,10 +1401,20 @@ function RecipeSearch() {
 ```typescript
 function RevenueDashboard({ userPubkey }: { userPubkey: string }) {
   const now = Date.now();
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const monthStart = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    1,
+  ).getTime();
 
   const { data: monthlyRevenue } = useAggregation(client, "invoices", [
-    { $match: { owner: userPubkey, status: "paid", paid_at: { $gte: monthStart } } },
+    {
+      $match: {
+        owner: userPubkey,
+        status: "paid",
+        paid_at: { $gte: monthStart },
+      },
+    },
     { $group: { _id: null, total: { $sum: "amount" }, count: { $count: {} } } },
   ]);
 
@@ -1280,7 +1444,8 @@ function RevenueDashboard({ userPubkey }: { userPubkey: string }) {
 
 ### Example 3: Journal App -- Local Encrypted Full-Text Search
 
-The journal runs a **local indexer** in the browser. No key delegation to a third party.
+The journal runs a **local indexer** in the browser. No key delegation to a
+third party.
 
 ```typescript
 // Derive a view key scoped to self (local indexer)
@@ -1295,7 +1460,10 @@ const viewKey = SecretEncryptionKey.fromHex(viewKeyHex);
 
 // In-memory search backend (runs in browser)
 class LocalSearchBackend implements IndexerBackend {
-  private entries = new Map<string, { uri: string; title: string; body: string; date: number }>();
+  private entries = new Map<
+    string,
+    { uri: string; title: string; body: string; date: number }
+  >();
 
   async apply(ops: IndexOperation[]) {
     for (const op of ops) {
@@ -1316,11 +1484,18 @@ class LocalSearchBackend implements IndexerBackend {
     results.sort((a, b) => b.date - a.date);
     const offset = query.offset || 0;
     const limit = query.limit || 50;
-    return { data: results.slice(offset, offset + limit) as T[], total: results.length };
+    return {
+      data: results.slice(offset, offset + limit) as T[],
+      total: results.length,
+    };
   }
 
-  async raw() { return []; }
-  async cleanup() { this.entries.clear(); }
+  async raw() {
+    return [];
+  }
+  async cleanup() {
+    this.entries.clear();
+  }
 }
 
 // Wire it: zero-trust local search
@@ -1357,12 +1532,12 @@ libs/b3nd-indexer/
 
 ## Key Design Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| Indexers are separate from nodes | Separation of concerns: nodes validate + persist, indexers project. Indexer failures don't affect writes. |
-| `filter` + `map` pattern | Mirrors MapReduce/event-sourcing. `filter` is cheap (string match), `map` is expensive (decrypt, parse). |
-| `IndexOperation` is a union type | Backend-agnostic: same definition works with Postgres, SQLite, Elasticsearch, or in-memory. `sql` escape hatch covers advanced cases. |
-| View keys are derived, not generated | Deterministic derivation means user can re-derive without storing. Binds to indexer identity + URI prefix. |
-| `IndexerClient` extends `NodeProtocolInterface` | Drop-in compatibility with all existing compositors. |
-| Eventual consistency by default | Matches B3nd's philosophy. Freshness API lets apps make informed UX decisions. |
-| Three deployment modes, same API | Start simple (in-process), scale to separate services without code changes. |
+| Decision                                        | Rationale                                                                                                                             |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Indexers are separate from nodes                | Separation of concerns: nodes validate + persist, indexers project. Indexer failures don't affect writes.                             |
+| `filter` + `map` pattern                        | Mirrors MapReduce/event-sourcing. `filter` is cheap (string match), `map` is expensive (decrypt, parse).                              |
+| `IndexOperation` is a union type                | Backend-agnostic: same definition works with Postgres, SQLite, Elasticsearch, or in-memory. `sql` escape hatch covers advanced cases. |
+| View keys are derived, not generated            | Deterministic derivation means user can re-derive without storing. Binds to indexer identity + URI prefix.                            |
+| `IndexerClient` extends `NodeProtocolInterface` | Drop-in compatibility with all existing compositors.                                                                                  |
+| Eventual consistency by default                 | Matches B3nd's philosophy. Freshness API lets apps make informed UX decisions.                                                        |
+| Three deployment modes, same API                | Start simple (in-process), scale to separate services without code changes.                                                           |

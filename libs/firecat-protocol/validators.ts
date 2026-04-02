@@ -21,7 +21,7 @@
 import type { Validator } from "@bandeira-tech/b3nd-sdk/types";
 import type { MessageData } from "@bandeira-tech/b3nd-sdk";
 import { verify } from "@bandeira-tech/b3nd-sdk/encrypt";
-import { ROOT_KEY, CONSENSUS_FEE } from "./constants.ts";
+import { CONSENSUS_FEE, ROOT_KEY } from "./constants.ts";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -52,7 +52,11 @@ function isGenesisEnvelope(msg: MessageData): boolean {
  * - Conservation: sum(input balances) >= sum(output balances)
  * - Auth: each input balance account must have a matching signature
  */
-export const balanceValidator: Validator = async ([uri, value], upstream, read) => {
+export const balanceValidator: Validator = async (
+  [uri, value],
+  upstream,
+  read,
+) => {
   if (typeof value !== "number" || value <= 0) {
     return { valid: false, error: "Balance value must be a number > 0" };
   }
@@ -77,7 +81,9 @@ export const balanceValidator: Validator = async ([uri, value], upstream, read) 
     let inputSum = 0;
     for (const inputUri of msg.payload.inputs) {
       const inputResult = await read<number>(inputUri);
-      if (!inputResult.success || typeof inputResult.record?.data !== "number") {
+      if (
+        !inputResult.success || typeof inputResult.record?.data !== "number"
+      ) {
         return { valid: false, error: `Input balance not found: ${inputUri}` };
       }
       inputSum += inputResult.record.data;
@@ -86,7 +92,9 @@ export const balanceValidator: Validator = async ([uri, value], upstream, read) 
     // Sum output balance values
     let outputSum = 0;
     for (const [outUri, outVal] of msg.payload.outputs) {
-      if (outUri.startsWith("immutable://balance/") && typeof outVal === "number") {
+      if (
+        outUri.startsWith("immutable://balance/") && typeof outVal === "number"
+      ) {
         outputSum += outVal;
       }
     }
@@ -95,7 +103,8 @@ export const balanceValidator: Validator = async ([uri, value], upstream, read) 
     if (inputSum < outputSum) {
       return {
         valid: false,
-        error: `Conservation violated: inputs (${inputSum}) < outputs (${outputSum})`,
+        error:
+          `Conservation violated: inputs (${inputSum}) < outputs (${outputSum})`,
       };
     }
 
@@ -113,11 +122,17 @@ export const balanceValidator: Validator = async ([uri, value], upstream, read) 
         ).catch(() => false);
 
         if (!hasAuth) {
-          return { valid: false, error: `Missing valid signature for account: ${account}` };
+          return {
+            valid: false,
+            error: `Missing valid signature for account: ${account}`,
+          };
         }
       }
     } else if (msg.payload.inputs.length > 0) {
-      return { valid: false, error: "Signed envelope required when spending inputs" };
+      return {
+        valid: false,
+        error: "Signed envelope required when spending inputs",
+      };
     }
   }
 
@@ -132,7 +147,11 @@ export const balanceValidator: Validator = async ([uri, value], upstream, read) 
  * - The referenced balance must exist with value > 0
  * - The referenced balance URI must appear in upstream's inputs
  */
-export const consumedValidator: Validator = async ([uri, value], upstream, read) => {
+export const consumedValidator: Validator = async (
+  [uri, value],
+  upstream,
+  read,
+) => {
   // Write-once
   const existing = await read(uri);
   if (existing.success) {
@@ -140,14 +159,26 @@ export const consumedValidator: Validator = async ([uri, value], upstream, read)
   }
 
   // Value must be a balance URI reference
-  if (typeof value !== "string" || !value.match(/^immutable:\/\/balance\/[^/]+\/[^/]+$/)) {
-    return { valid: false, error: "Consumed value must be a balance URI reference" };
+  if (
+    typeof value !== "string" ||
+    !value.match(/^immutable:\/\/balance\/[^/]+\/[^/]+$/)
+  ) {
+    return {
+      valid: false,
+      error: "Consumed value must be a balance URI reference",
+    };
   }
 
   // Referenced balance must exist with value > 0
   const balanceResult = await read<number>(value);
-  if (!balanceResult.success || typeof balanceResult.record?.data !== "number" || balanceResult.record.data <= 0) {
-    return { valid: false, error: `Referenced balance not found or empty: ${value}` };
+  if (
+    !balanceResult.success || typeof balanceResult.record?.data !== "number" ||
+    balanceResult.record.data <= 0
+  ) {
+    return {
+      valid: false,
+      error: `Referenced balance not found or empty: ${value}`,
+    };
   }
 
   // Referenced balance must appear in inputs
@@ -155,7 +186,10 @@ export const consumedValidator: Validator = async ([uri, value], upstream, read)
     const [, envelope] = upstream;
     const msg = envelope as MessageData;
     if (!msg.payload.inputs.includes(value)) {
-      return { valid: false, error: `Consumed balance must appear in inputs: ${value}` };
+      return {
+        valid: false,
+        error: `Consumed balance must appear in inputs: ${value}`,
+      };
     }
   }
 
@@ -168,7 +202,11 @@ export const consumedValidator: Validator = async ([uri, value], upstream, read)
  * - Write-once: must not already exist
  * - Value must be true
  */
-export const genesisValidator: Validator = async ([uri, value], _upstream, read) => {
+export const genesisValidator: Validator = async (
+  [uri, value],
+  _upstream,
+  read,
+) => {
   if (value !== true) {
     return { valid: false, error: "Genesis value must be true" };
   }
@@ -189,7 +227,11 @@ export const genesisValidator: Validator = async ([uri, value], _upstream, read)
  * - Write-once: must not already exist
  * - Fee paid: looks for fee in upstream's sibling outputs (explicit)
  */
-export const consensusRecordValidator: Validator = async ([uri, value], upstream, read) => {
+export const consensusRecordValidator: Validator = async (
+  [uri, value],
+  upstream,
+  read,
+) => {
   // Extract contentHash from URI: consensus://record/{contentHash}
   const url = URL.parse(uri);
   if (!url) return { valid: false, error: "Invalid consensus URI" };
@@ -201,7 +243,10 @@ export const consensusRecordValidator: Validator = async ([uri, value], upstream
 
   // Value must be a hash URI reference
   if (typeof value !== "string" || value !== `hash://sha256/${contentHash}`) {
-    return { valid: false, error: "Consensus record value must be the content hash URI" };
+    return {
+      valid: false,
+      error: "Consensus record value must be the content hash URI",
+    };
   }
 
   // Content must exist (in storage — previously committed)
@@ -213,7 +258,10 @@ export const consensusRecordValidator: Validator = async ([uri, value], upstream
   // Write-once (check storage)
   const existing = await read(uri);
   if (existing.success) {
-    return { valid: false, error: "Consensus record already exists (immutable)" };
+    return {
+      valid: false,
+      error: "Consensus record already exists (immutable)",
+    };
   }
 
   // Fee paid at ROOT_KEY keyed by content hash
@@ -224,16 +272,25 @@ export const consensusRecordValidator: Validator = async ([uri, value], upstream
     const [, envelope] = upstream;
     const msg = envelope as MessageData;
     const feeOutput = msg.payload.outputs.find(([u]) => u === feeUri);
-    if (feeOutput && typeof feeOutput[1] === "number" && feeOutput[1] >= CONSENSUS_FEE) {
+    if (
+      feeOutput && typeof feeOutput[1] === "number" &&
+      feeOutput[1] >= CONSENSUS_FEE
+    ) {
       return { valid: true };
     }
   }
 
   // Fall back to storage (fee may have been committed in a prior transaction)
   const feeResult = await read<number>(feeUri);
-  if (feeResult.success && typeof feeResult.record?.data === "number" && feeResult.record.data >= CONSENSUS_FEE) {
+  if (
+    feeResult.success && typeof feeResult.record?.data === "number" &&
+    feeResult.record.data >= CONSENSUS_FEE
+  ) {
     return { valid: true };
   }
 
-  return { valid: false, error: `Gas fee not paid: expected ${CONSENSUS_FEE} at ${feeUri}` };
+  return {
+    valid: false,
+    error: `Gas fee not paid: expected ${CONSENSUS_FEE} at ${feeUri}`,
+  };
 };

@@ -36,7 +36,14 @@ export interface ApiCatalog {
 // Grouping helpers
 // ---------------------------------------------------------------------------
 
-export type SymbolKind = "function" | "class" | "interface" | "typeAlias" | "variable" | "enum" | "namespace";
+export type SymbolKind =
+  | "function"
+  | "class"
+  | "interface"
+  | "typeAlias"
+  | "variable"
+  | "enum"
+  | "namespace";
 
 export const KIND_LABELS: Record<string, string> = {
   function: "Functions",
@@ -68,5 +75,10 @@ export function groupByKind(symbols: ApiSymbol[]): [string, ApiSymbol[]][] {
   // Sort groups by KIND_ORDER, then alphabetically within each group
   return KIND_ORDER
     .filter((k) => map.has(k))
-    .map((k) => [k, map.get(k)!.sort((a, b) => a.name.localeCompare(b.name))] as [string, ApiSymbol[]]);
+    .map((k) =>
+      [k, map.get(k)!.sort((a, b) => a.name.localeCompare(b.name))] as [
+        string,
+        ApiSymbol[],
+      ]
+    );
 }

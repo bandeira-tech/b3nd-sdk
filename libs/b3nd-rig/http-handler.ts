@@ -158,7 +158,10 @@ export function createRigHandler(
     const method = req.method;
 
     // ── Status (replaces health + schema) ──
-    if (method === "GET" && (path === "/api/v1/status" || path === "/api/v1/health")) {
+    if (
+      method === "GET" &&
+      (path === "/api/v1/status" || path === "/api/v1/health")
+    ) {
       const res = await rig.status();
       const body = healthMeta ? { ...res, ...healthMeta } : res;
       return json(body, res.status === "healthy" ? 200 : 503);

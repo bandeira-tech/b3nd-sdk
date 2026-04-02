@@ -23,7 +23,8 @@ async function main() {
 
   // Use Rig instead of raw HttpClient — operations go through hooks/events
   const rawClient = await createClientFromUrl(config.dataNodeUrl);
-  const isHttp = config.dataNodeUrl.startsWith("http://") || config.dataNodeUrl.startsWith("https://");
+  const isHttp = config.dataNodeUrl.startsWith("http://") ||
+    config.dataNodeUrl.startsWith("https://");
   const rig = new Rig({
     connections: [connection(rawClient, { receive: ["*"], read: ["*"] })],
     ...(isHttp ? { sseBaseUrl: config.dataNodeUrl.replace(/\/$/, "") } : {}),

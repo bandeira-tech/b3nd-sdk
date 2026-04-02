@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, ChevronDown, Clock } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock } from "lucide-react";
 import { cn } from "../../../utils";
 import { StatusBadge } from "../atoms/StatusBadge";
 import type { TestResult } from "../types";
@@ -33,21 +33,19 @@ export function TestRow({ result }: TestRowProps) {
       <div
         className={cn(
           "flex items-center gap-2 px-3 py-2 hover:bg-accent/50 cursor-pointer transition-colors",
-          result.status === "failed" && "bg-red-500/5"
+          result.status === "failed" && "bg-red-500/5",
         )}
         onClick={() => hasError && setExpanded(!expanded)}
       >
-        {hasError ? (
-          <button className="p-0.5 hover:bg-accent rounded">
-            {expanded ? (
-              <ChevronDown className="w-3 h-3 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="w-3 h-3 text-muted-foreground" />
-            )}
-          </button>
-        ) : (
-          <span className="w-4" />
-        )}
+        {hasError
+          ? (
+            <button className="p-0.5 hover:bg-accent rounded">
+              {expanded
+                ? <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+            </button>
+          )
+          : <span className="w-4" />}
 
         <StatusBadge status={result.status} />
 

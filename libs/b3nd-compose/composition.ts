@@ -5,7 +5,13 @@
  * Build complex validation and processing pipelines from simple primitives.
  */
 
-import type { Message, Output, ReadResult, ReceiveResult, Validator } from "../b3nd-core/types.ts";
+import type {
+  Message,
+  Output,
+  ReadResult,
+  ReceiveResult,
+  Validator,
+} from "../b3nd-core/types.ts";
 import type { Processor, ReadInterface } from "./types.ts";
 
 /**

@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { createPeerClients, bestEffortClient } from "./peer-replication.ts";
+import { bestEffortClient, createPeerClients } from "./peer-replication.ts";
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
 import type { PeerSpec } from "./types.ts";
 

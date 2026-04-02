@@ -26,11 +26,15 @@ export const useApiDocsStore = create<ApiDocsStore>((set) => ({
   catalogLoading: false,
   catalogError: null,
 
-  openLibrary: (key) => set({ activeLibrary: key, activeSymbol: null, kindFilter: null }),
-  closeLibrary: () => set({ activeLibrary: null, activeSymbol: null, kindFilter: null }),
+  openLibrary: (key) =>
+    set({ activeLibrary: key, activeSymbol: null, kindFilter: null }),
+  closeLibrary: () =>
+    set({ activeLibrary: null, activeSymbol: null, kindFilter: null }),
   setActiveSymbol: (name) => set({ activeSymbol: name }),
   setKindFilter: (kind) => set({ kindFilter: kind }),
-  setCatalog: (catalog) => set({ catalog, catalogLoading: false, catalogError: null }),
-  setCatalogError: (error) => set({ catalogError: error, catalogLoading: false }),
+  setCatalog: (catalog) =>
+    set({ catalog, catalogLoading: false, catalogError: null }),
+  setCatalogError: (error) =>
+    set({ catalogError: error, catalogLoading: false }),
   setCatalogLoading: (loading) => set({ catalogLoading: loading }),
 }));

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useAppStore } from "../../../stores/appStore";
 import { HttpAdapter } from "../../../adapters/HttpAdapter";
 import { useNodesStore } from "../stores/nodesStore";
-import type { NodeStatus, NodeMetrics } from "../stores/nodesStore";
+import type { NodeMetrics, NodeStatus } from "../stores/nodesStore";
 
 /**
  * Polling hook that reads node status/metrics URIs via HttpAdapter.
@@ -67,5 +67,12 @@ export function useNodeStatusPolling(intervalMs = 15000) {
         timerRef.current = null;
       }
     };
-  }, [backends, activeBackendId, networks, intervalMs, updateNodeStatus, updateNodeMetrics]);
+  }, [
+    backends,
+    activeBackendId,
+    networks,
+    intervalMs,
+    updateNodeStatus,
+    updateNodeMetrics,
+  ]);
 }

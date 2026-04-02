@@ -6,7 +6,13 @@
  *   (output, upstream, read) => Promise<ValidationResult>
  */
 
-import type { Output, Schema, Validator, ValidationResult, ReadFn } from "../b3nd-core/types.ts";
+import type {
+  Output,
+  ReadFn,
+  Schema,
+  ValidationResult,
+  Validator,
+} from "../b3nd-core/types.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
 import { verifyHashContent } from "../b3nd-hash/mod.ts";
 
@@ -235,7 +241,8 @@ export function msgSchema(programSchema: Schema): Validator {
       if (!hashCheck.valid) {
         return {
           valid: false,
-          error: hashCheck.error || `Content hash verification failed: ${outputUri}`,
+          error: hashCheck.error ||
+            `Content hash verification failed: ${outputUri}`,
         };
       }
 

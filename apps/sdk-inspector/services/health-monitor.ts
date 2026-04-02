@@ -185,7 +185,6 @@ export class HealthMonitor {
     }
   }
 
-
   /**
    * Get current health state
    */

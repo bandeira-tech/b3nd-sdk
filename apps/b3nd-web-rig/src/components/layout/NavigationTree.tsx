@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
 import { routeForExplorerPath } from "../../utils";
@@ -14,15 +14,27 @@ export function NavigationTree() {
   const rootNodes = useAppStore((state) => state.rootNodes);
   const schemas = useAppStore((state) => state.schemas);
   const activeBackend = useAppStore((state) =>
-    state.backends.find((b) => b.id === state.activeBackendId),
+    state.backends.find((b) => b.id === state.activeBackendId)
   );
   const { expandedPaths, togglePathExpansion, loadSchemas } = useAppStore();
   const navigate = useNavigate();
 
-  console.log("[NavigationTree] Render. rootNodes:", rootNodes, "schemas:", Object.keys(schemas), "activeBackend:", activeBackend?.id, "loading:", loading);
+  console.log(
+    "[NavigationTree] Render. rootNodes:",
+    rootNodes,
+    "schemas:",
+    Object.keys(schemas),
+    "activeBackend:",
+    activeBackend?.id,
+    "loading:",
+    loading,
+  );
 
   useEffect(() => {
-    console.log("[NavigationTree:useEffect] activeBackend.id changed:", activeBackend?.id);
+    console.log(
+      "[NavigationTree:useEffect] activeBackend.id changed:",
+      activeBackend?.id,
+    );
 
     if (!activeBackend?.adapter) {
       console.log("[NavigationTree:useEffect] No active backend");
@@ -33,13 +45,18 @@ export function NavigationTree() {
 
     const loadRoot = async () => {
       try {
-        console.log("[NavigationTree:loadRoot] Starting. Current schemas:", Object.keys(schemas));
+        console.log(
+          "[NavigationTree:loadRoot] Starting. Current schemas:",
+          Object.keys(schemas),
+        );
         setLoading(true);
         setError(null);
 
         // Load schemas if not already loaded
         if (Object.keys(schemas).length === 0) {
-          console.log("[NavigationTree:loadRoot] Schemas empty, calling loadSchemas()");
+          console.log(
+            "[NavigationTree:loadRoot] Schemas empty, calling loadSchemas()",
+          );
           await loadSchemas();
           console.log("[NavigationTree:loadRoot] loadSchemas() completed");
         } else {

@@ -22,8 +22,10 @@ export const useLearnStore = create<LearnStore>((set) => ({
   activeChapter: null,
   activeSectionId: null,
 
-  openBook: (key) => set({ activeBook: key, activeChapter: null, activeSectionId: null }),
-  closeBook: () => set({ activeBook: null, activeChapter: null, activeSectionId: null }),
+  openBook: (key) =>
+    set({ activeBook: key, activeChapter: null, activeSectionId: null }),
+  closeBook: () =>
+    set({ activeBook: null, activeChapter: null, activeSectionId: null }),
   openChapter: (key) => set({ activeChapter: key, activeSectionId: null }),
   closeChapter: () => set({ activeChapter: null, activeSectionId: null }),
   setActiveSectionId: (id) => set({ activeSectionId: id }),

@@ -47,7 +47,11 @@ export function createMessageNode<D = unknown>(
       try {
         const readFn = async <T = unknown>(u: string) => {
           const results = await read.read<T>(u);
-          return results[0] ?? { success: false, error: "No results" } as import("../b3nd-core/types.ts").ReadResult<T>;
+          return results[0] ??
+            {
+              success: false,
+              error: "No results",
+            } as import("../b3nd-core/types.ts").ReadResult<T>;
         };
         const validation = await validate(msg, readFn);
 

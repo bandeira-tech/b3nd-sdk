@@ -104,7 +104,10 @@ export function createTestMetrics(
  * Generate an operator keypair and sign a config.
  */
 export async function signConfig(config: ManagedNodeConfig): Promise<{
-  signed: { auth: Array<{ pubkey: string; signature: string }>; payload: ManagedNodeConfig };
+  signed: {
+    auth: Array<{ pubkey: string; signature: string }>;
+    payload: ManagedNodeConfig;
+  };
   keypair: KeyPair;
 }> {
   const keypair = await generateSigningKeyPair();

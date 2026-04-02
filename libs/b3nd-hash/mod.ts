@@ -25,7 +25,9 @@
 
 import _canonicalize from "canonicalize";
 // CJS/ESM interop: cast to callable
-const canonicalize = _canonicalize as unknown as (input: unknown) => string | undefined;
+const canonicalize = _canonicalize as unknown as (
+  input: unknown,
+) => string | undefined;
 
 /**
  * Compute SHA256 hash of a value.
@@ -153,7 +155,10 @@ export function hashValidator(): (
     // Enforce write-once: reject if resource already exists
     const existing = await read(uri);
     if (existing.success) {
-      return { valid: false, error: "hash:// is write-once: resource already exists" };
+      return {
+        valid: false,
+        error: "hash:// is write-once: resource already exists",
+      };
     }
 
     const result = await verifyHashContent(uri, value);

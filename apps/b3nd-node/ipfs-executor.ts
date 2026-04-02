@@ -10,7 +10,10 @@ export function createIpfsExecutor(apiUrl: string): IpfsExecutor {
   return {
     async add(content: string): Promise<string> {
       const form = new FormData();
-      form.append("file", new Blob([content], { type: "application/octet-stream" }));
+      form.append(
+        "file",
+        new Blob([content], { type: "application/octet-stream" }),
+      );
 
       const res = await fetch(`${base}/api/v0/add?pin=false&quiet=true`, {
         method: "POST",
@@ -26,9 +29,12 @@ export function createIpfsExecutor(apiUrl: string): IpfsExecutor {
     },
 
     async cat(cid: string): Promise<string> {
-      const res = await fetch(`${base}/api/v0/cat?arg=${encodeURIComponent(cid)}`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `${base}/api/v0/cat?arg=${encodeURIComponent(cid)}`,
+        {
+          method: "POST",
+        },
+      );
 
       if (!res.ok) {
         throw new Error(`IPFS cat failed: ${res.status} ${await res.text()}`);
@@ -38,9 +44,12 @@ export function createIpfsExecutor(apiUrl: string): IpfsExecutor {
     },
 
     async pin(cid: string): Promise<void> {
-      const res = await fetch(`${base}/api/v0/pin/add?arg=${encodeURIComponent(cid)}`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `${base}/api/v0/pin/add?arg=${encodeURIComponent(cid)}`,
+        {
+          method: "POST",
+        },
+      );
 
       if (!res.ok) {
         throw new Error(`IPFS pin failed: ${res.status} ${await res.text()}`);
@@ -50,9 +59,12 @@ export function createIpfsExecutor(apiUrl: string): IpfsExecutor {
     },
 
     async unpin(cid: string): Promise<void> {
-      const res = await fetch(`${base}/api/v0/pin/rm?arg=${encodeURIComponent(cid)}`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `${base}/api/v0/pin/rm?arg=${encodeURIComponent(cid)}`,
+        {
+          method: "POST",
+        },
+      );
 
       if (!res.ok) {
         const body = await res.text();
@@ -71,7 +83,9 @@ export function createIpfsExecutor(apiUrl: string): IpfsExecutor {
       });
 
       if (!res.ok) {
-        throw new Error(`IPFS pin ls failed: ${res.status} ${await res.text()}`);
+        throw new Error(
+          `IPFS pin ls failed: ${res.status} ${await res.text()}`,
+        );
       }
 
       const json = await res.json();

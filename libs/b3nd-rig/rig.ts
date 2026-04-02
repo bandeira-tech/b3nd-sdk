@@ -32,12 +32,7 @@ import type {
   WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";
-import type {
-  ReadCtx,
-  ReceiveCtx,
-  RigHooks,
-  SendCtx,
-} from "./hooks.ts";
+import type { ReadCtx, ReceiveCtx, RigHooks, SendCtx } from "./hooks.ts";
 import { resolveHooks, runAfter, runBefore } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import { RigEventEmitter } from "./events.ts";
@@ -104,7 +99,9 @@ export class Rig {
 
   constructor(config: RigConfig) {
     if (!config.connections || config.connections.length === 0) {
-      throw new Error("Rig: `connections` array is required and must not be empty.");
+      throw new Error(
+        "Rig: `connections` array is required and must not be empty.",
+      );
     }
 
     this._dispatch = createConnectionDispatch(config.connections);
@@ -246,7 +243,11 @@ export class Rig {
     if (this._validator) {
       const readFn = async <T = unknown>(u: string) => {
         const results = await this._dispatch.read<T>(u);
-        return results[0] ?? { success: false, error: "No results" } as import("../b3nd-core/types.ts").ReadResult<T>;
+        return results[0] ??
+          {
+            success: false,
+            error: "No results",
+          } as import("../b3nd-core/types.ts").ReadResult<T>;
       };
       const validation = await this._validator(
         [finalUri, finalData],
@@ -942,7 +943,6 @@ export class Rig {
   }): (req: Request) => Promise<Response> {
     return createRigHandler(this, options);
   }
-
 }
 
 // ── Init helpers ──
@@ -1002,7 +1002,10 @@ function createConnectionDispatch(
           }
         }
         if (!found) {
-          allResults.push({ success: false, error: `No connection has data for ${uri}` });
+          allResults.push({
+            success: false,
+            error: `No connection has data for ${uri}`,
+          });
         }
       }
 
@@ -1033,7 +1036,6 @@ function createConnectionDispatch(
     },
   };
 }
-
 
 // ── Compile-time assertion ──
 // Rig structurally satisfies NodeProtocolInterface, so it can be

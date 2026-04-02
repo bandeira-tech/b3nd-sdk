@@ -197,7 +197,9 @@ Deno.test("pipeline - empty → success", async () => {
 Deno.test("firstMatch - returns first successful read", async () => {
   const emptyReader = {
     // deno-lint-ignore require-await
-    read: async <T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> => {
+    read: async <T = unknown>(
+      uris: string | string[],
+    ): Promise<ReadResult<T>[]> => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map(() => ({ success: false as const, error: "empty" }));
     },
@@ -205,7 +207,9 @@ Deno.test("firstMatch - returns first successful read", async () => {
 
   const dataReader = {
     // deno-lint-ignore require-await
-    read: async <T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> => {
+    read: async <T = unknown>(
+      uris: string | string[],
+    ): Promise<ReadResult<T>[]> => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map((uri) => ({
         success: true as const,
@@ -224,7 +228,9 @@ Deno.test("firstMatch - returns first successful read", async () => {
 Deno.test("firstMatch - all fail → not found", async () => {
   const failReader = {
     // deno-lint-ignore require-await
-    read: async <T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> => {
+    read: async <T = unknown>(
+      uris: string | string[],
+    ): Promise<ReadResult<T>[]> => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map(() => ({ success: false as const, error: "gone" }));
     },

@@ -1,4 +1,10 @@
-import { AuthenticatedRig, connection, createClientFromUrl, Identity, Rig } from "@b3nd/rig";
+import {
+  AuthenticatedRig,
+  connection,
+  createClientFromUrl,
+  Identity,
+  Rig,
+} from "@b3nd/rig";
 import { loadConfig } from "./config.ts";
 import { loadAccountKey, loadEncryptionKey } from "./keys.ts";
 import { Logger } from "./logger.ts";
@@ -41,14 +47,17 @@ export async function getRig(
           encKey?.encryptionPrivateKeyHex || encKey?.privateKeyPem,
           encKey?.encryptionPublicKeyHex || encKey?.publicKeyHex,
         );
-        logger?.info(`Identity loaded: ${cachedIdentity.pubkey.substring(0, 16)}...`);
+        logger?.info(
+          `Identity loaded: ${cachedIdentity.pubkey.substring(0, 16)}...`,
+        );
       } catch (err) {
         logger?.info(`No identity loaded: ${(err as Error).message}`);
       }
     }
 
     const client = await createClientFromUrl(config.node);
-    const isHttp = config.node.startsWith("http://") || config.node.startsWith("https://");
+    const isHttp = config.node.startsWith("http://") ||
+      config.node.startsWith("https://");
     cachedRig = new Rig({
       connections: [connection(client, { receive: ["*"], read: ["*"] })],
       ...(isHttp ? { sseBaseUrl: config.node.replace(/\/$/, "") } : {}),

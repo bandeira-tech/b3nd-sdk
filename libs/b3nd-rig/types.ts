@@ -271,4 +271,3 @@ export interface HandlerOptions {
   /** Extra metadata to include in health response. */
   healthMeta?: Record<string, unknown>;
 }
-

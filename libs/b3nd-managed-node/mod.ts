@@ -53,10 +53,10 @@ export { createHeartbeatWriter } from "./heartbeat.ts";
 export { createMetricsCollector } from "./metrics.ts";
 
 // Module loader
-export { loadSchemaModule, createModuleWatcher } from "./module-loader.ts";
+export { createModuleWatcher, loadSchemaModule } from "./module-loader.ts";
 
 // Peer replication
-export { createPeerClients, bestEffortClient } from "./peer-replication.ts";
+export { bestEffortClient, createPeerClients } from "./peer-replication.ts";
 
 // Update protocol
 export { createUpdateChecker } from "./update-protocol.ts";

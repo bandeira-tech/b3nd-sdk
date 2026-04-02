@@ -61,15 +61,13 @@ const backends = await Promise.all(
 );
 
 // Single backend → use directly; multi-backend → compose
-const client = backends.length === 1
-  ? backends[0]
-  : {
-    receive: (msg: Parameters<typeof backends[0]["receive"]>[0]) =>
-      parallelBroadcast(backends).receive(msg),
-    read: <T = unknown>(uris: string | string[]) =>
-      firstMatchSequence(backends).read<T>(uris),
-    status: () => backends[0].status(),
-  };
+const client = backends.length === 1 ? backends[0] : {
+  receive: (msg: Parameters<typeof backends[0]["receive"]>[0]) =>
+    parallelBroadcast(backends).receive(msg),
+  read: <T = unknown>(uris: string | string[]) =>
+    firstMatchSequence(backends).read<T>(uris),
+  status: () => backends[0].status(),
+};
 
 // ── The Rig: schema validation, events, hooks ──
 

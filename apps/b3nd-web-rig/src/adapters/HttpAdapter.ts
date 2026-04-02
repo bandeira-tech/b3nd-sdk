@@ -16,7 +16,11 @@ import type {
  */
 
 interface ClientLike {
-  read(uri: string): Promise<{ success: boolean; record?: PersistenceRecord; error?: string }[]>;
+  read(
+    uri: string,
+  ): Promise<
+    { success: boolean; record?: PersistenceRecord; error?: string }[]
+  >;
   status(): Promise<{ status: string; schema?: string[] }>;
 }
 
@@ -62,7 +66,9 @@ export class HttpAdapter implements BackendAdapter {
 
     // Handle error response
     if (!result?.success) {
-      throw new Error(`Failed to list ${path}: ${result?.error ?? "no result"}`);
+      throw new Error(
+        `Failed to list ${path}: ${result?.error ?? "no result"}`,
+      );
     }
 
     // Transform API response to Explorer format

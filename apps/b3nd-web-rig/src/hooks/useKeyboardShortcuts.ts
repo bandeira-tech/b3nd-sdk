@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useAppStore } from '../stores/appStore';
+import { useEffect } from "react";
+import { useAppStore } from "../stores/appStore";
 
 export function useKeyboardShortcuts() {
   const { togglePanel, setMode, setSearchQuery, mode } = useAppStore();
@@ -13,12 +13,12 @@ export function useKeyboardShortcuts() {
       // Don't trigger shortcuts if user is typing in an input
       const target = event.target as HTMLElement;
       if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.contentEditable === 'true'
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.contentEditable === "true"
       ) {
         // Allow escape to blur input fields
-        if (event.key === 'Escape') {
+        if (event.key === "Escape") {
           target.blur();
           event.preventDefault();
           return;
@@ -30,30 +30,32 @@ export function useKeyboardShortcuts() {
       // Handle shortcuts
       switch (true) {
         // Ctrl/Cmd + B - Toggle left panel
-        case isCtrl && !isShift && event.key === 'b':
+        case isCtrl && !isShift && event.key === "b":
           event.preventDefault();
-          togglePanel('left');
+          togglePanel("left");
           break;
 
         // Ctrl/Cmd + Shift + B - Toggle bottom panel
-        case isCtrl && isShift && event.key === 'B':
+        case isCtrl && isShift && event.key === "B":
           event.preventDefault();
-          togglePanel('bottom');
+          togglePanel("bottom");
           break;
 
         // Ctrl/Cmd + Shift + R - Toggle right panel
-        case isCtrl && isShift && event.key === 'R':
+        case isCtrl && isShift && event.key === "R":
           event.preventDefault();
-          togglePanel('right');
+          togglePanel("right");
           break;
 
         // Ctrl/Cmd + K - Quick search (activate search mode and focus)
-        case isCtrl && event.key === 'k':
+        case isCtrl && event.key === "k":
           event.preventDefault();
-          setMode('search');
+          setMode("search");
           // Focus search input if available
           setTimeout(() => {
-            const searchInput = document.querySelector('input[placeholder*="search" i]') as HTMLInputElement;
+            const searchInput = document.querySelector(
+              'input[placeholder*="search" i]',
+            ) as HTMLInputElement;
             if (searchInput) {
               searchInput.focus();
             }
@@ -61,29 +63,29 @@ export function useKeyboardShortcuts() {
           break;
 
         // Escape - Clear search or close modals
-        case event.key === 'Escape':
+        case event.key === "Escape":
           event.preventDefault();
-          if (mode === 'search') {
-            setSearchQuery('');
+          if (mode === "search") {
+            setSearchQuery("");
           }
           // Remove focus from current element
           (document.activeElement as HTMLElement)?.blur();
           break;
 
         // Number keys 1-3 for mode switching (when not typing)
-        case event.key === '1' && !isCtrl && !isShift:
+        case event.key === "1" && !isCtrl && !isShift:
           event.preventDefault();
-          setMode('filesystem');
+          setMode("filesystem");
           break;
 
-        case event.key === '2' && !isCtrl && !isShift:
+        case event.key === "2" && !isCtrl && !isShift:
           event.preventDefault();
-          setMode('search');
+          setMode("search");
           break;
 
-        case event.key === '3' && !isCtrl && !isShift:
+        case event.key === "3" && !isCtrl && !isShift:
           event.preventDefault();
-          setMode('watched');
+          setMode("watched");
           break;
 
         default:
@@ -93,11 +95,11 @@ export function useKeyboardShortcuts() {
     };
 
     // Add event listener
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
 
     // Cleanup
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [togglePanel, setMode, setSearchQuery, mode]);
 }

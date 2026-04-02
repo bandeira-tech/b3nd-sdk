@@ -1,13 +1,10 @@
-import {
-  Activity,
-  CircleDot,
-  Clock,
-  Network,
-  Server,
-  Zap,
-} from "lucide-react";
+import { Activity, CircleDot, Clock, Network, Server, Zap } from "lucide-react";
 import { cn } from "../../utils";
-import { useNodesStore, type NetworkManifest, type NetworkNodeEntry } from "./stores/nodesStore";
+import {
+  type NetworkManifest,
+  type NetworkNodeEntry,
+  useNodesStore,
+} from "./stores/nodesStore";
 
 interface Props {
   network: NetworkManifest;
@@ -19,7 +16,7 @@ export function NetworkOverview({ network }: Props) {
   const setActiveNode = useNodesStore((s) => s.setActiveNode);
 
   const onlineCount = network.nodes.filter(
-    (n) => nodeStatuses[n.nodeId]?.status === "online"
+    (n) => nodeStatuses[n.nodeId]?.status === "online",
   ).length;
 
   return (
@@ -46,27 +43,29 @@ export function NetworkOverview({ network }: Props) {
 
       {/* Node grid */}
       <div className="flex-1 overflow-auto p-4">
-        {network.nodes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-            <Server className="w-8 h-8 opacity-30" />
-            <p className="text-sm">No nodes in this network yet.</p>
-            <p className="text-xs">
-              Add a node from the sidebar to get started.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {network.nodes.map((entry) => (
-              <NodeCard
-                key={entry.nodeId}
-                entry={entry}
-                status={nodeStatuses[entry.nodeId]}
-                metrics={nodeMetrics[entry.nodeId]}
-                onClick={() => setActiveNode(entry.nodeId)}
-              />
-            ))}
-          </div>
-        )}
+        {network.nodes.length === 0
+          ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+              <Server className="w-8 h-8 opacity-30" />
+              <p className="text-sm">No nodes in this network yet.</p>
+              <p className="text-xs">
+                Add a node from the sidebar to get started.
+              </p>
+            </div>
+          )
+          : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {network.nodes.map((entry) => (
+                <NodeCard
+                  key={entry.nodeId}
+                  entry={entry}
+                  status={nodeStatuses[entry.nodeId]}
+                  metrics={nodeMetrics[entry.nodeId]}
+                  onClick={() => setActiveNode(entry.nodeId)}
+                />
+              ))}
+            </div>
+          )}
       </div>
     </div>
   );
@@ -79,8 +78,17 @@ function NodeCard({
   onClick,
 }: {
   entry: NetworkNodeEntry;
-  status?: { status: string; lastHeartbeat: number; backends: { type: string; status: string }[] };
-  metrics?: { opsPerSecond: number; writeLatencyP50: number; readLatencyP50: number; errorRate: number };
+  status?: {
+    status: string;
+    lastHeartbeat: number;
+    backends: { type: string; status: string }[];
+  };
+  metrics?: {
+    opsPerSecond: number;
+    writeLatencyP50: number;
+    readLatencyP50: number;
+    errorRate: number;
+  };
   onClick: () => void;
 }) {
   const isOnline = status?.status === "online";
@@ -94,7 +102,7 @@ function NodeCard({
         "bg-card hover:bg-accent/30",
         isOnline && "border-green-500/30",
         isDegraded && "border-yellow-500/30",
-        !status && "border-border"
+        !status && "border-border",
       )}
     >
       {/* Header */}
@@ -108,7 +116,7 @@ function NodeCard({
             "w-3.5 h-3.5",
             isOnline && "text-green-500",
             isDegraded && "text-yellow-500",
-            !status && "text-muted-foreground"
+            !status && "text-muted-foreground",
           )}
         />
       </div>
@@ -129,26 +137,28 @@ function NodeCard({
       </div>
 
       {/* Metrics */}
-      {metrics ? (
-        <div className="grid grid-cols-3 gap-2 text-[10px]">
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Zap className="w-3 h-3" />
-            <span>{metrics.opsPerSecond} ops/s</span>
+      {metrics
+        ? (
+          <div className="grid grid-cols-3 gap-2 text-[10px]">
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Zap className="w-3 h-3" />
+              <span>{metrics.opsPerSecond} ops/s</span>
+            </div>
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Clock className="w-3 h-3" />
+              <span>w:{metrics.writeLatencyP50}ms</span>
+            </div>
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Activity className="w-3 h-3" />
+              <span>{(metrics.errorRate * 100).toFixed(1)}% err</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            <span>w:{metrics.writeLatencyP50}ms</span>
+        )
+        : (
+          <div className="text-[10px] text-muted-foreground">
+            {status ? "No metrics yet" : "Waiting for heartbeat..."}
           </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Activity className="w-3 h-3" />
-            <span>{(metrics.errorRate * 100).toFixed(1)}% err</span>
-          </div>
-        </div>
-      ) : (
-        <div className="text-[10px] text-muted-foreground">
-          {status ? "No metrics yet" : "Waiting for heartbeat..."}
-        </div>
-      )}
+        )}
 
       {/* Last heartbeat */}
       {status && (

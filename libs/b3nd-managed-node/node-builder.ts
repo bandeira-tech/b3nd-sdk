@@ -24,7 +24,11 @@ export async function buildClientsFromSpec(
   schema: Schema,
   executors?: {
     postgres?: (connectionString: string) => Promise<any>;
-    mongo?: (connectionString: string, dbName: string, collectionName: string) => Promise<any>;
+    mongo?: (
+      connectionString: string,
+      dbName: string,
+      collectionName: string,
+    ) => Promise<any>;
     sqlite?: (path: string) => any;
     fs?: (rootDir: string) => any;
     ipfs?: (apiUrl: string) => any;
@@ -43,15 +47,18 @@ export async function buildClientsFromSpec(
         // Dynamic import to avoid hard dependency on postgres driver
         const { PostgresClient } = await import("@bandeira-tech/b3nd-sdk");
         if (!executors?.postgres) {
-          throw new Error("PostgreSQL executor factory required for postgresql backend");
+          throw new Error(
+            "PostgreSQL executor factory required for postgresql backend",
+          );
         }
         const executor = await executors.postgres(spec.url);
         const pg = new PostgresClient(
           {
             connection: spec.url,
             tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
-                        poolSize: (spec.options?.poolSize as number) ?? 5,
-            connectionTimeout: (spec.options?.connectionTimeout as number) ?? 10_000,
+            poolSize: (spec.options?.poolSize as number) ?? 5,
+            connectionTimeout: (spec.options?.connectionTimeout as number) ??
+              10_000,
           },
           executor as any,
         );
@@ -63,20 +70,28 @@ export async function buildClientsFromSpec(
       case "mongodb": {
         const { MongoClient } = await import("@bandeira-tech/b3nd-sdk");
         if (!executors?.mongo) {
-          throw new Error("MongoDB executor factory required for mongodb backend");
+          throw new Error(
+            "MongoDB executor factory required for mongodb backend",
+          );
         }
         const url = new URL(spec.url);
         const dbName = url.pathname.replace(/^\//, "");
         if (!dbName) {
-          throw new Error(`MongoDB spec must include database in path: ${spec.url}`);
+          throw new Error(
+            `MongoDB spec must include database in path: ${spec.url}`,
+          );
         }
         const collectionName = (spec.options?.collectionName as string) ??
           url.searchParams.get("collection") ?? "b3nd_data";
-        const executor = await executors.mongo(spec.url, dbName, collectionName);
+        const executor = await executors.mongo(
+          spec.url,
+          dbName,
+          collectionName,
+        );
         const mongo = new MongoClient(
           {
             connectionString: spec.url,
-                        collectionName,
+            collectionName,
           },
           executor,
         );
@@ -87,7 +102,9 @@ export async function buildClientsFromSpec(
       case "sqlite": {
         const { SqliteClient } = await import("../b3nd-client-sqlite/mod.ts");
         if (!executors?.sqlite) {
-          throw new Error("SQLite executor factory required for sqlite backend");
+          throw new Error(
+            "SQLite executor factory required for sqlite backend",
+          );
         }
         const sqlitePath = new URL(spec.url).pathname || ":memory:";
         const executor = executors.sqlite(sqlitePath);
@@ -95,7 +112,7 @@ export async function buildClientsFromSpec(
           new SqliteClient(
             {
               path: sqlitePath,
-                            tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
+              tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
             },
             executor,
           ),
@@ -106,7 +123,9 @@ export async function buildClientsFromSpec(
       case "filesystem": {
         const { FilesystemClient } = await import("../b3nd-client-fs/mod.ts");
         if (!executors?.fs) {
-          throw new Error("Filesystem executor factory required for filesystem backend");
+          throw new Error(
+            "Filesystem executor factory required for filesystem backend",
+          );
         }
         const rootDir = new URL(spec.url).pathname;
         const executor = executors.fs(rootDir);
@@ -114,7 +133,7 @@ export async function buildClientsFromSpec(
           new FilesystemClient(
             {
               rootDir,
-                          },
+            },
             executor,
           ),
         );

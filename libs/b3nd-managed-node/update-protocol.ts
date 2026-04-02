@@ -64,7 +64,11 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
           let verified = false;
           for (const entry of data.auth) {
             if (entry.pubkey === opts.operatorPubKeyHex) {
-              const ok = await verify(entry.pubkey, entry.signature, data.payload);
+              const ok = await verify(
+                entry.pubkey,
+                entry.signature,
+                data.payload,
+              );
               if (ok) {
                 verified = true;
                 break;
@@ -85,7 +89,11 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
           let verified = false;
           for (const entry of data.auth) {
             if (entry.pubkey === opts.operatorPubKeyHex) {
-              const ok = await verify(entry.pubkey, entry.signature, data.payload);
+              const ok = await verify(
+                entry.pubkey,
+                entry.signature,
+                data.payload,
+              );
               if (ok) {
                 verified = true;
                 break;

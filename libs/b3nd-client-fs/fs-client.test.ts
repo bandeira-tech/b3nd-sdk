@@ -52,21 +52,30 @@ class DenoFsExecutor implements FsExecutor {
       if (entry.isFile) {
         files.push(entry.name);
       } else if (entry.isDirectory) {
-        const subFiles = await this.listFilesRecursive(join(dir, entry.name), entry.name);
+        const subFiles = await this.listFilesRecursive(
+          join(dir, entry.name),
+          entry.name,
+        );
         files.push(...subFiles);
       }
     }
     return files;
   }
 
-  private async listFilesRecursive(dir: string, prefix: string): Promise<string[]> {
+  private async listFilesRecursive(
+    dir: string,
+    prefix: string,
+  ): Promise<string[]> {
     const files: string[] = [];
     for await (const entry of Deno.readDir(dir)) {
       const relPath = `${prefix}/${entry.name}`;
       if (entry.isFile) {
         files.push(relPath);
       } else if (entry.isDirectory) {
-        const subFiles = await this.listFilesRecursive(join(dir, entry.name), relPath);
+        const subFiles = await this.listFilesRecursive(
+          join(dir, entry.name),
+          relPath,
+        );
         files.push(...subFiles);
       }
     }

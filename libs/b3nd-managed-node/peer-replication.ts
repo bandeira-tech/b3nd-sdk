@@ -5,7 +5,10 @@
  * for best-effort delivery (non-fatal receive failures).
  */
 
-import { HttpClient, type NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import {
+  HttpClient,
+  type NodeProtocolInterface,
+} from "@bandeira-tech/b3nd-sdk";
 import type { PeerSpec } from "./types.ts";
 
 /**

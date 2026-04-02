@@ -2,20 +2,21 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
 import {
-  Terminal,
   Activity,
   Bug,
-  X,
   ChevronUp,
   Clock,
   KeyRound,
   Maximize2,
   Minimize2,
   Play,
+  Terminal,
+  X,
 } from "lucide-react";
 
 export function BottomPanel() {
-  const { togglePanel, bottomMaximized, toggleBottomPanelMaximized } = useAppStore();
+  const { togglePanel, bottomMaximized, toggleBottomPanelMaximized } =
+    useAppStore();
   const [activeTab, setActiveTab] = useState<BottomTab>("output");
 
   return (
@@ -71,14 +72,14 @@ export function BottomPanel() {
               : <Maximize2 className="h-4 w-4" />}
           </button>
           <button
-            onClick={() => togglePanel('bottom')}
+            onClick={() => togglePanel("bottom")}
             className="p-1.5 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             title="Minimize panel"
           >
             <ChevronUp className="h-4 w-4" />
           </button>
           <button
-            onClick={() => togglePanel('bottom')}
+            onClick={() => togglePanel("bottom")}
             className="p-1.5 rounded hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
             title="Close panel"
           >
@@ -92,8 +93,11 @@ export function BottomPanel() {
         {activeTab === "console" && <ConsoleView />}
         {activeTab === "output" && <WriterOutputView />}
         {activeTab === "state" && <WriterStateView />}
-        {activeTab !== "console" && activeTab !== "output" && activeTab !== "state" && (
-          <PlaceholderView label={activeTab === "network" ? "Network" : "Debug"} />
+        {activeTab !== "console" && activeTab !== "output" &&
+          activeTab !== "state" && (
+          <PlaceholderView
+            label={activeTab === "network" ? "Network" : "Debug"}
+          />
         )}
       </div>
     </div>
@@ -109,7 +113,7 @@ function TabButton({
   onClick,
 }: {
   active?: boolean;
-  icon: import('react').ReactNode;
+  icon: import("react").ReactNode;
   label: string;
   onClick: () => void;
 }) {
@@ -118,8 +122,8 @@ function TabButton({
       onClick={onClick}
       className={`flex items-center space-x-2 px-3 py-1.5 rounded text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
         active
-          ? 'bg-background text-foreground shadow-sm'
-          : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground hover:bg-background/50"
       }`}
     >
       {icon}
@@ -139,7 +143,9 @@ function WriterStateView() {
     activeApp,
   } = useAppStore();
   const activeAccount = accounts.find((a) => a.id === activeAccountId);
-  const pubkey = activeAccount && activeAccount.type !== "application-user" ? activeAccount.pubkey : "";
+  const pubkey = activeAccount && activeAccount.type !== "application-user"
+    ? activeAccount.pubkey
+    : "";
 
   if (activeApp !== "writer") {
     return (
@@ -218,7 +224,9 @@ function WriterOutputView() {
                     <span className="truncate" title={inferredUri || "No URI"}>
                       {inferredUri || "No URI"}
                     </span>
-                    <span>{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                    <span>
+                      {new Date(entry.timestamp).toLocaleTimeString()}
+                    </span>
                   </div>
                   <pre className="whitespace-pre-wrap break-words">
                     {JSON.stringify(entry.data, null, 2)}
@@ -277,18 +285,20 @@ function ConsoleView() {
 
   return (
     <div className="p-4 font-mono text-sm space-y-3">
-      {sortedLogs.length === 0 ? (
-        <div className="text-center text-muted-foreground py-6">
-          <Terminal className="h-5 w-5 mx-auto mb-2" />
-          <div>No logs yet</div>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          {sortedLogs.map((log, index) => (
-            <LogEntry key={`${log.timestamp}-${index}`} log={log} />
-          ))}
-        </div>
-      )}
+      {sortedLogs.length === 0
+        ? (
+          <div className="text-center text-muted-foreground py-6">
+            <Terminal className="h-5 w-5 mx-auto mb-2" />
+            <div>No logs yet</div>
+          </div>
+        )
+        : (
+          <div className="space-y-1">
+            {sortedLogs.map((log, index) => (
+              <LogEntry key={`${log.timestamp}-${index}`} log={log} />
+            ))}
+          </div>
+        )}
 
       <div className="pt-2 border-t border-border/50 flex justify-end">
         <button
@@ -302,30 +312,34 @@ function ConsoleView() {
   );
 }
 
-function LogEntry({ log }: { log: { timestamp: number; source: string; message: string; level?: string } }) {
+function LogEntry(
+  { log }: {
+    log: { timestamp: number; source: string; message: string; level?: string };
+  },
+) {
   const getTypeColor = (type?: string) => {
     switch (type) {
-      case 'success':
-        return 'text-green-600 dark:text-green-400';
-      case 'warning':
-        return 'text-yellow-600 dark:text-yellow-400';
-      case 'error':
-        return 'text-red-600 dark:text-red-400';
+      case "success":
+        return "text-green-600 dark:text-green-400";
+      case "warning":
+        return "text-yellow-600 dark:text-yellow-400";
+      case "error":
+        return "text-red-600 dark:text-red-400";
       default:
-        return 'text-blue-600 dark:text-blue-400';
+        return "text-blue-600 dark:text-blue-400";
     }
   };
 
   const getTypeIcon = (type?: string) => {
     switch (type) {
-      case 'success':
-        return '✓';
-      case 'warning':
-        return '⚠';
-      case 'error':
-        return '✗';
+      case "success":
+        return "✓";
+      case "warning":
+        return "⚠";
+      case "error":
+        return "✗";
       default:
-        return 'ℹ';
+        return "ℹ";
     }
   };
 
@@ -342,8 +356,14 @@ function LogEntry({ log }: { log: { timestamp: number; source: string; message: 
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-xs uppercase tracking-wide">{log.source}</span>
-          <span className={`text-foreground break-words ${getTypeColor(log.level)}`}>{log.message}</span>
+          <span className="text-muted-foreground text-xs uppercase tracking-wide">
+            {log.source}
+          </span>
+          <span
+            className={`text-foreground break-words ${getTypeColor(log.level)}`}
+          >
+            {log.message}
+          </span>
         </div>
       </div>
     </div>

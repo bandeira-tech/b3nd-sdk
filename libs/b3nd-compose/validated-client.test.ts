@@ -1,8 +1,13 @@
 import { assertEquals } from "@std/assert";
 import { createValidatedClient } from "./validated-client.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
-import { accept, reject, requireFields, msgSchema } from "./validators.ts";
-import type { Schema, Validator, ReadResult, Output } from "../b3nd-core/types.ts";
+import { accept, msgSchema, reject, requireFields } from "./validators.ts";
+import type {
+  Output,
+  ReadResult,
+  Schema,
+  Validator,
+} from "../b3nd-core/types.ts";
 import type { MessageData } from "../b3nd-msg/data/types.ts";
 
 function mem() {
@@ -27,7 +32,10 @@ Deno.test("createValidatedClient - accept validator allows writes", async () => 
 
   const readResults = await client.read("mutable://data/alice");
   assertEquals(readResults[0].success, true);
-  assertEquals((readResults[0].record?.data as Record<string, unknown>)?.name, "Alice");
+  assertEquals(
+    (readResults[0].record?.data as Record<string, unknown>)?.name,
+    "Alice",
+  );
 });
 
 Deno.test("createValidatedClient - reject validator blocks writes", async () => {
@@ -141,7 +149,9 @@ Deno.test("msgSchema - upstream provides sibling outputs, read provides storage"
     if (upstream) {
       const [, envelope] = upstream;
       const msg = envelope as MessageData;
-      siblingFromUpstream = msg.payload.outputs.find(([u]) => u === "mutable://data/sibling");
+      siblingFromUpstream = msg.payload.outputs.find(([u]) =>
+        u === "mutable://data/sibling"
+      );
     }
 
     return { valid: true };
@@ -170,15 +180,29 @@ Deno.test("msgSchema - upstream provides sibling outputs, read provides storage"
     },
   };
 
-  const result = await client.receive(["hash://sha256/test-envelope", envelope]);
+  const result = await client.receive([
+    "hash://sha256/test-envelope",
+    envelope,
+  ]);
   assertEquals(result.accepted, true, `Envelope rejected: ${result.error}`);
 
   // read() should NOT find the sibling (not yet committed to storage)
-  assertEquals(readResult!.success, false, "read() should not find sibling outputs");
+  assertEquals(
+    readResult!.success,
+    false,
+    "read() should not find sibling outputs",
+  );
 
   // upstream should have the sibling from the envelope
-  assertEquals(siblingFromUpstream !== undefined, true, "upstream should have sibling output");
-  assertEquals((siblingFromUpstream![1] as Record<string, unknown>)?.greeting, "hello");
+  assertEquals(
+    siblingFromUpstream !== undefined,
+    true,
+    "upstream should have sibling output",
+  );
+  assertEquals(
+    (siblingFromUpstream![1] as Record<string, unknown>)?.greeting,
+    "hello",
+  );
 });
 
 Deno.test("msgSchema - upstream is undefined for plain writes", async () => {
@@ -237,11 +261,22 @@ Deno.test("msgSchema - upstream is the envelope for inner outputs", async () => 
     },
   };
 
-  const result = await client.receive(["hash://sha256/test-envelope", envelope]);
+  const result = await client.receive([
+    "hash://sha256/test-envelope",
+    envelope,
+  ]);
   assertEquals(result.accepted, true, `Envelope rejected: ${result.error}`);
 
   // Upstream should be the envelope itself
-  assertEquals(receivedUpstream !== undefined, true, "Inner outputs should have upstream");
+  assertEquals(
+    receivedUpstream !== undefined,
+    true,
+    "Inner outputs should have upstream",
+  );
   assertEquals(receivedUpstream![0], "hash://sha256/test-envelope");
-  assertEquals((receivedUpstream![1] as { payload: { outputs: unknown[] } }).payload.outputs.length, 1);
+  assertEquals(
+    (receivedUpstream![1] as { payload: { outputs: unknown[] } }).payload
+      .outputs.length,
+    1,
+  );
 });

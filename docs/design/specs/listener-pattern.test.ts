@@ -13,21 +13,21 @@ import { assertEquals } from "@std/assert";
 
 // Proposed API — these don't exist yet
 import {
-  deriveSigningKeyPairFromSeed,
   deriveEncryptionKeyPairFromSeed,
+  deriveSigningKeyPairFromSeed,
   hmac,
 } from "../../../libs/b3nd-encrypt/mod.ts";
 
 // Existing API
 import {
+  createAuthenticatedMessageWithHex,
+  decrypt,
   deriveKeyFromSeed,
   encrypt,
-  decrypt,
-  sign,
-  verify,
   generateEncryptionKeyPair,
   generateSigningKeyPair,
-  createAuthenticatedMessageWithHex,
+  sign,
+  verify,
 } from "../../../libs/b3nd-encrypt/mod.ts";
 
 import { MemoryClient } from "../../../libs/b3nd-client-memory/mod.ts";
@@ -46,8 +46,10 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
   const clientEncKP = await generateEncryptionKeyPair();
 
   const requestId = "req-001";
-  const inboxUri = `mutable://data/listener/${listenerSigningKP.publicKeyHex}/inbox/${requestId}`;
-  const outboxUri = `mutable://data/listener/${listenerSigningKP.publicKeyHex}/outbox/${requestId}`;
+  const inboxUri =
+    `mutable://data/listener/${listenerSigningKP.publicKeyHex}/inbox/${requestId}`;
+  const outboxUri =
+    `mutable://data/listener/${listenerSigningKP.publicKeyHex}/outbox/${requestId}`;
 
   // Step 1: Client writes encrypted request to listener's inbox
   const request = {
@@ -172,7 +174,8 @@ Deno.test("listener: moderation service writes signed flags", async () => {
   assertEquals(postRead.success, true);
 
   // Moderator evaluates and writes a moderation flag
-  const moderationUri = `mutable://open/moderation/${userSigningKP.publicKeyHex}/post-001`;
+  const moderationUri =
+    `mutable://open/moderation/${userSigningKP.publicKeyHex}/post-001`;
   const moderationFlag = {
     status: "approved",
     postUri: postUri,
@@ -221,11 +224,19 @@ Deno.test("listener: indexing service maintains queryable index", async () => {
 
   await client.receive([
     `mutable://open/posts/${alice.publicKeyHex}/post-001`,
-    await createAuthenticatedMessageWithHex(alicePost, alice.publicKeyHex, alice.privateKeyHex),
+    await createAuthenticatedMessageWithHex(
+      alicePost,
+      alice.publicKeyHex,
+      alice.privateKeyHex,
+    ),
   ]);
   await client.receive([
     `mutable://open/posts/${bob.publicKeyHex}/post-001`,
-    await createAuthenticatedMessageWithHex(bobPost, bob.publicKeyHex, bob.privateKeyHex),
+    await createAuthenticatedMessageWithHex(
+      bobPost,
+      bob.publicKeyHex,
+      bob.privateKeyHex,
+    ),
   ]);
 
   // Indexer builds an index
@@ -253,7 +264,8 @@ Deno.test("listener: indexing service maintains queryable index", async () => {
     indexerSigningKP.privateKeyHex,
   );
 
-  const indexUri = `mutable://open/indexes/${indexerSigningKP.publicKeyHex}/posts`;
+  const indexUri =
+    `mutable://open/indexes/${indexerSigningKP.publicKeyHex}/posts`;
   await client.receive([indexUri, signedIndex]);
 
   // Any client can read the index
@@ -285,8 +297,10 @@ Deno.test("end-to-end: oauth auth request → HMAC response → identity derivat
   // Client setup
   const clientEncKP = await generateEncryptionKeyPair();
   const requestId = "auth-req-001";
-  const inboxUri = `mutable://data/auth/${listenerSigningKP.publicKeyHex}/inbox/${requestId}`;
-  const outboxUri = `mutable://data/auth/${listenerSigningKP.publicKeyHex}/outbox/${requestId}`;
+  const inboxUri =
+    `mutable://data/auth/${listenerSigningKP.publicKeyHex}/inbox/${requestId}`;
+  const outboxUri =
+    `mutable://data/auth/${listenerSigningKP.publicKeyHex}/outbox/${requestId}`;
 
   // Step 1: Client writes auth request
   const mockGoogleSub = "google-user-sub-xyz789";
@@ -365,8 +379,12 @@ Deno.test("end-to-end: oauth auth request → HMAC response → identity derivat
     assertEquals(decryptedResp.type, "oauth-auth-response");
 
     // Derive identity from the secret
-    const signingKeypair = await deriveSigningKeyPairFromSeed(decryptedResp.secret);
-    const encryptionKeypair = await deriveEncryptionKeyPairFromSeed(decryptedResp.secret);
+    const signingKeypair = await deriveSigningKeyPairFromSeed(
+      decryptedResp.secret,
+    );
+    const encryptionKeypair = await deriveEncryptionKeyPairFromSeed(
+      decryptedResp.secret,
+    );
 
     assertEquals(typeof signingKeypair.publicKeyHex, "string");
     assertEquals(signingKeypair.publicKeyHex.length, 64);

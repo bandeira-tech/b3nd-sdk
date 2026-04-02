@@ -28,7 +28,11 @@ Deno.test("computeSha256 — JSON object produces 64-char hex", async () => {
 Deno.test("computeSha256 — same object always produces same hash (deterministic via RFC 8785)", async () => {
   const a = await computeSha256({ b: 2, a: 1 });
   const b = await computeSha256({ a: 1, b: 2 });
-  assertEquals(a, b, "canonicalization must produce identical hashes regardless of key order");
+  assertEquals(
+    a,
+    b,
+    "canonicalization must produce identical hashes regardless of key order",
+  );
 });
 
 Deno.test("computeSha256 — different objects produce different hashes", async () => {
@@ -50,7 +54,11 @@ Deno.test("computeSha256 — string input is canonicalized as JSON", async () =>
   // String "hello" canonicalized is "\"hello\"", not raw "hello"
   const rawBytes = new TextEncoder().encode('"hello"');
   const rawHash = await computeSha256Bytes(rawBytes);
-  assertEquals(hash, rawHash, "string should be canonicalized to JSON string with quotes");
+  assertEquals(
+    hash,
+    rawHash,
+    "string should be canonicalized to JSON string with quotes",
+  );
 });
 
 Deno.test("computeSha256 — number input", async () => {
@@ -72,7 +80,10 @@ Deno.test("computeSha256 — nested object is deterministic", async () => {
 
 // Helper: compute sha256 of raw bytes via crypto.subtle
 async function computeSha256Bytes(data: Uint8Array): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest("SHA-256", new Uint8Array(data));
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    new Uint8Array(data),
+  );
   return Array.from(new Uint8Array(hashBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -118,7 +129,10 @@ Deno.test("isValidSha256Hash — valid 64-char hex", () => {
 
 Deno.test("isValidSha256Hash — case insensitive", () => {
   assertEquals(isValidSha256Hash("A".repeat(64)), true);
-  assertEquals(isValidSha256Hash("aAbBcCdDeEfF0123456789".padEnd(64, "0")), true);
+  assertEquals(
+    isValidSha256Hash("aAbBcCdDeEfF0123456789".padEnd(64, "0")),
+    true,
+  );
 });
 
 Deno.test("isValidSha256Hash — rejects wrong length", () => {
@@ -267,7 +281,11 @@ Deno.test("hashValidator — rejects content that doesn't match hash", async () 
 
 Deno.test("e2e — content-addressed store-and-verify workflow", async () => {
   // 1. Compute hash of content
-  const content = { type: "article", title: "B3nd", body: "Decentralized infrastructure" };
+  const content = {
+    type: "article",
+    title: "B3nd",
+    body: "Decentralized infrastructure",
+  };
   const hash = await computeSha256(content);
 
   // 2. Generate URI

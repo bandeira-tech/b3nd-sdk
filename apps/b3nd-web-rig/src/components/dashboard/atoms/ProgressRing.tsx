@@ -8,7 +8,10 @@ interface ProgressRingProps {
   showPercentage?: boolean;
 }
 
-const sizeConfig: Record<"sm" | "md" | "lg", { size: number; textSize: string }> = {
+const sizeConfig: Record<
+  "sm" | "md" | "lg",
+  { size: number; textSize: string }
+> = {
   sm: { size: 24, textSize: "text-[8px]" },
   md: { size: 40, textSize: "text-xs" },
   lg: { size: 64, textSize: "text-sm" },
@@ -27,7 +30,12 @@ export function ProgressRing({
   const offset = circumference - (progress / 100) * circumference;
 
   return (
-    <div className={cn("relative inline-flex items-center justify-center", className)}>
+    <div
+      className={cn(
+        "relative inline-flex items-center justify-center",
+        className,
+      )}
+    >
       <svg
         width={config.size}
         height={config.size}
@@ -60,7 +68,7 @@ export function ProgressRing({
               ? "text-green-500"
               : progress > 0
               ? "text-primary"
-              : "text-muted"
+              : "text-muted",
           )}
         />
       </svg>
@@ -68,7 +76,7 @@ export function ProgressRing({
         <span
           className={cn(
             "absolute font-medium text-foreground",
-            config.textSize
+            config.textSize,
           )}
         >
           {Math.round(progress)}%

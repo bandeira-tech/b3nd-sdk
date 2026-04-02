@@ -35,7 +35,10 @@ interface DocNode {
   name: string;
   kind: string;
   location: { filename: string; line: number; col: number };
-  jsDoc?: { doc?: string; tags?: Array<{ kind: string; name?: string; doc?: string }> };
+  jsDoc?: {
+    doc?: string;
+    tags?: Array<{ kind: string; name?: string; doc?: string }>;
+  };
   declarationKind?: string;
   functionDef?: FunctionDef;
   classDef?: ClassDef;
@@ -54,7 +57,9 @@ interface FunctionDef {
 
 interface ClassDef {
   constructors?: Array<{ params: Array<{ name: string; tsType?: TsType }> }>;
-  methods?: Array<{ name: string; functionDef?: FunctionDef; accessibility?: string }>;
+  methods?: Array<
+    { name: string; functionDef?: FunctionDef; accessibility?: string }
+  >;
   properties?: Array<{ name: string; tsType?: TsType; readonly?: boolean }>;
   typeParams?: TypeParam[];
   superClass?: string;
@@ -62,8 +67,16 @@ interface ClassDef {
 }
 
 interface InterfaceDef {
-  properties?: Array<{ name: string; tsType?: TsType; readonly?: boolean; optional?: boolean }>;
-  methods?: Array<{ name: string; params?: Array<{ name: string; tsType?: TsType }>; returnType?: TsType }>;
+  properties?: Array<
+    { name: string; tsType?: TsType; readonly?: boolean; optional?: boolean }
+  >;
+  methods?: Array<
+    {
+      name: string;
+      params?: Array<{ name: string; tsType?: TsType }>;
+      returnType?: TsType;
+    }
+  >;
   typeParams?: TypeParam[];
   extends?: TsType[];
 }
@@ -96,8 +109,16 @@ interface TsType {
   union?: TsType[];
   intersection?: TsType[];
   array?: TsType;
-  literal?: { kind: string; string?: string; number?: number; boolean?: boolean };
-  fnOrConstructor?: { params: Array<{ name: string; tsType?: TsType }>; tsType?: TsType };
+  literal?: {
+    kind: string;
+    string?: string;
+    number?: number;
+    boolean?: boolean;
+  };
+  fnOrConstructor?: {
+    params: Array<{ name: string; tsType?: TsType }>;
+    tsType?: TsType;
+  };
   typeLiteral?: { properties?: Array<{ name: string; tsType?: TsType }> };
 }
 
@@ -111,12 +132,16 @@ function renderType(t: TsType | undefined, depth = 0): string {
   if (t.typeRef) {
     const name = t.typeRef.typeName;
     if (t.typeRef.typeParams?.length) {
-      return `${name}<${t.typeRef.typeParams.map((p) => renderType(p, depth + 1)).join(", ")}>`;
+      return `${name}<${
+        t.typeRef.typeParams.map((p) => renderType(p, depth + 1)).join(", ")
+      }>`;
     }
     return name;
   }
   if (t.union) return t.union.map((u) => renderType(u, depth + 1)).join(" | ");
-  if (t.intersection) return t.intersection.map((u) => renderType(u, depth + 1)).join(" & ");
+  if (t.intersection) {
+    return t.intersection.map((u) => renderType(u, depth + 1)).join(" & ");
+  }
   if (t.array) return `${renderType(t.array, depth + 1)}[]`;
   if (t.literal) {
     if (t.literal.kind === "string") return `"${t.literal.string}"`;
@@ -124,14 +149,18 @@ function renderType(t: TsType | undefined, depth = 0): string {
     if (t.literal.kind === "boolean") return String(t.literal.boolean);
   }
   if (t.fnOrConstructor) {
-    const params = t.fnOrConstructor.params.map((p) => `${p.name}: ${renderType(p.tsType, depth + 1)}`).join(", ");
+    const params = t.fnOrConstructor.params.map((p) =>
+      `${p.name}: ${renderType(p.tsType, depth + 1)}`
+    ).join(", ");
     return `(${params}) => ${renderType(t.fnOrConstructor.tsType, depth + 1)}`;
   }
   if (t.repr) return t.repr;
   return "unknown";
 }
 
-function renderParams(params: Array<{ name: string; tsType?: TsType; optional?: boolean }>): string {
+function renderParams(
+  params: Array<{ name: string; tsType?: TsType; optional?: boolean }>,
+): string {
   return params
     .map((p) => {
       const opt = p.optional ? "?" : "";
@@ -149,24 +178,36 @@ function extractSignature(node: DocNode): string {
     case "function": {
       const fn = node.functionDef!;
       const async_ = fn.isAsync ? "async " : "";
-      const typeParams = fn.typeParams?.length ? `<${fn.typeParams.map((t) => t.name).join(", ")}>` : "";
-      return `${async_}function ${node.name}${typeParams}(${renderParams(fn.params)}): ${renderType(fn.returnType)}`;
+      const typeParams = fn.typeParams?.length
+        ? `<${fn.typeParams.map((t) => t.name).join(", ")}>`
+        : "";
+      return `${async_}function ${node.name}${typeParams}(${
+        renderParams(fn.params)
+      }): ${renderType(fn.returnType)}`;
     }
     case "class": {
       const cls = node.classDef!;
-      const typeParams = cls.typeParams?.length ? `<${cls.typeParams.map((t) => t.name).join(", ")}>` : "";
+      const typeParams = cls.typeParams?.length
+        ? `<${cls.typeParams.map((t) => t.name).join(", ")}>`
+        : "";
       const ext = cls.superClass ? ` extends ${cls.superClass}` : "";
       return `class ${node.name}${typeParams}${ext}`;
     }
     case "interface": {
       const iface = node.interfaceDef!;
-      const typeParams = iface.typeParams?.length ? `<${iface.typeParams.map((t) => t.name).join(", ")}>` : "";
-      const ext = iface.extends?.length ? ` extends ${iface.extends.map((t) => renderType(t)).join(", ")}` : "";
+      const typeParams = iface.typeParams?.length
+        ? `<${iface.typeParams.map((t) => t.name).join(", ")}>`
+        : "";
+      const ext = iface.extends?.length
+        ? ` extends ${iface.extends.map((t) => renderType(t)).join(", ")}`
+        : "";
       return `interface ${node.name}${typeParams}${ext}`;
     }
     case "typeAlias": {
       const ta = node.typeAliasDef!;
-      const typeParams = ta.typeParams?.length ? `<${ta.typeParams.map((t) => t.name).join(", ")}>` : "";
+      const typeParams = ta.typeParams?.length
+        ? `<${ta.typeParams.map((t) => t.name).join(", ")}>`
+        : "";
       return `type ${node.name}${typeParams} = ${renderType(ta.tsType)}`;
     }
     case "variable": {
@@ -174,7 +215,8 @@ function extractSignature(node: DocNode): string {
       return `const ${node.name}: ${renderType(v?.tsType)}`;
     }
     case "enum": {
-      const members = node.enumDef?.members?.map((m) => m.name).join(", ") ?? "";
+      const members = node.enumDef?.members?.map((m) => m.name).join(", ") ??
+        "";
       return `enum ${node.name} { ${members} }`;
     }
     default:
@@ -239,16 +281,21 @@ async function processLib(libName: string): Promise<ApiLibrary | null> {
       return null;
     }
 
-    const doc: { nodes: DocNode[] } = JSON.parse(new TextDecoder().decode(stdout));
+    const doc: { nodes: DocNode[] } = JSON.parse(
+      new TextDecoder().decode(stdout),
+    );
     const nodes = doc.nodes ?? [];
 
     // Extract module-level doc
     const moduleDoc = nodes.find((n) => n.kind === "moduleDoc");
-    const moduleDescription = moduleDoc?.jsDoc?.doc?.split(/\n\n/)[0]?.replace(/\n/g, " ").trim() ?? "";
+    const moduleDescription =
+      moduleDoc?.jsDoc?.doc?.split(/\n\n/)[0]?.replace(/\n/g, " ").trim() ?? "";
 
     // Extract exported symbols (skip moduleDoc and re-exports without definitions)
     const symbols: ApiSymbol[] = nodes
-      .filter((n) => n.kind !== "moduleDoc" && n.declarationKind === "export" && n.name)
+      .filter((n) =>
+        n.kind !== "moduleDoc" && n.declarationKind === "export" && n.name
+      )
       .map(nodeToSymbol);
 
     return {
@@ -269,7 +316,11 @@ async function processLib(libName: string): Promise<ApiLibrary | null> {
 // B3nd upload (same pattern as build-learn-books.ts)
 // ---------------------------------------------------------------------------
 
-async function uploadToB3nd(nodeUrl: string, catalog: ApiCatalog, libraries: ApiLibrary[]): Promise<boolean> {
+async function uploadToB3nd(
+  nodeUrl: string,
+  catalog: ApiCatalog,
+  libraries: ApiLibrary[],
+): Promise<boolean> {
   console.log(`\nUploading to B3nd at ${nodeUrl}...`);
 
   try {
@@ -319,19 +370,32 @@ async function ensureDir(dir: string): Promise<void> {
   } catch { /* exists */ }
 }
 
-async function writeStaticFiles(outputDir: string, catalog: ApiCatalog, libraries: ApiLibrary[]): Promise<void> {
+async function writeStaticFiles(
+  outputDir: string,
+  catalog: ApiCatalog,
+  libraries: ApiLibrary[],
+): Promise<void> {
   await ensureDir(outputDir);
 
   // Catalog index
   const catalogJson = JSON.stringify(catalog, null, 2);
   await Deno.writeTextFile(`${outputDir}/catalog.json`, catalogJson);
-  console.log(`\nStatic catalog written to ${outputDir}/catalog.json (${(catalogJson.length / 1024).toFixed(1)} KB)`);
+  console.log(
+    `\nStatic catalog written to ${outputDir}/catalog.json (${
+      (catalogJson.length / 1024).toFixed(1)
+    } KB)`,
+  );
 
   // Per-library detail files (parallel)
   const libsDir = `${outputDir}/libraries`;
   await ensureDir(libsDir);
   await Promise.all(
-    libraries.map((lib) => Deno.writeTextFile(`${libsDir}/${lib.key}.json`, JSON.stringify(lib, null, 2))),
+    libraries.map((lib) =>
+      Deno.writeTextFile(
+        `${libsDir}/${lib.key}.json`,
+        JSON.stringify(lib, null, 2),
+      )
+    ),
   );
   console.log(`  ${libraries.length} library files written to ${libsDir}/`);
 }
@@ -344,7 +408,9 @@ async function main() {
   console.log("=== B3nd API Docs Builder ===\n");
 
   const libNames = await discoverLibs();
-  console.log(`Found ${libNames.length} libraries:\n  ${libNames.join(", ")}\n`);
+  console.log(
+    `Found ${libNames.length} libraries:\n  ${libNames.join(", ")}\n`,
+  );
 
   const results = await Promise.all(libNames.map(processLib));
   const libraries = results.filter((lib): lib is ApiLibrary => lib !== null);
@@ -366,7 +432,8 @@ async function main() {
   };
 
   // Static output
-  const outputDir = Deno.env.get("API_DOCS_OUTPUT_STATIC") ?? "apps/b3nd-web-rig/public/api-docs";
+  const outputDir = Deno.env.get("API_DOCS_OUTPUT_STATIC") ??
+    "apps/b3nd-web-rig/public/api-docs";
   await writeStaticFiles(outputDir, catalog, libraries);
 
   // B3nd upload (skip if B3ND_NODE_URL is explicitly set to empty)

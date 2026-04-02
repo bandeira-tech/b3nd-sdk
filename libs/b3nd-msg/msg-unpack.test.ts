@@ -214,7 +214,11 @@ Deno.test("msgSchema - delegates non-MessageData to plain schema validation", as
   const validator = msgSchema(testSchema);
   const read = async () => ({ success: false as const, error: "not found" });
 
-  const result = await validator(["mutable://open/x", { name: "Alice" }], undefined, read);
+  const result = await validator(
+    ["mutable://open/x", { name: "Alice" }],
+    undefined,
+    read,
+  );
   assertEquals(result.valid, true);
 });
 

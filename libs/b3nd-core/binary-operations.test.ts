@@ -115,7 +115,9 @@ Deno.test({
     const result = await client.receive(["files://images/test.png", pngData]);
     assertEquals(result.accepted, true, "PNG write should succeed");
 
-    const readResults = await client.read<Uint8Array>("files://images/test.png");
+    const readResults = await client.read<Uint8Array>(
+      "files://images/test.png",
+    );
     assertEquals(readResults[0].success, true, "PNG read should succeed");
     assertEquals(
       readResults[0].record?.data instanceof Uint8Array,
@@ -242,7 +244,9 @@ Deno.test({
     const result = await client.receive(["files://fonts/app.woff2", fontData]);
     assertEquals(result.accepted, true, "Font write should succeed");
 
-    const readResults = await client.read<Uint8Array>("files://fonts/app.woff2");
+    const readResults = await client.read<Uint8Array>(
+      "files://fonts/app.woff2",
+    );
     assertEquals(readResults[0].success, true, "Font read should succeed");
 
     const readData = readResults[0].record?.data as Uint8Array;
@@ -272,7 +276,11 @@ Deno.test({
     const readResults = await client.read<Uint8Array>(
       "files://large/bigfile.bin",
     );
-    assertEquals(readResults[0].success, true, "Large file read should succeed");
+    assertEquals(
+      readResults[0].success,
+      true,
+      "Large file read should succeed",
+    );
 
     const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(
@@ -339,7 +347,11 @@ Deno.test({
     assertEquals(result.accepted, true, "Empty binary write should succeed");
 
     const readResults = await client.read<Uint8Array>("files://empty/zero.bin");
-    assertEquals(readResults[0].success, true, "Empty binary read should succeed");
+    assertEquals(
+      readResults[0].success,
+      true,
+      "Empty binary read should succeed",
+    );
 
     const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(readData.length, 0, "Empty binary should have zero length");
@@ -415,9 +427,18 @@ Deno.test({
     assertEquals(results[1].success, true);
     assertEquals(results[2].success, true);
 
-    assertEquals(compareBinary(file1, results[0].record?.data as Uint8Array), true);
-    assertEquals(compareBinary(file2, results[1].record?.data as Uint8Array), true);
-    assertEquals(compareBinary(file3, results[2].record?.data as Uint8Array), true);
+    assertEquals(
+      compareBinary(file1, results[0].record?.data as Uint8Array),
+      true,
+    );
+    assertEquals(
+      compareBinary(file2, results[1].record?.data as Uint8Array),
+      true,
+    );
+    assertEquals(
+      compareBinary(file3, results[2].record?.data as Uint8Array),
+      true,
+    );
   },
 });
 

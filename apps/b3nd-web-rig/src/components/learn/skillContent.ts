@@ -47,7 +47,12 @@ export interface LearnCatalog {
 // Tier configuration
 // ---------------------------------------------------------------------------
 
-export type LearnTier = "guide" | "documentation" | "cookbook" | "design" | "proposals";
+export type LearnTier =
+  | "guide"
+  | "documentation"
+  | "cookbook"
+  | "design"
+  | "proposals";
 
 export interface TierConfig {
   id: LearnTier;
@@ -70,6 +75,9 @@ export function booksByTier(books: LearnBook[], tier: string): LearnBook[] {
   return books.filter((b) => b.tier === tier);
 }
 
-export function findBook(books: LearnBook[], key: string): LearnBook | undefined {
+export function findBook(
+  books: LearnBook[],
+  key: string,
+): LearnBook | undefined {
   return books.find((b) => b.key === key);
 }

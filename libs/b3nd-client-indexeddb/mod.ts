@@ -224,7 +224,9 @@ export class IndexedDBClient implements NodeProtocolInterface {
     }
   }
 
-  public async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+  public async read<T = unknown>(
+    uris: string | string[],
+  ): Promise<ReadResult<T>[]> {
     const uriList = Array.isArray(uris) ? uris : [uris];
     const results: ReadResult<T>[] = [];
 

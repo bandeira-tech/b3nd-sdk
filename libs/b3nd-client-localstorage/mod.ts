@@ -19,7 +19,11 @@ import { decodeBase64, encodeBase64 } from "../b3nd-core/encoding.ts";
 /** Wrap Uint8Array as a JSON-safe marker object for localStorage round-tripping */
 function serializeData(data: unknown): unknown {
   if (data instanceof Uint8Array) {
-    return { __b3nd_binary__: true, encoding: "base64", data: encodeBase64(data) };
+    return {
+      __b3nd_binary__: true,
+      encoding: "base64",
+      data: encodeBase64(data),
+    };
   }
   return data;
 }

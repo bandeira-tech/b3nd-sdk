@@ -73,10 +73,13 @@ Deno.test("read trailing slash: returns results on HTTP 200", async () => {
       });
     }
     // Subsequent calls: _readOne for each URI
-    return new Response(JSON.stringify({ data: { value: callCount }, ts: Date.now() }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ data: { value: callCount }, ts: Date.now() }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   });
 
   try {

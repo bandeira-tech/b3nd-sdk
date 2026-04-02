@@ -9,7 +9,9 @@ import { connection, Identity, MemoryClient, Rig } from "@b3nd/rig";
 
 const id = await Identity.fromSeed("my-secret");
 const rig = new Rig({
-  connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+  connections: [
+    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+  ],
 });
 const session = id.rig(rig);
 
@@ -41,15 +43,15 @@ await rig.receive(["mutable://open/external", { source: "webhook" }]);
 ## Observation
 
 ```typescript
-const results = await rig.read<T>(uri);          // ReadResult<T>[] (always array)
-const results = await rig.read<T>([u1, u2]);     // ReadResult<T>[] (multi)
-const results = await rig.read<T>("prefix/");     // ReadResult<T>[] (trailing slash = list)
+const results = await rig.read<T>(uri); // ReadResult<T>[] (always array)
+const results = await rig.read<T>([u1, u2]); // ReadResult<T>[] (multi)
+const results = await rig.read<T>("prefix/"); // ReadResult<T>[] (trailing slash = list)
 
-await rig.readData<T>(uri);                // T | null (unwrapped)
-await rig.readOrThrow<T>(uri);             // T (throws if missing)
+await rig.readData<T>(uri); // T | null (unwrapped)
+await rig.readOrThrow<T>(uri); // T (throws if missing)
 
-await rig.count(uri);                      // number (trailing-slash count)
-await rig.exists(uri);                     // boolean
+await rig.count(uri); // number (trailing-slash count)
+await rig.exists(uri); // boolean
 ```
 
 ## Encrypted Operations
@@ -94,7 +96,7 @@ Clients declare what URIs they accept per-operation. The rig routes
 automatically.
 
 ```typescript
-import { Rig, connection } from "@b3nd/rig";
+import { connection, Rig } from "@b3nd/rig";
 
 const rig = new Rig({
   connections: [
@@ -118,9 +120,9 @@ const rig = new Rig({
 });
 ```
 
-Writes broadcast to all accepting connections. Reads try accepting
-connections in order (first success wins — put cache before primary).
-Unfiltered clients accept everything (backwards compat).
+Writes broadcast to all accepting connections. Reads try accepting connections
+in order (first success wins — put cache before primary). Unfiltered clients
+accept everything (backwards compat).
 
 Patterns use the same Express-style matching as observe: `:param` captures a
 segment, `*` matches the rest.
@@ -176,7 +178,9 @@ URI-pattern reactions that fire on successful writes (send or receive).
 
 ```typescript
 const rig = new Rig({
-  connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+  connections: [
+    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+  ],
   observe: {
     "mutable://app/users/:id": (uri, data, { id }) => {
       console.log(`User ${id} updated`);

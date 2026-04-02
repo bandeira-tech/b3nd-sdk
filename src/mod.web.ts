@@ -27,17 +27,17 @@ export type {
   NodeProtocolInterface,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
+  Output,
   PersistenceRecord,
+  ReadFn,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
   Schema,
   StatusResult,
-  Output,
-  Validator,
   ValidationResult,
-  ReadFn,
+  Validator,
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
@@ -66,7 +66,10 @@ export { Identity } from "../libs/b3nd-rig/identity.ts";
 export type { ExportedIdentity } from "../libs/b3nd-rig/identity.ts";
 export { Rig } from "../libs/b3nd-rig/rig.ts";
 export { connection } from "../libs/b3nd-rig/connection.ts";
-export type { Connection, ConnectionPatterns } from "../libs/b3nd-rig/connection.ts";
+export type {
+  Connection,
+  ConnectionPatterns,
+} from "../libs/b3nd-rig/connection.ts";
 export type {
   HandlerOptions,
   RigConfig,
