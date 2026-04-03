@@ -265,7 +265,7 @@ export interface SubscribeOptions {
 }
 
 /**
- * Options for rig.handler().
+ * @deprecated Use `HttpApiOptions` from `./http.ts` instead.
  */
 export interface HandlerOptions {
   /** Extra metadata to include in status response. */

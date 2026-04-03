@@ -910,13 +910,13 @@ const client = await createClientFromUrl("postgresql://localhost:5432/mydb", {
 
 const rig = new Rig({ connections: [connection(client, { receive: ["*"], read: ["*"] })], schema: appSchema });
 
-const handler = rig.handler();
+const api = httpApi(rig);
 
 // Deno
-Deno.serve({ port: 9942 }, handler);
+Deno.serve({ port: 9942 }, api);
 
 // Bun
-Bun.serve({ port: 9942, fetch: handler });
+Bun.serve({ port: 9942, fetch: api });
 ```
 
 ---
@@ -952,7 +952,7 @@ const rig = new Rig({
 });
 
 // HTTP requests go through the full pipeline
-Deno.serve({ port: 9942 }, rig.handler());
+Deno.serve({ port: 9942 }, httpApi(rig));
 ```
 
 ---
@@ -1083,7 +1083,7 @@ const rig = new Rig({
   },
 });
 
-Deno.serve({ port: 9942 }, rig.handler());
+Deno.serve({ port: 9942 }, httpApi(rig));
 ```
 
 ---
@@ -1165,7 +1165,7 @@ const rig = new Rig({
   },
 });
 
-Deno.serve({ port: 9942 }, rig.handler());
+Deno.serve({ port: 9942 }, httpApi(rig));
 ```
 
 ---

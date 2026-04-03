@@ -259,15 +259,19 @@ const rig = new Rig({
 });
 ```
 
-## HTTP Handler
+## HTTP API
 
 ```typescript
-const handler = rig.handler({ statusMeta: { version: "1.0" } });
-Deno.serve({ port: 3000 }, handler);
+import { httpApi } from "@b3nd/rig/http";
+
+const api = httpApi(rig, { statusMeta: { version: "1.0" } });
+Deno.serve({ port: 3000 }, api);
 ```
 
-Returns a standard `(Request) => Promise<Response>` with all b3nd API routes.
-Framework-agnostic — plug into Deno.serve, Hono, Express, Cloudflare Workers.
+`httpApi()` is a standalone function — the rig stays pure (orchestration only),
+transport is external. Returns a standard `(Request) => Promise<Response>` with
+all b3nd API routes including SSE subscriptions. Framework-agnostic — plug into
+Deno.serve, Hono, Express, Cloudflare Workers.
 
 ## NodeProtocolInterface
 

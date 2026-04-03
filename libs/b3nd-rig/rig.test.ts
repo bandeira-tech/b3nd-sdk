@@ -8,6 +8,7 @@ import { Rig } from "./rig.ts";
 import { AuthenticatedRig } from "./authenticated-rig.ts";
 import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
 import { connection } from "./connection.ts";
+import { httpApi } from "./http.ts";
 
 // ── Identity tests ──
 
@@ -2421,7 +2422,7 @@ Deno.test({
         connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
-    const requestHandler = await serverRig.handler();
+    const requestHandler = httpApi(serverRig);
 
     // Start a Deno server on a random port
     const server = Deno.serve(
@@ -2438,9 +2439,9 @@ Deno.test({
       // 2. Create a subscriber rig pointing at the server
       const { createClientFromUrl } = await import("./backend-factory.ts");
       const httpClient = await createClientFromUrl(`http://127.0.0.1:${port}`);
+      // sseBaseUrl is auto-detected from the HttpClient connection
       const subscriberRig = new Rig({
         connections: [connection(httpClient, { receive: ["*"], read: ["*"] })],
-        sseBaseUrl: `http://127.0.0.1:${port}`,
       });
 
       // 3. Subscribe to a pattern

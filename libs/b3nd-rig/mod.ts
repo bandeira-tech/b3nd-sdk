@@ -73,9 +73,9 @@ export { matchPattern, ObserveRegistry } from "./observe.ts";
 export { connection } from "./connection.ts";
 export type { Connection, ConnectionPatterns } from "./connection.ts";
 
-// HTTP handler — thin adapter for serving a rig over HTTP
-export { createRigHandler } from "./http-handler.ts";
-export type { RigHandlerOptions } from "./http-handler.ts";
+// HTTP API — standalone function for serving a rig over HTTP
+export { createRigHandler, httpApi } from "./http.ts";
+export type { HttpApiOptions, RigHandlerOptions } from "./http.ts";
 
 // Backend factory
 export {

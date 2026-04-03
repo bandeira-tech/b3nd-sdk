@@ -1,5 +1,5 @@
 /// <reference lib="deno.ns" />
-import { connection, createClientFromUrl, Rig } from "@b3nd/rig";
+import { connection, createClientFromUrl, httpApi, Rig } from "@b3nd/rig";
 import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
 import { parallelBroadcast } from "../../libs/b3nd-combinators/parallel-broadcast.ts";
 import { firstMatchSequence } from "../../libs/b3nd-combinators/first-match-sequence.ts";
@@ -86,8 +86,8 @@ const rig = new Rig({
 
 const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
 
-// The rig produces a generic fetch handler — the app owns the server.
-const b3ndHandler = rig.handler({
+// httpApi() is a standalone function — the rig stays pure, transport is external.
+const b3ndHandler = httpApi(rig, {
   statusMeta: { backends: backendTypes },
 });
 

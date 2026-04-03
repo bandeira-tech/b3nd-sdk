@@ -218,5 +218,5 @@ export type {
   WatchOptions,
 } from "../libs/b3nd-rig/mod.ts";
 
-// Server handler factory — use createRigHandler from @b3nd/rig instead
-export { createRigHandler } from "../libs/b3nd-rig/http-handler.ts";
+// HTTP API — standalone function for serving a rig over HTTP
+export { createRigHandler, httpApi } from "../libs/b3nd-rig/http.ts";

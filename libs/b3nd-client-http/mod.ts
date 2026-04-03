@@ -36,8 +36,12 @@ export class HttpClient implements NodeProtocolInterface {
   private headers: Record<string, string>;
   private timeout: number;
 
+  /** The base URL this client connects to. */
+  readonly url: string;
+
   constructor(config: HttpClientConfig) {
     this.baseUrl = config.url.replace(/\/$/, ""); // Remove trailing slash
+    this.url = this.baseUrl;
     this.headers = config.headers || {};
     this.timeout = config.timeout || 30000;
   }

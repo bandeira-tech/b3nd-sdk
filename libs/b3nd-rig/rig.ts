@@ -39,9 +39,9 @@ import { RigEventEmitter } from "./events.ts";
 import type { ObserveHandler } from "./observe.ts";
 import { ObserveRegistry } from "./observe.ts";
 import type { Connection } from "./connection.ts";
-import { createRigHandler } from "./http-handler.ts";
 import { openSseStream } from "../b3nd-client-http/sse.ts";
 import { matchPattern } from "./observe.ts";
+import { HttpClient } from "../b3nd-client-http/mod.ts";
 
 /**
  * Rig — pure orchestration for b3nd.
@@ -108,7 +108,10 @@ export class Rig {
     this._schema = config.schema ?? null;
     this._validator = this._schema ? msgSchema(this._schema) : null;
     this._hooks = resolveHooks(config.hooks);
-    this._sseBaseUrl = config.sseBaseUrl ?? null;
+
+    // Auto-detect SSE base URL from HttpClient connections
+    this._sseBaseUrl = config.sseBaseUrl ??
+      detectSseBaseUrl(config.connections);
 
     // Build event emitter
     this._events = new RigEventEmitter();
@@ -892,58 +895,23 @@ export class Rig {
     }
     return results;
   }
+}
 
-  // ── Handler ──
+// ── SSE auto-detection ──
 
-  /**
-   * Create an HTTP fetch handler for this rig's client.
-   *
-   * Returns a standard `(Request) => Promise<Response>` function — no
-   * framework, no CORS, no port binding. Plug it into any server:
-   *
-   * @example Deno.serve
-   * ```typescript
-   * const handler = await rig.handler();
-   * Deno.serve({ port: 3000 }, handler);
-   * ```
-   *
-   * @example Hono (add CORS, middleware, etc.)
-   * ```typescript
-   * const app = new Hono();
-   * app.use("*", cors({ origin: "*" }));
-   * const handler = await rig.handler();
-   * app.all("/api/*", (c) => handler(c.req.raw));
-   * ```
-   */
-  /**
-   * Create an HTTP request handler backed by this rig.
-   *
-   * Returns a standard `(Request) => Promise<Response>` — plug it
-   * into `Deno.serve()`, Hono, or any HTTP framework.
-   *
-   * SSE subscriptions are powered by rig events — when `rig.receive()`
-   * or `rig.send()` succeeds, SSE subscribers with matching prefixes
-   * receive the event in real-time. No external subscription bus needed.
-   *
-   * @example Deno.serve
-   * ```typescript
-   * const handler = rig.handler();
-   * Deno.serve({ port: 3000 }, handler);
-   * ```
-   *
-   * @example Hono (add CORS, middleware, etc.)
-   * ```typescript
-   * const app = new Hono();
-   * app.use("*", cors({ origin: "*" }));
-   * const handler = rig.handler();
-   * app.all("/api/*", (c) => handler(c.req.raw));
-   * ```
-   */
-  handler(options?: {
-    statusMeta?: Record<string, unknown>;
-  }): (req: Request) => Promise<Response> {
-    return createRigHandler(this, options);
+/**
+ * Scan connections for the first HttpClient and use its URL as SSE base.
+ *
+ * When a rig's connection points at a remote HTTP server, SSE subscriptions
+ * should use that same server. This avoids requiring manual `sseBaseUrl` config.
+ */
+function detectSseBaseUrl(connections: Connection[]): string | null {
+  for (const conn of connections) {
+    if (conn.client instanceof HttpClient) {
+      return conn.client.url;
+    }
   }
+  return null;
 }
 
 // ── Init helpers ──
