@@ -1,6 +1,6 @@
 #!/bin/bash
 # B3nd Development Environment Launcher
-# Usage: ./dev.sh [--with-postgres] [--full]
+# Usage: ./dev.sh [--with-postgres]
 #
 # By default, starts a minimal setup:
 # - HTTP API Server (port 9942) - B3nd data backend (memory)
@@ -9,7 +9,6 @@
 #
 # Options:
 #   --with-postgres  Use PostgreSQL instead of memory backend
-#   --full           Also start Wallet Server + App Server (requires .env setup)
 
 set -e
 
@@ -25,11 +24,9 @@ NC='\033[0m' # No Color
 
 # Parse arguments
 WITH_POSTGRES=false
-FULL=false
 for arg in "$@"; do
   case $arg in
     --with-postgres) WITH_POSTGRES=true ;;
-    --full) FULL=true ;;
     --minimal) ;; # Backwards compat, now default
   esac
 done
@@ -72,21 +69,6 @@ PORT=9942
 CORS_ORIGIN=*
 EOF
 
-WALLET_ENV=$(mktemp)
-cat > "$WALLET_ENV" << EOF
-PORT=9943
-CREDENTIAL_NODE_URL=http://localhost:9942
-PROXY_NODE_URL=http://localhost:9942
-JWT_SECRET=dev-secret-key-for-local-testing-only-32chars
-JWT_EXPIRATION_SECONDS=86400
-ALLOWED_ORIGINS=http://localhost:5555,http://localhost:3000
-EOF
-
-APP_ENV=$(mktemp)
-cat > "$APP_ENV" << EOF
-PORT=9944
-DATA_NODE_URL=http://localhost:9942
-EOF
 
 echo -e "${GREEN}▶ Starting HTTP API Server (port 9942)...${NC}"
 echo -e "  Backend: $BACKEND_URL"
@@ -96,30 +78,6 @@ echo -e "  Backend: $BACKEND_URL"
   CORS_ORIGIN="*" \
   deno run --watch -A mod.ts 2>&1 | sed 's/^/  [http] /') &
 sleep 2
-
-if $FULL; then
-  # Check if wallet-server has .env with keys
-  if [ ! -f "$ROOT_DIR/apps/wallet-node/.env" ]; then
-    echo -e "${YELLOW}⚠ Wallet server .env not found. Skipping wallet & app servers.${NC}"
-    echo -e "  Run: cd apps/wallet-node && deno run -A scripts/generate-keys.ts"
-    FULL=false
-  else
-    echo -e "${GREEN}▶ Starting Wallet Server (port 9943)...${NC}"
-    (cd "$ROOT_DIR/apps/wallet-node" && \
-      PORT=9943 \
-      CREDENTIAL_NODE_URL=http://localhost:9942 \
-      PROXY_NODE_URL=http://localhost:9942 \
-      deno run --watch -A --env-file src/mod.ts 2>&1 | sed 's/^/  [wallet] /') &
-    sleep 1
-
-    echo -e "${GREEN}▶ Starting App Server (port 9944)...${NC}"
-    (cd "$ROOT_DIR/apps/apps-node" && \
-      PORT=9944 \
-      DATA_NODE_URL=http://localhost:9942 \
-      deno run --watch -A --env-file src/mod.ts 2>&1 | sed 's/^/  [app] /') &
-    sleep 1
-  fi
-fi
 
 echo -e "${GREEN}▶ Starting Dashboard Server (port 5556)...${NC}"
 (cd "$ROOT_DIR/apps/sdk-inspector" && \
@@ -138,10 +96,6 @@ echo -e "${BLUE}╠════════════════════�
 echo -e "${BLUE}║  ${NC}Frontend:   ${GREEN}http://localhost:5555${NC}         ${BLUE}║${NC}"
 echo -e "${BLUE}║  ${NC}Dashboard:  ${GREEN}http://localhost:5555/dashboard${NC}${BLUE}║${NC}"
 echo -e "${BLUE}║  ${NC}HTTP API:   ${GREEN}http://localhost:9942${NC}         ${BLUE}║${NC}"
-if $FULL; then
-echo -e "${BLUE}║  ${NC}Wallet:     ${GREEN}http://localhost:9943${NC}         ${BLUE}║${NC}"
-echo -e "${BLUE}║  ${NC}App Server: ${GREEN}http://localhost:9944${NC}         ${BLUE}║${NC}"
-fi
 echo -e "${BLUE}╠════════════════════════════════════════════╣${NC}"
 echo -e "${BLUE}║  ${NC}Press ${YELLOW}Ctrl+C${NC} to stop all services       ${BLUE}║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"

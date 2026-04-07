@@ -27,18 +27,6 @@ const DEFAULT_CONFIG: HealthConfig = {
       url: "http://localhost:9942",
       healthEndpoint: "/api/v1/health",
     },
-    {
-      id: "wallet-server",
-      name: "Wallet Server (optional)",
-      url: "http://localhost:9943",
-      healthEndpoint: "/api/v1/health",
-    },
-    {
-      id: "app-server",
-      name: "App Server (optional)",
-      url: "http://localhost:9944",
-      healthEndpoint: "/api/v1/health",
-    },
   ],
   pollInterval: 10000, // 10 seconds
 };

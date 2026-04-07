@@ -5,7 +5,7 @@
  */
 
 /**
- * Common interface for wallet clients (WalletClient and MemoryWalletClient)
+ * Common interface for wallet clients.
  *
  * Implement this interface to create custom wallet clients or use
  * for dependency injection in tests.
@@ -13,15 +13,10 @@
  * @example
  * ```typescript
  * function setupApp(wallet: WalletClientInterface) {
- *   // Works with both WalletClient and MemoryWalletClient
  *   await wallet.proxyWrite({ uri: "...", data: {...} });
  * }
  *
- * // Production
  * setupApp(new WalletClient({ walletServerUrl: "...", apiBasePath: "/api/v1" }));
- *
- * // Tests
- * setupApp(await MemoryWalletClient.create());
  * ```
  */
 export interface WalletClientInterface {

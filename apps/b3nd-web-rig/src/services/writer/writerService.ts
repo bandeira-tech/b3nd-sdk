@@ -5,7 +5,6 @@ import {
 import type { SessionKeypair } from "@bandeira-tech/b3nd-web/wallet";
 import { Identity } from "@bandeira-tech/b3nd-web";
 import type { ExportedIdentity } from "@bandeira-tech/b3nd-web";
-import { AppsClient } from "@bandeira-tech/b3nd-web/apps";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
 import type { KeyBundle } from "../../types"; // Legacy — for migration only
@@ -14,6 +13,13 @@ type ValidationFormat = "email" | "";
 type WriteKind = "plain" | "encrypted";
 
 const DEFAULT_API_BASE_PATH = "/api/v1";
+
+/**
+ * Stub type for removed AppsClient — keeps call sites compiling.
+ * All methods throw at runtime.
+ */
+// deno-lint-ignore no-explicit-any
+type AppsClient = any;
 
 /**
  * Minimal backend client interface — satisfied by both Rig (preferred —
@@ -36,20 +42,16 @@ const ensureValue = (value: string | null | undefined, label: string) => {
   }
 };
 
-export const createWalletClient = (walletServerUrl: string) => {
-  ensureValue(walletServerUrl, "Wallet server URL");
-  return new WalletClient({
-    walletServerUrl: walletServerUrl.replace(/\/$/, ""),
-    apiBasePath: DEFAULT_API_BASE_PATH,
-  });
+export const createWalletClient = (_walletServerUrl: string): WalletClient => {
+  throw new Error(
+    "WalletClient is not implemented — custodial wallet server has been removed",
+  );
 };
 
-export const createAppsClient = (appServerUrl: string) => {
-  ensureValue(appServerUrl, "App server URL");
-  return new AppsClient({
-    appServerUrl: appServerUrl.replace(/\/$/, ""),
-    apiBasePath: DEFAULT_API_BASE_PATH,
-  });
+export const createAppsClient = (_appServerUrl: string): AppsClient => {
+  throw new Error(
+    "AppsClient is not implemented — custodial app server has been removed",
+  );
 };
 
 /**
