@@ -23,5 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# Generated learn book JSON (built from markdown sources)
+# Generated data (built from sources, not tracked)
 public/learn/
+public/dashboard/test-results.json
