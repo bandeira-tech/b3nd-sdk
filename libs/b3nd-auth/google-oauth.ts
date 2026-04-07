@@ -6,7 +6,6 @@
  */
 
 import { encodeHex } from "../b3nd-core/encoding.ts";
-import type { HttpFetch } from "./interfaces.ts";
 
 export interface GoogleTokenPayload {
   iss: string; // Issuer (accounts.google.com or https://accounts.google.com)
@@ -44,7 +43,7 @@ let cacheExpiry = 0;
  * Fetch Google's public keys for JWT verification
  */
 async function getGooglePublicKeys(
-  fetchImpl: HttpFetch = fetch,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<GooglePublicKey[]> {
   const now = Date.now();
   if (cachedKeys.length > 0 && now < cacheExpiry) {
@@ -132,7 +131,7 @@ async function importRsaPublicKey(key: GooglePublicKey): Promise<CryptoKey> {
 export async function verifyGoogleIdToken(
   idToken: string,
   clientId: string,
-  fetchImpl: HttpFetch = fetch,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<GoogleTokenPayload> {
   // Split the JWT into parts
   const parts = idToken.split(".");

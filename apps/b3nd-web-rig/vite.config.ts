@@ -17,10 +17,6 @@ export default defineConfig({
         replacement: path.resolve(__dirname, "../../libs/b3nd-wallet/mod.ts"),
       },
       {
-        find: "@bandeira-tech/b3nd-web/apps",
-        replacement: path.resolve(__dirname, "../../libs/b3nd-apps/mod.ts"),
-      },
-      {
         find: "@bandeira-tech/b3nd-web/encrypt",
         replacement: path.resolve(__dirname, "../../libs/b3nd-encrypt/mod.ts"),
       },
@@ -45,7 +41,6 @@ export default defineConfig({
     include: [
       "@bandeira-tech/b3nd-web",
       "@bandeira-tech/b3nd-web/wallet",
-      "@bandeira-tech/b3nd-web/apps",
       "@bandeira-tech/b3nd-web/encrypt",
       "@bandeira-tech/b3nd-web/hash",
       "@bandeira-tech/b3nd-web/clients/http",

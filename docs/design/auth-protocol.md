@@ -254,9 +254,12 @@ token must be verified against the provider's keys, and a deterministic secret
 must be derived. The question isn't whether to trust someone, but **how much**
 to trust them.
 
-### Model A: Custodial (Wallet Server)
+### Model A: Custodial (Wallet Server) — removed
 
-The existing `libs/b3nd-wallet-server/` implements this model.
+> **Note:** The custodial wallet server has been removed from the codebase. This
+> section is kept for architectural reference only.
+
+Previously implemented in `libs/b3nd-wallet-server/`.
 
 ```
 User ──credentials──> Wallet Server ──signs on behalf──> Firecat

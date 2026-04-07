@@ -38,14 +38,6 @@
 // Export main client
 export { generateSessionKeypair, WalletClient } from "./client.ts";
 
-// Export in-memory client for testing
-export { generateTestServerKeys, MemoryWalletClient } from "./memory-client.ts";
-export type { MemoryWalletClientConfig } from "./memory-client.ts";
-
-// Export test utilities
-export { createTestEnvironment } from "./testing.ts";
-export type { TestEnvironment, TestEnvironmentConfig } from "./testing.ts";
-
 // Export all types
 export type {
   ApiResponse,
