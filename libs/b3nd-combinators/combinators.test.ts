@@ -8,7 +8,7 @@
 
 import { assertEquals } from "@std/assert";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
-import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
 import { parallelBroadcast } from "./parallel-broadcast.ts";
 import { firstMatchSequence } from "./first-match-sequence.ts";
 
@@ -22,6 +22,13 @@ function rejectingClient(): NodeProtocolInterface {
         success: false as const,
         error: "not supported",
       }));
+    },
+    // deno-lint-ignore require-yield
+    async *observe<T = unknown>(
+      _pattern: string,
+      _signal: AbortSignal,
+    ): AsyncIterable<ReadResult<T>> {
+      // Not implemented.
     },
     status: async () => ({ status: "unhealthy" as const }),
   };

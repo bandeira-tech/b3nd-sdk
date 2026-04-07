@@ -24,11 +24,8 @@ const config: HostConfig = {
 // ── Rig & Server ─────────────────────────────────────────────────────
 
 const backendClient = await createClientFromUrl(BACKEND_URL);
-const isHttp = BACKEND_URL.startsWith("http://") ||
-  BACKEND_URL.startsWith("https://");
 const rig = new Rig({
   connections: [connection(backendClient, { receive: ["*"], read: ["*"] })],
-  ...(isHttp ? { sseBaseUrl: BACKEND_URL.replace(/\/$/, "") } : {}),
 });
 rig.on("read:error", (e) => {
   console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);

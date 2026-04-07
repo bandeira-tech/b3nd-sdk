@@ -6,7 +6,7 @@
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
 import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
-import type { ObserveHandler } from "./observe.ts";
+import type { ReactionHandler } from "./reactions.ts";
 import type { Connection } from "./connection.ts";
 
 /**
@@ -128,12 +128,6 @@ export interface RigConfig {
   schema?: Schema;
 
   /**
-   * SSE base URL for pattern subscriptions.
-   * Set explicitly when the first connection is backed by an HTTP client.
-   */
-  sseBaseUrl?: string;
-
-  /**
    * Hooks — frozen after construction, one function per slot.
    *
    * Before-hooks **throw** to reject (no silent aborts).
@@ -181,7 +175,7 @@ export interface RigConfig {
    * ```typescript
    * const rig = new Rig({
    *   connections: [...],
-   *   observe: {
+   *   reactions: {
    *     "mutable://app/users/:id": (uri, data, { id }) => {
    *       console.log(`User ${id} updated`);
    *     },
@@ -189,7 +183,7 @@ export interface RigConfig {
    * });
    * ```
    */
-  observe?: Record<string, ObserveHandler>;
+  reactions?: Record<string, ReactionHandler>;
 }
 
 /**
@@ -203,7 +197,7 @@ export interface RigInfo {
   behavior: {
     hooks: string[];
     events: Record<string, number>;
-    observers: number;
+    reactors: number;
   };
 }
 
@@ -235,33 +229,6 @@ export interface WatchAllSnapshot<T = unknown> {
   removed: string[];
   /** URIs whose data changed since the last snapshot. */
   changed: string[];
-}
-
-/**
- * Cleanup function returned by subscribe() — call to stop watching.
- */
-export type Unsubscribe = () => void;
-
-/**
- * Handler for pattern-based subscriptions.
- *
- * Same shape as ObserveHandler — receives the URI, data, and extracted
- * params from the pattern match.
- */
-export type SubscribeHandler<T = unknown> = (
-  uri: string,
-  data: T,
-  params: Record<string, string>,
-) => void | Promise<void>;
-
-/**
- * Options for pattern-based subscriptions.
- */
-export interface SubscribeOptions {
-  /** Polling interval in ms (used as fallback when SSE is unavailable). Default: 2000. */
-  intervalMs?: number;
-  /** Abort signal to stop the subscription. */
-  signal?: AbortSignal;
 }
 
 /**

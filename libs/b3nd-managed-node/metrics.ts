@@ -6,7 +6,10 @@
  *   mutable://accounts/{nodeKey}/metrics
  */
 
-import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import type {
+  NodeProtocolInterface,
+  ReadResult,
+} from "@bandeira-tech/b3nd-sdk";
 import { createSignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { SignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { NodeMetrics } from "./types.ts";
@@ -136,6 +139,13 @@ export function createMetricsCollector(
           collector.recordError();
           throw err;
         }
+      },
+      // deno-lint-ignore require-yield
+      async *observe<T = unknown>(
+        _pattern: string,
+        _signal: AbortSignal,
+      ): AsyncIterable<ReadResult<T>> {
+        // Not implemented.
       },
       status: () => client.status(),
     };

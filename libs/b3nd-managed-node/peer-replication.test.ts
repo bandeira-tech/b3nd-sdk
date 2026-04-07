@@ -1,6 +1,9 @@
 import { assertEquals } from "@std/assert";
 import { bestEffortClient, createPeerClients } from "./peer-replication.ts";
-import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import type {
+  NodeProtocolInterface,
+  ReadResult,
+} from "@bandeira-tech/b3nd-sdk";
 import type { PeerSpec } from "./types.ts";
 
 // ── Stub client that records calls ─────────────────────────────────
@@ -28,6 +31,13 @@ function createStubClient(opts?: {
     async status() {
       calls.push("status");
       return { status: "healthy" as const, schemas: [] };
+    },
+    // deno-lint-ignore require-yield
+    async *observe<T = unknown>(
+      _pattern: string,
+      _signal: AbortSignal,
+    ): AsyncIterable<ReadResult<T>> {
+      // Not implemented.
     },
   };
 }

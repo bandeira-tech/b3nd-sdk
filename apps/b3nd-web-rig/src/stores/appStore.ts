@@ -155,7 +155,6 @@ async function createBackendFromUrl(
   const client = await createClientFromUrl(baseUrl);
   const rig = new Rig({
     connections: [connection(client, { receive: ["*"], read: ["*"] })],
-    sseBaseUrl: baseUrl.replace(/\/$/, ""),
   });
 
   // Wire rig events → bottom-panel log
@@ -384,7 +383,6 @@ export const useAppStore = create<AppStore>()(
               connections: [
                 connection(newClient, { receive: ["*"], read: ["*"] }),
               ],
-              sseBaseUrl: baseUrl.replace(/\/$/, ""),
             });
             // Transfer existing identity to new rig
             if (state.rig?.identity) {

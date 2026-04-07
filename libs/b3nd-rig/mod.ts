@@ -41,9 +41,6 @@ export type {
   RigConfig,
   RigInfo,
   S3ExecutorFactory as S3Executor,
-  SubscribeHandler,
-  SubscribeOptions,
-  Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,
@@ -65,9 +62,9 @@ export { resolveHooks, runAfter, runBefore } from "./hooks.ts";
 export type { EventHandler, RigEvent, RigEventName } from "./events.ts";
 export { RigEventEmitter } from "./events.ts";
 
-// Observe
-export type { ObserveHandler } from "./observe.ts";
-export { matchPattern, ObserveRegistry } from "./observe.ts";
+// Reactions — local write-reactions (fire-and-forget pattern matching)
+export type { ReactionHandler } from "./reactions.ts";
+export { matchPattern, ReactionRegistry } from "./reactions.ts";
 
 // Connections — the single filtering primitive
 export { connection } from "./connection.ts";

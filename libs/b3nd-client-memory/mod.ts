@@ -61,6 +61,11 @@ function target(
 export class MemoryClient implements NodeProtocolInterface {
   protected storage: MemoryClientStorage;
 
+  /** Internal write listeners for observe(). */
+  private _writeListeners = new Set<
+    (uri: string, data: unknown, ts: number) => void
+  >();
+
   constructor(config: MemoryClientConfig = {}) {
     this.storage = config.storage || new Map();
   }
@@ -99,6 +104,11 @@ export class MemoryClient implements NodeProtocolInterface {
     });
 
     prev.value = record;
+
+    // Notify observe listeners
+    for (const listener of this._writeListeners) {
+      listener(uri, data, record.ts);
+    }
 
     // If MessageData, also store each output at its own URI
     if (isMessageData(data)) {
@@ -203,6 +213,49 @@ export class MemoryClient implements NodeProtocolInterface {
     }
 
     return results;
+  }
+
+  async *observe<T = unknown>(
+    pattern: string,
+    signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    const { matchPattern } = await import("../b3nd-core/match-pattern.ts");
+    const segments = pattern.split("/");
+
+    // Yield matching writes as they arrive
+    while (!signal.aborted) {
+      const result = await new Promise<ReadResult<T> | null>((resolve) => {
+        // Resolve when aborted
+        const onAbort = () => {
+          cleanup();
+          resolve(null);
+        };
+
+        const listener = (uri: string, data: unknown, ts: number) => {
+          const params = matchPattern(segments, uri);
+          if (params !== null) {
+            cleanup();
+            resolve({
+              success: true,
+              uri,
+              record: { data: data as T, ts },
+              params,
+            } as ReadResult<T>);
+          }
+        };
+
+        const cleanup = () => {
+          this._writeListeners.delete(listener);
+          signal.removeEventListener("abort", onAbort);
+        };
+
+        signal.addEventListener("abort", onAbort, { once: true });
+        this._writeListeners.add(listener);
+      });
+
+      if (result === null) break; // aborted
+      yield result;
+    }
   }
 
   public status(): Promise<StatusResult> {

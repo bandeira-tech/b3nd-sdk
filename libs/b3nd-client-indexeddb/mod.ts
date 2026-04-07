@@ -325,6 +325,14 @@ export class IndexedDBClient implements NodeProtocolInterface {
     }
   }
 
+  // deno-lint-ignore require-yield
+  async *observe<T = unknown>(
+    _pattern: string,
+    _signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    // Not implemented — observe requires transport-specific support.
+  }
+
   public async status(): Promise<StatusResult> {
     try {
       const db = await this.initDB();

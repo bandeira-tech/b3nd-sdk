@@ -8,6 +8,7 @@
 import {
   HttpClient,
   type NodeProtocolInterface,
+  type ReadResult,
 } from "@bandeira-tech/b3nd-sdk";
 import type { PeerSpec } from "./types.ts";
 
@@ -59,6 +60,13 @@ export function bestEffortClient(
       }
     },
     read: (uris) => client.read(uris),
+    // deno-lint-ignore require-yield
+    async *observe<T = unknown>(
+      _pattern: string,
+      _signal: AbortSignal,
+    ): AsyncIterable<ReadResult<T>> {
+      // Not implemented.
+    },
     status: () => client.status(),
   };
 }

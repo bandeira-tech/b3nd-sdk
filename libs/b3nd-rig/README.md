@@ -68,7 +68,7 @@ await session.sendEncrypted(
 const secret = await session.readEncrypted<T>(uri);
 ```
 
-## Reactive
+## Reactionsive
 
 ```typescript
 // Watch a URI for changes (polling with dedup)
@@ -85,9 +85,11 @@ for await (
   );
 }
 
-// Callback style
-const unsub = rig.subscribe<T>(uri, (value) => render(value));
-unsub(); // stop
+// Real-time observe (routed to client's native transport)
+const abort = new AbortController();
+for await (const result of rig.observe<T>("mutable://app/*", abort.signal)) {
+  console.log(result.uri, result.record?.data);
+}
 ```
 
 ## Connections
@@ -172,7 +174,7 @@ rig.off("receive:success", handler); // remove by reference
 Event names: `send:success`, `send:error`, `receive:success`, `receive:error`,
 `read:success`, `read:error`, `*:success`, `*:error`.
 
-## Observe
+## Reactions
 
 URI-pattern reactions that fire on successful writes (send or receive).
 
@@ -181,7 +183,7 @@ const rig = new Rig({
   connections: [
     connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
   ],
-  observe: {
+  reactions: {
     "mutable://app/users/:id": (uri, data, { id }) => {
       console.log(`User ${id} updated`);
     },
@@ -192,7 +194,7 @@ const rig = new Rig({
 });
 
 // Runtime registration
-const unsub = rig.observe(
+const unsub = rig.reaction(
   "mutable://app/posts/:slug",
   (uri, data, { slug }) => {
     rebuildIndex(slug);

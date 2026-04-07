@@ -11,7 +11,7 @@
  *   GET  /api/v1/status            → rig.status()
  *   POST /api/v1/receive           → rig.receive([uri, data])
  *   GET  /api/v1/read/:uri         → rig.read(uri)
- *   GET  /api/v1/subscribe/:uri    → SSE stream from rig events
+ *   GET  /api/v1/observe/:pattern   → SSE stream from rig events
  *
  * @example
  * ```ts
@@ -273,9 +273,9 @@ export function httpApi(
       });
     }
 
-    // ── SSE Subscribe ──
-    if (method === "GET" && path.startsWith("/api/v1/subscribe/")) {
-      const uri = extractUri(path, "/api/v1/subscribe/");
+    // ── SSE Observe ──
+    if (method === "GET" && path.startsWith("/api/v1/observe/")) {
+      const uri = extractUri(path, "/api/v1/observe/");
       if (!uri) return json({ error: "Invalid URI" }, 400);
 
       const since = Number(url.searchParams.get("since") || "0");

@@ -23,6 +23,10 @@ export interface FunctionalClientConfig {
     msg: Message<D>,
   ) => Promise<ReceiveResult>;
   read?: <T = unknown>(uris: string | string[]) => Promise<ReadResult<T>[]>;
+  observe?: <T = unknown>(
+    pattern: string,
+    signal: AbortSignal,
+  ) => AsyncIterable<ReadResult<T>>;
   status?: () => Promise<StatusResult>;
 }
 
@@ -66,6 +70,16 @@ export class FunctionalClient implements NodeProtocolInterface {
         ({ success: false, error: "not implemented" }) as ReadResult<T>
       ),
     );
+  }
+
+  async *observe<T = unknown>(
+    pattern: string,
+    signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    if (this.config.observe) {
+      yield* this.config.observe<T>(pattern, signal);
+    }
+    // No observe config → empty stream (never yields)
   }
 
   status(): Promise<StatusResult> {

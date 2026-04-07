@@ -7,7 +7,7 @@
  * (inward from external sources). Everything else is observation.
  *
  * Supports per-operation client routing, synchronous hooks
- * (pre/post), async events, and URI-pattern observe reactions.
+ * (pre/post), async events, and URI-pattern react reactions.
  */
 
 import type {
@@ -25,9 +25,6 @@ import { msgSchema } from "../b3nd-compose/validators.ts";
 import type {
   RigConfig,
   RigInfo,
-  SubscribeHandler,
-  SubscribeOptions,
-  Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,
@@ -36,12 +33,9 @@ import type { ReadCtx, ReceiveCtx, RigHooks, SendCtx } from "./hooks.ts";
 import { resolveHooks, runAfter, runBefore } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import { RigEventEmitter } from "./events.ts";
-import type { ObserveHandler } from "./observe.ts";
-import { ObserveRegistry } from "./observe.ts";
+import type { ReactionHandler } from "./reactions.ts";
+import { ReactionRegistry } from "./reactions.ts";
 import type { Connection } from "./connection.ts";
-import { openSseStream } from "../b3nd-client-http/sse.ts";
-import { matchPattern } from "./observe.ts";
-import { HttpClient } from "../b3nd-client-http/mod.ts";
 
 /**
  * Rig — pure orchestration for b3nd.
@@ -66,7 +60,7 @@ import { HttpClient } from "../b3nd-client-http/mod.ts";
  * await session.send({ inputs: [], outputs: [["mutable://app/key", data]] });
  * ```
  *
- * @example With schema, hooks, events, and observe
+ * @example With schema, hooks, events, and react
  * ```typescript
  * const rig = new Rig({
  *   connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
@@ -78,7 +72,7 @@ import { HttpClient } from "../b3nd-client-http/mod.ts";
  *   on: {
  *     "send:success": [audit],
  *   },
- *   observe: {
+ *   reactions: {
  *     "mutable://app/users/:id": (uri, data, { id }) => {
  *       console.log(`User ${id} updated`);
  *     },
@@ -88,14 +82,13 @@ import { HttpClient } from "../b3nd-client-http/mod.ts";
  */
 export class Rig {
   // ── Internal state ──
+  private readonly _connections: Connection[];
   private readonly _dispatch: NodeProtocolInterface;
   private readonly _schema: Schema | null;
   private readonly _validator: Validator | null;
   private readonly _hooks: RigHooks;
   private readonly _events: RigEventEmitter;
-  private readonly _observers: ObserveRegistry;
-  /** Base URL for SSE subscriptions. */
-  private readonly _sseBaseUrl: string | null;
+  private readonly _reactors: ReactionRegistry;
 
   constructor(config: RigConfig) {
     if (!config.connections || config.connections.length === 0) {
@@ -104,14 +97,11 @@ export class Rig {
       );
     }
 
+    this._connections = config.connections;
     this._dispatch = createConnectionDispatch(config.connections);
     this._schema = config.schema ?? null;
     this._validator = this._schema ? msgSchema(this._schema) : null;
     this._hooks = resolveHooks(config.hooks);
-
-    // Auto-detect SSE base URL from HttpClient connections
-    this._sseBaseUrl = config.sseBaseUrl ??
-      detectSseBaseUrl(config.connections);
 
     // Build event emitter
     this._events = new RigEventEmitter();
@@ -125,17 +115,17 @@ export class Rig {
       }
     }
 
-    // Build observe registry
-    this._observers = new ObserveRegistry();
-    if (config.observe) {
-      for (const [pattern, handler] of Object.entries(config.observe)) {
-        this._observers.add(pattern, handler);
+    // Build react registry
+    this._reactors = new ReactionRegistry();
+    if (config.reactions) {
+      for (const [pattern, handler] of Object.entries(config.reactions)) {
+        this._reactors.add(pattern, handler);
       }
     }
   }
 
   /**
-   * Raw composite client — bypasses hooks, events, and observe.
+   * Raw composite client — bypasses hooks, events, and react.
    *
    * Prefer passing the Rig itself (it satisfies `NodeProtocolInterface`).
    * This getter exists for third-party code that requires a plain object.
@@ -145,6 +135,7 @@ export class Rig {
     return {
       receive: (msg) => d.receive(msg),
       read: (uris) => d.read(uris),
+      observe: (pattern, signal) => d.observe(pattern, signal),
       status: () => d.status(),
     };
   }
@@ -196,7 +187,7 @@ export class Rig {
     // After-hook — observe only
     await runAfter(this._hooks.afterSend, sendCtx, result);
 
-    // Events + observe
+    // Events + react
     if (result.accepted) {
       this._events.emit("send:success", {
         op: "send",
@@ -206,7 +197,7 @@ export class Rig {
         ts: Date.now(),
       });
       for (const [outputUri, outputData] of messageData.payload.outputs) {
-        this._observers.match(outputUri, outputData);
+        this._reactors.match(outputUri, outputData);
       }
     } else {
       this._events.emit("send:error", {
@@ -286,7 +277,7 @@ export class Rig {
     // After-hook — observe only
     await runAfter(this._hooks.afterReceive, recvCtx, result);
 
-    // Events + observe
+    // Events + react
     if (result.accepted) {
       this._events.emit("receive:success", {
         op: "receive",
@@ -295,7 +286,7 @@ export class Rig {
         result,
         ts: Date.now(),
       });
-      this._observers.match(finalUri, finalData);
+      this._reactors.match(finalUri, finalData);
     } else {
       this._events.emit("receive:error", {
         op: "receive",
@@ -427,6 +418,42 @@ export class Rig {
       .filter(Boolean);
   }
 
+  // ── Observe (client-backed streaming) ──
+
+  /**
+   * Observe changes matching a URI pattern.
+   *
+   * Routes to the first connection that accepts `observe` for the pattern,
+   * then delegates to the client's native transport (SSE, internal events, etc).
+   *
+   * @example
+   * ```typescript
+   * const abort = new AbortController();
+   * for await (const result of rig.observe("mutable://data/market/*", abort.signal)) {
+   *   console.log(result.uri, result.record?.data);
+   * }
+   * ```
+   */
+  async *observe<T = unknown>(
+    pattern: string,
+    signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    // Strip :param and * segments to get the matchable prefix
+    const segments = pattern.split("/");
+    const matchUri = segments
+      .filter((s) => !s.startsWith(":") && s !== "*")
+      .join("/");
+
+    // Find the first connection that accepts observe for this prefix
+    for (const conn of this._connections) {
+      if (conn.accepts("observe", matchUri)) {
+        yield* conn.client.observe<T>(pattern, signal);
+        return;
+      }
+    }
+    // No connection accepts observe — empty stream
+  }
+
   // ── Inspection ──
 
   /**
@@ -437,9 +464,8 @@ export class Rig {
    * @example
    * ```typescript
    * const info = rig.info();
-   * console.log(info.pubkey);     // "ab12..." or null
-   * console.log(info.canSign);    // true
-   * console.log(info.canEncrypt); // true
+   * console.log(info.behavior.hooks);
+   * console.log(info.behavior.reactors);
    * ```
    */
   info(): RigInfo {
@@ -456,7 +482,7 @@ export class Rig {
       behavior: {
         hooks,
         events: this._events.counts(),
-        observers: this._observers.size,
+        reactors: this._reactors.size,
       },
     };
   }
@@ -482,7 +508,7 @@ export class Rig {
     return this._events.pending();
   }
 
-  // ── Runtime API: events, observe ──
+  // ── Runtime API: events, react ──
   // Hooks are immutable after init — see createHookChains().
 
   /**
@@ -508,14 +534,14 @@ export class Rig {
   }
 
   /**
-   * Register an observe pattern at runtime. Returns an unsubscribe function.
+   * Register a react pattern at runtime. Returns an unsubscribe function.
    *
    * Fires on successful `send()` or `receive()` when the written URI
-   * matches the pattern.
+   * matches the pattern. Fire-and-forget — errors are caught and logged.
    *
    * @example
    * ```typescript
-   * const unsub = rig.observe("mutable://app/users/:id", (uri, data, { id }) => {
+   * const unsub = rig.reaction("mutable://app/users/:id", (uri, data, { id }) => {
    *   console.log(`User ${id} updated:`, data);
    * });
    *
@@ -523,8 +549,8 @@ export class Rig {
    * unsub();
    * ```
    */
-  observe(pattern: string, handler: ObserveHandler): () => void {
-    return this._observers.add(pattern, handler);
+  reaction(pattern: string, handler: ReactionHandler): () => void {
+    return this._reactors.add(pattern, handler);
   }
 
   // ── Reactive ──
@@ -670,207 +696,6 @@ export class Rig {
   }
 
   /**
-   * Subscribe to changes at a URI or URI pattern.
-   *
-   * **Single URI** (legacy): wraps `watch()` into callback style.
-   * **URI pattern**: uses SSE when available, falls back to polling.
-   * Patterns use Express-style matching: `:param` captures a segment,
-   * `*` matches the rest.
-   *
-   * @example Single URI
-   * ```typescript
-   * const unsub = rig.subscribe<UserProfile>(
-   *   "mutable://app/users/alice",
-   *   (value) => setProfile(value),
-   *   { intervalMs: 2000 },
-   * );
-   * ```
-   *
-   * @example URI pattern (fires for any matching write)
-   * ```typescript
-   * const unsub = rig.subscribe<MarketMessage>(
-   *   "mutable://data/market/X/:msgId",
-   *   (uri, data, { msgId }) => {
-   *     console.log(`New message ${msgId}:`, data);
-   *   },
-   * );
-   * ```
-   */
-  subscribe<T = unknown>(
-    uri: string,
-    callback: (value: T | null) => void,
-    options?: SubscribeOptions,
-  ): Unsubscribe;
-  subscribe<T = unknown>(
-    pattern: string,
-    handler: SubscribeHandler<T>,
-    options?: SubscribeOptions,
-  ): Unsubscribe;
-  subscribe<T = unknown>(
-    uriOrPattern: string,
-    handler:
-      | ((value: T | null) => void)
-      | SubscribeHandler<T>,
-    options?: SubscribeOptions,
-  ): Unsubscribe {
-    // Detect pattern vs single URI — patterns have :param or *
-    const isPattern = uriOrPattern.includes("/:") ||
-      uriOrPattern.endsWith("/*");
-
-    if (isPattern) {
-      return this._subscribePattern<T>(
-        uriOrPattern,
-        handler as SubscribeHandler<T>,
-        options,
-      );
-    }
-
-    // Legacy single-URI subscribe via watch()
-    const abort = new AbortController();
-    const opts: WatchOptions = {
-      intervalMs: options?.intervalMs,
-      signal: options?.signal ?? abort.signal,
-    };
-    const callback = handler as (value: T | null) => void;
-
-    (async () => {
-      for await (const value of this.watch<T>(uriOrPattern, opts)) {
-        if (abort.signal.aborted) break;
-        callback(value);
-      }
-    })();
-
-    return () => abort.abort();
-  }
-
-  /** Pattern-based subscription — SSE when available, polling fallback. */
-  private _subscribePattern<T>(
-    pattern: string,
-    handler: SubscribeHandler<T>,
-    options?: SubscribeOptions,
-  ): Unsubscribe {
-    const abort = new AbortController();
-    const signal = options?.signal;
-    const patternSegments = pattern.split("/");
-
-    // Link external signal to our abort
-    if (signal) {
-      signal.addEventListener("abort", () => abort.abort(), { once: true });
-    }
-
-    // Extract prefix from pattern (strip :param and * segments)
-    const prefix = patternSegments
-      .filter((s) => !s.startsWith(":") && s !== "*")
-      .join("/");
-
-    if (this._sseBaseUrl) {
-      // SSE transport — real-time push
-      this._subscribeSse<T>(
-        prefix,
-        patternSegments,
-        handler,
-        abort,
-      );
-    } else {
-      // Polling fallback
-      this._subscribePoll<T>(
-        prefix,
-        patternSegments,
-        handler,
-        options?.intervalMs ?? 2000,
-        abort,
-      );
-    }
-
-    return () => abort.abort();
-  }
-
-  /** SSE-based subscription. */
-  private _subscribeSse<T>(
-    prefix: string,
-    patternSegments: string[],
-    handler: SubscribeHandler<T>,
-    abort: AbortController,
-  ): void {
-    // Convert URI prefix to SSE endpoint path
-    // "mutable://data/market/X" → "/api/v1/subscribe/mutable/data/market/X"
-    const uriPath = prefix.replace("://", "/");
-    const url = `${this._sseBaseUrl}/api/v1/subscribe/${uriPath}`;
-
-    (async () => {
-      try {
-        for await (
-          const event of openSseStream(url, { signal: abort.signal })
-        ) {
-          if (abort.signal.aborted) break;
-          const params = matchPattern(patternSegments, event.uri);
-          if (params !== null) {
-            try {
-              await handler(event.uri, event.data as T, params);
-            } catch (err) {
-              console.warn(
-                `[rig] subscribe handler error for "${event.uri}":`,
-                err,
-              );
-            }
-          }
-        }
-      } catch {
-        // Stream ended or aborted
-      }
-    })();
-  }
-
-  /** Polling-based subscription fallback. */
-  private _subscribePoll<T>(
-    prefix: string,
-    patternSegments: string[],
-    handler: SubscribeHandler<T>,
-    intervalMs: number,
-    abort: AbortController,
-  ): void {
-    const seen = new Set<string>();
-
-    (async () => {
-      while (!abort.signal.aborted) {
-        try {
-          const uris = await this.listData(prefix);
-          for (const uri of uris) {
-            if (seen.has(uri)) continue;
-            seen.add(uri);
-
-            const params = matchPattern(patternSegments, uri);
-            if (params === null) continue;
-
-            const data = await this.readData<T>(uri);
-            if (data !== null) {
-              try {
-                await handler(uri, data, params);
-              } catch (err) {
-                console.warn(
-                  `[rig] subscribe handler error for "${uri}":`,
-                  err,
-                );
-              }
-            }
-          }
-        } catch {
-          // List/read failed — retry on next poll
-        }
-
-        // Wait for next poll or abort
-        await new Promise<void>((resolve) => {
-          const timer = setTimeout(resolve, intervalMs);
-          abort.signal.addEventListener("abort", () => {
-            clearTimeout(timer);
-            resolve();
-          }, { once: true });
-        });
-      }
-    })();
-  }
-
-  /**
    * Send multiple pre-built MessageData envelopes in sequence.
    *
    * Each entry becomes its own content-hashed envelope. Use
@@ -897,23 +722,6 @@ export class Rig {
   }
 }
 
-// ── SSE auto-detection ──
-
-/**
- * Scan connections for the first HttpClient and use its URL as SSE base.
- *
- * When a rig's connection points at a remote HTTP server, SSE subscriptions
- * should use that same server. This avoids requiring manual `sseBaseUrl` config.
- */
-function detectSseBaseUrl(connections: Connection[]): string | null {
-  for (const conn of connections) {
-    if (conn.client instanceof HttpClient) {
-      return conn.client.url;
-    }
-  }
-  return null;
-}
-
 // ── Init helpers ──
 
 /**
@@ -922,6 +730,7 @@ function detectSseBaseUrl(connections: Connection[]): string | null {
  * Each operation is routed through connections:
  * - Writes (receive): broadcast to ALL matching connections.
  * - Reads (read): first-match in declaration order.
+ * - Observe: first-match in declaration order (client handles transport).
  * - Status: aggregate across unique clients.
  */
 function createConnectionDispatch(
@@ -979,6 +788,24 @@ function createConnectionDispatch(
       }
 
       return allResults;
+    },
+
+    async *observe<T = unknown>(
+      pattern: string,
+      signal: AbortSignal,
+    ): AsyncIterable<ReadResult<T>> {
+      // Strip :param and * segments to get the matchable prefix
+      const segments = pattern.split("/");
+      const matchUri = segments
+        .filter((s) => !s.startsWith(":") && s !== "*")
+        .join("/");
+
+      for (const conn of connections) {
+        if (conn.accepts("observe", matchUri)) {
+          yield* conn.client.observe<T>(pattern, signal);
+          return;
+        }
+      }
     },
 
     async status(): Promise<StatusResult> {

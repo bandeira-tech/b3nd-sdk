@@ -212,7 +212,6 @@ export type {
   RigConfig,
   RigInfo,
   S3Executor as S3ExecutorFactory,
-  Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,

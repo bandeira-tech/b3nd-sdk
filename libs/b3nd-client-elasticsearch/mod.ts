@@ -221,6 +221,14 @@ export class ElasticsearchClient implements NodeProtocolInterface {
     }
   }
 
+  // deno-lint-ignore require-yield
+  async *observe<T = unknown>(
+    _pattern: string,
+    _signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    // Not implemented — observe requires transport-specific support.
+  }
+
   async status(): Promise<StatusResult> {
     try {
       const alive = await this.executor.ping();

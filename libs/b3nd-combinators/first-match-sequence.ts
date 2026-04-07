@@ -50,6 +50,14 @@ export function firstMatchSequence(
       return allResults;
     },
 
+    // deno-lint-ignore require-yield
+    async *observe<T = unknown>(
+      _pattern: string,
+      _signal: AbortSignal,
+    ): AsyncIterable<ReadResult<T>> {
+      // Combinators don't implement observe — use connections instead.
+    },
+
     async status(): Promise<StatusResult> {
       return clients[0].status();
     },

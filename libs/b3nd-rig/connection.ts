@@ -49,7 +49,7 @@ import type {
   ClientOperation,
   NodeProtocolInterface,
 } from "../b3nd-core/types.ts";
-import { matchPattern } from "./observe.ts";
+import { matchPattern } from "./reactions.ts";
 
 // ── Types ──
 
@@ -57,6 +57,7 @@ import { matchPattern } from "./observe.ts";
 export interface ConnectionPatterns {
   receive?: string[];
   read?: string[];
+  observe?: string[];
 }
 
 /** A connection: a client wrapped with routing patterns. */
@@ -71,6 +72,7 @@ export interface Connection {
   readonly patterns: Readonly<{
     receive?: readonly string[];
     read?: readonly string[];
+    observe?: readonly string[];
   }>;
 
   /** Check if this connection accepts an operation on a URI. */
@@ -113,7 +115,7 @@ export function connection(
 ): Connection {
   // Pre-compile patterns for fast matching
   const compiled: Partial<Record<ClientOperation, CompiledPattern[]>> = {};
-  for (const op of ["receive", "read"] as const) {
+  for (const op of ["receive", "read", "observe"] as const) {
     if (patterns[op]) {
       compiled[op] = compilePatterns(patterns[op]!);
     }
@@ -125,6 +127,9 @@ export function connection(
       ? { receive: Object.freeze([...patterns.receive]) }
       : {}),
     ...(patterns.read ? { read: Object.freeze([...patterns.read]) } : {}),
+    ...(patterns.observe
+      ? { observe: Object.freeze([...patterns.observe]) }
+      : {}),
   });
 
   return {

@@ -56,11 +56,8 @@ export async function getRig(
     }
 
     const client = await createClientFromUrl(config.node);
-    const isHttp = config.node.startsWith("http://") ||
-      config.node.startsWith("https://");
     cachedRig = new Rig({
       connections: [connection(client, { receive: ["*"], read: ["*"] })],
-      ...(isHttp ? { sseBaseUrl: config.node.replace(/\/$/, "") } : {}),
     });
 
     // Wire verbose logging through rig events

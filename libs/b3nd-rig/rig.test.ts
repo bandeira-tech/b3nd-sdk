@@ -1138,7 +1138,7 @@ Deno.test("Rig.info - returns behavior info", async () => {
     on: {
       "receive:success": [() => {}],
     },
-    observe: {
+    reactions: {
       "mutable://open/:key": () => {},
     },
   });
@@ -1147,7 +1147,7 @@ Deno.test("Rig.info - returns behavior info", async () => {
   assertEquals(info.behavior.hooks.includes("beforeReceive"), true);
   assertEquals(info.behavior.hooks.includes("afterRead"), true);
   assertEquals(info.behavior.events["receive:success"], 1);
-  assertEquals(info.behavior.observers, 1);
+  assertEquals(info.behavior.reactors, 1);
 });
 
 Deno.test("Rig.info - empty rig has empty behavior", async () => {
@@ -1159,7 +1159,7 @@ Deno.test("Rig.info - empty rig has empty behavior", async () => {
 
   const info = rig.info();
   assertEquals(info.behavior.hooks.length, 0);
-  assertEquals(info.behavior.observers, 0);
+  assertEquals(info.behavior.reactors, 0);
 });
 
 // rig.deleteMany() no longer exists — deleteMany missing URIs test removed
@@ -1850,90 +1850,65 @@ Deno.test({
   },
 });
 
-// ── Rig.subscribe() tests ──
+// ── Rig.observe() tests (client-backed streaming) ──
 
 Deno.test({
-  name: "Rig.subscribe - calls back on initial value",
+  name: "Rig.observe - yields matching writes from MemoryClient",
   async fn() {
+    const mem = new MemoryClient();
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(mem, { receive: ["*"], read: ["*"], observe: ["*"] }),
       ],
     });
-    await rig.receive(["mutable://open/wasub/key", { hello: "world" }]);
 
-    const values: unknown[] = [];
-    const unsub = rig.subscribe("mutable://open/wasub/key", (value) => {
-      values.push(value);
-    }, { intervalMs: 50 });
+    const abort = new AbortController();
+    const results: { uri: string; data: unknown }[] = [];
 
-    // Wait for first callback
-    await new Promise((r) => setTimeout(r, 100));
-    unsub();
+    // Start observing in background
+    const done = (async () => {
+      for await (
+        const result of rig.observe("mutable://open/wasub/:key", abort.signal)
+      ) {
+        if (result.success && result.record) {
+          results.push({ uri: result.uri!, data: result.record.data });
+        }
+        if (results.length >= 2) abort.abort();
+      }
+    })();
 
-    assertEquals(values.length >= 1, true);
-    assertEquals((values[0] as { hello: string }).hello, "world");
+    // Write two matching values
+    await rig.receive(["mutable://open/wasub/a", { v: 1 }]);
+    await rig.receive(["mutable://open/wasub/b", { v: 2 }]);
+
+    await done;
+
+    assertEquals(results.length, 2);
+    assertEquals(results[0].uri, "mutable://open/wasub/a");
+    assertEquals(results[1].uri, "mutable://open/wasub/b");
   },
 });
 
 Deno.test({
-  name: "Rig.subscribe - calls back on changes",
+  name: "Rig.observe - empty when no connection accepts observe",
   async fn() {
     const rig = new Rig({
       connections: [
         connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        // No observe patterns
       ],
     });
-    await rig.receive(["mutable://open/wasub/key", { v: 1 }]);
 
-    const values: unknown[] = [];
-    const unsub = rig.subscribe<{ v: number }>(
-      "mutable://open/wasub/key",
-      (value) => {
-        values.push(value);
-      },
-      { intervalMs: 50 },
-    );
+    const abort = new AbortController();
+    const results: unknown[] = [];
 
-    // Wait for initial callback
-    await new Promise((r) => setTimeout(r, 80));
+    // Should immediately complete (no connection accepts observe)
+    abort.abort();
+    for await (const result of rig.observe("mutable://open/*", abort.signal)) {
+      results.push(result);
+    }
 
-    // Change the value
-    await rig.receive(["mutable://open/wasub/key", { v: 2 }]);
-    await new Promise((r) => setTimeout(r, 120));
-
-    unsub();
-
-    assertEquals(values.length >= 2, true);
-    assertEquals((values[0] as { v: number }).v, 1);
-    assertEquals((values[values.length - 1] as { v: number }).v, 2);
-  },
-});
-
-Deno.test({
-  name: "Rig.subscribe - unsub stops watching",
-  async fn() {
-    const rig = new Rig({
-      connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
-      ],
-    });
-    await rig.receive(["mutable://open/wasub/stop", { v: 1 }]);
-
-    let callCount = 0;
-    const unsub = rig.subscribe("mutable://open/wasub/stop", () => {
-      callCount++;
-    }, { intervalMs: 30 });
-
-    await new Promise((r) => setTimeout(r, 80));
-    unsub();
-    const countAfterUnsub = callCount;
-
-    // Wait more — should not get more callbacks
-    await rig.receive(["mutable://open/wasub/stop", { v: 2 }]);
-    await new Promise((r) => setTimeout(r, 100));
-
-    assertEquals(callCount, countAfterUnsub);
+    assertEquals(results.length, 0);
   },
 });
 
@@ -2174,15 +2149,15 @@ Deno.test("Rig events - wildcard fires for all ops", async () => {
   assertEquals((events[1] as { op: string }).op, "read");
 });
 
-// ── Observe integration tests ──
+// ── Reaction integration tests ──
 
-Deno.test("Rig observe - fires on receive matching pattern", async () => {
+Deno.test("Rig reaction - fires on receive matching pattern", async () => {
   const calls: { uri: string; params: Record<string, string> }[] = [];
   const rig = new Rig({
     connections: [
       connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
     ],
-    observe: {
+    reactions: {
       "mutable://open/:key": (uri, _data, params) => {
         calls.push({ uri, params });
       },
@@ -2197,14 +2172,14 @@ Deno.test("Rig observe - fires on receive matching pattern", async () => {
   assertEquals(calls[0].params, { key: "hello" });
 });
 
-Deno.test("Rig observe - fires on send for each output", async () => {
+Deno.test("Rig reaction - fires on send for each output", async () => {
   const id = await Identity.generate();
   const uris: string[] = [];
   const rig = new Rig({
     connections: [
       connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
     ],
-    observe: {
+    reactions: {
       "mutable://open/:key": (uri) => {
         uris.push(uri);
       },
@@ -2226,13 +2201,13 @@ Deno.test("Rig observe - fires on send for each output", async () => {
   assertEquals(uris.includes("mutable://open/b"), true);
 });
 
-Deno.test("Rig observe - does not fire on read", async () => {
+Deno.test("Rig reaction - does not fire on read", async () => {
   let called = false;
   const rig = new Rig({
     connections: [
       connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
     ],
-    observe: {
+    reactions: {
       "mutable://open/:key": () => {
         called = true;
       },
@@ -2311,7 +2286,7 @@ Deno.test("Rig.off - removes event handler", async () => {
   assertEquals(events.length, 1);
 });
 
-Deno.test("Rig.observe - runtime observe works", async () => {
+Deno.test("Rig.reaction - runtime react works", async () => {
   const rig = new Rig({
     connections: [
       connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
@@ -2319,7 +2294,7 @@ Deno.test("Rig.observe - runtime observe works", async () => {
   });
   const calls: string[] = [];
 
-  const unsub = rig.observe("mutable://open/:key", (uri) => {
+  const unsub = rig.reaction("mutable://open/:key", (uri) => {
     calls.push(uri);
   });
 
@@ -2409,10 +2384,10 @@ Deno.test("Rig dispatch - status returns healthy for multi-client", async () => 
   assertEquals(status.status, "healthy");
 });
 
-// ── SSE subscription integration test ──
+// ── SSE observe integration test ──
 
 Deno.test({
-  name: "Rig subscribe - pattern via SSE end-to-end",
+  name: "Rig observe - HttpClient SSE end-to-end",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -2431,37 +2406,38 @@ Deno.test({
     );
     const port = server.addr.port;
 
-    // Track the subscriber's abort controller so we can guarantee
-    // the SSE fetch is cancelled before the server shuts down.
     const subscriberAbort = new AbortController();
 
     try {
-      // 2. Create a subscriber rig pointing at the server
+      // 2. Create a subscriber rig with HttpClient (observe-capable)
       const { createClientFromUrl } = await import("./backend-factory.ts");
       const httpClient = await createClientFromUrl(`http://127.0.0.1:${port}`);
-      // sseBaseUrl is auto-detected from the HttpClient connection
       const subscriberRig = new Rig({
-        connections: [connection(httpClient, { receive: ["*"], read: ["*"] })],
+        connections: [
+          connection(httpClient, {
+            receive: ["*"],
+            read: ["*"],
+            observe: ["*"],
+          }),
+        ],
       });
 
-      // 3. Subscribe to a pattern
-      const received: {
-        uri: string;
-        data: unknown;
-        params: Record<string, string>;
-      }[] = [];
-      const subHandler: import("./types.ts").SubscribeHandler = (
-        uri,
-        data,
-        params,
-      ) => {
-        received.push({ uri, data, params });
-      };
-      subscriberRig.subscribe(
-        "mutable://open/market/:msgId",
-        subHandler,
-        { signal: subscriberAbort.signal },
-      );
+      // 3. Observe a pattern via the rig (routes to HttpClient SSE)
+      const received: { uri: string; data: unknown }[] = [];
+
+      const done = (async () => {
+        for await (
+          const result of subscriberRig.observe(
+            "mutable://open/market/:msgId",
+            subscriberAbort.signal,
+          )
+        ) {
+          if (result.success && result.record) {
+            received.push({ uri: result.uri!, data: result.record.data });
+          }
+          if (received.length >= 2) subscriberAbort.abort();
+        }
+      })();
 
       // Give SSE connection time to establish
       await new Promise((r) => setTimeout(r, 300));
@@ -2475,71 +2451,18 @@ Deno.test({
         "mutable://open/market/msg2",
         { type: "bid", price: 40 },
       ]);
-      // This one should NOT match the pattern
-      await serverRig.receive([
-        "mutable://open/other/foo",
-        { type: "other" },
-      ]);
 
-      // Give SSE events time to propagate
-      await new Promise((r) => setTimeout(r, 500));
+      await done;
 
-      // 5. Verify subscriber received exactly the matching events
+      // 5. Verify subscriber received the matching events
       assertEquals(received.length, 2);
       assertEquals(received[0].uri, "mutable://open/market/msg1");
       assertEquals(received[0].data, { type: "ask", price: 42 });
-      assertEquals(received[0].params, { msgId: "msg1" });
       assertEquals(received[1].uri, "mutable://open/market/msg2");
-      assertEquals(received[1].params, { msgId: "msg2" });
-
-      // 6. Cleanup — abort SSE first, then shut down server
-      subscriberAbort.abort();
-      // Give fetch abort a tick to propagate
-      await new Promise((r) => setTimeout(r, 50));
     } finally {
-      // Ensure SSE stream is aborted before server shutdown
       subscriberAbort.abort();
       await new Promise((r) => setTimeout(r, 50));
       await server.shutdown();
     }
   },
-});
-
-Deno.test("Rig subscribe - polling fallback for non-HTTP clients", async () => {
-  const rig = new Rig({
-    connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
-    ],
-  });
-
-  // Write some data first
-  await rig.receive(["mutable://open/items/a", { v: 1 }]);
-  await rig.receive(["mutable://open/items/b", { v: 2 }]);
-
-  const received: string[] = [];
-  const handler: import("./types.ts").SubscribeHandler = (
-    _uri,
-    _data,
-    { id },
-  ) => {
-    received.push(id);
-  };
-  const unsub = rig.subscribe(
-    "mutable://open/items/:id",
-    handler,
-    { intervalMs: 50 },
-  );
-
-  // Wait for first poll
-  await new Promise((r) => setTimeout(r, 100));
-  assertEquals(received.length, 2);
-  assertEquals(received.includes("a"), true);
-  assertEquals(received.includes("b"), true);
-
-  // Write a new item
-  await rig.receive(["mutable://open/items/c", { v: 3 }]);
-  await new Promise((r) => setTimeout(r, 100));
-  assertEquals(received.includes("c"), true);
-
-  unsub();
 });

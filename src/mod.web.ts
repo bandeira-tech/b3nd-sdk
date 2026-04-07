@@ -74,7 +74,6 @@ export type {
   HandlerOptions,
   RigConfig,
   RigInfo,
-  Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,

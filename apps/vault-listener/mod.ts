@@ -91,11 +91,8 @@ if (verifiers.size === 0) {
 // --- Client ---
 
 const firecatClient = await createClientFromUrl(FIRECAT_URL);
-const isHttp = FIRECAT_URL.startsWith("http://") ||
-  FIRECAT_URL.startsWith("https://");
 const rig = new Rig({
   connections: [rigConnection(firecatClient, { receive: ["*"], read: ["*"] })],
-  ...(isHttp ? { sseBaseUrl: FIRECAT_URL.replace(/\/$/, "") } : {}),
 });
 rig.on("receive:error", (e) => {
   console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);

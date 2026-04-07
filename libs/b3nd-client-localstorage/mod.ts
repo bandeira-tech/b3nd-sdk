@@ -183,6 +183,14 @@ export class LocalStorageClient implements NodeProtocolInterface {
     return results;
   }
 
+  // deno-lint-ignore require-yield
+  async *observe<T = unknown>(
+    _pattern: string,
+    _signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    // Not implemented — observe requires transport-specific support.
+  }
+
   public status(): Promise<StatusResult> {
     try {
       const testKey = `${this.config.keyPrefix}health-check`;

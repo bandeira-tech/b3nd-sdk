@@ -15,6 +15,7 @@ import type {
   StatusResult,
 } from "../b3nd-core/types.ts";
 import { encodeBase64 } from "../b3nd-core/encoding.ts";
+import { openSseStream } from "./sse.ts";
 
 /**
  * Serialize message data for JSON transport.
@@ -290,6 +291,30 @@ export class HttpClient implements NodeProtocolInterface {
       return [];
     } catch {
       return [];
+    }
+  }
+
+  async *observe<T = unknown>(
+    pattern: string,
+    signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    // Convert URI pattern to SSE endpoint path
+    // "mutable://data/market/*" → strip :param and * → "mutable://data/market"
+    // → "/api/v1/observe/mutable/data/market"
+    const segments = pattern.split("/");
+    const prefix = segments
+      .filter((s) => !s.startsWith(":") && s !== "*")
+      .join("/");
+    const uriPath = prefix.replace("://", "/");
+    const url = `${this.baseUrl}/api/v1/observe/${uriPath}`;
+
+    for await (const event of openSseStream(url, { signal })) {
+      if (signal.aborted) break;
+      yield {
+        success: true,
+        uri: event.uri,
+        record: { data: event.data as T, ts: event.ts },
+      } as ReadResult<T>;
     }
   }
 

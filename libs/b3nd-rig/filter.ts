@@ -42,7 +42,7 @@ import type {
   ClientOperation,
   NodeProtocolInterface,
 } from "../b3nd-core/types.ts";
-import { matchPattern } from "./observe.ts";
+import { matchPattern } from "./reactions.ts";
 
 // ── Types ──
 

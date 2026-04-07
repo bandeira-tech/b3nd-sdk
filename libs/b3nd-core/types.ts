@@ -182,9 +182,10 @@ export interface ReceiveResult {
 /**
  * NodeProtocolInterface — the universal interface implemented by all clients.
  *
- * Three primitives:
+ * Four primitives:
  * - `receive` — all state changes (writes)
  * - `read`    — all queries (single, multi, list via trailing slash)
+ * - `observe` — stream of changes matching a pattern (client handles transport)
  * - `status`  — health + capabilities
  *
  * All B3nd clients (Memory, HTTP, WebSocket, Postgres, IndexedDB, etc.)
@@ -206,6 +207,28 @@ export interface NodeProtocolInterface {
   read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]>;
 
   /**
+   * Observe changes matching a URI pattern.
+   *
+   * Returns an async iterable that yields `ReadResult` items as changes
+   * arrive. The client handles the transport — SSE for HTTP, internal
+   * events for memory, LISTEN/NOTIFY for Postgres, etc.
+   *
+   * The `signal` controls lifecycle — abort to stop observing.
+   *
+   * @example
+   * ```ts
+   * const abort = new AbortController();
+   * for await (const result of client.observe("mutable://market/*", abort.signal)) {
+   *   console.log(result.uri, result.record.data);
+   * }
+   * ```
+   */
+  observe<T = unknown>(
+    pattern: string,
+    signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>>;
+
+  /**
    * Status — health + capabilities.
    * Clients report health. The rig aggregates and adds schema.
    */
@@ -220,7 +243,7 @@ export type NodeProtocolWriteInterface = NodeProtocolInterface;
 export type NodeProtocolReadInterface = NodeProtocolInterface;
 
 /** Operations that can be filtered by `accepts()`. */
-export type ClientOperation = "receive" | "read";
+export type ClientOperation = "receive" | "read" | "observe";
 
 /**
  * Optional per-operation URI acceptance.

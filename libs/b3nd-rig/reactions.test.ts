@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { matchPattern, ObserveRegistry } from "./observe.ts";
+import { matchPattern, ReactionRegistry } from "./reactions.ts";
 
 // ── matchPattern ──
 
@@ -56,10 +56,10 @@ Deno.test("matchPattern - empty segments", () => {
   assertEquals(matchPattern(segments, "mutable:"), {});
 });
 
-// ── ObserveRegistry ──
+// ── ReactionRegistry ──
 
-Deno.test("ObserveRegistry - fires matching handler", async () => {
-  const registry = new ObserveRegistry();
+Deno.test("ReactionRegistry - fires matching handler", async () => {
+  const registry = new ReactionRegistry();
   const calls: {
     uri: string;
     data: unknown;
@@ -79,8 +79,8 @@ Deno.test("ObserveRegistry - fires matching handler", async () => {
   assertEquals(calls[0].params, { id: "alice" });
 });
 
-Deno.test("ObserveRegistry - no match does not fire", async () => {
-  const registry = new ObserveRegistry();
+Deno.test("ReactionRegistry - no match does not fire", async () => {
+  const registry = new ReactionRegistry();
   let called = false;
 
   registry.add("mutable://app/users/:id", () => {
@@ -93,8 +93,8 @@ Deno.test("ObserveRegistry - no match does not fire", async () => {
   assertEquals(called, false);
 });
 
-Deno.test("ObserveRegistry - unsubscribe removes handler", async () => {
-  const registry = new ObserveRegistry();
+Deno.test("ReactionRegistry - unsubscribe removes handler", async () => {
+  const registry = new ReactionRegistry();
   let count = 0;
 
   const unsub = registry.add("mutable://app/config", () => {
@@ -112,8 +112,8 @@ Deno.test("ObserveRegistry - unsubscribe removes handler", async () => {
   assertEquals(count, 1); // no change
 });
 
-Deno.test("ObserveRegistry - handler errors are swallowed", async () => {
-  const registry = new ObserveRegistry();
+Deno.test("ReactionRegistry - handler errors are swallowed", async () => {
+  const registry = new ReactionRegistry();
   let secondCalled = false;
 
   registry.add("mutable://app/key", () => {
@@ -129,8 +129,8 @@ Deno.test("ObserveRegistry - handler errors are swallowed", async () => {
   assertEquals(secondCalled, true);
 });
 
-Deno.test("ObserveRegistry - multiple patterns match same URI", async () => {
-  const registry = new ObserveRegistry();
+Deno.test("ReactionRegistry - multiple patterns match same URI", async () => {
+  const registry = new ReactionRegistry();
   const calls: string[] = [];
 
   registry.add("mutable://app/users/:id", () => {
@@ -146,8 +146,8 @@ Deno.test("ObserveRegistry - multiple patterns match same URI", async () => {
   assertEquals(calls, ["specific", "wildcard"]);
 });
 
-Deno.test("ObserveRegistry - size tracks entries", () => {
-  const registry = new ObserveRegistry();
+Deno.test("ReactionRegistry - size tracks entries", () => {
+  const registry = new ReactionRegistry();
   assertEquals(registry.size, 0);
 
   const unsub = registry.add("mutable://app/key", () => {});
