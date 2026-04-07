@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated learn book JSON (built from markdown sources)
+public/learn/
