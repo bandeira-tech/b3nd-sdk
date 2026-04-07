@@ -16,7 +16,7 @@
  * });
  *
  * // Tests - share same backend between wallet and direct operations
- * const backend = new MemoryClient({ programs: ["mutable://accounts", "immutable://accounts"] });
+ * const backend = new MemoryClient();
  * const wallet = await MemoryWalletClient.create({ backend });
  *
  * // Same API works for both
@@ -45,7 +45,10 @@ import type {
 
 import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import { WalletServerCore } from "../b3nd-wallet-server/core.ts";
-import type { ServerKeys, WalletServerConfig } from "../b3nd-wallet-server/types.ts";
+import type {
+  ServerKeys,
+  WalletServerConfig,
+} from "../b3nd-wallet-server/types.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 import {
   createAuthenticatedMessageWithHex,
@@ -77,7 +80,7 @@ export interface MemoryWalletClientConfig {
    *
    * @example
    * ```typescript
-   * const backend = new MemoryClient({ programs: [...] });
+   * const backend = new MemoryClient();
    * const wallet = await MemoryWalletClient.create({ backend });
    *
    * // Both use the same storage

@@ -34,8 +34,9 @@ export function useRead<T = unknown>(uri: string | null): {
       // Try rig client
       if (rig) {
         try {
-          const result = await rig.read<T>(uri);
-          if (result.success && result.record && !cancelled) {
+          const results = await rig.read<T>(uri);
+          const result = results[0];
+          if (result?.success && result.record && !cancelled) {
             setData(result.record.data);
             setLoading(false);
             return;

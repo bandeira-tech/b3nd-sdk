@@ -43,8 +43,9 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
     const uri = nodeUpdateUri(opts.operatorPubKeyHex, opts.nodeId);
 
     try {
-      const result = await opts.client.read(uri);
-      if (!result.success || !result.record) {
+      const results = await opts.client.read(uri);
+      const result = results[0];
+      if (!result?.success || !result.record) {
         return { available: false };
       }
 
@@ -63,7 +64,11 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
           let verified = false;
           for (const entry of data.auth) {
             if (entry.pubkey === opts.operatorPubKeyHex) {
-              const ok = await verify(entry.pubkey, entry.signature, data.payload);
+              const ok = await verify(
+                entry.pubkey,
+                entry.signature,
+                data.payload,
+              );
               if (ok) {
                 verified = true;
                 break;
@@ -84,7 +89,11 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
           let verified = false;
           for (const entry of data.auth) {
             if (entry.pubkey === opts.operatorPubKeyHex) {
-              const ok = await verify(entry.pubkey, entry.signature, data.payload);
+              const ok = await verify(
+                entry.pubkey,
+                entry.signature,
+                data.payload,
+              );
               if (ok) {
                 verified = true;
                 break;

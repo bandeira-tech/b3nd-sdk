@@ -1,5 +1,5 @@
 import { Server } from "lucide-react";
-import { useNodesStore, useActiveNetwork } from "./stores/nodesStore";
+import { useActiveNetwork, useNodesStore } from "./stores/nodesStore";
 import { NetworkOverview } from "./NetworkOverview";
 import { NodeDetail } from "./NodeDetail";
 import { useNodeStatusPolling } from "./hooks/useNodeStatus";

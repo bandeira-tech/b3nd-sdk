@@ -329,9 +329,10 @@ export class WalletServerCore {
     sessionPubkey: string,
   ): Promise<{ valid: boolean; reason?: string }> {
     const uri = `mutable://accounts/${appKey}/sessions/${sessionPubkey}`;
-    const res = await this.proxyClient.read(uri);
+    const results = await this.proxyClient.read(uri);
+    const res = results[0];
 
-    if (!res.success) {
+    if (!res?.success) {
       return { valid: false, reason: "session_not_approved" };
     }
 
@@ -550,10 +551,11 @@ export class WalletServerCore {
         let googleClientId: string | undefined;
         if (credentials.type === "google") {
           const appProfileUri = `mutable://accounts/${appKey}/app-profile`;
-          const appProfileResult = await this.credentialClient.read(
+          const appProfileResults = await this.credentialClient.read(
             appProfileUri,
           );
-          if (appProfileResult.success && appProfileResult.record?.data) {
+          const appProfileResult = appProfileResults[0];
+          if (appProfileResult?.success && appProfileResult.record?.data) {
             const appProfile = appProfileResult.record.data as Record<
               string,
               unknown
@@ -682,10 +684,11 @@ export class WalletServerCore {
         let googleClientId: string | undefined;
         if (credentials.type === "google") {
           const appProfileUri = `mutable://accounts/${appKey}/app-profile`;
-          const appProfileResult = await this.credentialClient.read(
+          const appProfileResults = await this.credentialClient.read(
             appProfileUri,
           );
-          if (appProfileResult.success && appProfileResult.record?.data) {
+          const appProfileResult = appProfileResults[0];
+          if (appProfileResult?.success && appProfileResult.record?.data) {
             const appProfile = appProfileResult.record.data as Record<
               string,
               unknown

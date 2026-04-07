@@ -6,7 +6,10 @@ type GoogleAccounts = {
   accounts?: {
     id?: {
       initialize: (config: unknown) => void;
-      renderButton: (element: HTMLElement, options: Record<string, unknown>) => void;
+      renderButton: (
+        element: HTMLElement,
+        options: Record<string, unknown>,
+      ) => void;
     };
   };
 };
@@ -68,7 +71,8 @@ export function AuthSection(props: {
     }
 
     const getGoogleAccounts = () =>
-      (window as Window & typeof globalThis & { google?: GoogleAccounts }).google;
+      (window as Window & typeof globalThis & { google?: GoogleAccounts })
+        .google;
 
     if (!googleScriptPromise) {
       googleScriptPromise = new Promise<void>((resolve) => {
@@ -138,14 +142,18 @@ export function AuthSection(props: {
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => handleModeChange("signup")}
-          className={`${authMode === "signup" ? primaryButtonClass : secondaryButtonClass} ${disabled ? disabledClass : ""}`}
+          className={`${
+            authMode === "signup" ? primaryButtonClass : secondaryButtonClass
+          } ${disabled ? disabledClass : ""}`}
           disabled={disabled}
         >
           Signup
         </button>
         <button
           onClick={() => handleModeChange("login")}
-          className={`${authMode === "login" ? primaryButtonClass : secondaryButtonClass} ${disabled ? disabledClass : ""}`}
+          className={`${
+            authMode === "login" ? primaryButtonClass : secondaryButtonClass
+          } ${disabled ? disabledClass : ""}`}
           disabled={disabled}
         >
           Login

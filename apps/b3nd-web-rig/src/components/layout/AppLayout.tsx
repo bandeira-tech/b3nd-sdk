@@ -1,14 +1,14 @@
 // React import not needed with react-jsx runtime
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { useAppStore, rightPanelContextKey } from "../../stores/appStore";
+import { rightPanelContextKey, useAppStore } from "../../stores/appStore";
 import { BrandHeader } from "./BrandHeader";
 import { AppModeBar } from "./AppModeBar";
 import { BottomPanel } from "./BottomPanel";
 import { BrandFooter } from "./BrandFooter";
 import { cn, joinPath, sanitizePath } from "../../utils";
 import { useLayoutSlots } from "./useLayoutSlots";
-import type { WriterSection, ExplorerSection } from "../../types";
+import type { ExplorerSection, WriterSection } from "../../types";
 
 export function AppLayout() {
   const {
@@ -30,7 +30,9 @@ export function AppLayout() {
   } = useAppStore();
   const location = useLocation();
   const { LeftSlot, MainSlot } = useLayoutSlots();
-  const applyRightPanelPreference = useAppStore((state) => state.applyRightPanelPreference);
+  const applyRightPanelPreference = useAppStore((state) =>
+    state.applyRightPanelPreference
+  );
   const rightPanelKey = useAppStore((state) => rightPanelContextKey(state));
 
   useEffect(() => {
@@ -97,7 +99,8 @@ export function AppLayout() {
     if (relativePath.startsWith("/writer")) {
       if (activeApp !== "writer") setActiveApp("writer");
       if (mainView !== "content") setMainView("content");
-      const section = (relativePath.replace(/^\/writer\/?/, "") || "backend") as WriterSection;
+      const section = (relativePath.replace(/^\/writer\/?/, "") ||
+        "backend") as WriterSection;
       const allowed: WriterSection[] = [
         "backend",
         "auth",
@@ -176,7 +179,9 @@ export function AppLayout() {
 
   const parseExplorerPath = (
     routePath: string,
-  ): { section: ExplorerSection; path: string; accountKey: string | null } | null => {
+  ):
+    | { section: ExplorerSection; path: string; accountKey: string | null }
+    | null => {
     if (!routePath.startsWith("/explorer")) return null;
     const raw = routePath.replace(/^\/explorer\/?/, "");
     if (!raw) return { section: "index", path: "/", accountKey: null };

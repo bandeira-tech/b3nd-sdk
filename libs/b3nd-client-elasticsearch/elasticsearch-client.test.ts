@@ -8,10 +8,7 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals, assertExists } from "@std/assert";
-import {
-  ElasticsearchClient,
-  type ElasticsearchExecutor,
-} from "./mod.ts";
+import { ElasticsearchClient, type ElasticsearchExecutor } from "./mod.ts";
 // ---------------------------------------------------------------------------
 // Mock executor — in-memory Map simulating Elasticsearch
 // ---------------------------------------------------------------------------
@@ -19,7 +16,6 @@ import {
 class MockElasticsearchExecutor implements ElasticsearchExecutor {
   /** index → (docId → document body) */
   readonly store = new Map<string, Map<string, Record<string, unknown>>>();
-  private cleaned = false;
 
   index(
     index: string,
@@ -84,16 +80,6 @@ class MockElasticsearchExecutor implements ElasticsearchExecutor {
   ping(): Promise<boolean> {
     return Promise.resolve(true);
   }
-
-  cleanup(): Promise<void> {
-    this.cleaned = true;
-    this.store.clear();
-    return Promise.resolve();
-  }
-
-  get wasCleaned(): boolean {
-    return this.cleaned;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -126,21 +112,21 @@ Deno.test("receive + read round-trip", async () => {
   ]);
   assertEquals(result.accepted, true);
 
-  const read = await client.read("mutable://accounts/alice/profile");
-  assertEquals(read.success, true);
-  assertExists(read.record);
-  assertEquals(read.record.data, { name: "Alice", age: 30 });
-  assertEquals(typeof read.record.ts, "number");
+  const results = await client.read("mutable://accounts/alice/profile");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].success, true);
+  assertExists(results[0].record);
+  assertEquals(results[0].record.data, { name: "Alice", age: 30 });
+  assertEquals(typeof results[0].record.ts, "number");
 });
 
 Deno.test("read returns not found for missing URI", async () => {
   const { client } = createClient();
 
-  const result = await client.read("mutable://accounts/bob/profile");
-  assertEquals(result.success, false);
-  assertExists(result.error);
-  assertExists(result.errorDetail);
-  assertEquals(result.errorDetail.code, "NOT_FOUND");
+  const results = await client.read("mutable://accounts/bob/profile");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].success, false);
+  assertExists(results[0].error);
 });
 
 Deno.test("receive accepts valid data", async () => {
@@ -153,153 +139,61 @@ Deno.test("receive accepts valid data", async () => {
   assertEquals(result.accepted, true);
 });
 
-Deno.test("readMulti parallel reads", async () => {
+Deno.test("read multiple URIs", async () => {
   const { client } = createClient();
 
   await client.receive(["mutable://accounts/alice", { name: "Alice" }]);
   await client.receive(["mutable://accounts/bob", { name: "Bob" }]);
 
-  const result = await client.readMulti([
+  const results = await client.read([
     "mutable://accounts/alice",
     "mutable://accounts/bob",
     "mutable://accounts/charlie",
   ]);
 
-  assertEquals(result.success, true);
-  assertEquals(result.summary.total, 3);
-  assertEquals(result.summary.succeeded, 2);
-  assertEquals(result.summary.failed, 1);
+  assertEquals(results.length, 3);
 
   // alice and bob found, charlie not found
-  const alice = result.results.find((r) => r.uri === "mutable://accounts/alice");
+  const alice = results.find((r) => r.uri === "mutable://accounts/alice");
   assertExists(alice);
   assertEquals(alice.success, true);
 
-  const charlie = result.results.find(
+  const charlie = results.find(
     (r) => r.uri === "mutable://accounts/charlie",
   );
   assertExists(charlie);
   assertEquals(charlie.success, false);
 });
 
-Deno.test("readMulti empty array", async () => {
-  const { client } = createClient();
-  const result = await client.readMulti([]);
-  assertEquals(result.success, false);
-  assertEquals(result.summary.total, 0);
-});
-
-Deno.test("readMulti rejects > 50 URIs", async () => {
-  const { client } = createClient();
-  const uris = Array.from({ length: 51 }, (_, i) =>
-    `mutable://accounts/user${i}`
-  );
-  const result = await client.readMulti(uris);
-  assertEquals(result.success, false);
-  assertEquals(result.summary.total, 51);
-  assertEquals(result.summary.failed, 51);
-});
-
-Deno.test("list with prefix matching", async () => {
+Deno.test("read with trailing slash lists children", async () => {
   const { client } = createClient();
 
   await client.receive(["mutable://accounts/alice/profile", { name: "Alice" }]);
-  await client.receive(["mutable://accounts/alice/settings", { theme: "dark" }]);
+  await client.receive(["mutable://accounts/alice/settings", {
+    theme: "dark",
+  }]);
   await client.receive(["mutable://accounts/bob/profile", { name: "Bob" }]);
 
-  const result = await client.list("mutable://accounts/alice");
-  assertEquals(result.success, true);
-  if (result.success) {
-    assertEquals(result.data.length, 2);
-    // Both should be alice's documents
-    const uris = result.data.map((d) => d.uri).sort();
-    assertEquals(uris, [
-      "mutable://accounts/alice/profile",
-      "mutable://accounts/alice/settings",
-    ]);
-  }
-});
-
-Deno.test("list with pagination", async () => {
-  const { client } = createClient();
-
-  // Create 5 items
-  for (let i = 0; i < 5; i++) {
-    await client.receive([
-      `mutable://data/items/item${i}`,
-      { value: i },
-    ]);
-  }
-
-  const page1 = await client.list("mutable://data/items", {
-    limit: 2,
-    page: 1,
-  });
-  assertEquals(page1.success, true);
-  if (page1.success) {
-    assertEquals(page1.data.length, 2);
-    assertEquals(page1.pagination.page, 1);
-    assertEquals(page1.pagination.limit, 2);
-    assertEquals(page1.pagination.total, 5);
-  }
-
-  const page2 = await client.list("mutable://data/items", {
-    limit: 2,
-    page: 2,
-  });
-  assertEquals(page2.success, true);
-  if (page2.success) {
-    assertEquals(page2.data.length, 2);
-    assertEquals(page2.pagination.page, 2);
-  }
-});
-
-Deno.test("list with pattern filter", async () => {
-  const { client } = createClient();
-
-  await client.receive(["mutable://accounts/alice/profile", { name: "Alice" }]);
-  await client.receive(["mutable://accounts/bob/profile", { name: "Bob" }]);
-  await client.receive(["mutable://accounts/alice/settings", { theme: "dark" }]);
-
-  const result = await client.list("mutable://accounts", {
-    pattern: "profile",
-  });
-  assertEquals(result.success, true);
-  if (result.success) {
-    assertEquals(result.data.length, 2);
-    for (const item of result.data) {
-      assertEquals(item.uri.includes("profile"), true);
-    }
-  }
-});
-
-Deno.test("delete existing document", async () => {
-  const { client } = createClient();
-
-  await client.receive(["mutable://accounts/alice", { name: "Alice" }]);
-  const delResult = await client.delete("mutable://accounts/alice");
-  assertEquals(delResult.success, true);
-
-  // Verify deleted
-  const read = await client.read("mutable://accounts/alice");
-  assertEquals(read.success, false);
-});
-
-Deno.test("delete non-existent document returns not found", async () => {
-  const { client } = createClient();
-
-  const result = await client.delete("mutable://accounts/ghost");
-  assertEquals(result.success, false);
-  assertEquals(result.error, "Not found");
-  assertExists(result.errorDetail);
-  assertEquals(result.errorDetail.code, "NOT_FOUND");
+  const results = await client.read("mutable://accounts/alice/");
+  assertEquals(results.length, 2);
+  // Both should be alice's documents
+  const uris = results.map((d) => d.uri).sort();
+  assertEquals(uris, [
+    "mutable://accounts/alice/profile",
+    "mutable://accounts/alice/settings",
+  ]);
 });
 
 Deno.test("status returns healthy when ping succeeds", async () => {
   const { client } = createClient();
 
-  const st = await client.status();
-  assertEquals(st.healthy, true);
+  const result = await client.status();
+  assertEquals(result.status, "healthy");
+  assertExists(result.details);
+  assertEquals(
+    (result.details as Record<string, unknown>).indexPrefix,
+    "b3nd",
+  );
 });
 
 Deno.test("status returns unhealthy when ping fails", async () => {
@@ -309,8 +203,8 @@ Deno.test("status returns unhealthy when ping fails", async () => {
 
   const { client } = createClient(executor);
 
-  const st = await client.status();
-  assertEquals(st.healthy, false);
+  const result = await client.status();
+  assertEquals(result.status, "unhealthy");
 });
 
 Deno.test("status returns unhealthy when ping throws", async () => {
@@ -319,17 +213,10 @@ Deno.test("status returns unhealthy when ping throws", async () => {
 
   const { client } = createClient(executor);
 
-  const st = await client.status();
-  assertEquals(st.healthy, false);
-});
-
-Deno.test("cleanup delegates to executor", async () => {
-  const executor = new MockElasticsearchExecutor();
-  const { client } = createClient(executor);
-
-  assertEquals(executor.wasCleaned, false);
-  await client.cleanup();
-  assertEquals(executor.wasCleaned, true);
+  const result = await client.status();
+  assertEquals(result.status, "unhealthy");
+  assertExists(result.message);
+  assertEquals(result.message!.includes("Connection refused"), true);
 });
 
 Deno.test("indexPrefix mapping is correct", async () => {
@@ -359,11 +246,12 @@ Deno.test("binary encoding round-trip", async () => {
   ]);
   assertEquals(result.accepted, true);
 
-  const read = await client.read<Uint8Array>("mutable://data/binary-test");
-  assertEquals(read.success, true);
-  assertExists(read.record);
-  assertEquals(read.record.data instanceof Uint8Array, true);
-  assertEquals(read.record.data, binaryData);
+  const results = await client.read<Uint8Array>("mutable://data/binary-test");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].success, true);
+  assertExists(results[0].record);
+  assertEquals(results[0].record.data instanceof Uint8Array, true);
+  assertEquals(results[0].record.data, binaryData);
 });
 
 Deno.test("receive handles executor errors gracefully", async () => {
@@ -378,9 +266,7 @@ Deno.test("receive handles executor errors gracefully", async () => {
   ]);
   assertEquals(result.accepted, false);
   assertExists(result.error);
-  assertEquals(result.error.includes("ES index failed"), true);
-  assertExists(result.errorDetail);
-  assertEquals(result.errorDetail.code, "STORAGE_ERROR");
+  assertEquals(result.error!.includes("ES index failed"), true);
 });
 
 Deno.test("read handles executor errors gracefully", async () => {
@@ -389,10 +275,11 @@ Deno.test("read handles executor errors gracefully", async () => {
 
   const { client } = createClient(executor);
 
-  const result = await client.read("mutable://accounts/alice");
-  assertEquals(result.success, false);
-  assertExists(result.error);
-  assertEquals(result.error.includes("ES get failed"), true);
+  const results = await client.read("mutable://accounts/alice");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].success, false);
+  assertExists(results[0].error);
+  assertEquals(results[0].error!.includes("ES get failed"), true);
 });
 
 Deno.test("constructor requires executor", () => {
@@ -418,29 +305,9 @@ Deno.test("receive overwrites existing document (upsert)", async () => {
   await client.receive(["mutable://accounts/alice", { v: 1 }]);
   await client.receive(["mutable://accounts/alice", { v: 2 }]);
 
-  const read = await client.read("mutable://accounts/alice");
-  assertEquals(read.success, true);
-  assertExists(read.record);
-  assertEquals(read.record.data, { v: 2 });
-});
-
-Deno.test("list sort order desc", async () => {
-  const { client } = createClient();
-
-  await client.receive(["mutable://data/items/a", { v: 1 }]);
-  await client.receive(["mutable://data/items/b", { v: 2 }]);
-  await client.receive(["mutable://data/items/c", { v: 3 }]);
-
-  const result = await client.list("mutable://data/items", {
-    sortOrder: "desc",
-  });
-  assertEquals(result.success, true);
-  if (result.success) {
-    const uris = result.data.map((d) => d.uri);
-    assertEquals(uris, [
-      "mutable://data/items/c",
-      "mutable://data/items/b",
-      "mutable://data/items/a",
-    ]);
-  }
+  const results = await client.read("mutable://accounts/alice");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].success, true);
+  assertExists(results[0].record);
+  assertEquals(results[0].record.data, { v: 2 });
 });

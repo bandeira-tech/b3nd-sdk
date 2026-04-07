@@ -1,4 +1,4 @@
-import { SettingsView, SettingsSidePanel } from "../../settings/SettingsView";
+import { SettingsSidePanel, SettingsView } from "../../settings/SettingsView";
 
 export function SettingsLayoutSlot() {
   return (

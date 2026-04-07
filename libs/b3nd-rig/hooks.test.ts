@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import type { ReadCtx, ReceiveCtx, DeleteCtx } from "./hooks.ts";
+import type { ReadCtx, ReceiveCtx } from "./hooks.ts";
 import { resolveHooks, runAfter, runBefore } from "./hooks.ts";
 
 // ── runBefore ──
@@ -23,7 +23,7 @@ Deno.test("runBefore - throw rejects operation", async () => {
         () => {
           throw new Error("denied");
         },
-        { uri: "mutable://test", data: {} } as ReceiveCtx,
+        { uri: "mutable://test", data: {} },
       ),
     Error,
     "denied",
@@ -48,7 +48,7 @@ Deno.test("runBefore - async hook works", async () => {
           await new Promise((r) => setTimeout(r, 1));
           throw new Error("async deny");
         },
-        { uri: "mutable://test" } as DeleteCtx,
+        { uri: "mutable://test" } as ReadCtx,
       ),
     Error,
     "async deny",
@@ -133,8 +133,4 @@ Deno.test("resolveHooks - empty config gives all nulls", () => {
   assertEquals(hooks.afterReceive, null);
   assertEquals(hooks.beforeRead, null);
   assertEquals(hooks.afterRead, null);
-  assertEquals(hooks.beforeList, null);
-  assertEquals(hooks.afterList, null);
-  assertEquals(hooks.beforeDelete, null);
-  assertEquals(hooks.afterDelete, null);
 });

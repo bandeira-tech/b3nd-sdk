@@ -122,13 +122,14 @@ async function test() {
 
     // 6. Read unencrypted data back from backend
     const backend = new HttpClient({ url: BACKEND_URL });
-    const readResult = await backend.read(writeResult.resolvedUri || writeUri);
-    if (readResult.success && readResult.record) {
+    const readResults = await backend.read(writeResult.resolvedUri || writeUri);
+    const readResult = readResults[0];
+    if (readResult?.success && readResult.record) {
       const readData = readResult.record.data as any;
       const verified = readData.payload?.name === profileData.name;
       console.log(`✓ Read unencrypted data back (verified: ${verified})`);
     } else {
-      console.log(`✗ Read failed: ${readResult.error}`);
+      console.log(`✗ Read failed: ${readResult?.error}`);
     }
 
     // 7. Write Encrypted Data Through Proxy
@@ -149,10 +150,11 @@ async function test() {
     );
 
     // 8. Read encrypted data back from backend
-    const encryptedReadResult = await backend.read(
+    const encryptedReadResults = await backend.read(
       encryptedWriteResult.resolvedUri || encryptedUri,
     );
-    if (encryptedReadResult.success && encryptedReadResult.record) {
+    const encryptedReadResult = encryptedReadResults[0];
+    if (encryptedReadResult?.success && encryptedReadResult.record) {
       const encData = encryptedReadResult.record.data as any;
       const hasAuth = !!encData.auth;
       const hasEncryptedPayload = !!encData.payload?.data &&
@@ -161,7 +163,7 @@ async function test() {
         `✓ Read encrypted data back (auth: ${hasAuth}, encrypted: ${hasEncryptedPayload})`,
       );
     } else {
-      console.log(`✗ Read encrypted failed: ${encryptedReadResult.error}`);
+      console.log(`✗ Read encrypted failed: ${encryptedReadResult?.error}`);
     }
 
     // 9. Test Logout
@@ -192,10 +194,11 @@ async function test() {
     console.log(`✓ Write after re-login`);
 
     // 12. Read after re-login to verify
-    const finalReadResult = await backend.read(
+    const finalReadResults = await backend.read(
       finalWriteResult.resolvedUri || finalUri,
     );
-    if (finalReadResult.success && finalReadResult.record) {
+    const finalReadResult = finalReadResults[0];
+    if (finalReadResult?.success && finalReadResult.record) {
       console.log(`✓ Read after re-login verified`);
     } else {
       console.log(`✗ Read after re-login failed`);

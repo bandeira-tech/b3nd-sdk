@@ -52,17 +52,19 @@ Deno.test("S3Client - receive and read", async () => {
   ]);
   assertEquals(result.accepted, true);
 
-  const read = await client.read("store://data/key-1");
-  assertEquals(read.success, true);
-  assertEquals(read.record?.data, { value: "hello" });
+  const results = await client.read("store://data/key-1");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].success, true);
+  assertEquals(results[0].record?.data, { value: "hello" });
 });
 
 Deno.test("S3Client - read not found", async () => {
   const { client } = createClient();
 
-  const read = await client.read("store://data/missing");
-  assertEquals(read.success, false);
-  assertEquals(read.error, "Not found: store://data/missing");
+  const results = await client.read("store://data/missing");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].success, false);
+  assertEquals(results[0].error, "Not found: store://data/missing");
 });
 
 Deno.test("S3Client - receive accepts known program", async () => {
@@ -72,129 +74,52 @@ Deno.test("S3Client - receive accepts known program", async () => {
   assertEquals(result.accepted, true);
 });
 
-Deno.test("S3Client - delete existing object", async () => {
-  const { client } = createClient();
-
-  await client.receive(["store://data/x", "val"]);
-  const del = await client.delete("store://data/x");
-  assertEquals(del.success, true);
-
-  const read = await client.read("store://data/x");
-  assertEquals(read.success, false);
-});
-
-Deno.test("S3Client - delete not found", async () => {
-  const { client } = createClient();
-
-  const del = await client.delete("store://data/missing");
-  assertEquals(del.success, false);
-  assertEquals(del.error, "Not found");
-});
-
-Deno.test("S3Client - list items", async () => {
+Deno.test("S3Client - read with trailing slash lists items", async () => {
   const { client } = createClient();
 
   await client.receive(["store://data/users/alice", { name: "Alice" }]);
   await client.receive(["store://data/users/bob", { name: "Bob" }]);
 
-  const list = await client.list("store://data/users");
-  assertEquals(list.success, true);
-  if (list.success) {
-    assertEquals(list.data.length, 2);
-    const uris = list.data.map((i) => i.uri).sort();
-    assertEquals(uris, [
-      "store://data/users/alice",
-      "store://data/users/bob",
-    ]);
-  }
+  const results = await client.read("store://data/users/");
+  assertEquals(results.length, 2);
+  const uris = results.map((r) => r.uri).sort();
+  assertEquals(uris, [
+    "store://data/users/alice",
+    "store://data/users/bob",
+  ]);
 });
 
-Deno.test("S3Client - list empty prefix", async () => {
+Deno.test("S3Client - read with trailing slash empty prefix", async () => {
   const { client } = createClient();
 
-  const list = await client.list("store://data/empty");
-  assertEquals(list.success, true);
-  if (list.success) {
-    assertEquals(list.data.length, 0);
-  }
+  const results = await client.read("store://data/empty/");
+  assertEquals(results.length, 0);
 });
 
-Deno.test("S3Client - list with pattern filter", async () => {
-  const { client } = createClient();
-
-  await client.receive(["store://data/logs/info-1", "a"]);
-  await client.receive(["store://data/logs/error-1", "b"]);
-  await client.receive(["store://data/logs/info-2", "c"]);
-
-  const list = await client.list("store://data/logs", { pattern: "info" });
-  assertEquals(list.success, true);
-  if (list.success) {
-    assertEquals(list.data.length, 2);
-  }
-});
-
-Deno.test("S3Client - list with pagination", async () => {
-  const { client } = createClient();
-
-  await client.receive(["store://data/items/a", 1]);
-  await client.receive(["store://data/items/b", 2]);
-  await client.receive(["store://data/items/c", 3]);
-
-  const page1 = await client.list("store://data/items", { page: 1, limit: 2 });
-  assertEquals(page1.success, true);
-  if (page1.success) {
-    assertEquals(page1.data.length, 2);
-    assertEquals(page1.pagination.total, 3);
-  }
-
-  const page2 = await client.list("store://data/items", { page: 2, limit: 2 });
-  assertEquals(page2.success, true);
-  if (page2.success) {
-    assertEquals(page2.data.length, 1);
-  }
-});
-
-Deno.test("S3Client - readMulti", async () => {
+Deno.test("S3Client - read multiple URIs", async () => {
   const { client } = createClient();
 
   await client.receive(["store://data/a", "val-a"]);
   await client.receive(["store://data/b", "val-b"]);
 
-  const result = await client.readMulti([
+  const results = await client.read([
     "store://data/a",
     "store://data/b",
     "store://data/missing",
   ]);
 
-  assertEquals(result.success, true);
-  assertEquals(result.summary.total, 3);
-  assertEquals(result.summary.succeeded, 2);
-  assertEquals(result.summary.failed, 1);
-});
-
-Deno.test("S3Client - readMulti empty array", async () => {
-  const { client } = createClient();
-
-  const result = await client.readMulti([]);
-  assertEquals(result.success, false);
-  assertEquals(result.summary.total, 0);
-});
-
-Deno.test("S3Client - readMulti exceeds batch limit", async () => {
-  const { client } = createClient();
-
-  const uris = Array.from({ length: 51 }, (_, i) => `store://data/${i}`);
-  const result = await client.readMulti(uris);
-
-  assertEquals(result.success, false);
-  assertEquals(result.summary.failed, 51);
+  assertEquals(results.length, 3);
+  const succeeded = results.filter((r) => r.success);
+  const failed = results.filter((r) => !r.success);
+  assertEquals(succeeded.length, 2);
+  assertEquals(failed.length, 1);
 });
 
 Deno.test("S3Client - status returns healthy", async () => {
   const { client } = createClient();
 
-  const st = await client.status();
-  assertEquals(st.healthy, true);
+  const result = await client.status();
+  assertEquals(result.status, "healthy");
 });
 
 Deno.test("S3Client - status returns unhealthy", async () => {
@@ -206,32 +131,8 @@ Deno.test("S3Client - status returns unhealthy", async () => {
     executor,
   );
 
-  const st = await client.status();
-  assertEquals(st.healthy, false);
-});
-
-Deno.test("S3Client - status returns healthy", async () => {
-  const { client } = createClient();
-
-  const st = await client.status();
-  assertEquals(st.healthy, true);
-});
-
-Deno.test("S3Client - cleanup delegates to executor", async () => {
-  let cleaned = false;
-  const executor = createMockExecutor();
-  executor.cleanup = () => {
-    cleaned = true;
-    return Promise.resolve();
-  };
-
-  const client = new S3Client(
-    { bucket: "b" },
-    executor,
-  );
-
-  await client.cleanup();
-  assertEquals(cleaned, true);
+  const result = await client.status();
+  assertEquals(result.status, "unhealthy");
 });
 
 Deno.test("S3Client - prefix is applied to keys", async () => {
@@ -245,11 +146,11 @@ Deno.test("S3Client - prefix is applied to keys", async () => {
   assertEquals(executor.objects.has("prod/b3nd/store/data/key.json"), true);
 
   // Read should still work via URI
-  const read = await client.read("store://data/key");
-  assertEquals(read.success, true);
-  assertEquals(read.record?.data, "value");
+  const results = await client.read("store://data/key");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].success, true);
+  assertEquals(results[0].record?.data, "value");
 });
-
 
 Deno.test("S3Client - constructor requires executor", () => {
   let threw = false;

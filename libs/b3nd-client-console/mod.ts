@@ -1,10 +1,10 @@
 import {
   Errors,
-  type DeleteResult,
   type Message,
-  type NodeProtocolWriteInterface,
-  type NodeStatus,
+  type NodeProtocolInterface,
+  type ReadResult,
   type ReceiveResult,
+  type StatusResult,
 } from "../b3nd-core/types.ts";
 
 /**
@@ -37,7 +37,7 @@ function safeStringify(data: unknown): string {
 /**
  * ConsoleClient — a write-only client that logs received messages to the console.
  *
- * This client implements `NodeProtocolWriteInterface` and has no read capabilities.
+ * This client implements `NodeProtocolInterface` with stub read.
  * It prints received data to stdout.
  *
  * Useful for debugging, auditing, and piping protocol traffic to the terminal.
@@ -50,7 +50,7 @@ function safeStringify(data: unknown): string {
  * // Console output: [b3nd] RECEIVE mutable://logs/entry-1 {"level":"info","msg":"hello"}
  * ```
  */
-export class ConsoleClient implements NodeProtocolWriteInterface {
+export class ConsoleClient implements NodeProtocolInterface {
   private readonly label: string;
   private readonly log: (message: string) => void;
 
@@ -79,24 +79,22 @@ export class ConsoleClient implements NodeProtocolWriteInterface {
     return { accepted: true };
   }
 
-  public delete(uri: string): Promise<DeleteResult> {
-    if (!uri || typeof uri !== "string") {
-      return Promise.resolve({
-        success: false,
-        error: "URI is required",
-        errorDetail: Errors.invalidUri(uri ?? "", "URI is required"),
-      });
-    }
-
-    this.log(`[${this.label}] DELETE ${uri}`);
-    return Promise.resolve({ success: true });
+  public read<T = unknown>(_uris: string | string[]): Promise<ReadResult<T>[]> {
+    return Promise.resolve([]);
   }
 
-  public status(): Promise<NodeStatus> {
-    return Promise.resolve({ healthy: true });
+  // deno-lint-ignore require-yield
+  async *observe<T = unknown>(
+    _pattern: string,
+    _signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    // Not implemented — observe requires transport-specific support.
   }
 
-  public cleanup(): Promise<void> {
-    return Promise.resolve();
+  public status(): Promise<StatusResult> {
+    return Promise.resolve({
+      status: "healthy",
+      schema: [],
+    });
   }
 }

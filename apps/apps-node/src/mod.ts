@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Context } from "hono";
-import { Rig } from "@b3nd/rig";
+import { connection, createClientFromUrl, Rig } from "@b3nd/rig";
 
 import { loadConfig } from "./config.ts";
 import { loadServerKeys } from "./server-keys.ts";
@@ -22,7 +22,10 @@ async function main() {
   const serverKeys = loadServerKeys();
 
   // Use Rig instead of raw HttpClient — operations go through hooks/events
-  const rig = await Rig.init({ url: config.dataNodeUrl });
+  const rawClient = await createClientFromUrl(config.dataNodeUrl);
+  const rig = new Rig({
+    connections: [connection(rawClient, { receive: ["*"], read: ["*"] })],
+  });
   rig.on("receive:error", (e) => {
     console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
   });
@@ -270,10 +273,10 @@ async function main() {
         appKey,
       );
 
-      const readRes = await rig.read<any>(uri);
-      if (!readRes.success || !readRes.record) {
+      const readRes = (await rig.read<any>(uri))[0];
+      if (!readRes?.success || !readRes.record) {
         return c.json(
-          { success: false, error: readRes.error || "not found" },
+          { success: false, error: readRes?.error || "not found" },
           404,
         );
       }

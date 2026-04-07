@@ -1,5 +1,5 @@
-import { useRef, useCallback } from "react";
-import { Copy, Check } from "lucide-react";
+import { useCallback, useRef } from "react";
+import { Check, Copy } from "lucide-react";
 import { useDashboardStore } from "../stores/dashboardStore";
 import { useState } from "react";
 
@@ -48,17 +48,19 @@ export function RawLogsPanel() {
           onClick={handleCopy}
           className="flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
         >
-          {copied ? (
-            <>
-              <Check className="w-3 h-3 text-green-500" />
-              Copied
-            </>
-          ) : (
-            <>
-              <Copy className="w-3 h-3" />
-              Copy
-            </>
-          )}
+          {copied
+            ? (
+              <>
+                <Check className="w-3 h-3 text-green-500" />
+                Copied
+              </>
+            )
+            : (
+              <>
+                <Copy className="w-3 h-3" />
+                Copy
+              </>
+            )}
         </button>
       </div>
 

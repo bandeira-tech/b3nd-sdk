@@ -23,7 +23,12 @@ export type BackendType =
   | "indexeddb"
   | "other";
 
-export type TestStatus = "running" | "passed" | "failed" | "skipped" | "pending";
+export type TestStatus =
+  | "running"
+  | "passed"
+  | "failed"
+  | "skipped"
+  | "pending";
 
 export type DataSource = "b3nd" | "static";
 

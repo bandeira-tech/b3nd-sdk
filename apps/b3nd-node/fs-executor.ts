@@ -41,7 +41,9 @@ export function createFsExecutor(rootDir: string): FsExecutor {
       }
 
       const files: string[] = [];
-      for await (const entry of walk(dir, { includeFiles: true, includeDirs: false })) {
+      for await (
+        const entry of walk(dir, { includeFiles: true, includeDirs: false })
+      ) {
         files.push(relative(dir, entry.path));
       }
       return files;

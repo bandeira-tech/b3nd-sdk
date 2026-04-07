@@ -76,10 +76,10 @@ export async function userExists(
     "profile",
     ...(appScope ? [appScope] : []),
   );
-  const result = await client.read(
+  const results = await client.read(
     `mutable://accounts/${serverPublicKey}/${path}`,
   );
-  return result.success;
+  return results[0]?.success ?? false;
 }
 
 /**
@@ -170,11 +170,12 @@ export async function authenticateUser(
   );
 
   // Read signed+encrypted password credential
-  const result = await client.read<unknown>(
+  const results = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${passwordPath}`,
   );
+  const result = results[0];
 
-  if (!result.success || !result.record?.data) {
+  if (!result?.success || !result.record?.data) {
     return false;
   }
 
@@ -330,11 +331,12 @@ export async function resetPasswordWithToken(
   );
 
   // Read signed+encrypted reset token
-  const result = await client.read<unknown>(
+  const results = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${tokenPath}`,
   );
+  const result = results[0];
 
-  if (!result.success || !result.record?.data) {
+  if (!result?.success || !result.record?.data) {
     throw new Error("Invalid or expired reset token");
   }
 
@@ -392,8 +394,8 @@ export async function resetPasswordWithToken(
     passwordSigned,
   ]);
 
-  // Delete the used token
-  await client.delete(`mutable://accounts/${serverPublicKey}/${tokenPath}`);
+  // TODO: delete was removed from NodeProtocolInterface — need alternative cleanup strategy
+  // await client.delete(`mutable://accounts/${serverPublicKey}/${tokenPath}`);
 
   return tokenUsername;
 }
@@ -413,10 +415,10 @@ export async function googleUserExists(
     "google-profile",
     ...(appScope ? [appScope] : []),
   );
-  const result = await client.read(
+  const results = await client.read(
     `mutable://accounts/${serverPublicKey}/${path}`,
   );
-  return result.success;
+  return results[0]?.success ?? false;
 }
 
 /**
@@ -519,11 +521,12 @@ export async function authenticateGoogleUser(
     ...(appScope ? [appScope] : []),
   );
 
-  const result = await client.read<unknown>(
+  const results = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${googleProfilePath}`,
   );
+  const result = results[0];
 
-  if (!result.success || !result.record?.data) {
+  if (!result?.success || !result.record?.data) {
     return null;
   }
 

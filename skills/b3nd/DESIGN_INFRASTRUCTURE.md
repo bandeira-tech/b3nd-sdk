@@ -1,9 +1,9 @@
 # Infrastructure & Deployment
 
 A B3nd node is a process that speaks the `NodeProtocolInterface` — it
-can `receive()`, `read()`, `list()`, and `delete()` messages. Everything
-else is a deployment choice. This document explores what nodes need to
-support handlers and listeners, how to deploy them, and how to scale.
+can `receive()`, `read()`, and report `status()`. Everything else is a
+deployment choice. This document explores what nodes need to support
+handlers and listeners, how to deploy them, and how to scale.
 
 ---
 
@@ -18,9 +18,8 @@ interface. Handlers compose with these operations:
 │                                                          │
 │  receive(msg)    ── accept a [uri, data] message         │
 │  read(uri)       ── fetch a single record                │
-│  list(uri, opts) ── enumerate records under a prefix     │
-│  delete(uri)     ── remove a record                      │
-│  status()        ── report node status + list programs    │
+│  read("prefix/") ── enumerate records under a prefix     │
+│  status()        ── report node status and schema        │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -33,8 +32,8 @@ A handler uses these operations in a specific pattern:
 │           │   ① receive()      │                    │
 │           │───────────────────>│  inbox/handler/ts  │
 │           │                    │                    │
-│           │                    │   ② list()         │
-│           │                    │   ③ read()         │
+│           │                    │   ② read("prefix/")│
+│           │                    │   ③ read(uri)      │
 │           │                    │        │           │
 │           │                    │   ┌────▼────┐      │
 │           │                    │   │ Handler │      │
@@ -44,23 +43,20 @@ A handler uses these operations in a specific pattern:
 │           │   ⑤ read()         │   (response)       │
 │           │<───────────────────│  outbox/client/ts  │
 │           │                    │                    │
-│           │                    │   ⑥ delete()       │
-│           │                    │   (cleanup inbox)   │
 └──────────┘                    └────────────────────┘
 ```
 
 **Step by step:**
 
 1. Client writes an encrypted request to the handler's inbox URI
-2. Handler (via `connect()`) calls `list()` to discover new inbox items
-3. Handler calls `read()` to fetch each request
+2. Handler (via `connect()`) calls `read("prefix/")` to discover new inbox items
+3. Handler calls `read(uri)` to fetch each request
 4. Handler processes the request and calls `receive()` to write the
    encrypted response to the client's outbox
 5. Client calls `read()` to fetch the response
-6. Handler calls `delete()` to clean up the processed inbox item
 
-The node must support all six operations. A read-only node or a
-write-only node cannot host handlers.
+The node must support `receive()`, `read()`, and `read("prefix/")`.
+A read-only node or a write-only node cannot host handlers.
 
 ---
 
@@ -79,11 +75,11 @@ The simplest deployment. The handler runs in the same process as the node.
 │  │  Server  │───>│  Client   │  │
 │  │  (Hono)  │    │           │  │
 │  └─────────┘    └─────┬─────┘  │
-│                       │        │
-│                  ┌────▼────┐   │
-│                  │ Handler │   │
-│                  │ (loop)  │   │
-│                  └─────────┘   │
+│                       │         │
+│                  ┌────▼────┐    │
+│                  │ Handler │    │
+│                  │ (loop)  │    │
+│                  └─────────┘    │
 │                                 │
 └─────────────────────────────────┘
 ```
@@ -116,10 +112,10 @@ The handler runs in a separate process and polls the node over HTTP.
 │    Node      │            │   Listener   │
 │              │   HTTP     │              │
 │  ┌────────┐  │<───────────│  connect()   │
-│  │Postgres│  │   list()   │              │
+│  │Postgres│  │  read("/") │              │
 │  │        │  │   read()   │  respondTo() │
 │  │        │  │   receive()│              │
-│  │        │  │   delete() │  handler()   │
+│  │        │  │            │  handler()   │
 │  └────────┘  │            │              │
 │              │            └──────────────┘
 │  ┌────────┐  │
@@ -237,28 +233,25 @@ its outbox (from the handler's perspective).
 ### Discovery Pattern
 
 ```typescript
-// Handler discovers new messages by listing its inbox prefix
-const items = await client.list(
-  `immutable://inbox/${handlerPubkey}/`,
-  { sortBy: "timestamp", sortOrder: "asc" }
+// Handler discovers new messages by reading with a trailing slash (list)
+const items = await client.read(
+  `immutable://inbox/${handlerPubkey}/`
 );
 
 // Process each message
 for (const item of items.data) {
   const msg = await client.read(item.uri);
   await process(msg);
-  await client.delete(item.uri);  // cleanup
 }
 ```
 
-### Cleanup Strategies
+### Retention Strategies
 
 | Strategy          | How                                    | When                          |
 | ----------------- | -------------------------------------- | ----------------------------- |
-| Immediate delete  | `delete()` after processing            | Default, saves storage        |
 | TTL-based         | Periodic sweep of old URIs             | When audit trail needed       |
-| Archive           | Move to `hash://` before deleting      | When responses need history   |
-| Never delete      | Leave inbox items forever              | Development / debugging       |
+| Archive           | Copy to `hash://` for permanence       | When responses need history   |
+| Keep all          | Leave inbox items forever              | Development / debugging       |
 
 ### Topic Namespacing
 
@@ -286,7 +279,7 @@ connect(client, { prefix: `immutable://inbox/${key}/auth/` });
 
 ### Message Queuing via URI Space
 
-The URI space is the queue. `list()` with pagination is the consumer.
+The URI space is the queue. `read("prefix/")` with pagination is the consumer.
 
 ```
 immutable://inbox/handler/topic/
@@ -296,17 +289,17 @@ immutable://inbox/handler/topic/
 ├── 1708700003000    ← newest
 ```
 
-**Poll model (current):** Handler calls `list()` on an interval. Simple,
-resilient, high latency.
+**Poll model (current):** Handler calls `read("prefix/")` on an interval.
+Simple, resilient, high latency.
 
 ```
-┌────────┐  list() every 5s  ┌──────────┐
-│Handler │──────────────────>│   Node   │
-│        │<──items[]─────────│          │
-│        │                   │          │
-│        │  read() per item  │          │
-│        │──────────────────>│          │
-└────────┘                   └──────────┘
+┌────────┐  read("/") every 5s ┌──────────┐
+│Handler │────────────────────>│   Node   │
+│        │<──items[]───────────│          │
+│        │                     │          │
+│        │  read(uri) per item │          │
+│        │────────────────────>│          │
+└────────┘                     └──────────┘
 ```
 
 **Push model (future):** Node notifies handler when new items arrive.
@@ -325,16 +318,15 @@ Lower latency, more complex.
 
 ### Backpressure
 
-When a handler can't keep up, the inbox grows. The `list()` pagination
-provides natural backpressure:
+When a handler can't keep up, the inbox grows. The `read("prefix/")`
+pagination provides natural backpressure:
 
 ```typescript
 // Process one page at a time
-const page = await client.list(prefix, { limit: 50, page: 1 });
+const page = await client.read(prefix + "/");
 for (const item of page.data) {
   await process(item);
 }
-// Don't request page 2 until page 1 is done
 ```
 
 If the inbox grows beyond a threshold, the handler can:
@@ -349,12 +341,12 @@ Multiple listener instances can share an inbox if they coordinate:
 
 ```
 ┌────────────┐
-│ Listener 1 │──list(page=1)──>┌──────────┐
-└────────────┘                 │          │
-                               │   Node   │
-┌────────────┐                 │          │
-│ Listener 2 │──list(page=2)──>│          │
-└────────────┘                 └──────────┘
+│ Listener 1 │──read("pfx1/")─>┌──────────┐
+└────────────┘                  │          │
+                                │   Node   │
+┌────────────┐                  │          │
+│ Listener 2 │──read("pfx2/")─>│          │
+└────────────┘                  └──────────┘
 ```
 
 This requires external coordination (lock service, partitioning) to
@@ -379,9 +371,9 @@ A production node deployment requires:
 │  │            │  BACKEND_URL=postgres://...   │
 │  └─────┬──────┘                              │
 │        │                                     │
-│  ┌─────▼──────┐  Health:                     │
-│  │  Backend   │  GET /api/v1/status           │
-│  │ (Postgres) │  → { status, programs, ... }  │
+│  ┌─────▼──────┐  Status:                     │
+│  │  Backend   │  GET /api/v1/status          │
+│  │ (Postgres) │  → { status, uptime, ... }   │
 │  └────────────┘                              │
 │                                              │
 │  ┌────────────┐  Monitoring:                 │
@@ -413,12 +405,12 @@ The `/api/v1/status` endpoint returns:
 {
   "status": "healthy",
   "uptime": 86400,
-  "programs": ["mutable://open", "mutable://accounts", "..."]
+  "schema": ["mutable://open", "mutable://accounts", "..."]
 }
 ```
 
 For listeners, health is measured by poll success rate. A listener that
-fails to `list()` for N consecutive cycles should alert.
+fails to `read("prefix/")` for N consecutive cycles should alert.
 
 ### Graceful Shutdown
 
@@ -426,7 +418,6 @@ fails to `list()` for N consecutive cycles should alert.
 // Node: stop accepting new connections, drain in-flight requests
 process.on("SIGTERM", async () => {
   await node.close();        // stop HTTP server
-  await client.cleanup();    // close DB connections
 });
 
 // Listener: finish current poll cycle, then stop

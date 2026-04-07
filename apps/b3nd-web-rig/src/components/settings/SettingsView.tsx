@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react";
-import { Database, Plus, Trash2, CheckCircle, Info, Shield, Server } from "lucide-react";
+import {
+  CheckCircle,
+  Database,
+  Info,
+  Plus,
+  Server,
+  Shield,
+  Trash2,
+} from "lucide-react";
 import { HttpAdapter } from "../../adapters/HttpAdapter";
 import { useAppStore } from "../../stores/appStore";
 import type { EndpointConfig } from "../../types";
@@ -32,7 +40,8 @@ export function SettingsSidePanel() {
     [backends, activeBackendId],
   );
   const activeWallet = useMemo(
-    () => walletServers.find((w) => w.id === activeWalletServerId && w.isActive),
+    () =>
+      walletServers.find((w) => w.id === activeWalletServerId && w.isActive),
     [walletServers, activeWalletServerId],
   );
   const activeApp = useMemo(
@@ -87,7 +96,11 @@ function SummaryCard({
         <span>{title}</span>
       </div>
       <div className="text-sm text-foreground truncate">{primary}</div>
-      {secondary && <div className="text-xs text-muted-foreground truncate">{secondary}</div>}
+      {secondary && (
+        <div className="text-xs text-muted-foreground truncate">
+          {secondary}
+        </div>
+      )}
     </div>
   );
 }
@@ -113,7 +126,13 @@ function Section({
 }
 
 function BackendManager() {
-  const { backends, addBackend, setActiveBackend, removeBackend, activeBackendId } = useAppStore();
+  const {
+    backends,
+    addBackend,
+    setActiveBackend,
+    removeBackend,
+    activeBackendId,
+  } = useAppStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", baseUrl: "" });
 
@@ -136,7 +155,8 @@ function BackendManager() {
   return (
     <Section title="Explorer Backend" icon={<Database className="h-4 w-4" />}>
       <p className="text-sm text-muted-foreground">
-        Configure the persistence backend shared by Explorer and Writer. Add multiple endpoints and choose one as active.
+        Configure the persistence backend shared by Explorer and Writer. Add
+        multiple endpoints and choose one as active.
       </p>
       <div className="space-y-2 mb-4">
         {backends.map((backend) => (
@@ -149,47 +169,62 @@ function BackendManager() {
               isActive: backend.isActive,
             }}
             onActivate={() => setActiveBackend(backend.id)}
-            onRemove={() => removeBackend(backend.id)}
+            onRemove={() =>
+              removeBackend(backend.id)}
             activeId={activeBackendId}
           />
         ))}
       </div>
 
-      {showAddForm ? (
-        <EndpointForm
-          formData={formData}
-          setFormData={setFormData}
-          onSubmit={handleAddBackend}
-          onCancel={() => {
-            setShowAddForm(false);
-            setFormData({ name: "", baseUrl: "" });
-          }}
-          placeholder="http://localhost:9942"
-          cta="Add backend"
-        />
-      ) : (
-        <AddButton onClick={() => setShowAddForm(true)} label="Add Backend" />
-      )}
+      {showAddForm
+        ? (
+          <EndpointForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={handleAddBackend}
+            onCancel={() => {
+              setShowAddForm(false);
+              setFormData({ name: "", baseUrl: "" });
+            }}
+            placeholder="http://localhost:9942"
+            cta="Add backend"
+          />
+        )
+        : (
+          <AddButton onClick={() => setShowAddForm(true)} label="Add Backend" />
+        )}
     </Section>
   );
 }
 
 function WalletManager() {
-  const { walletServers, activeWalletServerId, addWalletServer, removeWalletServer, setActiveWalletServer } = useAppStore();
+  const {
+    walletServers,
+    activeWalletServerId,
+    addWalletServer,
+    removeWalletServer,
+    setActiveWalletServer,
+  } = useAppStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", baseUrl: "" });
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.baseUrl.trim()) return;
-    addWalletServer({ name: formData.name, url: formData.baseUrl, isActive: false });
+    addWalletServer({
+      name: formData.name,
+      url: formData.baseUrl,
+      isActive: false,
+    });
     setFormData({ name: "", baseUrl: "" });
     setShowAddForm(false);
   };
 
   return (
     <Section title="Wallet Servers" icon={<Shield className="h-4 w-4" />}>
-      <p className="text-sm text-muted-foreground">Configure wallet servers used for auth and proxy operations.</p>
+      <p className="text-sm text-muted-foreground">
+        Configure wallet servers used for auth and proxy operations.
+      </p>
       <div className="space-y-2 mb-4">
         {walletServers.map((server) => (
           <EndpointItem
@@ -201,41 +236,58 @@ function WalletManager() {
           />
         ))}
       </div>
-      {showAddForm ? (
-        <EndpointForm
-          formData={formData}
-          setFormData={setFormData}
-          onSubmit={handleAdd}
-          onCancel={() => {
-            setShowAddForm(false);
-            setFormData({ name: "", baseUrl: "" });
-          }}
-          placeholder="http://localhost:3001"
-          cta="Add wallet server"
-        />
-      ) : (
-        <AddButton onClick={() => setShowAddForm(true)} label="Add Wallet Server" />
-      )}
+      {showAddForm
+        ? (
+          <EndpointForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={handleAdd}
+            onCancel={() => {
+              setShowAddForm(false);
+              setFormData({ name: "", baseUrl: "" });
+            }}
+            placeholder="http://localhost:3001"
+            cta="Add wallet server"
+          />
+        )
+        : (
+          <AddButton
+            onClick={() => setShowAddForm(true)}
+            label="Add Wallet Server"
+          />
+        )}
     </Section>
   );
 }
 
 function AppServerManager() {
-  const { appServers, activeAppServerId, addAppServer, removeAppServer, setActiveAppServer } = useAppStore();
+  const {
+    appServers,
+    activeAppServerId,
+    addAppServer,
+    removeAppServer,
+    setActiveAppServer,
+  } = useAppStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", baseUrl: "" });
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.baseUrl.trim()) return;
-    addAppServer({ name: formData.name, url: formData.baseUrl, isActive: false });
+    addAppServer({
+      name: formData.name,
+      url: formData.baseUrl,
+      isActive: false,
+    });
     setFormData({ name: "", baseUrl: "" });
     setShowAddForm(false);
   };
 
   return (
     <Section title="App Servers" icon={<Server className="h-4 w-4" />}>
-      <p className="text-sm text-muted-foreground">Configure app servers for actions and schemas.</p>
+      <p className="text-sm text-muted-foreground">
+        Configure app servers for actions and schemas.
+      </p>
       <div className="space-y-2 mb-4">
         {appServers.map((server) => (
           <EndpointItem
@@ -247,21 +299,26 @@ function AppServerManager() {
           />
         ))}
       </div>
-      {showAddForm ? (
-        <EndpointForm
-          formData={formData}
-          setFormData={setFormData}
-          onSubmit={handleAdd}
-          onCancel={() => {
-            setShowAddForm(false);
-            setFormData({ name: "", baseUrl: "" });
-          }}
-          placeholder="http://localhost:3003"
-          cta="Add app server"
-        />
-      ) : (
-        <AddButton onClick={() => setShowAddForm(true)} label="Add App Server" />
-      )}
+      {showAddForm
+        ? (
+          <EndpointForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={handleAdd}
+            onCancel={() => {
+              setShowAddForm(false);
+              setFormData({ name: "", baseUrl: "" });
+            }}
+            placeholder="http://localhost:3003"
+            cta="Add app server"
+          />
+        )
+        : (
+          <AddButton
+            onClick={() => setShowAddForm(true)}
+            label="Add App Server"
+          />
+        )}
     </Section>
   );
 }
@@ -324,15 +381,17 @@ function EndpointItem({
     >
       <div className="flex items-center space-x-3 min-w-0 flex-1">
         <div className="flex items-center space-x-2">
-          {isActive ? (
-            <CheckCircle className="h-4 w-4 text-primary" />
-          ) : (
-            <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
-          )}
+          {isActive
+            ? <CheckCircle className="h-4 w-4 text-primary" />
+            : (
+              <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
+            )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-medium text-sm truncate">{item.name}</div>
-          <div className="text-xs text-muted-foreground truncate">{item.url}</div>
+          <div className="text-xs text-muted-foreground truncate">
+            {item.url}
+          </div>
         </div>
       </div>
       <div className="flex items-center space-x-1 flex-shrink-0">
@@ -381,7 +440,10 @@ function EndpointForm({
   cta: string;
 }) {
   return (
-    <form onSubmit={onSubmit} className="space-y-3 p-3 border border-border rounded-lg bg-muted/20">
+    <form
+      onSubmit={onSubmit}
+      className="space-y-3 p-3 border border-border rounded-lg bg-muted/20"
+    >
       <div className="space-y-1">
         <label className="block text-sm font-medium">Name</label>
         <input
@@ -397,7 +459,8 @@ function EndpointForm({
         <input
           type="text"
           value={formData.baseUrl}
-          onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, baseUrl: e.target.value })}
           placeholder={placeholder}
           className="w-full px-3 py-2 bg-background border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />

@@ -22,10 +22,6 @@ export type RigEventName =
   | "receive:error"
   | "read:success"
   | "read:error"
-  | "list:success"
-  | "list:error"
-  | "delete:success"
-  | "delete:error"
   | "*:success"
   | "*:error";
 

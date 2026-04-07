@@ -9,16 +9,18 @@ import {
   FunctionalClient,
   type FunctionalClientConfig,
 } from "../b3nd-core/functional-client.ts";
-import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
-import type { Validator } from "./types.ts";
+import type {
+  NodeProtocolInterface,
+  ReadResult,
+  Validator,
+} from "../b3nd-core/types.ts";
 
 /**
  * Create a FunctionalClient that validates before writing.
  *
  * Wiring:
  * - receive → validate(msg, read.read) → write.receive(msg)
- * - read/readMulti/list → delegated to config.read
- * - delete/status/cleanup → delegated to config.write
+ * - read/status → delegated to config.read
  *
  * @example
  * ```typescript
@@ -45,11 +47,16 @@ export function createValidatedClient(config: {
         return { accepted: false, error: "Message URI is required" };
       }
 
-      // Run validation
+      // Run validation — top-level message, no upstream
       try {
-        const readFn = <T = unknown>(uri: string): Promise<ReadResult<T>> =>
-          read.read<T>(uri);
-        const validationResult = await validate(msg, readFn);
+        const readFn = async <T = unknown>(
+          u: string,
+        ): Promise<ReadResult<T>> => {
+          const results = await read.read<T>(u);
+          return results[0] ??
+            { success: false, error: "No results" } as ReadResult<T>;
+        };
+        const validationResult = await validate(msg, undefined, readFn);
         if (!validationResult.valid) {
           return {
             accepted: false,
@@ -78,15 +85,8 @@ export function createValidatedClient(config: {
       }
     },
 
-    read: (uri) => read.read(uri),
-    readMulti: (uris) => read.readMulti(uris),
-    list: (uri, options) => read.list(uri, options),
-    delete: (uri) => write.delete(uri),
+    read: (uris) => read.read(uris),
     status: () => read.status(),
-    async cleanup() {
-      await write.cleanup();
-      await read.cleanup();
-    },
   };
 
   return new FunctionalClient(fnConfig);

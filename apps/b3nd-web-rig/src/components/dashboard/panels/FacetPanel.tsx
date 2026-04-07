@@ -1,5 +1,19 @@
-import { useState, useCallback } from "react";
-import { Plus, X, ChevronDown, ChevronRight, Search, Database, Zap, Check, XCircle, SkipForward, Loader2, Tag, Box } from "lucide-react";
+import { useCallback, useState } from "react";
+import {
+  Box,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  Loader2,
+  Plus,
+  Search,
+  SkipForward,
+  Tag,
+  X,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { useDashboardStore } from "../stores/dashboardStore";
 import type { FacetGroup, FacetType } from "../types";
 import { cn } from "../../../utils";
@@ -36,7 +50,9 @@ export function FacetPanel() {
   } = useDashboardStore();
 
   const [newKeyword, setNewKeyword] = useState("");
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(),
+  );
 
   const handleAddKeyword = useCallback(
     (e: React.FormEvent) => {
@@ -46,7 +62,7 @@ export function FacetPanel() {
         setNewKeyword("");
       }
     },
-    [newKeyword, addCustomKeyword]
+    [newKeyword, addCustomKeyword],
   );
 
   const toggleGroupExpansion = useCallback(
@@ -58,7 +74,7 @@ export function FacetPanel() {
         return next;
       });
     },
-    []
+    [],
   );
 
   const activeCount = activeFacets.size;
@@ -120,7 +136,7 @@ export function FacetPanel() {
                   }}
                   className={cn(
                     "inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full",
-                    "bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                    "bg-primary/10 text-primary hover:bg-primary/20 transition-colors",
                   )}
                 >
                   <span className="truncate max-w-[100px]">{value}</span>
@@ -165,7 +181,8 @@ function FacetGroupSection({
   onRemoveKeyword,
 }: FacetGroupSectionProps) {
   const GroupIcon = facetTypeIcons[group.type];
-  const activeInGroup = group.facets.filter((f) => activeFacets.has(f.id)).length;
+  const activeInGroup =
+    group.facets.filter((f) => activeFacets.has(f.id)).length;
 
   return (
     <div className="border-b border-border">
@@ -174,13 +191,13 @@ function FacetGroupSection({
         onClick={onToggleExpand}
         className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-accent/50 transition-colors"
       >
-        {group.expanded ? (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-        )}
+        {group.expanded
+          ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
         <GroupIcon className="w-4 h-4 text-muted-foreground" />
-        <span className="font-medium text-sm flex-1 text-left">{group.label}</span>
+        <span className="font-medium text-sm flex-1 text-left">
+          {group.label}
+        </span>
         {activeInGroup > 0 && (
           <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
             {activeInGroup}
@@ -193,8 +210,12 @@ function FacetGroupSection({
         <div className="pb-2">
           {group.facets.map((facet) => {
             const isActive = activeFacets.has(facet.id);
-            const StatusIcon = group.type === "status" ? statusIcons[facet.value] : null;
-            const statusColor = group.type === "status" ? statusColors[facet.value] : "";
+            const StatusIcon = group.type === "status"
+              ? statusIcons[facet.value]
+              : null;
+            const statusColor = group.type === "status"
+              ? statusColors[facet.value]
+              : "";
 
             return (
               <button
@@ -209,28 +230,35 @@ function FacetGroupSection({
                 className={cn(
                   "w-full flex items-center gap-2 px-4 py-1.5 text-sm transition-colors",
                   "hover:bg-accent/50",
-                  isActive && "bg-primary/5"
+                  isActive && "bg-primary/5",
                 )}
               >
                 {/* Checkbox or status icon */}
                 <div
                   className={cn(
                     "w-4 h-4 rounded border flex items-center justify-center flex-shrink-0",
-                    isActive
-                      ? "bg-primary border-primary"
-                      : "border-border"
+                    isActive ? "bg-primary border-primary" : "border-border",
                   )}
                 >
-                  {isActive && <Check className="w-3 h-3 text-primary-foreground" />}
+                  {isActive && (
+                    <Check className="w-3 h-3 text-primary-foreground" />
+                  )}
                 </div>
 
                 {/* Status icon for status facets */}
                 {StatusIcon && (
-                  <StatusIcon className={cn("w-3.5 h-3.5 flex-shrink-0", statusColor)} />
+                  <StatusIcon
+                    className={cn("w-3.5 h-3.5 flex-shrink-0", statusColor)}
+                  />
                 )}
 
                 {/* Label */}
-                <span className={cn("flex-1 text-left truncate", isActive && "font-medium")}>
+                <span
+                  className={cn(
+                    "flex-1 text-left truncate",
+                    isActive && "font-medium",
+                  )}
+                >
                   {facet.label}
                 </span>
 

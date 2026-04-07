@@ -80,7 +80,14 @@ export interface EndpointConfig {
 
 // Application state types
 export type AppMode = "filesystem" | "search" | "watched";
-export type AppExperience = "explorer" | "editor" | "writer" | "dashboard" | "nodes" | "learn" | "api-docs";
+export type AppExperience =
+  | "explorer"
+  | "editor"
+  | "writer"
+  | "dashboard"
+  | "nodes"
+  | "learn"
+  | "api-docs";
 export type WriterSection =
   | "backend"
   | "hash"
@@ -295,7 +302,11 @@ export interface AppActions {
   setActiveAccount: (id: string | null) => void;
 
   setFormValue: (formId: string, field: string, value: string) => void;
-  getFormValue: (formId: string, field: string, defaultValue?: string) => string;
+  getFormValue: (
+    formId: string,
+    field: string,
+    defaultValue?: string,
+  ) => string;
   resetForm: (formId: string) => void;
 
   // Search actions
@@ -308,6 +319,8 @@ export interface AppActions {
   removeWatchedPath: (path: string) => void;
 
   // Logs
-  addLogEntry: (entry: Omit<AppLogEntry, "timestamp"> & { timestamp?: number }) => void;
+  addLogEntry: (
+    entry: Omit<AppLogEntry, "timestamp"> & { timestamp?: number },
+  ) => void;
   clearLogs: () => void;
 }

@@ -15,12 +15,12 @@
  * await client.receive(["mutable://users/alice", { name: "Alice", age: 30 }]);
  *
  * // Read data
- * const result = await client.read("mutable://users/alice");
- * console.log(result.record?.data); // { name: "Alice", age: 30 }
+ * const results = await client.read("mutable://users/alice");
+ * console.log(results[0]?.record?.data); // { name: "Alice", age: 30 }
  *
- * // List items
- * const list = await client.list("mutable://users");
- * console.log(list.data); // [{ uri: "mutable://users/alice", ... }]
+ * // List items (trailing slash)
+ * const list = await client.read("mutable://users/");
+ * console.log(list.map(r => r.uri)); // ["mutable://users/alice"]
  * ```
  *
  * @example Using HttpClient with a remote backend
@@ -68,15 +68,20 @@ export type {
   NodeProtocolInterface,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
+  Output,
   PersistenceRecord,
   PostgresClientConfig,
+  ReadFn,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
+  ReceiveResult,
   S3ClientConfig,
   Schema,
   SqliteClientConfig,
-  ValidationFn,
+  StatusResult,
+  ValidationResult,
+  Validator,
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
@@ -134,13 +139,10 @@ export { createValidatedClient } from "../libs/b3nd-compose/validated-client.ts"
 // Unified Node system (deprecated — use createValidatedClient instead)
 export { createNode } from "../libs/b3nd-compose/mod.ts";
 export type {
-  Message,
   Node,
   NodeConfig,
   Processor,
   ReadInterface,
-  ReceiveResult,
-  Validator,
 } from "../libs/b3nd-compose/mod.ts";
 export {
   // Built-in validators
@@ -210,11 +212,10 @@ export type {
   RigConfig,
   RigInfo,
   S3Executor as S3ExecutorFactory,
-  Unsubscribe,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,
 } from "../libs/b3nd-rig/mod.ts";
 
-// Server handler factory — use createRigHandler from @b3nd/rig instead
-export { createRigHandler } from "../libs/b3nd-rig/http-handler.ts";
+// HTTP API — standalone function for serving a rig over HTTP
+export { createRigHandler, httpApi } from "../libs/b3nd-rig/http.ts";

@@ -14,7 +14,10 @@ Deno.test("heartbeat: writes status on start", async () => {
     name: "Heartbeat Node",
     port: 8080,
     intervalMs: 60000, // long interval - we test immediate write
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [{ type: "memory", status: "connected" }],
   });
 
@@ -26,7 +29,8 @@ Deno.test("heartbeat: writes status on start", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const result = await client.read(uri);
+  const results = await client.read(uri);
+  const result = results[0];
   assertEquals(result.success, true);
 
   const data = (result as any).record.data;
@@ -54,7 +58,10 @@ Deno.test("heartbeat: degraded status when backend has error", async () => {
     name: "Degraded Node",
     port: 8081,
     intervalMs: 60000,
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [
       { type: "memory", status: "connected" },
       { type: "postgresql", status: "error" },
@@ -66,7 +73,8 @@ Deno.test("heartbeat: degraded status when backend has error", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const result = await client.read(uri);
+  const results = await client.read(uri);
+  const result = results[0];
   assertEquals(result.success, true);
 
   const status = (result as any).record.data.payload;
@@ -83,7 +91,10 @@ Deno.test("heartbeat: signed envelope has correct pubkey", async () => {
     name: "Signed Node",
     port: 8082,
     intervalMs: 60000,
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [{ type: "memory", status: "connected" }],
   });
 
@@ -92,7 +103,8 @@ Deno.test("heartbeat: signed envelope has correct pubkey", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const result = await client.read(uri);
+  const results = await client.read(uri);
+  const result = results[0];
   const data = (result as any).record.data;
 
   assertEquals(data.auth.length, 1);
@@ -111,7 +123,10 @@ Deno.test("heartbeat: includes metrics when getMetrics provided", async () => {
     name: "Metrics Node",
     port: 8083,
     intervalMs: 60000,
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [{ type: "memory", status: "connected" }],
     getMetrics: () => ({
       writeLatencyP50: 1.0,
@@ -128,7 +143,8 @@ Deno.test("heartbeat: includes metrics when getMetrics provided", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const result = await client.read(uri);
+  const results = await client.read(uri);
+  const result = results[0];
   const status = (result as any).record.data.payload;
 
   assertEquals(status.metrics.writeLatencyP50, 1.0);
@@ -151,7 +167,10 @@ Deno.test("heartbeat: stop prevents further writes", async () => {
     name: "Stop Node",
     port: 8084,
     intervalMs: 50, // short interval
-    signer: { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex },
+    signer: {
+      privateKey: keypair.privateKey,
+      publicKeyHex: keypair.publicKeyHex,
+    },
     getBackendStatuses: () => [{ type: "memory", status: "connected" }],
   });
 

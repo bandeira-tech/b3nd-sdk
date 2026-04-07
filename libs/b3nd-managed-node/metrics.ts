@@ -6,7 +6,10 @@
  *   mutable://accounts/{nodeKey}/metrics
  */
 
-import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import type {
+  NodeProtocolInterface,
+  ReadResult,
+} from "@bandeira-tech/b3nd-sdk";
 import { createSignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { SignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { NodeMetrics } from "./types.ts";
@@ -48,7 +51,9 @@ export interface MetricsCollector {
   wrapClient(client: NodeProtocolInterface): NodeProtocolInterface;
 }
 
-export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCollector {
+export function createMetricsCollector(
+  opts: MetricsCollectorOptions,
+): MetricsCollector {
   let timer: ReturnType<typeof setInterval> | null = null;
   const writes: LatencyBucket = { values: [], errors: 0 };
   const reads: LatencyBucket = { values: [], errors: 0 };
@@ -75,7 +80,10 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
     const metrics = snapshot();
 
     try {
-      let message: SignedEncryptedMessage | { auth: Array<{ pubkey: string; signature: string }>; payload: NodeMetrics };
+      let message: SignedEncryptedMessage | {
+        auth: Array<{ pubkey: string; signature: string }>;
+        payload: NodeMetrics;
+      };
 
       if (opts.operatorEncryptionPubKeyHex) {
         message = await createSignedEncryptedMessage(
@@ -84,7 +92,9 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
           opts.operatorEncryptionPubKeyHex,
         );
       } else {
-        const { createAuthenticatedMessage } = await import("@bandeira-tech/b3nd-sdk/encrypt");
+        const { createAuthenticatedMessage } = await import(
+          "@bandeira-tech/b3nd-sdk/encrypt"
+        );
         message = await createAuthenticatedMessage(metrics, [opts.signer]);
       }
 
@@ -104,7 +114,9 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
 
   function wrapClient(client: NodeProtocolInterface): NodeProtocolInterface {
     return {
-      receive: async (...args: Parameters<NodeProtocolInterface["receive"]>) => {
+      receive: async (
+        ...args: Parameters<NodeProtocolInterface["receive"]>
+      ) => {
         const start = performance.now();
         try {
           const result = await client.receive(...args);
@@ -115,10 +127,12 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
           throw err;
         }
       },
-      read: async (...args: Parameters<NodeProtocolInterface["read"]>) => {
+      async read<T = unknown>(
+        uris: string | string[],
+      ): Promise<import("../b3nd-core/types.ts").ReadResult<T>[]> {
         const start = performance.now();
         try {
-          const result = await client.read(...args);
+          const result = await client.read<T>(uris);
           collector.recordRead(performance.now() - start);
           return result;
         } catch (err) {
@@ -126,10 +140,15 @@ export function createMetricsCollector(opts: MetricsCollectorOptions): MetricsCo
           throw err;
         }
       },
-      list: client.list.bind(client),
-      delete: client.delete.bind(client),
-      status: client.status.bind(client),
-    } as NodeProtocolInterface;
+      // deno-lint-ignore require-yield
+      async *observe<T = unknown>(
+        _pattern: string,
+        _signal: AbortSignal,
+      ): AsyncIterable<ReadResult<T>> {
+        // Not implemented.
+      },
+      status: () => client.status(),
+    };
   }
 
   const collector: MetricsCollector = {

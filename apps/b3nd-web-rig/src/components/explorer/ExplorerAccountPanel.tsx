@@ -11,7 +11,9 @@ export function ExplorerAccountPanel() {
     setExplorerSection,
     setExplorerAccountKey,
   } = useAppStore();
-  const [accountKeyInput, setAccountKeyInput] = useState(explorerAccountKey || "");
+  const [accountKeyInput, setAccountKeyInput] = useState(
+    explorerAccountKey || "",
+  );
   const [pathInput, setPathInput] = useState(explorerAccountPath || "/");
   const navigate = useNavigate();
 
@@ -66,7 +68,8 @@ export function ExplorerAccountPanel() {
           Account scope
         </h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Browse explorer data limited to a single account by providing its public key.
+          Browse explorer data limited to a single account by providing its
+          public key.
         </p>
       </div>
 
@@ -116,7 +119,9 @@ export function ExplorerAccountPanel() {
         <div className="rounded border border-border bg-muted/40 p-3 text-xs">
           <div className="flex items-center gap-2 text-muted-foreground">
             <LinkIcon className="h-4 w-4" />
-            <span className="font-semibold text-foreground">Shareable link</span>
+            <span className="font-semibold text-foreground">
+              Shareable link
+            </span>
           </div>
           <div className="mt-2 font-mono break-all text-foreground">
             {targetRoute}

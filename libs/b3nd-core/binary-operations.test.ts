@@ -115,22 +115,22 @@ Deno.test({
     const result = await client.receive(["files://images/test.png", pngData]);
     assertEquals(result.accepted, true, "PNG write should succeed");
 
-    const readResult = await client.read<Uint8Array>("files://images/test.png");
-    assertEquals(readResult.success, true, "PNG read should succeed");
+    const readResults = await client.read<Uint8Array>(
+      "files://images/test.png",
+    );
+    assertEquals(readResults[0].success, true, "PNG read should succeed");
     assertEquals(
-      readResult.record?.data instanceof Uint8Array,
+      readResults[0].record?.data instanceof Uint8Array,
       true,
       "Should return Uint8Array",
     );
 
-    const readData = readResult.record?.data as Uint8Array;
+    const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(
       compareBinary(pngData, readData),
       true,
       "PNG data should match",
     );
-
-    await client.cleanup();
   },
 });
 
@@ -164,19 +164,17 @@ Deno.test({
     const result = await client.receive(["files://images/photo.jpg", jpegData]);
     assertEquals(result.accepted, true, "JPEG write should succeed");
 
-    const readResult = await client.read<Uint8Array>(
+    const readResults = await client.read<Uint8Array>(
       "files://images/photo.jpg",
     );
-    assertEquals(readResult.success, true, "JPEG read should succeed");
+    assertEquals(readResults[0].success, true, "JPEG read should succeed");
 
-    const readData = readResult.record?.data as Uint8Array;
+    const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(
       compareBinary(jpegData, readData),
       true,
       "JPEG data should match",
     );
-
-    await client.cleanup();
   },
 });
 
@@ -206,19 +204,17 @@ Deno.test({
     const result = await client.receive(["files://modules/app.wasm", wasmData]);
     assertEquals(result.accepted, true, "WASM write should succeed");
 
-    const readResult = await client.read<Uint8Array>(
+    const readResults = await client.read<Uint8Array>(
       "files://modules/app.wasm",
     );
-    assertEquals(readResult.success, true, "WASM read should succeed");
+    assertEquals(readResults[0].success, true, "WASM read should succeed");
 
-    const readData = readResult.record?.data as Uint8Array;
+    const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(
       compareBinary(wasmData, readData),
       true,
       "WASM data should match",
     );
-
-    await client.cleanup();
   },
 });
 
@@ -248,17 +244,17 @@ Deno.test({
     const result = await client.receive(["files://fonts/app.woff2", fontData]);
     assertEquals(result.accepted, true, "Font write should succeed");
 
-    const readResult = await client.read<Uint8Array>("files://fonts/app.woff2");
-    assertEquals(readResult.success, true, "Font read should succeed");
+    const readResults = await client.read<Uint8Array>(
+      "files://fonts/app.woff2",
+    );
+    assertEquals(readResults[0].success, true, "Font read should succeed");
 
-    const readData = readResult.record?.data as Uint8Array;
+    const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(
       compareBinary(fontData, readData),
       true,
       "Font data should match",
     );
-
-    await client.cleanup();
   },
 });
 
@@ -277,12 +273,16 @@ Deno.test({
     ]);
     assertEquals(result.accepted, true, "Large file write should succeed");
 
-    const readResult = await client.read<Uint8Array>(
+    const readResults = await client.read<Uint8Array>(
       "files://large/bigfile.bin",
     );
-    assertEquals(readResult.success, true, "Large file read should succeed");
+    assertEquals(
+      readResults[0].success,
+      true,
+      "Large file read should succeed",
+    );
 
-    const readData = readResult.record?.data as Uint8Array;
+    const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(
       readData.length,
       largeData.length,
@@ -293,8 +293,6 @@ Deno.test({
       true,
       "Large file data should match",
     );
-
-    await client.cleanup();
   },
 });
 
@@ -313,16 +311,16 @@ Deno.test({
     ]);
     assertEquals(result.accepted, true, "Very large file write should succeed");
 
-    const readResult = await client.read<Uint8Array>(
+    const readResults = await client.read<Uint8Array>(
       "files://large/verybig.bin",
     );
     assertEquals(
-      readResult.success,
+      readResults[0].success,
       true,
       "Very large file read should succeed",
     );
 
-    const readData = readResult.record?.data as Uint8Array;
+    const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(
       readData.length,
       veryLargeData.length,
@@ -333,8 +331,6 @@ Deno.test({
       true,
       "Very large file data should match",
     );
-
-    await client.cleanup();
   },
 });
 
@@ -350,13 +346,15 @@ Deno.test({
     const result = await client.receive(["files://empty/zero.bin", emptyData]);
     assertEquals(result.accepted, true, "Empty binary write should succeed");
 
-    const readResult = await client.read<Uint8Array>("files://empty/zero.bin");
-    assertEquals(readResult.success, true, "Empty binary read should succeed");
+    const readResults = await client.read<Uint8Array>("files://empty/zero.bin");
+    assertEquals(
+      readResults[0].success,
+      true,
+      "Empty binary read should succeed",
+    );
 
-    const readData = readResult.record?.data as Uint8Array;
+    const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(readData.length, 0, "Empty binary should have zero length");
-
-    await client.cleanup();
   },
 });
 
@@ -381,16 +379,16 @@ Deno.test({
     assertEquals(result.accepted, true, "Overwrite should succeed");
 
     // Read back
-    const readResult = await client.read<Uint8Array>(
+    const readResults = await client.read<Uint8Array>(
       "files://overwrite/test.bin",
     );
     assertEquals(
-      readResult.success,
+      readResults[0].success,
       true,
       "Read after overwrite should succeed",
     );
 
-    const readData = readResult.record?.data as Uint8Array;
+    const readData = readResults[0].record?.data as Uint8Array;
     assertEquals(
       compareBinary(newData, readData),
       true,
@@ -401,29 +399,6 @@ Deno.test({
       newData.length,
       "Should have new data length",
     );
-
-    await client.cleanup();
-  },
-});
-
-Deno.test({
-  name: "Binary - delete binary file",
-  sanitizeOps: false,
-  sanitizeResources: false,
-  fn: async () => {
-    const client = createClient();
-
-    const data = new Uint8Array([0xDE, 0xAD, 0xBE, 0xEF]);
-
-    await client.receive(["files://delete/temp.bin", data]);
-
-    const deleteResult = await client.delete("files://delete/temp.bin");
-    assertEquals(deleteResult.success, true, "Delete should succeed");
-
-    const readResult = await client.read("files://delete/temp.bin");
-    assertEquals(readResult.success, false, "Read after delete should fail");
-
-    await client.cleanup();
   },
 });
 
@@ -442,19 +417,28 @@ Deno.test({
     await client.receive(["files://multi/b.bin", file2]);
     await client.receive(["files://multi/c.bin", file3]);
 
-    const read1 = await client.read<Uint8Array>("files://multi/a.bin");
-    const read2 = await client.read<Uint8Array>("files://multi/b.bin");
-    const read3 = await client.read<Uint8Array>("files://multi/c.bin");
+    const results = await client.read<Uint8Array>([
+      "files://multi/a.bin",
+      "files://multi/b.bin",
+      "files://multi/c.bin",
+    ]);
 
-    assertEquals(read1.success, true);
-    assertEquals(read2.success, true);
-    assertEquals(read3.success, true);
+    assertEquals(results[0].success, true);
+    assertEquals(results[1].success, true);
+    assertEquals(results[2].success, true);
 
-    assertEquals(compareBinary(file1, read1.record?.data as Uint8Array), true);
-    assertEquals(compareBinary(file2, read2.record?.data as Uint8Array), true);
-    assertEquals(compareBinary(file3, read3.record?.data as Uint8Array), true);
-
-    await client.cleanup();
+    assertEquals(
+      compareBinary(file1, results[0].record?.data as Uint8Array),
+      true,
+    );
+    assertEquals(
+      compareBinary(file2, results[1].record?.data as Uint8Array),
+      true,
+    );
+    assertEquals(
+      compareBinary(file3, results[2].record?.data as Uint8Array),
+      true,
+    );
   },
 });
 
@@ -485,19 +469,17 @@ Deno.test({
     const jsonRead = await client.read<typeof jsonData>(
       "store://mixed/data.json",
     );
-    assertEquals(jsonRead.success, true, "JSON read should succeed");
-    assertEquals(jsonRead.record?.data, jsonData, "JSON data should match");
+    assertEquals(jsonRead[0].success, true, "JSON read should succeed");
+    assertEquals(jsonRead[0].record?.data, jsonData, "JSON data should match");
 
     // Read binary back
     const binaryRead = await client.read<Uint8Array>("store://mixed/data.bin");
-    assertEquals(binaryRead.success, true, "Binary read should succeed");
+    assertEquals(binaryRead[0].success, true, "Binary read should succeed");
     assertEquals(
-      compareBinary(binaryData, binaryRead.record?.data as Uint8Array),
+      compareBinary(binaryData, binaryRead[0].record?.data as Uint8Array),
       true,
       "Binary data should match",
     );
-
-    await client.cleanup();
   },
 });
 

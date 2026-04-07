@@ -1,9 +1,9 @@
 import { assertEquals } from "@std/assert";
-import { respondTo, connect, writeRequest, readResponse } from "./mod.ts";
+import { connect, readResponse, respondTo, writeRequest } from "./mod.ts";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 import {
-  generateSigningKeyPair,
   generateEncryptionKeyPair,
+  generateSigningKeyPair,
 } from "../b3nd-encrypt/mod.ts";
 
 Deno.test("respondTo + connect: request-response round-trip", async () => {
@@ -21,7 +21,8 @@ Deno.test("respondTo + connect: request-response round-trip", async () => {
   const inboxPrefix = `mutable://data/service/${signing.publicKeyHex}/inbox`;
   const requestId = "req-001";
   const inboxUri = `${inboxPrefix}/${requestId}`;
-  const outboxUri = `mutable://data/service/${signing.publicKeyHex}/outbox/${requestId}`;
+  const outboxUri =
+    `mutable://data/service/${signing.publicKeyHex}/outbox/${requestId}`;
 
   // Create processor from handler
   const processor = respondTo(
@@ -48,7 +49,9 @@ Deno.test("respondTo + connect: request-response round-trip", async () => {
   assertEquals(processed, 1);
 
   // Client reads response
-  const response = await readResponse<{ echo: { message: string }; processed: boolean }>({
+  const response = await readResponse<
+    { echo: { message: string }; processed: boolean }
+  >({
     client,
     responseUri: outboxUri,
     clientEncryptionPrivateKey: clientEnc.privateKey,
@@ -107,7 +110,8 @@ Deno.test("respondTo: handles unsigned requests", async () => {
 
   const inboxPrefix = `mutable://data/unsigned/${signing.publicKeyHex}/inbox`;
   const inboxUri = `${inboxPrefix}/req-unsigned`;
-  const outboxUri = `mutable://data/unsigned/${signing.publicKeyHex}/outbox/req-unsigned`;
+  const outboxUri =
+    `mutable://data/unsigned/${signing.publicKeyHex}/outbox/req-unsigned`;
 
   const processor = respondTo(
     async (req) => ({ got: req.data, hasSender: !!req.senderPublicKeyHex }),
@@ -128,7 +132,9 @@ Deno.test("respondTo: handles unsigned requests", async () => {
   const processed = await connection.poll();
   assertEquals(processed, 1);
 
-  const response = await readResponse<{ got: { anonymous: boolean }; hasSender: boolean }>({
+  const response = await readResponse<
+    { got: { anonymous: boolean }; hasSender: boolean }
+  >({
     client,
     responseUri: outboxUri,
     clientEncryptionPrivateKey: clientEnc.privateKey,

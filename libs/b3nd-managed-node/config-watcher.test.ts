@@ -1,5 +1,8 @@
 import { assertEquals } from "@std/assert";
-import { createAuthenticatedMessage, generateSigningKeyPair } from "../b3nd-encrypt/mod.ts";
+import {
+  createAuthenticatedMessage,
+  generateSigningKeyPair,
+} from "../b3nd-encrypt/mod.ts";
 import { createConfigWatcher } from "./config-watcher.ts";
 import {
   createPermissiveClient,
@@ -70,7 +73,10 @@ Deno.test("config-watcher: does not fire callback for same timestamp", async () 
 Deno.test("config-watcher: fires again when config updated with new timestamp", async () => {
   const config = createTestConfig();
   const keypair = await generateSigningKeyPair();
-  const signer = { privateKey: keypair.privateKey, publicKeyHex: keypair.publicKeyHex };
+  const signer = {
+    privateKey: keypair.privateKey,
+    publicKeyHex: keypair.publicKeyHex,
+  };
 
   const signed = await createAuthenticatedMessage(config, [signer]);
 

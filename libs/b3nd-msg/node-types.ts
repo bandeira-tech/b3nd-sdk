@@ -141,4 +141,3 @@ export interface MessageNode<D = unknown> {
    */
   cleanup(): Promise<void>;
 }
-

@@ -128,8 +128,8 @@ import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk
 import { Hono } from "hono";
 
 const schema: Schema = {
-  "mutable://my-company": async ({ uri, value }) => ({ valid: true }),
-  "custom://audit": async ({ uri, value, read }) => {
+  "mutable://my-company": async ([_uri, _value]) => ({ valid: true }),
+  "custom://audit": async ([_uri, _value], _upstream, _read) => {
     return { valid: true };
   },
 };

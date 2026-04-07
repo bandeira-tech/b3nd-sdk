@@ -7,7 +7,7 @@
 
 import { createAuthenticatedMessageWithHex } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { MessageData } from "@bandeira-tech/b3nd-sdk";
-import { ROOT_KEY, CONSENSUS_FEE } from "./constants.ts";
+import { CONSENSUS_FEE, ROOT_KEY } from "./constants.ts";
 
 /** Encode bytes to hex string */
 function encodeHex(bytes: Uint8Array): string {
@@ -54,7 +54,8 @@ export async function buildConsensusEnvelope(opts: {
   inputUtxoUri: string;
   inputAmount: number;
 }): Promise<MessageData> {
-  const { contentHash, userPubKey, userPrivKeyHex, inputUtxoUri, inputAmount } = opts;
+  const { contentHash, userPubKey, userPrivKeyHex, inputUtxoUri, inputAmount } =
+    opts;
 
   const changeId = generateUtxoId();
   const changeAmount = inputAmount - CONSENSUS_FEE;
@@ -63,10 +64,20 @@ export async function buildConsensusEnvelope(opts: {
     inputs: [inputUtxoUri],
     outputs: [
       // 1. Consumed marker — references the input balance URI
-      [`immutable://consumed/${inputUtxoUri.replace("immutable://balance/", "")}`, inputUtxoUri],
+      [
+        `immutable://consumed/${
+          inputUtxoUri.replace("immutable://balance/", "")
+        }`,
+        inputUtxoUri,
+      ],
       // 2. Change back to user (if any)
       ...(changeAmount > 0
-        ? [[`immutable://balance/${userPubKey}/${changeId}`, changeAmount] as [string, number]]
+        ? [
+          [`immutable://balance/${userPubKey}/${changeId}`, changeAmount] as [
+            string,
+            number,
+          ],
+        ]
         : []),
       // 3. Fee to ROOT_KEY, keyed by content hash
       [`immutable://balance/${ROOT_KEY}/${contentHash}`, CONSENSUS_FEE],
@@ -75,6 +86,10 @@ export async function buildConsensusEnvelope(opts: {
     ],
   };
 
-  const signed = await createAuthenticatedMessageWithHex(payload, userPubKey, userPrivKeyHex);
+  const signed = await createAuthenticatedMessageWithHex(
+    payload,
+    userPubKey,
+    userPrivKeyHex,
+  );
   return signed as unknown as MessageData;
 }

@@ -1,9 +1,9 @@
 # Firecat Website Design Guide
 
-**Entity:** Firecat — The Canonical B3nd DePIN Network
-**Domain:** fire.cat
-**Audience:** App developers, node operators, community members, token participants
-**Personality:** Alive, economic, community-driven. A network on fire with activity.
+**Entity:** Firecat — The Canonical B3nd DePIN Network **Domain:** fire.cat
+**Audience:** App developers, node operators, community members, token
+participants **Personality:** Alive, economic, community-driven. A network on
+fire with activity.
 
 ---
 
@@ -13,198 +13,200 @@ B3nd is a protocol — a specification document made visual. It is cold, precise
 architectural. It earns trust through restraint.
 
 Firecat is an economy — a living network of people, nodes, tokens, and
-applications. It earns trust through vitality. You need to feel that things
-are happening, that people are participating, that value is flowing.
+applications. It earns trust through vitality. You need to feel that things are
+happening, that people are participating, that value is flowing.
 
-If Firecat looked like B3nd, it would feel like a second documentation page
-for the same project. Firecat is not a sub-page of B3nd. It is the first
-real-world network built on B3nd, and it must have its own gravitational pull.
+If Firecat looked like B3nd, it would feel like a second documentation page for
+the same project. Firecat is not a sub-page of B3nd. It is the first real-world
+network built on B3nd, and it must have its own gravitational pull.
 
 The differences are structural:
 
-| Dimension | B3nd | Firecat |
-|---|---|---|
-| Color temperature | Cold (deep indigo) | Warm (ember/flame spectrum) |
-| Typography mood | Precise, monospaced accents | Energetic, bold, wide |
-| Layout width | Narrow (1100px), focused | Wide (1280px), expansive |
-| Animation | None. Static proof. | Present. Living network. |
-| Visual metaphor | Blueprint, URI anatomy | Fire, nodes, flow, economy |
-| Imagery | Line diagrams, code blocks | Network visualizations, dashboards |
-| Tone | "Here is how it works" | "Join the network" |
-| Accent usage | Sparse (orange dot) | Bold (flame gradients, glowing edges) |
-| Dark mode | No (light with dark hero/footer) | Yes, dark-first — the fire glows brighter |
+| Dimension         | B3nd                             | Firecat                                   |
+| ----------------- | -------------------------------- | ----------------------------------------- |
+| Color temperature | Cold (deep indigo)               | Warm (ember/flame spectrum)               |
+| Typography mood   | Precise, monospaced accents      | Energetic, bold, wide                     |
+| Layout width      | Narrow (1100px), focused         | Wide (1280px), expansive                  |
+| Animation         | None. Static proof.              | Present. Living network.                  |
+| Visual metaphor   | Blueprint, URI anatomy           | Fire, nodes, flow, economy                |
+| Imagery           | Line diagrams, code blocks       | Network visualizations, dashboards        |
+| Tone              | "Here is how it works"           | "Join the network"                        |
+| Accent usage      | Sparse (orange dot)              | Bold (flame gradients, glowing edges)     |
+| Dark mode         | No (light with dark hero/footer) | Yes, dark-first — the fire glows brighter |
 
 ---
 
 ## 1. Color System
 
 Firecat's palette is built around fire: not cartoon red, but the full spectrum
-of combustion. Deep charcoal backgrounds (the furnace), amber and orange midtones
-(the flame), bright yellow-white highlights (the hottest point). This is layered
-with cool teal accents for contrast — representing the network, the data flowing
-through the fire.
+of combustion. Deep charcoal backgrounds (the furnace), amber and orange
+midtones (the flame), bright yellow-white highlights (the hottest point). This
+is layered with cool teal accents for contrast — representing the network, the
+data flowing through the fire.
 
 ### 1.1 Core Palette
 
-| Role | Hex | Usage |
-|---|---|---|
-| Primary (Ember) | `#ea580c` | Primary buttons, active states, key headings on dark |
-| Secondary (Amber) | `#f59e0b` | Secondary buttons, token/economic highlights, badges |
-| Accent (Teal) | `#14b8a6` | Network status, node indicators, data-flow elements, links |
-| Highlight (Flame White) | `#fef3c7` | Glow effects, highlight text backgrounds on dark |
+| Role                    | Hex       | Usage                                                      |
+| ----------------------- | --------- | ---------------------------------------------------------- |
+| Primary (Ember)         | `#ea580c` | Primary buttons, active states, key headings on dark       |
+| Secondary (Amber)       | `#f59e0b` | Secondary buttons, token/economic highlights, badges       |
+| Accent (Teal)           | `#14b8a6` | Network status, node indicators, data-flow elements, links |
+| Highlight (Flame White) | `#fef3c7` | Glow effects, highlight text backgrounds on dark           |
 
 ### 1.2 Background Colors
 
-| Role | Hex | Usage |
-|---|---|---|
-| Dark Base | `#0c0a09` | Primary page background (dark mode default) |
-| Dark Surface | `#1c1917` | Cards, panels, elevated surfaces |
-| Dark Elevated | `#292524` | Hover states, active cards, secondary surfaces |
-| Dark Subtle | `#44403c` | Borders on dark backgrounds, muted dividers |
-| Light Base | `#fafaf9` | Light-mode page background (if toggled) |
-| Light Surface | `#ffffff` | Light-mode cards |
-| Hero Gradient Start | `#0c0a09` | Radial gradient origin |
-| Hero Gradient Ember | `#7c2d12` | Radial gradient midpoint — deep ember glow |
-| Hero Gradient End | `#0c0a09` | Radial gradient edge — fade to dark |
+| Role                | Hex       | Usage                                          |
+| ------------------- | --------- | ---------------------------------------------- |
+| Dark Base           | `#0c0a09` | Primary page background (dark mode default)    |
+| Dark Surface        | `#1c1917` | Cards, panels, elevated surfaces               |
+| Dark Elevated       | `#292524` | Hover states, active cards, secondary surfaces |
+| Dark Subtle         | `#44403c` | Borders on dark backgrounds, muted dividers    |
+| Light Base          | `#fafaf9` | Light-mode page background (if toggled)        |
+| Light Surface       | `#ffffff` | Light-mode cards                               |
+| Hero Gradient Start | `#0c0a09` | Radial gradient origin                         |
+| Hero Gradient Ember | `#7c2d12` | Radial gradient midpoint — deep ember glow     |
+| Hero Gradient End   | `#0c0a09` | Radial gradient edge — fade to dark            |
 
 ### 1.3 Text Colors
 
-| Role | Hex | Usage |
-|---|---|---|
-| Heading Text (Dark Mode) | `#fafaf9` | Section titles, card headings |
-| Body Text (Dark Mode) | `#d6d3d1` | Paragraph text |
-| Muted Text (Dark Mode) | `#a8a29e` | Subtitles, captions, timestamps |
-| Dim Text (Dark Mode) | `#78716c` | Tertiary information, footnotes |
+| Role                      | Hex       | Usage                               |
+| ------------------------- | --------- | ----------------------------------- |
+| Heading Text (Dark Mode)  | `#fafaf9` | Section titles, card headings       |
+| Body Text (Dark Mode)     | `#d6d3d1` | Paragraph text                      |
+| Muted Text (Dark Mode)    | `#a8a29e` | Subtitles, captions, timestamps     |
+| Dim Text (Dark Mode)      | `#78716c` | Tertiary information, footnotes     |
 | Heading Text (Light Mode) | `#1c1917` | Section titles on light backgrounds |
-| Body Text (Light Mode) | `#44403c` | Paragraph text on light backgrounds |
-| Muted Text (Light Mode) | `#78716c` | Subtitles on light backgrounds |
+| Body Text (Light Mode)    | `#44403c` | Paragraph text on light backgrounds |
+| Muted Text (Light Mode)   | `#78716c` | Subtitles on light backgrounds      |
 
 ### 1.4 Token & Economic Colors
 
 Firecat has a dedicated sub-palette for financial and economic information.
 These colors are never used decoratively — they carry meaning.
 
-| Role | Hex | Usage |
-|---|---|---|
-| Token Positive | `#22c55e` | Price up, rewards earned, staking gains |
-| Token Negative | `#ef4444` | Price down, penalties, warnings |
-| Token Neutral | `#f59e0b` | Pending states, current price, FCAT token badge |
+| Role             | Hex       | Usage                                           |
+| ---------------- | --------- | ----------------------------------------------- |
+| Token Positive   | `#22c55e` | Price up, rewards earned, staking gains         |
+| Token Negative   | `#ef4444` | Price down, penalties, warnings                 |
+| Token Neutral    | `#f59e0b` | Pending states, current price, FCAT token badge |
 | Gas / Throughput | `#14b8a6` | Gas metrics, network throughput, operations/sec |
 
 ### 1.5 Semantic Colors
 
-| Role | Hex | Usage |
-|---|---|---|
-| Success | `#22c55e` | Transaction confirmed, node online, staking active |
-| Warning | `#f59e0b` | Low balance, approaching limits |
-| Error | `#ef4444` | Transaction failed, node offline, insufficient stake |
-| Info | `#3b82f6` | Informational banners, documentation links |
+| Role    | Hex       | Usage                                                |
+| ------- | --------- | ---------------------------------------------------- |
+| Success | `#22c55e` | Transaction confirmed, node online, staking active   |
+| Warning | `#f59e0b` | Low balance, approaching limits                      |
+| Error   | `#ef4444` | Transaction failed, node offline, insufficient stake |
+| Info    | `#3b82f6` | Informational banners, documentation links           |
 
 ### 1.6 Glow & Effect Colors
 
 These are used exclusively for CSS effects (box-shadow, text-shadow, radial
 gradients). They do not appear as solid fills.
 
-| Role | Value | Usage |
-|---|---|---|
-| Ember Glow | `rgba(234, 88, 12, 0.3)` | Box-shadow on primary buttons, hover glow on cards |
-| Amber Glow | `rgba(245, 158, 11, 0.2)` | Token badge glow, secondary CTA hover |
-| Teal Glow | `rgba(20, 184, 166, 0.25)` | Node status indicator glow, network activity |
-| Fire Radial | `radial-gradient(ellipse at 50% 0%, #7c2d12 0%, transparent 70%)` | Hero background atmosphere |
+| Role        | Value                                                             | Usage                                              |
+| ----------- | ----------------------------------------------------------------- | -------------------------------------------------- |
+| Ember Glow  | `rgba(234, 88, 12, 0.3)`                                          | Box-shadow on primary buttons, hover glow on cards |
+| Amber Glow  | `rgba(245, 158, 11, 0.2)`                                         | Token badge glow, secondary CTA hover              |
+| Teal Glow   | `rgba(20, 184, 166, 0.25)`                                        | Node status indicator glow, network activity       |
+| Fire Radial | `radial-gradient(ellipse at 50% 0%, #7c2d12 0%, transparent 70%)` | Hero background atmosphere                         |
 
 ### 1.7 CSS Custom Properties
 
 ```css
 :root {
   /* --- Firecat Core Palette --- */
-  --fc-primary:              #ea580c;
-  --fc-secondary:            #f59e0b;
-  --fc-accent:               #14b8a6;
-  --fc-highlight:            #fef3c7;
+  --fc-primary: #ea580c;
+  --fc-secondary: #f59e0b;
+  --fc-accent: #14b8a6;
+  --fc-highlight: #fef3c7;
 
   /* --- Backgrounds (Dark Mode Default) --- */
-  --fc-bg-base:              #0c0a09;
-  --fc-bg-surface:           #1c1917;
-  --fc-bg-elevated:          #292524;
-  --fc-bg-subtle:            #44403c;
-  --fc-bg-hero-start:        #0c0a09;
-  --fc-bg-hero-ember:        #7c2d12;
-  --fc-bg-hero-end:          #0c0a09;
+  --fc-bg-base: #0c0a09;
+  --fc-bg-surface: #1c1917;
+  --fc-bg-elevated: #292524;
+  --fc-bg-subtle: #44403c;
+  --fc-bg-hero-start: #0c0a09;
+  --fc-bg-hero-ember: #7c2d12;
+  --fc-bg-hero-end: #0c0a09;
 
   /* --- Backgrounds (Light Mode) --- */
-  --fc-bg-light-base:        #fafaf9;
-  --fc-bg-light-surface:     #ffffff;
+  --fc-bg-light-base: #fafaf9;
+  --fc-bg-light-surface: #ffffff;
 
   /* --- Text (Dark Mode) --- */
-  --fc-text-heading:         #fafaf9;
-  --fc-text-body:            #d6d3d1;
-  --fc-text-muted:           #a8a29e;
-  --fc-text-dim:             #78716c;
+  --fc-text-heading: #fafaf9;
+  --fc-text-body: #d6d3d1;
+  --fc-text-muted: #a8a29e;
+  --fc-text-dim: #78716c;
 
   /* --- Text (Light Mode) --- */
-  --fc-text-light-heading:   #1c1917;
-  --fc-text-light-body:      #44403c;
-  --fc-text-light-muted:     #78716c;
+  --fc-text-light-heading: #1c1917;
+  --fc-text-light-body: #44403c;
+  --fc-text-light-muted: #78716c;
 
   /* --- Token / Economic --- */
-  --fc-token-positive:       #22c55e;
-  --fc-token-negative:       #ef4444;
-  --fc-token-neutral:        #f59e0b;
-  --fc-token-gas:            #14b8a6;
+  --fc-token-positive: #22c55e;
+  --fc-token-negative: #ef4444;
+  --fc-token-neutral: #f59e0b;
+  --fc-token-gas: #14b8a6;
 
   /* --- Semantic --- */
-  --fc-semantic-success:     #22c55e;
-  --fc-semantic-warning:     #f59e0b;
-  --fc-semantic-error:       #ef4444;
-  --fc-semantic-info:        #3b82f6;
+  --fc-semantic-success: #22c55e;
+  --fc-semantic-warning: #f59e0b;
+  --fc-semantic-error: #ef4444;
+  --fc-semantic-info: #3b82f6;
 
   /* --- Glow Effects --- */
-  --fc-glow-ember:           rgba(234, 88, 12, 0.3);
-  --fc-glow-amber:           rgba(245, 158, 11, 0.2);
-  --fc-glow-teal:            rgba(20, 184, 166, 0.25);
+  --fc-glow-ember: rgba(234, 88, 12, 0.3);
+  --fc-glow-amber: rgba(245, 158, 11, 0.2);
+  --fc-glow-teal: rgba(20, 184, 166, 0.25);
 
   /* --- Borders --- */
-  --fc-border-subtle:        #292524;
-  --fc-border-default:       #44403c;
-  --fc-border-strong:        #78716c;
-  --fc-border-ember:         rgba(234, 88, 12, 0.4);
+  --fc-border-subtle: #292524;
+  --fc-border-default: #44403c;
+  --fc-border-strong: #78716c;
+  --fc-border-ember: rgba(234, 88, 12, 0.4);
 
   /* --- Shadows --- */
-  --fc-shadow-card:          0 2px 8px rgba(0, 0, 0, 0.3);
-  --fc-shadow-card-hover:    0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(234, 88, 12, 0.2);
-  --fc-shadow-glow-sm:       0 0 12px var(--fc-glow-ember);
-  --fc-shadow-glow-md:       0 0 24px var(--fc-glow-ember);
-  --fc-shadow-glow-lg:       0 0 48px var(--fc-glow-ember);
+  --fc-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --fc-shadow-card-hover:
+    0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(234, 88, 12, 0.2);
+  --fc-shadow-glow-sm: 0 0 12px var(--fc-glow-ember);
+  --fc-shadow-glow-md: 0 0 24px var(--fc-glow-ember);
+  --fc-shadow-glow-lg: 0 0 48px var(--fc-glow-ember);
 
   /* --- Radius --- */
-  --fc-radius-sm:            6px;
-  --fc-radius-md:            10px;
-  --fc-radius-lg:            16px;
-  --fc-radius-xl:            24px;
-  --fc-radius-full:          9999px;
+  --fc-radius-sm: 6px;
+  --fc-radius-md: 10px;
+  --fc-radius-lg: 16px;
+  --fc-radius-xl: 24px;
+  --fc-radius-full: 9999px;
 
   /* --- Transitions --- */
-  --fc-transition-fast:      0.15s ease;
-  --fc-transition-normal:    0.25s ease;
-  --fc-transition-slow:      0.4s ease;
-  --fc-transition-glow:      0.3s ease;
+  --fc-transition-fast: 0.15s ease;
+  --fc-transition-normal: 0.25s ease;
+  --fc-transition-slow: 0.4s ease;
+  --fc-transition-glow: 0.3s ease;
 }
 
 /* --- Light Mode Override --- */
 [data-theme="light"] {
-  --fc-bg-base:              #fafaf9;
-  --fc-bg-surface:           #ffffff;
-  --fc-bg-elevated:          #f5f5f4;
-  --fc-bg-subtle:            #e7e5e4;
-  --fc-text-heading:         #1c1917;
-  --fc-text-body:            #44403c;
-  --fc-text-muted:           #78716c;
-  --fc-text-dim:             #a8a29e;
-  --fc-border-subtle:        #e7e5e4;
-  --fc-border-default:       #d6d3d1;
-  --fc-border-strong:        #a8a29e;
-  --fc-shadow-card:          0 2px 8px rgba(0, 0, 0, 0.08);
-  --fc-shadow-card-hover:    0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(234, 88, 12, 0.3);
+  --fc-bg-base: #fafaf9;
+  --fc-bg-surface: #ffffff;
+  --fc-bg-elevated: #f5f5f4;
+  --fc-bg-subtle: #e7e5e4;
+  --fc-text-heading: #1c1917;
+  --fc-text-body: #44403c;
+  --fc-text-muted: #78716c;
+  --fc-text-dim: #a8a29e;
+  --fc-border-subtle: #e7e5e4;
+  --fc-border-default: #d6d3d1;
+  --fc-border-strong: #a8a29e;
+  --fc-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --fc-shadow-card-hover:
+    0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(234, 88, 12, 0.3);
 }
 ```
 
@@ -214,23 +216,23 @@ gradients). They do not appear as solid fills.
 
 Firecat uses a different typographic voice than B3nd. Where B3nd is Inter
 everywhere (neutral, invisible), Firecat pairs a geometric sans-serif for
-headings with a humanist sans-serif for body text, and uses a distinct
-monospace for technical content. The heading font has more personality —
-wider, bolder, more confident.
+headings with a humanist sans-serif for body text, and uses a distinct monospace
+for technical content. The heading font has more personality — wider, bolder,
+more confident.
 
 ### 2.1 Font Families
 
-| Role | Font | Fallback Stack | Why |
-|---|---|---|---|
-| Headings | Space Grotesk | `sans-serif` | Geometric, wide, modern. Feels engineered but warm. Distinct from Inter. |
-| Body | DM Sans | `system-ui, sans-serif` | Clean, slightly rounded, approachable. Better for community content than Inter. |
-| Code / Technical | Fira Code | `Menlo, Consolas, monospace` | Ligatures for code. Visually distinct from JetBrains Mono (B3nd). |
+| Role             | Font          | Fallback Stack               | Why                                                                             |
+| ---------------- | ------------- | ---------------------------- | ------------------------------------------------------------------------------- |
+| Headings         | Space Grotesk | `sans-serif`                 | Geometric, wide, modern. Feels engineered but warm. Distinct from Inter.        |
+| Body             | DM Sans       | `system-ui, sans-serif`      | Clean, slightly rounded, approachable. Better for community content than Inter. |
+| Code / Technical | Fira Code     | `Menlo, Consolas, monospace` | Ligatures for code. Visually distinct from JetBrains Mono (B3nd).               |
 
 ```css
 :root {
   --fc-font-heading: "Space Grotesk", sans-serif;
-  --fc-font-body:    "DM Sans", system-ui, sans-serif;
-  --fc-font-code:    "Fira Code", Menlo, Consolas, monospace;
+  --fc-font-body: "DM Sans", system-ui, sans-serif;
+  --fc-font-code: "Fira Code", Menlo, Consolas, monospace;
 }
 ```
 
@@ -247,31 +249,32 @@ wider, bolder, more confident.
 
 ### 2.3 Font Scale
 
-The Firecat scale is bolder and more varied than B3nd's. Headings are larger
-and weightier. The hero is a statement, not a whisper.
+The Firecat scale is bolder and more varied than B3nd's. Headings are larger and
+weightier. The hero is a statement, not a whisper.
 
-| Level | Size | Weight | Line Height | Letter Spacing | Font | Usage |
-|---|---|---|---|---|---|---|
-| Hero | `clamp(56px, 10vw, 96px)` | 700 | 1.0 | `-0.03em` | Space Grotesk | Hero headline. Full width impact. |
-| H1 | `clamp(36px, 5vw, 52px)` | 700 | 1.1 | `-0.02em` | Space Grotesk | Major section headings |
-| H2 | `clamp(24px, 3.5vw, 36px)` | 600 | 1.2 | `-0.01em` | Space Grotesk | Sub-section headings |
-| H3 | `20px` | 600 | 1.3 | `0` | Space Grotesk | Card titles, feature names |
-| H4 | `16px` | 600 | 1.4 | `0.02em` | Space Grotesk | Labels, small headings, overlines |
-| Overline | `12-13px` | 600 | 1.4 | `0.1em` | DM Sans | Section labels, uppercase pre-titles |
-| Body Large | `18px` | 400 | 1.7 | `0` | DM Sans | Lead paragraphs, hero subtitle |
-| Body | `16px` | 400 | 1.6 | `0` | DM Sans | Standard paragraph text |
-| Body Small | `14px` | 400 | 1.5 | `0` | DM Sans | Card descriptions, secondary info |
-| Caption | `12px` | 500 | 1.4 | `0.02em` | DM Sans | Timestamps, fine print, metadata |
-| Code | `14px` | 400 | 1.6 | `0` | Fira Code | Code blocks, technical content |
-| Code Small | `12px` | 400 | 1.5 | `0` | Fira Code | Inline code, terminal output |
-| Token Value | `clamp(28px, 4vw, 40px)` | 700 | 1.1 | `-0.01em` | Space Grotesk | FCAT price, staking amounts |
+| Level       | Size                       | Weight | Line Height | Letter Spacing | Font          | Usage                                |
+| ----------- | -------------------------- | ------ | ----------- | -------------- | ------------- | ------------------------------------ |
+| Hero        | `clamp(56px, 10vw, 96px)`  | 700    | 1.0         | `-0.03em`      | Space Grotesk | Hero headline. Full width impact.    |
+| H1          | `clamp(36px, 5vw, 52px)`   | 700    | 1.1         | `-0.02em`      | Space Grotesk | Major section headings               |
+| H2          | `clamp(24px, 3.5vw, 36px)` | 600    | 1.2         | `-0.01em`      | Space Grotesk | Sub-section headings                 |
+| H3          | `20px`                     | 600    | 1.3         | `0`            | Space Grotesk | Card titles, feature names           |
+| H4          | `16px`                     | 600    | 1.4         | `0.02em`       | Space Grotesk | Labels, small headings, overlines    |
+| Overline    | `12-13px`                  | 600    | 1.4         | `0.1em`        | DM Sans       | Section labels, uppercase pre-titles |
+| Body Large  | `18px`                     | 400    | 1.7         | `0`            | DM Sans       | Lead paragraphs, hero subtitle       |
+| Body        | `16px`                     | 400    | 1.6         | `0`            | DM Sans       | Standard paragraph text              |
+| Body Small  | `14px`                     | 400    | 1.5         | `0`            | DM Sans       | Card descriptions, secondary info    |
+| Caption     | `12px`                     | 500    | 1.4         | `0.02em`       | DM Sans       | Timestamps, fine print, metadata     |
+| Code        | `14px`                     | 400    | 1.6         | `0`            | Fira Code     | Code blocks, technical content       |
+| Code Small  | `12px`                     | 400    | 1.5         | `0`            | Fira Code     | Inline code, terminal output         |
+| Token Value | `clamp(28px, 4vw, 40px)`   | 700    | 1.1         | `-0.01em`      | Space Grotesk | FCAT price, staking amounts          |
 
 ### 2.4 Typography Rules
 
-1. **Headings are always Space Grotesk.** Body is always DM Sans. Never mix them.
-2. **Overlines precede major headings.** The pattern is: small uppercase overline
-   (e.g., "THE NETWORK") followed by the large heading. This creates a rhythmic
-   one-two punch that B3nd never uses.
+1. **Headings are always Space Grotesk.** Body is always DM Sans. Never mix
+   them.
+2. **Overlines precede major headings.** The pattern is: small uppercase
+   overline (e.g., "THE NETWORK") followed by the large heading. This creates a
+   rhythmic one-two punch that B3nd never uses.
 3. **Italic is allowed** in body text for emphasis. Firecat is a community
    platform; communication can be expressive.
 4. **Token values and economic figures** use Space Grotesk at large sizes with
@@ -325,21 +328,27 @@ Firecat uses a 12-column grid for complex layouts:
 }
 
 /* Common patterns */
-.fc-grid-2   { grid-template-columns: repeat(2, 1fr); }
-.fc-grid-3   { grid-template-columns: repeat(3, 1fr); }
-.fc-grid-4   { grid-template-columns: repeat(4, 1fr); }
+.fc-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+.fc-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.fc-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
 ```
 
 ### 3.3 Section Rhythm
 
-| Element | Value | Notes |
-|---|---|---|
-| Section padding | `96px 0` to `120px 0` | More generous than B3nd's 80px. Sections breathe more. |
-| Hero padding | `160px 0 120px` | Taller hero to accommodate the radial glow effect. |
-| Section heading margin-bottom | `56px` | Slightly more than B3nd. |
-| Card grid gap | `24px` | Wider than B3nd's 16-20px. |
-| Overline to heading gap | `12px` | Space between overline and heading pair. |
-| Content max-width in sections | `720px` centered | For single-column text blocks within wide sections. |
+| Element                       | Value                 | Notes                                                  |
+| ----------------------------- | --------------------- | ------------------------------------------------------ |
+| Section padding               | `96px 0` to `120px 0` | More generous than B3nd's 80px. Sections breathe more. |
+| Hero padding                  | `160px 0 120px`       | Taller hero to accommodate the radial glow effect.     |
+| Section heading margin-bottom | `56px`                | Slightly more than B3nd.                               |
+| Card grid gap                 | `24px`                | Wider than B3nd's 16-20px.                             |
+| Overline to heading gap       | `12px`                | Space between overline and heading pair.               |
+| Content max-width in sections | `720px` centered      | For single-column text blocks within wide sections.    |
 
 ### 3.4 Section Structure
 
@@ -371,7 +380,8 @@ The page reads as an economic pitch, not a technical specification:
 1. **Hero** — The vision: "Infrastructure owned by everyone."
 2. **Live Stats** — Proof of life: node count, FCAT price, transactions/sec.
 3. **The Thesis** — Why this matters: the three problems, the inversion.
-4. **Participants** — Who is in the network: operators, builders, users, advertisers.
+4. **Participants** — Who is in the network: operators, builders, users,
+   advertisers.
 5. **Token Economics** — How value flows: FCAT token, staking, gas, rewards.
 6. **Node Operators** — How to join: requirements, rewards, setup guide.
 7. **For Developers** — How to build: SDK, APIs, code examples.
@@ -399,11 +409,12 @@ The page reads as an economic pitch, not a technical specification:
 ```
 
 - **Taller than B3nd (64px vs 56px).** Firecat's nav has more presence.
-- **Darker glass effect.** The dark-mode glass uses the dark base with high blur.
+- **Darker glass effect.** The dark-mode glass uses the dark base with high
+  blur.
 - **Logo:** "FIRECAT" in Space Grotesk 700, with a flame icon (SVG) to the left.
   The logo text uses a subtle gradient from `--fc-primary` to `--fc-secondary`.
-- **Active link indicator:** Bottom border in `--fc-primary` (ember), not just
-  a color change.
+- **Active link indicator:** Bottom border in `--fc-primary` (ember), not just a
+  color change.
 - **Connect Wallet button** in the nav — this is a web3 community site.
 
 ```css
@@ -452,8 +463,8 @@ The page reads as an economic pitch, not a technical specification:
 
 ### 4.2 Cards
 
-Firecat cards have more depth and interactivity than B3nd cards. They exist
-on dark surfaces and use border glow effects on hover.
+Firecat cards have more depth and interactivity than B3nd cards. They exist on
+dark surfaces and use border glow effects on hover.
 
 ```css
 .fc-card {
@@ -526,8 +537,8 @@ on dark surfaces and use border glow effects on hover.
 
 ### 4.3 Buttons
 
-Firecat buttons are more expressive than B3nd's. They glow, they have
-pill shapes, they announce themselves.
+Firecat buttons are more expressive than B3nd's. They glow, they have pill
+shapes, they announce themselves.
 
 ```css
 /* Primary button — ember */
@@ -595,8 +606,8 @@ pill shapes, they announce themselves.
 
 ### 4.4 Code Blocks
 
-Firecat code blocks serve a different purpose than B3nd's. In B3nd, code IS
-the content. In Firecat, code is SDK documentation — it supports the economic
+Firecat code blocks serve a different purpose than B3nd's. In B3nd, code IS the
+content. In Firecat, code is SDK documentation — it supports the economic
 narrative, it does not lead it.
 
 ```css
@@ -651,12 +662,24 @@ narrative, it does not lead it.
 }
 
 /* Syntax colors (distinct from B3nd) */
-.fc-syn-keyword  { color: #f472b6; }  /* pink — different from B3nd's purple */
-.fc-syn-string   { color: #34d399; }  /* emerald */
-.fc-syn-function { color: #60a5fa; }  /* blue */
-.fc-syn-comment  { color: #57534e; }  /* stone */
-.fc-syn-number   { color: #fbbf24; }  /* amber — token values! */
-.fc-syn-type     { color: #a78bfa; }  /* violet */
+.fc-syn-keyword {
+  color: #f472b6;
+} /* pink — different from B3nd's purple */
+.fc-syn-string {
+  color: #34d399;
+} /* emerald */
+.fc-syn-function {
+  color: #60a5fa;
+} /* blue */
+.fc-syn-comment {
+  color: #57534e;
+} /* stone */
+.fc-syn-number {
+  color: #fbbf24;
+} /* amber — token values! */
+.fc-syn-type {
+  color: #a78bfa;
+} /* violet */
 ```
 
 ### 4.5 Token / Economic Components
@@ -690,8 +713,12 @@ These components are unique to Firecat. B3nd has nothing like them.
   color: var(--fc-text-heading);
 }
 
-.fc-stat-ticker.positive { color: var(--fc-token-positive); }
-.fc-stat-ticker.negative { color: var(--fc-token-negative); }
+.fc-stat-ticker.positive {
+  color: var(--fc-token-positive);
+}
+.fc-stat-ticker.negative {
+  color: var(--fc-token-negative);
+}
 
 /* Staking meter */
 .fc-staking-meter {
@@ -742,8 +769,12 @@ These components are unique to Firecat. B3nd has nothing like them.
 }
 
 @keyframes fc-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 ```
 
@@ -791,10 +822,10 @@ These components are unique to Firecat. B3nd has nothing like them.
 
 ### 5.1 The Flame / Ember Glow
 
-The defining visual element of Firecat is a radial ember glow — a warm,
-diffused light source that appears behind the hero, behind key sections, and
-as hover effects. This is not a literal fire illustration. It is an atmospheric
-effect: a radial gradient from deep ember (`#7c2d12`) to transparent, placed
+The defining visual element of Firecat is a radial ember glow — a warm, diffused
+light source that appears behind the hero, behind key sections, and as hover
+effects. This is not a literal fire illustration. It is an atmospheric effect: a
+radial gradient from deep ember (`#7c2d12`) to transparent, placed
 strategically.
 
 ```css
@@ -833,10 +864,10 @@ approximation of actual network topology if possible.
 
 ### 5.3 The "Built on B3nd" Attribution
 
-Every Firecat page includes a small, tasteful attribution: "Built on B3nd"
-with a link to b3nd.dev. This uses B3nd's indigo (`#4338ca`) for the text
-color — a deliberate visual bridge. It appears in the footer, never in the
-main content flow.
+Every Firecat page includes a small, tasteful attribution: "Built on B3nd" with
+a link to b3nd.dev. This uses B3nd's indigo (`#4338ca`) for the text color — a
+deliberate visual bridge. It appears in the footer, never in the main content
+flow.
 
 ```css
 .fc-built-on-b3nd {
@@ -854,8 +885,8 @@ main content flow.
 
 ### 5.4 Gradient Top-Borders
 
-Instead of B3nd's solid accent stripe, Firecat uses gradient borders on
-cards, sections, and feature highlights:
+Instead of B3nd's solid accent stripe, Firecat uses gradient borders on cards,
+sections, and feature highlights:
 
 ```css
 .fc-gradient-border-top {
@@ -886,10 +917,10 @@ economy: infrastructure (ember), value (amber), and data/network (teal).
 - **Filled shapes with low opacity.** Unlike B3nd's line-only approach, Firecat
   uses filled circles and rounded rectangles with 10-20% opacity fills.
 - **Gradient strokes.** Connection lines use gradients, not solid colors.
-- **Rounded, organic.** Higher border-radius values. More circular elements.
-  The network is organic, not architectural.
-- **Warm color dominance.** Ember and amber dominate illustrations, with teal
-  as the counterpoint.
+- **Rounded, organic.** Higher border-radius values. More circular elements. The
+  network is organic, not architectural.
+- **Warm color dominance.** Ember and amber dominate illustrations, with teal as
+  the counterpoint.
 
 ### 5.6 Animation Philosophy
 
@@ -898,12 +929,11 @@ economy: infrastructure (ember), value (amber), and data/network (teal).
 - **Entrance animations:** Elements fade-in and translate-up on scroll
   (`opacity: 0 -> 1`, `translateY(20px) -> 0`). Duration: 0.4-0.6s with
   staggered delays for grid items.
-- **Hover states:** Cards lift (translateY), borders glow, buttons pulse
-  subtly.
-- **Live indicators:** Node status dots pulse. Stat numbers count up on
-  first view. Network visualizations animate continuously but subtly.
-- **No parallax.** No scroll-jacking. No auto-playing video. Animations
-  enhance; they do not distract.
+- **Hover states:** Cards lift (translateY), borders glow, buttons pulse subtly.
+- **Live indicators:** Node status dots pulse. Stat numbers count up on first
+  view. Network visualizations animate continuously but subtly.
+- **No parallax.** No scroll-jacking. No auto-playing video. Animations enhance;
+  they do not distract.
 
 ```css
 /* Scroll-triggered entrance */
@@ -919,10 +949,18 @@ economy: infrastructure (ember), value (amber), and data/network (teal).
 }
 
 /* Stagger delays for grids */
-.fc-stagger-1 { transition-delay: 0.05s; }
-.fc-stagger-2 { transition-delay: 0.10s; }
-.fc-stagger-3 { transition-delay: 0.15s; }
-.fc-stagger-4 { transition-delay: 0.20s; }
+.fc-stagger-1 {
+  transition-delay: 0.05s;
+}
+.fc-stagger-2 {
+  transition-delay: 0.10s;
+}
+.fc-stagger-3 {
+  transition-delay: 0.15s;
+}
+.fc-stagger-4 {
+  transition-delay: 0.20s;
+}
 ```
 
 ---
@@ -931,19 +969,19 @@ economy: infrastructure (ember), value (amber), and data/network (teal).
 
 ### 6.1 Breakpoints
 
-| Breakpoint | Changes |
-|---|---|
-| `> 1280px` | Full layout: 4-column grids, wide hero, dashboard sections |
-| `1024px - 1280px` | 3-column grids, slightly tighter spacing |
-| `768px - 1024px` | 2-column grids, stacked hero text, simplified nav |
-| `< 768px` | 1-column, hamburger menu, stacked stats, reduced glow effects |
+| Breakpoint        | Changes                                                       |
+| ----------------- | ------------------------------------------------------------- |
+| `> 1280px`        | Full layout: 4-column grids, wide hero, dashboard sections    |
+| `1024px - 1280px` | 3-column grids, slightly tighter spacing                      |
+| `768px - 1024px`  | 2-column grids, stacked hero text, simplified nav             |
+| `< 768px`         | 1-column, hamburger menu, stacked stats, reduced glow effects |
 
 ### 6.2 Mobile Navigation
 
 Firecat uses a hamburger menu on mobile that opens a full-screen overlay in
 `--fc-bg-base` with large tap targets. This is different from B3nd (which just
-hides the nav) because Firecat has more navigation destinations and includes
-a wallet connection flow.
+hides the nav) because Firecat has more navigation destinations and includes a
+wallet connection flow.
 
 ```css
 .fc-mobile-menu {
@@ -978,8 +1016,8 @@ a wallet connection flow.
 
 ## 7. Theme Toggle (Dark / Light)
 
-Firecat is **dark-first** — the dark theme is the default and primary design.
-A light mode toggle is provided for accessibility and user preference, but all
+Firecat is **dark-first** — the dark theme is the default and primary design. A
+light mode toggle is provided for accessibility and user preference, but all
 design decisions are made dark-first and adapted to light, not the reverse.
 
 This is the opposite of B3nd, which is light-first with a dark hero.
@@ -1007,7 +1045,8 @@ This is the opposite of B3nd, which is light-first with a dark hero.
 3. **Economic clarity.** Token values, staking meters, and network stats are
    first-class UI citizens with dedicated component styles.
 4. **Liveness.** The site should feel like a network that is running right now.
-   Pulse animations, live stats, and network visualizations communicate activity.
+   Pulse animations, live stats, and network visualizations communicate
+   activity.
 5. **Distinct from B3nd.** Different fonts, different colors, different layout
    width, different animation philosophy. The only shared element is the "Built
    on B3nd" attribution in indigo.

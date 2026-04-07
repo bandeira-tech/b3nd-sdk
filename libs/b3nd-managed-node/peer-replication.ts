@@ -5,7 +5,11 @@
  * for best-effort delivery (non-fatal receive failures).
  */
 
-import { HttpClient, type NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import {
+  HttpClient,
+  type NodeProtocolInterface,
+  type ReadResult,
+} from "@bandeira-tech/b3nd-sdk";
 import type { PeerSpec } from "./types.ts";
 
 /**
@@ -55,11 +59,14 @@ export function bestEffortClient(
         return { accepted: true };
       }
     },
-    read: (uri) => client.read(uri),
-    readMulti: (uris) => client.readMulti(uris),
-    list: (uri, options) => client.list(uri, options),
-    delete: (uri) => client.delete(uri),
+    read: (uris) => client.read(uris),
+    // deno-lint-ignore require-yield
+    async *observe<T = unknown>(
+      _pattern: string,
+      _signal: AbortSignal,
+    ): AsyncIterable<ReadResult<T>> {
+      // Not implemented.
+    },
     status: () => client.status(),
-    cleanup: () => client.cleanup(),
   };
 }

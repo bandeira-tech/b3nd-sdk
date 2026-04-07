@@ -61,7 +61,10 @@ Deno.test("loadConfig: throws when signed by wrong key", async () => {
 
   // Sign with wrong key
   const signed = await createAuthenticatedMessage(config, [
-    { privateKey: wrongKeypair.privateKey, publicKeyHex: wrongKeypair.publicKeyHex },
+    {
+      privateKey: wrongKeypair.privateKey,
+      publicKeyHex: wrongKeypair.publicKeyHex,
+    },
   ]);
 
   const client = createPermissiveClient();
@@ -103,14 +106,24 @@ Deno.test("loadConfig: accepts config with multiple signers including operator",
   const otherKeypair = await generateSigningKeyPair();
 
   const signed = await createAuthenticatedMessage(config, [
-    { privateKey: otherKeypair.privateKey, publicKeyHex: otherKeypair.publicKeyHex },
-    { privateKey: operatorKeypair.privateKey, publicKeyHex: operatorKeypair.publicKeyHex },
+    {
+      privateKey: otherKeypair.privateKey,
+      publicKeyHex: otherKeypair.publicKeyHex,
+    },
+    {
+      privateKey: operatorKeypair.privateKey,
+      publicKeyHex: operatorKeypair.publicKeyHex,
+    },
   ]);
 
   const client = createPermissiveClient();
   const uri = nodeConfigUri(operatorKeypair.publicKeyHex, config.nodeId);
   await client.receive([uri, signed]);
 
-  const loaded = await loadConfig(client, operatorKeypair.publicKeyHex, config.nodeId);
+  const loaded = await loadConfig(
+    client,
+    operatorKeypair.publicKeyHex,
+    config.nodeId,
+  );
   assertEquals(loaded.config.nodeId, config.nodeId);
 });

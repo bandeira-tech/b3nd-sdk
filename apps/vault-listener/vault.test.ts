@@ -1,15 +1,10 @@
 import { assertEquals, assertNotEquals } from "@std/assert";
+import { connect, readResponse, respondTo, writeRequest } from "@b3nd/listener";
 import {
-  respondTo,
-  connect,
-  writeRequest,
-  readResponse,
-} from "@b3nd/listener";
-import {
-  generateSigningKeyPair,
-  generateEncryptionKeyPair,
-  deriveSigningKeyPairFromSeed,
   deriveEncryptionKeyPairFromSeed,
+  deriveSigningKeyPairFromSeed,
+  generateEncryptionKeyPair,
+  generateSigningKeyPair,
   hmac,
 } from "@b3nd/encrypt";
 import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
@@ -27,7 +22,10 @@ Deno.test("vault: end-to-end auth flow with mock verifier", async () => {
   // Vault identity
   const vaultSigning = await generateSigningKeyPair();
   const vaultEnc = await generateEncryptionKeyPair();
-  const identity = { signingKeyPair: vaultSigning, encryptionKeyPair: vaultEnc };
+  const identity = {
+    signingKeyPair: vaultSigning,
+    encryptionKeyPair: vaultEnc,
+  };
   const nodeSecret = "test-vault-secret";
 
   // Client identity (ephemeral encryption keys for this session)
@@ -42,13 +40,17 @@ Deno.test("vault: end-to-end auth flow with mock verifier", async () => {
   const inboxPrefix = `mutable://data/vault/${vaultSigning.publicKeyHex}/inbox`;
 
   // Compose: respondTo wraps the handler, connect provides transport
-  const processor = respondTo<VaultAuthRequest, VaultAuthResponse>(handler, { identity, client });
+  const processor = respondTo<VaultAuthRequest, VaultAuthResponse>(handler, {
+    identity,
+    client,
+  });
   const connection = connect(client, { prefix: inboxPrefix, processor });
 
   // Client sends auth request
   const requestId = "auth-001";
   const inboxUri = `${inboxPrefix}/${requestId}`;
-  const outboxUri = `mutable://data/vault/${vaultSigning.publicKeyHex}/outbox/${requestId}`;
+  const outboxUri =
+    `mutable://data/vault/${vaultSigning.publicKeyHex}/outbox/${requestId}`;
 
   await writeRequest<VaultAuthRequest>({
     client,
@@ -79,7 +81,9 @@ Deno.test("vault: end-to-end auth flow with mock verifier", async () => {
 
   // Client derives identity from the secret
   const signingKP = await deriveSigningKeyPairFromSeed(response!.data.secret);
-  const encryptionKP = await deriveEncryptionKeyPairFromSeed(response!.data.secret);
+  const encryptionKP = await deriveEncryptionKeyPairFromSeed(
+    response!.data.secret,
+  );
 
   assertEquals(signingKP.publicKeyHex.length, 64);
   assertEquals(encryptionKP.publicKeyHex.length, 64);
@@ -90,7 +94,10 @@ Deno.test("vault: same provider account always yields same identity", async () =
 
   const vaultSigning = await generateSigningKeyPair();
   const vaultEnc = await generateEncryptionKeyPair();
-  const identity = { signingKeyPair: vaultSigning, encryptionKeyPair: vaultEnc };
+  const identity = {
+    signingKeyPair: vaultSigning,
+    encryptionKeyPair: vaultEnc,
+  };
   const nodeSecret = "stable-vault-secret";
 
   const handler = createVaultHandler({
@@ -99,7 +106,10 @@ Deno.test("vault: same provider account always yields same identity", async () =
   });
 
   const inboxPrefix = `mutable://data/vault/${vaultSigning.publicKeyHex}/inbox`;
-  const processor = respondTo<VaultAuthRequest, VaultAuthResponse>(handler, { identity, client });
+  const processor = respondTo<VaultAuthRequest, VaultAuthResponse>(handler, {
+    identity,
+    client,
+  });
   const connection = connect(client, { prefix: inboxPrefix, processor });
 
   // Two separate "sessions" for the same Google user
@@ -108,7 +118,8 @@ Deno.test("vault: same provider account always yields same identity", async () =
   for (const sessionId of ["session-1", "session-2"]) {
     const clientEnc = await generateEncryptionKeyPair();
     const inboxUri = `${inboxPrefix}/${sessionId}`;
-    const outboxUri = `mutable://data/vault/${vaultSigning.publicKeyHex}/outbox/${sessionId}`;
+    const outboxUri =
+      `mutable://data/vault/${vaultSigning.publicKeyHex}/outbox/${sessionId}`;
 
     await writeRequest<VaultAuthRequest>({
       client,

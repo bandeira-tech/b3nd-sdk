@@ -122,7 +122,8 @@ const initialState: NodesState = {
 export const useNodesStore = create<NodesStore>((set) => ({
   ...initialState,
 
-  setActiveNetwork: (networkId) => set({ activeNetworkId: networkId, activeNodeId: null }),
+  setActiveNetwork: (networkId) =>
+    set({ activeNetworkId: networkId, activeNodeId: null }),
 
   setActiveNode: (nodeId) => set({ activeNodeId: nodeId }),
 
@@ -132,7 +133,9 @@ export const useNodesStore = create<NodesStore>((set) => ({
   removeNetwork: (networkId) =>
     set((state) => ({
       networks: state.networks.filter((n) => n.networkId !== networkId),
-      activeNetworkId: state.activeNetworkId === networkId ? null : state.activeNetworkId,
+      activeNetworkId: state.activeNetworkId === networkId
+        ? null
+        : state.activeNetworkId,
     })),
 
   updateNodeStatus: (nodeId, status) =>
@@ -165,9 +168,7 @@ export const useNodesStore = create<NodesStore>((set) => ({
   addNodeToNetwork: (networkId, entry) =>
     set((state) => ({
       networks: state.networks.map((n) =>
-        n.networkId === networkId
-          ? { ...n, nodes: [...n.nodes, entry] }
-          : n
+        n.networkId === networkId ? { ...n, nodes: [...n.nodes, entry] } : n
       ),
     })),
 
@@ -209,7 +210,10 @@ export function useActiveNodeStatus(): NodeStatus | null {
 
 // ── Default config factory ────────────────────────────────────────────
 
-export function createDefaultConfig(nodeId: string, name: string): ManagedNodeConfig {
+export function createDefaultConfig(
+  nodeId: string,
+  name: string,
+): ManagedNodeConfig {
   return {
     configVersion: 1,
     nodeId,

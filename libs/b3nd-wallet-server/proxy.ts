@@ -130,13 +130,14 @@ export async function proxyRead(
     );
     const resolvedUri = uri.replace(/:key/g, accountKey.publicKeyHex);
 
-    const result = await proxyClient.read(resolvedUri);
+    const results = await proxyClient.read(resolvedUri);
+    const result = results[0];
 
-    if (!result.success) {
+    if (!result?.success) {
       return {
         success: false,
         uri: resolvedUri,
-        error: result.error || "Read failed",
+        error: result?.error || "Read failed",
       };
     }
 
@@ -180,7 +181,9 @@ export async function proxyRead(
               encryptedPayload,
               privateKey,
             );
-            const decrypted = JSON.parse(new TextDecoder().decode(decryptedBytes));
+            const decrypted = JSON.parse(
+              new TextDecoder().decode(decryptedBytes),
+            );
             return {
               ...response,
               decrypted,
@@ -251,7 +254,7 @@ export async function proxyReadMulti(
     );
 
     // Batch read from backend
-    const multiResult = await proxyClient.readMulti(resolvedUris);
+    const readResults = await proxyClient.read(resolvedUris);
 
     // Prepare user's private key for decryption (once)
     const privateKey = await pemToCryptoKey(
@@ -261,7 +264,7 @@ export async function proxyReadMulti(
 
     // Process each result with decryption
     const results: ProxyReadMultiResultItem[] = await Promise.all(
-      multiResult.results.map(
+      readResults.map(
         async (item, i): Promise<ProxyReadMultiResultItem> => {
           const originalUri = uris[i];
 
@@ -299,8 +302,13 @@ export async function proxyReadMulti(
                     nonce: payload.nonce as string,
                     ephemeralPublicKey: payload.ephemeralPublicKey as string,
                   };
-                  const decryptedBytes = await decrypt(encryptedPayload, privateKey);
-                  const decrypted = JSON.parse(new TextDecoder().decode(decryptedBytes));
+                  const decryptedBytes = await decrypt(
+                    encryptedPayload,
+                    privateKey,
+                  );
+                  const decrypted = JSON.parse(
+                    new TextDecoder().decode(decryptedBytes),
+                  );
                   return { ...result, decrypted };
                 }
               }

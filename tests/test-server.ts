@@ -9,7 +9,7 @@
  *   E2E_SERVER_PORT=8080 deno run --allow-net test-server.ts
  */
 
-import { Rig } from "../libs/b3nd-rig/mod.ts";
+import { connection, httpApi, Rig } from "../libs/b3nd-rig/mod.ts";
 import { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
 import type { Schema } from "../libs/b3nd-core/types.ts";
 
@@ -39,13 +39,15 @@ const testSchema = new Proxy(baseSchema, {
 }) as Schema;
 
 // Create rig with in-memory backend + schema validation
-const rig = await Rig.init({
-  client: new MemoryClient(),
+const rig = new Rig({
+  connections: [
+    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+  ],
   schema: testSchema,
 });
 
-// Get the HTTP handler from the rig
-const handler = rig.handler();
+// httpApi() is a standalone function — the rig stays pure
+const handler = httpApi(rig);
 
 // Start server
 const PORT = parseInt(Deno.env.get("E2E_SERVER_PORT") || "8000");

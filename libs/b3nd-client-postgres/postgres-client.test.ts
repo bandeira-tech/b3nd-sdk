@@ -174,7 +174,11 @@ const postgresSetupPromise: Promise<PostgresSetupResult> = (async () => {
   return { url, containerName };
 })();
 
-const DEFAULT_PROGRAMS = ["store://users", "store://files", "store://pagination"];
+const DEFAULT_PROGRAMS = [
+  "store://users",
+  "store://files",
+  "store://pagination",
+];
 
 async function createClient(): Promise<PostgresClient> {
   const { url } = await postgresSetupPromise;

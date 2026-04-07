@@ -27,13 +27,16 @@ function IndexMode({ catalog }: { catalog: ApiCatalog }) {
   // Group libraries by prefix: b3nd-client-*, b3nd-*, firecat-*
   const groups = groupLibraries(catalog.libraries);
 
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(groups.map(([g]) => g)));
-  const toggle = (g: string) => setExpanded((prev) => {
-    const next = new Set(prev);
-    if (next.has(g)) next.delete(g);
-    else next.add(g);
-    return next;
-  });
+  const [expanded, setExpanded] = useState<Set<string>>(() =>
+    new Set(groups.map(([g]) => g))
+  );
+  const toggle = (g: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(g)) next.delete(g);
+      else next.add(g);
+      return next;
+    });
 
   return (
     <div className="h-full flex flex-col">
@@ -49,13 +52,13 @@ function IndexMode({ catalog }: { catalog: ApiCatalog }) {
               onClick={() => toggle(groupName)}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
             >
-              {expanded.has(groupName) ? (
-                <ChevronDown className="w-3 h-3 shrink-0" />
-              ) : (
-                <ChevronRight className="w-3 h-3 shrink-0" />
-              )}
+              {expanded.has(groupName)
+                ? <ChevronDown className="w-3 h-3 shrink-0" />
+                : <ChevronRight className="w-3 h-3 shrink-0" />}
               <span className="font-semibold">{groupName}</span>
-              <span className="ml-auto text-[9px] opacity-50">{libs.length}</span>
+              <span className="ml-auto text-[9px] opacity-50">
+                {libs.length}
+              </span>
             </button>
             {expanded.has(groupName) && libs.map((lib) => (
               <button
@@ -63,10 +66,16 @@ function IndexMode({ catalog }: { catalog: ApiCatalog }) {
                 onClick={() => openLibrary(lib.key)}
                 className="w-full flex flex-col gap-0.5 pl-8 pr-3 py-2 text-left hover:bg-accent/50 transition-colors"
               >
-                <span className="text-xs font-medium text-foreground truncate">{lib.label}</span>
+                <span className="text-xs font-medium text-foreground truncate">
+                  {lib.label}
+                </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground truncate flex-1">{lib.description || "—"}</span>
-                  <span className="text-[9px] text-muted-foreground/60 shrink-0">{lib.symbolCount}</span>
+                  <span className="text-[10px] text-muted-foreground truncate flex-1">
+                    {lib.description || "—"}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground/60 shrink-0">
+                    {lib.symbolCount}
+                  </span>
                 </div>
               </button>
             ))}
@@ -103,7 +112,9 @@ function LibraryMode({ libKey, label }: { libKey: string; label: string }) {
         </button>
         <div className="px-3 pb-2">
           <span className="text-sm font-medium text-foreground">{label}</span>
-          <div className="text-[10px] text-muted-foreground mt-0.5">{lib.symbols.length} exports</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">
+            {lib.symbols.length} exports
+          </div>
         </div>
       </div>
 
@@ -118,24 +129,32 @@ function LibraryMode({ libKey, label }: { libKey: string; label: string }) {
                 onClick={() => setKindFilter(isFiltered ? null : kind)}
                 className={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-wider transition-colors",
-                  isFiltered ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground",
+                  isFiltered
+                    ? "text-primary font-bold"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <ChevronDown className="w-3 h-3 shrink-0" />
                 <span className="font-semibold">{kindLabel}</span>
-                <span className="ml-auto text-[9px] opacity-50">{symbols.length}</span>
+                <span className="ml-auto text-[9px] opacity-50">
+                  {symbols.length}
+                </span>
               </button>
               {symbols.map((sym) => (
                 <button
                   key={sym.name}
                   onClick={() => {
                     const el = document.getElementById(`sym-${sym.name}`);
-                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
                   }}
                   className="w-full flex items-center gap-2 pl-6 pr-3 py-1.5 text-xs hover:bg-accent/50 transition-colors text-foreground"
                 >
                   <KindBadge kind={kind} />
-                  <span className="truncate font-mono text-[11px]">{sym.name}</span>
+                  <span className="truncate font-mono text-[11px]">
+                    {sym.name}
+                  </span>
                 </button>
               ))}
             </div>
@@ -166,7 +185,12 @@ function KindBadge({ kind }: { kind: string }) {
     enum: "E",
   };
   return (
-    <span className={cn("w-4 text-center font-bold text-[10px] shrink-0", colors[kind] || "text-muted-foreground")}>
+    <span
+      className={cn(
+        "w-4 text-center font-bold text-[10px] shrink-0",
+        colors[kind] || "text-muted-foreground",
+      )}
+    >
       {letters[kind] || "?"}
     </span>
   );

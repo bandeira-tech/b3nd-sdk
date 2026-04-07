@@ -99,87 +99,48 @@ class MockWebSocket {
         };
       },
       read: () => {
-        const stored = this.storage.get(request.payload.uri);
-        if (stored) {
-          return {
-            id: request.id,
-            success: true,
-            data: {
-              success: true,
-              record: {
-                ts: stored.ts,
-                data: stored.data,
-              },
-            },
-          };
-        } else {
-          return {
-            id: request.id,
-            success: true,
-            data: {
-              success: false,
-              error: "Not found",
-            },
-          };
-        }
-      },
-      list: () => {
-        const uri = request.payload.uri;
-        const prefix = uri.endsWith("/") ? uri : `${uri}/`;
-        let items: { uri: string }[] = [];
+        // Client always sends { uris: [...] }
+        const uris: string[] = request.payload.uris ?? [request.payload.uri];
+        const allResults: any[] = [];
 
-        for (const storedUri of this.storage.keys()) {
-          if (!storedUri.startsWith(prefix)) continue;
-          items.push({ uri: storedUri });
-        }
-        const options = request.payload.options;
-
-        if (options?.pattern) {
-          const regex = new RegExp(options.pattern);
-          items = items.filter((item: { uri: string }) => regex.test(item.uri));
+        for (const uri of uris) {
+          if (uri.endsWith("/")) {
+            // Trailing slash = list
+            for (const [storedUri, stored] of this.storage) {
+              if (storedUri.startsWith(uri)) {
+                allResults.push({
+                  success: true,
+                  uri: storedUri,
+                  record: { ts: stored.ts, data: stored.data },
+                });
+              }
+            }
+          } else {
+            const stored = this.storage.get(uri);
+            if (stored) {
+              allResults.push({
+                success: true,
+                uri,
+                record: { ts: stored.ts, data: stored.data },
+              });
+            } else {
+              allResults.push({ success: false, uri, error: "Not found" });
+            }
+          }
         }
 
-        const page = options?.page ?? 1;
-        const limit = options?.limit ?? 50;
-        const offset = (page - 1) * limit;
-        const paginated = items.slice(offset, offset + limit);
-
-        return {
-          id: request.id,
-          success: true,
-          data: {
-            success: true,
-            data: paginated,
-            pagination: {
-              page,
-              limit,
-              total: items.length,
-            },
-          },
-        };
-      },
-      delete: () => {
-        if (this.storage.has(request.payload.uri)) {
-          this.storage.delete(request.payload.uri);
-          return {
-            id: request.id,
-            success: true,
-            data: { success: true },
-          };
-        } else {
-          return {
-            id: request.id,
-            success: true,
-            data: { success: false, error: "Not found" },
-          };
-        }
+        return { id: request.id, success: true, data: allResults };
       },
       status: {
         id: request.id,
         success: true,
         data: {
-          healthy: true,
-          programs: ["users://", "posts://"],
+          status: "healthy" as const,
+          message: "WebSocket server is operational",
+          schema: [],
+          details: {
+            connectedClients: 1,
+          },
         },
       },
     };
@@ -227,13 +188,6 @@ const factories: TestClientFactories = {
       reconnect: { enabled: false },
     });
 
-    // Override cleanup to also restore the mock
-    const originalCleanup = client.cleanup.bind(client);
-    client.cleanup = async () => {
-      await originalCleanup();
-      mock.restore();
-    };
-
     return client;
   },
 
@@ -268,13 +222,6 @@ const factories: TestClientFactories = {
       reconnect: { enabled: false },
     });
 
-    // Override cleanup to also restore the mock
-    const originalCleanup = client.cleanup.bind(client);
-    client.cleanup = async () => {
-      await originalCleanup();
-      mock.restore();
-    };
-
     return client;
   },
 
@@ -308,13 +255,6 @@ const factories: TestClientFactories = {
       reconnect: { enabled: false },
     });
 
-    // Override cleanup to also restore the mock
-    const originalCleanup = client.cleanup.bind(client);
-    client.cleanup = async () => {
-      await originalCleanup();
-      mock.restore();
-    };
-
     return client;
   },
 };
@@ -343,7 +283,6 @@ Deno.test({
     const result = await client.receive(["users://test/data", { value: 123 }]);
     assertEquals(result.accepted, true);
 
-    await client.cleanup();
     mock.restore();
   },
   sanitizeOps: false,
@@ -371,7 +310,6 @@ Deno.test({
     const result1 = await client.receive(["users://test/data", { value: 123 }]);
     assertEquals(result1.accepted, true);
 
-    await client.cleanup();
     mock.restore();
   },
   sanitizeOps: false,
@@ -398,7 +336,6 @@ Deno.test({
     const result = await client.receive(["users://test/data", { value: 123 }]);
     assertEquals(result.accepted, true);
 
-    await client.cleanup();
     mock.restore();
   },
   sanitizeOps: false,
@@ -422,7 +359,6 @@ Deno.test({
     const result = await client.receive(["users://test/data", { value: 123 }]);
     assertEquals(result.accepted, true);
 
-    await client.cleanup();
     mock.restore();
   },
   sanitizeOps: false,

@@ -33,21 +33,27 @@
  * ```
  */
 
-import type { Message, Node, NodeConfig, ReceiveResult } from "./types.ts";
+import type { Message, Validator } from "../b3nd-core/types.ts";
+import type { Node, NodeConfig } from "./types.ts";
 
 // Re-export types
 export type {
   Message,
-  /** @deprecated Use Validator from compose types directly */
-  Node,
-  /** @deprecated Use FunctionalClientConfig instead */
-  NodeConfig,
-  /** @deprecated Use Processor functions directly */
-  Processor,
-  /** @deprecated Use NodeProtocolReadInterface from core instead */
-  ReadInterface,
-  ReceiveResult,
+  Output,
+  ReadFn,
+  Schema,
+  ValidationResult,
   Validator,
+} from "../b3nd-core/types.ts";
+export type {
+  /** @deprecated */
+  Node,
+  /** @deprecated */
+  NodeConfig,
+  /** @deprecated */
+  Processor,
+  /** @deprecated */
+  ReadInterface,
 } from "./types.ts";
 
 // Re-export composition utilities
@@ -118,7 +124,9 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
   const { read, validate, process } = config;
 
   return {
-    async receive<T = unknown>(msg: Message<T>): Promise<ReceiveResult> {
+    async receive<T = unknown>(
+      msg: Message<T>,
+    ): Promise<{ accepted: boolean; error?: string }> {
       const [uri] = msg;
 
       // 1. Basic URI validation
@@ -132,7 +140,15 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
           const validationResult =
             await (validate as unknown as typeof validate)(
               msg as unknown as Message<D>,
-              read.read.bind(read),
+              undefined,
+              async <T = unknown>(u: string) => {
+                const results = await read.read<T>(u);
+                return results[0] ??
+                  {
+                    success: false,
+                    error: "No results",
+                  } as import("../b3nd-core/types.ts").ReadResult<T>;
+              },
             );
 
           if (!validationResult.valid) {

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import type { ManagedAccountType } from "../../../types";
-import { AccountsView, AccountsSidePanel } from "../../accounts/AccountsView";
+import { AccountsSidePanel, AccountsView } from "../../accounts/AccountsView";
 
 export function AccountsLayoutSlot() {
-  const [accountCreationType, setAccountCreationType] = useState<ManagedAccountType>("account");
+  const [accountCreationType, setAccountCreationType] = useState<
+    ManagedAccountType
+  >("account");
 
   return (
     <div className="h-full flex overflow-hidden bg-background text-foreground">

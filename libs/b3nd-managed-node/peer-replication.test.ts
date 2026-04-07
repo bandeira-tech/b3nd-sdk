@@ -1,6 +1,9 @@
 import { assertEquals } from "@std/assert";
-import { createPeerClients, bestEffortClient } from "./peer-replication.ts";
-import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import { bestEffortClient, createPeerClients } from "./peer-replication.ts";
+import type {
+  NodeProtocolInterface,
+  ReadResult,
+} from "@bandeira-tech/b3nd-sdk";
 import type { PeerSpec } from "./types.ts";
 
 // ── Stub client that records calls ─────────────────────────────────
@@ -16,28 +19,25 @@ function createStubClient(opts?: {
       if (opts?.receiveError) throw new Error("peer down");
       return { accepted: true };
     },
-    async read(uri) {
-      calls.push(`read:${uri}`);
-      return { success: true, record: { ts: Date.now(), data: { stub: true } } } as any;
-    },
-    async readMulti(uris) {
-      calls.push(`readMulti:${uris.join(",")}`);
-      return { success: true, results: [], summary: { total: 0, succeeded: 0, failed: 0 } };
-    },
-    async list(uri) {
-      calls.push(`list:${uri}`);
-      return { success: true as const, data: [], pagination: { page: 1, limit: 100 } };
-    },
-    async delete(uri) {
-      calls.push(`delete:${uri}`);
-      return { success: true };
+    async read<T = unknown>(uris: string | string[]) {
+      const uriList = Array.isArray(uris) ? uris : [uris];
+      calls.push(`read:${uriList.join(",")}`);
+      return uriList.map((uri) => ({
+        success: true as const,
+        uri,
+        record: { ts: Date.now(), data: { stub: true } as unknown as T },
+      }));
     },
     async status() {
       calls.push("status");
-      return { healthy: true, programs: [] };
+      return { status: "healthy" as const, schemas: [] };
     },
-    async cleanup() {
-      calls.push("cleanup");
+    // deno-lint-ignore require-yield
+    async *observe<T = unknown>(
+      _pattern: string,
+      _signal: AbortSignal,
+    ): AsyncIterable<ReadResult<T>> {
+      // Not implemented.
     },
   };
 }
@@ -112,23 +112,16 @@ Deno.test("bestEffortClient: read delegates unchanged", async () => {
   const stub = createStubClient();
   const wrapped = bestEffortClient(stub);
 
-  const result = await wrapped.read("mutable://open/test");
-  assertEquals(result.success, true);
+  const results = await wrapped.read("mutable://open/test");
+  assertEquals(results[0].success, true);
   assertEquals(stub.calls, ["read:mutable://open/test"]);
 });
 
-Deno.test("bestEffortClient: list delegates unchanged", async () => {
+Deno.test("bestEffortClient: status delegates unchanged", async () => {
   const stub = createStubClient();
   const wrapped = bestEffortClient(stub);
 
-  await wrapped.list("mutable://open/");
-  assertEquals(stub.calls, ["list:mutable://open/"]);
-});
-
-Deno.test("bestEffortClient: delete delegates unchanged", async () => {
-  const stub = createStubClient();
-  const wrapped = bestEffortClient(stub);
-
-  await wrapped.delete("mutable://open/test");
-  assertEquals(stub.calls, ["delete:mutable://open/test"]);
+  const result = await wrapped.status();
+  assertEquals(result.status, "healthy");
+  assertEquals(stub.calls, ["status"]);
 });

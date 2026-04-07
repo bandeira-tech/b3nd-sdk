@@ -26,7 +26,7 @@ export interface BackendClient {
   read(
     uri: string,
   ): Promise<
-    { success: boolean; record?: { ts: number; data: any }; error?: string }
+    { success: boolean; record?: { ts: number; data: any }; error?: string }[]
   >;
 }
 
@@ -190,9 +190,10 @@ export const fetchAppProfile = async (params: {
   const { backendClient, appKey } = params;
   ensureValue(appKey, "Auth key");
   const uri = `mutable://accounts/${appKey}/app-profile`;
-  const res = await backendClient.read(uri);
-  if (!res.success || !res.record) {
-    return { success: false as const, uri, error: res.error || "Not found" };
+  const results = await backendClient.read(uri);
+  const res = results[0];
+  if (!res?.success || !res.record) {
+    return { success: false as const, uri, error: res?.error || "Not found" };
   }
   const data = res.record.data as any;
   const payload = data?.payload ?? data ?? null;

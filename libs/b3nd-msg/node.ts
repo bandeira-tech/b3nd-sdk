@@ -45,7 +45,15 @@ export function createMessageNode<D = unknown>(
       // 2. Validate via the validator (read-only)
       // The validator can read state but cannot write
       try {
-        const validation = await validate(msg, read.read.bind(read));
+        const readFn = async <T = unknown>(u: string) => {
+          const results = await read.read<T>(u);
+          return results[0] ??
+            {
+              success: false,
+              error: "No results",
+            } as import("../b3nd-core/types.ts").ReadResult<T>;
+        };
+        const validation = await validate(msg, readFn);
 
         if (!validation.valid) {
           return {
@@ -110,13 +118,7 @@ export function createMessageNode<D = unknown>(
     },
 
     async cleanup(): Promise<void> {
-      // Cleanup all peers
-      await Promise.all(
-        peers.map((peer) => peer.cleanup().catch(() => {})),
-      );
-
-      // Cleanup read interface
-      await read.cleanup().catch(() => {});
+      // No-op — cleanup removed from NodeProtocolInterface
     },
   };
 }

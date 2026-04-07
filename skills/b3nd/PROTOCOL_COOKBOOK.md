@@ -65,20 +65,20 @@ import { authValidation, createPubkeyBasedAccess } from "@bandeira-tech/b3nd-sdk
 const schema: Schema = {
   "mutable://open": async () => ({ valid: true }),
 
-  "mutable://accounts": async ({ uri, value }) => {
+  "mutable://accounts": async ([uri, value], _upstream, _read) => {
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
-    const isValid = await validator({ uri, value });
+    const isValid = await validator([uri, value]);
     return {
       valid: isValid,
       error: isValid ? undefined : "Signature verification failed",
     };
   },
 
-  "immutable://accounts": async ({ uri, value, read }) => {
+  "immutable://accounts": async ([uri, value], _upstream, read) => {
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
-    const isValid = await validator({ uri, value });
+    const isValid = await validator([uri, value]);
     if (!isValid) return { valid: false, error: "Signature verification failed" };
 
     const existing = await read(uri);
@@ -127,7 +127,7 @@ import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 const schema: Schema = {
   "hash://sha256": hashValidator(),
 
-  "link://open": async ({ value }) => {
+  "link://open": async ([_uri, value]) => {
     if (typeof value !== "string" || !value.startsWith("hash://")) {
       return { valid: false, error: "Link must point to a hash URI" };
     }
@@ -178,33 +178,29 @@ await send({
 ### Fee Collection Protocol
 
 Cross-output fee validation. Every data write must include a fee output
-proportional to data size. Uses `ProgramValidator` with `ctx.outputs` for
-cross-output inspection.
+proportional to data size. Inner output validators receive the envelope as
+`upstream`, enabling cross-output inspection via `upstream[1].payload.outputs`.
 
 ```typescript
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { createOutputValidator } from "@bandeira-tech/b3nd-sdk";
-
-const outputValidator = createOutputValidator({
-  schema: {
-    "immutable://open": async (ctx) => {
-      const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"));
-      if (!feeOutput) return { valid: false, error: "Fee required" };
-
-      const dataSize = JSON.stringify(ctx.value).length;
-      const requiredFee = Math.ceil(dataSize / 100);
-      if ((feeOutput[1] as number) < requiredFee) {
-        return { valid: false, error: `Insufficient fee: need ${requiredFee}` };
-      }
-      return { valid: true };
-    },
-
-    "fees://pool": async () => ({ valid: true }),
-  },
-});
 
 const schema: Schema = {
-  "immutable://open": async ({ uri, value }) => ({ valid: !!value }),
+  "immutable://open": async ([_uri, value], upstream) => {
+    if (!value) return { valid: false, error: "Value required" };
+    if (!upstream) return { valid: true }; // plain write, no fee check
+
+    const outputs = upstream[1].payload.outputs;
+    const feeOutput = outputs.find(([uri]: [string, unknown]) => uri.startsWith("fees://"));
+    if (!feeOutput) return { valid: false, error: "Fee required" };
+
+    const dataSize = JSON.stringify(value).length;
+    const requiredFee = Math.ceil(dataSize / 100);
+    if ((feeOutput[1] as number) < requiredFee) {
+      return { valid: false, error: `Insufficient fee: need ${requiredFee}` };
+    }
+    return { valid: true };
+  },
+
   "fees://pool": async () => ({ valid: true }),
   "hash://sha256": hashValidator(),
 };
@@ -228,26 +224,25 @@ await send({
 
 ### UTXO / Conservation Protocol
 
-Inputs must cover outputs. Implements conservation law enforcement using
-`createOutputValidator` with `preValidate`. Balance checking via `read()`.
+Inputs must cover outputs. The envelope validator checks conservation
+using `upstream` to access sibling outputs and `read` for input balances.
 
 ```typescript
-import { createOutputValidator } from "@bandeira-tech/b3nd-sdk";
+import type { Schema } from "@bandeira-tech/b3nd-sdk";
 
-const validator = createOutputValidator<number>({
-  schema: {
-    "utxo://alice": async (ctx) => {
-      if (ctx.value < 0) return { valid: false, error: "Negative amount" };
-      return { valid: true };
-    },
-    "utxo://bob": async (ctx) => {
-      if (ctx.value < 0) return { valid: false, error: "Negative amount" };
-      return { valid: true };
-    },
+const schema: Schema = {
+  "utxo://alice": async ([_uri, value]) => {
+    if ((value as number) < 0) return { valid: false, error: "Negative amount" };
+    return { valid: true };
+  },
+  "utxo://bob": async ([_uri, value]) => {
+    if ((value as number) < 0) return { valid: false, error: "Negative amount" };
+    return { valid: true };
   },
 
-  preValidate: async (msg, read) => {
-    const [, data] = msg;
+  // The envelope validator enforces conservation
+  "hash://sha256": async ([_uri, data], _upstream, read) => {
+    if (!data?.payload) return { valid: true }; // non-envelope hash
 
     let inputSum = 0;
     for (const inputUri of data.payload.inputs) {
@@ -256,7 +251,7 @@ const validator = createOutputValidator<number>({
     }
 
     const outputSum = data.payload.outputs.reduce(
-      (sum, [, value]) => sum + (value as number), 0,
+      (sum: number, [, value]: [string, unknown]) => sum + (value as number), 0,
     );
 
     if (outputSum > inputSum) {
@@ -264,7 +259,7 @@ const validator = createOutputValidator<number>({
     }
     return { valid: true };
   },
-});
+};
 ```
 
 **App usage — transfer 50 from Alice to Bob:**
@@ -296,7 +291,7 @@ import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 const schema: Schema = {
   "hash://sha256": hashValidator(),
 
-  "link://open": async ({ value, read }) => {
+  "link://open": async ([_uri, value], _upstream, read) => {
     if (typeof value !== "string" || !value.startsWith("hash://sha256/")) {
       return { valid: false, error: "Must point to a hash URI" };
     }
@@ -371,14 +366,14 @@ const TRUSTED_CONFIRMERS = ["confirmer_pubkey_1"];
 const schema: Schema = {
   "hash://sha256": hashValidator(),
 
-  "mutable://accounts": async ({ uri, value }) => {
+  "mutable://accounts": async ([uri, value]) => {
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
-    const isValid = await validator({ uri, value });
+    const isValid = await validator([uri, value]);
     return { valid: isValid, error: isValid ? undefined : "Auth failed" };
   },
 
-  "link://accounts": async ({ uri, value, read }) => {
+  "link://accounts": async ([uri, value], _upstream, read) => {
     const pubkey = uri.split("/")[3];
     if (!TRUSTED_VALIDATORS.includes(pubkey) && !TRUSTED_CONFIRMERS.includes(pubkey)) {
       return { valid: false, error: "Not a trusted validator or confirmer" };
@@ -457,7 +452,7 @@ Export your schema as a module so it can be imported by the node and by tests:
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
-  "mutable://open": async ({ uri, value, read }) => {
+  "mutable://open": async ([_uri, value]) => {
     if (!value) return { valid: false, error: "Value required" };
     return { valid: true };
   },
@@ -541,7 +536,7 @@ import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 export const schema: Schema = {
   "mutable://open": async () => ({ valid: true }),
   "hash://sha256": hashValidator(),
-  "link://open": async ({ value }) => {
+  "link://open": async ([_uri, value]) => {
     if (typeof value !== "string") return { valid: false, error: "Must be string" };
     return { valid: true };
   },

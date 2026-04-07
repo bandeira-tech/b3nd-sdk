@@ -7,11 +7,7 @@
  * - Validation errors (schema validation failures)
  */
 
-import type {
-  HealthStatus,
-  ListResult,
-  PersistenceRecord,
-} from "../b3nd-core/types.ts";
+import type { PersistenceRecord } from "../b3nd-core/types.ts";
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
@@ -86,11 +82,6 @@ export class MockHttpServer {
         return this.handleList(url);
       }
 
-      // Delete endpoint
-      if (url.pathname.startsWith("/api/v1/delete/")) {
-        return this.handleDelete(url);
-      }
-
       return new Response("Not Found", { status: 404 });
     };
 
@@ -119,19 +110,16 @@ export class MockHttpServer {
   }
 
   private handleHealth(): Response {
-    const health: HealthStatus = {
+    return Response.json({
       status: "healthy",
+      schema: ["store://"],
       message: "Mock server operational",
-    };
-    return Response.json(health);
+    });
   }
 
   private handleSchema(): Response {
     return Response.json({
-      default: "default",
-      schemas: {
-        default: ["users://", "cache://"],
-      },
+      schema: ["store://"],
     });
   }
 
@@ -180,11 +168,27 @@ export class MockHttpServer {
 
   private handleRead(url: URL): Response {
     // Parse URI from path: /api/v1/read/{protocol}/{domain}{path}
-    const parts = url.pathname.split("/").slice(4); // Skip /api/v1/read/
+    const hasTrailingSlash = url.pathname.endsWith("/");
+    const parts = url.pathname.split("/").slice(4).filter(Boolean); // Skip /api/v1/read/
     const protocol = parts[0];
     const domain = parts[1];
-    const path = "/" + parts.slice(2).join("/");
-    const uri = `${protocol}://${domain}${path}`;
+    const subpath = parts.slice(2).join("/");
+    const uri = subpath
+      ? `${protocol}://${domain}/${subpath}`
+      : `${protocol}://${domain}`;
+
+    // Trailing slash = list mode → return ReadResult[] for all matching keys
+    if (hasTrailingSlash) {
+      const prefix = uri.endsWith("/") ? uri : uri;
+      const results = Array.from(this.storage.entries())
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, record]) => ({
+          success: true,
+          uri: key,
+          record,
+        }));
+      return Response.json(results);
+    }
 
     const record = this.storage.get(uri);
 
@@ -261,7 +265,7 @@ export class MockHttpServer {
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = parseInt(url.searchParams.get("limit") || "50");
 
-    const result: ListResult = {
+    return Response.json({
       success: true,
       data: items.slice((page - 1) * limit, page * limit),
       pagination: {
@@ -269,29 +273,6 @@ export class MockHttpServer {
         limit,
         total: items.length,
       },
-    };
-
-    return Response.json(result);
-  }
-
-  private handleDelete(url: URL): Response {
-    // Parse URI from path: /api/v1/delete/{protocol}/{domain}{path}
-    const parts = url.pathname.split("/").slice(4); // Skip /api/v1/delete/
-    const protocol = parts[0];
-    const domain = parts[1];
-    const path = "/" + parts.slice(2).join("/");
-    const uri = `${protocol}://${domain}${path}`;
-
-    const existed = this.storage.has(uri);
-
-    if (!existed) {
-      return new Response("Not found", { status: 404 });
-    }
-
-    this.storage.delete(uri);
-
-    return Response.json({
-      success: true,
     });
   }
 }

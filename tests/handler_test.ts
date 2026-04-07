@@ -1,29 +1,35 @@
 import { assertEquals } from "@std/assert";
-import { Rig } from "../libs/b3nd-rig/mod.ts";
-import { createTestSchema, MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
+import { connection, httpApi, Rig } from "../libs/b3nd-rig/mod.ts";
+import {
+  createTestSchema,
+  MemoryClient,
+} from "../libs/b3nd-client-memory/mod.ts";
 
-Deno.test("createRigHandler - status endpoint", async () => {
-  const rig = await Rig.init({
-    client: new MemoryClient(),
+Deno.test("httpApi - status endpoint", async () => {
+  const rig = new Rig({
+    connections: [
+      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    ],
     schema: createTestSchema(),
   });
-  const handler = rig.handler({ statusMeta: { test: true } });
-  const res = await handler(new Request("http://localhost/api/v1/status"));
+  const api = httpApi(rig, { statusMeta: { test: true } });
+  const res = await api(new Request("http://localhost/api/v1/status"));
   const body = await res.json();
-  assertEquals(body.healthy, true);
+  assertEquals(body.status, "healthy");
   assertEquals(body.test, true);
-  await rig.cleanup();
 });
 
-Deno.test("createRigHandler - receive/read/list round-trip", async () => {
-  const rig = await Rig.init({
-    client: new MemoryClient(),
+Deno.test("httpApi - receive/read/list round-trip", async () => {
+  const rig = new Rig({
+    connections: [
+      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    ],
     schema: createTestSchema(),
   });
-  const handler = rig.handler();
+  const api = httpApi(rig);
 
   // Receive
-  const receiveRes = await handler(
+  const receiveRes = await api(
     new Request("http://localhost/api/v1/receive", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -34,61 +40,28 @@ Deno.test("createRigHandler - receive/read/list round-trip", async () => {
   assertEquals(receive.accepted, true);
 
   // Read
-  const readRes = await handler(
+  const readRes = await api(
     new Request("http://localhost/api/v1/read/mutable/open/hello"),
   );
   const read = await readRes.json();
   assertEquals(read.data.msg, "world");
 
-  // List
-  const listRes = await handler(
+  // List (via trailing-slash read)
+  const listRes = await api(
     new Request("http://localhost/api/v1/list/mutable/open"),
   );
   const list = await listRes.json();
   assertEquals(list.data.length, 1);
-  await rig.cleanup();
 });
 
-Deno.test("createRigHandler - delete endpoint", async () => {
-  const rig = await Rig.init({
-    client: new MemoryClient(),
+Deno.test("httpApi - unknown route returns 404", async () => {
+  const rig = new Rig({
+    connections: [
+      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    ],
     schema: createTestSchema(),
   });
-  const handler = rig.handler();
-
-  // Write first
-  await handler(
-    new Request("http://localhost/api/v1/receive", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(["mutable://open/del", { x: 1 }]),
-    }),
-  );
-
-  // Delete
-  const delRes = await handler(
-    new Request("http://localhost/api/v1/delete/mutable/open/del", {
-      method: "DELETE",
-    }),
-  );
-  const del = await delRes.json();
-  assertEquals(del.success, true);
-
-  // Verify gone
-  const readRes = await handler(
-    new Request("http://localhost/api/v1/read/mutable/open/del"),
-  );
-  assertEquals(readRes.status, 404);
-  await rig.cleanup();
-});
-
-Deno.test("createRigHandler - unknown route returns 404", async () => {
-  const rig = await Rig.init({
-    client: new MemoryClient(),
-    schema: createTestSchema(),
-  });
-  const handler = rig.handler();
-  const res = await handler(new Request("http://localhost/unknown"));
+  const api = httpApi(rig);
+  const res = await api(new Request("http://localhost/unknown"));
   assertEquals(res.status, 404);
-  await rig.cleanup();
 });

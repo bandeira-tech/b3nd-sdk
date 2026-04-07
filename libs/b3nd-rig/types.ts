@@ -6,8 +6,8 @@
 import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
 import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
-import type { ObserveHandler } from "./observe.ts";
-import type { Subscription } from "./subscription.ts";
+import type { ReactionHandler } from "./reactions.ts";
+import type { Connection } from "./connection.ts";
 
 /**
  * Factory function for creating a PostgreSQL executor from a connection string.
@@ -49,9 +49,6 @@ export type MongoExecutorFactory = (
   findMany: (
     filter: Record<string, unknown>,
   ) => Promise<Record<string, unknown>[]>;
-  deleteOne: (
-    filter: Record<string, unknown>,
-  ) => Promise<{ deletedCount?: number }>;
   ping: () => Promise<boolean>;
   cleanup?: () => Promise<void>;
 }>;
@@ -93,24 +90,35 @@ export type ElasticsearchExecutorFactory = (
 ) => import("../b3nd-client-elasticsearch/mod.ts").ElasticsearchExecutor;
 
 /**
- * Configuration for Rig.init().
+ * Configuration for `new Rig()`.
  *
- * The rig is pure orchestration — build clients outside, hand them in.
+ * The rig is pure orchestration — build clients outside, hand them in
+ * as connections. Connections are the only way to wire clients.
  */
 export interface RigConfig {
   /**
-   * Backend URL — resolves to a client automatically.
-   * For HTTP/HTTPS URLs, SSE subscriptions are enabled automatically.
+   * Connections — the single filtering primitive.
+   *
+   * Each connection wraps a client with URI patterns that control routing.
+   * Writes broadcast to all matching connections; reads try first match.
+   * The same patterns can be published over the wire for remote filtering.
    *
    * ```typescript
-   * const rig = await Rig.init({ url: "memory://" });
-   * const rig = await Rig.init({ url: "https://node.b3nd.net", schema });
+   * const rig = new Rig({
+   *   connections: [
+   *     connection(httpClient, {
+   *       receive: ["mutable://*", "hash://*"],
+   *       read: ["mutable://*", "hash://*"],
+   *     }),
+   *     connection(memoryClient, {
+   *       receive: ["local://*"],
+   *       read: ["local://*"],
+   *     }),
+   *   ],
+   * });
    * ```
    */
-  url?: string;
-
-  /** Pre-built client for all operations. */
-  client?: NodeProtocolInterface;
+  connections: Connection[];
 
   /**
    * Application-level schema — validates URIs before they reach clients.
@@ -120,48 +128,15 @@ export interface RigConfig {
   schema?: Schema;
 
   /**
-   * SSE base URL for pattern subscriptions.
-   * Set automatically when `url` is an HTTP URL.
-   * Set explicitly when using `Rig.init({ client })` with an HTTP backend.
-   */
-  sseBaseUrl?: string;
-
-  /**
-   * Subscriptions — the single filtering primitive.
-   *
-   * Each subscription wraps a client with URI patterns that control routing.
-   * Writes broadcast to all matching subscriptions; reads try first match.
-   * The same patterns can be published over the wire for remote filtering.
-   *
-   * ```typescript
-   * const rig = await Rig.init({
-   *   subscriptions: [
-   *     subscribe(httpClient, {
-   *       receive: ["mutable://*", "hash://*"],
-   *       read: ["mutable://*", "hash://*"],
-   *     }),
-   *     subscribe(memoryClient, {
-   *       receive: ["local://*"],
-   *       read: ["local://*"],
-   *     }),
-   *   ],
-   * });
-   * ```
-   */
-  subscriptions?: Subscription[];
-
-
-  /**
-   * Hooks — frozen after init, one function per slot.
+   * Hooks — frozen after construction, one function per slot.
    *
    * Before-hooks **throw** to reject (no silent aborts).
    * After-hooks **observe** (cannot modify the result; throw if violated).
-   * Need composition? Compose on your end.
    *
    * @example
    * ```typescript
-   * const rig = await Rig.init({
-   *   client,
+   * const rig = new Rig({
+   *   connections: [...],
    *   hooks: {
    *     beforeReceive: (ctx) => { validate(ctx.uri); },
    *     afterRead: (ctx, result) => { audit(ctx.uri, result); },
@@ -179,8 +154,8 @@ export interface RigConfig {
    *
    * @example
    * ```typescript
-   * const rig = await Rig.init({
-   *   use: "memory://",
+   * const rig = new Rig({
+   *   connections: [...],
    *   on: {
    *     "send:success": [audit, notifyPeers],
    *     "*:error": [alertOps],
@@ -198,9 +173,9 @@ export interface RigConfig {
    *
    * @example
    * ```typescript
-   * const rig = await Rig.init({
-   *   use: "memory://",
-   *   observe: {
+   * const rig = new Rig({
+   *   connections: [...],
+   *   reactions: {
    *     "mutable://app/users/:id": (uri, data, { id }) => {
    *       console.log(`User ${id} updated`);
    *     },
@@ -208,7 +183,7 @@ export interface RigConfig {
    * });
    * ```
    */
-  observe?: Record<string, ObserveHandler>;
+  reactions?: Record<string, ReactionHandler>;
 }
 
 /**
@@ -222,7 +197,7 @@ export interface RigInfo {
   behavior: {
     hooks: string[];
     events: Record<string, number>;
-    observers: number;
+    reactors: number;
   };
 }
 
@@ -240,8 +215,6 @@ export interface WatchOptions {
  * Options for rig.watchAll() — reactive collection watching.
  */
 export interface WatchAllOptions extends WatchOptions {
-  /** List options (e.g. limit) passed to listData on each poll. */
-  listOptions?: import("../b3nd-core/types.ts").ListOptions;
 }
 
 /**
@@ -259,37 +232,9 @@ export interface WatchAllSnapshot<T = unknown> {
 }
 
 /**
- * Cleanup function returned by subscribe() — call to stop watching.
- */
-export type Unsubscribe = () => void;
-
-/**
- * Handler for pattern-based subscriptions.
- *
- * Same shape as ObserveHandler — receives the URI, data, and extracted
- * params from the pattern match.
- */
-export type SubscribeHandler<T = unknown> = (
-  uri: string,
-  data: T,
-  params: Record<string, string>,
-) => void | Promise<void>;
-
-/**
- * Options for pattern-based subscriptions.
- */
-export interface SubscribeOptions {
-  /** Polling interval in ms (used as fallback when SSE is unavailable). Default: 2000. */
-  intervalMs?: number;
-  /** Abort signal to stop the subscription. */
-  signal?: AbortSignal;
-}
-
-/**
- * Options for rig.handler().
+ * @deprecated Use `HttpApiOptions` from `./http.ts` instead.
  */
 export interface HandlerOptions {
   /** Extra metadata to include in status response. */
   statusMeta?: Record<string, unknown>;
 }
-

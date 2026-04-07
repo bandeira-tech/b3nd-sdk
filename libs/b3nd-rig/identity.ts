@@ -289,7 +289,7 @@ export class Identity {
    *
    * @example
    * ```typescript
-   * const rig = await Rig.init({ url: "https://node.b3nd.net" });
+   * const rig = new Rig({ connections: [connection(client, { receive: ["*"], read: ["*"] })] });
    * const alice = await Identity.fromSeed("alice-secret");
    *
    * const session = alice.rig(rig);

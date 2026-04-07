@@ -8,19 +8,13 @@
 /// <reference lib="dom" />
 
 import type {
-  DeleteResult,
   IndexedDBClientConfig,
-  ListItem,
-  ListOptions,
-  ListResult,
   Message,
   NodeProtocolInterface,
-  NodeStatus,
   PersistenceRecord,
-  ReadMultiResult,
-  ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
+  StatusResult,
 } from "../b3nd-core/types.ts";
 
 // Type definitions for IndexedDB (simplified for cross-platform compatibility)
@@ -230,7 +224,25 @@ export class IndexedDBClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  public async read<T = unknown>(
+    uris: string | string[],
+  ): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        const listed = await this._list<T>(uri);
+        results.push(...listed);
+      } else {
+        results.push(await this._readOne<T>(uri));
+      }
+    }
+
+    return results;
+  }
+
+  private async _readOne<T>(uri: string): Promise<ReadResult<T>> {
     try {
       const store = await this.getStore();
 
@@ -274,104 +286,13 @@ export class IndexedDBClient implements NodeProtocolInterface {
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
-
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
+  private async _list<T>(uri: string): Promise<ReadResult<T>[]> {
     try {
-      // Optimized: single transaction for all gets instead of N separate transactions
-      const store = await this.getStore();
-      const results: ReadMultiResultItem<T>[] = [];
-      let succeeded = 0;
-
-      // Fire all get requests within the same transaction
-      const promises = uris.map(
-        (uri) =>
-          new Promise<ReadMultiResultItem<T>>((resolve) => {
-            const request = store.get(uri);
-
-            request.onsuccess = () => {
-              const storedRecord = request.result as StoredRecord | undefined;
-              if (storedRecord) {
-                resolve({
-                  uri,
-                  success: true,
-                  record: {
-                    ts: storedRecord.ts,
-                    data: storedRecord.data as T,
-                  },
-                });
-              } else {
-                resolve({ uri, success: false, error: "Not found" });
-              }
-            };
-
-            request.onerror = () => {
-              resolve({
-                uri,
-                success: false,
-                error: `Read failed: ${request.error}`,
-              });
-            };
-          }),
-      );
-
-      const settled = await Promise.all(promises);
-      for (const item of settled) {
-        results.push(item);
-        if (item.success) succeeded++;
-      }
-
-      return {
-        success: succeeded > 0,
-        results,
-        summary: {
-          total: uris.length,
-          succeeded,
-          failed: uris.length - succeeded,
-        },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        results: uris.map((uri) => ({
-          uri,
-          success: false as const,
-          error: error instanceof Error ? error.message : "Read failed",
-        })),
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-  }
-
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
-    try {
-      const {
-        page = 1,
-        limit = 50,
-        pattern,
-        sortBy = "name",
-        sortOrder = "asc",
-      } = options || {};
       const store = await this.getStore();
       const index = store.index("uri_index");
 
-      const items: ListItem[] = [];
-
-      return new Promise<ListResult>((resolve) => {
+      return new Promise<ReadResult<T>[]>((resolve) => {
+        const results: ReadResult<T>[] = [];
         const request = index.openCursor();
 
         request.onsuccess = () => {
@@ -379,251 +300,59 @@ export class IndexedDBClient implements NodeProtocolInterface {
 
           if (cursor) {
             const record = cursor.value as StoredRecord;
-
-            // Check if this record matches our URI criteria
             if (record.uri.startsWith(uri)) {
-              // Apply pattern filter if specified
-              if (!pattern || record.uri.includes(pattern)) {
-                items.push({
+              results.push({
+                success: true,
+                record: {
+                  ts: record.ts,
+                  data: record.data as T,
                   uri: record.uri,
-                });
-              }
+                } as PersistenceRecord<T>,
+              });
             }
-
             cursor.continue();
           } else {
-            // All records processed, apply sorting and pagination
-            this.processListResults(items, { page, limit, sortBy, sortOrder })
-              .then(resolve)
-              .catch((error) => {
-                resolve({
-                  success: false,
-                  error: error instanceof Error
-                    ? error.message
-                    : "Failed to process list results",
-                });
-              });
+            resolve(results);
           }
         };
 
         request.onerror = () => {
-          resolve({
-            success: false,
-            error: `Failed to list records: ${request.error}`,
-          });
-        };
-      });
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  /**
-   * Process list results with sorting and pagination
-   */
-  private async processListResults(
-    items: ListItem[],
-    options: { page: number; limit: number; sortBy: string; sortOrder: string },
-  ): Promise<ListResult> {
-    const { page, limit, sortBy, sortOrder } = options;
-
-    let finalItems = [...items];
-    if (sortBy === "timestamp") {
-      // Get timestamps for all items
-      const itemsWithTimestamps = await Promise.all(
-        items.map(async (item) => {
-          const record = await this.getStoredRecord(item.uri);
-          return {
-            ...item,
-            ts: record?.ts || 0,
-          };
-        }),
-      );
-
-      itemsWithTimestamps.sort((a, b) => {
-        const comparison = a.ts - b.ts;
-        return sortOrder === "asc" ? comparison : -comparison;
-      });
-
-      finalItems = itemsWithTimestamps.map(({ uri }) => ({ uri }));
-    } else {
-      // Sort by name
-      finalItems.sort((a, b) => {
-        const comparison = a.uri.localeCompare(b.uri);
-        return sortOrder === "asc" ? comparison : -comparison;
-      });
-    }
-
-    // Apply pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedItems = finalItems.slice(startIndex, endIndex);
-
-    return {
-      success: true,
-      data: paginatedItems,
-      pagination: {
-        page,
-        limit,
-        total: items.length,
-      },
-    };
-  }
-
-  /**
-   * Get stored record for timestamp sorting
-   */
-  private async getStoredRecord(uri: string): Promise<StoredRecord | null> {
-    try {
-      const store = await this.getStore();
-      return new Promise<StoredRecord | null>((resolve) => {
-        const request = store.get(uri);
-        request.onsuccess = () => {
-          resolve(request.result || null);
-        };
-        request.onerror = () => {
-          resolve(null);
+          resolve([]);
         };
       });
     } catch {
-      return null;
+      return [];
     }
   }
 
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const store = await this.getStore("readwrite");
-
-      return new Promise<DeleteResult>((resolve) => {
-        // First check if it exists
-        const getRequest = store.get(uri);
-
-        getRequest.onsuccess = () => {
-          if (!getRequest.result) {
-            resolve({
-              success: false,
-              error: "Not found",
-            });
-            return;
-          }
-
-          // Delete the record
-          const deleteRequest = store.delete(uri);
-
-          deleteRequest.onsuccess = () => {
-            resolve({
-              success: true,
-            });
-          };
-
-          deleteRequest.onerror = () => {
-            resolve({
-              success: false,
-              error: `Failed to delete record: ${deleteRequest.error}`,
-            });
-          };
-        };
-
-        getRequest.onerror = () => {
-          resolve({
-            success: false,
-            error: `Failed to check record existence: ${getRequest.error}`,
-          });
-        };
-      });
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+  // deno-lint-ignore require-yield
+  async *observe<T = unknown>(
+    _pattern: string,
+    _signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    // Not implemented — observe requires transport-specific support.
   }
 
-  async status(): Promise<NodeStatus> {
+  public async status(): Promise<StatusResult> {
     try {
-      // Try to open the database
       const db = await this.initDB();
 
       if (!db) {
-        return { healthy: false, message: "Failed to connect to IndexedDB" };
+        return {
+          status: "unhealthy",
+          schema: [],
+        };
       }
 
-      const stats = await this.getDatabaseStats();
-
       return {
-        healthy: true,
-        message: "IndexedDB client is operational",
-        databaseName: this.config.databaseName,
-        storeName: this.config.storeName,
-        version: this.config.version,
-        ...stats,
+        status: "healthy",
+        schema: [],
       };
-    } catch (error) {
-      return {
-        healthy: false,
-        message: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  /**
-   * Get database statistics
-   */
-  private async getDatabaseStats(): Promise<Record<string, unknown>> {
-    try {
-      const store = await this.getStore();
-      const index = store.index("uri_index");
-
-      return new Promise<Record<string, unknown>>((resolve) => {
-        let totalRecords = 0;
-
-        const request = index.openCursor();
-
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (cursor) {
-            totalRecords++;
-            cursor.continue();
-          } else {
-            resolve({
-              totalRecords,
-            });
-          }
-        };
-
-        request.onerror = () => {
-          resolve({
-            totalRecords: 0,
-          });
-        };
-      });
     } catch {
       return {
-        totalRecords: 0,
+        status: "unhealthy",
+        schema: [],
       };
     }
-  }
-
-  async cleanup(): Promise<void> {
-    // Clear all data from the object store BEFORE closing the database
-    try {
-      const store = await this.getStore("readwrite");
-      await new Promise<void>((resolve, reject) => {
-        const request = store.clear();
-        request.onsuccess = () => resolve();
-        request.onerror = () =>
-          reject(new Error(`Failed to clear store: ${request.error}`));
-      });
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    // Wait for any pending operations to complete
-    // fake-indexeddb uses setTimeout internally, so we need to wait a few ticks
-    // to ensure all queued operations have had a chance to execute
-    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }

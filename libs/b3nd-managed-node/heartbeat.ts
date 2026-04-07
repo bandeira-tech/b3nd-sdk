@@ -9,7 +9,11 @@
  */
 
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
-import { createSignedEncryptedMessage, encrypt, sign } from "@bandeira-tech/b3nd-sdk/encrypt";
+import {
+  createSignedEncryptedMessage,
+  encrypt,
+  sign,
+} from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { SignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { BackendStatus, NodeMetrics, NodeStatus } from "./types.ts";
 import { nodeStatusUri } from "./types.ts";
@@ -31,7 +35,9 @@ export interface HeartbeatWriter {
   stop(): void;
 }
 
-export function createHeartbeatWriter(opts: HeartbeatWriterOptions): HeartbeatWriter {
+export function createHeartbeatWriter(
+  opts: HeartbeatWriterOptions,
+): HeartbeatWriter {
   let timer: ReturnType<typeof setInterval> | null = null;
   const startTime = Date.now();
   let configTimestamp = Date.now();
@@ -53,7 +59,10 @@ export function createHeartbeatWriter(opts: HeartbeatWriterOptions): HeartbeatWr
     };
 
     try {
-      let message: SignedEncryptedMessage | { auth: Array<{ pubkey: string; signature: string }>; payload: NodeStatus };
+      let message: SignedEncryptedMessage | {
+        auth: Array<{ pubkey: string; signature: string }>;
+        payload: NodeStatus;
+      };
 
       if (opts.operatorEncryptionPubKeyHex) {
         message = await createSignedEncryptedMessage(
@@ -63,7 +72,9 @@ export function createHeartbeatWriter(opts: HeartbeatWriterOptions): HeartbeatWr
         );
       } else {
         // Fallback: signed but not encrypted (for tests / local dev)
-        const { createAuthenticatedMessage } = await import("@bandeira-tech/b3nd-sdk/encrypt");
+        const { createAuthenticatedMessage } = await import(
+          "@bandeira-tech/b3nd-sdk/encrypt"
+        );
         message = await createAuthenticatedMessage(status, [opts.signer]);
       }
 

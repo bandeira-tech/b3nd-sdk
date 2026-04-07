@@ -4,10 +4,11 @@ import { useDashboardStore } from "../../dashboard/stores/dashboardStore";
 import { cn } from "../../../utils";
 import type { ContentMode } from "../../dashboard/types";
 
-const modeItems: { id: ContentMode; label: string; icon: typeof ListChecks }[] = [
-  { id: "results", label: "Results", icon: Search },
-  { id: "logs", label: "Test Logs", icon: ScrollText },
-];
+const modeItems: { id: ContentMode; label: string; icon: typeof ListChecks }[] =
+  [
+    { id: "results", label: "Results", icon: Search },
+    { id: "logs", label: "Test Logs", icon: ScrollText },
+  ];
 
 export function DashboardLeftSlot() {
   const { contentMode, setContentMode, runSummary } = useDashboardStore();
@@ -28,7 +29,7 @@ export function DashboardLeftSlot() {
                   "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
                 )}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -42,14 +43,22 @@ export function DashboardLeftSlot() {
       {/* Summary bar */}
       {runSummary && (
         <div className="px-3 py-2 border-b border-border text-xs flex items-center gap-2">
-          <span className="text-green-500 font-medium">{runSummary.passed} passed</span>
+          <span className="text-green-500 font-medium">
+            {runSummary.passed} passed
+          </span>
           {runSummary.failed > 0 && (
-            <span className="text-red-500 font-medium">{runSummary.failed} failed</span>
+            <span className="text-red-500 font-medium">
+              {runSummary.failed} failed
+            </span>
           )}
           {runSummary.skipped > 0 && (
-            <span className="text-yellow-500">{runSummary.skipped} skipped</span>
+            <span className="text-yellow-500">
+              {runSummary.skipped} skipped
+            </span>
           )}
-          <span className="text-muted-foreground ml-auto">{runSummary.duration}ms</span>
+          <span className="text-muted-foreground ml-auto">
+            {runSummary.duration}ms
+          </span>
         </div>
       )}
 

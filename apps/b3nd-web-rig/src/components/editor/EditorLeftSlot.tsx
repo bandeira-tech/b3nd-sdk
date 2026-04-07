@@ -1,10 +1,10 @@
 import {
-  FileEdit,
-  Plus,
   ArrowLeft,
   Clock,
+  FileEdit,
   FileText,
   Lock,
+  Plus,
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "../../utils";
@@ -33,20 +33,22 @@ export function EditorLeftSlot({
 
   return (
     <div className="h-full flex flex-col">
-      {activeDoc === null ? (
-        <IndexMode
-          documents={documents}
-          onNewDocument={onNewDocument}
-          onOpenDocument={onOpenDocument}
-        />
-      ) : (
-        <DocumentMode
-          doc={activeDoc}
-          viewingVersionIndex={viewingVersionIndex}
-          onClose={onCloseDocument}
-          onViewVersion={onViewVersion}
-        />
-      )}
+      {activeDoc === null
+        ? (
+          <IndexMode
+            documents={documents}
+            onNewDocument={onNewDocument}
+            onOpenDocument={onOpenDocument}
+          />
+        )
+        : (
+          <DocumentMode
+            doc={activeDoc}
+            viewingVersionIndex={viewingVersionIndex}
+            onClose={onCloseDocument}
+            onViewVersion={onViewVersion}
+          />
+        )}
     </div>
   );
 }
@@ -87,54 +89,58 @@ function IndexMode({
 
       {/* Document list */}
       <div className="flex-1 overflow-auto custom-scrollbar">
-        {documents.length === 0 ? (
-          <div className="px-3 py-4 text-xs text-muted-foreground/60 text-center">
-            No documents yet
-          </div>
-        ) : (
-          <div className="flex flex-col py-1">
-            {documents.map((doc) => {
-              const lastModified = doc.versions.length > 0
-                ? doc.versions[0].timestamp
-                : null;
-              // Check latest version for encryption/auth status
-              const latestVersion = doc.versions.length > 0 ? doc.versions[0] : null;
-              const hasEncrypted = latestVersion?.encrypted;
-              const hasSigned = !!latestVersion?.signedBy;
+        {documents.length === 0
+          ? (
+            <div className="px-3 py-4 text-xs text-muted-foreground/60 text-center">
+              No documents yet
+            </div>
+          )
+          : (
+            <div className="flex flex-col py-1">
+              {documents.map((doc) => {
+                const lastModified = doc.versions.length > 0
+                  ? doc.versions[0].timestamp
+                  : null;
+                // Check latest version for encryption/auth status
+                const latestVersion = doc.versions.length > 0
+                  ? doc.versions[0]
+                  : null;
+                const hasEncrypted = latestVersion?.encrypted;
+                const hasSigned = !!latestVersion?.signedBy;
 
-              return (
-                <button
-                  key={doc.id}
-                  onClick={() => onOpenDocument(doc.id)}
-                  className={cn(
-                    "w-full flex flex-col gap-0.5 px-3 py-2 text-left transition-colors",
-                    "hover:bg-accent/50",
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-xs font-medium text-foreground truncate">
-                      {doc.title}
-                    </span>
-                    <div className="ml-auto flex items-center gap-1 shrink-0">
-                      {hasSigned && (
-                        <ShieldCheck className="w-3 h-3 text-blue-500/60" />
-                      )}
-                      {hasEncrypted && (
-                        <Lock className="w-3 h-3 text-amber-500/60" />
-                      )}
+                return (
+                  <button
+                    key={doc.id}
+                    onClick={() => onOpenDocument(doc.id)}
+                    className={cn(
+                      "w-full flex flex-col gap-0.5 px-3 py-2 text-left transition-colors",
+                      "hover:bg-accent/50",
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs font-medium text-foreground truncate">
+                        {doc.title}
+                      </span>
+                      <div className="ml-auto flex items-center gap-1 shrink-0">
+                        {hasSigned && (
+                          <ShieldCheck className="w-3 h-3 text-blue-500/60" />
+                        )}
+                        {hasEncrypted && (
+                          <Lock className="w-3 h-3 text-amber-500/60" />
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  {lastModified && (
-                    <div className="text-[10px] text-muted-foreground pl-[22px]">
-                      {new Date(lastModified).toLocaleString()}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+                    {lastModified && (
+                      <div className="text-[10px] text-muted-foreground pl-[22px]">
+                        {new Date(lastModified).toLocaleString()}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
       </div>
     </>
   );
@@ -165,7 +171,9 @@ function DocumentMode({
           <span>All Documents</span>
         </button>
         <div className="px-3 pb-2">
-          <span className="text-sm font-medium text-foreground">{doc.title}</span>
+          <span className="text-sm font-medium text-foreground">
+            {doc.title}
+          </span>
         </div>
       </div>
 
@@ -176,65 +184,71 @@ function DocumentMode({
             <Clock className="w-3 h-3" />
             <span>Version history</span>
             {doc.versions.length > 0 && (
-              <span className="ml-auto text-muted-foreground/60">{doc.versions.length}</span>
+              <span className="ml-auto text-muted-foreground/60">
+                {doc.versions.length}
+              </span>
             )}
           </div>
         </div>
 
-        {doc.versions.length === 0 ? (
-          <div className="px-3 text-xs text-muted-foreground/60">
-            No saves yet
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {/* Return to editing button when viewing history */}
-            {viewingVersionIndex !== null && (
-              <button
-                onClick={() => onViewVersion(null)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent/50 transition-colors text-primary font-medium"
-              >
-                Back to editing
-              </button>
-            )}
-
-            {doc.versions.map((version, i) => {
-              const isSelected = viewingVersionIndex === i;
-              const versionNumber = doc.versions.length - i;
-              return (
+        {doc.versions.length === 0
+          ? (
+            <div className="px-3 text-xs text-muted-foreground/60">
+              No saves yet
+            </div>
+          )
+          : (
+            <div className="flex flex-col">
+              {/* Return to editing button when viewing history */}
+              {viewingVersionIndex !== null && (
                 <button
-                  key={`${version.hashUri}-${version.timestamp}`}
-                  onClick={() => onViewVersion(isSelected ? null : i)}
-                  className={cn(
-                    "w-full flex flex-col gap-0.5 px-3 py-2 text-left text-xs transition-colors",
-                    "hover:bg-accent/50",
-                    isSelected && "bg-accent/40",
-                  )}
+                  onClick={() => onViewVersion(null)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent/50 transition-colors text-primary font-medium"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-foreground font-medium">
-                      #{versionNumber}
-                    </span>
-                    {/* Security badges */}
-                    <div className="flex items-center gap-1">
-                      {version.signedBy && (
-                        <ShieldCheck className="w-3 h-3 text-blue-500/60" />
-                      )}
-                      {version.encrypted && (
-                        <Lock className="w-3 h-3 text-amber-500/60" />
+                  Back to editing
+                </button>
+              )}
+
+              {doc.versions.map((version, i) => {
+                const isSelected = viewingVersionIndex === i;
+                const versionNumber = doc.versions.length - i;
+                return (
+                  <button
+                    key={`${version.hashUri}-${version.timestamp}`}
+                    onClick={() => onViewVersion(isSelected ? null : i)}
+                    className={cn(
+                      "w-full flex flex-col gap-0.5 px-3 py-2 text-left text-xs transition-colors",
+                      "hover:bg-accent/50",
+                      isSelected && "bg-accent/40",
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-foreground font-medium">
+                        #{versionNumber}
+                      </span>
+                      {/* Security badges */}
+                      <div className="flex items-center gap-1">
+                        {version.signedBy && (
+                          <ShieldCheck className="w-3 h-3 text-blue-500/60" />
+                        )}
+                        {version.encrypted && (
+                          <Lock className="w-3 h-3 text-amber-500/60" />
+                        )}
+                      </div>
+                      {i === 0 && (
+                        <span className="ml-auto text-[10px] text-primary font-medium">
+                          latest
+                        </span>
                       )}
                     </div>
-                    {i === 0 && (
-                      <span className="ml-auto text-[10px] text-primary font-medium">latest</span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {new Date(version.timestamp).toLocaleString()}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
+                    <div className="text-[10px] text-muted-foreground">
+                      {new Date(version.timestamp).toLocaleString()}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
       </div>
     </>
   );

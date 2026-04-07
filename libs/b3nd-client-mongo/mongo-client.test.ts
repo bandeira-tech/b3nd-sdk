@@ -207,7 +207,11 @@ const mongoSetupPromise: Promise<MongoSetupResult> = (async () => {
   };
 })();
 
-const DEFAULT_PROGRAMS = ["store://users", "store://files", "store://pagination"];
+const DEFAULT_PROGRAMS = [
+  "store://users",
+  "store://files",
+  "store://pagination",
+];
 
 async function createClient(): Promise<MongoClient> {
   const { url, dbName, collectionName } = await mongoSetupPromise;

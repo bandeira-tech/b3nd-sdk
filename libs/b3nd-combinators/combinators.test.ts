@@ -8,25 +8,29 @@
 
 import { assertEquals } from "@std/assert";
 import { MemoryClient } from "../b3nd-client-memory/mod.ts";
-import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
 import { parallelBroadcast } from "./parallel-broadcast.ts";
 import { firstMatchSequence } from "./first-match-sequence.ts";
 
-/** A client that rejects all receive() calls — for testing combinator error paths. */
+/** A client that rejects all operations — for testing combinator error paths. */
 function rejectingClient(): NodeProtocolInterface {
-  const noop = async () => ({ success: false as const, error: "not supported" });
   return {
     receive: async () => ({ accepted: false, error: "rejected by policy" }),
-    read: noop as NodeProtocolInterface["read"],
-    readMulti: async (uris: string[]) => ({
-      success: false as const,
-      results: uris.map((uri) => ({ uri, success: false as const, error: "not supported" })),
-      summary: { total: uris.length, succeeded: 0, failed: uris.length },
-    }),
-    list: async () => ({ success: false as const, error: "not supported", data: [] }),
-    delete: noop as NodeProtocolInterface["delete"],
-    status: async () => ({ healthy: false, programs: [] }),
-    cleanup: async () => {},
+    read: async <T = unknown>(uris: string | string[]) => {
+      const uriList = Array.isArray(uris) ? uris : [uris];
+      return uriList.map((uri) => ({
+        success: false as const,
+        error: "not supported",
+      }));
+    },
+    // deno-lint-ignore require-yield
+    async *observe<T = unknown>(
+      _pattern: string,
+      _signal: AbortSignal,
+    ): AsyncIterable<ReadResult<T>> {
+      // Not implemented.
+    },
+    status: async () => ({ status: "unhealthy" as const }),
   };
 }
 
@@ -46,12 +50,10 @@ Deno.test("parallelBroadcast - writes to all backends", async () => {
   // Both backends should have the data
   const readA = await a.read("mutable://data/shared");
   const readB = await b.read("mutable://data/shared");
-  assertEquals(readA.success, true);
-  assertEquals(readB.success, true);
-  if (readA.success) assertEquals(readA.record?.data, { value: 42 });
-  if (readB.success) assertEquals(readB.record?.data, { value: 42 });
-
-  await combined.cleanup();
+  assertEquals(readA[0].success, true);
+  assertEquals(readB[0].success, true);
+  if (readA[0].success) assertEquals(readA[0].record?.data, { value: 42 });
+  if (readB[0].success) assertEquals(readB[0].record?.data, { value: 42 });
 });
 
 Deno.test("parallelBroadcast - reads from first backend only", async () => {
@@ -63,17 +65,15 @@ Deno.test("parallelBroadcast - reads from first backend only", async () => {
   await b.receive(["mutable://data/test", { source: "b" }]);
 
   const combined = parallelBroadcast([a, b]);
-  const result = await combined.read("mutable://data/test");
+  const results = await combined.read("mutable://data/test");
 
-  assertEquals(result.success, true);
-  if (result.success) {
-    assertEquals(result.record?.data, { source: "a" });
+  assertEquals(results[0].success, true);
+  if (results[0].success) {
+    assertEquals(results[0].record?.data, { source: "a" });
   }
-
-  await combined.cleanup();
 });
 
-Deno.test("parallelBroadcast - readMulti reads from first backend", async () => {
+Deno.test("parallelBroadcast - multi-read from first backend", async () => {
   const a = new MemoryClient();
   const b = new MemoryClient();
 
@@ -81,32 +81,13 @@ Deno.test("parallelBroadcast - readMulti reads from first backend", async () => 
   await b.receive(["mutable://data/x", { from: "b" }]);
 
   const combined = parallelBroadcast([a, b]);
-  const result = await combined.readMulti(["mutable://data/x"]);
+  const results = await combined.read(["mutable://data/x"]);
 
-  assertEquals(result.success, true);
-  assertEquals(result.results[0].success, true);
-  if (result.results[0].success) {
-    assertEquals(result.results[0].record.data, { from: "a" });
+  assertEquals(results.length, 1);
+  assertEquals(results[0].success, true);
+  if (results[0].success) {
+    assertEquals(results[0].record?.data, { from: "a" });
   }
-
-  await combined.cleanup();
-});
-
-Deno.test("parallelBroadcast - delete removes from all backends", async () => {
-  const a = new MemoryClient();
-  const b = new MemoryClient();
-  const combined = parallelBroadcast([a, b]);
-
-  await combined.receive(["mutable://data/temp", { v: 1 }]);
-  const delResult = await combined.delete("mutable://data/temp");
-  assertEquals(delResult.success, true);
-
-  const readA = await a.read("mutable://data/temp");
-  const readB = await b.read("mutable://data/temp");
-  assertEquals(readA.success, false);
-  assertEquals(readB.success, false);
-
-  await combined.cleanup();
 });
 
 Deno.test("parallelBroadcast - fails if any backend rejects write", async () => {
@@ -119,8 +100,6 @@ Deno.test("parallelBroadcast - fails if any backend rejects write", async () => 
     { v: 1 },
   ]);
   assertEquals(result.accepted, false);
-
-  await combined.cleanup();
 });
 
 // --- firstMatchSequence tests ---
@@ -133,14 +112,12 @@ Deno.test("firstMatchSequence - reads from first backend that has data", async (
   await fallback.receive(["mutable://data/only-in-fallback", { found: true }]);
 
   const combined = firstMatchSequence([primary, fallback]);
-  const result = await combined.read("mutable://data/only-in-fallback");
+  const results = await combined.read("mutable://data/only-in-fallback");
 
-  assertEquals(result.success, true);
-  if (result.success) {
-    assertEquals(result.record?.data, { found: true });
+  assertEquals(results[0].success, true);
+  if (results[0].success) {
+    assertEquals(results[0].record?.data, { found: true });
   }
-
-  await combined.cleanup();
 });
 
 Deno.test("firstMatchSequence - prefers primary over fallback", async () => {
@@ -151,14 +128,12 @@ Deno.test("firstMatchSequence - prefers primary over fallback", async () => {
   await fallback.receive(["mutable://data/both", { source: "fallback" }]);
 
   const combined = firstMatchSequence([primary, fallback]);
-  const result = await combined.read("mutable://data/both");
+  const results = await combined.read("mutable://data/both");
 
-  assertEquals(result.success, true);
-  if (result.success) {
-    assertEquals(result.record?.data, { source: "primary" });
+  assertEquals(results[0].success, true);
+  if (results[0].success) {
+    assertEquals(results[0].record?.data, { source: "primary" });
   }
-
-  await combined.cleanup();
 });
 
 Deno.test("firstMatchSequence - returns failure when no backend has data", async () => {
@@ -166,11 +141,9 @@ Deno.test("firstMatchSequence - returns failure when no backend has data", async
   const b = new MemoryClient();
 
   const combined = firstMatchSequence([a, b]);
-  const result = await combined.read("mutable://data/nowhere");
+  const results = await combined.read("mutable://data/nowhere");
 
-  assertEquals(result.success, false);
-
-  await combined.cleanup();
+  assertEquals(results[0].success, false);
 });
 
 Deno.test("firstMatchSequence - write goes to first accepting backend", async () => {
@@ -187,12 +160,10 @@ Deno.test("firstMatchSequence - write goes to first accepting backend", async ()
 
   // Primary rejected, so fallback should have the data
   const readFallback = await fallback.read("mutable://data/test");
-  assertEquals(readFallback.success, true);
-
-  await combined.cleanup();
+  assertEquals(readFallback[0].success, true);
 });
 
-Deno.test("firstMatchSequence - readMulti falls through to fallback", async () => {
+Deno.test("firstMatchSequence - multi-read falls through to fallback", async () => {
   const primary = new MemoryClient();
   const fallback = new MemoryClient();
 
@@ -200,51 +171,12 @@ Deno.test("firstMatchSequence - readMulti falls through to fallback", async () =
   await fallback.receive(["mutable://data/b", { v: 2 }]);
 
   const combined = firstMatchSequence([primary, fallback]);
-  const result = await combined.readMulti([
+  const results = await combined.read([
     "mutable://data/a",
     "mutable://data/b",
   ]);
 
-  assertEquals(result.success, true);
-  assertEquals(result.summary.succeeded, 2);
-
-  await combined.cleanup();
-});
-
-Deno.test("firstMatchSequence - delete uses first matching backend", async () => {
-  const primary = new MemoryClient();
-  const fallback = new MemoryClient();
-
-  await primary.receive(["mutable://data/del", { v: 1 }]);
-  await fallback.receive(["mutable://data/del", { v: 1 }]);
-
-  const combined = firstMatchSequence([primary, fallback]);
-  const result = await combined.delete("mutable://data/del");
-  assertEquals(result.success, true);
-
-  // Primary should be deleted, fallback untouched
-  const readPrimary = await primary.read("mutable://data/del");
-  const readFallback = await fallback.read("mutable://data/del");
-  assertEquals(readPrimary.success, false);
-  assertEquals(readFallback.success, true);
-
-  await combined.cleanup();
-});
-
-Deno.test("firstMatchSequence - list falls through to backend with data", async () => {
-  const primary = new MemoryClient();
-  const fallback = new MemoryClient();
-
-  await fallback.receive(["mutable://data/list-a/profile", { v: 1 }]);
-  await fallback.receive(["mutable://data/list-b/profile", { v: 2 }]);
-
-  const combined = firstMatchSequence([primary, fallback]);
-  const result = await combined.list("mutable://data");
-
-  assertEquals(result.success, true);
-  if (result.success) {
-    assertEquals(result.data.length, 2);
-  }
-
-  await combined.cleanup();
+  // Each URI should have a successful result
+  const successes = results.filter((r) => r.success);
+  assertEquals(successes.length, 2);
 });

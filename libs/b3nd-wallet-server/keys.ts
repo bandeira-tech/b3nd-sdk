@@ -168,11 +168,12 @@ export async function loadUserAccountKey(
   );
 
   // Read signed+encrypted account key
-  const result = await client.read<unknown>(
+  const results = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${path}`,
   );
+  const result = results[0];
 
-  if (!result.success || !result.record?.data) {
+  if (!result?.success || !result.record?.data) {
     throw new Error("Account key not found");
   }
 
@@ -210,11 +211,12 @@ export async function loadUserEncryptionKey(
   );
 
   // Read signed+encrypted encryption key
-  const result = await client.read<unknown>(
+  const results = await client.read<unknown>(
     `mutable://accounts/${serverPublicKey}/${path}`,
   );
+  const result = results[0];
 
-  if (!result.success || !result.record?.data) {
+  if (!result?.success || !result.record?.data) {
     throw new Error("Encryption key not found");
   }
 

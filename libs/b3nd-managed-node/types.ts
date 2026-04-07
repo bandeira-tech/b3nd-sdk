@@ -105,7 +105,10 @@ export interface ModuleUpdate {
 
 // ── URI Helpers ───────────────────────────────────────────────────────
 
-export function nodeConfigUri(operatorPubKeyHex: string, nodeId: string): string {
+export function nodeConfigUri(
+  operatorPubKeyHex: string,
+  nodeId: string,
+): string {
   return `mutable://accounts/${operatorPubKeyHex}/nodes/${nodeId}/config`;
 }
 
@@ -117,10 +120,16 @@ export function nodeMetricsUri(nodeKeyHex: string): string {
   return `mutable://accounts/${nodeKeyHex}/metrics`;
 }
 
-export function nodeUpdateUri(operatorPubKeyHex: string, nodeId: string): string {
+export function nodeUpdateUri(
+  operatorPubKeyHex: string,
+  nodeId: string,
+): string {
   return `mutable://accounts/${operatorPubKeyHex}/nodes/${nodeId}/update`;
 }
 
-export function networkManifestUri(operatorPubKeyHex: string, networkId: string): string {
+export function networkManifestUri(
+  operatorPubKeyHex: string,
+  networkId: string,
+): string {
   return `mutable://accounts/${operatorPubKeyHex}/networks/${networkId}`;
 }

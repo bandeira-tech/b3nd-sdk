@@ -10,7 +10,10 @@
 
 import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
 import { verify } from "@bandeira-tech/b3nd-sdk/encrypt";
-import type { EncryptedPayload, SignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
+import type {
+  EncryptedPayload,
+  SignedEncryptedMessage,
+} from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { ManagedNodeConfig } from "./types.ts";
 import { nodeConfigUri } from "./types.ts";
 import { validateConfig } from "./validators.ts";
@@ -38,9 +41,10 @@ export async function loadConfig(
   options?: ConfigLoaderOptions,
 ): Promise<LoadedConfig> {
   const uri = nodeConfigUri(operatorPubKeyHex, nodeId);
-  const result = await configClient.read(uri);
+  const results = await configClient.read(uri);
+  const result = results[0];
 
-  if (!result.success || !result.record) {
+  if (!result?.success || !result.record) {
     throw new Error(`Config not found at ${uri}`);
   }
 
@@ -99,7 +103,9 @@ export async function loadConfig(
       message.payload as EncryptedPayload,
       options.nodeEncryptionPrivateKey,
     );
-    config = JSON.parse(new TextDecoder().decode(decryptedBytes)) as ManagedNodeConfig;
+    config = JSON.parse(
+      new TextDecoder().decode(decryptedBytes),
+    ) as ManagedNodeConfig;
   } else {
     // Legacy plaintext AuthenticatedMessage — verify signature over payload
     let verified = false;

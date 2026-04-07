@@ -1,11 +1,11 @@
 /**
  * @module
- * Subscription — the single filtering primitive for b3nd.
+ * Connection — the single filtering primitive for b3nd.
  *
- * A subscription wraps a client with URI patterns that describe what
- * this gateway accepts. The rig routes operations based on subscriptions.
+ * A connection wraps a client with URI patterns that describe what
+ * this gateway accepts. The rig routes operations based on connections.
  *
- * The same subscription descriptor is:
+ * The same connection descriptor is:
  * - Used locally by the rig for routing decisions
  * - Serializable for publishing over the wire (WS, HTTP, etc.)
  * - Enforced locally regardless of whether the remote honors it
@@ -17,10 +17,10 @@
  *
  * @example
  * ```ts
- * import { subscribe } from "./subscription.ts";
+ * import { connection } from "./connection.ts";
  *
  * // Full b3nd node
- * const node = subscribe(httpClient, {
+ * const node = connection(httpClient, {
  *   receive: ["mutable://*", "immutable://*", "hash://*"],
  *   read:    ["mutable://*", "immutable://*", "hash://*"],
  *   list:    ["mutable://*"],
@@ -28,18 +28,18 @@
  * });
  *
  * // Write-only mirror
- * const mirror = subscribe(pgClient, {
+ * const mirror = connection(pgClient, {
  *   receive: ["mutable://*", "hash://*"],
  * });
  *
  * // Read-only cache
- * const cache = subscribe(redisClient, {
+ * const cache = connection(redisClient, {
  *   read: ["mutable://accounts/*", "hash://sha256/*"],
  * });
  *
- * // Rig routes to the right subscriptions automatically
- * const rig = await Rig.init({
- *   subscriptions: [node, mirror, cache],
+ * // Rig routes to the right connections automatically
+ * const rig = new Rig({
+ *   connections: [node, mirror, cache],
  *   schema: mySchema,
  * });
  * ```
@@ -49,20 +49,19 @@ import type {
   ClientOperation,
   NodeProtocolInterface,
 } from "../b3nd-core/types.ts";
-import { matchPattern } from "./observe.ts";
+import { matchPattern } from "./reactions.ts";
 
 // ── Types ──
 
 /** Per-operation URI patterns. Only listed operations are routed. */
-export interface SubscriptionPatterns {
+export interface ConnectionPatterns {
   receive?: string[];
   read?: string[];
-  list?: string[];
-  delete?: string[];
+  observe?: string[];
 }
 
-/** A subscription: a client wrapped with routing patterns. */
-export interface Subscription {
+/** A connection: a client wrapped with routing patterns. */
+export interface Connection {
   /** The underlying client. */
   readonly client: NodeProtocolInterface;
 
@@ -73,11 +72,10 @@ export interface Subscription {
   readonly patterns: Readonly<{
     receive?: readonly string[];
     read?: readonly string[];
-    list?: readonly string[];
-    delete?: readonly string[];
+    observe?: readonly string[];
   }>;
 
-  /** Check if this subscription accepts an operation on a URI. */
+  /** Check if this connection accepts an operation on a URI. */
   accepts(operation: ClientOperation, uri: string): boolean;
 }
 
@@ -99,25 +97,25 @@ function matchesAny(compiled: CompiledPattern[], uri: string): boolean {
   return false;
 }
 
-// ── subscribe ──
+// ── connection ──
 
 /**
- * Wrap a client with routing patterns to create a subscription.
+ * Wrap a client with routing patterns to create a connection.
  *
- * The subscription is the gateway control — the rig uses it for routing,
+ * The connection is the gateway control — the rig uses it for routing,
  * and the patterns can be published over the wire for remote filtering.
  *
  * Local enforcement is always applied. Remote enforcement is best-effort:
  * the remote node may or may not honor the patterns, but the local rig
  * always filters based on them.
  */
-export function subscribe(
+export function connection(
   client: NodeProtocolInterface,
-  patterns: SubscriptionPatterns,
-): Subscription {
+  patterns: ConnectionPatterns,
+): Connection {
   // Pre-compile patterns for fast matching
   const compiled: Partial<Record<ClientOperation, CompiledPattern[]>> = {};
-  for (const op of ["receive", "read", "list", "delete"] as const) {
+  for (const op of ["receive", "read", "observe"] as const) {
     if (patterns[op]) {
       compiled[op] = compilePatterns(patterns[op]!);
     }
@@ -125,10 +123,13 @@ export function subscribe(
 
   // Deep-copy and freeze patterns so they're safe to serialize
   const frozenPatterns = Object.freeze({
-    ...(patterns.receive ? { receive: Object.freeze([...patterns.receive]) } : {}),
+    ...(patterns.receive
+      ? { receive: Object.freeze([...patterns.receive]) }
+      : {}),
     ...(patterns.read ? { read: Object.freeze([...patterns.read]) } : {}),
-    ...(patterns.list ? { list: Object.freeze([...patterns.list]) } : {}),
-    ...(patterns.delete ? { delete: Object.freeze([...patterns.delete]) } : {}),
+    ...(patterns.observe
+      ? { observe: Object.freeze([...patterns.observe]) }
+      : {}),
   });
 
   return {

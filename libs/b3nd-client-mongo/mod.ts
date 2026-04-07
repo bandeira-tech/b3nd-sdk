@@ -7,19 +7,13 @@
 
 import {
   Errors,
-  type DeleteResult,
-  type ListItem,
-  type ListOptions,
-  type ListResult,
   type Message,
   type MongoClientConfig,
   type NodeProtocolInterface,
-  type NodeStatus,
   type PersistenceRecord,
-  type ReadMultiResult,
-  type ReadMultiResultItem,
   type ReadResult,
   type ReceiveResult,
+  type StatusResult,
 } from "../b3nd-core/types.ts";
 import {
   decodeBinaryFromJson,
@@ -47,9 +41,6 @@ export interface MongoExecutor {
       limit?: number;
     },
   ): Promise<Record<string, unknown>[]>;
-  deleteOne(
-    filter: Record<string, unknown>,
-  ): Promise<{ deletedCount?: number }>;
   countDocuments?: (filter: Record<string, unknown>) => Promise<number>;
   ping(): Promise<boolean>;
   transaction?: <T>(fn: (executor: MongoExecutor) => Promise<T>) => Promise<T>;
@@ -184,7 +175,22 @@ export class MongoClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
+  async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        results.push(...await this._list<T>(uri));
+      } else {
+        results.push(await this._readOne<T>(uri));
+      }
+    }
+
+    return results;
+  }
+
+  private async _readOne<T = unknown>(uri: string): Promise<ReadResult<T>> {
     try {
       const doc = await this.executor.findOne({ uri });
       if (!doc) {
@@ -215,193 +221,79 @@ export class MongoClient implements NodeProtocolInterface {
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
-
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
+  private async _list<T = unknown>(uri: string): Promise<ReadResult<T>[]> {
     try {
-      const docs = await this.executor.findMany({ uri: { $in: uris } });
+      const prefixBase = uri.endsWith("/") ? uri : `${uri}/`;
+      const prefixRegex = new RegExp(`^${this.escapeRegex(prefixBase)}`);
 
-      const found = new Map<string, PersistenceRecord<T>>();
+      const docs = await this.executor.findMany({ uri: prefixRegex });
+
+      if (!docs.length) {
+        return [];
+      }
+
+      const results: ReadResult<T>[] = [];
       for (const doc of docs) {
         const docUri = typeof doc.uri === "string" ? doc.uri : undefined;
         if (!docUri) continue;
 
         const tsValue = doc.timestamp;
         const decodedData = decodeBinaryFromJson(doc.data) as T;
-        found.set(docUri, {
-          ts: typeof tsValue === "number" ? tsValue : Number(tsValue),
-          data: decodedData,
+        results.push({
+          success: true,
+          record: {
+            ts: typeof tsValue === "number" ? tsValue : Number(tsValue),
+            data: decodedData,
+            uri: docUri,
+          } as PersistenceRecord<T>,
         });
       }
 
-      const results: ReadMultiResultItem<T>[] = [];
-      let succeeded = 0;
-
-      for (const uri of uris) {
-        const record = found.get(uri);
-        if (record) {
-          results.push({ uri, success: true, record });
-          succeeded++;
-        } else {
-          results.push({ uri, success: false, error: `Not found: ${uri}` });
-        }
-      }
-
-      return {
-        success: succeeded > 0,
-        results,
-        summary: {
-          total: uris.length,
-          succeeded,
-          failed: uris.length - succeeded,
-        },
-      };
-    } catch (error) {
-      const results: ReadMultiResultItem<T>[] = await Promise.all(
-        uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-          const result = await this.read<T>(uri);
-          if (result.success && result.record) {
-            return { uri, success: true, record: result.record };
-          }
-          return {
-            uri,
-            success: false,
-            error: result.error || "Read failed",
-          };
-        }),
-      );
-
-      const succeeded = results.filter((r) => r.success).length;
-      return {
-        success: succeeded > 0,
-        results,
-        summary: {
-          total: uris.length,
-          succeeded,
-          failed: uris.length - succeeded,
-        },
-      };
+      return results;
+    } catch (_error) {
+      return [];
     }
   }
 
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
-    try {
-      const prefixBase = uri.endsWith("/") ? uri : `${uri}/`;
-      const prefixRegex = new RegExp(`^${this.escapeRegex(prefixBase)}`);
-
-      const page = options?.page ?? 1;
-      const limit = options?.limit ?? 50;
-      const offset = (page - 1) * limit;
-
-      const filter: Record<string, unknown> = options?.pattern
-        ? {
-          $and: [
-            { uri: prefixRegex },
-            { uri: new RegExp(options.pattern) },
-          ],
-        }
-        : { uri: prefixRegex };
-
-      const sortField = options?.sortBy === "timestamp" ? "timestamp" : "uri";
-      const sortDir: 1 | -1 = options?.sortOrder === "desc" ? -1 : 1;
-
-      const total = this.executor.countDocuments
-        ? await this.executor.countDocuments(filter)
-        : (await this.executor.findMany(filter)).length;
-
-      const docs = await this.executor.findMany(filter, {
-        sort: { [sortField]: sortDir },
-        skip: offset,
-        limit,
-      });
-
-      const data: ListItem[] = [];
-      for (const doc of docs) {
-        if (typeof doc.uri === "string") {
-          data.push({ uri: doc.uri });
-        }
-      }
-
-      return {
-        success: true,
-        data,
-        pagination: { page, limit, total },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+  // deno-lint-ignore require-yield
+  async *observe<T = unknown>(
+    _pattern: string,
+    _signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    // Not implemented — observe requires transport-specific support.
   }
 
-  async delete(uri: string): Promise<DeleteResult> {
-    try {
-      const res = await this.executor.deleteOne({ uri });
-      const deleted = typeof res.deletedCount === "number"
-        ? res.deletedCount > 0
-        : false;
-      if (!deleted) {
-        return {
-          success: false,
-          error: "Not found",
-          errorDetail: Errors.notFound(uri),
-        };
-      }
-      return { success: true };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
-      };
-    }
-  }
-
-  async status(): Promise<NodeStatus> {
+  async status(): Promise<StatusResult> {
     try {
       if (!this.connected) {
-        return { healthy: false, message: "Not connected to MongoDB" };
+        return {
+          status: "unhealthy",
+          message: "Not connected to MongoDB",
+        };
       }
 
       const ok = await this.executor.ping();
       if (!ok) {
-        return { healthy: false, message: "MongoDB ping failed" };
+        return {
+          status: "unhealthy",
+          message: "MongoDB ping failed",
+        };
       }
 
       return {
-        healthy: true,
+        status: "healthy",
+        schema: [],
         message: "MongoDB client is operational",
-        collectionName: this.collectionName,
+        details: {
+          collectionName: this.collectionName,
+        },
       };
     } catch (error) {
       return {
-        healthy: false,
+        status: "unhealthy",
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  async cleanup(): Promise<void> {
-    if (this.executor.cleanup) {
-      await this.executor.cleanup();
-    }
-    this.connected = false;
   }
 
   private escapeRegex(input: string): string {

@@ -12,11 +12,15 @@ import type { Schema } from "@bandeira-tech/b3nd-sdk";
  * Uses a cache-busting query parameter to ensure fresh imports.
  */
 export async function loadSchemaModule(url: string): Promise<Schema> {
-  const cacheBustedUrl = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+  const cacheBustedUrl = `${url}${
+    url.includes("?") ? "&" : "?"
+  }t=${Date.now()}`;
   const imported = await import(cacheBustedUrl);
   const schema: Schema = imported.default as Schema;
   if (!schema || typeof schema !== "object") {
-    throw new Error(`Schema module at ${url} must export a default Schema object`);
+    throw new Error(
+      `Schema module at ${url} must export a default Schema object`,
+    );
   }
   return schema;
 }

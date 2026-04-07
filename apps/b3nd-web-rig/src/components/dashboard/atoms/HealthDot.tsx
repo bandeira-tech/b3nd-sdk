@@ -20,21 +20,23 @@ const sizeClasses: Record<"sm" | "md" | "lg", string> = {
   lg: "w-4 h-4",
 };
 
-export function HealthDot({ status, size = "md", pulse = true }: HealthDotProps) {
+export function HealthDot(
+  { status, size = "md", pulse = true }: HealthDotProps,
+) {
   return (
     <span className="relative inline-flex">
       <span
         className={cn(
           "rounded-full",
           sizeClasses[size],
-          statusColors[status]
+          statusColors[status],
         )}
       />
       {pulse && status === "healthy" && (
         <span
           className={cn(
             "absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping",
-            statusColors[status]
+            statusColors[status],
           )}
         />
       )}

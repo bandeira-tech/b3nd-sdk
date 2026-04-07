@@ -1,31 +1,54 @@
 /**
  * @module
  * Built-in validators for common validation patterns
+ *
+ * All validators use the canonical Validator signature:
+ *   (output, upstream, read) => Promise<ValidationResult>
  */
 
-import type { Schema } from "../b3nd-core/types.ts";
-import type { Message, Validator } from "./types.ts";
+import type {
+  Output,
+  ReadFn,
+  Schema,
+  ValidationResult,
+  Validator,
+} from "../b3nd-core/types.ts";
 import { isMessageData } from "../b3nd-msg/data/detect.ts";
 import { verifyHashContent } from "../b3nd-hash/mod.ts";
 
 /**
- * Format validator
- * Validates the structure of message data using a check function
+ * Extract the program prefix from a URI.
  *
  * @example
  * ```typescript
- * const validate = format((msg) => {
- *   const [uri, data] = msg
+ * extractProgram("mutable://users/alice") // => "mutable://users"
+ * extractProgram("hash://sha256/abc...")   // => "hash://sha256"
+ * ```
+ */
+export function extractProgram(uri: string): string | null {
+  const url = URL.parse(uri);
+  if (!url) return null;
+  return `${url.protocol}//${url.hostname}`;
+}
+
+/**
+ * Format validator
+ * Validates the structure of output data using a check function
+ *
+ * @example
+ * ```typescript
+ * const validate = format((output) => {
+ *   const [uri, data] = output
  *   return typeof data === "object" && data !== null
  * })
  * ```
  */
-export function format<D = unknown>(
-  checkFn: (msg: Message<D>) => boolean | string,
-): Validator<D> {
+export function format<T = unknown>(
+  checkFn: (output: Output<T>) => boolean | string,
+): Validator<T> {
   // deno-lint-ignore require-await
-  return async (msg) => {
-    const result = checkFn(msg);
+  return async (output) => {
+    const result = checkFn(output);
     if (result === true) {
       return { valid: true };
     }
@@ -37,13 +60,14 @@ export function format<D = unknown>(
 }
 
 /**
- * Schema validator
- * Per-program validation using the existing Schema type
+ * Schema dispatch — routes validation by program key
+ *
+ * For plain writes: `validator(output, undefined, read)`
  *
  * @example
  * ```typescript
  * const SCHEMA = {
- *   "mutable://users": async ({ uri, value }) => {
+ *   "mutable://users": async ([uri, value], upstream, read) => {
  *     if (!value?.name) return { valid: false, error: "name required" }
  *     return { valid: true }
  *   }
@@ -52,34 +76,31 @@ export function format<D = unknown>(
  * const validate = schema(SCHEMA)
  * ```
  */
-export function schema<D = unknown>(programSchema: Schema): Validator<D> {
-  return async (msg, read) => {
-    const [uri, data] = msg;
+export function schema(programSchema: Schema): Validator {
+  return async (output, upstream, read) => {
+    const [uri, data] = output;
 
     // Enforce content hash integrity (structural, not policy)
     const hashCheck = await enforceContentHash(uri, data);
     if (!hashCheck.valid) return hashCheck;
 
-    // Parse the URI to get the program key
-    const url = URL.parse(uri);
-    if (!url) {
+    const program = extractProgram(uri);
+    if (!program) {
       return { valid: false, error: "Invalid URI format" };
     }
 
-    const program = `${url.protocol}//${url.hostname}`;
     const validator = programSchema[program];
-
     if (!validator) {
       return { valid: false, error: `Unknown program: ${program}` };
     }
 
-    return validator({ uri, value: data, read });
+    return validator(output, upstream, read);
   };
 }
 
 /**
  * URI pattern validator
- * Validates that the message URI matches a regex pattern
+ * Validates that the output URI matches a regex pattern
  *
  * @example
  * ```typescript
@@ -88,8 +109,8 @@ export function schema<D = unknown>(programSchema: Schema): Validator<D> {
  */
 export function uriPattern(pattern: RegExp): Validator {
   // deno-lint-ignore require-await
-  return async (msg) => {
-    const [uri] = msg;
+  return async (output) => {
+    const [uri] = output;
     if (pattern.test(uri)) {
       return { valid: true };
     }
@@ -102,7 +123,7 @@ export function uriPattern(pattern: RegExp): Validator {
 
 /**
  * Require fields validator
- * Validates that the message data contains specific fields
+ * Validates that the output data contains specific fields
  *
  * @example
  * ```typescript
@@ -111,8 +132,8 @@ export function uriPattern(pattern: RegExp): Validator {
  */
 export function requireFields(fields: string[]): Validator {
   // deno-lint-ignore require-await
-  return async (msg) => {
-    const [, data] = msg;
+  return async (output) => {
+    const [, data] = output;
 
     if (typeof data !== "object" || data === null) {
       return { valid: false, error: "Data must be an object" };
@@ -141,7 +162,7 @@ export function requireFields(fields: string[]): Validator {
 async function enforceContentHash(
   uri: string,
   value: unknown,
-): Promise<{ valid: boolean; error?: string }> {
+): Promise<ValidationResult> {
   const url = URL.parse(uri);
   if (!url || url.protocol !== "hash:") {
     return { valid: true };
@@ -152,14 +173,13 @@ async function enforceContentHash(
 
 /**
  * Pass-through validator
- * Always accepts the message (useful for open/public programs)
+ * Always accepts the output (useful for open/public programs)
  *
  * @example
  * ```typescript
- * const validate = any(
- *   uriPattern(/^mutable:\/\/open\//),
- *   accept()
- * )
+ * const SCHEMA = {
+ *   "mutable://open": accept()
+ * }
  * ```
  */
 export function accept(): Validator {
@@ -168,13 +188,14 @@ export function accept(): Validator {
 }
 
 /**
- * Message schema validator
- * Routes validation based on data shape:
- * - If data IS MessageData: validates the envelope URI AND each output against schema
- * - If data is NOT MessageData: validates as a plain message against schema
+ * Message schema validator — envelope cascading
  *
- * This is a complete validator that replaces `any(schema(), ...)` for nodes
- * that need to handle both plain messages and MessageData envelopes.
+ * Routes validation based on data shape:
+ * - If data IS MessageData: validates envelope, then each output with envelope as upstream
+ * - If data is NOT MessageData: validates as a plain output via schema()
+ *
+ * Protocols choose to use this when they want cascading validation over
+ * message payloads. This is NOT automatic at the b3nd level.
  *
  * @example
  * ```typescript
@@ -182,30 +203,28 @@ export function accept(): Validator {
  * // Handles both plain writes and MessageData envelopes
  * ```
  */
-export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
-  const plainValidator = schema<D>(programSchema);
+export function msgSchema(programSchema: Schema): Validator {
+  const plainDispatch = schema(programSchema);
 
-  return async (msg, read) => {
-    const [uri, data] = msg;
+  return async (output, upstream, read) => {
+    const [uri, data] = output;
 
     if (!isMessageData(data)) {
-      return plainValidator(msg, read);
+      return plainDispatch(output, upstream, read);
     }
 
-    // Validate the envelope URI against schema
-    const envelopeUrl = URL.parse(uri);
-    if (!envelopeUrl) {
+    // Validate the envelope itself against its program validator
+    const envelopeProgram = extractProgram(uri);
+    if (!envelopeProgram) {
       return { valid: false, error: "Invalid envelope URI format" };
     }
 
-    const envelopeProgram = `${envelopeUrl.protocol}//${envelopeUrl.hostname}`;
     const envelopeValidator = programSchema[envelopeProgram];
-
     if (!envelopeValidator) {
       return { valid: false, error: `Unknown program: ${envelopeProgram}` };
     }
 
-    const envelopeResult = await envelopeValidator({ uri, value: data, read, message: data });
+    const envelopeResult = await envelopeValidator(output, upstream, read);
     if (!envelopeResult.valid) {
       return {
         valid: false,
@@ -213,35 +232,33 @@ export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
       };
     }
 
-    // Validate each output against its program validator
-    for (const [outputUri, outputValue] of data.payload.outputs) {
+    // Cascade: validate each inner output with this envelope as upstream
+    for (const inner of data.payload.outputs) {
+      const [outputUri, outputValue] = inner;
+
       // Enforce content hash integrity on outputs (structural, not policy)
       const hashCheck = await enforceContentHash(outputUri, outputValue);
       if (!hashCheck.valid) {
         return {
           valid: false,
-          error: hashCheck.error || `Content hash verification failed: ${outputUri}`,
+          error: hashCheck.error ||
+            `Content hash verification failed: ${outputUri}`,
         };
       }
 
-      const url = URL.parse(outputUri);
-      if (!url) {
+      const program = extractProgram(outputUri);
+      if (!program) {
         return { valid: false, error: `Invalid output URI: ${outputUri}` };
       }
 
-      const program = `${url.protocol}//${url.hostname}`;
       const validator = programSchema[program];
-
       if (!validator) {
         return { valid: false, error: `Unknown program: ${program}` };
       }
 
-      const result = await validator({
-        uri: outputUri,
-        value: outputValue,
-        read,
-        message: data,
-      });
+      const result = await validator(inner, output, read);
+      //                              ↑      ↑
+      //                         inner out  envelope is upstream
       if (!result.valid) {
         return {
           valid: false,
@@ -256,7 +273,7 @@ export function msgSchema<D = unknown>(programSchema: Schema): Validator<D> {
 
 /**
  * Reject validator
- * Always rejects the message with an optional message
+ * Always rejects with an optional message
  *
  * @example
  * ```typescript

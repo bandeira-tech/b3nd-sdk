@@ -163,7 +163,6 @@ export class TestState {
         lastRun: 0,
       });
     }
-
   }
 
   /**
@@ -174,7 +173,7 @@ export class TestState {
     if (file) {
       file.status = "running";
       this.runningFiles.add(filePath);
-      }
+    }
   }
 
   /**
@@ -220,7 +219,6 @@ export class TestState {
 
     fileState.tests.set(result.name, testState);
     fileState.lastRun = Date.now();
-
   }
 
   /**
@@ -248,7 +246,6 @@ export class TestState {
     }
 
     file.status = hasFailed ? "failed" : allPassed ? "passed" : "passed";
-
   }
 
   /**
@@ -436,11 +433,13 @@ export class TestState {
    */
   private async buildArtifact(): Promise<{
     artifact: Record<string, unknown>;
-    enrichedResults: Array<TestResultState & {
-      source?: string;
-      sourceFile?: string;
-      sourceStartLine?: number;
-    }>;
+    enrichedResults: Array<
+      TestResultState & {
+        source?: string;
+        sourceFile?: string;
+        sourceStartLine?: number;
+      }
+    >;
   }> {
     const results = this.getAllResults();
     const summary = this.getSummary();
@@ -610,7 +609,9 @@ export class TestState {
 
       if (!response.ok) {
         const body = await response.text();
-        console.error(`[TestState] B3nd write failed (${response.status}): ${body}`);
+        console.error(
+          `[TestState] B3nd write failed (${response.status}): ${body}`,
+        );
         return false;
       }
 
@@ -636,9 +637,13 @@ export class TestState {
     if (base) {
       b3ndOk = await this.writeToB3nd(`${base}/results`, artifact);
       if (b3ndOk) {
-        console.log(`[TestState] Wrote ${enrichedResults.length} results to ${base}/results`);
+        console.log(
+          `[TestState] Wrote ${enrichedResults.length} results to ${base}/results`,
+        );
         await this.writeToB3nd(`${base}/logs`, { lines: this.runLog });
-        console.log(`[TestState] Wrote ${this.runLog.length} log lines to ${base}/logs`);
+        console.log(
+          `[TestState] Wrote ${this.runLog.length} log lines to ${base}/logs`,
+        );
       }
     }
 
@@ -657,7 +662,9 @@ export class TestState {
     const jsonPath = `${publicDir}/test-results.json`;
     await Deno.writeTextFile(jsonPath, JSON.stringify(artifact, null, 2));
     if (!b3ndOk) {
-      console.log(`[TestState] Wrote ${enrichedResults.length} results to ${jsonPath}`);
+      console.log(
+        `[TestState] Wrote ${enrichedResults.length} results to ${jsonPath}`,
+      );
     }
 
     const logsPath = `${publicDir}/test-logs.txt`;

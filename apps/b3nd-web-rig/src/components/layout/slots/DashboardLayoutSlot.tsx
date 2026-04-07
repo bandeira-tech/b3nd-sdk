@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from "react";
-import { Activity, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Activity, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { useDashboardStore } from "../../dashboard/stores/dashboardStore";
 import { SearchResultsPanel } from "../../dashboard/panels/SearchResultsPanel";
 import { RawLogsPanel } from "../../dashboard/panels/RawLogsPanel";
@@ -32,7 +32,10 @@ export function DashboardLayoutSlot() {
   useEffect(() => {
     if (pollRef.current) clearInterval(pollRef.current);
     if (b3ndUri) {
-      pollRef.current = window.setInterval(() => loadStaticData(), POLL_INTERVAL_MS);
+      pollRef.current = window.setInterval(
+        () => loadStaticData(),
+        POLL_INTERVAL_MS,
+      );
     }
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -102,11 +105,14 @@ export function DashboardLayoutSlot() {
           </form>
 
           {/* Data source badge */}
-          <span className={cn(
-            "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase",
-            dataSource === "b3nd" ? "bg-blue-500/10 text-blue-500" :
-            "bg-muted text-muted-foreground"
-          )}>
+          <span
+            className={cn(
+              "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase",
+              dataSource === "b3nd"
+                ? "bg-blue-500/10 text-blue-500"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
             {dataSource}
           </span>
 
@@ -116,18 +122,16 @@ export function DashboardLayoutSlot() {
             className="p-1 rounded hover:bg-accent transition-colors"
             title="Refresh"
           >
-            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+            <RefreshCw
+              className={cn("w-3.5 h-3.5", loading && "animate-spin")}
+            />
           </button>
         </div>
       </header>
 
       {/* Main content */}
       <div className="flex-1 overflow-hidden">
-        {contentMode === "results" ? (
-          <SearchResultsPanel />
-        ) : (
-          <RawLogsPanel />
-        )}
+        {contentMode === "results" ? <SearchResultsPanel /> : <RawLogsPanel />}
       </div>
     </div>
   );

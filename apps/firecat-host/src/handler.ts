@@ -153,9 +153,10 @@ async function handleDomainCheck(
   }
 
   const uri = `mutable://open/domains/${domain.toLowerCase()}`;
-  const result = await client.read<DomainMapping | string>(uri);
+  const results = await client.read<DomainMapping | string>(uri);
+  const result = results[0];
 
-  if (result.success && result.record?.data) {
+  if (result?.success && result.record?.data) {
     return new Response("OK", {
       status: 200,
       headers: { "Content-Type": "text/plain" },
@@ -208,8 +209,9 @@ async function resolveTarget(
   if (target.endsWith("/")) return target;
 
   if (target.startsWith("mutable://")) {
-    const result = await client.read<string>(target);
-    if (result.success && result.record?.data) {
+    const results = await client.read<string>(target);
+    const result = results[0];
+    if (result?.success && result.record?.data) {
       const resolved = unwrapData(result.record.data);
       if (typeof resolved === "string") return resolved;
     }
@@ -226,9 +228,10 @@ async function handleCustomDomain(
   const domain = host.split(":")[0].toLowerCase();
 
   const mappingUri = `mutable://open/domains/${domain}`;
-  const result = await client.read<DomainMapping | string>(mappingUri);
+  const results = await client.read<DomainMapping | string>(mappingUri);
+  const result = results[0];
 
-  if (!result.success || !result.record?.data) {
+  if (!result?.success || !result.record?.data) {
     return new Response(`Domain not configured: ${domain}`, {
       status: 404,
       headers: errorHeaders(),
@@ -309,8 +312,8 @@ async function resolveByProtocol(
 
   switch (protocol) {
     case "link": {
-      const result = await client.read<unknown>(uri);
-      if (!result.success || !result.record?.data) {
+      const result = (await client.read<unknown>(uri))[0];
+      if (!result?.success || !result.record?.data) {
         return new Response(`Link not found: ${uri}`, {
           status: 404,
           headers: errorHeaders(),
@@ -329,8 +332,8 @@ async function resolveByProtocol(
     }
 
     case "hash": {
-      const result = await client.read<unknown>(uri);
-      if (!result.success || !result.record?.data) {
+      const result = (await client.read<unknown>(uri))[0];
+      if (!result?.success || !result.record?.data) {
         return new Response(`Hash not found: ${uri}`, {
           status: 404,
           headers: errorHeaders(),
@@ -343,8 +346,8 @@ async function resolveByProtocol(
 
     case "mutable":
     case "immutable": {
-      const result = await client.read<unknown>(uri);
-      if (!result.success || !result.record?.data) {
+      const result = (await client.read<unknown>(uri))[0];
+      if (!result?.success || !result.record?.data) {
         return new Response(`Not found: ${uri}`, {
           status: 404,
           headers: errorHeaders(),

@@ -1,5 +1,5 @@
 /// <reference lib="deno.ns" />
-import { createClientFromUrl, Rig } from "@b3nd/rig";
+import { connection, createClientFromUrl, httpApi, Rig } from "@b3nd/rig";
 import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
 import { parallelBroadcast } from "../../libs/b3nd-combinators/parallel-broadcast.ts";
 import { firstMatchSequence } from "../../libs/b3nd-combinators/first-match-sequence.ts";
@@ -61,26 +61,18 @@ const backends = await Promise.all(
 );
 
 // Single backend → use directly; multi-backend → compose
-const client = backends.length === 1
-  ? backends[0]
-  : {
-    receive: (msg: Parameters<typeof backends[0]["receive"]>[0]) =>
-      parallelBroadcast(backends).receive(msg),
-    read: <T = unknown>(uri: string) =>
-      firstMatchSequence(backends).read<T>(uri),
-    readMulti: <T = unknown>(uris: string[]) =>
-      firstMatchSequence(backends).readMulti<T>(uris),
-    list: (uri: string, opts?: Parameters<typeof backends[0]["list"]>[1]) =>
-      firstMatchSequence(backends).list(uri, opts),
-    delete: (uri: string) => parallelBroadcast(backends).delete(uri),
-    status: () => backends[0].status(),
-    cleanup: () => Promise.all(backends.map((b) => b.cleanup())).then(() => {}),
-  };
+const client = backends.length === 1 ? backends[0] : {
+  receive: (msg: Parameters<typeof backends[0]["receive"]>[0]) =>
+    parallelBroadcast(backends).receive(msg),
+  read: <T = unknown>(uris: string | string[]) =>
+    firstMatchSequence(backends).read<T>(uris),
+  status: () => backends[0].status(),
+};
 
 // ── The Rig: schema validation, events, hooks ──
 
-const rig = await Rig.init({
-  client,
+const rig = new Rig({
+  connections: [connection(client, { receive: ["*"], read: ["*"] })],
   schema,
   on: {
     "receive:error": [(e) => {
@@ -94,8 +86,8 @@ const rig = await Rig.init({
 
 const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
 
-// The rig produces a generic fetch handler — the app owns the server.
-const b3ndHandler = rig.handler({
+// httpApi() is a standalone function — the rig stays pure, transport is external.
+const b3ndHandler = httpApi(rig, {
   statusMeta: { backends: backendTypes },
 });
 

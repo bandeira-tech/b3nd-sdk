@@ -32,7 +32,10 @@ export class AppsClient {
     this.api =
       (cfg.apiBasePath.startsWith("/")
         ? cfg.apiBasePath
-        : `/${cfg.apiBasePath}`).replace(/\/$/, "");
+        : `/${cfg.apiBasePath}`).replace(
+          /\/$/,
+          "",
+        );
     if (cfg.fetch) {
       this.f = cfg.fetch;
     } else if (

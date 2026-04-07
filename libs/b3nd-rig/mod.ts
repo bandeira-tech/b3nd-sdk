@@ -8,11 +8,14 @@
  *
  * @example
  * ```typescript
- * import { Rig, Identity } from "@b3nd/rig";
+ * import { Rig, Identity, connection, createClientFromUrl } from "@b3nd/rig";
  *
- * const rig = await Rig.init({ url: "https://node.b3nd.net" });
+ * const client = await createClientFromUrl("https://node.b3nd.net");
+ * const rig = new Rig({
+ *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
+ * });
+ *
  * const id = await Identity.fromSeed("my-secret");
- *
  * // Identity drives, rig delivers
  * const session = id.rig(rig);
  * await session.send({
@@ -21,7 +24,7 @@
  * });
  *
  * // Read (no identity needed)
- * const result = await rig.read("mutable://app/key");
+ * const results = await rig.read("mutable://app/key");
  * ```
  */
 
@@ -31,17 +34,13 @@ export type { ExportedIdentity } from "./identity.ts";
 export { AuthenticatedRig } from "./authenticated-rig.ts";
 export { Rig } from "./rig.ts";
 export type {
-  HandlerOptions,
   ElasticsearchExecutorFactory,
+  HandlerOptions,
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,
-  S3ExecutorFactory as S3Executor,
   RigConfig,
   RigInfo,
-
-  SubscribeHandler,
-  SubscribeOptions,
-  Unsubscribe,
+  S3ExecutorFactory as S3Executor,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,
@@ -51,9 +50,7 @@ export type {
 export type {
   AfterHook,
   BeforeHook,
-  DeleteCtx,
   HooksConfig,
-  ListCtx,
   ReadCtx,
   ReceiveCtx,
   RigHooks,
@@ -65,18 +62,17 @@ export { resolveHooks, runAfter, runBefore } from "./hooks.ts";
 export type { EventHandler, RigEvent, RigEventName } from "./events.ts";
 export { RigEventEmitter } from "./events.ts";
 
-// Observe
-export type { ObserveHandler } from "./observe.ts";
-export { matchPattern, ObserveRegistry } from "./observe.ts";
+// Reactions — local write-reactions (fire-and-forget pattern matching)
+export type { ReactionHandler } from "./reactions.ts";
+export { matchPattern, ReactionRegistry } from "./reactions.ts";
 
-// Subscriptions — the single filtering primitive
-export { subscribe } from "./subscription.ts";
-export type { Subscription, SubscriptionPatterns } from "./subscription.ts";
+// Connections — the single filtering primitive
+export { connection } from "./connection.ts";
+export type { Connection, ConnectionPatterns } from "./connection.ts";
 
-
-// HTTP handler — thin adapter for serving a rig over HTTP
-export { createRigHandler } from "./http-handler.ts";
-export type { RigHandlerOptions } from "./http-handler.ts";
+// HTTP API — standalone function for serving a rig over HTTP
+export { createRigHandler, httpApi } from "./http.ts";
+export type { HttpApiOptions, RigHandlerOptions } from "./http.ts";
 
 // Backend factory
 export {

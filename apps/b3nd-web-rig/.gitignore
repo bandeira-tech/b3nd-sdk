@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated data (built from sources, not tracked)
+public/learn/
+public/dashboard/test-results.json

@@ -39,11 +39,6 @@ function listUrl(uri: string): string {
   return `${BASE_URL}/api/v1/list/${protocol}/${domain}${path}`;
 }
 
-function deleteUrl(uri: string): string {
-  const { protocol, domain, path } = parseUri(uri);
-  return `${BASE_URL}/api/v1/delete/${protocol}/${domain}${path}`;
-}
-
 async function receive(uri: string, data: unknown) {
   return fetchJson(`${BASE_URL}/api/v1/receive`, {
     method: "POST",
@@ -130,28 +125,14 @@ Deno.test({
         assertEquals(lr.data.data.length, 3);
       });
 
-      await t.step("delete removes item", async () => {
-        const ns = `e2e-del-${Date.now()}`;
-        const uri = `test://write-test/${ns}/temp`;
-        await receive(uri, { temp: true });
-
-        const dr = await fetch(deleteUrl(uri), { method: "DELETE" });
-        assertEquals(dr.status, 200);
-        await dr.body?.cancel();
-
-        const rr = await fetch(readUrl(uri));
-        assertEquals(rr.status, 404);
-        await rr.body?.cancel();
-      });
-
       await t.step("status endpoint", async () => {
         const res = await fetchJson(`${BASE_URL}/api/v1/status`);
-        assertEquals(res.data.healthy, true);
+        assertEquals(res.data.status, "healthy");
       });
 
-      await t.step("status includes programs", async () => {
-        const res = await fetchJson(`${BASE_URL}/api/v1/status`);
-        assertEquals(res.data.healthy, true);
+      await t.step("schema endpoint", async () => {
+        const res = await fetchJson(`${BASE_URL}/api/v1/schema`);
+        assertEquals(Array.isArray(res.data.schema), true);
       });
 
       await t.step("receive invalid message returns error", async () => {

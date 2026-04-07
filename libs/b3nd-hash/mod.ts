@@ -25,7 +25,9 @@
 
 import _canonicalize from "canonicalize";
 // CJS/ESM interop: cast to callable
-const canonicalize = _canonicalize as unknown as (input: unknown) => string | undefined;
+const canonicalize = _canonicalize as unknown as (
+  input: unknown,
+) => string | undefined;
 
 /**
  * Compute SHA256 hash of a value.
@@ -133,6 +135,8 @@ export function isValidSha256Hash(hash: string): boolean {
  * Schema validator factory for hash:// programs.
  * Verifies that content matches the hash in the URI.
  *
+ * Uses the canonical Validator signature: (output, upstream, read)
+ *
  * @example
  * ```typescript
  * import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
@@ -143,13 +147,18 @@ export function isValidSha256Hash(hash: string): boolean {
  * ```
  */
 export function hashValidator(): (
-  write: { uri: string; value: unknown; read: (uri: string) => Promise<{ success: boolean }> },
+  output: [string, unknown],
+  upstream: [string, unknown] | undefined,
+  read: (uri: string) => Promise<{ success: boolean }>,
 ) => Promise<{ valid: boolean; error?: string }> {
-  return async ({ uri, value, read }) => {
+  return async ([uri, value], _upstream, read) => {
     // Enforce write-once: reject if resource already exists
     const existing = await read(uri);
     if (existing.success) {
-      return { valid: false, error: "hash:// is write-once: resource already exists" };
+      return {
+        valid: false,
+        error: "hash:// is write-once: resource already exists",
+      };
     }
 
     const result = await verifyHashContent(uri, value);

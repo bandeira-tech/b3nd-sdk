@@ -6,16 +6,11 @@
  */
 
 import type {
-  DeleteResult,
-  ListOptions,
-  ListResult,
   Message,
   NodeProtocolInterface,
-  NodeStatus,
-  ReadMultiResult,
-  ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
+  StatusResult,
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
@@ -267,7 +262,8 @@ export class WebSocketClient implements NodeProtocolInterface {
     try {
       // Encode binary data for JSON transport
       const encodedMsg: Message = [uri, encodeBinaryForJson(msg[1])];
-      const result = await this.sendRequest<ReceiveResult>("receive",
+      const result = await this.sendRequest<ReceiveResult>(
+        "receive",
         encodedMsg,
       );
       return result;
@@ -279,14 +275,33 @@ export class WebSocketClient implements NodeProtocolInterface {
     }
   }
 
-  async read<T = unknown>(uri: string): Promise<ReadResult<T>> {
-    try {
-      const result = await this.sendRequest<ReadResult<T>>("read", { uri });
-      // Decode binary data from JSON transport
-      if (result.success && result.record) {
-        result.record.data = decodeBinaryFromJson(result.record.data) as T;
+  async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
+    const uriList = Array.isArray(uris) ? uris : [uris];
+    const results: ReadResult<T>[] = [];
+
+    for (const uri of uriList) {
+      if (uri.endsWith("/")) {
+        results.push(...await this._list<T>(uri));
+      } else {
+        results.push(await this._readOne<T>(uri));
       }
-      return result;
+    }
+
+    return results;
+  }
+
+  private async _readOne<T>(uri: string): Promise<ReadResult<T>> {
+    try {
+      const result = await this.sendRequest<ReadResult<T>>("read", {
+        uris: [uri],
+      });
+      // Server returns array for read — take the first item
+      const items = Array.isArray(result) ? result : [result];
+      const item = items[0];
+      if (item && item.success && item.record) {
+        item.record.data = decodeBinaryFromJson(item.record.data) as T;
+      }
+      return item || { success: false, error: "No result returned" };
     } catch (error) {
       return {
         success: false,
@@ -295,117 +310,40 @@ export class WebSocketClient implements NodeProtocolInterface {
     }
   }
 
-  async readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>> {
-    if (uris.length === 0) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: 0, succeeded: 0, failed: 0 },
-      };
-    }
-
-    if (uris.length > 50) {
-      return {
-        success: false,
-        results: [],
-        summary: { total: uris.length, succeeded: 0, failed: uris.length },
-      };
-    }
-
-    // Try the readMulti request first (server may support it)
+  private async _list<T>(uri: string): Promise<ReadResult<T>[]> {
     try {
-      const result = await this.sendRequest<ReadMultiResult<T>>("readMulti", {
-        uris,
+      const results = await this.sendRequest<ReadResult<T>[]>("read", {
+        uris: [uri],
       });
-      return result;
+      const items = Array.isArray(results) ? results : [results];
+      for (const item of items) {
+        if (item.success && item.record) {
+          item.record.data = decodeBinaryFromJson(item.record.data) as T;
+        }
+      }
+      return items;
     } catch {
-      // Fallback to individual reads
-      const results: ReadMultiResultItem<T>[] = await Promise.all(
-        uris.map(async (uri): Promise<ReadMultiResultItem<T>> => {
-          const result = await this.read<T>(uri);
-          if (result.success && result.record) {
-            return { uri, success: true, record: result.record };
-          }
-          return { uri, success: false, error: result.error || "Read failed" };
-        }),
-      );
-
-      const succeeded = results.filter((r) => r.success).length;
-      return {
-        success: succeeded > 0,
-        results,
-        summary: {
-          total: uris.length,
-          succeeded,
-          failed: uris.length - succeeded,
-        },
-      };
+      return [];
     }
   }
 
-  async list(uri: string, options?: ListOptions): Promise<ListResult> {
-    try {
-      const result = await this.sendRequest<ListResult>("list", {
-        uri,
-        options,
-      });
-      return result;
-    } catch (error) {
-      return {
-        success: true,
-        data: [],
-        pagination: {
-          page: options?.page || 1,
-          limit: options?.limit || 50,
-        },
-      };
-    }
+  // deno-lint-ignore require-yield
+  async *observe<T = unknown>(
+    _pattern: string,
+    _signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>> {
+    // Not implemented — observe requires transport-specific support.
   }
 
-  async delete(uri: string): Promise<DeleteResult> {
+  async status(): Promise<StatusResult> {
     try {
-      const result = await this.sendRequest<DeleteResult>("delete", { uri });
+      const result = await this.sendRequest<StatusResult>("status", {});
       return result;
     } catch (error) {
       return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  async status(): Promise<NodeStatus> {
-    try {
-      const result = await this.sendRequest<NodeStatus>("status", {});
-      return result;
-    } catch (error) {
-      return {
-        healthy: false,
+        status: "unhealthy",
         message: error instanceof Error ? error.message : String(error),
       };
     }
-  }
-
-  async cleanup(): Promise<void> {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-
-    this.cleanupPendingRequests(new Error("Client cleanup"));
-
-    if (this.ws) {
-      this.ws.removeEventListener("message", this.messageHandler);
-      this.ws.removeEventListener("close", this.closeHandler);
-      this.ws.removeEventListener("error", this.errorHandler);
-
-      if (this.ws.readyState === WebSocket.OPEN) {
-        this.ws.close();
-      }
-      this.ws = null;
-    }
-
-    this.connected = false;
-    this.reconnectAttempts = 0;
   }
 }

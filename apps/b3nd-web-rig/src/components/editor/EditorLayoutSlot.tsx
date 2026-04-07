@@ -60,75 +60,75 @@ function slugify(title: string): string {
 export const useEditorStore = create<EditorState>()(
   persist(
     (set) => ({
-  documents: [],
-  activeDocId: null,
-  viewingVersionIndex: null,
-  encryptionEnabled: false,
-
-  addDocument: (title: string) => {
-    const base = slugify(title) || "doc";
-    const id = `${base}-${Date.now()}`;
-    set((state) => ({
-      documents: [
-        ...state.documents,
-        { id, title, versions: [] },
-      ],
-      activeDocId: id,
+      documents: [],
+      activeDocId: null,
       viewingVersionIndex: null,
-    }));
-    return id;
-  },
+      encryptionEnabled: false,
 
-  openDocument: (id: string) => {
-    set({ activeDocId: id, viewingVersionIndex: null });
-  },
+      addDocument: (title: string) => {
+        const base = slugify(title) || "doc";
+        const id = `${base}-${Date.now()}`;
+        set((state) => ({
+          documents: [
+            ...state.documents,
+            { id, title, versions: [] },
+          ],
+          activeDocId: id,
+          viewingVersionIndex: null,
+        }));
+        return id;
+      },
 
-  closeDocument: () => {
-    set({ activeDocId: null, viewingVersionIndex: null });
-  },
+      openDocument: (id: string) => {
+        set({ activeDocId: id, viewingVersionIndex: null });
+      },
 
-  saveVersion: ({
-    docId,
-    title,
-    body,
-    hashUri,
-    linkUri,
-    encrypted,
-    signedBy,
-    encryptionPublicKeyHex,
-  }: SaveVersionInput) => {
-    set((state) => ({
-      documents: state.documents.map((doc) =>
-        doc.id === docId
-          ? {
-              ...doc,
-              title,
-              versions: [
-                {
-                  hashUri,
-                  linkUri,
-                  body,
-                  timestamp: Date.now(),
-                  encrypted,
-                  signedBy,
-                  encryptionPublicKeyHex,
-                },
-                ...doc.versions,
-              ],
-            }
-          : doc
-      ),
-      viewingVersionIndex: null,
-    }));
-  },
+      closeDocument: () => {
+        set({ activeDocId: null, viewingVersionIndex: null });
+      },
 
-  viewVersion: (index: number | null) => {
-    set({ viewingVersionIndex: index });
-  },
+      saveVersion: ({
+        docId,
+        title,
+        body,
+        hashUri,
+        linkUri,
+        encrypted,
+        signedBy,
+        encryptionPublicKeyHex,
+      }: SaveVersionInput) => {
+        set((state) => ({
+          documents: state.documents.map((doc) =>
+            doc.id === docId
+              ? {
+                ...doc,
+                title,
+                versions: [
+                  {
+                    hashUri,
+                    linkUri,
+                    body,
+                    timestamp: Date.now(),
+                    encrypted,
+                    signedBy,
+                    encryptionPublicKeyHex,
+                  },
+                  ...doc.versions,
+                ],
+              }
+              : doc
+          ),
+          viewingVersionIndex: null,
+        }));
+      },
 
-  setEncryptionEnabled: (enabled: boolean) => {
-    set({ encryptionEnabled: enabled });
-  },
+      viewVersion: (index: number | null) => {
+        set({ viewingVersionIndex: index });
+      },
+
+      setEncryptionEnabled: (enabled: boolean) => {
+        set({ encryptionEnabled: enabled });
+      },
     }),
     {
       name: "b3nd-editor",

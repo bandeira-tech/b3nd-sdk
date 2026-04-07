@@ -7,7 +7,11 @@
 
 /// <reference lib="deno.ns" />
 
-import { SqliteClient, type SqliteExecutor, type SqliteExecutorResult } from "./mod.ts";
+import {
+  SqliteClient,
+  type SqliteExecutor,
+  type SqliteExecutorResult,
+} from "./mod.ts";
 import { runSharedSuite } from "../b3nd-testing/shared-suite.ts";
 import { runNodeSuite } from "../b3nd-testing/node-suite.ts";
 
@@ -53,7 +57,11 @@ class DenoSqliteExecutor implements SqliteExecutor {
   }
 }
 
-const DEFAULT_PROGRAMS = ["store://users", "store://files", "store://pagination"];
+const DEFAULT_PROGRAMS = [
+  "store://users",
+  "store://files",
+  "store://pagination",
+];
 
 function createClient(): SqliteClient {
   const executor = new DenoSqliteExecutor(":memory:");

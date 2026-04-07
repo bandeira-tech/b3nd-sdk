@@ -1,4 +1,4 @@
-import { Code2, Loader2, ChevronRight } from "lucide-react";
+import { ChevronRight, Code2, Loader2 } from "lucide-react";
 import { cn } from "../../utils";
 import { useApiDocsStore } from "./useApiDocsStore";
 import { useApiDocsCatalog } from "./useApiDocsCatalog";
@@ -17,7 +17,9 @@ export function ApiDocsLayoutSlot() {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">Loading API docs...</span>
+        <span className="ml-2 text-sm text-muted-foreground">
+          Loading API docs...
+        </span>
       </div>
     );
   }
@@ -26,8 +28,16 @@ export function ApiDocsLayoutSlot() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <p className="text-sm text-destructive">{error ?? "No API docs found."}</p>
-          <p className="text-xs text-muted-foreground mt-2">Run <code className="bg-muted px-1.5 py-0.5 rounded">make build-api-docs</code> to generate them.</p>
+          <p className="text-sm text-destructive">
+            {error ?? "No API docs found."}
+          </p>
+          <p className="text-xs text-muted-foreground mt-2">
+            Run{" "}
+            <code className="bg-muted px-1.5 py-0.5 rounded">
+              make build-api-docs
+            </code>{" "}
+            to generate them.
+          </p>
         </div>
       </div>
     );
@@ -63,11 +73,17 @@ function OverviewView({ catalog }: { catalog: ApiCatalog }) {
           >
             <div className="flex items-center gap-2 mb-1">
               <Code2 className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span className="text-sm font-semibold text-foreground truncate">{lib.label}</span>
+              <span className="text-sm font-semibold text-foreground truncate">
+                {lib.label}
+              </span>
               <ChevronRight className="w-3 h-3 text-muted-foreground/40 ml-auto shrink-0 group-hover:text-primary transition-colors" />
             </div>
-            <p className="text-[11px] text-muted-foreground line-clamp-2">{lib.description || "—"}</p>
-            <div className="mt-2 text-[10px] text-muted-foreground/60">{lib.symbolCount} exports</div>
+            <p className="text-[11px] text-muted-foreground line-clamp-2">
+              {lib.description || "—"}
+            </p>
+            <div className="mt-2 text-[10px] text-muted-foreground/60">
+              {lib.symbolCount} exports
+            </div>
           </button>
         ))}
       </div>
@@ -92,7 +108,9 @@ function LibraryDetailView({ libKey }: { libKey: string }) {
   if (error || !lib) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-sm text-destructive">{error ?? "Library not found."}</p>
+        <p className="text-sm text-destructive">
+          {error ?? "Library not found."}
+        </p>
       </div>
     );
   }
@@ -104,7 +122,9 @@ function LibraryDetailView({ libKey }: { libKey: string }) {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">{lib.label}</h1>
         {lib.description && (
-          <p className="text-sm text-muted-foreground mt-1">{lib.description}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {lib.description}
+          </p>
         )}
         <p className="text-xs text-muted-foreground/60 mt-1">
           {lib.entryPoint} &middot; {lib.symbols.length} exports
@@ -117,9 +137,7 @@ function LibraryDetailView({ libKey }: { libKey: string }) {
             {KIND_LABELS[kind] || kind}
           </h2>
           <div className="space-y-2">
-            {symbols.map((sym) => (
-              <SymbolCard key={sym.name} symbol={sym} />
-            ))}
+            {symbols.map((sym) => <SymbolCard key={sym.name} symbol={sym} />)}
           </div>
         </section>
       ))}
@@ -151,7 +169,9 @@ function SymbolCard({ symbol }: { symbol: ApiSymbol }) {
         {symbol.signature}
       </div>
       {symbol.description && (
-        <p className="text-[11px] text-muted-foreground mt-1.5">{symbol.description}</p>
+        <p className="text-[11px] text-muted-foreground mt-1.5">
+          {symbol.description}
+        </p>
       )}
     </div>
   );

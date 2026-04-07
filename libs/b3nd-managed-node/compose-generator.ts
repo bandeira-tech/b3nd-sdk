@@ -63,11 +63,11 @@ export function generateCompose(
     ...(options.useImages
       ? { image: options.configServerImage ?? "b3nd-node:latest" }
       : {
-          build: {
-            context: options.projectRoot ?? ".",
-            dockerfile: "apps/b3nd-node/Dockerfile",
-          },
-        }),
+        build: {
+          context: options.projectRoot ?? ".",
+          dockerfile: "apps/b3nd-node/Dockerfile",
+        },
+      }),
     ports: ["9900:9900"],
     environment: {
       BACKEND_URL: "memory://",
@@ -108,18 +108,22 @@ export function generateCompose(
   for (const node of manifest.nodes) {
     const serviceName = sanitizeServiceName(node.name);
     const deps: string[] = ["config-server"];
-    if (node.config.backends.some((b) => b.type === "postgresql")) deps.push("postgres");
-    if (node.config.backends.some((b) => b.type === "mongodb")) deps.push("mongo");
+    if (node.config.backends.some((b) => b.type === "postgresql")) {
+      deps.push("postgres");
+    }
+    if (node.config.backends.some((b) => b.type === "mongodb")) {
+      deps.push("mongo");
+    }
 
     compose.services[serviceName] = {
       ...(options.useImages
         ? { image: options.managedNodeImage ?? "b3nd-node:latest" }
         : {
-            build: {
-              context: options.projectRoot ?? ".",
-              dockerfile: "apps/b3nd-node/Dockerfile",
-            },
-          }),
+          build: {
+            context: options.projectRoot ?? ".",
+            dockerfile: "apps/b3nd-node/Dockerfile",
+          },
+        }),
       ports: [`${node.config.server.port}:${node.config.server.port}`],
       environment: {
         // Phase 1: bootstrap node
@@ -127,10 +131,13 @@ export function generateCompose(
         CORS_ORIGIN: node.config.server.corsOrigin,
         BACKEND_URL: "memory://",
         // Phase 2: managed mode
-        NODE_PRIVATE_KEY_PEM: `\${${serviceName.toUpperCase().replace(/-/g, "_")}_PRIVATE_KEY_PEM}`,
+        NODE_PRIVATE_KEY_PEM: `\${${
+          serviceName.toUpperCase().replace(/-/g, "_")
+        }_PRIVATE_KEY_PEM}`,
         OPERATOR_KEY: options.operatorPubKeyHex,
         NODE_ENCRYPTION_PUBLIC_KEY_HEX: node.encryptionPublicKey ?? "",
-        OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX: `\${OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX}`,
+        OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX:
+          `\${OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX}`,
       },
       depends_on: deps,
       restart: "unless-stopped",
@@ -157,7 +164,9 @@ function toYaml(obj: unknown, indent = 0): string {
 
   if (obj === null || obj === undefined) return "null";
   if (typeof obj === "string") {
-    if (obj.includes("\n") || obj.includes("${")) return `"${obj.replace(/"/g, '\\"')}"`;
+    if (obj.includes("\n") || obj.includes("${")) {
+      return `"${obj.replace(/"/g, '\\"')}"`;
+    }
     return obj;
   }
   if (typeof obj === "number" || typeof obj === "boolean") return String(obj);

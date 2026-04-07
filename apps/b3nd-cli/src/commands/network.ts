@@ -145,8 +145,9 @@ export async function networkStatus(
       const rig = await getRig(logger);
       const uri =
         `mutable://accounts/${accountKey.publicKeyHex}/networks/${networkIdOrPath}`;
-      const result = await rig.read(uri);
-      if (result.success && result.record) {
+      const results = await rig.read(uri);
+      const result = results[0];
+      if (result?.success && result.record) {
         const data = result.record.data as any;
         manifest = data.payload ?? data;
       } else {
@@ -170,9 +171,10 @@ export async function networkStatus(
     for (const node of manifest.nodes) {
       const nodeKey = node.publicKey;
       const statusUri = `mutable://accounts/${nodeKey}/status`;
-      const result = await rig.read(statusUri);
+      const results = await rig.read(statusUri);
+      const result = results[0];
 
-      if (result.success && result.record) {
+      if (result?.success && result.record) {
         const data = result.record.data as any;
         const status = data.payload ?? data;
         const statusIcon = status.status === "online"

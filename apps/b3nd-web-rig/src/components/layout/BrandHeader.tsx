@@ -1,8 +1,32 @@
 // React import not needed with react-jsx runtime
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../stores/appStore";
-import { Monitor, Moon, Settings, Sun, PenSquare, Compass, Users, Activity, Server, BookOpen, FileEdit, Code2 } from "lucide-react";
-import { RIG_ACCOUNTS_PATH, RIG_API_DOCS_PATH, RIG_DASHBOARD_PATH, RIG_EDITOR_BASE_PATH, RIG_EXPLORER_BASE_PATH, RIG_LEARN_PATH, RIG_NODES_PATH, RIG_SETTINGS_PATH, RIG_WRITER_BASE_PATH, cn } from "../../utils";
+import {
+  Activity,
+  BookOpen,
+  Code2,
+  Compass,
+  FileEdit,
+  Monitor,
+  Moon,
+  PenSquare,
+  Server,
+  Settings,
+  Sun,
+  Users,
+} from "lucide-react";
+import {
+  cn,
+  RIG_ACCOUNTS_PATH,
+  RIG_API_DOCS_PATH,
+  RIG_DASHBOARD_PATH,
+  RIG_EDITOR_BASE_PATH,
+  RIG_EXPLORER_BASE_PATH,
+  RIG_LEARN_PATH,
+  RIG_NODES_PATH,
+  RIG_SETTINGS_PATH,
+  RIG_WRITER_BASE_PATH,
+} from "../../utils";
 import type { ReactNode } from "react";
 
 export function BrandHeader() {
@@ -115,9 +139,9 @@ export function BrandHeader() {
             <div className="text-lg leading-none">{activeAccount.emoji}</div>
           )}
           <button
-          onClick={() => {
-            navigate(RIG_ACCOUNTS_PATH);
-          }}
+            onClick={() => {
+              navigate(RIG_ACCOUNTS_PATH);
+            }}
             className={cn(
               "p-1.5 rounded hover:bg-white/10 transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",

@@ -57,7 +57,7 @@ export function StatusBadge({
         config.bgColor,
         config.textColor,
         size === "sm" ? "px-1.5 py-0.5 text-xs" : "px-2 py-1 text-sm",
-        status === "running" && "animate-pulse"
+        status === "running" && "animate-pulse",
       )}
     >
       <span className={cn(status === "running" && "animate-spin")}>

@@ -313,7 +313,9 @@ export class ContinuousTestRunner {
 
       if (result === "timeout") {
         console.warn(
-          `[ContinuousRunner] Test run timed out after ${TIMEOUT_MS / 1000}s — killing`,
+          `[ContinuousRunner] Test run timed out after ${
+            TIMEOUT_MS / 1000
+          }s — killing`,
         );
         try {
           process.kill("SIGTERM");

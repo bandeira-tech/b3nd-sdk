@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useActiveBackend } from "../../stores/appStore";
 import type { NavigationNode, PaginatedResponse } from "../../types";
-import { ChevronDown, ChevronRight, Folder, FileText } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Folder } from "lucide-react";
 import { cn } from "../../utils";
 
 interface TreeNodeProps {
@@ -28,13 +28,14 @@ export function TreeNode({
       node.type !== "directory" ||
       children.length > 0 ||
       !activeBackend?.adapter
-    )
+    ) {
       return;
+    }
 
     try {
       setLoading(true);
-      const response: PaginatedResponse<NavigationNode> =
-        await activeBackend.adapter.listPath(node.path, { page: 1, limit: 50 });
+      const response: PaginatedResponse<NavigationNode> = await activeBackend
+        .adapter.listPath(node.path, { page: 1, limit: 50 });
       setChildren(response.data);
     } catch (err) {
       console.error("Failed to load children:", err);
@@ -52,8 +53,11 @@ export function TreeNode({
   }, [isExpanded, node.path]);
 
   // Only count directories as children (files don't show in tree)
-  const directoryChildren = children.filter((child) => child.type === "directory");
-  const hasChildren = directoryChildren.length > 0 || (node.children && node.children.some((c) => c.type === "directory"));
+  const directoryChildren = children.filter((child) =>
+    child.type === "directory"
+  );
+  const hasChildren = directoryChildren.length > 0 ||
+    (node.children && node.children.some((c) => c.type === "directory"));
   const showToggle = node.type === "directory" && (hasChildren || loading);
 
   return (
@@ -87,30 +91,26 @@ export function TreeNode({
         role="treeitem"
         aria-expanded={showToggle ? isExpanded : undefined}
       >
-        {showToggle ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle();
-            }}
-            className="flex-shrink-0 p-0.5 rounded"
-            aria-label={isExpanded ? "Collapse" : "Expand"}
-          >
-            {isExpanded ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3" />
-            )}
-          </button>
-        ) : (
-          <div className="w-6 h-6 flex-shrink-0" />
-        )}
+        {showToggle
+          ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle();
+              }}
+              className="flex-shrink-0 p-0.5 rounded"
+              aria-label={isExpanded ? "Collapse" : "Expand"}
+            >
+              {isExpanded
+                ? <ChevronDown className="h-3 w-3" />
+                : <ChevronRight className="h-3 w-3" />}
+            </button>
+          )
+          : <div className="w-6 h-6 flex-shrink-0" />}
         <div className="flex-shrink-0">
-          {node.type === "directory" ? (
-            <Folder className="h-4 w-4 text-blue-500" />
-          ) : (
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          )}
+          {node.type === "directory"
+            ? <Folder className="h-4 w-4 text-blue-500" />
+            : <FileText className="h-4 w-4 text-muted-foreground" />}
         </div>
         <span className="text-sm truncate flex-1 min-w-0">{node.name}</span>
         {loading && (
@@ -121,24 +121,26 @@ export function TreeNode({
       </div>
       {isExpanded && hasChildren && (
         <div className="ml-4 space-y-0.5 border-l border-gray-200 dark:border-gray-800 pl-2">
-          {children.filter((child) => child.type === "directory").length === 0 ? (
-            <div className="text-xs text-muted-foreground pl-4">
-              No directories
-            </div>
-          ) : (
-            children
-              .filter((child) => child.type === "directory")
-              .map((child) => (
-                <TreeNode
-                  key={child.path}
-                  node={child}
-                  level={level + 1}
-                  isExpanded={false} // Start collapsed
-                  onToggle={() => {}} // Placeholder – parent handles
-                  onClick={onClick} // Pass parent handler (bubbles up)
-                />
-              ))
-          )}
+          {children.filter((child) => child.type === "directory").length === 0
+            ? (
+              <div className="text-xs text-muted-foreground pl-4">
+                No directories
+              </div>
+            )
+            : (
+              children
+                .filter((child) => child.type === "directory")
+                .map((child) => (
+                  <TreeNode
+                    key={child.path}
+                    node={child}
+                    level={level + 1}
+                    isExpanded={false} // Start collapsed
+                    onToggle={() => {}} // Placeholder – parent handles
+                    onClick={onClick} // Pass parent handler (bubbles up)
+                  />
+                ))
+            )}
         </div>
       )}
     </div>

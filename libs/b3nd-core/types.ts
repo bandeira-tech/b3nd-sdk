@@ -21,10 +21,12 @@ export interface WriteResult<T = unknown> {
 }
 
 /**
- * Result of a read operation
+ * Result of a read operation.
+ * `uri` is present when the result comes from a list (trailing-slash read).
  */
 export interface ReadResult<T> {
   success: boolean;
+  uri?: string;
   record?: PersistenceRecord<T>;
   error?: string;
   errorDetail?: B3ndError;
@@ -108,30 +110,63 @@ export interface HealthStatus {
 }
 
 /**
- * Node status — the single introspection endpoint for clients and rigs.
- * Carries health, capabilities, and any relevant non-sensitive info.
+ * Status response — replaces health() + getSchema().
+ * Each client reports its health + capabilities.
+ * The rig aggregates and adds schema info.
  */
-export interface NodeStatus {
-  healthy: boolean;
+export interface StatusResult {
+  status: "healthy" | "degraded" | "unhealthy";
   message?: string;
-  [key: string]: unknown;
+  schema?: string[];
+  details?: Record<string, unknown>;
 }
 
 /**
- * Validation function for write operations
- * Returns an object with valid boolean and optional error message
+ * Output — the universal addressed-content primitive: [uri, data]
+ * Every message, every inner payload entry, every write — is an Output.
  */
-export type ValidationFn = (write: {
-  uri: string;
-  value: unknown;
-  read: <T = unknown>(uri: string) => Promise<ReadResult<T>>;
-  message?: unknown;
-}) => Promise<{ valid: boolean; error?: string }>;
+export type Output<T = unknown> = [uri: string, data: T];
 
 /**
- * Schema mapping program keys to validation functions
+ * Message — alias for Output. A message is an addressed output.
  */
-export type Schema = Record<string, ValidationFn>;
+export type Message<D = unknown> = Output<D>;
+
+/**
+ * Validation result
+ */
+export interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Read function for storage lookups during validation.
+ * Single-URI convenience — returns first result from read().
+ */
+export type ReadFn = <T = unknown>(uri: string) => Promise<ReadResult<T>>;
+
+/**
+ * Validator — the single validation primitive.
+ *
+ * - `output`   — the [uri, data] being validated
+ * - `upstream` — the parent output that contains this one (undefined at top level)
+ * - `read`     — storage lookup (only committed data)
+ *
+ * A top-level message is validated as: `validator(msg, undefined, read)`
+ * An inner output within an envelope: `validator(inner, envelope, read)`
+ * Protocols can nest further:        `validator(deep, inner, read)`
+ */
+export type Validator<T = unknown> = (
+  output: Output<T>,
+  upstream: Output | undefined,
+  read: ReadFn,
+) => Promise<ValidationResult>;
+
+/**
+ * Schema mapping program keys to validators
+ */
+export type Schema = Record<string, Validator>;
 
 /**
  * Result of a receive operation.
@@ -145,52 +180,70 @@ export interface ReceiveResult {
 }
 
 /**
- * Message type — the minimal primitive: [uri, data]
- */
-export type Message<D = unknown> = [uri: string, data: D];
-
-/**
- * NodeProtocolInterface - The universal interface implemented by all clients
+ * NodeProtocolInterface — the universal interface implemented by all clients.
+ *
+ * Four primitives:
+ * - `receive` — all state changes (writes)
+ * - `read`    — all queries (single, multi, list via trailing slash)
+ * - `observe` — stream of changes matching a pattern (client handles transport)
+ * - `status`  — health + capabilities
  *
  * All B3nd clients (Memory, HTTP, WebSocket, Postgres, IndexedDB, etc.)
  * implement this interface, enabling recursive composition and uniform usage.
  */
-export interface NodeProtocolWriteInterface {
-  /** Receive a message - the unified entry point for all state changes */
+export interface NodeProtocolInterface {
+  /** Receive a message — the unified entry point for all state changes. */
   receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
-  /** Delete data at a URI */
-  delete(uri: string): Promise<DeleteResult>;
-  /** Node status — health, capabilities, config */
-  status(): Promise<NodeStatus>;
-  /** Cleanup resources */
-  cleanup(): Promise<void>;
-}
 
-export interface NodeProtocolReadInterface {
-  /** Read data from a URI */
-  read<T = unknown>(uri: string): Promise<ReadResult<T>>;
   /**
-   * Read multiple URIs in a single operation.
-   * Implementations may optimize for batch reads (e.g., SQL IN clause).
-   * @param uris - Array of URIs to read (max 50)
-   * @returns ReadMultiResult with per-URI results and summary
+   * Read data from one or more URIs.
+   *
+   * - Single URI: `read("mutable://open/users/alice")` → one result
+   * - Multiple URIs: `read(["mutable://x", "hash://y"])` → batch results
+   * - Trailing slash: `read("mutable://open/users/")` → list all under path
+   *
+   * Always returns an array of results, one per resolved URI.
    */
-  readMulti<T = unknown>(uris: string[]): Promise<ReadMultiResult<T>>;
-  /** List items at a URI path */
-  list(uri: string, options?: ListOptions): Promise<ListResult>;
-  /** Node status — health, capabilities, config */
-  status(): Promise<NodeStatus>;
-  /** Cleanup resources */
-  cleanup(): Promise<void>;
+  read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]>;
+
+  /**
+   * Observe changes matching a URI pattern.
+   *
+   * Returns an async iterable that yields `ReadResult` items as changes
+   * arrive. The client handles the transport — SSE for HTTP, internal
+   * events for memory, LISTEN/NOTIFY for Postgres, etc.
+   *
+   * The `signal` controls lifecycle — abort to stop observing.
+   *
+   * @example
+   * ```ts
+   * const abort = new AbortController();
+   * for await (const result of client.observe("mutable://market/*", abort.signal)) {
+   *   console.log(result.uri, result.record.data);
+   * }
+   * ```
+   */
+  observe<T = unknown>(
+    pattern: string,
+    signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>>;
+
+  /**
+   * Status — health + capabilities.
+   * Clients report health. The rig aggregates and adds schema.
+   */
+  status(): Promise<StatusResult>;
 }
 
-// Backward-compatible alias for existing clients and tests
-export type NodeProtocolInterface =
-  & NodeProtocolWriteInterface
-  & NodeProtocolReadInterface;
+// ── Deprecated interfaces (transitional) ──
+
+/** @deprecated Use NodeProtocolInterface directly */
+export type NodeProtocolWriteInterface = NodeProtocolInterface;
+/** @deprecated Use NodeProtocolInterface directly */
+export type NodeProtocolReadInterface = NodeProtocolInterface;
 
 /** Operations that can be filtered by `accepts()`. */
-export type ClientOperation = "receive" | "read" | "list" | "delete";
+export type ClientOperation = "receive" | "read" | "observe";
 
 /**
  * Optional per-operation URI acceptance.
@@ -558,9 +611,6 @@ export interface WebSocketRequest {
   type:
     | "receive"
     | "read"
-    | "readMulti"
-    | "list"
-    | "delete"
     | "status";
   payload: unknown;
 }

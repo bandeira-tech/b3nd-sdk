@@ -98,7 +98,7 @@ message arrives: [uri, data]
  not found  found
     │       │
     ▼       ▼
- reject   run validator(uri, data, read)
+ reject   run validator(output, upstream, read)
             │
         ┌───┴───┐
         │       │
@@ -118,11 +118,12 @@ primitive.
 **What the validator sees:**
 
 ```typescript
-async function myValidator(write: {
-  uri: string;           // where data wants to go
-  value: unknown;        // the data itself
-  read: (uri) => ...;    // read existing state (any URI)
-}) {
+async function myValidator(
+  output: [string, unknown],       // [uri, data] — the output being validated
+  upstream: [string, unknown] | undefined, // parent envelope, or undefined for plain writes
+  read: (uri: string) => Promise<ReadResult>,  // read existing state (any URI)
+) {
+  const [uri, data] = output;
   // Your logic here. Read other URIs, check signatures,
   // enforce business rules — whatever the program needs.
   return { valid: true };
@@ -178,20 +179,22 @@ content-addressing. How a protocol organizes programs is a protocol design
 choice. Some protocols use a few broad programs and organize domain concepts
 as paths. Others create domain-specific programs. The framework is agnostic.
 
-The **schema** is a mapping from program keys to validation functions:
+The **schema** is a mapping from program keys to validators:
 
 ```typescript
-type ValidationFn = (write: {
-  uri: string;
-  value: unknown;
-  read: <T>(uri: string) => Promise<ReadResult<T>>;
-}) => Promise<{ valid: boolean; error?: string }>;
+type Output<T = unknown> = [uri: string, data: T];
 
-type Schema = Record<string, ValidationFn>;
+type Validator<T = unknown> = (
+  output: Output<T>,
+  upstream: Output | undefined,
+  read: ReadFn,
+) => Promise<ValidationResult>;
+
+type Schema = Record<string, Validator>;
 
 // Example: a schema with two programs
 const schema: Schema = {
-  "mutable://open": async ({ value }) => ({ valid: !!value }),
+  "mutable://open": async ([uri, data]) => ({ valid: !!data }),
   "test://data": async () => ({ valid: true }),
 };
 ```
@@ -208,23 +211,21 @@ All clients implement:
 ```typescript
 interface NodeProtocolInterface {
   receive<D>(msg: Message<D>): Promise<ReceiveResult>;
-  read<T>(uri: string): Promise<ReadResult<T>>;
-  readMulti<T>(uris: string[]): Promise<ReadMultiResult<T>>;
-  list(uri: string, options?: ListOptions): Promise<ListResult>;
-  delete(uri: string): Promise<DeleteResult>;
+  read<T>(uri: string | string[]): Promise<ReadResult<T>[]>;
   status(): Promise<StatusResult>;
-  cleanup(): Promise<void>;
 }
 ```
 
 `receive()` is the fundamental write operation — every state change flows
 through it. This is the unidirectional flow: messages go in, state comes out.
 
-`list()` returns flat results — all URIs matching the prefix:
+`read()` accepts a single URI string or an array of URI strings and always
+returns `ReadResult[]`. A trailing slash on the URI acts as a list/prefix
+query — `client.read("mutable://open/my-app/")` returns all children under
+that prefix.
 
-```typescript
-interface ListItem { uri: string; }
-```
+`status()` returns node health information and the available schema (program
+keys).
 
 ### Basic Operations
 
@@ -239,15 +240,18 @@ const client = new HttpClient({ url: "http://localhost:9942" });
 // Write — single message
 await client.receive(["mutable://open/my-app/config", { theme: "dark" }]);
 
-// Read
-const result = await client.read("mutable://open/my-app/config");
+// Read (always returns ReadResult[])
+const [result] = await client.read("mutable://open/my-app/config");
 console.log(result.record?.data); // { theme: "dark" }
 
-// List
-const items = await client.list("mutable://open/my-app/");
+// List (trailing slash = prefix query)
+const items = await client.read("mutable://open/my-app/");
 
-// Delete
-await client.delete("mutable://open/my-app/config");
+// Read multiple URIs at once
+const results = await client.read([
+  "mutable://open/my-app/config",
+  "mutable://open/my-app/status",
+]);
 ```
 
 ### The send() and message() API
@@ -375,14 +379,14 @@ const client = createValidatedClient({
 const client = new FunctionalClient({
   receive: async (msg) => backend.receive(msg),
   read: async (uri) => backend.read(uri),
-  list: async (uri, options) => backend.list(uri, options),
 });
 ```
 
 ### URI Design
 
 URI paths work like filesystem directories. Data at a leaf URI is a resource.
-Prefix listing (`client.list("prefix/")`) enumerates children.
+Prefix listing (`client.read("prefix/")`) enumerates children (trailing slash
+signals a list query).
 
 ### Privacy Levels
 
@@ -533,39 +537,42 @@ mechanism is essential for protocol design.
 `msgSchema(schema)` handles two cases:
 
 1. **Plain message** `[uri, data]` — extracts the program from `uri`, looks up
-   the validator in the schema table, calls it. Same as the basic dispatch loop.
+   the validator in the schema table, calls it with `upstream = undefined`.
 
 2. **Envelope message** `[uri, { auth?, payload: { inputs, outputs } }]` — does
    three things in sequence:
-   - Validates the envelope URI against its program validator
+   - Validates the envelope URI against its program validator (with `upstream = undefined`)
    - Enforces content-hash integrity for any `hash://` output URIs
-   - Validates each output `[uri, value]` against its program validator
+   - Validates each inner output, passing the envelope as `upstream`
 
 If any step fails, the entire envelope is rejected. There is no partial
 acceptance.
 
 ```typescript
 // What msgSchema() does (simplified):
-function msgSchema(schema) {
-  return async (msg, read) => {
-    const [uri, data] = msg;
+function msgSchema(programSchema) {
+  return async (output, upstream, read) => {
+    const [uri, data] = output;
 
     if (!isEnvelope(data)) {
-      // Plain message: dispatch to one validator
-      return schema[extractProgram(uri)]({ uri, value: data, read });
+      // Plain message: dispatch to one validator, upstream = undefined
+      return programSchema[extractProgram(uri)](output, upstream, read);
     }
 
     // 1. Validate the envelope itself
-    const envelopeResult = await schema[extractProgram(uri)]({ uri, value: data, read });
+    const envelopeResult = await programSchema[extractProgram(uri)](output, upstream, read);
     if (!envelopeResult.valid) return envelopeResult;
 
-    // 2-3. Validate each output against its program
-    for (const [outputUri, outputValue] of data.payload.outputs) {
+    // 2-3. Validate each inner output — envelope becomes upstream
+    for (const inner of data.payload.outputs) {
+      const [outputUri] = inner;
       // Content-hash check (structural, automatic for hash:// URIs)
       // Then dispatch to the output's program validator
-      const result = await schema[extractProgram(outputUri)]({
-        uri: outputUri, value: outputValue, read,
-      });
+      const result = await programSchema[extractProgram(outputUri)](
+        inner,   // the inner output being validated
+        output,  // the envelope is upstream
+        read,
+      );
       if (!result.valid) return result;
     }
 
@@ -575,11 +582,13 @@ function msgSchema(schema) {
 ```
 
 **Key insight:** The envelope's program validator sees the *entire* envelope
-(auth, inputs, outputs) as its `value`. Each output's program validator sees
-only that output's `value`. This means envelope-level concerns (signature
-verification, input references, fee checks) belong in the envelope's program
-validator, while per-resource concerns (data format, ownership) belong in
-each output's program validator.
+as its `output` (i.e., `[envelopeUri, { auth, payload }]`). Each inner
+output's program validator receives the inner `[uri, value]` as `output`
+and the full envelope as `upstream`. This means envelope-level concerns
+(signature verification, input references, fee checks) belong in the
+envelope's program validator, while per-resource concerns (data format,
+ownership) belong in each output's program validator. Inner validators
+can inspect their `upstream` to access auth, inputs, and sibling outputs.
 
 ### Input Semantics
 
@@ -594,7 +603,7 @@ semantics implement them via `read()`:
 
 ```typescript
 // Protocol-defined: check that all inputs exist and are unconsumed
-const envelopeValidator = async ({ value: data, read }) => {
+const envelopeValidator: Validator = async ([uri, data], upstream, read) => {
   for (const inputUri of data.payload.inputs) {
     const existing = await read(inputUri);
     if (!existing.success) {
@@ -613,19 +622,19 @@ together.
 
 ```typescript
 // A link:// validator that verifies the referenced hash:// content exists
-const schema = {
-  "link://accounts": async ({ uri, value, read }) => {
-    // value is a hash URI string — verify the content it points to exists
-    const content = await read(value);
+const schema: Schema = {
+  "link://accounts": async ([uri, data], upstream, read) => {
+    // data is a hash URI string — verify the content it points to exists
+    const content = await read(data);
     if (!content.success) {
-      return { valid: false, error: `Referenced content not found: ${value}` };
+      return { valid: false, error: `Referenced content not found: ${data}` };
     }
     return { valid: true };
   },
 
   "hash://sha256": hashValidator(),  // built-in: verifies data matches hash
 
-  "mutable://accounts": async ({ uri, value, read }) => {
+  "mutable://accounts": async ([uri, data], upstream, read) => {
     // Check that the writer owns this account by reading their auth link
     const pubkey = uri.split("/")[3]; // mutable://accounts/{pubkey}/...
     const authLink = await read(`link://accounts/${pubkey}/auth`);
@@ -643,28 +652,30 @@ A reads from program B's URI space during validation. This keeps programs
 independent — you can understand each program by reading its validator, and you
 can see its dependencies by looking at which URIs it reads.
 
-### The ProgramValidator and createOutputValidator
+### Accessing Envelope Context via `upstream`
 
-For protocols with envelope-based message flows, the SDK provides richer
-validator types and a composition helper:
+For protocols with envelope-based message flows, inner output validators
+receive the envelope as `upstream`. This gives them access to auth, inputs,
+and sibling outputs — without any special types or wrappers:
 
 ```typescript
-import type { MessageValidationContext, ProgramValidator, ProgramSchema }
-  from "@bandeira-tech/b3nd-sdk";
+import type { Validator, Schema } from "@bandeira-tech/b3nd-sdk";
+import { isMessageData } from "@bandeira-tech/b3nd-sdk";
 
-// ProgramValidator receives full context: uri, value, inputs, outputs, read
-const feeValidator: ProgramValidator = async (ctx) => {
-  // ctx.uri      — this output's URI
-  // ctx.value    — this output's value
-  // ctx.inputs   — all inputs from the envelope
-  // ctx.outputs  — all outputs from the envelope (for cross-output checks)
-  // ctx.read     — read any URI on the node
+// Fee validator: inspects sibling outputs via upstream
+const feeValidator: Validator = async ([uri, data], upstream, read) => {
+  // upstream is the envelope [envelopeUri, { auth, payload: { inputs, outputs } }]
+  // For plain writes, upstream is undefined
+  if (!upstream) return { valid: false, error: "Fee check requires envelope context" };
+
+  const [, envelope] = upstream;
+  if (!isMessageData(envelope)) return { valid: false, error: "Invalid envelope" };
 
   // Example: require a fee output proportional to data size
-  const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"));
+  const feeOutput = envelope.payload.outputs.find(([u]) => u.startsWith("fees://"));
   if (!feeOutput) return { valid: false, error: "Fee required" };
 
-  const dataSize = JSON.stringify(ctx.value).length;
+  const dataSize = JSON.stringify(data).length;
   const requiredFee = Math.ceil(dataSize / 100);
   if ((feeOutput[1] as number) < requiredFee) {
     return { valid: false, error: `Insufficient fee: need ${requiredFee}` };
@@ -673,22 +684,16 @@ const feeValidator: ProgramValidator = async (ctx) => {
 };
 ```
 
-`createOutputValidator()` composes a `ProgramSchema` into a full message
-validator with optional pre-validation (for envelope-level checks like
-signatures or input verification):
+Envelope-level concerns (signature verification, input existence,
+conservation laws) belong in the envelope's own program validator.
+Per-output concerns (data format, fee checks, ownership) belong in the
+output's program validator and can inspect `upstream` when needed:
 
 ```typescript
-import { createOutputValidator } from "@bandeira-tech/b3nd-sdk";
-
-const validator = createOutputValidator({
-  schema: {
-    "mutable://accounts": accountValidator,
-    "link://accounts": linkValidator,
-    "fees://pool": async () => ({ valid: true }),
-  },
-  // Pre-validation runs before per-output dispatch
-  preValidate: async (msg, read) => {
-    const [, data] = msg;
+const schema: Schema = {
+  // Envelope validator: checks signatures, input existence
+  "hash://sha256": async ([uri, data], upstream, read) => {
+    if (!isMessageData(data)) return { valid: true }; // plain hash: OK
     // Check signatures, verify input existence, enforce conservation laws
     let inputSum = 0;
     for (const inputUri of data.payload.inputs) {
@@ -703,7 +708,12 @@ const validator = createOutputValidator({
     }
     return { valid: true };
   },
-});
+
+  // Per-output validators
+  "mutable://accounts": accountValidator,
+  "link://accounts": linkValidator,
+  "fees://pool": async () => ({ valid: true }),
+};
 ```
 
 ### Testing Protocol Validators
@@ -716,9 +726,9 @@ messages rejected with the right error):
 import { assertEquals } from "@std/assert";
 import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 
-const schema = {
-  "mutable://accounts": async ({ uri, value, read }) => {
-    if (!value || typeof value !== "object") {
+const schema: Schema = {
+  "mutable://accounts": async ([uri, data]) => {
+    if (!data || typeof data !== "object") {
       return { valid: false, error: "Value must be an object" };
     }
     return { valid: true };
@@ -735,7 +745,6 @@ Deno.test("accepts valid account write", async () => {
     },
   }, client);
   assertEquals(result.accepted, true);
-  await client.cleanup();
 });
 
 Deno.test("rejects invalid account write", async () => {
@@ -748,13 +757,12 @@ Deno.test("rejects invalid account write", async () => {
   }, client);
   assertEquals(result.accepted, false);
   assertEquals(result.error, "mutable://accounts: Value must be an object");
-  await client.cleanup();
 });
 
 // Test cross-program reads: pre-populate state, then validate against it
 Deno.test("validator reads cross-program state", async () => {
-  const crossSchema = {
-    "mutable://balances": async ({ uri, value, read }) => {
+  const crossSchema: Schema = {
+    "mutable://balances": async ([uri, data], upstream, read) => {
       const pubkey = uri.split("/")[3];
       const auth = await read(`link://accounts/${pubkey}/auth`);
       if (!auth.success) return { valid: false, error: "Not registered" };
@@ -769,9 +777,8 @@ Deno.test("validator reads cross-program state", async () => {
 
   // Now the balance write should succeed (cross-program read finds the auth)
   await client.receive(["mutable://balances/alice/balance", { amount: 100 }]);
-  const result = await client.read("mutable://balances/alice/balance");
+  const [result] = await client.read("mutable://balances/alice/balance");
   assertEquals(result.record?.data, { amount: 100 });
-  await client.cleanup();
 });
 ```
 
@@ -818,14 +825,14 @@ inputs, and outputs to decide whether to endorse it:
 
 ```typescript
 // Validator endorsement: read the user's envelope, verify, write a link
-"link://accounts": async ({ uri, value, read }) => {
-  // value = "hash://sha256/{content}" — reference to the user's envelope
-  const envelope = await read(value);
+"link://accounts": async ([uri, data], upstream, read) => {
+  // data = "hash://sha256/{content}" — reference to the user's envelope
+  const envelope = await read(data);
   if (!envelope.success) return { valid: false, error: "Envelope not found" };
 
   // Inspect the original envelope's auth, outputs, etc.
-  const data = envelope.record?.data;
-  if (!data?.auth?.length) return { valid: false, error: "Unsigned envelope" };
+  const envelopeData = envelope.record?.data;
+  if (!envelopeData?.auth?.length) return { valid: false, error: "Unsigned envelope" };
 
   // Verify signature, check business rules, etc.
   return { valid: true };
@@ -866,13 +873,13 @@ const publishingProtocol: Schema = {
   "hash://sha256": hashValidator(),
 
   // Mutable pointers — only the trusted validator can write endorsement links
-  "link://posts": async ({ uri, value, read }) => {
-    // value is a hash URI pointing to endorsed content
-    if (typeof value !== "string" || !value.startsWith("hash://sha256/")) {
+  "link://posts": async ([uri, data], upstream, read) => {
+    // data is a hash URI pointing to endorsed content
+    if (typeof data !== "string" || !data.startsWith("hash://sha256/")) {
       return { valid: false, error: "Link value must be a hash URI" };
     }
     // Verify the content exists
-    const content = await read(value);
+    const content = await read(data);
     if (!content.success) {
       return { valid: false, error: "Linked content not found" };
     }
@@ -880,8 +887,8 @@ const publishingProtocol: Schema = {
   },
 
   // User profiles — anyone can write to their own path
-  "mutable://profiles": async ({ uri, value }) => {
-    if (!value || typeof value !== "object") {
+  "mutable://profiles": async ([uri, data]) => {
+    if (!data || typeof data !== "object") {
       return { valid: false, error: "Profile must be an object" };
     }
     return { valid: true };
@@ -914,8 +921,8 @@ await send({
 }, client);
 
 // 2. Read the latest post via the link
-const link = await client.read<string>("link://posts/latest");
-const content = await client.read(link.record!.data);
+const [link] = await client.read<string>("link://posts/latest");
+const [content] = await client.read(link.record!.data);
 // content.record?.data = { title: "Hello World", body: "First post on B3nd" }
 ```
 
@@ -1024,7 +1031,7 @@ These are active design questions. Protocol developers should be aware of them:
 only get accepted if validation succeeds — meaning invalid messages are free to
 submit. Options: fee escrow (pre-committed), transport-layer fees (HTTP request
 cost), or accept-and-rate-limit. For a concrete example of fee validation using
-cross-output checks, see the `ProgramValidator` fee example above.
+cross-output checks via `upstream`, see the fee validator example above.
 
 **Circular references.** Two validators can cross-validate each other through
 link intermediaries. Prevention requires temporal ordering (timestamps in URIs,
@@ -1084,7 +1091,7 @@ createServerNode({ frontend, client }).listen(9942);
 ```typescript
 const client = new HttpClient({ url: "http://localhost:9942" });
 await client.receive(["mutable://open/notes/1", { text: "Hello world" }]);
-const result = await client.read("mutable://open/notes/1");
+const [result] = await client.read("mutable://open/notes/1");
 ```
 
 This is the "Hello World" of B3nd protocols. Useful for prototyping and local
@@ -1103,21 +1110,21 @@ import { authValidation, createPubkeyBasedAccess } from "@bandeira-tech/b3nd-sdk
 const schema: Schema = {
   "mutable://open": async () => ({ valid: true }),
 
-  "mutable://accounts": async ({ uri, value }) => {
+  "mutable://accounts": async ([uri, data]) => {
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
-    const isValid = await validator({ uri, value });
+    const isValid = await validator({ uri, value: data });
     return {
       valid: isValid,
       error: isValid ? undefined : "Signature verification failed",
     };
   },
 
-  "immutable://accounts": async ({ uri, value, read }) => {
+  "immutable://accounts": async ([uri, data], upstream, read) => {
     // Auth + write-once
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
-    const isValid = await validator({ uri, value });
+    const isValid = await validator({ uri, value: data });
     if (!isValid) return { valid: false, error: "Signature verification failed" };
 
     const existing = await read(uri);
@@ -1166,8 +1173,8 @@ const schema: Schema = {
   "hash://sha256": hashValidator(),
 
   // Links: mutable pointers to hash URIs
-  "link://open": async ({ value }) => {
-    if (typeof value !== "string" || !value.startsWith("hash://")) {
+  "link://open": async ([uri, data]) => {
+    if (typeof data !== "string" || !data.startsWith("hash://")) {
       return { valid: false, error: "Link must point to a hash URI" };
     }
     return { valid: true };
@@ -1233,35 +1240,34 @@ await send({
 ### Fee Collection Protocol
 
 Cross-output fee validation. Every data write must include a fee output
-proportional to data size. Uses `ProgramValidator` with `ctx.outputs` for
-cross-output inspection.
+proportional to data size. Inner validators inspect sibling outputs via
+`upstream`.
 
 ```typescript
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { createOutputValidator } from "@bandeira-tech/b3nd-sdk";
+import { isMessageData } from "@bandeira-tech/b3nd-sdk";
 
-const outputValidator = createOutputValidator({
-  schema: {
-    "immutable://open": async (ctx) => {
-      // Require fee proportional to data size
-      const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"));
-      if (!feeOutput) return { valid: false, error: "Fee required" };
-
-      const dataSize = JSON.stringify(ctx.value).length;
-      const requiredFee = Math.ceil(dataSize / 100); // 1 per 100 bytes
-      if ((feeOutput[1] as number) < requiredFee) {
-        return { valid: false, error: `Insufficient fee: need ${requiredFee}` };
-      }
-      return { valid: true };
-    },
-
-    "fees://pool": async () => ({ valid: true }),
-  },
-});
-
-// Wrap into a standard schema for node use
 const schema: Schema = {
-  "immutable://open": async ({ uri, value }) => ({ valid: !!value }),
+  "immutable://open": async ([uri, data], upstream, read) => {
+    if (!data) return { valid: false, error: "Value required" };
+
+    // When inside an envelope, require a fee output
+    if (upstream) {
+      const [, envelope] = upstream;
+      if (isMessageData(envelope)) {
+        const feeOutput = envelope.payload.outputs.find(([u]) => u.startsWith("fees://"));
+        if (!feeOutput) return { valid: false, error: "Fee required" };
+
+        const dataSize = JSON.stringify(data).length;
+        const requiredFee = Math.ceil(dataSize / 100); // 1 per 100 bytes
+        if ((feeOutput[1] as number) < requiredFee) {
+          return { valid: false, error: `Insufficient fee: need ${requiredFee}` };
+        }
+      }
+    }
+    return { valid: true };
+  },
+
   "fees://pool": async () => ({ valid: true }),
   "hash://sha256": hashValidator(),
 };
@@ -1283,46 +1289,43 @@ await send({
 
 ### UTXO / Conservation Protocol
 
-Inputs must cover outputs. Implements conservation law enforcement using
-`createOutputValidator` with `preValidate`. Balance checking via `read()`.
+Inputs must cover outputs. The envelope's program validator enforces
+the conservation law. Per-output validators check individual amounts.
 
 ```typescript
-import { createOutputValidator } from "@bandeira-tech/b3nd-sdk";
+import type { Schema } from "@bandeira-tech/b3nd-sdk";
+import { isMessageData } from "@bandeira-tech/b3nd-sdk";
 
-const validator = createOutputValidator<number>({
-  schema: {
-    "utxo://alice": async (ctx) => {
-      if (ctx.value < 0) return { valid: false, error: "Negative amount" };
-      return { valid: true };
-    },
-    "utxo://bob": async (ctx) => {
-      if (ctx.value < 0) return { valid: false, error: "Negative amount" };
-      return { valid: true };
-    },
-  },
+const nonNegative: Validator<number> = async ([uri, data]) => {
+  if (data < 0) return { valid: false, error: "Negative amount" };
+  return { valid: true };
+};
 
-  preValidate: async (msg, read) => {
-    const [, data] = msg;
-
+const schema: Schema = {
+  // Envelope validator: enforce conservation law
+  "hash://sha256": async ([uri, data], upstream, read) => {
+    if (!isMessageData(data)) return { valid: true }; // plain hash write
     // Sum inputs (read existing state)
     let inputSum = 0;
     for (const inputUri of data.payload.inputs) {
       const input = await read<{ amount: number }>(inputUri);
       if (input.success && input.record) inputSum += input.record.data.amount;
     }
-
     // Sum outputs
     const outputSum = data.payload.outputs.reduce(
       (sum, [, value]) => sum + (value as number), 0,
     );
-
     // Conservation: outputs cannot exceed inputs
     if (outputSum > inputSum) {
       return { valid: false, error: "Outputs exceed inputs" };
     }
     return { valid: true };
   },
-});
+
+  // Per-output validators
+  "utxo://alice": nonNegative,
+  "utxo://bob": nonNegative,
+};
 ```
 
 **App usage — transfer 50 from Alice to Bob:**
@@ -1364,11 +1367,11 @@ const schema: Schema = {
   "hash://sha256": hashValidator(),
 
   // Head pointer: must reference a valid hash URI
-  "link://open": async ({ value, read }) => {
-    if (typeof value !== "string" || !value.startsWith("hash://sha256/")) {
+  "link://open": async ([uri, data], upstream, read) => {
+    if (typeof data !== "string" || !data.startsWith("hash://sha256/")) {
       return { valid: false, error: "Must point to a hash URI" };
     }
-    const content = await read(value);
+    const content = await read(data);
     if (!content.success) {
       return { valid: false, error: "Referenced content not found" };
     }
@@ -1413,9 +1416,10 @@ await send({
 }, client);
 
 // Walk the chain backward from the head
-let current = (await client.read<string>("link://open/chain/head")).record?.data;
+let [head] = await client.read<string>("link://open/chain/head");
+let current = head.record?.data;
 while (current) {
-  const entry = await client.read(current);
+  const [entry] = await client.read(current);
   console.log(entry.record?.data);
   current = entry.record?.data?.previous;
 }
@@ -1443,28 +1447,28 @@ const schema: Schema = {
   "hash://sha256": hashValidator(),
 
   // User content: auth-verified, stored at hash
-  "mutable://accounts": async ({ uri, value }) => {
+  "mutable://accounts": async ([uri, data]) => {
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
-    const isValid = await validator({ uri, value });
+    const isValid = await validator({ uri, value: data });
     return { valid: isValid, error: isValid ? undefined : "Auth failed" };
   },
 
   // Validation links: only trusted validators can write
-  "link://accounts": async ({ uri, value, read }) => {
+  "link://accounts": async ([uri, data], upstream, read) => {
     // Extract writer pubkey from URI path
     const pubkey = uri.split("/")[3]; // link://accounts/{pubkey}/...
     if (!TRUSTED_VALIDATORS.includes(pubkey) && !TRUSTED_CONFIRMERS.includes(pubkey)) {
       return { valid: false, error: "Not a trusted validator or confirmer" };
     }
 
-    // Value should be a hash URI referencing the envelope being validated
-    if (typeof value !== "string" || !value.startsWith("hash://sha256/")) {
+    // data should be a hash URI referencing the envelope being validated
+    if (typeof data !== "string" || !data.startsWith("hash://sha256/")) {
       return { valid: false, error: "Must reference a hash URI" };
     }
 
     // Verify the referenced envelope exists
-    const envelope = await read(value);
+    const envelope = await read(data);
     if (!envelope.success) {
       return { valid: false, error: "Referenced envelope not found" };
     }
@@ -1518,7 +1522,7 @@ await send({
 }, client);
 
 // Verify: is the user's post confirmed?
-const confirmation = await client.read(
+const [confirmation] = await client.read(
   `link://accounts/confirmer_pubkey_1/confirmed/${userResult.uri}`,
 );
 console.log(confirmation.success); // true — post is confirmed
@@ -1547,8 +1551,8 @@ Export your schema as a module so it can be imported by the node and by tests:
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
-  "mutable://open": async ({ uri, value, read }) => {
-    if (!value) return { valid: false, error: "Value required" };
+  "mutable://open": async ([uri, data]) => {
+    if (!data) return { valid: false, error: "Value required" };
     return { valid: true };
   },
 };
@@ -1572,9 +1576,10 @@ node.listen(43100);
 ### Multi-Backend Composition
 
 ```typescript
+const programs = Object.keys(schema);
 const clients = [
   new MemoryClient(),
-  new PostgresClient({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new PostgresClient({ connection, programs, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 
 const client = createValidatedClient({
@@ -1593,14 +1598,14 @@ createServerNode({ frontend, client });
 // Postgres
 const pg = new PostgresClient({
   connection: "postgresql://user:pass@localhost:5432/db",
-  tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
+  programs, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
 }, executor);
 await pg.initializeSchema();
 
 // MongoDB
 const mongo = new MongoClient({
   connectionString: "mongodb://localhost:27017/mydb",
-  collectionName: "b3nd_data",
+  programs, collectionName: "b3nd_data",
 }, executor);
 ```
 
@@ -1632,8 +1637,8 @@ import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 export const schema: Schema = {
   "mutable://open": async () => ({ valid: true }),
   "hash://sha256": hashValidator(),
-  "link://open": async ({ value }) => {
-    if (typeof value !== "string") return { valid: false, error: "Must be string" };
+  "link://open": async ([uri, data]) => {
+    if (typeof data !== "string") return { valid: false, error: "Must be string" };
     return { valid: true };
   },
 };
@@ -1720,10 +1725,8 @@ Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
 | Tool                       | Description                                       |
 | -------------------------- | ------------------------------------------------- |
 | `b3nd_receive`             | Submit message `[uri, data]`                      |
-| `b3nd_read`                | Read data from URI                                |
-| `b3nd_list`                | List items at URI prefix                          |
-| `b3nd_delete`              | Delete data                                       |
-| `b3nd_status`              | Backend status (health + programs)                |
+| `b3nd_read`                | Read data from URI (trailing slash = list)        |
+| `b3nd_status`              | Backend status + available programs               |
 | `b3nd_backends_list`       | List configured backends                          |
 | `b3nd_backends_switch`     | Switch active backend                             |
 | `b3nd_backends_add`        | Add new backend                                   |
@@ -1739,7 +1742,7 @@ Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 
 ```bash
 ./apps/b3nd-cli/bnd read mutable://accounts/{pubkey}/profile
-./apps/b3nd-cli/bnd list mutable://accounts/{pubkey}/
+./apps/b3nd-cli/bnd read mutable://accounts/{pubkey}/   # trailing slash = list
 ./apps/b3nd-cli/bnd config
 ./apps/b3nd-cli/bnd conf node http://localhost:9942
 ```

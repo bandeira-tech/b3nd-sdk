@@ -163,9 +163,10 @@ export async function nodeConfigGet(
 
   try {
     const rig = await getRig(logger);
-    const result = await rig.read(uri);
+    const results = await rig.read(uri);
+    const result = results[0];
 
-    if (result.success && result.record) {
+    if (result?.success && result.record) {
       console.log(`Node config for ${nodeId}:`);
       console.log(JSON.stringify(result.record.data, null, 2));
     } else {
@@ -190,9 +191,10 @@ export async function nodeStatus(
 
   try {
     const rig = await getRig(logger);
-    const result = await rig.read(uri);
+    const results = await rig.read(uri);
+    const result = results[0];
 
-    if (result.success && result.record) {
+    if (result?.success && result.record) {
       const data = result.record.data as any;
       const status = data.payload ?? data;
       console.log(`Node status for ${nodeKey}:`);

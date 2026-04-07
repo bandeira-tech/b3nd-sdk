@@ -43,7 +43,9 @@ export async function startLocalNetwork(
   for (const node of manifest.nodes) {
     const privateKeyPem = options.nodeKeys[node.nodeId];
     if (!privateKeyPem) {
-      console.error(`[local-runner] No private key for node ${node.nodeId} (${node.name}), skipping`);
+      console.error(
+        `[local-runner] No private key for node ${node.nodeId} (${node.name}), skipping`,
+      );
       continue;
     }
 
@@ -77,7 +79,9 @@ export async function startLocalNetwork(
       port: node.config.server.port,
     });
 
-    console.log(`[local-runner] Started ${node.name} (port ${node.config.server.port})`);
+    console.log(
+      `[local-runner] Started ${node.name} (port ${node.config.server.port})`,
+    );
   }
 
   return {
@@ -99,7 +103,10 @@ export async function startLocalNetwork(
 function streamOutput(process: Deno.ChildProcess, prefix: string) {
   const decoder = new TextDecoder();
 
-  const readStream = async (stream: ReadableStream<Uint8Array>, log: (...args: string[]) => void) => {
+  const readStream = async (
+    stream: ReadableStream<Uint8Array>,
+    log: (...args: string[]) => void,
+  ) => {
     const reader = stream.getReader();
     try {
       while (true) {
