@@ -38,7 +38,7 @@ export interface SseStreamOptions {
  * @example
  * ```ts
  * const abort = new AbortController();
- * for await (const event of openSseStream("https://node/api/v1/subscribe/mutable/data/market/X", {
+ * for await (const event of openSseStream("https://node/api/v1/observe/mutable/data/market/X", {
  *   signal: abort.signal,
  * })) {
  *   console.log(event.uri, event.data);

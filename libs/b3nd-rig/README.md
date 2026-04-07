@@ -68,7 +68,7 @@ await session.sendEncrypted(
 const secret = await session.readEncrypted<T>(uri);
 ```
 
-## Reactionsive
+## Reactive
 
 ```typescript
 // Watch a URI for changes (polling with dedup)
@@ -140,9 +140,15 @@ Hooks are synchronous pipelines that run inside operations. Frozen after init.
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
   hooks: {
-    receive: { pre: [validateSchema, rateLimit] },
-    read: { post: [auditRead] },
-    send: { pre: [requireIdentity] },
+    beforeReceive: (ctx) => {
+      validateSchema(ctx);
+    },
+    beforeSend: (ctx) => {
+      requireIdentity(ctx);
+    },
+    afterRead: (ctx, result) => {
+      auditRead(ctx, result);
+    },
   },
 });
 ```
@@ -231,9 +237,9 @@ await id.signMessage(payload);            // AuthenticatedMessage
 rig.info();
 // {
 //   behavior: {
-//     hooks: { receive: { pre: 2, post: 0 }, read: { pre: 0, post: 1 } },
+//     hooks: ["beforeReceive", "afterRead"],
 //     events: { "receive:success": 1, "*:error": 1 },
-//     observers: 3,
+//     reactors: 3,
 //   },
 // }
 
@@ -257,7 +263,7 @@ const rig = new Rig({
   schema,                                   // optional validation
   hooks: { ... },                           // frozen after init
   on: { ... },                              // event handlers
-  observe: { ... },                         // URI pattern reactions
+  reactions: { ... },                        // URI pattern reactions
 });
 ```
 
@@ -277,9 +283,9 @@ Deno.serve, Hono, Express, Cloudflare Workers.
 
 ## NodeProtocolInterface
 
-The Rig structurally satisfies `NodeProtocolInterface` (3 methods: `receive`,
-`read`, `status`). Pass it directly to any function that expects a client —
-hooks, events, and observe fire for every operation.
+The Rig structurally satisfies `NodeProtocolInterface` (4 methods: `receive`,
+`read`, `observe`, `status`). Pass it directly to any function that expects a
+client — hooks, events, and reactions fire for every operation.
 
 ```typescript
 // These all work — the rig IS a client

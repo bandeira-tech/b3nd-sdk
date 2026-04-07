@@ -7,7 +7,7 @@
  * (inward from external sources). Everything else is observation.
  *
  * Supports per-operation client routing, synchronous hooks
- * (pre/post), async events, and URI-pattern react reactions.
+ * (pre/post), async events, and URI-pattern reactions.
  */
 
 import type {

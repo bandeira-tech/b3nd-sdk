@@ -273,10 +273,10 @@ async function main() {
         appKey,
       );
 
-      const readRes = await rig.read<any>(uri);
-      if (!readRes.success || !readRes.record) {
+      const readRes = (await rig.read<any>(uri))[0];
+      if (!readRes?.success || !readRes.record) {
         return c.json(
-          { success: false, error: readRes.error || "not found" },
+          { success: false, error: readRes?.error || "not found" },
           404,
         );
       }

@@ -1030,12 +1030,12 @@ Bun.serve({ port: 9942, fetch: api });
 
 ### What the handler exposes
 
-| Route                    | Method | Description                        |
-| ------------------------ | ------ | ---------------------------------- |
-| `/status`                | GET    | Status check (includes schema)     |
-| `/receive`               | POST   | Write data                         |
-| `/read?uri=...`          | GET    | Read a URI (trailing slash = list) |
-| `/subscribe?pattern=...` | GET    | SSE stream for URI patterns        |
+| Route               | Method | Description                        |
+| ------------------- | ------ | ---------------------------------- |
+| `/status`           | GET    | Status check (includes schema)     |
+| `/receive`          | POST   | Write data                         |
+| `/read?uri=...`     | GET    | Read a URI (trailing slash = list) |
+| `/observe/:uriPath` | GET    | SSE stream for URI patterns        |
 
 ---
 
