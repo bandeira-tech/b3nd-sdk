@@ -3,12 +3,14 @@
  *
  * Tests for the unified Node interface (receive pattern).
  * This suite tests that any implementation of Node & ReadInterface
- * behaves correctly according to the protocol specification.
+ * behaves correctly as mechanical storage.
  *
  * Message primitive: [uri, values, data] where data is always
  * { inputs: string[], outputs: Output[] }.
  *
  * receive() takes Message[] — batch of independent messages.
+ * Clients write outputs and serve reads. Inputs are metadata —
+ * consumption and conservation are rig-level concerns.
  */
 
 /// <reference lib="deno.ns" />
@@ -117,12 +119,9 @@ export function runNodeSuite(
         msg([["store://users/alice/profile", {}, { name: "Alice", version: 1 }]]),
       ]);
 
-      // Overwrite with new data (consume old, produce new)
+      // Overwrite with new data (second write to same URI wins)
       await node.receive([
-        msg(
-          [["store://users/alice/profile", {}, { name: "Alice Updated", version: 2 }]],
-          ["store://users/alice/profile"],
-        ),
+        msg([["store://users/alice/profile", {}, { name: "Alice Updated", version: 2 }]]),
       ]);
 
       // Verify data was updated

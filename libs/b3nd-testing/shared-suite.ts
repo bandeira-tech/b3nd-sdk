@@ -1,8 +1,8 @@
 /**
  * Shared Test Suite for NodeProtocolInterface
  *
- * This suite tests that any implementation of NodeProtocolInterface
- * behaves correctly according to the protocol specification.
+ * Tests that any implementation of NodeProtocolInterface behaves
+ * correctly as **mechanical storage**.
  *
  * Message primitive: [uri, values, data] where:
  * - uri: string — identity/address
@@ -10,7 +10,11 @@
  * - data: { inputs: string[], outputs: Output[] } — always structured
  *
  * receive() takes Message[] (batch, each independently processed).
- * read() returns Output shape: record has { values, data }.
+ * read() returns record with { values, data }.
+ *
+ * Clients are dumb storage — they write outputs and serve reads.
+ * Conservation enforcement, input consumption (deletion), and
+ * program validation are **rig-level** concerns, not tested here.
  *
  * Each client test file imports and runs this suite with factory functions
  * that create fresh client instances for each test.
@@ -475,438 +479,108 @@ export function runSharedSuite(
     });
   }
 
-  // ── Conservation ───────────────────────────────────────────────────
+  // ── Overwrite ───────────────────────────────────────────────────────
 
   Deno.test({
-    name: `${suiteName} - conservation: valid transfer (exact)`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      // Seed
-      await client.receive([
-        msg([["store://balance/alice/seed-exact", { fire: 100 }, null]]),
-      ]);
-
-      // 100 in → 60 + 40 out
-      const results = await client.receive([
-        msg(
-          [
-            ["store://balance/bob/from-exact", { fire: 60 }, null],
-            ["store://balance/alice/change-exact", { fire: 40 }, null],
-          ],
-          ["store://balance/alice/seed-exact"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, true);
-
-      const bob = await client.read("store://balance/bob/from-exact");
-      assertEquals(bob[0].success, true);
-      assertEquals(bob[0].record?.values, { fire: 60 });
-
-      const change = await client.read("store://balance/alice/change-exact");
-      assertEquals(change[0].success, true);
-      assertEquals(change[0].record?.values, { fire: 40 });
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - conservation: surplus allowed (fee/burn)`,
+    name: `${suiteName} - receive overwrites existing data at same URI`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
       await client.receive([
-        msg([["store://balance/alice/seed-surplus", { fire: 100 }, null]]),
+        msg([["store://users/overwrite/profile", {}, { name: "Alice", version: 1 }]]),
       ]);
 
-      // 100 in → 90 out (10 burned)
-      const results = await client.receive([
-        msg(
-          [["store://balance/bob/from-surplus", { fire: 90 }, null]],
-          ["store://balance/alice/seed-surplus"],
-        ),
+      // Write again to the same URI — second write wins
+      await client.receive([
+        msg([["store://users/overwrite/profile", {}, { name: "Alice Updated", version: 2 }]]),
       ]);
 
-      assertEquals(results[0].accepted, true);
+      const readResults = await client.read("store://users/overwrite/profile");
+      assertEquals(readResults.length, 1);
+      assertEquals(readResults[0].success, true);
+      assertEquals(readResults[0].record?.data, {
+        name: "Alice Updated",
+        version: 2,
+      });
     },
   });
 
   Deno.test({
-    name: `${suiteName} - conservation: rejected when outputs exceed inputs`,
+    name: `${suiteName} - overwrite preserves new values`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
       await client.receive([
-        msg([["store://balance/alice/seed-inflate", { fire: 50 }, null]]),
+        msg([["store://balance/overwrite/utxo", { fire: 100 }, null]]),
       ]);
-
-      // 50 in → 200 out — rejected
-      const results = await client.receive([
-        msg(
-          [["store://balance/bob/inflated", { fire: 200 }, null]],
-          ["store://balance/alice/seed-inflate"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, false);
-      assertEquals(typeof results[0].error, "string");
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - conservation: multi-asset must conserve each key`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
 
       await client.receive([
-        msg([["store://balance/alice/seed-multi", { fire: 100, usd: 50 }, null]]),
+        msg([["store://balance/overwrite/utxo", { fire: 75, usd: 25 }, { memo: "updated" }]]),
       ]);
 
-      const results = await client.receive([
-        msg(
-          [
-            ["store://balance/bob/multi-a", { fire: 60, usd: 30 }, null],
-            ["store://balance/alice/multi-b", { fire: 40, usd: 20 }, null],
-          ],
-          ["store://balance/alice/seed-multi"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, true);
+      const readResults = await client.read("store://balance/overwrite/utxo");
+      assertEquals(readResults[0].success, true);
+      assertEquals(readResults[0].record?.values, { fire: 75, usd: 25 });
+      assertEquals(readResults[0].record?.data, { memo: "updated" });
     },
   });
 
+  // ── Inputs are metadata (not acted upon by client) ─────────────────
+
   Deno.test({
-    name: `${suiteName} - conservation: reject if any asset key overflows`,
+    name: `${suiteName} - inputs are metadata, client does not delete them`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
+      // Write data
       await client.receive([
-        msg([["store://balance/alice/seed-overflow", { fire: 100, usd: 50 }, null]]),
+        msg([["store://data/keep-me", {}, { value: 1 }]]),
       ]);
 
-      // fire conserved (100→100), usd overflows (50→80)
-      const results = await client.receive([
-        msg(
-          [["store://balance/bob/overflowed", { fire: 100, usd: 80 }, null]],
-          ["store://balance/alice/seed-overflow"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, false);
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - conservation: multiple inputs summed`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
+      // Send message referencing it as input — client writes outputs only
       await client.receive([
-        msg([["store://balance/alice/seed-sum-a", { fire: 30 }, null]]),
-        msg([["store://balance/alice/seed-sum-b", { fire: 70 }, null]]),
-      ]);
-
-      // 30 + 70 = 100 in → 100 out
-      const results = await client.receive([
         msg(
-          [["store://balance/alice/combined", { fire: 100 }, null]],
-          [
-            "store://balance/alice/seed-sum-a",
-            "store://balance/alice/seed-sum-b",
-          ],
+          [["store://data/new-thing", {}, { value: 2 }]],
+          ["store://data/keep-me"],
         ),
       ]);
 
-      assertEquals(results[0].accepted, true);
+      // Both still exist — client did not consume the input
+      const kept = await client.read("store://data/keep-me");
+      assertEquals(kept[0].success, true, "Input must survive — client does not consume");
+      assertEquals(kept[0].record?.data, { value: 1 });
+
+      const created = await client.read("store://data/new-thing");
+      assertEquals(created[0].success, true);
+      assertEquals(created[0].record?.data, { value: 2 });
     },
   });
 
   Deno.test({
-    name: `${suiteName} - conservation: reject nonexistent input`,
+    name: `${suiteName} - multiple outputs written from single message`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      const results = await client.receive([
-        msg(
-          [["store://balance/bob/phantom", { fire: 50 }, null]],
-          ["store://balance/ghost/does-not-exist"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, false);
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - conservation: reject negative output values`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      await client.receive([
-        msg([["store://balance/alice/seed-neg", { fire: 100 }, null]]),
-      ]);
-
-      const results = await client.receive([
-        msg(
-          [["store://balance/bob/negative", { fire: -50 }, null]],
-          ["store://balance/alice/seed-neg"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, false);
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - conservation: new asset key in outputs rejected`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      // Seed with only 'fire'
-      await client.receive([
-        msg([["store://balance/alice/seed-new-asset", { fire: 100 }, null]]),
-      ]);
-
-      // Try to output 'usd' which doesn't exist in inputs
-      const results = await client.receive([
-        msg(
-          [["store://balance/alice/with-new-asset", { fire: 100, usd: 50 }, null]],
-          ["store://balance/alice/seed-new-asset"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, false);
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - conservation: zero-value envelope (pure data) accepted`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      // No inputs, outputs carry no value — pure data
       const results = await client.receive([
         msg([
-          ["store://data/note-1", {}, { text: "hello" }],
-          ["store://data/note-2", {}, { text: "world" }],
+          ["store://data/multi-out-1", {}, { text: "hello" }],
+          ["store://data/multi-out-2", {}, { text: "world" }],
+          ["store://data/multi-out-3", { fire: 10 }, null],
         ]),
       ]);
 
       assertEquals(results[0].accepted, true);
 
-      const n1 = await client.read("store://data/note-1");
-      assertEquals(n1[0].record?.data, { text: "hello" });
-      const n2 = await client.read("store://data/note-2");
-      assertEquals(n2[0].record?.data, { text: "world" });
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - conservation: reject value from nothing without issuance`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      // No inputs, but outputs carry value — rejected
-      const results = await client.receive([
-        msg([["store://balance/alice/free", { fire: 1000 }, null]]),
-      ]);
-
-      assertEquals(results[0].accepted, false);
-    },
-  });
-
-  // ── Consumption (inputs are deleted) ───────────────────────────────
-
-  Deno.test({
-    name: `${suiteName} - consumption: input deleted after acceptance`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      await client.receive([
-        msg([["store://balance/alice/consume-1", { fire: 100 }, null]]),
-      ]);
-
-      // Verify it exists
-      const before = await client.read("store://balance/alice/consume-1");
-      assertEquals(before[0].success, true);
-
-      // Spend it
-      await client.receive([
-        msg(
-          [["store://balance/bob/from-consume", { fire: 100 }, null]],
-          ["store://balance/alice/consume-1"],
-        ),
-      ]);
-
-      // Input is gone
-      const after = await client.read("store://balance/alice/consume-1");
-      assertEquals(after[0].success, false, "Spent input should no longer exist");
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - consumption: double-spend rejected (input gone)`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      await client.receive([
-        msg([["store://balance/alice/double-1", { fire: 100 }, null]]),
-      ]);
-
-      // First spend
-      const first = await client.receive([
-        msg(
-          [["store://balance/bob/ds-1", { fire: 100 }, null]],
-          ["store://balance/alice/double-1"],
-        ),
-      ]);
-      assertEquals(first[0].accepted, true);
-
-      // Second spend — fails
-      const second = await client.receive([
-        msg(
-          [["store://balance/charlie/ds-2", { fire: 100 }, null]],
-          ["store://balance/alice/double-1"],
-        ),
-      ]);
-      assertEquals(second[0].accepted, false);
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - consumption: all inputs deleted, all outputs created`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      await client.receive([
-        msg([["store://balance/alice/mi-a", { fire: 40 }, null]]),
-        msg([["store://balance/alice/mi-b", { fire: 60 }, null]]),
-      ]);
-
-      const results = await client.receive([
-        msg(
-          [
-            ["store://balance/bob/mi-out-1", { fire: 70 }, null],
-            ["store://balance/alice/mi-out-2", { fire: 30 }, null],
-          ],
-          ["store://balance/alice/mi-a", "store://balance/alice/mi-b"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, true);
-
-      // Inputs gone
-      assertEquals((await client.read("store://balance/alice/mi-a"))[0].success, false);
-      assertEquals((await client.read("store://balance/alice/mi-b"))[0].success, false);
-
-      // Outputs exist
-      const out1 = await client.read("store://balance/bob/mi-out-1");
-      assertEquals(out1[0].success, true);
-      assertEquals(out1[0].record?.values, { fire: 70 });
-      const out2 = await client.read("store://balance/alice/mi-out-2");
-      assertEquals(out2[0].success, true);
-      assertEquals(out2[0].record?.values, { fire: 30 });
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - consumption: chained transfers`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      await client.receive([
-        msg([["store://balance/alice/chain-0", { fire: 100 }, null]]),
-      ]);
-
-      // Alice → Bob
-      await client.receive([
-        msg(
-          [["store://balance/bob/chain-1", { fire: 100 }, null]],
-          ["store://balance/alice/chain-0"],
-        ),
-      ]);
-
-      // Bob → Charlie
-      await client.receive([
-        msg(
-          [["store://balance/charlie/chain-2", { fire: 100 }, null]],
-          ["store://balance/bob/chain-1"],
-        ),
-      ]);
-
-      // Only charlie's UTXO exists
-      assertEquals((await client.read("store://balance/alice/chain-0"))[0].success, false);
-      assertEquals((await client.read("store://balance/bob/chain-1"))[0].success, false);
-      const charlie = await client.read("store://balance/charlie/chain-2");
-      assertEquals(charlie[0].success, true);
-      assertEquals(charlie[0].record?.values, { fire: 100 });
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - consumption: failed conservation does not delete inputs`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      await client.receive([
-        msg([["store://balance/alice/safe-1", { fire: 50 }, null]]),
-      ]);
-
-      // Inflate attempt — should fail
-      const results = await client.receive([
-        msg(
-          [["store://balance/bob/inflated", { fire: 500 }, null]],
-          ["store://balance/alice/safe-1"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, false);
-
-      // Input survives
-      const still = await client.read("store://balance/alice/safe-1");
-      assertEquals(still[0].success, true, "Input must survive failed transaction");
-      assertEquals(still[0].record?.values, { fire: 50 });
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - consumption: zero-value input can be consumed`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      await client.receive([
-        msg([["store://data/temp-note", {}, { text: "temporary" }]]),
-      ]);
-
-      // Consume it — zero in, zero out
-      const results = await client.receive([
-        msg(
-          [["store://data/replacement", {}, { text: "replacement" }]],
-          ["store://data/temp-note"],
-        ),
-      ]);
-
-      assertEquals(results[0].accepted, true);
-      assertEquals((await client.read("store://data/temp-note"))[0].success, false);
-      assertEquals((await client.read("store://data/replacement"))[0].record?.data, { text: "replacement" });
+      const r1 = await client.read("store://data/multi-out-1");
+      assertEquals(r1[0].record?.data, { text: "hello" });
+      const r2 = await client.read("store://data/multi-out-2");
+      assertEquals(r2[0].record?.data, { text: "world" });
+      const r3 = await client.read("store://data/multi-out-3");
+      assertEquals(r3[0].record?.values, { fire: 10 });
     },
   });
 
