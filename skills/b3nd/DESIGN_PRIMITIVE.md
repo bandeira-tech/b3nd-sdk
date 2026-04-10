@@ -133,9 +133,10 @@ receive(messages: Message[])
     5. Return { accepted: true, code }
 ```
 
-Rejection is the only code that prevents storage. Every other code stores the
-message AND runs the handler. The handler decides side effects — state
-application, replication, consumption.
+Rejection is the only code that prevents forwarding to clients. Every other
+code forwards the message (clients mechanically delete inputs and write
+outputs) AND runs the handler. The handler decides additional side
+effects — state application, replication, further messages.
 
 ### Code Handlers
 
@@ -321,17 +322,43 @@ written to domain URIs. This means:
 This is the natural behavior — no special filtering needed. The URI namespace
 does the work.
 
-### Consumption
+### Clients: Delete Inputs, Write Outputs
 
-Input consumption (deletion) is an operator decision, handled in the code
-handler. When a `firecat:confirmed` handler wants to consume inputs, it
-sends messages to clients that cause those URIs to be removed or overwritten.
+Clients are mechanical. When a client receives a message with
+`{ inputs, outputs }`, it:
 
-The exact mechanism for communicating deletion to clients is a **data client
-protocol** concern — how the rig tells its clients to remove state. This may
-be an overwrite-with-null convention, a dedicated URI scheme, or the client
-mechanically processing `inputs` as deletions. The rig is verbose — the
-handler explicitly constructs whatever messages the clients need.
+1. **Deletes** every URI in `inputs`
+2. **Writes** every `[uri, values, data]` in `outputs`
+
+That's all a client does. No validation, no conservation checks, no
+classification. The rig coordinates what messages reach which clients.
+The handler controls what's in those messages.
+
+### Consumption via Handler Shaping
+
+Consumption isn't a framework concept or a client protocol — it's a
+consequence of what the handler puts in the message it forwards to clients.
+
+```typescript
+// Accept: strip inputs, client only writes outputs
+"firecat:valid": async (msg, receive) => {
+  const [uri, values, data] = msg;
+  await receive([[uri, values, { inputs: [], outputs: data.outputs }]]);
+},
+
+// Confirm: forward as-is, client deletes inputs AND writes outputs
+"firecat:confirmed": async (msg, receive) => {
+  await receive([msg]);
+},
+
+// Or: confirm but don't consume (light node doesn't track state)
+"firecat:confirmed": async (msg, receive) => {
+  const [uri, values, data] = msg;
+  await receive([[uri, values, { inputs: [], outputs: data.outputs }]]);
+},
+```
+
+The handler shapes the message. The client executes it mechanically.
 
 ---
 

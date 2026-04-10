@@ -9,8 +9,8 @@
  * { inputs: string[], outputs: Output[] }.
  *
  * receive() takes Message[] — batch of independent messages.
- * Clients write outputs and serve reads. Inputs are metadata —
- * consumption and conservation are rig-level concerns.
+ * Clients are mechanical: delete inputs, write outputs.
+ * Conservation and program logic are rig-level concerns.
  */
 
 /// <reference lib="deno.ns" />

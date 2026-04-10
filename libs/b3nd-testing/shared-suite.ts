@@ -12,9 +12,9 @@
  * receive() takes Message[] (batch, each independently processed).
  * read() returns record with { values, data }.
  *
- * Clients are dumb storage — they write outputs and serve reads.
- * Conservation enforcement, input consumption (deletion), and
- * program validation are **rig-level** concerns, not tested here.
+ * Clients are mechanical: delete inputs, write outputs. No validation,
+ * no conservation checks — the rig handles classification via programs.
+ * Conservation and program logic are **rig-level** concerns.
  *
  * Each client test file imports and runs this suite with factory functions
  * that create fresh client instances for each test.
@@ -527,35 +527,86 @@ export function runSharedSuite(
     },
   });
 
-  // ── Inputs are metadata (not acted upon by client) ─────────────────
+  // ── Input consumption (client deletes inputs, writes outputs) ────────
 
   Deno.test({
-    name: `${suiteName} - inputs are metadata, client does not delete them`,
+    name: `${suiteName} - inputs are deleted, outputs are written`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
       // Write data
       await client.receive([
-        msg([["store://data/keep-me", {}, { value: 1 }]]),
+        msg([["store://data/consumable", {}, { value: 1 }]]),
       ]);
 
-      // Send message referencing it as input — client writes outputs only
+      // Verify it exists
+      const before = await client.read("store://data/consumable");
+      assertEquals(before[0].success, true);
+
+      // Send message with it as input — client deletes it, writes output
       await client.receive([
         msg(
-          [["store://data/new-thing", {}, { value: 2 }]],
-          ["store://data/keep-me"],
+          [["store://data/replacement", {}, { value: 2 }]],
+          ["store://data/consumable"],
         ),
       ]);
 
-      // Both still exist — client did not consume the input
-      const kept = await client.read("store://data/keep-me");
-      assertEquals(kept[0].success, true, "Input must survive — client does not consume");
-      assertEquals(kept[0].record?.data, { value: 1 });
+      // Input deleted
+      const after = await client.read("store://data/consumable");
+      assertEquals(after[0].success, false, "Input must be deleted by client");
 
-      const created = await client.read("store://data/new-thing");
+      // Output written
+      const created = await client.read("store://data/replacement");
       assertEquals(created[0].success, true);
       assertEquals(created[0].record?.data, { value: 2 });
+    },
+  });
+
+  Deno.test({
+    name: `${suiteName} - empty inputs means no deletions`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      await client.receive([
+        msg([["store://data/existing", {}, { value: 1 }]]),
+      ]);
+
+      // Message with empty inputs — nothing deleted
+      await client.receive([
+        msg([["store://data/new-item", {}, { value: 2 }]]),
+      ]);
+
+      // Both exist
+      const existing = await client.read("store://data/existing");
+      assertEquals(existing[0].success, true);
+      const newItem = await client.read("store://data/new-item");
+      assertEquals(newItem[0].success, true);
+    },
+  });
+
+  Deno.test({
+    name: `${suiteName} - multiple inputs all deleted`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      await client.receive([
+        msg([["store://data/a", {}, { v: 1 }]]),
+        msg([["store://data/b", {}, { v: 2 }]]),
+      ]);
+
+      await client.receive([
+        msg(
+          [["store://data/combined", {}, { v: 3 }]],
+          ["store://data/a", "store://data/b"],
+        ),
+      ]);
+
+      assertEquals((await client.read("store://data/a"))[0].success, false);
+      assertEquals((await client.read("store://data/b"))[0].success, false);
+      assertEquals((await client.read("store://data/combined"))[0].success, true);
     },
   });
 
