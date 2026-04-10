@@ -116,42 +116,54 @@ interface RigConfig {
 }
 
 type CodeHandler = (
-  message: Message,
-  receive: ReceiveFn,
+  message:   Message,
+  broadcast: ReceiveFn,   // direct to clients — bypasses programs
+  read:      ReadFn,      // storage lookup (confirmed state)
 ) => Promise<void>;
 ```
 
 ### The Receive Loop
 
 ```
-receive(messages: Message[])
+public receive(messages: Message[])
   for each message:
     1. Run the program for this URI → get a code
-    2. If the code is a rejection → return error, don't store
-    3. Otherwise → store the message at its URI
-    4. Look up on[code] → run the handler
-    5. Return { accepted: true, code }
+    2. If the code is a rejection → return error, don't forward
+    3. Look up on[code] → run the handler (gets broadcast, not receive)
+    4. Return { accepted: true, code }
 ```
 
-Rejection is the only code that prevents forwarding to clients. Every other
-code forwards the message (clients mechanically delete inputs and write
-outputs) AND runs the handler. The handler decides additional side
-effects — state application, replication, further messages.
+Rejection is the only code that prevents forwarding. For every other code,
+the handler runs and decides what to broadcast to clients.
+
+The rig does NOT automatically forward the message to clients — the handler
+decides. This is what gives operators full control. A `valid` handler wraps
+the message for opaque storage. A `confirmed` handler broadcasts the original
+message's outputs for decomposition.
 
 ### Code Handlers
 
-The handler receives the message and a `receive` function — the rig's own
-receive, bound to its connections. The handler decides what messages to forward
-to clients. It doesn't get `write`/`delete` primitives — everything is a
-message.
+The handler receives the message and a `broadcast` function — direct dispatch
+to connected clients, bypassing programs. The handler is trusted internal
+code. When it calls broadcast, it's saying "store this" — no re-validation.
 
 ```typescript
 // Handler signature
 type CodeHandler = (
-  message: Message,
-  receive: ReceiveFn,   // rig's receive, routes to connected clients
+  message:   Message,
+  broadcast: ReceiveFn,   // direct to clients, no programs
+  read:      ReadFn,      // storage lookup (confirmed state)
 ) => Promise<void>;
 ```
+
+Handlers get three things:
+- **message** — the classified message
+- **broadcast** — direct dispatch to clients, bypassing programs (trusted)
+- **read** — storage lookup for confirmed state (e.g. load original message on confirmation)
+
+Note: `broadcast` is different from the `receive` that programs get.
+Programs get the rig's full receive (for recursive sub-message classification).
+Handlers get broadcast (for trusted storage dispatch).
 
 ---
 
@@ -173,26 +185,46 @@ export const programs: Record<string, Program> = {
 };
 
 // Default handlers — what each code means
+// broadcast goes direct to clients (bypasses programs)
 export const handlers: Record<string, CodeHandler> = {
-  "firecat:valid": async (msg, receive) => {
-    // Message stored by the rig. Handler can do additional work —
-    // e.g., forward to specific clients, trigger indexing, etc.
-    // By default: nothing extra. The message is in storage.
+  "firecat:valid": async (msg, broadcast, _read) => {
+    // Store the message opaquely — wrap it so the client stores
+    // the whole message as data, without decomposing its outputs.
+    const hash = await computeHash(msg);
+    await broadcast([[
+      `envelope://valid/${hash}`, {},
+      {
+        inputs: [],
+        outputs: [[`hash://sha256/${hash}`, {}, msg]],
+      },
+    ]]);
+    // Client decomposes the wrapper: stores msg at hash://sha256/{hash}
+    // The inner outputs are NOT written to domain URIs — just data.
   },
 
-  "firecat:confirmed": async (msg, receive) => {
-    // State application: write the original message's outputs
-    // to their domain URIs so they become readable state.
-    const [, , data] = msg;
-    // The confirmation message references the original
-    // Load it, then forward its outputs as individual writes
-    // so clients store them at their domain URIs.
-    // (exact mechanism depends on protocol's confirmation shape)
+  "firecat:confirmed": async (msg, broadcast, read) => {
+    // Store the confirmation record (wrapped, same pattern)
+    const confirmHash = await computeHash(msg);
+    await broadcast([[
+      `envelope://confirm/${confirmHash}`, {},
+      {
+        inputs: [],
+        outputs: [[`consensus://record/${confirmHash}`, {}, msg]],
+      },
+    ]]);
+
+    // Load the original valid message and apply its outputs as state
+    const ref = extractRef(msg);  // protocol-specific ref extraction
+    const [result] = await read(`hash://sha256/${ref}`);
+    const originalMsg = result.record.data;
+
+    // Broadcast the original — NOW it gets decomposed:
+    // clients delete its inputs, write its outputs to domain URIs
+    await broadcast([originalMsg]);
   },
 
   "firecat:invalid": async () => {
-    // Rejection — the rig doesn't store.
-    // Nothing to do here.
+    // Rejection — handler not called (rig returns error)
   },
 };
 ```
@@ -220,11 +252,15 @@ const lightNode = new Rig({
   on: {
     ...firecat.handlers,
     "firecat:valid": async () => {
-      // Don't even store unconfirmed messages
+      // Don't store unconfirmed messages at all
     },
-    "firecat:confirmed": async (msg, receive) => {
-      // Only store the consensus record itself
-      await receive([msg]);
+    "firecat:confirmed": async (msg, broadcast, _read) => {
+      // Only store the consensus record, skip state application
+      const hash = await computeHash(msg);
+      await broadcast([[
+        `envelope://confirm/${hash}`, {},
+        { inputs: [], outputs: [[`consensus://record/${hash}`, {}, msg]] },
+      ]]);
     },
   },
 });
@@ -243,7 +279,7 @@ const indexer = new Rig({
   },
 });
 
-// ── Mirror: replicate to peer ──
+// ── Mirror: replicate to peer on valid ──
 const mirror = new Rig({
   connections: [
     connection(localClient, { receive: ["*"], read: ["*"] }),
@@ -251,9 +287,14 @@ const mirror = new Rig({
   programs: firecat.programs,
   on: {
     ...firecat.handlers,
-    "firecat:valid": async (msg, receive) => {
-      await receive([msg]);
-      await peerRig.receive([msg]);  // replicate
+    "firecat:valid": async (msg, broadcast, _read) => {
+      // Store locally (wrapped) AND replicate to peer
+      const hash = await computeHash(msg);
+      await broadcast([[
+        `envelope://valid/${hash}`, {},
+        { inputs: [], outputs: [[`hash://sha256/${hash}`, {}, msg]] },
+      ]]);
+      await peerRig.receive([msg]);  // peer runs its own programs
     },
   },
 });
@@ -265,21 +306,23 @@ Same programs, same codes — completely different operational behavior.
 
 ## State and Storage
 
-### Always Store, Confirm Drives State
+### Wrapping Controls Decomposition
 
-Messages are always stored (unless rejected). But storing a message doesn't
-mean its payload affects readable state. There are two layers:
+The client always decomposes one level: delete inputs, write outputs. The
+handler controls what reaches the client.
 
-- **Message storage**: the message itself, at its URI (e.g., `hash://sha256/abc`)
-- **State**: the outputs from confirmed messages, at their domain URIs
+To **store a message opaquely** (no state change): wrap it. The message
+becomes data inside a wrapper output. The client stores it at its hash URI
+without decomposing its inner outputs.
 
-When a program returns `firecat:valid`, the message is stored but its outputs
-are not written to their domain URIs. A read of `store://balance/alice/utxo-1`
-won't find it — because it hasn't been confirmed yet.
+To **apply state** (write outputs, delete inputs): broadcast the message
+unwrapped. The client decomposes it — outputs become readable state, inputs
+are deleted.
 
-When a confirmation message arrives and gets `firecat:confirmed`, the handler
-applies the original message's outputs to state. Now
-`store://balance/alice/utxo-1` is readable.
+One sentence: **receive always decomposes one level; to store without
+decomposing, make the message an output of another message.**
+
+### Valid vs Confirmed
 
 ```
 Message arrives: [hash://sha256/abc, {}, {
@@ -291,20 +334,18 @@ Message arrives: [hash://sha256/abc, {}, {
 }]
 
 Program returns: "firecat:valid"
-Rig stores: hash://sha256/abc → the message
+Handler wraps and broadcasts:
+  → client stores the whole message as data at hash://sha256/abc
+  → inner outputs NOT decomposed — just data
 
-read("hash://sha256/abc")           → found (message in storage)
+read("hash://sha256/abc")           → found (the message blob)
 read("store://balance/alice/utxo-1") → not found (not confirmed)
 
 ---
 
-Confirmation arrives: [hash://sha256/def, {}, {
-  inputs: [...],
-  outputs: [["consensus://record/abc", {}, "hash://sha256/abc"]]
-}]
-
-Program returns: "firecat:confirmed"
-Handler applies state: writes outputs from the original message
+Confirmation arrives, program returns: "firecat:confirmed"
+Handler broadcasts the original message UNWRAPPED:
+  → client decomposes: deletes inputs, writes outputs to domain URIs
 
 read("store://balance/alice/utxo-1") → found (confirmed state)
 ```
@@ -312,8 +353,8 @@ read("store://balance/alice/utxo-1") → found (confirmed state)
 ### Why This Matters for Validation
 
 When programs call `read()` during classification, they only see confirmed
-state. Unconfirmed messages exist in storage but their outputs haven't been
-written to domain URIs. This means:
+state. Valid-but-unconfirmed messages are stored opaquely at hash URIs — their
+outputs haven't been written to domain URIs. This means:
 
 - Conservation checks are against confirmed state, not pending proposals
 - Double-spend detection is against confirmed state
@@ -334,31 +375,15 @@ That's all a client does. No validation, no conservation checks, no
 classification. The rig coordinates what messages reach which clients.
 The handler controls what's in those messages.
 
-### Consumption via Handler Shaping
+### Consumption
 
-Consumption isn't a framework concept or a client protocol — it's a
-consequence of what the handler puts in the message it forwards to clients.
+Consumption happens when the handler broadcasts a message with inputs. The
+client deletes those inputs. This only happens on confirmation — the
+`firecat:valid` handler wraps messages (no inputs reach the client), while
+the `firecat:confirmed` handler broadcasts the original unwrapped (inputs
+get deleted, outputs get written).
 
-```typescript
-// Accept: strip inputs, client only writes outputs
-"firecat:valid": async (msg, receive) => {
-  const [uri, values, data] = msg;
-  await receive([[uri, values, { inputs: [], outputs: data.outputs }]]);
-},
-
-// Confirm: forward as-is, client deletes inputs AND writes outputs
-"firecat:confirmed": async (msg, receive) => {
-  await receive([msg]);
-},
-
-// Or: confirm but don't consume (light node doesn't track state)
-"firecat:confirmed": async (msg, receive) => {
-  const [uri, values, data] = msg;
-  await receive([[uri, values, { inputs: [], outputs: data.outputs }]]);
-},
-```
-
-The handler shapes the message. The client executes it mechanically.
+The handler shapes what reaches the client. The client executes mechanically.
 
 ---
 
@@ -394,12 +419,13 @@ await rig.receive([message]);
 The rig finds the `firecat://msg` program, which:
 - Validates the message format
 - Verifies the auth signature
-- Runs firecat sub-programs on each output (via `receive`)
+- Runs firecat sub-programs on each output (via the rig's `receive`)
 - Checks conservation (zero values in, zero values out — OK)
 - Returns `"firecat:valid"`
 
-The message is stored. The UGC output is NOT yet at
-`store://accounts/loremipsum/posts/hello` — not confirmed.
+The `valid` handler wraps the message and broadcasts it. Client stores the
+whole message as data at `hash://sha256/{hash}`. The UGC output is NOT at
+`store://accounts/loremipsum/posts/hello` — not decomposed, not confirmed.
 
 ### 3. Confirmation
 
@@ -420,9 +446,10 @@ const confirmation = [
 The `consensus://record` program verifies the proof and returns
 `"firecat:confirmed"`.
 
-The handler applies state: the UGC output is written to
-`store://accounts/loremipsum/posts/hello`. It's now readable as confirmed
-state. Subsequent validations see it.
+The `confirmed` handler loads the original message from `hash://sha256/abc`
+and broadcasts it unwrapped. The client decomposes it — the UGC output is
+written to `store://accounts/loremipsum/posts/hello`. Inputs (if any) are
+deleted. State is applied.
 
 ### 4. Reading
 
@@ -509,7 +536,10 @@ export function lightNode(client: NodeProtocolInterface): Rig {
 | Schema maps programs to validators | Programs map to classifiers |
 | Rig has `schema` | Rig has `programs` + `on` |
 | Binary accept/reject | Open-ended codes |
-| Client processes MessageData | Client is mechanical storage |
+| Client processes MessageData | Client is mechanical: delete inputs, write outputs |
 | Conservation in firecat validators | Conservation in programs, values on primitive |
-| `consumed://` marker URIs | Consumption via code handlers |
+| `consumed://` marker URIs | Consumption via inputs (client deletes) |
 | `isMessageData()` branching | No branching — always `{ inputs, outputs }` |
+| `_dispatch` (raw client access) | `broadcast` (direct to clients, bypasses programs) |
+| Single `receive` for all callers | `receive` for programs (full pipeline), `broadcast` for handlers (trusted) |
+| Handler not separated from validation | Handler is `(message, broadcast, read) => void` — trusted internal code |
