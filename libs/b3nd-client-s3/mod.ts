@@ -20,7 +20,6 @@ import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
-import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 export interface S3Executor {
   putObject: (key: string, body: string, contentType: string) => Promise<void>;
@@ -60,8 +59,18 @@ export class S3Client implements NodeProtocolInterface {
     this.executor = executor;
   }
 
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
+
+    for (const msg of msgs) {
+      results.push(await this.receiveOne(msg));
+    }
+
+    return results;
+  }
+
+  private async receiveOne(msg: Message): Promise<ReceiveResult> {
+    const [uri, , data] = msg;
 
     if (!uri || typeof uri !== "string") {
       return {
@@ -72,29 +81,30 @@ export class S3Client implements NodeProtocolInterface {
     }
 
     try {
-      const encodedData = encodeBinaryForJson(data);
-      const ts = Date.now();
-      const record: PersistenceRecord = { ts, data: encodedData };
-      const key = this.resolveKey(uri);
+      const { inputs, outputs } = data as {
+        inputs: string[];
+        outputs: [string, Record<string, number>, unknown][];
+      };
 
-      await this.executor.putObject(
-        key,
-        JSON.stringify(record),
-        "application/json",
-      );
+      // Delete every URI in inputs
+      if (inputs) {
+        for (const inputUri of inputs) {
+          await this.executor.deleteObject(this.resolveKey(inputUri));
+        }
+      }
 
-      if (isMessageData(data)) {
-        for (const [outputUri, outputValue] of data.payload.outputs) {
-          const outputEncoded = encodeBinaryForJson(outputValue);
-          const outputTs = Date.now();
-          const outputRecord: PersistenceRecord = {
-            ts: outputTs,
-            data: outputEncoded,
+      // Write every output
+      if (outputs) {
+        for (const [outUri, outValues, outData] of outputs) {
+          const encodedData = encodeBinaryForJson(outData);
+          const record: PersistenceRecord = {
+            values: outValues,
+            data: encodedData,
           };
-          const outputKey = this.resolveKey(outputUri);
+          const key = this.resolveKey(outUri);
           await this.executor.putObject(
-            outputKey,
-            JSON.stringify(outputRecord),
+            key,
+            JSON.stringify(record),
             "application/json",
           );
         }
@@ -139,13 +149,13 @@ export class S3Client implements NodeProtocolInterface {
         };
       }
 
-      const record = JSON.parse(content) as PersistenceRecord;
+      const record = JSON.parse(content) as { values?: Record<string, number>; data: unknown };
       const decodedData = decodeBinaryFromJson(record.data) as T;
 
       return {
         success: true,
         uri,
-        record: { ts: record.ts, data: decodedData },
+        record: { values: record.values ?? {}, data: decodedData },
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -178,12 +188,12 @@ export class S3Client implements NodeProtocolInterface {
         const content = await this.executor.getObject(k);
         if (content !== null) {
           try {
-            const record = JSON.parse(content) as PersistenceRecord;
+            const record = JSON.parse(content) as { values?: Record<string, number>; data: unknown };
             const decodedData = decodeBinaryFromJson(record.data) as T;
             results.push({
               success: true,
               uri: itemUri,
-              record: { ts: record.ts, data: decodedData },
+              record: { values: record.values ?? {}, data: decodedData },
             });
           } catch {
             // Skip malformed records

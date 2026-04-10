@@ -1,13 +1,21 @@
+/**
+ * MemoryClient — in-memory implementation of NodeProtocolInterface.
+ *
+ * Mechanical storage: delete inputs, write outputs. No validation,
+ * no conservation — the rig handles classification via programs.
+ *
+ * Message primitive: [uri, values, data] where data is always
+ * { inputs: string[], outputs: Output[] }.
+ */
+
 import type {
   Message,
   NodeProtocolInterface,
   PersistenceRecord,
   ReadResult,
   ReceiveResult,
-  Schema,
   StatusResult,
 } from "../b3nd-core/types.ts";
-import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 type MemoryClientStorageNode<T> = {
   value?: T;
@@ -63,33 +71,75 @@ export class MemoryClient implements NodeProtocolInterface {
 
   /** Internal write listeners for observe(). */
   private _writeListeners = new Set<
-    (uri: string, data: unknown, ts: number) => void
+    (uri: string, data: unknown) => void
   >();
 
   constructor(config: MemoryClientConfig = {}) {
     this.storage = config.storage || new Map();
   }
 
-  public async receive<D = unknown>(
-    msg: Message<D>,
-  ): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  // ── Mechanical storage ──────────────────────────────────────────────
+
+  /**
+   * Receive a batch of messages. For each message:
+   * 1. Delete every URI in data.inputs
+   * 2. Write every [uri, values, data] in data.outputs
+   */
+  public async receive(
+    msgs: Message[],
+  ): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
+
+    for (const msg of msgs) {
+      results.push(this._receiveOne(msg));
+    }
+
+    return results;
+  }
+
+  private _receiveOne(msg: Message): ReceiveResult {
+    const [uri, , data] = msg;
 
     if (!uri || typeof uri !== "string") {
       return { accepted: false, error: "Message URI is required" };
     }
 
-    const result = target(uri, this.storage);
-    if (!result.success) {
-      return { accepted: false, error: result.error };
-    }
-    const { node, parts } = result;
+    // Extract inputs and outputs from data
+    const msgData = data as {
+      inputs?: string[];
+      outputs?: [string, Record<string, number>, unknown][];
+    } | null;
 
-    // Store the data at this URI
-    const record = {
-      ts: Date.now(),
-      data,
-    };
+    if (!msgData || typeof msgData !== "object") {
+      return { accepted: false, error: "Message data must be { inputs, outputs }" };
+    }
+
+    const inputs: string[] = Array.isArray(msgData.inputs) ? msgData.inputs : [];
+    const outputs: [string, Record<string, number>, unknown][] =
+      Array.isArray(msgData.outputs) ? msgData.outputs : [];
+
+    // 1. Delete inputs
+    for (const inputUri of inputs) {
+      this._delete(inputUri);
+    }
+
+    // 2. Write outputs
+    for (const [outUri, outValues, outData] of outputs) {
+      const record: PersistenceRecord = {
+        values: outValues || {},
+        data: outData,
+      };
+      this._write(outUri, record);
+    }
+
+    return { accepted: true };
+  }
+
+  private _write(uri: string, record: PersistenceRecord): void {
+    const result = target(uri, this.storage);
+    if (!result.success) return;
+
+    const { node, parts } = result;
 
     let prev = node;
     parts.filter(Boolean).forEach((ns) => {
@@ -107,24 +157,42 @@ export class MemoryClient implements NodeProtocolInterface {
 
     // Notify observe listeners
     for (const listener of this._writeListeners) {
-      listener(uri, data, record.ts);
+      listener(uri, record.data);
+    }
+  }
+
+  private _delete(uri: string): void {
+    const result = target(uri, this.storage);
+    if (!result.success) return;
+
+    const { node, parts } = result;
+    const filteredParts = parts.filter(Boolean);
+
+    let current: MemoryClientStorageNode<unknown> | undefined = node;
+    const ancestors: { node: MemoryClientStorageNode<unknown>; key: string }[] = [];
+
+    for (const part of filteredParts) {
+      if (!current?.children?.has(part)) return; // doesn't exist
+      ancestors.push({ node: current, key: part });
+      current = current.children.get(part)!;
     }
 
-    // If MessageData, also store each output at its own URI
-    if (isMessageData(data)) {
-      for (const [outputUri, outputValue] of data.payload.outputs) {
-        const outputResult = await this.receive([outputUri, outputValue]);
-        if (!outputResult.accepted) {
-          return {
-            accepted: false,
-            error: outputResult.error || `Failed to store output: ${outputUri}`,
-          };
-        }
+    // Remove the value
+    delete current.value;
+
+    // Clean up empty ancestors (leaf-to-root)
+    for (let i = ancestors.length - 1; i >= 0; i--) {
+      const { node: parent, key } = ancestors[i];
+      const child = parent.children!.get(key)!;
+      if (!child.value && (!child.children || child.children.size === 0)) {
+        parent.children!.delete(key);
+      } else {
+        break;
       }
     }
-
-    return { accepted: true };
   }
+
+  // ── Read ────────────────────────────────────────────────────────────
 
   public read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
     const uriList = Array.isArray(uris) ? uris : [uris];
@@ -215,6 +283,8 @@ export class MemoryClient implements NodeProtocolInterface {
     return results;
   }
 
+  // ── Observe ─────────────────────────────────────────────────────────
+
   async *observe<T = unknown>(
     pattern: string,
     signal: AbortSignal,
@@ -231,14 +301,14 @@ export class MemoryClient implements NodeProtocolInterface {
           resolve(null);
         };
 
-        const listener = (uri: string, data: unknown, ts: number) => {
+        const listener = (uri: string, data: unknown) => {
           const params = matchPattern(segments, uri);
           if (params !== null) {
             cleanup();
             resolve({
               success: true,
               uri,
-              record: { data: data as T, ts },
+              record: { data: data as T, values: {} },
               params,
             } as ReadResult<T>);
           }
@@ -258,27 +328,12 @@ export class MemoryClient implements NodeProtocolInterface {
     }
   }
 
+  // ── Status ──────────────────────────────────────────────────────────
+
   public status(): Promise<StatusResult> {
     return Promise.resolve({
       status: "healthy",
       schema: [...this.storage.keys()],
     });
   }
-}
-
-/**
- * Default schema for testing that accepts all writes.
- * Includes common b3nd protocol prefixes.
- * This is a rig-level schema (validators), not a client config.
- */
-export function createTestSchema(): Schema {
-  const acceptAll = async () => ({ valid: true });
-  return {
-    "mutable://accounts": acceptAll,
-    "mutable://open": acceptAll,
-    "mutable://data": acceptAll,
-    "immutable://accounts": acceptAll,
-    "immutable://open": acceptAll,
-    "immutable://data": acceptAll,
-  };
 }

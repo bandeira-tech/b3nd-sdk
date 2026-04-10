@@ -46,8 +46,8 @@ function safeStringify(data: unknown): string {
  * ```typescript
  * const client = new ConsoleClient({});
  *
- * await client.receive(["mutable://logs/entry-1", { level: "info", msg: "hello" }]);
- * // Console output: [b3nd] RECEIVE mutable://logs/entry-1 {"level":"info","msg":"hello"}
+ * await client.receive([["mutable://logs/entry-1", {}, { inputs: [], outputs: [] }]]);
+ * // Console output: [b3nd] RECEIVE mutable://logs/entry-1 values={} {"inputs":[],"outputs":[]}
  * ```
  */
 export class ConsoleClient implements NodeProtocolInterface {
@@ -59,24 +59,31 @@ export class ConsoleClient implements NodeProtocolInterface {
     this.log = config.logger ?? console.log;
   }
 
-  public async receive<D = unknown>(
-    msg: Message<D>,
-  ): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  public async receive(
+    msgs: Message[],
+  ): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
 
-    if (!uri || typeof uri !== "string") {
-      return {
-        accepted: false,
-        error: "Message URI is required",
-        errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
-      };
+    for (const msg of msgs) {
+      const [uri, values, data] = msg;
+
+      if (!uri || typeof uri !== "string") {
+        results.push({
+          accepted: false,
+          error: "Message URI is required",
+          errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
+        });
+        continue;
+      }
+
+      this.log(
+        `[${this.label}] RECEIVE ${uri} values=${JSON.stringify(values)} ${safeStringify(data)}`,
+      );
+
+      results.push({ accepted: true });
     }
 
-    this.log(
-      `[${this.label}] RECEIVE ${uri} ${safeStringify(data)}`,
-    );
-
-    return { accepted: true };
+    return results;
   }
 
   public read<T = unknown>(_uris: string | string[]): Promise<ReadResult<T>[]> {

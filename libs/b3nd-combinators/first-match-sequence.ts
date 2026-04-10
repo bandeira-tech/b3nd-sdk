@@ -14,18 +14,19 @@ export function firstMatchSequence(
   }
 
   return {
-    async receive<D>(msg: Message<D>): Promise<ReceiveResult> {
-      // Try each client until one accepts the message
+    async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+      // Try each client until one accepts the batch
       let lastError: string | undefined;
       for (const c of clients) {
-        const res = await c.receive<D>(msg);
-        if (res.accepted) return res;
-        lastError = res.error;
+        const results = await c.receive(msgs);
+        const allAccepted = results.every((r) => r.accepted);
+        if (allAccepted) return results;
+        lastError = results.find((r) => !r.accepted)?.error;
       }
-      return {
+      return msgs.map(() => ({
         accepted: false,
-        error: lastError || "No client accepted message",
-      };
+        error: lastError || "No client accepted messages",
+      }));
     },
 
     async read<T>(uris: string | string[]): Promise<ReadResult<T>[]> {

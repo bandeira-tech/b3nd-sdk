@@ -19,7 +19,6 @@ import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
-import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 export interface MongoExecutor {
   insertOne(doc: Record<string, unknown>): Promise<{ acknowledged?: boolean }>;
@@ -42,6 +41,9 @@ export interface MongoExecutor {
     },
   ): Promise<Record<string, unknown>[]>;
   countDocuments?: (filter: Record<string, unknown>) => Promise<number>;
+  deleteOne?: (
+    filter: Record<string, unknown>,
+  ) => Promise<{ deletedCount?: number }>;
   ping(): Promise<boolean>;
   transaction?: <T>(fn: (executor: MongoExecutor) => Promise<T>) => Promise<T>;
   cleanup?: () => Promise<void>;
@@ -73,15 +75,18 @@ export class MongoClient implements NodeProtocolInterface {
     this.connected = true;
   }
 
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    return this.receiveWithExecutor(msg, this.executor);
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
+
+    for (const msg of msgs) {
+      results.push(await this.receiveOne(msg));
+    }
+
+    return results;
   }
 
-  private async receiveWithExecutor<D = unknown>(
-    msg: Message<D>,
-    executor: MongoExecutor,
-  ): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  private async receiveOne(msg: Message): Promise<ReceiveResult> {
+    const [uri, , data] = msg;
 
     if (!uri || typeof uri !== "string") {
       return {
@@ -92,21 +97,29 @@ export class MongoClient implements NodeProtocolInterface {
     }
 
     try {
-      const encodedData = encodeBinaryForJson(data);
-      const record: PersistenceRecord<typeof encodedData> = {
-        ts: Date.now(),
-        data: encodedData,
+      const { inputs, outputs } = data as {
+        inputs: string[];
+        outputs: [string, Record<string, number>, unknown][];
       };
 
-      if (isMessageData(data) && executor.transaction) {
-        await executor.transaction(async (tx) => {
-          await tx.updateOne(
-            { uri },
+      // Delete every URI in inputs
+      if (inputs && this.executor.deleteOne) {
+        for (const inputUri of inputs) {
+          await this.executor.deleteOne({ uri: inputUri });
+        }
+      }
+
+      // Write every output
+      if (outputs) {
+        for (const [outUri, outValues, outData] of outputs) {
+          const encodedData = encodeBinaryForJson(outData);
+          await this.executor.updateOne(
+            { uri: outUri },
             {
               $set: {
-                uri,
-                data: record.data as unknown,
-                timestamp: record.ts,
+                uri: outUri,
+                data: encodedData as unknown,
+                values: outValues,
                 updatedAt: new Date(),
                 collection: this.collectionName,
               },
@@ -116,61 +129,16 @@ export class MongoClient implements NodeProtocolInterface {
             } as unknown as Record<string, unknown>,
             { upsert: true },
           );
-
-          for (const [outputUri, outputValue] of data.payload.outputs) {
-            const outputResult = await this.receiveWithExecutor(
-              [outputUri, outputValue],
-              tx,
-            );
-            if (!outputResult.accepted) {
-              throw new Error(
-                outputResult.error || `Failed to store output: ${outputUri}`,
-              );
-            }
-          }
-        });
-      } else {
-        await executor.updateOne(
-          { uri },
-          {
-            $set: {
-              uri,
-              data: record.data as unknown,
-              timestamp: record.ts,
-              updatedAt: new Date(),
-              collection: this.collectionName,
-            },
-            $setOnInsert: {
-              createdAt: new Date(),
-            },
-          } as unknown as Record<string, unknown>,
-          { upsert: true },
-        );
-
-        if (isMessageData(data)) {
-          for (const [outputUri, outputValue] of data.payload.outputs) {
-            const outputResult = await this.receiveWithExecutor(
-              [outputUri, outputValue],
-              executor,
-            );
-            if (!outputResult.accepted) {
-              return {
-                accepted: false,
-                error: outputResult.error ||
-                  `Failed to store output: ${outputUri}`,
-              };
-            }
-          }
         }
       }
 
       return { accepted: true };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const errMsg = error instanceof Error ? error.message : String(error);
       return {
         accepted: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
+        error: errMsg,
+        errorDetail: Errors.storageError(errMsg, uri),
       };
     }
   }
@@ -201,12 +169,12 @@ export class MongoClient implements NodeProtocolInterface {
         };
       }
 
-      const tsValue = doc.timestamp;
       const dataValue = doc.data;
       const decodedData = decodeBinaryFromJson(dataValue) as T;
+      const valuesValue = (doc.values ?? {}) as Record<string, number>;
 
       const record: PersistenceRecord<T> = {
-        ts: typeof tsValue === "number" ? tsValue : Number(tsValue),
+        values: valuesValue,
         data: decodedData,
       };
 
@@ -237,12 +205,12 @@ export class MongoClient implements NodeProtocolInterface {
         const docUri = typeof doc.uri === "string" ? doc.uri : undefined;
         if (!docUri) continue;
 
-        const tsValue = doc.timestamp;
         const decodedData = decodeBinaryFromJson(doc.data) as T;
+        const valuesValue = (doc.values ?? {}) as Record<string, number>;
         results.push({
           success: true,
           record: {
-            ts: typeof tsValue === "number" ? tsValue : Number(tsValue),
+            values: valuesValue,
             data: decodedData,
             uri: docUri,
           } as PersistenceRecord<T>,

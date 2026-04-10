@@ -24,7 +24,6 @@ import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
-import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 export interface FsExecutor {
   readFile: (path: string) => Promise<string>;
@@ -62,50 +61,56 @@ export class FilesystemClient implements NodeProtocolInterface {
     this.executor = executor;
   }
 
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
 
-    if (!uri || typeof uri !== "string") {
-      return {
-        accepted: false,
-        error: "Message URI is required",
-        errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
-      };
-    }
+    for (const msg of msgs) {
+      const [uri, , data] = msg;
 
-    try {
-      const encodedData = encodeBinaryForJson(data);
-      const ts = Date.now();
-      const record: PersistenceRecord = { ts, data: encodedData };
-      const filePath = this.resolvePath(uri);
-
-      await this.executor.writeFile(filePath, JSON.stringify(record));
-
-      if (isMessageData(data)) {
-        for (const [outputUri, outputValue] of data.payload.outputs) {
-          const outputEncoded = encodeBinaryForJson(outputValue);
-          const outputTs = Date.now();
-          const outputRecord: PersistenceRecord = {
-            ts: outputTs,
-            data: outputEncoded,
-          };
-          const outputPath = this.resolvePath(outputUri);
-          await this.executor.writeFile(
-            outputPath,
-            JSON.stringify(outputRecord),
-          );
-        }
+      if (!uri || typeof uri !== "string") {
+        results.push({
+          accepted: false,
+          error: "Message URI is required",
+          errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
+        });
+        continue;
       }
 
-      return { accepted: true };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        accepted: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
-      };
+      try {
+        const { inputs, outputs } = data as {
+          inputs: string[];
+          outputs: [string, Record<string, number>, unknown][];
+        };
+
+        // Delete inputs
+        for (const inputUri of inputs) {
+          try {
+            await this.executor.removeFile(this.resolvePath(inputUri));
+          } catch {
+            // File may not exist — ignore
+          }
+        }
+
+        // Write outputs
+        for (const [outUri, outValues, outData] of outputs) {
+          const encodedData = encodeBinaryForJson(outData);
+          const record: PersistenceRecord = { values: outValues, data: encodedData };
+          const filePath = this.resolvePath(outUri);
+          await this.executor.writeFile(filePath, JSON.stringify(record));
+        }
+
+        results.push({ accepted: true });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        results.push({
+          accepted: false,
+          error: msg,
+          errorDetail: Errors.storageError(msg, uri),
+        });
+      }
     }
+
+    return results;
   }
 
   public async read<T = unknown>(
@@ -140,12 +145,12 @@ export class FilesystemClient implements NodeProtocolInterface {
       }
 
       const content = await this.executor.readFile(filePath);
-      const record = JSON.parse(content) as PersistenceRecord;
+      const record = JSON.parse(content) as { values: Record<string, number>; data: unknown };
       const decodedData = decodeBinaryFromJson(record.data) as T;
 
       return {
         success: true,
-        record: { ts: record.ts, data: decodedData },
+        record: { values: record.values || {}, data: decodedData },
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

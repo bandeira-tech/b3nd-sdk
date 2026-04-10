@@ -29,15 +29,14 @@ export function generatePostgresSchema(tablePrefix: string): string {
 -- Create ${tablePrefix}_data table for storing URI-based data
 CREATE TABLE IF NOT EXISTS ${tablePrefix}_data (
     uri VARCHAR(2048) PRIMARY KEY,
+    "values" JSONB NOT NULL DEFAULT '{}',
     data JSONB NOT NULL,
-    timestamp BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_${tablePrefix}_data_uri_prefix ON ${tablePrefix}_data (uri);
-CREATE INDEX IF NOT EXISTS idx_${tablePrefix}_data_timestamp ON ${tablePrefix}_data (timestamp);
 CREATE INDEX IF NOT EXISTS idx_${tablePrefix}_data_created_at ON ${tablePrefix}_data (created_at);
 
 -- Create function to update updated_at timestamp
@@ -56,31 +55,14 @@ CREATE TRIGGER update_${tablePrefix}_data_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_${tablePrefix}_updated_at_column();
 
--- Create a function for upsert operations (used by b3nd write operations)
-CREATE OR REPLACE FUNCTION ${tablePrefix}_upsert(
-    p_uri VARCHAR,
-    p_data JSONB,
-    p_timestamp BIGINT
-)
-RETURNS VOID AS $$
-BEGIN
-    INSERT INTO ${tablePrefix}_data (uri, data, timestamp)
-    VALUES (p_uri, p_data, p_timestamp)
-    ON CONFLICT (uri) DO UPDATE SET
-        data = EXCLUDED.data,
-        timestamp = EXCLUDED.timestamp,
-        updated_at = CURRENT_TIMESTAMP;
-END;
-$$ LANGUAGE plpgsql;
-
 -- Create a view for easier querying by program/protocol
 CREATE OR REPLACE VIEW ${tablePrefix}_data_by_program AS
 SELECT
     uri,
     split_part(uri, '://', 1) as program,
     split_part(uri, '://', 2) as path,
+    "values",
     data,
-    timestamp,
     created_at,
     updated_at
 FROM ${tablePrefix}_data;
@@ -120,8 +102,6 @@ export function generateCompleteSchemaSQL(options: SchemaInitOptions): string {
     sql += `\n\n-- Grant permissions to ${databaseUser}\n`;
     sql +=
       `GRANT ALL PRIVILEGES ON TABLE ${tablePrefix}_data TO ${databaseUser};\n`;
-    sql +=
-      `GRANT EXECUTE ON FUNCTION ${tablePrefix}_upsert(VARCHAR, JSONB, BIGINT) TO ${databaseUser};\n`;
   }
 
   return sql;

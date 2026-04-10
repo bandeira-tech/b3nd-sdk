@@ -4,10 +4,12 @@
  */
 
 /**
- * Persistence record with timestamp
+ * Persistence record — values + data.
+ * Values are conserved quantities (Record<string, number>).
+ * Data is the stored content.
  */
 export interface PersistenceRecord<T = unknown> {
-  ts: number;
+  values: Record<string, number>;
   data: T;
 }
 
@@ -122,10 +124,17 @@ export interface StatusResult {
 }
 
 /**
- * Output — the universal addressed-content primitive: [uri, data]
- * Every message, every inner payload entry, every write — is an Output.
+ * Output — the universal addressed-content primitive: [uri, values, data]
+ *
+ * - uri: identity/address
+ * - values: conserved quantities ({} for none, always present)
+ * - data: always { inputs: string[], outputs: Output[] }
  */
-export type Output<T = unknown> = [uri: string, data: T];
+export type Output<T = unknown> = [
+  uri: string,
+  values: Record<string, number>,
+  data: T,
+];
 
 /**
  * Message — alias for Output. A message is an addressed output.
@@ -133,7 +142,60 @@ export type Output<T = unknown> = [uri: string, data: T];
 export type Message<D = unknown> = Output<D>;
 
 /**
- * Validation result
+ * Read function for storage lookups.
+ * Single-URI convenience — returns first result from read().
+ */
+export type ReadFn = <T = unknown>(uri: string) => Promise<ReadResult<T>>;
+
+/**
+ * Receive function — batch of messages through the rig pipeline.
+ */
+export type ReceiveFn = (msgs: Message[]) => Promise<ReceiveResult[]>;
+
+// ── Program model ───────────────────────────────────────────────────
+
+/**
+ * Program result — classification of a message by a program.
+ * Programs return protocol-defined codes, not binary valid/invalid.
+ */
+export interface ProgramResult {
+  code: string;
+  error?: string;
+}
+
+/**
+ * Program — classifies a message and returns a protocol-defined code.
+ *
+ * - `output`   — the [uri, values, data] being classified
+ * - `upstream` — the parent output (undefined at top level)
+ * - `read`     — storage lookup (only confirmed state)
+ * - `receive`  — the rig's full receive pipeline (for recursive sub-messages)
+ */
+export type Program<T = unknown> = (
+  output: Output<T>,
+  upstream: Output | undefined,
+  read: ReadFn,
+  receive: ReceiveFn,
+) => Promise<ProgramResult>;
+
+/**
+ * Code handler — what to do when a program returns a specific code.
+ * Handlers get broadcast (direct to clients, bypasses programs) and read.
+ *
+ * - `message`   — the classified message
+ * - `broadcast` — direct dispatch to clients (trusted, no re-validation)
+ * - `read`      — storage lookup (confirmed state)
+ */
+export type CodeHandler = (
+  message: Message,
+  broadcast: ReceiveFn,
+  read: ReadFn,
+) => Promise<void>;
+
+// ── Deprecated validation types (transitional) ─────────────────────
+
+/**
+ * @deprecated Use ProgramResult instead.
  */
 export interface ValidationResult {
   valid: boolean;
@@ -141,21 +203,7 @@ export interface ValidationResult {
 }
 
 /**
- * Read function for storage lookups during validation.
- * Single-URI convenience — returns first result from read().
- */
-export type ReadFn = <T = unknown>(uri: string) => Promise<ReadResult<T>>;
-
-/**
- * Validator — the single validation primitive.
- *
- * - `output`   — the [uri, data] being validated
- * - `upstream` — the parent output that contains this one (undefined at top level)
- * - `read`     — storage lookup (only committed data)
- *
- * A top-level message is validated as: `validator(msg, undefined, read)`
- * An inner output within an envelope: `validator(inner, envelope, read)`
- * Protocols can nest further:        `validator(deep, inner, read)`
+ * @deprecated Use Program instead.
  */
 export type Validator<T = unknown> = (
   output: Output<T>,
@@ -164,7 +212,7 @@ export type Validator<T = unknown> = (
 ) => Promise<ValidationResult>;
 
 /**
- * Schema mapping program keys to validators
+ * @deprecated Use Record<string, Program> instead.
  */
 export type Schema = Record<string, Validator>;
 
@@ -192,8 +240,14 @@ export interface ReceiveResult {
  * implement this interface, enabling recursive composition and uniform usage.
  */
 export interface NodeProtocolInterface {
-  /** Receive a message — the unified entry point for all state changes. */
-  receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
+  /**
+   * Receive a batch of messages — the unified entry point for all state changes.
+   *
+   * Each message is [uri, values, data] where data is { inputs, outputs }.
+   * Clients are mechanical: delete inputs, write outputs for each message.
+   * Returns one ReceiveResult per message.
+   */
+  receive(msgs: Message[]): Promise<ReceiveResult[]>;
 
   /**
    * Read data from one or more URIs.

@@ -93,35 +93,46 @@ export class LocalStorageClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a message - the unified entry point for all state changes
-   * @param msg - Message tuple [uri, data]
-   * @returns ReceiveResult indicating acceptance
+   * Receive a batch of messages — mechanical: delete inputs, write outputs.
+   * @param msgs - Array of Message tuples [uri, values, data]
+   * @returns Array of ReceiveResult, one per message
    */
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
 
-    // Basic URI validation
-    if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Message URI is required" };
-    }
-
-    try {
-      const key = this.getKey(uri);
-      const record: PersistenceRecord<unknown> = {
-        ts: Date.now(),
-        data: serializeData(data),
+    for (const msg of msgs) {
+      const [, , data] = msg;
+      const { inputs, outputs } = data as {
+        inputs: string[];
+        outputs: [string, Record<string, number>, unknown][];
       };
 
-      const serialized = this.serialize(record);
-      this.storage.setItem(key, serialized);
+      try {
+        // Delete every URI in inputs
+        for (const inputUri of inputs) {
+          this.storage.removeItem(this.getKey(inputUri));
+        }
 
-      return { accepted: true };
-    } catch (error) {
-      return {
-        accepted: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+        // Write every output
+        for (const [outUri, outValues, outData] of outputs) {
+          const record = {
+            values: outValues,
+            data: serializeData(outData),
+          };
+          const serialized = this.serialize(record);
+          this.storage.setItem(this.getKey(outUri), serialized);
+        }
+
+        results.push({ accepted: true });
+      } catch (error) {
+        results.push({
+          accepted: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
+
+    return results;
   }
 
   public read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
@@ -151,9 +162,12 @@ export class LocalStorageClient implements NodeProtocolInterface {
         };
       }
 
-      const raw = this.deserialize(serialized) as PersistenceRecord<unknown>;
+      const raw = this.deserialize(serialized) as {
+        values?: Record<string, number>;
+        data: unknown;
+      };
       const record: PersistenceRecord<T> = {
-        ts: raw.ts,
+        values: raw.values || {},
         data: deserializeData(raw.data) as T,
       };
       return {
