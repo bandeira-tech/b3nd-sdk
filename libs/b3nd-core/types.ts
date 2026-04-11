@@ -166,16 +166,18 @@ export interface ProgramResult {
 /**
  * Program — classifies a message and returns a protocol-defined code.
  *
+ * Programs are pure classifiers with no side effects. A protocol ships its
+ * own programs as a closed package — sub-output classification is handled
+ * internally by the protocol, not by calling back into the rig.
+ *
  * - `output`   — the [uri, values, data] being classified
  * - `upstream` — the parent output (undefined at top level)
  * - `read`     — storage lookup (only confirmed state)
- * - `receive`  — the rig's full receive pipeline (for recursive sub-messages)
  */
 export type Program<T = unknown> = (
   output: Output<T>,
   upstream: Output | undefined,
   read: ReadFn,
-  receive: ReceiveFn,
 ) => Promise<ProgramResult>;
 
 /**

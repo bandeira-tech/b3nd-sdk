@@ -68,20 +68,55 @@ type Program = (
   output:   Output,                  // [uri, values, data] being classified
   upstream: Output | undefined,      // parent message context (if nested)
   read:     ReadFn,                  // storage lookup (confirmed state only)
-  receive:  ReceiveFn,               // process sub-messages through the rig
 ) => Promise<ProgramResult>;
 ```
 
-Programs get four arguments:
+Programs get three arguments:
 1. **output** — the message being classified
 2. **upstream** — the parent message, if this is a nested output
 3. **read** — reads from storage (only confirmed state visible)
-4. **receive** — the rig's own receive, for processing sub-messages
 
-The `receive` parameter is key. When a program needs to recursively process
-a nested message (matryoshka pattern), it calls `receive`. The nested message
-goes through the full rig pipeline — program lookup, classification, code
-handling. The program doesn't need to know about clients or storage.
+Programs are **pure classifiers** — no side effects, no rig callbacks.
+
+### Scoped Sub-Program Routing
+
+When a program needs to classify sub-outputs (matryoshka pattern), it calls
+its own protocol's programs directly. The protocol ships as a closed package
+that knows its own routing:
+
+```typescript
+// firecat/programs/msg.ts
+import { balanceProgram } from "./balance.ts";
+import { dataProgram } from "./data.ts";
+
+const subPrograms: Record<string, Program> = {
+  "store://balance": balanceProgram,
+  "store://data":    dataProgram,
+};
+
+function routeSubOutput(output: Output): Program | undefined {
+  const [uri] = output;
+  for (const [prefix, program] of Object.entries(subPrograms)) {
+    if (uri.startsWith(prefix)) return program;
+  }
+  return undefined;
+}
+
+const msgProgram: Program = async (output, _upstream, read) => {
+  const [, , data] = output;
+  for (const subOutput of data.outputs) {
+    const sub = routeSubOutput(subOutput);
+    if (!sub) return { code: "firecat:invalid", error: "unknown output URI" };
+    const result = await sub(subOutput, output, read);
+    if (result.error) return result;
+  }
+  return { code: "firecat:valid" };
+};
+```
+
+The protocol doesn't need the rig to classify its own outputs — it already
+knows what programs exist. The rig just maps URIs to top-level programs and
+codes to handlers. Programs never cause side effects.
 
 ### Codes are Protocol-Defined
 
@@ -419,7 +454,7 @@ await rig.receive([message]);
 The rig finds the `firecat://msg` program, which:
 - Validates the message format
 - Verifies the auth signature
-- Runs firecat sub-programs on each output (via the rig's `receive`)
+- Runs its own sub-programs on each output (scoped protocol routing)
 - Checks conservation (zero values in, zero values out — OK)
 - Returns `"firecat:valid"`
 
@@ -541,5 +576,5 @@ export function lightNode(client: NodeProtocolInterface): Rig {
 | `consumed://` marker URIs | Consumption via inputs (client deletes) |
 | `isMessageData()` branching | No branching — always `{ inputs, outputs }` |
 | `_dispatch` (raw client access) | `broadcast` (direct to clients, bypasses programs) |
-| Single `receive` for all callers | `receive` for programs (full pipeline), `broadcast` for handlers (trusted) |
+| Single `receive` for all callers | Programs are pure (no rig callback), handlers get `broadcast` (trusted) |
 | Handler not separated from validation | Handler is `(message, broadcast, read) => void` — trusted internal code |
