@@ -10,8 +10,10 @@ import {
   type FunctionalClientConfig,
 } from "../b3nd-core/functional-client.ts";
 import type {
+  Message,
   NodeProtocolInterface,
   ReadResult,
+  ReceiveResult,
   Validator,
 } from "../b3nd-core/types.ts";
 
@@ -19,7 +21,7 @@ import type {
  * Create a FunctionalClient that validates before writing.
  *
  * Wiring:
- * - receive → validate(msg, read.read) → write.receive(msg)
+ * - receive → validate each msg → write.receive(msgs)
  * - read/status → delegated to config.read
  *
  * @example
@@ -38,51 +40,61 @@ export function createValidatedClient(config: {
 }): FunctionalClient {
   const { write, read, validate } = config;
 
+  const readFn = async <T = unknown>(
+    u: string,
+  ): Promise<ReadResult<T>> => {
+    const results = await read.read<T>(u);
+    return results[0] ?? { success: false, error: "No results" } as ReadResult<T>;
+  };
+
   const fnConfig: FunctionalClientConfig = {
-    async receive(msg) {
-      const [uri] = msg;
+    async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+      const results: ReceiveResult[] = [];
 
-      // Basic URI validation
-      if (!uri || typeof uri !== "string") {
-        return { accepted: false, error: "Message URI is required" };
-      }
+      for (const msg of msgs) {
+        const [uri] = msg;
 
-      // Run validation — top-level message, no upstream
-      try {
-        const readFn = async <T = unknown>(
-          u: string,
-        ): Promise<ReadResult<T>> => {
-          const results = await read.read<T>(u);
-          return results[0] ??
-            { success: false, error: "No results" } as ReadResult<T>;
-        };
-        const validationResult = await validate(msg, undefined, readFn);
-        if (!validationResult.valid) {
-          return {
-            accepted: false,
-            error: validationResult.error || "Validation failed",
-          };
+        // Basic URI validation
+        if (!uri || typeof uri !== "string") {
+          results.push({ accepted: false, error: "Message URI is required" });
+          continue;
         }
-      } catch (error) {
-        return {
-          accepted: false,
-          error: `Validation error: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        };
+
+        // Run validation — top-level message, no upstream
+        try {
+          const validationResult = await validate(msg, undefined, readFn);
+          if (!validationResult.valid) {
+            results.push({
+              accepted: false,
+              error: validationResult.error || "Validation failed",
+            });
+            continue;
+          }
+        } catch (error) {
+          results.push({
+            accepted: false,
+            error: `Validation error: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          });
+          continue;
+        }
+
+        // Forward valid message to write backend
+        try {
+          const writeResults = await write.receive([msg]);
+          results.push(writeResults[0] ?? { accepted: false, error: "No result" });
+        } catch (error) {
+          results.push({
+            accepted: false,
+            error: `Processing error: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          });
+        }
       }
 
-      // Forward to write backend
-      try {
-        return await write.receive(msg);
-      } catch (error) {
-        return {
-          accepted: false,
-          error: `Processing error: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        };
-      }
+      return results;
     },
 
     read: (uris) => read.read(uris),

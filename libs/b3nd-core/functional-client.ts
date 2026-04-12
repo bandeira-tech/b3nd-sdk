@@ -19,9 +19,7 @@ import type {
  * Each method is optional — missing methods return sensible defaults.
  */
 export interface FunctionalClientConfig {
-  receive?: <D = unknown>(
-    msg: Message<D>,
-  ) => Promise<ReceiveResult>;
+  receive?: (msgs: Message[]) => Promise<ReceiveResult[]>;
   read?: <T = unknown>(uris: string | string[]) => Promise<ReadResult<T>[]>;
   observe?: <T = unknown>(
     pattern: string,
@@ -53,11 +51,13 @@ export class FunctionalClient implements NodeProtocolInterface {
     this.config = config;
   }
 
-  receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
+  receive(msgs: Message[]): Promise<ReceiveResult[]> {
     if (this.config.receive) {
-      return this.config.receive(msg);
+      return this.config.receive(msgs);
     }
-    return Promise.resolve({ accepted: false, error: "not implemented" });
+    return Promise.resolve(
+      msgs.map(() => ({ accepted: false, error: "not implemented" })),
+    );
   }
 
   read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {

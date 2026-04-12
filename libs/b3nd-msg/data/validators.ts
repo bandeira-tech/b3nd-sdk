@@ -1,5 +1,7 @@
 /**
  * Validator utilities for the inputs/outputs convention
+ *
+ * @deprecated Use Program from b3nd-core and scoped sub-program routing instead.
  */
 
 import type { MessageValidator } from "../node-types.ts";
@@ -28,54 +30,18 @@ export function extractProgram(uri: string): string | null {
 }
 
 /**
- * Create a message validator that validates outputs against a program schema
+ * Create a message validator that validates outputs against a program schema.
  *
- * This validator:
- * 1. Runs your custom pre-validator (signature checks, etc.)
- * 2. Validates each output against its program validator (if defined)
- *
- * @param options - Validator options
- * @param options.schema - Program schema mapping prefixes to validators
- * @param options.preValidate - Optional pre-validation (signature, format, etc.)
- *
- * @example
- * ```typescript
- * import { createOutputValidator } from "b3nd/msg-data"
- *
- * const validator = createOutputValidator({
- *   schema: {
- *     "immutable://open": async (ctx) => {
- *       const fee = ctx.outputs.find(([uri]) => uri.startsWith("fees://"))
- *       if (!fee) return { valid: false, error: "fee_required" }
- *       return { valid: true }
- *     },
- *     "mutable://accounts": async (ctx) => {
- *       // Validate account writes
- *       return { valid: true }
- *     }
- *   },
- *   preValidate: async (msg, read) => {
- *     const [uri, data] = msg
- *     // Check signature, etc.
- *     return { valid: true }
- *   }
- * })
- *
- * const node = createMessageNode({
- *   validate: validator,
- *   read: myReadInterface,
- *   peers: myPeers
- * })
- * ```
+ * @deprecated Use Program from b3nd-core with scoped sub-program routing instead.
  */
-export function createOutputValidator<V = unknown>(options: {
-  schema: ProgramSchema<V>;
-  preValidate?: MessageValidator<MessageData<V>>;
-}): MessageValidator<MessageData<V>> {
+export function createOutputValidator(options: {
+  schema: ProgramSchema;
+  preValidate?: MessageValidator;
+}): MessageValidator {
   const { schema, preValidate } = options;
 
   return async (msg, read) => {
-    const [uri, data] = msg;
+    const [, , data] = msg;
 
     // 1. Pre-validation (signature, format, etc.)
     if (preValidate) {
@@ -84,24 +50,22 @@ export function createOutputValidator<V = unknown>(options: {
     }
 
     // 2. Validate data structure
-    if (!data || typeof data !== "object") {
+    const msgData = data as MessageData | null;
+    if (!msgData || typeof msgData !== "object") {
       return { valid: false, error: "Invalid message data" };
     }
 
-    if (!data.payload || typeof data.payload !== "object") {
-      return { valid: false, error: "payload must be an object" };
+    if (!Array.isArray(msgData.inputs)) {
+      return { valid: false, error: "inputs must be an array" };
     }
 
-    if (!Array.isArray(data.payload.inputs)) {
-      return { valid: false, error: "payload.inputs must be an array" };
-    }
-
-    if (!Array.isArray(data.payload.outputs)) {
-      return { valid: false, error: "payload.outputs must be an array" };
+    if (!Array.isArray(msgData.outputs)) {
+      return { valid: false, error: "outputs must be an array" };
     }
 
     // 3. Validate each output against its program validator
-    for (const [outputUri, outputValue] of data.payload.outputs) {
+    for (const output of msgData.outputs) {
+      const [outputUri, outputValues, outputData] = output;
       const program = extractProgram(outputUri);
       if (!program) {
         return { valid: false, error: `Invalid output URI: ${outputUri}` };
@@ -109,11 +73,12 @@ export function createOutputValidator<V = unknown>(options: {
 
       const programValidator = schema[program];
       if (programValidator) {
-        const ctx: MessageValidationContext<V> = {
+        const ctx: MessageValidationContext = {
           uri: outputUri,
-          value: outputValue,
-          inputs: data.payload.inputs,
-          outputs: data.payload.outputs,
+          values: outputValues,
+          data: outputData,
+          inputs: msgData.inputs,
+          outputs: msgData.outputs,
           read,
         };
 
@@ -134,18 +99,11 @@ export function createOutputValidator<V = unknown>(options: {
 /**
  * Combine multiple validators into one (all must pass)
  *
- * @example
- * ```typescript
- * const validator = combineValidators(
- *   signatureValidator,
- *   balanceValidator,
- *   outputValidator
- * )
- * ```
+ * @deprecated Use Program composition with scoped sub-program routing instead.
  */
-export function combineValidators<D>(
-  ...validators: MessageValidator<D>[]
-): MessageValidator<D> {
+export function combineValidators(
+  ...validators: MessageValidator[]
+): MessageValidator {
   return async (msg, read) => {
     for (const validator of validators) {
       const result = await validator(msg, read);
