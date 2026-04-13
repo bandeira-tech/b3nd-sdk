@@ -7,7 +7,6 @@ import { useActiveBackend } from "../../stores/appStore";
 import type {
   NavigationNode,
   PaginatedResponse,
-  PersistenceRecord,
 } from "../../types";
 import {
   Calendar,
@@ -28,7 +27,7 @@ interface ContentViewerProps {
 }
 
 export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
-  const [record, setRecord] = useState<PersistenceRecord | null>(null);
+  const [record, setRecord] = useState<{ values: Record<string, number>; data: unknown } | null>(null);
   const [directoryContents, setDirectoryContents] = useState<NavigationNode[]>(
     [],
   );
@@ -87,7 +86,7 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
           "ContentViewer: detected file (empty list), loading record for",
           path,
         ); // Debug
-        const fileRecord: PersistenceRecord = await activeBackend.adapter
+        const fileRecord = await activeBackend.adapter
           .readRecord(path);
         setRecord(fileRecord);
         console.log("ContentViewer: file record loaded:", fileRecord); // Debug
@@ -168,7 +167,7 @@ function FileViewer({
   onCopy,
   readUrl,
 }: {
-  record: PersistenceRecord;
+  record: { values: Record<string, number>; data: unknown };
   onCopy: () => Promise<void>;
   readUrl?: string;
 }) {
@@ -315,10 +314,12 @@ function FileViewer({
           )}
         </div>
       </div>
-      <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
-        <Calendar className="h-4 w-4" />
-        <span>Modified: {new Date(record.ts).toLocaleString()}</span>
-      </div>
+      {Object.keys(record.values ?? {}).length > 0 && (
+        <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+          <Calendar className="h-4 w-4" />
+          <span>Values: {JSON.stringify(record.values)}</span>
+        </div>
+      )}
       <pre className="bg-muted rounded p-4 overflow-auto max-h-96 custom-scrollbar font-mono text-sm">
         <div className="flex items-center space-x-2 mb-2">
           <button

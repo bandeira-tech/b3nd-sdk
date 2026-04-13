@@ -23,12 +23,19 @@ const schema: Schema = {
   "mutable://inbox": async () => ({ valid: true }),
   "immutable://inbox": async () => ({ valid: true }),
 
-  "mutable://accounts": async ([uri, value]) => {
+  "mutable://accounts": async ([uri, , data], upstream) => {
     try {
+      if (!upstream) {
+        return { valid: false, error: "Auth required: no upstream message" };
+      }
+      const [, , msgData] = upstream;
+      const msg = msgData as import("@bandeira-tech/b3nd-sdk").MessageData;
+      // Reconstruct auth format expected by authValidation
+      const authValue = { auth: msg.auth || [], payload: { inputs: msg.inputs, outputs: msg.outputs } };
       const getAccess = createPubkeyBasedAccess();
       const validator = authValidation(getAccess);
       // deno-lint-ignore no-explicit-any
-      const isValid = await validator({ uri, value } as any);
+      const isValid = await validator({ uri, value: authValue } as any);
 
       return {
         valid: isValid,
@@ -47,12 +54,19 @@ const schema: Schema = {
     return { valid: !result.success };
   },
 
-  "immutable://accounts": async ([uri, value], _upstream, read) => {
+  "immutable://accounts": async ([uri, , data], upstream, read) => {
     try {
+      if (!upstream) {
+        return { valid: false, error: "Auth required: no upstream message" };
+      }
+      const [, , msgData] = upstream;
+      const msg = msgData as import("@bandeira-tech/b3nd-sdk").MessageData;
+      // Reconstruct auth format expected by authValidation
+      const authValue = { auth: msg.auth || [], payload: { inputs: msg.inputs, outputs: msg.outputs } };
       const getAccess = createPubkeyBasedAccess();
       const validator = authValidation(getAccess);
       // deno-lint-ignore no-explicit-any
-      const isValid = await validator({ uri, value } as any);
+      const isValid = await validator({ uri, value: authValue } as any);
 
       if (isValid) {
         const result = await read(uri);
@@ -84,24 +98,27 @@ const schema: Schema = {
   "immutable://genesis": genesisValidator,
   "consensus://record": consensusRecordValidator,
 
-  // Authenticated links (value is auth-wrapped URI)
-  "link://accounts": async ([uri, value]) => {
+  // Authenticated links — auth checked from upstream message
+  "link://accounts": async ([uri, , data], upstream) => {
     try {
-      // 1. Verify signature
+      if (!upstream) {
+        return { valid: false, error: "Auth required: no upstream message" };
+      }
+      const [, , msgData] = upstream;
+      const msg = msgData as import("@bandeira-tech/b3nd-sdk").MessageData;
+      // Reconstruct auth format expected by authValidation
+      const authValue = { auth: msg.auth || [], payload: { inputs: msg.inputs, outputs: msg.outputs } };
       const getAccess = createPubkeyBasedAccess();
       const validator = authValidation(getAccess);
       // deno-lint-ignore no-explicit-any
-      const isValid = await validator({ uri, value } as any);
+      const isValid = await validator({ uri, value: authValue } as any);
 
       if (!isValid) {
         return { valid: false, error: "Signature verification failed" };
       }
 
-      // 2. Extract payload and validate as link URI
-      const payload = typeof value === "object" && value && "payload" in value
-        ? (value as { payload: unknown }).payload
-        : value;
-      return validateLinkValue(payload);
+      // Validate data as link URI
+      return validateLinkValue(data);
     } catch (error) {
       return {
         valid: false,
@@ -110,10 +127,10 @@ const schema: Schema = {
     }
   },
 
-  // Unauthenticated links (value is just a string URI)
-  "link://open": async ([_uri, value]) => {
+  // Unauthenticated links (data is just a string URI)
+  "link://open": async ([_uri, , data]) => {
     try {
-      return validateLinkValue(value);
+      return validateLinkValue(data);
     } catch (error) {
       return {
         valid: false,

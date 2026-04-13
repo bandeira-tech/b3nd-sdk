@@ -28,7 +28,7 @@ server-side querying or aggregation.
 
 B3nd nodes today implement `NodeProtocolInterface` with operations: `receive`,
 `read`, `readMulti`, `list`, `delete`, and `status`. All state changes flow
-through `receive(msg)`, where `msg` is a `[uri, data]` tuple. Nodes validate
+through `receive(msgs)`, where each msg is a `[uri, values, data]` tuple. Nodes validate
 messages against a schema, then persist them to one or more backends (Memory,
 Postgres, MongoDB, HTTP) via compositors like `parallelBroadcast` and
 `firstMatchSequence`.
@@ -248,7 +248,7 @@ export const recipeTagCounter: IndexerDefinition<RecipeData> = {
   },
 
   async map(msg, ctx) {
-    const [uri, data] = msg;
+    const [uri, , data] = msg;
     let content = data as RecipeData;
     if (ctx.decrypt && isEncryptedPayload(data)) {
       content = await ctx.decrypt(data as any) as RecipeData;
@@ -296,7 +296,7 @@ export const recipeSearch: IndexerDefinition = {
   },
 
   async map(msg, ctx) {
-    const [uri, data] = msg;
+    const [uri, , data] = msg;
     let content = data as any;
     if (ctx.decrypt && content?.data && content?.nonce) {
       content = await ctx.decrypt(content);
@@ -351,7 +351,7 @@ export const revenueAggregation: IndexerDefinition = {
   },
 
   async map(msg, ctx) {
-    const [uri, data] = msg;
+    const [uri, , data] = msg;
     let invoice = data as any;
     if (ctx.decrypt && invoice?.data && invoice?.nonce) {
       invoice = await ctx.decrypt(invoice);
@@ -423,7 +423,7 @@ export function createIndexerProcessor(
   const { indexers, backend, read, decrypt, synchronous } = config;
 
   return async (msg: Message) => {
-    const [uri, data] = msg;
+    const [uri, , data] = msg;
     const timestamp = Date.now();
 
     const work = async () => {
@@ -475,7 +475,7 @@ The node pushes accepted messages to the indexer via HTTP POST:
 import { emit } from "@bandeira-tech/b3nd-sdk";
 
 const pushToIndexer = emit(async (msg) => {
-  const [uri, data] = msg;
+  const [uri, , data] = msg;
   await fetch("http://localhost:9950/api/v1/feed", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -540,10 +540,10 @@ export async function backfill(
           read: source.read.bind(source),
           decrypt,
           uri,
-          timestamp: item.record.ts,
+          timestamp: item.record.values?.ts ?? Date.now(),
         };
 
-        const ops = await indexer.map([uri, item.record.data], ctx);
+        const ops = await indexer.map([uri, item.record.values ?? {}, item.record.data], ctx);
         if (ops.length > 0) {
           await backend.apply(ops);
         }
@@ -1081,7 +1081,7 @@ export const postIndex: IndexerDefinition = {
     `);
   },
   async map(msg, ctx) {
-    const [uri, data] = msg;
+    const [uri, , data] = msg;
     let content = data as any;
     if (content?.auth && content?.payload) content = content.payload;
     const author = uri.split("/")[3];
@@ -1237,7 +1237,7 @@ const indexerClient = new HttpIndexerClient({
 });
 
 // Use anywhere you'd use a standard client
-await indexerClient.receive(["mutable://open/test", { hello: "world" }]);
+await indexerClient.receive([["mutable://open/test", {}, { hello: "world" }]]);
 
 // Plus: indexed queries
 const recipes = await indexerClient.search({

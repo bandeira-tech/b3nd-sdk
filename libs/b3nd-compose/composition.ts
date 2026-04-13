@@ -17,15 +17,6 @@ import type { Processor, ReadInterface } from "./types.ts";
 /**
  * Sequential validator composition
  * Runs validators in order, stops at first failure
- *
- * @example
- * ```typescript
- * const validate = seq(
- *   uriPattern(/^mutable:\/\//),
- *   requireFields(["data"]),
- *   schema(SCHEMA)
- * )
- * ```
  */
 export function seq<T = unknown>(...validators: Validator<T>[]): Validator<T> {
   return async (output, upstream, read) => {
@@ -42,14 +33,6 @@ export function seq<T = unknown>(...validators: Validator<T>[]): Validator<T> {
 /**
  * Any-match validator composition
  * First validator to pass wins, returns error only if all fail
- *
- * @example
- * ```typescript
- * const validate = any(
- *   uriPattern(/^mutable:\/\/open\//),  // Public writes
- *   signatureValid(),                    // Authenticated writes
- * )
- * ```
  */
 export function any<T = unknown>(...validators: Validator<T>[]): Validator<T> {
   return async (output, upstream, read) => {
@@ -75,15 +58,6 @@ export function any<T = unknown>(...validators: Validator<T>[]): Validator<T> {
 /**
  * Parallel validator composition
  * All validators must pass (runs in parallel)
- *
- * @example
- * ```typescript
- * const validate = all(
- *   uriPattern(/^mutable:\/\//),
- *   signatureValid(),
- *   balanceCheck()
- * )
- * ```
  */
 export function all<T = unknown>(...validators: Validator<T>[]): Validator<T> {
   return async (output, upstream, read) => {
@@ -108,16 +82,14 @@ export function all<T = unknown>(...validators: Validator<T>[]): Validator<T> {
 }
 
 /**
- * A receiver is anything with a `receive` method (clients, nodes, etc.)
+ * A receiver is anything with a batch `receive` method (clients, nodes, etc.)
  */
 type Receiver = {
-  receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
+  receive(msgs: Message[]): Promise<ReceiveResult[]>;
 };
 
 /**
- * Accepts a Processor function or a receiver (client/node).
- * Receivers are automatically adapted — their `receive` method is called
- * and `accepted` is mapped to `success`.
+ * @deprecated Use NodeProtocolInterface.receive() directly.
  */
 type ProcessorOrReceiver<D = unknown> = Processor<D> | Receiver;
 
@@ -129,8 +101,9 @@ function isReceiver(item: unknown): item is Receiver {
 function toProcessor<D>(item: ProcessorOrReceiver<D>): Processor<D> {
   if (isReceiver(item)) {
     return async (msg) => {
-      const result = await item.receive(msg);
-      return { success: result.accepted, error: result.error };
+      const results = await item.receive([msg]);
+      const result = results[0];
+      return { success: result?.accepted ?? false, error: result?.error };
     };
   }
   return item as Processor<D>;
@@ -140,20 +113,7 @@ function toProcessor<D>(item: ProcessorOrReceiver<D>): Processor<D> {
  * Parallel processor composition
  * Run processors/receivers in parallel, at least one must succeed
  *
- * Accepts Processor functions or receivers (anything with a `receive` method).
- * Receivers are automatically adapted.
- *
- * @example
- * ```typescript
- * // Pass clients directly — no wrapping needed
- * const process = parallel(postgresClient, replicaClient)
- *
- * // Mix with custom processors
- * const process = parallel(
- *   postgresClient,
- *   emit(webhookCallback)
- * )
- * ```
+ * @deprecated Use parallelBroadcast from b3nd-combinators instead.
  */
 export function parallel<D = unknown>(
   ...items: ProcessorOrReceiver<D>[]
@@ -197,13 +157,7 @@ export function parallel<D = unknown>(
  * Pipeline processor composition
  * Run processors in sequence, all must succeed
  *
- * @example
- * ```typescript
- * const process = pipeline(
- *   log("received"),
- *   emit(webhookCallback)
- * )
- * ```
+ * @deprecated Use createValidatedClient with sequential logic instead.
  */
 export function pipeline<D = unknown>(
   ...processors: Processor<D>[]
@@ -223,14 +177,7 @@ export function pipeline<D = unknown>(
  * First-match reader composition
  * Try readers until one succeeds
  *
- * @example
- * ```typescript
- * const read = firstMatch(
- *   cacheClient,
- *   postgresClient,
- *   remoteClient
- * )
- * ```
+ * @deprecated Use firstMatchSequence from b3nd-combinators instead.
  */
 export function firstMatch(...readers: ReadInterface[]): ReadInterface {
   return {

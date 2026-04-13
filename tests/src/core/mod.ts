@@ -45,7 +45,7 @@ export class ApiClient {
     value: unknown,
   ): Promise<{
     success: boolean;
-    record?: { ts: number; data: unknown };
+    record?: { values: Record<string, number>; data: unknown };
     error?: string;
   }> {
     try {
@@ -53,7 +53,7 @@ export class ApiClient {
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([uri, value]),
+        body: JSON.stringify([uri, {}, value]),
       });
 
       if (!response.ok) {
@@ -83,7 +83,7 @@ export class ApiClient {
 
   async read(uri: string): Promise<{
     success: boolean;
-    record?: { ts: number; data: unknown };
+    record?: { values: Record<string, number>; data: unknown };
     error?: string;
   }> {
     try {
@@ -110,7 +110,7 @@ export class ApiClient {
 
   async list(pattern?: string): Promise<{
     success: boolean;
-    records?: Array<{ uri: string; ts: number; data: unknown }>;
+    records?: Array<{ uri: string; data: unknown }>;
     error?: string;
   }> {
     try {
@@ -125,7 +125,7 @@ export class ApiClient {
         "fixture",
       ];
 
-      const allRecords: Array<{ uri: string; ts: number; data: unknown }> = [];
+      const allRecords: Array<{ uri: string; data: unknown }> = [];
 
       for (const domain of domains) {
         const url = `${this.config.baseUrl}/api/v1/list/test/${domain}`;
@@ -137,7 +137,6 @@ export class ApiClient {
             for (const item of items) {
               allRecords.push({
                 uri: item.uri,
-                ts: 0,
                 data: null,
               });
             }

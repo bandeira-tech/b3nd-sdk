@@ -6,31 +6,8 @@
  * validated clients. Use `createValidatedClient()` as the primary
  * entry point for wiring validation into a client.
  *
- * ## Core Concept
- *
- * Everything is `[uri, data]`. Messages and stored data have the same shape.
- * There is no external "write to URI" — only "receive message".
- *
- * ```
- * Three operations:
- * 1. RECEIVE MSG  →  validate, process
- * 2. READ URI     →  retrieve stored data
- * 3. (internal)   →  clients persist what they choose
- * ```
- *
- * @example Using createValidatedClient
- * ```typescript
- * import { createValidatedClient, msgSchema } from "@bandeira-tech/b3nd-sdk"
- * import { parallelBroadcast, firstMatchSequence } from "@bandeira-tech/b3nd-sdk"
- *
- * const client = createValidatedClient({
- *   write: parallelBroadcast(clients),
- *   read: firstMatchSequence(clients),
- *   validate: msgSchema(schema),
- * })
- *
- * await client.receive(["mutable://users/alice", { name: "Alice" }])
- * ```
+ * The message primitive is [uri, values, data] where data is always
+ * { inputs: string[], outputs: Output[] }.
  */
 
 import type { Message, Validator } from "../b3nd-core/types.ts";
@@ -99,51 +76,36 @@ export { createValidatedClient } from "./validated-client.ts";
  * Create a unified node
  *
  * @deprecated Use `createValidatedClient()` instead.
- *
- * @example Migration:
- * ```typescript
- * // Before:
- * const node = createNode({
- *   read: firstMatch(client),
- *   validate: msgSchema(schema),
- *   process: parallel(client),
- * })
- *
- * // After:
- * const client = createValidatedClient({
- *   write: parallelBroadcast(clients),
- *   read: firstMatchSequence(clients),
- *   validate: msgSchema(schema),
- * })
- * ```
  */
-export function createNode<D = unknown>(config: NodeConfig<D>): Node {
+export function createNode(config: NodeConfig): Node {
   if (!config) throw new Error("config is required");
   if (!config.read) throw new Error("read interface is required");
 
   const { read, validate, process } = config;
 
   return {
-    async receive<T = unknown>(
-      msg: Message<T>,
-    ): Promise<{ accepted: boolean; error?: string }> {
-      const [uri] = msg;
+    async receive(
+      msgs: Message[],
+    ): Promise<{ accepted: boolean; error?: string }[]> {
+      const results: { accepted: boolean; error?: string }[] = [];
 
-      // 1. Basic URI validation
-      if (!uri || typeof uri !== "string") {
-        return { accepted: false, error: "Message URI is required" };
-      }
+      for (const msg of msgs) {
+        const [uri] = msg;
 
-      // 2. Run validation pipeline if provided
-      if (validate) {
-        try {
-          const validationResult =
-            await (validate as unknown as typeof validate)(
-              msg as unknown as Message<D>,
+        if (!uri || typeof uri !== "string") {
+          results.push({ accepted: false, error: "Message URI is required" });
+          continue;
+        }
+
+        // Validation
+        if (validate) {
+          try {
+            const validationResult = await validate(
+              msg,
               undefined,
               async <T = unknown>(u: string) => {
-                const results = await read.read<T>(u);
-                return results[0] ??
+                const readResults = await read.read<T>(u);
+                return readResults[0] ??
                   {
                     success: false,
                     error: "No results",
@@ -151,51 +113,54 @@ export function createNode<D = unknown>(config: NodeConfig<D>): Node {
               },
             );
 
-          if (!validationResult.valid) {
-            return {
+            if (!validationResult.valid) {
+              results.push({
+                accepted: false,
+                error: validationResult.error || "Validation failed",
+              });
+              continue;
+            }
+          } catch (error) {
+            results.push({
               accepted: false,
-              error: validationResult.error || "Validation failed",
-            };
+              error: `Validation error: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            });
+            continue;
           }
-        } catch (error) {
-          return {
-            accepted: false,
-            error: `Validation error: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          };
         }
+
+        // Processing
+        if (process) {
+          try {
+            const processResult = await process(msg);
+            if (!processResult.success) {
+              results.push({
+                accepted: false,
+                error: processResult.error || "Processing failed",
+              });
+              continue;
+            }
+          } catch (error) {
+            results.push({
+              accepted: false,
+              error: `Processing error: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            });
+            continue;
+          }
+        }
+
+        results.push({ accepted: true });
       }
 
-      // 3. Run process pipeline if provided
-      if (process) {
-        try {
-          const processResult = await (process as unknown as typeof process)(
-            msg as unknown as Message<D>,
-          );
-
-          if (!processResult.success) {
-            return {
-              accepted: false,
-              error: processResult.error || "Processing failed",
-            };
-          }
-        } catch (error) {
-          return {
-            accepted: false,
-            error: `Processing error: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          };
-        }
-      }
-
-      return { accepted: true };
+      return results;
     },
 
     async cleanup(): Promise<void> {
       // No resources to clean up by default
-      // Individual processors/validators handle their own cleanup
     },
   };
 }

@@ -41,18 +41,16 @@ Deno.test("MemoryClient - read each output URI individually", async () => {
   const { client, node } = createTestSetup();
 
   const msgData: MessageData = {
-    payload: {
-      inputs: [],
-      outputs: [
-        ["mutable://open/users/alice", { name: "Alice", age: 30 }],
-        ["mutable://open/users/bob", { name: "Bob", age: 25 }],
-        ["mutable://open/settings/theme", { dark: true }],
-      ],
-    },
+    inputs: [],
+    outputs: [
+      ["mutable://open/users/alice", {}, { name: "Alice", age: 30 }],
+      ["mutable://open/users/bob", {}, { name: "Bob", age: 25 }],
+      ["mutable://open/settings/theme", {}, { dark: true }],
+    ],
   };
 
-  const result = await node.receive(["msg://open/batch-1", msgData]);
-  assertEquals(result.accepted, true);
+  const result = await node.receive([["msg://open/batch-1", {}, msgData]]);
+  assertEquals(result[0].accepted, true);
 
   const alice = await client.read("mutable://open/users/alice");
   assertEquals(alice[0].success, true);
@@ -75,18 +73,16 @@ Deno.test("MemoryClient - list outputs under a parent URI via trailing slash", a
   const { client, node } = createTestSetup();
 
   const msgData: MessageData = {
-    payload: {
-      inputs: [],
-      outputs: [
-        ["mutable://open/items/1", { title: "Item 1" }],
-        ["mutable://open/items/2", { title: "Item 2" }],
-        ["mutable://open/items/3", { title: "Item 3" }],
-      ],
-    },
+    inputs: [],
+    outputs: [
+      ["mutable://open/items/1", {}, { title: "Item 1" }],
+      ["mutable://open/items/2", {}, { title: "Item 2" }],
+      ["mutable://open/items/3", {}, { title: "Item 3" }],
+    ],
   };
 
-  const result = await node.receive(["msg://open/batch-list", msgData]);
-  assertEquals(result.accepted, true);
+  const result = await node.receive([["msg://open/batch-list", {}, msgData]]);
+  assertEquals(result[0].accepted, true);
 
   const results = await client.read("mutable://open/items/");
   assertEquals(results.length, 3);
@@ -106,18 +102,16 @@ Deno.test("MemoryClient - read multiple output URIs", async () => {
   const { client, node } = createTestSetup();
 
   const msgData: MessageData = {
-    payload: {
-      inputs: [],
-      outputs: [
-        ["mutable://open/multi/1", { v: 1 }],
-        ["mutable://open/multi/2", { v: 2 }],
-        ["mutable://open/multi/3", { v: 3 }],
-      ],
-    },
+    inputs: [],
+    outputs: [
+      ["mutable://open/multi/1", {}, { v: 1 }],
+      ["mutable://open/multi/2", {}, { v: 2 }],
+      ["mutable://open/multi/3", {}, { v: 3 }],
+    ],
   };
 
-  const result = await node.receive(["msg://open/batch-multi", msgData]);
-  assertEquals(result.accepted, true);
+  const result = await node.receive([["msg://open/batch-multi", {}, msgData]]);
+  assertEquals(result[0].accepted, true);
 
   const results = await client.read([
     "mutable://open/multi/1",
@@ -143,26 +137,24 @@ Deno.test("MemoryClient - message envelope is stored alongside outputs", async (
   const { client, node } = createTestSetup();
 
   const msgData: MessageData = {
-    payload: {
-      inputs: ["mutable://open/ref/1"],
-      outputs: [
-        ["mutable://open/out/1", { value: 42 }],
-      ],
-    },
+    inputs: ["mutable://open/ref/1"],
+    outputs: [
+      ["mutable://open/out/1", {}, { value: 42 }],
+    ],
   };
 
-  const result = await node.receive(["msg://open/envelope-test", msgData]);
-  assertEquals(result.accepted, true);
+  const result = await node.receive([["msg://open/envelope-test", {}, msgData]]);
+  assertEquals(result[0].accepted, true);
 
   // The envelope itself is stored
   const envelope = await client.read<MessageData>(
     "msg://open/envelope-test",
   );
   assertEquals(envelope[0].success, true);
-  assertEquals(envelope[0].record?.data.payload.inputs, [
+  assertEquals(envelope[0].record?.data.inputs, [
     "mutable://open/ref/1",
   ]);
-  assertEquals(envelope[0].record?.data.payload.outputs.length, 1);
+  assertEquals(envelope[0].record?.data.outputs.length, 1);
 
   // The output is also stored individually
   const output = await client.read("mutable://open/out/1");

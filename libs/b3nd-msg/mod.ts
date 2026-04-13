@@ -1,26 +1,28 @@
-// Message node (Level 1)
+/**
+ * @module
+ * B3nd Message Layer
+ *
+ * The message primitive is [uri, values, data] where data is always
+ * { inputs: string[], outputs: Output[] }.
+ *
+ * Use `message()` and `send()` from the data submodule for content-addressed
+ * message construction and submission.
+ */
+
+// Types (Message re-exported from b3nd-core)
 export type {
   Message,
+  /** @deprecated Use Rig (L6) */
   MessageNode,
+  /** @deprecated Use Rig (L6) */
   MessageNodeConfig,
+  /** @deprecated Use Program from b3nd-core */
   MessageValidator,
   SubmitResult,
-} from "./node-mod.ts";
-export { createMessageNode } from "./node-mod.ts";
+} from "./node-types.ts";
 
-// Message data convention (Level 2)
-export type {
-  MessageData,
-  MessageValidationContext,
-  ProgramSchema,
-  ProgramValidator,
-  StateMessage,
-} from "./data/mod.ts";
-export { isMessageData } from "./data/mod.ts";
-
-// Validators
+// Node implementation (deprecated)
 export {
-  combineValidators,
-  createOutputValidator,
-  extractProgram,
-} from "./data/mod.ts";
+  /** @deprecated Use Rig (L6) */
+  createMessageNode,
+} from "./node.ts";

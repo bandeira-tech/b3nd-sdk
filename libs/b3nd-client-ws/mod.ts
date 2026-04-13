@@ -246,32 +246,26 @@ export class WebSocketClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a message (unified interface)
-   * Sends "receive" message type with [uri, data] payload
-   * @param msg - Message tuple [uri, data]
-   * @returns ReceiveResult indicating acceptance
+   * Receive a batch of messages (unified interface)
+   * Sends "receive" message type with encoded batch payload
+   * @param msgs - Array of Message tuples [uri, values, data]
+   * @returns ReceiveResult[] — one result per message
    */
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri] = msg;
-
-    // Basic URI validation
-    if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Message URI is required" };
-    }
-
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
     try {
-      // Encode binary data for JSON transport
-      const encodedMsg: Message = [uri, encodeBinaryForJson(msg[1])];
-      const result = await this.sendRequest<ReceiveResult>(
+      const encodedMsgs = msgs.map(([uri, values, data]) => [uri, values, encodeBinaryForJson(data)]);
+      const results = await this.sendRequest<ReceiveResult[]>(
         "receive",
-        encodedMsg,
+        encodedMsgs,
       );
-      return result;
+      return results;
     } catch (error) {
-      return {
+      // On transport error, return error for every message in the batch
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return msgs.map(() => ({
         accepted: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+        error: errorMsg,
+      }));
     }
   }
 
@@ -299,6 +293,7 @@ export class WebSocketClient implements NodeProtocolInterface {
       const items = Array.isArray(result) ? result : [result];
       const item = items[0];
       if (item && item.success && item.record) {
+        // Server returns { values, data } — decode binary from data, keep values
         item.record.data = decodeBinaryFromJson(item.record.data) as T;
       }
       return item || { success: false, error: "No result returned" };
@@ -318,6 +313,7 @@ export class WebSocketClient implements NodeProtocolInterface {
       const items = Array.isArray(results) ? results : [results];
       for (const item of items) {
         if (item.success && item.record) {
+          // Server returns { values, data } — decode binary from data, keep values
           item.record.data = decodeBinaryFromJson(item.record.data) as T;
         }
       }

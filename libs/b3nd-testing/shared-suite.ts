@@ -1,8 +1,20 @@
 /**
  * Shared Test Suite for NodeProtocolInterface
  *
- * This suite tests that any implementation of NodeProtocolInterface
- * behaves correctly according to the protocol specification.
+ * Tests that any implementation of NodeProtocolInterface behaves
+ * correctly as **mechanical storage**.
+ *
+ * Message primitive: [uri, values, data] where:
+ * - uri: string — identity/address
+ * - values: Record<string, number> — conserved quantities ({} for none)
+ * - data: { inputs: string[], outputs: Output[] } — always structured
+ *
+ * receive() takes Message[] (batch, each independently processed).
+ * read() returns record with { values, data }.
+ *
+ * Clients are mechanical: delete inputs, write outputs. No validation,
+ * no conservation checks — the rig handles classification via programs.
+ * Conservation and program logic are **rig-level** concerns.
  *
  * Each client test file imports and runs this suite with factory functions
  * that create fresh client instances for each test.
@@ -12,6 +24,18 @@
 
 import { assertEquals } from "jsr:@std/assert";
 import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+let _seq = 0;
+
+/** Build a Message wrapping outputs into an envelope. No inputs. */
+function msg(
+  outputs: [string, Record<string, number>, unknown][],
+  inputs: string[] = [],
+): [string, Record<string, number>, { inputs: string[]; outputs: [string, Record<string, number>, unknown][] }] {
+  return [`envelope://test/${++_seq}`, {}, { inputs, outputs }];
+}
 
 /**
  * Test client factory functions for different scenarios
@@ -45,19 +69,22 @@ export function runSharedSuite(
   // outlive individual tests (no cleanup() in NodeProtocolInterface).
   const noSanitize = { sanitizeOps: false, sanitizeResources: false };
 
-  // Happy path tests
+  // ── Basic receive/read ─────────────────────────────────────────────
+
   Deno.test({
     name: `${suiteName} - receive message and read`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      const result = await client.receive(["store://users/alice/profile", {
-        name: "Alice",
-        email: "alice@example.com",
-      }]);
+      const results = await client.receive([
+        msg([["store://users/alice/profile", {}, {
+          name: "Alice",
+          email: "alice@example.com",
+        }]]),
+      ]);
 
-      assertEquals(result.accepted, true);
+      assertEquals(results[0].accepted, true);
 
       const readResults = await client.read("store://users/alice/profile");
 
@@ -67,30 +94,7 @@ export function runSharedSuite(
         name: "Alice",
         email: "alice@example.com",
       });
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - receive message creates timestamp`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      const before = Date.now();
-      const result = await client.receive(["store://users/bob/profile", {
-        name: "Bob",
-      }]);
-      const after = Date.now();
-
-      assertEquals(result.accepted, true);
-
-      // Verify timestamp via read
-      const readResults = await client.read("store://users/bob/profile");
-      assertEquals(readResults.length, 1);
-      assertEquals(readResults[0].success, true);
-      assertEquals(typeof readResults[0].record?.ts, "number");
-      assertEquals(readResults[0].record!.ts >= before, true);
-      assertEquals(readResults[0].record!.ts <= after, true);
+      assertEquals(readResults[0].record?.values, {});
     },
   });
 
@@ -108,145 +112,190 @@ export function runSharedSuite(
     },
   });
 
-  // --- Scalar value tests ---
+  // ── Scalar data types ──────────────────────────────────────────────
 
   Deno.test({
-    name: `${suiteName} - receive and read string value`,
+    name: `${suiteName} - receive and read string data`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      const result = await client.receive([
-        "store://users/scalar-string/data",
-        "hello world",
+      const results = await client.receive([
+        msg([["store://users/scalar-string/data", {}, "hello world"]]),
       ]);
-      assertEquals(result.accepted, true);
+      assertEquals(results[0].accepted, true);
 
       const readResults = await client.read("store://users/scalar-string/data");
       assertEquals(readResults.length, 1);
-      assertEquals(
-        readResults[0].success,
-        true,
-        "String value read should succeed",
-      );
+      assertEquals(readResults[0].success, true, "String data read should succeed");
       assertEquals(readResults[0].record?.data, "hello world");
     },
   });
 
   Deno.test({
-    name: `${suiteName} - receive and read number value`,
+    name: `${suiteName} - receive and read number data`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      const result = await client.receive([
-        "store://users/scalar-number/data",
-        42,
+      const results = await client.receive([
+        msg([["store://users/scalar-number/data", {}, 42]]),
       ]);
-      assertEquals(result.accepted, true);
+      assertEquals(results[0].accepted, true);
 
       const readResults = await client.read("store://users/scalar-number/data");
       assertEquals(readResults.length, 1);
-      assertEquals(
-        readResults[0].success,
-        true,
-        "Number value read should succeed",
-      );
+      assertEquals(readResults[0].success, true, "Number data read should succeed");
       assertEquals(readResults[0].record?.data, 42);
     },
   });
 
   Deno.test({
-    name: `${suiteName} - receive and read boolean value`,
+    name: `${suiteName} - receive and read boolean data`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      const result = await client.receive([
-        "store://users/scalar-bool/data",
-        true,
+      const results = await client.receive([
+        msg([["store://users/scalar-bool/data", {}, true]]),
       ]);
-      assertEquals(result.accepted, true);
+      assertEquals(results[0].accepted, true);
 
       const readResults = await client.read("store://users/scalar-bool/data");
       assertEquals(readResults.length, 1);
-      assertEquals(
-        readResults[0].success,
-        true,
-        "Boolean value read should succeed",
-      );
+      assertEquals(readResults[0].success, true, "Boolean data read should succeed");
       assertEquals(readResults[0].record?.data, true);
     },
   });
 
   Deno.test({
-    name: `${suiteName} - receive and read null value`,
+    name: `${suiteName} - receive and read null data`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      const result = await client.receive([
-        "store://users/scalar-null/data",
-        null,
+      const results = await client.receive([
+        msg([["store://users/scalar-null/data", {}, null]]),
       ]);
-      assertEquals(result.accepted, true);
+      assertEquals(results[0].accepted, true);
 
       const readResults = await client.read("store://users/scalar-null/data");
       assertEquals(readResults.length, 1);
-      assertEquals(
-        readResults[0].success,
-        true,
-        "Null value read should succeed",
-      );
+      assertEquals(readResults[0].success, true, "Null data read should succeed");
       assertEquals(readResults[0].record?.data, null);
     },
   });
 
   Deno.test({
-    name: `${suiteName} - receive and read empty string value`,
+    name: `${suiteName} - receive and read empty string data`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      const result = await client.receive([
-        "store://users/scalar-empty/data",
-        "",
+      const results = await client.receive([
+        msg([["store://users/scalar-empty/data", {}, ""]]),
       ]);
-      assertEquals(result.accepted, true);
+      assertEquals(results[0].accepted, true);
 
       const readResults = await client.read("store://users/scalar-empty/data");
       assertEquals(readResults.length, 1);
-      assertEquals(
-        readResults[0].success,
-        true,
-        "Empty string value read should succeed",
-      );
+      assertEquals(readResults[0].success, true, "Empty string data read should succeed");
       assertEquals(readResults[0].record?.data, "");
     },
   });
 
   Deno.test({
-    name: `${suiteName} - receive and read zero value`,
+    name: `${suiteName} - receive and read zero data`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      const result = await client.receive([
-        "store://users/scalar-zero/data",
-        0,
+      const results = await client.receive([
+        msg([["store://users/scalar-zero/data", {}, 0]]),
       ]);
-      assertEquals(result.accepted, true);
+      assertEquals(results[0].accepted, true);
 
       const readResults = await client.read("store://users/scalar-zero/data");
       assertEquals(readResults.length, 1);
-      assertEquals(
-        readResults[0].success,
-        true,
-        "Zero value read should succeed",
-      );
+      assertEquals(readResults[0].success, true, "Zero data read should succeed");
       assertEquals(readResults[0].record?.data, 0);
     },
   });
+
+  // ── Values on outputs ──────────────────────────────────────────────
+
+  Deno.test({
+    name: `${suiteName} - receive and read output with single asset value`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      const results = await client.receive([
+        msg([["store://balance/alice/utxo-1", { fire: 100 }, null]]),
+      ]);
+      assertEquals(results[0].accepted, true);
+
+      const readResults = await client.read("store://balance/alice/utxo-1");
+      assertEquals(readResults.length, 1);
+      assertEquals(readResults[0].success, true);
+      assertEquals(readResults[0].record?.values, { fire: 100 });
+      assertEquals(readResults[0].record?.data, null);
+    },
+  });
+
+  Deno.test({
+    name: `${suiteName} - receive and read output with multi-asset value`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      const results = await client.receive([
+        msg([["store://balance/alice/utxo-2", { fire: 50, usd: 200 }, { memo: "deposit" }]]),
+      ]);
+      assertEquals(results[0].accepted, true);
+
+      const readResults = await client.read("store://balance/alice/utxo-2");
+      assertEquals(readResults.length, 1);
+      assertEquals(readResults[0].success, true);
+      assertEquals(readResults[0].record?.values, { fire: 50, usd: 200 });
+      assertEquals(readResults[0].record?.data, { memo: "deposit" });
+    },
+  });
+
+  // ── Batch receive ──────────────────────────────────────────────────
+
+  Deno.test({
+    name: `${suiteName} - receive batch of independent messages`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      const results = await client.receive([
+        msg([["store://users/batch-a/profile", {}, { name: "Alice" }]]),
+        msg([["store://users/batch-b/profile", {}, { name: "Bob" }]]),
+        msg([["store://users/batch-c/profile", {}, { name: "Charlie" }]]),
+      ]);
+
+      assertEquals(results.length, 3);
+      assertEquals(results[0].accepted, true);
+      assertEquals(results[1].accepted, true);
+      assertEquals(results[2].accepted, true);
+
+      // All outputs readable
+      const readResults = await client.read([
+        "store://users/batch-a/profile",
+        "store://users/batch-b/profile",
+        "store://users/batch-c/profile",
+      ]);
+
+      assertEquals(readResults.length, 3);
+      assertEquals(readResults[0].record?.data, { name: "Alice" });
+      assertEquals(readResults[1].record?.data, { name: "Bob" });
+      assertEquals(readResults[2].record?.data, { name: "Charlie" });
+    },
+  });
+
+  // ── Read: multiple URIs, partial failures, trailing slash ──────────
 
   Deno.test({
     name: `${suiteName} - read multiple URIs`,
@@ -254,9 +303,11 @@ export function runSharedSuite(
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      await client.receive(["store://users/multi-a/profile", { v: 1 }]);
-      await client.receive(["store://users/multi-b/profile", { v: 2 }]);
-      await client.receive(["store://users/multi-c/profile", { v: 3 }]);
+      await client.receive([
+        msg([["store://users/multi-a/profile", {}, { v: 1 }]]),
+        msg([["store://users/multi-b/profile", {}, { v: 2 }]]),
+        msg([["store://users/multi-c/profile", {}, { v: 3 }]]),
+      ]);
 
       const results = await client.read([
         "store://users/multi-a/profile",
@@ -286,7 +337,9 @@ export function runSharedSuite(
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
-      await client.receive(["store://users/partial-a/profile", { ok: true }]);
+      await client.receive([
+        msg([["store://users/partial-a/profile", {}, { ok: true }]]),
+      ]);
 
       const results = await client.read([
         "store://users/partial-a/profile",
@@ -306,9 +359,11 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const prefix = `store://users/list-test-${Date.now()}`;
-      await client.receive([`${prefix}/alice/profile`, { name: "Alice" }]);
-      await client.receive([`${prefix}/bob/profile`, { name: "Bob" }]);
-      await client.receive([`${prefix}/charlie/profile`, { name: "Charlie" }]);
+      await client.receive([
+        msg([[`${prefix}/alice/profile`, {}, { name: "Alice" }]]),
+        msg([[`${prefix}/bob/profile`, {}, { name: "Bob" }]]),
+        msg([[`${prefix}/charlie/profile`, {}, { name: "Charlie" }]]),
+      ]);
 
       const results = await client.read(`${prefix}/`);
 
@@ -339,12 +394,11 @@ export function runSharedSuite(
         ["healthy", "unhealthy"].includes(status.status),
         true,
       );
-      assertEquals(Array.isArray(status.schema), true);
     },
   });
 
-  // Binary data tests (only if client supports binary)
-  // Default to true for backwards compatibility
+  // ── Binary data tests ──────────────────────────────────────────────
+
   const supportsBinary = factories.supportsBinary !== false;
 
   if (supportsBinary) {
@@ -354,67 +408,34 @@ export function runSharedSuite(
       fn: async () => {
         const client = await Promise.resolve(factories.happy());
 
-        // Create binary test data (simulating a small PNG header)
         const binaryData = new Uint8Array([
-          0x89,
-          0x50,
-          0x4E,
-          0x47,
-          0x0D,
-          0x0A,
-          0x1A,
-          0x0A, // PNG signature
-          0x00,
-          0x00,
-          0x00,
-          0x0D,
-          0x49,
-          0x48,
-          0x44,
-          0x52, // IHDR chunk
+          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+          0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
         ]);
 
-        const result = await client.receive([
-          "store://files/test-image.png",
-          binaryData,
+        const results = await client.receive([
+          msg([["store://files/test-image.png", {}, binaryData]]),
         ]);
 
-        assertEquals(
-          result.accepted,
-          true,
-          "Binary message should be accepted",
-        );
+        assertEquals(results[0].accepted, true, "Binary message should be accepted");
 
         const readResults = await client.read<Uint8Array>(
           "store://files/test-image.png",
         );
 
         assertEquals(readResults.length, 1);
-        assertEquals(
-          readResults[0].success,
-          true,
-          "Binary read should succeed",
-        );
+        assertEquals(readResults[0].success, true, "Binary read should succeed");
         assertEquals(
           readResults[0].record?.data instanceof Uint8Array,
           true,
           "Read data should be Uint8Array",
         );
 
-        // Verify binary data integrity
         const readData = readResults[0].record?.data as Uint8Array;
-        assertEquals(
-          readData.length,
-          binaryData.length,
-          "Binary data length should match",
-        );
+        assertEquals(readData.length, binaryData.length, "Binary data length should match");
 
         for (let i = 0; i < binaryData.length; i++) {
-          assertEquals(
-            readData[i],
-            binaryData[i],
-            `Byte at position ${i} should match`,
-          );
+          assertEquals(readData[i], binaryData[i], `Byte at position ${i} should match`);
         }
       },
     });
@@ -425,43 +446,28 @@ export function runSharedSuite(
       fn: async () => {
         const client = await Promise.resolve(factories.happy());
 
-        // Create larger binary data (1KB of random-ish bytes)
         const size = 1024;
         const binaryData = new Uint8Array(size);
         for (let i = 0; i < size; i++) {
           binaryData[i] = i % 256;
         }
 
-        const result = await client.receive([
-          "store://files/large-file.bin",
-          binaryData,
+        const results = await client.receive([
+          msg([["store://files/large-file.bin", {}, binaryData]]),
         ]);
 
-        assertEquals(
-          result.accepted,
-          true,
-          "Large binary message should be accepted",
-        );
+        assertEquals(results[0].accepted, true, "Large binary message should be accepted");
 
         const readResults = await client.read<Uint8Array>(
           "store://files/large-file.bin",
         );
 
         assertEquals(readResults.length, 1);
-        assertEquals(
-          readResults[0].success,
-          true,
-          "Large binary read should succeed",
-        );
+        assertEquals(readResults[0].success, true, "Large binary read should succeed");
 
         const readData = readResults[0].record?.data as Uint8Array;
-        assertEquals(
-          readData.length,
-          binaryData.length,
-          "Large binary data length should match",
-        );
+        assertEquals(readData.length, binaryData.length, "Large binary data length should match");
 
-        // Verify data integrity
         let matches = true;
         for (let i = 0; i < binaryData.length && matches; i++) {
           if (readData[i] !== binaryData[i]) {
@@ -473,7 +479,164 @@ export function runSharedSuite(
     });
   }
 
-  // Validation error tests (if validationError factory provided)
+  // ── Overwrite ───────────────────────────────────────────────────────
+
+  Deno.test({
+    name: `${suiteName} - receive overwrites existing data at same URI`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      await client.receive([
+        msg([["store://users/overwrite/profile", {}, { name: "Alice", version: 1 }]]),
+      ]);
+
+      // Write again to the same URI — second write wins
+      await client.receive([
+        msg([["store://users/overwrite/profile", {}, { name: "Alice Updated", version: 2 }]]),
+      ]);
+
+      const readResults = await client.read("store://users/overwrite/profile");
+      assertEquals(readResults.length, 1);
+      assertEquals(readResults[0].success, true);
+      assertEquals(readResults[0].record?.data, {
+        name: "Alice Updated",
+        version: 2,
+      });
+    },
+  });
+
+  Deno.test({
+    name: `${suiteName} - overwrite preserves new values`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      await client.receive([
+        msg([["store://balance/overwrite/utxo", { fire: 100 }, null]]),
+      ]);
+
+      await client.receive([
+        msg([["store://balance/overwrite/utxo", { fire: 75, usd: 25 }, { memo: "updated" }]]),
+      ]);
+
+      const readResults = await client.read("store://balance/overwrite/utxo");
+      assertEquals(readResults[0].success, true);
+      assertEquals(readResults[0].record?.values, { fire: 75, usd: 25 });
+      assertEquals(readResults[0].record?.data, { memo: "updated" });
+    },
+  });
+
+  // ── Input consumption (client deletes inputs, writes outputs) ────────
+
+  Deno.test({
+    name: `${suiteName} - inputs are deleted, outputs are written`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      // Write data
+      await client.receive([
+        msg([["store://data/consumable", {}, { value: 1 }]]),
+      ]);
+
+      // Verify it exists
+      const before = await client.read("store://data/consumable");
+      assertEquals(before[0].success, true);
+
+      // Send message with it as input — client deletes it, writes output
+      await client.receive([
+        msg(
+          [["store://data/replacement", {}, { value: 2 }]],
+          ["store://data/consumable"],
+        ),
+      ]);
+
+      // Input deleted
+      const after = await client.read("store://data/consumable");
+      assertEquals(after[0].success, false, "Input must be deleted by client");
+
+      // Output written
+      const created = await client.read("store://data/replacement");
+      assertEquals(created[0].success, true);
+      assertEquals(created[0].record?.data, { value: 2 });
+    },
+  });
+
+  Deno.test({
+    name: `${suiteName} - empty inputs means no deletions`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      await client.receive([
+        msg([["store://data/existing", {}, { value: 1 }]]),
+      ]);
+
+      // Message with empty inputs — nothing deleted
+      await client.receive([
+        msg([["store://data/new-item", {}, { value: 2 }]]),
+      ]);
+
+      // Both exist
+      const existing = await client.read("store://data/existing");
+      assertEquals(existing[0].success, true);
+      const newItem = await client.read("store://data/new-item");
+      assertEquals(newItem[0].success, true);
+    },
+  });
+
+  Deno.test({
+    name: `${suiteName} - multiple inputs all deleted`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      await client.receive([
+        msg([["store://data/a", {}, { v: 1 }]]),
+        msg([["store://data/b", {}, { v: 2 }]]),
+      ]);
+
+      await client.receive([
+        msg(
+          [["store://data/combined", {}, { v: 3 }]],
+          ["store://data/a", "store://data/b"],
+        ),
+      ]);
+
+      assertEquals((await client.read("store://data/a"))[0].success, false);
+      assertEquals((await client.read("store://data/b"))[0].success, false);
+      assertEquals((await client.read("store://data/combined"))[0].success, true);
+    },
+  });
+
+  Deno.test({
+    name: `${suiteName} - multiple outputs written from single message`,
+    ...noSanitize,
+    fn: async () => {
+      const client = await Promise.resolve(factories.happy());
+
+      const results = await client.receive([
+        msg([
+          ["store://data/multi-out-1", {}, { text: "hello" }],
+          ["store://data/multi-out-2", {}, { text: "world" }],
+          ["store://data/multi-out-3", { fire: 10 }, null],
+        ]),
+      ]);
+
+      assertEquals(results[0].accepted, true);
+
+      const r1 = await client.read("store://data/multi-out-1");
+      assertEquals(r1[0].record?.data, { text: "hello" });
+      const r2 = await client.read("store://data/multi-out-2");
+      assertEquals(r2[0].record?.data, { text: "world" });
+      const r3 = await client.read("store://data/multi-out-3");
+      assertEquals(r3[0].record?.values, { fire: 10 });
+    },
+  });
+
+  // ── Error handling ─────────────────────────────────────────────────
+
   if (factories.validationError) {
     Deno.test({
       name: `${suiteName} - validation error on receive`,
@@ -481,17 +644,16 @@ export function runSharedSuite(
       fn: async () => {
         const client = await Promise.resolve(factories.validationError!());
 
-        const result = await client.receive(["store://users/invalid/data", {
-          invalid: true,
-        }]);
+        const results = await client.receive([
+          msg([["store://users/invalid/data", {}, { invalid: true }]]),
+        ]);
 
-        assertEquals(result.accepted, false);
-        assertEquals(typeof result.error, "string");
+        assertEquals(results[0].accepted, false);
+        assertEquals(typeof results[0].error, "string");
       },
     });
   }
 
-  // Connection error tests (if connectionError factory provided)
   if (factories.connectionError) {
     Deno.test({
       name: `${suiteName} - connection error handling`,
@@ -499,12 +661,12 @@ export function runSharedSuite(
       fn: async () => {
         const client = await Promise.resolve(factories.connectionError!());
 
-        const result = await client.receive(["store://users/test/data", {
-          value: 123,
-        }]);
+        const results = await client.receive([
+          msg([["store://users/test/data", {}, { value: 123 }]]),
+        ]);
 
-        assertEquals(result.accepted, false);
-        assertEquals(typeof result.error, "string");
+        assertEquals(results[0].accepted, false);
+        assertEquals(typeof results[0].error, "string");
 
         const readResults = await client.read("store://users/test/data");
         assertEquals(readResults.length, 1);

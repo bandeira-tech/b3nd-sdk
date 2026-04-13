@@ -7,7 +7,7 @@
  * - Validation errors (schema validation failures)
  */
 
-import type { PersistenceRecord } from "../b3nd-core/types.ts";
+
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
@@ -35,13 +35,13 @@ export interface MockServerConfig {
   mode: "happy" | "connectionError" | "validationError";
 
   /** In-memory storage for happy path */
-  storage?: Map<string, PersistenceRecord<unknown>>;
+  storage?: Map<string, { values: Record<string, number>; data: unknown }>;
 }
 
 export class MockHttpServer {
   private server?: Deno.HttpServer;
   private config: MockServerConfig;
-  private storage: Map<string, PersistenceRecord<unknown>>;
+  private storage: Map<string, { values: Record<string, number>; data: unknown }>;
 
   constructor(config: MockServerConfig) {
     this.config = config;
@@ -126,44 +126,70 @@ export class MockHttpServer {
   private async handleReceive(req: Request): Promise<Response> {
     if (this.config.mode === "validationError") {
       return Response.json(
-        { accepted: false, error: "Validation failed: Name is required" },
+        [{ accepted: false, error: "Validation failed: Name is required" }],
         { status: 400 },
       );
     }
 
-    // Parse message from request body — body IS the message: [uri, data]
-    const msg: unknown = await req.json();
+    // Parse batch of messages: Message[] = [uri, values, data][]
+    const msgs: unknown = await req.json();
 
-    if (!msg || !Array.isArray(msg) || msg.length < 2) {
+    if (!msgs || !Array.isArray(msgs)) {
       return Response.json(
-        {
-          accepted: false,
-          error: "Invalid message format: expected [uri, data]",
-        },
+        [{ accepted: false, error: "Invalid message format: expected Message[]" }],
         { status: 400 },
       );
     }
 
-    const [uri, rawData] = msg;
+    const results: { accepted: boolean; error?: string }[] = [];
 
-    if (!uri || typeof uri !== "string") {
-      return Response.json(
-        { accepted: false, error: "Message URI is required" },
-        { status: 400 },
-      );
+    for (const msg of msgs) {
+      if (!Array.isArray(msg) || msg.length < 3) {
+        results.push({ accepted: false, error: "Invalid message: expected [uri, values, data]" });
+        continue;
+      }
+
+      const [msgUri, msgValues, msgData] = msg;
+
+      // Detect envelope format: { inputs: [...], outputs: [...] }
+      const isEnvelope = msgData != null &&
+        typeof msgData === "object" &&
+        !Array.isArray(msgData) &&
+        Array.isArray((msgData as Record<string, unknown>).inputs) &&
+        Array.isArray((msgData as Record<string, unknown>).outputs);
+
+      if (isEnvelope) {
+        const { inputs, outputs } = msgData as { inputs: string[]; outputs: unknown[][] };
+
+        // Delete inputs
+        for (const inputUri of inputs) {
+          this.storage.delete(inputUri);
+        }
+
+        // Write outputs
+        for (const output of outputs) {
+          if (Array.isArray(output) && output.length >= 3) {
+            const [outUri, outValues, outData] = output;
+            const data = deserializeMsgData(outData);
+            this.storage.set(outUri as string, {
+              values: (outValues as Record<string, number>) || {},
+              data,
+            });
+          }
+        }
+      } else {
+        // Direct write — store data at the message URI
+        const data = deserializeMsgData(msgData);
+        this.storage.set(msgUri as string, {
+          values: (msgValues as Record<string, number>) || {},
+          data,
+        });
+      }
+
+      results.push({ accepted: true });
     }
 
-    // Deserialize binary data from base64-encoded wrapper
-    const data = deserializeMsgData(rawData);
-
-    const record: PersistenceRecord<unknown> = {
-      ts: Date.now(),
-      data,
-    };
-
-    this.storage.set(uri, record);
-
-    return Response.json({ accepted: true });
+    return Response.json(results);
   }
 
   private handleRead(url: URL): Response {
@@ -285,7 +311,7 @@ export async function createMockServers(): Promise<{
   validationError: MockHttpServer;
   cleanup: () => Promise<void>;
 }> {
-  const sharedStorage = new Map<string, PersistenceRecord<unknown>>();
+  const sharedStorage = new Map<string, { values: Record<string, number>; data: unknown }>();
 
   const happy = new MockHttpServer({
     port: 8765,

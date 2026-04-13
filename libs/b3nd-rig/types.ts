@@ -3,7 +3,7 @@
  * Types for the b3nd Rig — the universal harness.
  */
 
-import type { NodeProtocolInterface, Schema } from "../b3nd-core/types.ts";
+import type { CodeHandler, NodeProtocolInterface, Program, Schema } from "../b3nd-core/types.ts";
 import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import type { ReactionHandler } from "./reactions.ts";
@@ -121,9 +121,41 @@ export interface RigConfig {
   connections: Connection[];
 
   /**
+   * Programs — pure classifiers that return protocol-defined codes.
+   *
+   * Maps URI prefixes (e.g. `"store://balance"`) to Program functions.
+   * When a message arrives, the rig looks up the program for its URI,
+   * runs classification, and routes to the handler for the returned code.
+   *
+   * ```typescript
+   * const rig = new Rig({
+   *   connections: [...],
+   *   programs: {
+   *     "store://balance": balanceProgram,
+   *     "firecat://msg": firecatMsgProgram,
+   *   },
+   *   handlers: {
+   *     "firecat:valid": async (msg, broadcast) => { ... },
+   *     "firecat:confirmed": async (msg, broadcast, read) => { ... },
+   *   },
+   * });
+   * ```
+   */
+  programs?: Record<string, Program>;
+
+  /**
+   * Code handlers — what to do when a program returns a specific code.
+   *
+   * Each handler gets `(message, broadcast, read)` where `broadcast` goes
+   * direct to clients (bypasses programs). The handler decides what to store.
+   */
+  handlers?: Record<string, CodeHandler>;
+
+  /**
    * Application-level schema — validates URIs before they reach clients.
-   * Maps program keys (e.g. `"mutable://open"`) to validation functions.
-   * The rig rejects unknown domains before the message ever touches a client.
+   *
+   * @deprecated Use `programs` and `handlers` instead. When `programs` is
+   * provided, `schema` is ignored.
    */
   schema?: Schema;
 

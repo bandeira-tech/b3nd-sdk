@@ -3,13 +3,32 @@
  *
  * Tests for the unified Node interface (receive pattern).
  * This suite tests that any implementation of Node & ReadInterface
- * behaves correctly according to the protocol specification.
+ * behaves correctly as mechanical storage.
+ *
+ * Message primitive: [uri, values, data] where data is always
+ * { inputs: string[], outputs: Output[] }.
+ *
+ * receive() takes Message[] — batch of independent messages.
+ * Clients are mechanical: delete inputs, write outputs.
+ * Conservation and program logic are rig-level concerns.
  */
 
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
 import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+let _seq = 0;
+
+/** Build a Message wrapping outputs into an envelope. */
+function msg(
+  outputs: [string, Record<string, number>, unknown][],
+  inputs: string[] = [],
+): [string, Record<string, number>, { inputs: string[]; outputs: [string, Record<string, number>, unknown][] }] {
+  return [`envelope://test/node-${++_seq}`, {}, { inputs, outputs }];
+}
 
 /**
  * Test client factory for Node interface tests
@@ -39,13 +58,15 @@ export function runNodeSuite(
     fn: async () => {
       const node = await Promise.resolve(factory.happy());
 
-      const result = await node.receive([
-        "store://users/alice/profile",
-        { name: "Alice", email: "alice@example.com" },
+      const results = await node.receive([
+        msg([["store://users/alice/profile", {}, {
+          name: "Alice",
+          email: "alice@example.com",
+        }]]),
       ]);
 
-      assertEquals(result.accepted, true);
-      assertEquals(result.error, undefined);
+      assertEquals(results[0].accepted, true);
+      assertEquals(results[0].error, undefined);
 
       const readResults = await node.read("store://users/alice/profile");
 
@@ -55,27 +76,24 @@ export function runNodeSuite(
         name: "Alice",
         email: "alice@example.com",
       });
+      assertEquals(readResults[0].record?.values, {});
     },
   });
 
   Deno.test({
-    name: `${suiteName} [Node] - receive multiple messages`,
+    name: `${suiteName} [Node] - receive multiple messages in batch`,
     ...noSanitize,
     fn: async () => {
       const node = await Promise.resolve(factory.happy());
 
-      // Receive multiple messages
-      const result1 = await node.receive([
-        "store://users/alice/profile",
-        { name: "Alice" },
-      ]);
-      const result2 = await node.receive([
-        "store://users/bob/profile",
-        { name: "Bob" },
+      const results = await node.receive([
+        msg([["store://users/alice/profile", {}, { name: "Alice" }]]),
+        msg([["store://users/bob/profile", {}, { name: "Bob" }]]),
       ]);
 
-      assertEquals(result1.accepted, true);
-      assertEquals(result2.accepted, true);
+      assertEquals(results.length, 2);
+      assertEquals(results[0].accepted, true);
+      assertEquals(results[1].accepted, true);
 
       // Verify both were stored
       const read1 = await node.read("store://users/alice/profile");
@@ -98,17 +116,13 @@ export function runNodeSuite(
 
       // Write initial data
       await node.receive([
-        "store://users/alice/profile",
-        { name: "Alice", version: 1 },
+        msg([["store://users/alice/profile", {}, { name: "Alice", version: 1 }]]),
       ]);
 
-      // Overwrite with new data
-      const result = await node.receive([
-        "store://users/alice/profile",
-        { name: "Alice Updated", version: 2 },
+      // Overwrite with new data (second write to same URI wins)
+      await node.receive([
+        msg([["store://users/alice/profile", {}, { name: "Alice Updated", version: 2 }]]),
       ]);
-
-      assertEquals(result.accepted, true);
 
       // Verify data was updated
       const readResults = await node.read("store://users/alice/profile");
@@ -122,28 +136,16 @@ export function runNodeSuite(
   });
 
   Deno.test({
-    name: `${suiteName} [Node] - receive with empty URI returns error`,
+    name: `${suiteName} [Node] - receive with null data in output`,
     ...noSanitize,
     fn: async () => {
       const node = await Promise.resolve(factory.happy());
 
-      const result = await node.receive(["", { data: "test" }]);
+      const results = await node.receive([
+        msg([["store://users/test/null", {}, null]]),
+      ]);
 
-      assertEquals(result.accepted, false);
-      assertEquals(typeof result.error, "string");
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} [Node] - receive with null data`,
-    ...noSanitize,
-    fn: async () => {
-      const node = await Promise.resolve(factory.happy());
-
-      const result = await node.receive(["store://users/test/null", null]);
-
-      // Should still accept null data (storage-dependent)
-      assertEquals(typeof result.accepted, "boolean");
+      assertEquals(typeof results[0].accepted, "boolean");
     },
   });
 
@@ -154,9 +156,11 @@ export function runNodeSuite(
       const node = await Promise.resolve(factory.happy());
 
       const prefix = `store://users/node-list-${Date.now()}`;
-      await node.receive([`${prefix}/alice/profile`, { name: "Alice" }]);
-      await node.receive([`${prefix}/bob/profile`, { name: "Bob" }]);
-      await node.receive([`${prefix}/charlie/profile`, { name: "Charlie" }]);
+      await node.receive([
+        msg([[`${prefix}/alice/profile`, {}, { name: "Alice" }]]),
+        msg([[`${prefix}/bob/profile`, {}, { name: "Bob" }]]),
+        msg([[`${prefix}/charlie/profile`, {}, { name: "Charlie" }]]),
+      ]);
 
       const results = await node.read(`${prefix}/`);
 
@@ -180,11 +184,11 @@ export function runNodeSuite(
     fn: async () => {
       const node = await Promise.resolve(factory.happy());
 
-      // Receive messages
-      await node.receive(["store://users/alice/profile", { name: "Alice" }]);
-      await node.receive(["store://users/bob/profile", { name: "Bob" }]);
+      await node.receive([
+        msg([["store://users/alice/profile", {}, { name: "Alice" }]]),
+        msg([["store://users/bob/profile", {}, { name: "Bob" }]]),
+      ]);
 
-      // Read multiple
       const results = await node.read([
         "store://users/alice/profile",
         "store://users/bob/profile",
@@ -217,13 +221,12 @@ export function runNodeSuite(
       fn: async () => {
         const node = await Promise.resolve(factory.validationError!());
 
-        const result = await node.receive([
-          "store://users/invalid/data",
-          { invalid: true },
+        const results = await node.receive([
+          msg([["store://users/invalid/data", {}, { invalid: true }]]),
         ]);
 
-        assertEquals(result.accepted, false);
-        assertEquals(typeof result.error, "string");
+        assertEquals(results[0].accepted, false);
+        assertEquals(typeof results[0].error, "string");
       },
     });
   }

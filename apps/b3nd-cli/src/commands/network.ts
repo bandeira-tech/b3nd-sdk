@@ -97,7 +97,7 @@ export async function networkUp(
         node.config,
         accountKey,
       );
-      const result = await rig.receive([uri, signedConfig]);
+      const [result] = await rig.receive([[uri, {}, signedConfig]]);
 
       if (result.accepted) {
         console.log(`  Pushed config for ${node.name}`);
@@ -115,7 +115,7 @@ export async function networkUp(
       manifest,
       accountKey,
     );
-    await rig.receive([networkUri, signedManifest]);
+    await rig.receive([[networkUri, {}, signedManifest]]);
     console.log(`\nNetwork manifest pushed to ${networkUri}`);
   } finally {
     await closeRig(logger);

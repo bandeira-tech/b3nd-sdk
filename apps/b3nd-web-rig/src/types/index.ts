@@ -1,9 +1,3 @@
-// Core persistence types mirroring b3nd/persistence
-export interface PersistenceRecord<T = any> {
-  ts: number;
-  data: T;
-}
-
 // Navigation and UI types
 export interface NavigationNode {
   path: string; // Primary identifier (e.g., "/users/alice/profile")
@@ -15,7 +9,7 @@ export interface NavigationNode {
 export interface SearchResult {
   path: string;
   name: string;
-  record: PersistenceRecord;
+  record: { values: Record<string, number>; data: unknown };
   snippet?: string;
 }
 
@@ -52,7 +46,7 @@ export interface BackendAdapter {
     path: string,
     options?: { page?: number; limit?: number },
   ): Promise<PaginatedResponse<NavigationNode>>;
-  readRecord(path: string): Promise<PersistenceRecord>;
+  readRecord(path: string): Promise<{ values: Record<string, number>; data: unknown }>;
   searchPaths(
     query: string,
     filters?: SearchFilters,

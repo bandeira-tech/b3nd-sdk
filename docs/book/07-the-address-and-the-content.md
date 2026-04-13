@@ -4,7 +4,7 @@ Every message has two parts. Where it's going and what it says.
 
 This is true of a shout across a room ("Hey, Bob! Pizza tonight?"), a letter in
 an envelope (address on the outside, letter on the inside), and a digital
-message (`[uri, data]`). The medium changes. The structure doesn't.
+message (`[uri, values, data]`). The medium changes. The structure doesn't.
 
 But the address and the content each do different work, and understanding what
 they carry — especially what the _address_ carries — is key to understanding how

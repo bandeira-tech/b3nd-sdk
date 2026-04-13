@@ -98,7 +98,7 @@ const ws = new WebSocketClient({
 });
 
 // Same API as HttpClient
-await ws.receive(["mutable://open/test", { hello: "world" }]);
+await ws.receive([["mutable://open/test", {}, { hello: "world" }]]);
 const result = await ws.read("mutable://open/test");
 ```
 

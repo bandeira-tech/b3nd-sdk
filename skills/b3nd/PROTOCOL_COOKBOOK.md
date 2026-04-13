@@ -43,7 +43,7 @@ createServerNode({ frontend, client }).listen(9942);
 
 ```typescript
 const client = new HttpClient({ url: "http://localhost:9942" });
-await client.receive(["mutable://open/notes/1", { text: "Hello world" }]);
+await client.receive([["mutable://open/notes/1", {}, { text: "Hello world" }]]);
 const result = await client.read("mutable://open/notes/1");
 ```
 

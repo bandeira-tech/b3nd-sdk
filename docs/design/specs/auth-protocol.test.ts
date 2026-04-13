@@ -143,7 +143,7 @@ Deno.test("pkce + oauth: SPA flow with custom node — end to end", async () => 
     new TextEncoder().encode(JSON.stringify(authPayload)),
     nodeEncKP.publicKeyHex,
   );
-  await client.receive([authUri, encryptedAuth]);
+  await client.receive([[authUri, {}, encryptedAuth]]);
 
   // Step 4: Node processes (simulate)
   const [reqRead] = await client.read(authUri);
@@ -162,7 +162,7 @@ Deno.test("pkce + oauth: SPA flow with custom node — end to end", async () => 
   );
 
   const responseUri = `mutable://data/auth/pkce-response-001`;
-  await client.receive([responseUri, encryptedResponse]);
+  await client.receive([[responseUri, {}, encryptedResponse]]);
 
   // Step 5: SPA reads response and derives identity
   const [respRead] = await client.read(responseUri);
@@ -210,7 +210,7 @@ Deno.test("password auth: derive keypair, write signed message, re-derive, read"
   );
 
   const uri = `mutable://accounts/${signingKeypair.publicKeyHex}/profile`;
-  const result = await client.receive([uri, authedMessage]);
+  const [result] = await client.receive([[uri, {}, authedMessage]]);
   assertEquals(result.accepted, true);
 
   // Re-derive on "new device"

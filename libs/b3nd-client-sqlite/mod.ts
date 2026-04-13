@@ -1,15 +1,17 @@
 /**
  * SqliteClient - SQLite implementation of NodeProtocolInterface
  *
- * Stores data in a SQLite database. Pure storage — validation is the rig's concern.
+ * Mechanical storage: delete inputs, write outputs. No validation — the rig's concern.
  * Uses an injected executor so the SDK does not depend on a specific SQLite driver.
+ *
+ * Message primitive: [uri, values, data] where data is always
+ * { inputs: string[], outputs: Output[] }.
  */
 
 import {
   Errors,
   type Message,
   type NodeProtocolInterface,
-  type PersistenceRecord,
   type ReadResult,
   type ReceiveResult,
   type SqliteClientConfig,
@@ -19,7 +21,6 @@ import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
-import { isMessageData } from "../b3nd-msg/data/detect.ts";
 import { generateSqliteSchema } from "./schema.ts";
 
 export interface SqliteExecutorResult {
@@ -65,8 +66,18 @@ export class SqliteClient implements NodeProtocolInterface {
     this.connected = true;
   }
 
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
+
+    for (const msg of msgs) {
+      results.push(this._receiveOne(msg));
+    }
+
+    return results;
+  }
+
+  private _receiveOne(msg: Message): ReceiveResult {
+    const [uri, , data] = msg;
 
     if (!uri || typeof uri !== "string") {
       return {
@@ -77,57 +88,53 @@ export class SqliteClient implements NodeProtocolInterface {
     }
 
     try {
-      const encodedData = encodeBinaryForJson(data);
-      const ts = Date.now();
-      const jsonData = JSON.stringify(encodedData);
+      const msgData = data as {
+        inputs?: string[];
+        outputs?: [string, Record<string, number>, unknown][];
+      } | null;
 
-      if (isMessageData(data)) {
-        this.executor.transaction((tx) => {
+      if (!msgData || typeof msgData !== "object") {
+        return { accepted: false, error: "Message data must be { inputs, outputs }" };
+      }
+
+      const inputs: string[] = Array.isArray(msgData.inputs) ? msgData.inputs : [];
+      const outputs: [string, Record<string, number>, unknown][] =
+        Array.isArray(msgData.outputs) ? msgData.outputs : [];
+
+      this.executor.transaction((tx) => {
+        // Delete inputs
+        for (const inputUri of inputs) {
           tx.query(
-            `INSERT INTO ${this.tableName} (uri, data, timestamp, updated_at)
+            `DELETE FROM ${this.tableName} WHERE uri = ?`,
+            [inputUri],
+          );
+        }
+
+        // Write outputs
+        for (const [outUri, outValues, outData] of outputs) {
+          const encodedData = encodeBinaryForJson(outData);
+          const jsonData = JSON.stringify(encodedData);
+          const jsonValues = JSON.stringify(outValues || {});
+
+          tx.query(
+            `INSERT INTO ${this.tableName} (uri, data, "values", updated_at)
              VALUES (?, ?, ?, datetime('now'))
              ON CONFLICT(uri) DO UPDATE SET
                data = excluded.data,
-               timestamp = excluded.timestamp,
+               "values" = excluded."values",
                updated_at = datetime('now')`,
-            [uri, jsonData, String(ts)],
+            [outUri, jsonData, jsonValues],
           );
-
-          for (const [outputUri, outputValue] of data.payload.outputs) {
-            const outputEncoded = JSON.stringify(
-              encodeBinaryForJson(outputValue),
-            );
-            const outputTs = Date.now();
-            tx.query(
-              `INSERT INTO ${this.tableName} (uri, data, timestamp, updated_at)
-               VALUES (?, ?, ?, datetime('now'))
-               ON CONFLICT(uri) DO UPDATE SET
-                 data = excluded.data,
-                 timestamp = excluded.timestamp,
-                 updated_at = datetime('now')`,
-              [outputUri, outputEncoded, String(outputTs)],
-            );
-          }
-        });
-      } else {
-        this.executor.query(
-          `INSERT INTO ${this.tableName} (uri, data, timestamp, updated_at)
-           VALUES (?, ?, ?, datetime('now'))
-           ON CONFLICT(uri) DO UPDATE SET
-             data = excluded.data,
-             timestamp = excluded.timestamp,
-             updated_at = datetime('now')`,
-          [uri, jsonData, String(ts)],
-        );
-      }
+        }
+      });
 
       return { accepted: true };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const errMsg = error instanceof Error ? error.message : String(error);
       return {
         accepted: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
+        error: errMsg,
+        errorDetail: Errors.storageError(errMsg, uri),
       };
     }
   }
@@ -150,7 +157,7 @@ export class SqliteClient implements NodeProtocolInterface {
   private _readOne<T = unknown>(uri: string): ReadResult<T> {
     try {
       const result = this.executor.query(
-        `SELECT data, timestamp FROM ${this.tableName} WHERE uri = ?`,
+        `SELECT data, "values" FROM ${this.tableName} WHERE uri = ?`,
         [uri],
       );
 
@@ -167,20 +174,20 @@ export class SqliteClient implements NodeProtocolInterface {
         ? JSON.parse(row.data)
         : row.data;
       const decodedData = decodeBinaryFromJson(rawData) as T;
-      const ts = typeof row.timestamp === "string"
-        ? Number(row.timestamp)
-        : Number(row.timestamp);
+      const values = typeof row.values === "string"
+        ? JSON.parse(row.values)
+        : (row.values || {});
 
       return {
         success: true,
-        record: { ts, data: decodedData },
+        record: { values, data: decodedData },
       };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const errMsg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
+        error: errMsg,
+        errorDetail: Errors.storageError(errMsg, uri),
       };
     }
   }
@@ -190,7 +197,7 @@ export class SqliteClient implements NodeProtocolInterface {
       const prefixBase = uri.endsWith("/") ? uri : `${uri}/`;
 
       const result = this.executor.query(
-        `SELECT uri, data, timestamp FROM ${this.tableName} WHERE uri LIKE ?`,
+        `SELECT uri, data, "values" FROM ${this.tableName} WHERE uri LIKE ?`,
         [`${prefixBase}%`],
       );
 
@@ -204,16 +211,13 @@ export class SqliteClient implements NodeProtocolInterface {
           ? JSON.parse(row.data as string)
           : row.data;
         const decodedData = decodeBinaryFromJson(rawData) as T;
-        const ts = typeof row.timestamp === "string"
-          ? Number(row.timestamp)
-          : Number(row.timestamp);
+        const values = typeof row.values === "string"
+          ? JSON.parse(row.values as string)
+          : (row.values || {});
         results.push({
           success: true,
-          record: {
-            ts,
-            data: decodedData,
-            uri: row.uri as string,
-          } as PersistenceRecord<T>,
+          uri: row.uri as string,
+          record: { values, data: decodedData },
         });
       }
 

@@ -61,12 +61,12 @@ Deno.test("read trailing slash: returns results on HTTP 200", async () => {
       {
         success: true,
         uri: "mutable://open/test/item1",
-        record: { data: { value: 1 }, ts: Date.now() },
+        record: { data: { value: 1 }, values: {} },
       },
       {
         success: true,
         uri: "mutable://open/test/item2",
-        record: { data: { value: 2 }, ts: Date.now() },
+        record: { data: { value: 2 }, values: {} },
       },
     ];
     return new Response(JSON.stringify(mockResults), {

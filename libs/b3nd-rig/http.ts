@@ -9,7 +9,7 @@
  *
  * Routes:
  *   GET  /api/v1/status            → rig.status()
- *   POST /api/v1/receive           → rig.receive([uri, data])
+ *   POST /api/v1/receive           → rig.receive([[uri, values, data]])
  *   GET  /api/v1/read/:uri         → rig.read(uri)
  *   GET  /api/v1/observe/:pattern   → SSE stream from rig events
  *
@@ -209,13 +209,13 @@ export function httpApi(
           400,
         );
       }
-      if (!Array.isArray(msg) || msg.length < 2) {
+      if (!Array.isArray(msg) || msg.length !== 3) {
         return json(
-          { accepted: false, error: "Expected [uri, data]" },
+          { accepted: false, error: "Expected [uri, values, data]" },
           400,
         );
       }
-      const [uri, rawData] = msg;
+      const [uri, values, rawData] = msg as [unknown, unknown, unknown];
       if (!uri || typeof uri !== "string") {
         return json(
           { accepted: false, error: "URI is required" },
@@ -223,8 +223,13 @@ export function httpApi(
         );
       }
       const data = deserializeBinary(rawData);
-      const result = await rig.receive([uri, data]);
-      return json(result, result.accepted ? 200 : 400);
+      // Wrap into MessageData envelope so MemoryClient stores the data.
+      // The HTTP API is a convenience layer: callers send [uri, values, data]
+      // and we translate it into the internal { inputs, outputs } format.
+      const vals = values as Record<string, number>;
+      const envelope = { inputs: [] as string[], outputs: [[uri, vals, data]] };
+      const results = await rig.receive([[uri, vals, envelope]]);
+      return json(results[0], results[0].accepted ? 200 : 400);
     }
 
     // ── Read ──
@@ -310,15 +315,14 @@ export function httpApi(
               for (const item of results) {
                 if (sub.closed) break;
                 if (!item.success || !item.record || !item.uri) continue;
-                const itemTs = item.record.ts ?? 0;
-                if (itemTs <= effectiveSince) continue;
+                const now = Date.now();
                 const event = {
                   uri: item.uri,
                   data: item.record.data,
-                  ts: item.record.ts,
+                  ts: now,
                 };
                 sub.write(
-                  `id: ${event.ts}\nevent: write\ndata: ${
+                  `id: ${now}\nevent: write\ndata: ${
                     JSON.stringify(event)
                   }\n\n`,
                 );

@@ -38,17 +38,15 @@ export type Processor<D = unknown> = (
  * @deprecated Use `NodeProtocolInterface` from b3nd-core instead.
  */
 export interface Node {
-  receive<D = unknown>(
-    msg: Message<D>,
-  ): Promise<{ accepted: boolean; error?: string }>;
+  receive(msgs: Message[]): Promise<{ accepted: boolean; error?: string }[]>;
   cleanup(): Promise<void>;
 }
 
 /**
  * @deprecated Use `createValidatedClient()` instead.
  */
-export interface NodeConfig<D = unknown> {
+export interface NodeConfig {
   read: ReadInterface;
   validate?: Validator;
-  process?: Processor<D>;
+  process?: Processor;
 }

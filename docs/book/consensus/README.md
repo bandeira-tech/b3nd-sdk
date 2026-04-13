@@ -9,7 +9,7 @@
 ## What This Book Covers
 
 This book documents how B3nd's validation pipeline — validators that check
-`[uri, data]` outputs — can be extended into a multi-stage consensus mechanism.
+`[uri, values, data]` outputs — can be extended into a multi-stage consensus mechanism.
 The validation stages (Pending → Attestation → Confirmation → Consensus Slot)
 are structurally similar to BFT multi-phase commit. The difference is in where
 the boundary sits between protocol and client.

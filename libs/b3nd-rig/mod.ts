@@ -20,7 +20,7 @@
  * const session = id.rig(rig);
  * await session.send({
  *   inputs: [],
- *   outputs: [["mutable://app/key", { hello: "world" }]],
+ *   outputs: [["mutable://app/key", {}, { hello: "world" }]],
  * });
  *
  * // Read (no identity needed)
@@ -45,6 +45,14 @@ export type {
   WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";
+
+// Program model — re-exported from core for convenience
+export type {
+  CodeHandler,
+  Output,
+  Program,
+  ProgramResult,
+} from "../b3nd-core/types.ts";
 
 // Hooks (immutable after init — throw to reject, observe to audit)
 export type {

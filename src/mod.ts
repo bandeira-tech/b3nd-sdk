@@ -12,7 +12,7 @@
  * const client = new MemoryClient();
  *
  * // Receive a message (the unified interface for all state changes)
- * await client.receive(["mutable://users/alice", { name: "Alice", age: 30 }]);
+ * await client.receive([["mutable://users/alice", {}, { name: "Alice", age: 30 }]]);
  *
  * // Read data
  * const results = await client.read("mutable://users/alice");
@@ -30,7 +30,7 @@
  * const client = new HttpClient({ url: "https://api.example.com" });
  *
  * // Same interface as MemoryClient
- * await client.receive(["mutable://data/key", { value: 123 }]);
+ * await client.receive([["mutable://data/key", {}, { value: 123 }]]);
  * const result = await client.read("mutable://data/key");
  * ```
  *
@@ -69,7 +69,6 @@ export type {
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Output,
-  PersistenceRecord,
   PostgresClientConfig,
   ReadFn,
   ReadMultiResult,

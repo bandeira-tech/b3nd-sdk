@@ -13,7 +13,6 @@ import {
   Errors,
   type Message,
   type NodeProtocolInterface,
-  type PersistenceRecord,
   type ReadResult,
   type ReceiveResult,
   type StatusResult,
@@ -22,7 +21,6 @@ import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
-import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 export interface ElasticsearchClientConfig {
   /** Index name prefix for b3nd data (e.g., "b3nd") */
@@ -45,6 +43,10 @@ export interface ElasticsearchExecutor {
   ) => Promise<{
     hits: Array<{ _id: string; _source: Record<string, unknown> }>;
   }>;
+  delete?: (
+    index: string,
+    id: string,
+  ) => Promise<void>;
   ping: () => Promise<boolean>;
   cleanup?: () => Promise<void>;
 }
@@ -95,8 +97,18 @@ export class ElasticsearchClient implements NodeProtocolInterface {
     this.executor = executor;
   }
 
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
+
+    for (const msg of msgs) {
+      results.push(await this.receiveOne(msg));
+    }
+
+    return results;
+  }
+
+  private async receiveOne(msg: Message): Promise<ReceiveResult> {
+    const [uri, values, data] = msg;
 
     if (!uri || typeof uri !== "string") {
       return {
@@ -107,34 +119,54 @@ export class ElasticsearchClient implements NodeProtocolInterface {
     }
 
     try {
-      const encodedData = encodeBinaryForJson(data);
-      const ts = Date.now();
-      const { index, docId } = uriToIndexAndDocId(uri, this.indexPrefix);
+      const msgData = data as { inputs?: unknown; outputs?: unknown } | null;
+      const isEnvelope = msgData != null &&
+        typeof msgData === "object" &&
+        Array.isArray(msgData.inputs) &&
+        Array.isArray(msgData.outputs);
 
-      await this.executor.index(index, docId, { ts, data: encodedData });
+      if (isEnvelope) {
+        const inputs = msgData!.inputs as string[];
+        const outputs = msgData!.outputs as [string, Record<string, number>, unknown][];
 
-      if (isMessageData(data)) {
-        for (const [outputUri, outputValue] of data.payload.outputs) {
-          const outputEncoded = encodeBinaryForJson(outputValue);
-          const outputTs = Date.now();
-          const { index: outIndex, docId: outDocId } = uriToIndexAndDocId(
-            outputUri,
+        if (this.executor.delete) {
+          for (const inputUri of inputs) {
+            const { index, docId } = uriToIndexAndDocId(
+              inputUri,
+              this.indexPrefix,
+            );
+            await this.executor.delete(index, docId);
+          }
+        }
+
+        for (const [outUri, outValues, outData] of outputs) {
+          const encodedData = encodeBinaryForJson(outData);
+          const { index, docId } = uriToIndexAndDocId(
+            outUri,
             this.indexPrefix,
           );
-          await this.executor.index(outIndex, outDocId, {
-            ts: outputTs,
-            data: outputEncoded,
+          await this.executor.index(index, docId, {
+            values: outValues,
+            data: encodedData,
           });
         }
+      } else {
+        // Direct write — store data at the message URI
+        const encodedData = encodeBinaryForJson(data);
+        const { index, docId } = uriToIndexAndDocId(uri, this.indexPrefix);
+        await this.executor.index(index, docId, {
+          values: values || {},
+          data: encodedData,
+        });
       }
 
       return { accepted: true };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const errMsg = error instanceof Error ? error.message : String(error);
       return {
         accepted: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
+        error: errMsg,
+        errorDetail: Errors.storageError(errMsg, uri),
       };
     }
   }
@@ -168,13 +200,13 @@ export class ElasticsearchClient implements NodeProtocolInterface {
         };
       }
 
-      const record = doc as unknown as PersistenceRecord;
-      const decodedData = decodeBinaryFromJson(record.data) as T;
+      const valuesValue = (doc.values ?? {}) as Record<string, number>;
+      const decodedData = decodeBinaryFromJson(doc.data) as T;
 
       return {
         success: true,
         uri,
-        record: { ts: record.ts, data: decodedData },
+        record: { values: valuesValue, data: decodedData },
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -206,12 +238,12 @@ export class ElasticsearchClient implements NodeProtocolInterface {
       const results: ReadResult<T>[] = [];
       for (const hit of searchResult.hits) {
         const hitUri = indexAndDocIdToUri(index, this.indexPrefix, hit._id);
-        const record = hit._source as unknown as PersistenceRecord;
-        const decodedData = decodeBinaryFromJson(record.data) as T;
+        const valuesValue = (hit._source.values ?? {}) as Record<string, number>;
+        const decodedData = decodeBinaryFromJson(hit._source.data) as T;
         results.push({
           success: true,
           uri: hitUri,
-          record: { ts: record.ts, data: decodedData },
+          record: { values: valuesValue, data: decodedData },
         });
       }
 

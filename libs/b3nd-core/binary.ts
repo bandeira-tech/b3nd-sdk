@@ -33,10 +33,12 @@ export function isEncodedBinary(value: unknown): value is EncodedBinary {
 }
 
 /**
- * Encode binary data for JSON storage
- * Returns the original value if not binary
+ * Encode binary data for JSON storage.
+ * Recursively walks objects and arrays to encode any Uint8Array or ArrayBuffer
+ * found at any depth — necessary for envelope messages with nested binary outputs.
+ * Returns the original value if not binary and not a container.
  */
-export function encodeBinaryForJson<T>(value: T): T | EncodedBinary {
+export function encodeBinaryForJson(value: unknown): unknown {
   if (value instanceof Uint8Array) {
     return {
       [BINARY_MARKER]: true,
@@ -48,6 +50,16 @@ export function encodeBinaryForJson<T>(value: T): T | EncodedBinary {
       [BINARY_MARKER]: true,
       data: btoa(String.fromCharCode(...new Uint8Array(value))),
     };
+  }
+  if (Array.isArray(value)) {
+    return value.map(encodeBinaryForJson);
+  }
+  if (value !== null && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value)) {
+      result[key] = encodeBinaryForJson(val);
+    }
+    return result;
   }
   return value;
 }

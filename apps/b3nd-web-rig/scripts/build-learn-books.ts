@@ -452,7 +452,7 @@ async function uploadToB3nd(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        tx: ["mutable://open/rig/learn/catalog", catalog],
+        tx: ["mutable://open/rig/learn/catalog", {}, catalog],
       }),
     });
     if (!catalogRes.ok) {
@@ -466,7 +466,7 @@ async function uploadToB3nd(
       const res = await fetch(`${nodeUrl}/api/v1/receive`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tx: [chapter.meta.uri, chapter.content] }),
+        body: JSON.stringify({ tx: [chapter.meta.uri, {}, chapter.content] }),
       });
       if (res.ok) {
         console.log(`  Chapter "${chapter.meta.key}" → ${chapter.meta.uri}`);

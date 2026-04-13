@@ -1,15 +1,17 @@
 /**
  * PostgresClient - PostgreSQL implementation of NodeProtocolInterface
  *
- * Stores data in PostgreSQL database. Pure storage — validation is the rig's concern.
+ * Mechanical storage: delete inputs, write outputs. No validation — the rig's concern.
  * Uses connection pooling for performance and supports SSL connections.
+ *
+ * Message primitive: [uri, values, data] where data is always
+ * { inputs: string[], outputs: Output[] }.
  */
 
 import {
   Errors,
   type Message,
   type NodeProtocolInterface,
-  type PersistenceRecord,
   type PostgresClientConfig,
   type ReadResult,
   type ReceiveResult,
@@ -19,7 +21,6 @@ import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
-import { isMessageData } from "../b3nd-msg/data/detect.ts";
 import { generatePostgresSchema } from "./schema.ts";
 
 // Local executor types scoped to Postgres client to avoid leaking DB concerns
@@ -66,15 +67,18 @@ export class PostgresClient implements NodeProtocolInterface {
     this.connected = true;
   }
 
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    return this.receiveWithExecutor(msg, this.executor);
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
+
+    for (const msg of msgs) {
+      results.push(await this._receiveOne(msg));
+    }
+
+    return results;
   }
 
-  private async receiveWithExecutor<D = unknown>(
-    msg: Message<D>,
-    executor: SqlExecutor,
-  ): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  private async _receiveOne(msg: Message): Promise<ReceiveResult> {
+    const [uri, , data] = msg;
 
     if (!uri || typeof uri !== "string") {
       return {
@@ -85,49 +89,48 @@ export class PostgresClient implements NodeProtocolInterface {
     }
 
     try {
-      const encodedData = encodeBinaryForJson(data);
-      const record: PersistenceRecord<typeof encodedData> = {
-        ts: Date.now(),
-        data: encodedData,
-      };
+      const msgData = data as {
+        inputs?: string[];
+        outputs?: [string, Record<string, number>, unknown][];
+      } | null;
+
+      if (!msgData || typeof msgData !== "object") {
+        return { accepted: false, error: "Message data must be { inputs, outputs }" };
+      }
+
+      const inputs: string[] = Array.isArray(msgData.inputs) ? msgData.inputs : [];
+      const outputs: [string, Record<string, number>, unknown][] =
+        Array.isArray(msgData.outputs) ? msgData.outputs : [];
 
       const table = `${this.tablePrefix}_data`;
 
-      if (isMessageData(data)) {
-        await executor.transaction(async (tx) => {
+      await this.executor.transaction(async (tx) => {
+        // Delete inputs
+        for (const inputUri of inputs) {
           await tx.query(
-            `INSERT INTO ${table} (uri, data, timestamp) VALUES ($1, $2::jsonb, $3)
-             ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, timestamp = EXCLUDED.timestamp, updated_at = CURRENT_TIMESTAMP`,
-            [uri, JSON.stringify(record.data), record.ts],
+            `DELETE FROM ${table} WHERE uri = $1`,
+            [inputUri],
           );
+        }
 
-          for (const [outputUri, outputValue] of data.payload.outputs) {
-            const outputResult = await this.receiveWithExecutor(
-              [outputUri, outputValue],
-              tx,
-            );
-            if (!outputResult.accepted) {
-              throw new Error(
-                outputResult.error || `Failed to store output: ${outputUri}`,
-              );
-            }
-          }
-        });
-      } else {
-        await executor.query(
-          `INSERT INTO ${table} (uri, data, timestamp) VALUES ($1, $2::jsonb, $3)
-           ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, timestamp = EXCLUDED.timestamp, updated_at = CURRENT_TIMESTAMP`,
-          [uri, JSON.stringify(record.data), record.ts],
-        );
-      }
+        // Write outputs
+        for (const [outUri, outValues, outData] of outputs) {
+          const encodedData = encodeBinaryForJson(outData);
+          await tx.query(
+            `INSERT INTO ${table} (uri, data, "values") VALUES ($1, $2::jsonb, $3::jsonb)
+             ON CONFLICT (uri) DO UPDATE SET data = EXCLUDED.data, "values" = EXCLUDED."values", updated_at = CURRENT_TIMESTAMP`,
+            [outUri, JSON.stringify(encodedData), JSON.stringify(outValues || {})],
+          );
+        }
+      });
 
       return { accepted: true };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const errMsg = error instanceof Error ? error.message : String(error);
       return {
         accepted: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
+        error: errMsg,
+        errorDetail: Errors.storageError(errMsg, uri),
       };
     }
   }
@@ -151,7 +154,7 @@ export class PostgresClient implements NodeProtocolInterface {
     try {
       const table = `${this.tablePrefix}_data`;
       const res = await this.executor.query(
-        `SELECT data, timestamp as ts FROM ${table} WHERE uri = $1`,
+        `SELECT data, "values" FROM ${table} WHERE uri = $1`,
         [uri],
       );
       if (!res.rows || res.rows.length === 0) {
@@ -162,21 +165,16 @@ export class PostgresClient implements NodeProtocolInterface {
         };
       }
       const row: any = res.rows[0];
-      // pg driver auto-parses jsonb — row.data is already a native JS value.
-      // Do NOT JSON.parse string values; that breaks scalar strings like "hello".
       const rawData = row.data;
       const decodedData = decodeBinaryFromJson(rawData) as T;
-      const record: PersistenceRecord<T> = {
-        ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
-        data: decodedData,
-      };
-      return { success: true, record };
+      const values = row.values || {};
+      return { success: true, record: { values, data: decodedData } };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const errMsg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
+        error: errMsg,
+        errorDetail: Errors.storageError(errMsg, uri),
       };
     }
   }
@@ -187,7 +185,7 @@ export class PostgresClient implements NodeProtocolInterface {
       const prefix = uri.endsWith("/") ? uri : `${uri}/`;
 
       const res = await this.executor.query(
-        `SELECT uri, data, timestamp as ts FROM ${table} WHERE uri LIKE $1 || '%'`,
+        `SELECT uri, data, "values" FROM ${table} WHERE uri LIKE $1 || '%'`,
         [prefix],
       );
 
@@ -197,15 +195,12 @@ export class PostgresClient implements NodeProtocolInterface {
 
       const results: ReadResult<T>[] = [];
       for (const raw of res.rows) {
-        const row = raw as { uri: string; data: unknown; ts: unknown };
+        const row = raw as { uri: string; data: unknown; values: unknown };
         const decodedData = decodeBinaryFromJson(row.data) as T;
         results.push({
           success: true,
-          record: {
-            ts: typeof row.ts === "number" ? row.ts : Number(row.ts),
-            data: decodedData,
-            uri: row.uri,
-          } as PersistenceRecord<T>,
+          uri: row.uri,
+          record: { values: (row.values || {}) as Record<string, number>, data: decodedData },
         });
       }
 
@@ -253,10 +248,6 @@ export class PostgresClient implements NodeProtocolInterface {
     }
   }
 
-  /**
-   * Initialize database schema
-   * Creates the necessary tables for b3nd data storage
-   */
   async initializeSchema(): Promise<void> {
     try {
       const schemaSQL = generatePostgresSchema(this.tablePrefix);
@@ -270,9 +261,6 @@ export class PostgresClient implements NodeProtocolInterface {
     }
   }
 
-  /**
-   * Get connection info for logging/debugging
-   */
   getConnectionInfo(): string {
     if (typeof this.config.connection === "string") {
       const masked = this.config.connection.replace(/:([^@]+)@/, ":****@");

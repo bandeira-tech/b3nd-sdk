@@ -25,7 +25,6 @@
     "npm:fake-indexeddb@6.0.0": "6.0.0",
     "npm:hono@*": "4.11.3",
     "npm:hono@4": "4.11.3",
-    "npm:hono@^4.11.3": "4.11.3",
     "npm:hono@^4.6.0": "4.11.3",
     "npm:mongodb@*": "7.0.0",
     "npm:pg@*": "8.16.3",
@@ -1480,11 +1479,6 @@
           "npm:@modelcontextprotocol/sdk@1"
         ]
       },
-      "apps/apps-node": {
-        "dependencies": [
-          "npm:hono@*"
-        ]
-      },
       "apps/b3nd-node": {
         "dependencies": [
           "jsr:@std/encoding@^1.0.10",
@@ -1508,11 +1502,6 @@
       "apps/vault-listener": {
         "dependencies": [
           "jsr:@std/assert@1"
-        ]
-      },
-      "apps/wallet-node": {
-        "dependencies": [
-          "npm:hono@*"
         ]
       },
       "libs/b3nd-auth": {
@@ -1614,11 +1603,6 @@
       "libs/b3nd-wallet": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/b3nd-wallet-server": {
-        "dependencies": [
-          "npm:hono@^4.11.3"
         ]
       },
       "libs/firecat-protocol": {

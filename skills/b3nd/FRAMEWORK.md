@@ -83,7 +83,7 @@ B3nd is small. The entire framework is a validation dispatch loop. Here's
 what happens when a message arrives at a node:
 
 ```
-message arrives: [uri, data]
+message arrives: [uri, values, data]
         │
         ▼
   extract program from URI
@@ -119,11 +119,11 @@ primitive.
 
 ```typescript
 async function myValidator(
-  output: [string, unknown],       // [uri, data] — the output being validated
-  upstream: [string, unknown] | undefined, // parent envelope, or undefined for plain writes
+  output: [string, Record<string, number>, unknown], // [uri, values, data]
+  upstream: [string, Record<string, number>, unknown] | undefined, // parent envelope, or undefined for plain writes
   read: (uri: string) => Promise<ReadResult>,  // read existing state (any URI)
 ) {
-  const [uri, data] = output;
+  const [uri, values, data] = output;
   // Your logic here. Read other URIs, check signatures,
   // enforce business rules — whatever the program needs.
   return { valid: true };
@@ -194,7 +194,7 @@ type Schema = Record<string, Validator>;
 
 // Example: a schema with two programs
 const schema: Schema = {
-  "mutable://open": async ([uri, data]) => ({ valid: !!data }),
+  "mutable://open": async ([uri, , data]) => ({ valid: !!data }),
   "test://data": async () => ({ valid: true }),
 };
 ```
@@ -238,7 +238,7 @@ import { HttpClient } from "@bandeira-tech/b3nd-web";
 const client = new HttpClient({ url: "http://localhost:9942" });
 
 // Write — single message
-await client.receive(["mutable://open/my-app/config", { theme: "dark" }]);
+await client.receive([["mutable://open/my-app/config", {}, { theme: "dark" }]]);
 
 // Read (always returns ReadResult[])
 const [result] = await client.read("mutable://open/my-app/config");
@@ -296,14 +296,14 @@ The lower-level `message()` function builds the tuple without sending:
 ```typescript
 import { message } from "@bandeira-tech/b3nd-sdk";
 
-const [uri, data] = await message({
+const [uri, , data] = await message({
   payload: {
     inputs: [],
-    outputs: [["mutable://open/config", { theme: "dark" }]],
+    outputs: [["mutable://open/config", {}, { theme: "dark" }]],
   },
 });
 // uri = "hash://sha256/{computed-hash}"
-// data = { payload: { inputs: [], outputs: [...] } }
+// data = { inputs: [], outputs: [...] }
 ```
 
 ### Auth Primitives
@@ -432,7 +432,7 @@ interface layer:
 
 ```
 ┌─────────────┐                      ┌─────────────────┐
-│  Frontends  │    [uri, data] →     │     B3nd Node    │
+│  Frontends  │    [uri, values, data] →     │     B3nd Node    │
 │  (apps, UX) │  ← read(uri)        │  validate only   │
 └─────────────┘                      └────────┬────────┘
                                               │
@@ -536,7 +536,7 @@ mechanism is essential for protocol design.
 
 `msgSchema(schema)` handles two cases:
 
-1. **Plain message** `[uri, data]` — extracts the program from `uri`, looks up
+1. **Plain message** `[uri, values, data]` — extracts the program from `uri`, looks up
    the validator in the schema table, calls it with `upstream = undefined`.
 
 2. **Envelope message** `[uri, { auth?, payload: { inputs, outputs } }]` — does
@@ -552,7 +552,7 @@ acceptance.
 // What msgSchema() does (simplified):
 function msgSchema(programSchema) {
   return async (output, upstream, read) => {
-    const [uri, data] = output;
+    const [uri, values, data] = output;
 
     if (!isEnvelope(data)) {
       // Plain message: dispatch to one validator, upstream = undefined
@@ -603,7 +603,7 @@ semantics implement them via `read()`:
 
 ```typescript
 // Protocol-defined: check that all inputs exist and are unconsumed
-const envelopeValidator: Validator = async ([uri, data], upstream, read) => {
+const envelopeValidator: Validator = async ([uri, , data], upstream, read) => {
   for (const inputUri of data.payload.inputs) {
     const existing = await read(inputUri);
     if (!existing.success) {
@@ -623,7 +623,7 @@ together.
 ```typescript
 // A link:// validator that verifies the referenced hash:// content exists
 const schema: Schema = {
-  "link://accounts": async ([uri, data], upstream, read) => {
+  "link://accounts": async ([uri, , data], upstream, read) => {
     // data is a hash URI string — verify the content it points to exists
     const content = await read(data);
     if (!content.success) {
@@ -634,7 +634,7 @@ const schema: Schema = {
 
   "hash://sha256": hashValidator(),  // built-in: verifies data matches hash
 
-  "mutable://accounts": async ([uri, data], upstream, read) => {
+  "mutable://accounts": async ([uri, , data], upstream, read) => {
     // Check that the writer owns this account by reading their auth link
     const pubkey = uri.split("/")[3]; // mutable://accounts/{pubkey}/...
     const authLink = await read(`link://accounts/${pubkey}/auth`);
@@ -663,7 +663,7 @@ import type { Validator, Schema } from "@bandeira-tech/b3nd-sdk";
 import { isMessageData } from "@bandeira-tech/b3nd-sdk";
 
 // Fee validator: inspects sibling outputs via upstream
-const feeValidator: Validator = async ([uri, data], upstream, read) => {
+const feeValidator: Validator = async ([uri, , data], upstream, read) => {
   // upstream is the envelope [envelopeUri, { auth, payload: { inputs, outputs } }]
   // For plain writes, upstream is undefined
   if (!upstream) return { valid: false, error: "Fee check requires envelope context" };
@@ -692,7 +692,7 @@ output's program validator and can inspect `upstream` when needed:
 ```typescript
 const schema: Schema = {
   // Envelope validator: checks signatures, input existence
-  "hash://sha256": async ([uri, data], upstream, read) => {
+  "hash://sha256": async ([uri, , data], upstream, read) => {
     if (!isMessageData(data)) return { valid: true }; // plain hash: OK
     // Check signatures, verify input existence, enforce conservation laws
     let inputSum = 0;
@@ -727,7 +727,7 @@ import { assertEquals } from "@std/assert";
 import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
-  "mutable://accounts": async ([uri, data]) => {
+  "mutable://accounts": async ([uri, , data]) => {
     if (!data || typeof data !== "object") {
       return { valid: false, error: "Value must be an object" };
     }
@@ -762,7 +762,7 @@ Deno.test("rejects invalid account write", async () => {
 // Test cross-program reads: pre-populate state, then validate against it
 Deno.test("validator reads cross-program state", async () => {
   const crossSchema: Schema = {
-    "mutable://balances": async ([uri, data], upstream, read) => {
+    "mutable://balances": async ([uri, , data], upstream, read) => {
       const pubkey = uri.split("/")[3];
       const auth = await read(`link://accounts/${pubkey}/auth`);
       if (!auth.success) return { valid: false, error: "Not registered" };
@@ -773,10 +773,10 @@ Deno.test("validator reads cross-program state", async () => {
   const client = new MemoryClient();
 
   // Pre-populate: register the account
-  await client.receive(["link://accounts/alice/auth", { active: true }]);
+  await client.receive([["link://accounts/alice/auth", {}, { active: true }]]);
 
   // Now the balance write should succeed (cross-program read finds the auth)
-  await client.receive(["mutable://balances/alice/balance", { amount: 100 }]);
+  await client.receive([["mutable://balances/alice/balance", {}, { amount: 100 }]]);
   const [result] = await client.read("mutable://balances/alice/balance");
   assertEquals(result.record?.data, { amount: 100 });
 });
@@ -815,7 +815,7 @@ Layer: Confirmation (confirmer finalizes)
 
 Each layer is just a message that references the previous layer as input and
 produces new outputs. The framework doesn't know about consensus — it just
-processes `[uri, data]` messages. Consensus emerges from the program schemas that
+processes `[uri, values, data]` messages. Consensus emerges from the program schemas that
 control who can write validation and confirmation links.
 
 To verify a message was confirmed, a validator reads the inner envelope by its
@@ -825,7 +825,7 @@ inputs, and outputs to decide whether to endorse it:
 
 ```typescript
 // Validator endorsement: read the user's envelope, verify, write a link
-"link://accounts": async ([uri, data], upstream, read) => {
+"link://accounts": async ([uri, , data], upstream, read) => {
   // data = "hash://sha256/{content}" — reference to the user's envelope
   const envelope = await read(data);
   if (!envelope.success) return { valid: false, error: "Envelope not found" };
@@ -873,7 +873,7 @@ const publishingProtocol: Schema = {
   "hash://sha256": hashValidator(),
 
   // Mutable pointers — only the trusted validator can write endorsement links
-  "link://posts": async ([uri, data], upstream, read) => {
+  "link://posts": async ([uri, , data], upstream, read) => {
     // data is a hash URI pointing to endorsed content
     if (typeof data !== "string" || !data.startsWith("hash://sha256/")) {
       return { valid: false, error: "Link value must be a hash URI" };
@@ -887,7 +887,7 @@ const publishingProtocol: Schema = {
   },
 
   // User profiles — anyone can write to their own path
-  "mutable://profiles": async ([uri, data]) => {
+  "mutable://profiles": async ([uri, , data]) => {
     if (!data || typeof data !== "object") {
       return { valid: false, error: "Profile must be an object" };
     }
@@ -1090,7 +1090,7 @@ createServerNode({ frontend, client }).listen(9942);
 
 ```typescript
 const client = new HttpClient({ url: "http://localhost:9942" });
-await client.receive(["mutable://open/notes/1", { text: "Hello world" }]);
+await client.receive([["mutable://open/notes/1", {}, { text: "Hello world" }]]);
 const [result] = await client.read("mutable://open/notes/1");
 ```
 
@@ -1110,7 +1110,7 @@ import { authValidation, createPubkeyBasedAccess } from "@bandeira-tech/b3nd-sdk
 const schema: Schema = {
   "mutable://open": async () => ({ valid: true }),
 
-  "mutable://accounts": async ([uri, data]) => {
+  "mutable://accounts": async ([uri, , data]) => {
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
     const isValid = await validator({ uri, value: data });
@@ -1120,7 +1120,7 @@ const schema: Schema = {
     };
   },
 
-  "immutable://accounts": async ([uri, data], upstream, read) => {
+  "immutable://accounts": async ([uri, , data], upstream, read) => {
     // Auth + write-once
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
@@ -1173,7 +1173,7 @@ const schema: Schema = {
   "hash://sha256": hashValidator(),
 
   // Links: mutable pointers to hash URIs
-  "link://open": async ([uri, data]) => {
+  "link://open": async ([uri, , data]) => {
     if (typeof data !== "string" || !data.startsWith("hash://")) {
       return { valid: false, error: "Link must point to a hash URI" };
     }
@@ -1248,7 +1248,7 @@ import type { Schema } from "@bandeira-tech/b3nd-sdk";
 import { isMessageData } from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
-  "immutable://open": async ([uri, data], upstream, read) => {
+  "immutable://open": async ([uri, , data], upstream, read) => {
     if (!data) return { valid: false, error: "Value required" };
 
     // When inside an envelope, require a fee output
@@ -1296,14 +1296,14 @@ the conservation law. Per-output validators check individual amounts.
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
 import { isMessageData } from "@bandeira-tech/b3nd-sdk";
 
-const nonNegative: Validator<number> = async ([uri, data]) => {
+const nonNegative: Validator<number> = async ([uri, , data]) => {
   if (data < 0) return { valid: false, error: "Negative amount" };
   return { valid: true };
 };
 
 const schema: Schema = {
   // Envelope validator: enforce conservation law
-  "hash://sha256": async ([uri, data], upstream, read) => {
+  "hash://sha256": async ([uri, , data], upstream, read) => {
     if (!isMessageData(data)) return { valid: true }; // plain hash write
     // Sum inputs (read existing state)
     let inputSum = 0;
@@ -1367,7 +1367,7 @@ const schema: Schema = {
   "hash://sha256": hashValidator(),
 
   // Head pointer: must reference a valid hash URI
-  "link://open": async ([uri, data], upstream, read) => {
+  "link://open": async ([uri, , data], upstream, read) => {
     if (typeof data !== "string" || !data.startsWith("hash://sha256/")) {
       return { valid: false, error: "Must point to a hash URI" };
     }
@@ -1447,7 +1447,7 @@ const schema: Schema = {
   "hash://sha256": hashValidator(),
 
   // User content: auth-verified, stored at hash
-  "mutable://accounts": async ([uri, data]) => {
+  "mutable://accounts": async ([uri, , data]) => {
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
     const isValid = await validator({ uri, value: data });
@@ -1455,7 +1455,7 @@ const schema: Schema = {
   },
 
   // Validation links: only trusted validators can write
-  "link://accounts": async ([uri, data], upstream, read) => {
+  "link://accounts": async ([uri, , data], upstream, read) => {
     // Extract writer pubkey from URI path
     const pubkey = uri.split("/")[3]; // link://accounts/{pubkey}/...
     if (!TRUSTED_VALIDATORS.includes(pubkey) && !TRUSTED_CONFIRMERS.includes(pubkey)) {
@@ -1551,7 +1551,7 @@ Export your schema as a module so it can be imported by the node and by tests:
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
-  "mutable://open": async ([uri, data]) => {
+  "mutable://open": async ([uri, , data]) => {
     if (!data) return { valid: false, error: "Value required" };
     return { valid: true };
   },
@@ -1637,7 +1637,7 @@ import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 export const schema: Schema = {
   "mutable://open": async () => ({ valid: true }),
   "hash://sha256": hashValidator(),
-  "link://open": async ([uri, data]) => {
+  "link://open": async ([uri, , data]) => {
     if (typeof data !== "string") return { valid: false, error: "Must be string" };
     return { valid: true };
   },
@@ -1724,7 +1724,7 @@ Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
 
 | Tool                       | Description                                       |
 | -------------------------- | ------------------------------------------------- |
-| `b3nd_receive`             | Submit message `[uri, data]`                      |
+| `b3nd_receive`             | Submit message `[uri, values, data]` (batch)              |
 | `b3nd_read`                | Read data from URI (trailing slash = list)        |
 | `b3nd_status`              | Backend status + available programs               |
 | `b3nd_backends_list`       | List configured backends                          |
