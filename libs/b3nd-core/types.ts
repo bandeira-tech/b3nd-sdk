@@ -4,21 +4,11 @@
  */
 
 /**
- * Persistence record — values + data.
- * Values are conserved quantities (Record<string, number>).
- * Data is the stored content.
- */
-export interface PersistenceRecord<T = unknown> {
-  values: Record<string, number>;
-  data: T;
-}
-
-/**
  * Result of a write operation
  */
 export interface WriteResult<T = unknown> {
   success: boolean;
-  record?: PersistenceRecord<T>;
+  record?: { values: Record<string, number>; data: T };
   error?: string;
 }
 
@@ -29,7 +19,7 @@ export interface WriteResult<T = unknown> {
 export interface ReadResult<T> {
   success: boolean;
   uri?: string;
-  record?: PersistenceRecord<T>;
+  record?: { values: Record<string, number>; data: T };
   error?: string;
   errorDetail?: B3ndError;
 }
@@ -38,7 +28,7 @@ export interface ReadResult<T> {
  * Result for a single URI in a multi-read operation
  */
 export type ReadMultiResultItem<T = unknown> =
-  | { uri: string; success: true; record: PersistenceRecord<T> }
+  | { uri: string; success: true; record: { values: Record<string, number>; data: T } }
   | { uri: string; success: false; error: string };
 
 /**

@@ -12,7 +12,7 @@ import {
   Errors,
   type Message,
   type NodeProtocolInterface,
-  type PersistenceRecord,
+
   type ReadResult,
   type ReceiveResult,
   type StatusResult,
@@ -97,7 +97,7 @@ export class IpfsClient implements NodeProtocolInterface {
         // Write outputs
         for (const [outUri, outValues, outData] of outputs) {
           const encodedData = encodeBinaryForJson(outData);
-          const record: PersistenceRecord = { values: outValues, data: encodedData };
+          const record = { values: outValues, data: encodedData };
           const content = JSON.stringify(record);
 
           const cid = await this.executor.add(content);
@@ -184,11 +184,11 @@ export class IpfsClient implements NodeProtocolInterface {
         // For list, we include the URI in the record for identification
         results.push({
           success: true,
+          uri: indexUri,
           record: {
             values: {},
             data: undefined as unknown as T,
-            uri: indexUri,
-          } as PersistenceRecord<T>,
+          },
         });
       }
     }

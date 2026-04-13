@@ -7,7 +7,7 @@
  * - Validation errors (schema validation failures)
  */
 
-import type { PersistenceRecord } from "../b3nd-core/types.ts";
+
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
@@ -35,13 +35,13 @@ export interface MockServerConfig {
   mode: "happy" | "connectionError" | "validationError";
 
   /** In-memory storage for happy path */
-  storage?: Map<string, PersistenceRecord>;
+  storage?: Map<string, { values: Record<string, number>; data: unknown }>;
 }
 
 export class MockHttpServer {
   private server?: Deno.HttpServer;
   private config: MockServerConfig;
-  private storage: Map<string, PersistenceRecord>;
+  private storage: Map<string, { values: Record<string, number>; data: unknown }>;
 
   constructor(config: MockServerConfig) {
     this.config = config;
@@ -311,7 +311,7 @@ export async function createMockServers(): Promise<{
   validationError: MockHttpServer;
   cleanup: () => Promise<void>;
 }> {
-  const sharedStorage = new Map<string, PersistenceRecord>();
+  const sharedStorage = new Map<string, { values: Record<string, number>; data: unknown }>();
 
   const happy = new MockHttpServer({
     port: 8765,

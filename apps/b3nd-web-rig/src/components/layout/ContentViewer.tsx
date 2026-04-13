@@ -7,7 +7,6 @@ import { useActiveBackend } from "../../stores/appStore";
 import type {
   NavigationNode,
   PaginatedResponse,
-  PersistenceRecord,
 } from "../../types";
 import {
   Calendar,
@@ -28,7 +27,7 @@ interface ContentViewerProps {
 }
 
 export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
-  const [record, setRecord] = useState<PersistenceRecord | null>(null);
+  const [record, setRecord] = useState<{ values: Record<string, number>; data: unknown } | null>(null);
   const [directoryContents, setDirectoryContents] = useState<NavigationNode[]>(
     [],
   );
@@ -87,7 +86,7 @@ export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
           "ContentViewer: detected file (empty list), loading record for",
           path,
         ); // Debug
-        const fileRecord: PersistenceRecord = await activeBackend.adapter
+        const fileRecord = await activeBackend.adapter
           .readRecord(path);
         setRecord(fileRecord);
         console.log("ContentViewer: file record loaded:", fileRecord); // Debug
@@ -168,7 +167,7 @@ function FileViewer({
   onCopy,
   readUrl,
 }: {
-  record: PersistenceRecord;
+  record: { values: Record<string, number>; data: unknown };
   onCopy: () => Promise<void>;
   readUrl?: string;
 }) {

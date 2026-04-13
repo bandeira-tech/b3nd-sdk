@@ -10,7 +10,7 @@ import {
   Errors,
   type Message,
   type NodeProtocolInterface,
-  type PersistenceRecord,
+
   type ReadResult,
   type ReceiveResult,
   type S3ClientConfig,
@@ -97,7 +97,7 @@ export class S3Client implements NodeProtocolInterface {
 
         for (const [outUri, outValues, outData] of outputs) {
           const encodedData = encodeBinaryForJson(outData);
-          const record: PersistenceRecord = {
+          const record = {
             values: outValues,
             data: encodedData,
           };
@@ -111,7 +111,7 @@ export class S3Client implements NodeProtocolInterface {
       } else {
         // Direct write — store data at the message URI
         const encodedData = encodeBinaryForJson(data);
-        const record: PersistenceRecord = {
+        const record = {
           values: values || {},
           data: encodedData,
         };

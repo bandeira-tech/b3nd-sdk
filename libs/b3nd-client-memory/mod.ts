@@ -11,7 +11,7 @@
 import type {
   Message,
   NodeProtocolInterface,
-  PersistenceRecord,
+
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -134,7 +134,7 @@ export class MemoryClient implements NodeProtocolInterface {
     return { accepted: true };
   }
 
-  private _write(uri: string, record: PersistenceRecord): void {
+  private _write(uri: string, record: { values: Record<string, number>; data: unknown }): void {
     const result = target(uri, this.storage);
     if (!result.success) return;
 
@@ -230,7 +230,7 @@ export class MemoryClient implements NodeProtocolInterface {
 
     return {
       success: true,
-      record: current.value as PersistenceRecord<T>,
+      record: current.value as { values: Record<string, number>; data: T },
     };
   }
 
@@ -265,7 +265,7 @@ export class MemoryClient implements NodeProtocolInterface {
         results.push({
           success: true,
           uri: currentUri,
-          record: node.value as PersistenceRecord<T>,
+          record: node.value as { values: Record<string, number>; data: T },
         });
       }
       if (node.children) {

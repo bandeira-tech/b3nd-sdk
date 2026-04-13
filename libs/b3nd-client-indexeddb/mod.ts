@@ -11,7 +11,7 @@ import type {
   IndexedDBClientConfig,
   Message,
   NodeProtocolInterface,
-  PersistenceRecord,
+
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -268,7 +268,7 @@ export class IndexedDBClient implements NodeProtocolInterface {
             return;
           }
 
-          const record: PersistenceRecord<T> = {
+          const record = {
             values: storedRecord.values,
             data: storedRecord.data as T,
           };
@@ -311,11 +311,11 @@ export class IndexedDBClient implements NodeProtocolInterface {
             if (record.uri.startsWith(uri)) {
               results.push({
                 success: true,
+                uri: record.uri,
                 record: {
                   values: record.values,
                   data: record.data as T,
-                  uri: record.uri,
-                } as PersistenceRecord<T>,
+                },
               });
             }
             cursor.continue();

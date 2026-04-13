@@ -9,7 +9,7 @@ import type {
   LocalStorageClientConfig,
   Message,
   NodeProtocolInterface,
-  PersistenceRecord,
+
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -166,7 +166,7 @@ export class LocalStorageClient implements NodeProtocolInterface {
         values?: Record<string, number>;
         data: unknown;
       };
-      const record: PersistenceRecord<T> = {
+      const record = {
         values: raw.values || {},
         data: deserializeData(raw.data) as T,
       };

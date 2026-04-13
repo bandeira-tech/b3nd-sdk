@@ -2,7 +2,6 @@ import type {
   BackendAdapter,
   NavigationNode,
   PaginatedResponse,
-  PersistenceRecord,
   SearchFilters,
   SearchResult,
 } from "../types";
@@ -19,7 +18,7 @@ interface ClientLike {
   read(
     uri: string,
   ): Promise<
-    { success: boolean; record?: PersistenceRecord; error?: string }[]
+    { success: boolean; record?: { values: Record<string, number>; data: unknown }; error?: string }[]
   >;
   status(): Promise<{ status: string; schema?: string[] }>;
 }
@@ -90,7 +89,7 @@ export class HttpAdapter implements BackendAdapter {
     };
   }
 
-  async readRecord(path: string): Promise<PersistenceRecord> {
+  async readRecord(path: string): Promise<{ values: Record<string, number>; data: unknown }> {
     // Convert Explorer path to URI
     const uri = this.pathToUri(path);
 

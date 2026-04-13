@@ -28,7 +28,7 @@ export type {
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Output,
-  PersistenceRecord,
+
   ReadFn,
   ReadMultiResult,
   ReadMultiResultItem,

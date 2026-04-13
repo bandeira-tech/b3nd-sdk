@@ -15,7 +15,7 @@ import {
   type FsClientConfig,
   type Message,
   type NodeProtocolInterface,
-  type PersistenceRecord,
+
   type ReadResult,
   type ReceiveResult,
   type StatusResult,
@@ -94,7 +94,7 @@ export class FilesystemClient implements NodeProtocolInterface {
         // Write outputs
         for (const [outUri, outValues, outData] of outputs) {
           const encodedData = encodeBinaryForJson(outData);
-          const record: PersistenceRecord = { values: outValues, data: encodedData };
+          const record = { values: outValues, data: encodedData };
           const filePath = this.resolvePath(outUri);
           await this.executor.writeFile(filePath, JSON.stringify(record));
         }

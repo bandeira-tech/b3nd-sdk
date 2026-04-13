@@ -69,7 +69,7 @@ export type {
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Output,
-  PersistenceRecord,
+
   PostgresClientConfig,
   ReadFn,
   ReadMultiResult,

@@ -10,7 +10,7 @@ import {
   type Message,
   type MongoClientConfig,
   type NodeProtocolInterface,
-  type PersistenceRecord,
+
   type ReadResult,
   type ReceiveResult,
   type StatusResult,
@@ -173,7 +173,7 @@ export class MongoClient implements NodeProtocolInterface {
       const decodedData = decodeBinaryFromJson(dataValue) as T;
       const valuesValue = (doc.values ?? {}) as Record<string, number>;
 
-      const record: PersistenceRecord<T> = {
+      const record = {
         values: valuesValue,
         data: decodedData,
       };
@@ -209,11 +209,11 @@ export class MongoClient implements NodeProtocolInterface {
         const valuesValue = (doc.values ?? {}) as Record<string, number>;
         results.push({
           success: true,
+          uri: docUri,
           record: {
             values: valuesValue,
             data: decodedData,
-            uri: docUri,
-          } as PersistenceRecord<T>,
+          },
         });
       }
 
