@@ -296,14 +296,14 @@ The lower-level `message()` function builds the tuple without sending:
 ```typescript
 import { message } from "@bandeira-tech/b3nd-sdk";
 
-const [uri, data] = await message({
+const [uri, , data] = await message({
   payload: {
     inputs: [],
-    outputs: [["mutable://open/config", { theme: "dark" }]],
+    outputs: [["mutable://open/config", {}, { theme: "dark" }]],
   },
 });
 // uri = "hash://sha256/{computed-hash}"
-// data = { payload: { inputs: [], outputs: [...] } }
+// data = { inputs: [], outputs: [...] }
 ```
 
 ### Auth Primitives

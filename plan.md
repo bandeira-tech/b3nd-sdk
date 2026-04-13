@@ -182,7 +182,7 @@ docs/book/
   - The **content** (what you would have said)
   - The **address** (who you would have said it to — because the medium doesn't know where to go on its own)
   - Optionally: **proof of identity** (your seal) and **secrecy** (a sealed envelope)
-- **Forward glance (digital):** in b3nd, a message is `[uri, data]` — address and content. The seal and the envelope are layers on top, applied when the conversation demands them — just as in physical mail. The medium changed from paper to wire; the shape of the message didn't.
+- **Forward glance (digital):** in b3nd, a message is `[uri, values, data]` — address, values, and content. The seal and the envelope are layers on top, applied when the conversation demands them — just as in physical mail. The medium changed from paper to wire; the shape of the message didn't.
 
 #### Chapter 7: The Address and the Content
 - **In speech:** the "address" is eye contact, pointing, or calling someone's name across the room. The medium handles it — sound goes where you direct your voice.
@@ -256,7 +256,7 @@ docs/book/
 
   | | Speech (clerk) | Paper (post office) | Digital (b3nd node) |
   |---|---|---|---|
-  | **Receives** | Listens to what you say | Accepts your letter | `receive([uri, data])` |
+  | **Receives** | Listens to what you say | Accepts your letter | `receive([[uri, values, data]])` |
   | **Files** | Remembers / writes it down | Sorts into mailbox | Stores at the URI |
   | **Retrieves** | Tells you what was said | Gives you your mail | `read(uri)` |
   | **Lists** | "Here's what we have on file" | Lists items in a box | `list(prefix)` |

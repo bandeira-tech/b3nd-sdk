@@ -69,7 +69,7 @@ platforms, consensus chains, authentication flows, content apps — composes fro
 these four verbs.
 
 ```
-receive(["mutable://open/notes/hello", { text: "hello world" }])
+receive([["mutable://open/notes/hello", {}, { text: "hello world" }]])
   → The node files "hello world" at the address "mutable://open/notes/hello"
 
 read("mutable://open/notes/hello")
@@ -117,7 +117,7 @@ without a valid address.
 
 |               | Speech (clerk)                | Paper (post office)       | Digital (b3nd node)        |
 | ------------- | ----------------------------- | ------------------------- | -------------------------- |
-| **Receives**  | Listens to what you say       | Accepts your letter       | `receive([uri, data])`     |
+| **Receives**  | Listens to what you say       | Accepts your letter       | `receive([[uri, values, data]])` |
 | **Files**     | Remembers or writes it down   | Sorts into mailbox        | Stores at the URI          |
 | **Retrieves** | Tells you what was said       | Gives you your mail       | `read(uri)`                |
 | **Lists**     | "Here's what we have on file" | Lists items in a box      | `list(prefix)`             |

@@ -16,7 +16,7 @@ interface. Handlers compose with these operations:
 ┌──────────────────────────────────────────────────────────┐
 │                  NodeProtocolInterface                    │
 │                                                          │
-│  receive(msg)    ── accept a [uri, data] message         │
+│  receive(msgs)   ── accept [uri, values, data] messages         │
 │  read(uri)       ── fetch a single record                │
 │  read("prefix/") ── enumerate records under a prefix     │
 │  status()        ── report node status and schema        │

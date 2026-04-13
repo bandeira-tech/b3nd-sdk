@@ -1156,10 +1156,10 @@ const identity = getIdentityOrNull(); // your app logic
 
 if (identity?.canSign) {
   const session = identity.rig(rig);
-  await session.send({ inputs: [], outputs: [[uri, data]] });
+  await session.send({ inputs: [], outputs: [[uri, {}, data]] });
 } else {
   // No identity — fall back to unsigned receive
-  await rig.receive([uri, data]);
+  await rig.receive([[uri, {}, data]]);
 }
 
 if (identity?.canEncrypt) {
@@ -1489,7 +1489,7 @@ const listed = await rig.read("mutable://open/app/profiles/");
 
 ### receive vs send
 
-`receive()` is the node's ingest — takes a `[uri, data]` tuple, no signature.
+`receive()` is the node's ingest — takes `[uri, values, data]` tuples, no signature.
 `session.send()` is the identity's outbound — signs and wraps outputs in a
 content-addressed envelope.
 

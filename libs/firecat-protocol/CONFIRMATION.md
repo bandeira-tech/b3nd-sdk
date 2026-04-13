@@ -12,7 +12,7 @@ foreign to B3nd's message primitive.
 
 ## Design Principles
 
-1. **Everything is `[uri, data]`.** Confirmation is just more messages — signed
+1. **Everything is `[uri, values, data]`.** Confirmation is just more messages — signed
    attestations stored at self-describing URIs.
 
 2. **The URI is the identity.** The URL encodes who, what, and why. The value is
