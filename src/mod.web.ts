@@ -54,7 +54,6 @@ export { LocalStorageClient } from "../libs/b3nd-client-localstorage/mod.ts";
 export { IndexedDBClient } from "../libs/b3nd-client-indexeddb/mod.ts";
 export { ConsoleClient } from "../libs/b3nd-client-console/mod.ts";
 export { WalletClient } from "../libs/b3nd-wallet/mod.ts";
-export { AppsClient } from "../libs/b3nd-apps/mod.ts";
 
 // FunctionalClient (composable client pattern)
 export { FunctionalClient } from "../libs/b3nd-core/functional-client.ts";

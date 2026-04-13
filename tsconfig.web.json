@@ -17,13 +17,11 @@
     "src/mod.web.ts",
     "./libs/b3nd-core/**/*.ts",
     "./libs/b3nd-wallet/**/*.ts",
-    "./libs/b3nd-apps/**/*.ts",
     "./libs/b3nd-encrypt/**/*.ts",
     "./libs/b3nd-client-http/**/*.ts",
     "./libs/b3nd-client-localstorage/**/*.ts",
     "./libs/b3nd-client-ws/**/*.ts",
     "./libs/b3nd-client-memory/**/*.ts",
-    "./libs/b3nd-hash/**/*.ts",
-    "./libs/b3nd-wallet-server/**/*.ts"
+    "./libs/b3nd-hash/**/*.ts"
   ]
 }

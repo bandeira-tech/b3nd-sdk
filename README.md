@@ -84,20 +84,20 @@ await client.delete("mutable://users/alice/profile");
 
 ## Available Clients
 
-| Client               | Environment | Backend                 |
-| -------------------- | ----------- | ----------------------- |
-| `MemoryClient`       | Any         | In-memory storage       |
-| `HttpClient`         | Any         | Remote HTTP server      |
-| `WebSocketClient`    | Any         | Remote WebSocket server |
-| `PostgresClient`     | Deno/Node   | PostgreSQL database     |
-| `MongoClient`        | Deno/Node   | MongoDB database        |
-| `SqliteClient`       | Deno/Node   | SQLite database         |
-| `FilesystemClient`   | Deno/Node   | Local filesystem        |
-| `S3Client`           | Deno/Node   | S3-compatible storage   |
-| `IpfsClient`         | Deno/Node   | IPFS via Kubo           |
+| Client               | Environment | Backend                     |
+| -------------------- | ----------- | --------------------------- |
+| `MemoryClient`       | Any         | In-memory storage           |
+| `HttpClient`         | Any         | Remote HTTP server          |
+| `WebSocketClient`    | Any         | Remote WebSocket server     |
+| `PostgresClient`     | Deno/Node   | PostgreSQL database         |
+| `MongoClient`        | Deno/Node   | MongoDB database            |
+| `SqliteClient`       | Deno/Node   | SQLite database             |
+| `FilesystemClient`   | Deno/Node   | Local filesystem            |
+| `S3Client`           | Deno/Node   | S3-compatible storage       |
+| `IpfsClient`         | Deno/Node   | IPFS via Kubo               |
 | `ConsoleClient`      | Any         | Console output (write-only) |
-| `LocalStorageClient` | Browser     | localStorage            |
-| `IndexedDBClient`    | Browser     | IndexedDB               |
+| `LocalStorageClient` | Browser     | localStorage                |
+| `IndexedDBClient`    | Browser     | IndexedDB                   |
 
 ## Running a Node
 
@@ -226,7 +226,7 @@ make publish
 ```
 src/           # SDK entry points (mod.ts, mod.web.ts)
 libs/          # Core libraries (clients, compose, encrypt, etc.)
-apps/          # Server applications (b3nd-node, wallet-node, etc.)
+apps/          # Server applications (b3nd-node, vault-listener, etc.)
 tests/         # E2E tests
 skills/        # Claude Code plugin skills
 ```
