@@ -18,6 +18,7 @@ import {
   type StateMessage,
 } from "./data/mod.ts";
 import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
+import type { Output } from "../b3nd-core/types.ts";
 
 // =============================================================================
 // Level 1: Message Node Tests
@@ -34,13 +35,10 @@ Deno.test("createMessageNode - accepts valid message", async () => {
     peers: [storage],
   });
 
-  const result = await node.receive([
-    "msg://alice/transfer/42",
-    { amount: 100 },
-  ]);
+  const result = await node.receive([["msg://alice/transfer/42", {}, { amount: 100 }]]);
 
-  assertEquals(result.accepted, true);
-  assertEquals(result.error, undefined);
+  assertEquals(result[0].accepted, true);
+  assertEquals(result[0].error, undefined);
 
   // Verify message was stored
   const results = await storage.read("msg://alice/transfer/42");
@@ -64,13 +62,10 @@ Deno.test("createMessageNode - rejects invalid message", async () => {
     peers: [storage],
   });
 
-  const result = await node.receive([
-    "msg://alice/transfer/42",
-    { amount: 100 },
-  ]);
+  const result = await node.receive([["msg://alice/transfer/42", {}, { amount: 100 }]]);
 
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "insufficient_balance");
+  assertEquals(result[0].accepted, false);
+  assertEquals(result[0].error, "insufficient_balance");
 
   // Verify message was NOT stored
   const results = await storage.read("msg://alice/transfer/42");
@@ -83,7 +78,7 @@ Deno.test("createMessageNode - validator can read state", async () => {
   const storage = new MemoryClient();
 
   // Pre-populate balance
-  await storage.receive(["accounts://balances/alice", { balance: 50 }]);
+  await storage.receive([["accounts://balances/alice", {}, { balance: 50 }]]);
 
   const validator: MessageValidator<{ amount: number }> = async (
     msg,
@@ -107,19 +102,13 @@ Deno.test("createMessageNode - validator can read state", async () => {
   });
 
   // Try to transfer more than balance
-  const result1 = await node.receive([
-    "msg://alice/transfer/1",
-    { amount: 100 },
-  ]);
-  assertEquals(result1.accepted, false);
-  assertEquals(result1.error, "insufficient_balance");
+  const result1 = await node.receive([["msg://alice/transfer/1", {}, { amount: 100 }]]);
+  assertEquals(result1[0].accepted, false);
+  assertEquals(result1[0].error, "insufficient_balance");
 
   // Transfer within balance
-  const result2 = await node.receive([
-    "msg://alice/transfer/2",
-    { amount: 25 },
-  ]);
-  assertEquals(result2.accepted, true);
+  const result2 = await node.receive([["msg://alice/transfer/2", {}, { amount: 25 }]]);
+  assertEquals(result2[0].accepted, true);
 
   await node.cleanup();
 });
@@ -134,12 +123,9 @@ Deno.test("createMessageNode - propagates to multiple peers", async () => {
     peers: [peer1, peer2],
   });
 
-  const result = await node.receive([
-    "msg://alice/transfer/42",
-    { amount: 100 },
-  ]);
+  const result = await node.receive([["msg://alice/transfer/42", {}, { amount: 100 }]]);
 
-  assertEquals(result.accepted, true);
+  assertEquals(result[0].accepted, true);
 
   // Verify both peers received the message
   const results1 = await peer1.read("msg://alice/transfer/42");
@@ -162,10 +148,10 @@ Deno.test("createMessageNode - rejects message without URI", async () => {
     peers: [storage],
   });
 
-  const result = await node.receive(["", { amount: 100 }]);
+  const result = await node.receive([["", {}, { amount: 100 }]]);
 
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "Message URI is required");
+  assertEquals(result[0].accepted, false);
+  assertEquals(result[0].error, "Message URI is required");
 
   await node.cleanup();
 });
@@ -208,14 +194,12 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
   const validTx: StateMessage<number> = [
     "msg://alice/transfer/42",
     {
-      payload: {
-        inputs: ["utxo://alice/1"],
-        outputs: [
-          ["utxo://bob/99", 50],
-          ["utxo://alice/2", 30],
-          ["fees://pool", 1],
-        ],
-      },
+      inputs: ["utxo://alice/1"],
+      outputs: [
+        ["utxo://bob/99", {}, 50],
+        ["utxo://alice/2", {}, 30],
+        ["fees://pool", {}, 1],
+      ],
     },
   ];
 
@@ -227,13 +211,11 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
   const invalidTx: StateMessage<number> = [
     "msg://alice/transfer/43",
     {
-      payload: {
-        inputs: ["utxo://alice/1"],
-        outputs: [
-          ["utxo://bob/99", 50],
-          ["fees://pool", 0], // Invalid: fee is 0
-        ],
-      },
+      inputs: ["utxo://alice/1"],
+      outputs: [
+        ["utxo://bob/99", {}, 50],
+        ["fees://pool", {}, 0], // Invalid: fee is 0
+      ],
     },
   ];
 
@@ -258,7 +240,7 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
         const dataSize = JSON.stringify(ctx.value).length;
         const requiredFee = Math.ceil(dataSize / 100); // 1 per 100 bytes
 
-        if ((feeOutput[1] as number) < requiredFee) {
+        if ((feeOutput[2] as number) < requiredFee) {
           return {
             valid: false,
             error: `insufficient_fee: need ${requiredFee}`,
@@ -277,13 +259,11 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   const validTx: StateMessage<unknown> = [
     "msg://alice/store/1",
     {
-      payload: {
-        inputs: [],
-        outputs: [
-          ["immutable://open/abc123", { data: "hello world" }], // ~30 bytes
-          ["fees://pool", 1],
-        ],
-      },
+      inputs: [],
+      outputs: [
+        ["immutable://open/abc123", {}, { data: "hello world" }], // ~30 bytes
+        ["fees://pool", {}, 1],
+      ],
     },
   ];
   const result1 = await validator(validTx, read);
@@ -293,10 +273,8 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   const noFeeTx: StateMessage<unknown> = [
     "msg://alice/store/2",
     {
-      payload: {
-        inputs: [],
-        outputs: [["immutable://open/def456", { data: "hello" }]],
-      },
+      inputs: [],
+      outputs: [["immutable://open/def456", {}, { data: "hello" }]],
     },
   ];
   const result2 = await validator(noFeeTx, read);
@@ -324,10 +302,8 @@ Deno.test("createOutputValidator - with preValidate", async () => {
   const noSigTx: StateMessage & { sig?: string } = [
     "msg://alice/1",
     {
-      payload: {
-        inputs: [],
-        outputs: [["utxo://test/1", 100]],
-      },
+      inputs: [],
+      outputs: [["utxo://test/1", {}, 100]],
     },
   ];
   const result1 = await validator(noSigTx as any, read);
@@ -339,10 +315,8 @@ Deno.test("createOutputValidator - with preValidate", async () => {
     "msg://alice/2",
     {
       sig: "abc123",
-      payload: {
-        inputs: [],
-        outputs: [["utxo://test/2", 100]],
-      },
+      inputs: [],
+      outputs: [["utxo://test/2", {}, 100]],
     },
   ] as const;
   const result2 = await validator(withSigTx as any, read);
@@ -379,7 +353,7 @@ Deno.test("integration - message node with output validator", async () => {
   const storage = new MemoryClient();
 
   // Pre-populate UTXOs
-  await storage.receive(["utxo://alice/1", { amount: 100 }]);
+  await storage.receive([["utxo://alice/1", {}, { amount: 100 }]]);
 
   const validator = createOutputValidator<number>({
     schema: {
@@ -402,7 +376,7 @@ Deno.test("integration - message node with output validator", async () => {
 
       // Sum inputs
       let inputSum = 0;
-      for (const inputUri of data.payload.inputs) {
+      for (const inputUri of data.inputs) {
         const input = await read<{ amount: number }>(inputUri);
         if (input.success && input.record) {
           inputSum += input.record.data.amount;
@@ -410,8 +384,8 @@ Deno.test("integration - message node with output validator", async () => {
       }
 
       // Sum outputs
-      const outputSum = data.payload.outputs.reduce(
-        (sum, [, value]) => sum + (value as number),
+      const outputSum = data.outputs.reduce(
+        (sum, [, , value]) => sum + (value as number),
         0,
       );
 
@@ -434,38 +408,34 @@ Deno.test("integration - message node with output validator", async () => {
   const validTx: StateMessage<number> = [
     "msg://transfers/1",
     {
-      payload: {
-        inputs: ["utxo://alice/1"],
-        outputs: [
-          ["utxo://bob/1", 50],
-          ["utxo://alice/2", 50],
-        ],
-      },
+      inputs: ["utxo://alice/1"],
+      outputs: [
+        ["utxo://bob/1", {}, 50],
+        ["utxo://alice/2", {}, 50],
+      ],
     },
   ];
 
-  const result1 = await node.receive(validTx);
-  assertEquals(result1.accepted, true);
+  const result1 = await node.receive([validTx]);
+  assertEquals(result1[0].accepted, true);
 
   // Invalid transfer: trying to create money
   const invalidTx: StateMessage<number> = [
     "msg://transfers/2",
     {
-      payload: {
-        inputs: ["utxo://alice/2"], // Only 50 available
-        outputs: [
-          ["utxo://bob/2", 100], // Trying to send 100
-        ],
-      },
+      inputs: ["utxo://alice/2"], // Only 50 available
+      outputs: [
+        ["utxo://bob/2", {}, 100], // Trying to send 100
+      ],
     },
   ];
 
   // First, store alice/2 with value 50
-  await storage.receive(["utxo://alice/2", { amount: 50 }]);
+  await storage.receive([["utxo://alice/2", {}, { amount: 50 }]]);
 
-  const result2 = await node.receive(invalidTx);
-  assertEquals(result2.accepted, false);
-  assertEquals(result2.error, "outputs_exceed_inputs");
+  const result2 = await node.receive([invalidTx]);
+  assertEquals(result2[0].accepted, false);
+  assertEquals(result2[0].error, "outputs_exceed_inputs");
 
   await node.cleanup();
 });

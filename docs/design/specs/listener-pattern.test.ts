@@ -69,7 +69,7 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
     clientSigningKP.privateKeyHex,
   );
 
-  const writeResult = await client.receive([inboxUri, signedRequest]);
+  const [writeResult] = await client.receive([[inboxUri, {}, signedRequest]]);
   assertEquals(writeResult.accepted, true);
 
   // Step 2: Listener reads and decrypts the request
@@ -112,10 +112,11 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
       listenerSigningKP.privateKeyHex,
     );
 
-    const responseWrite = await client.receive([
+    const [responseWrite] = await client.receive([[
       decryptedRequest.replyTo,
+      {},
       signedResponse,
-    ]);
+    ]]);
     assertEquals(responseWrite.accepted, true);
   }
 
@@ -167,7 +168,7 @@ Deno.test("listener: moderation service writes signed flags", async () => {
     userSigningKP.privateKeyHex,
   );
 
-  await client.receive([postUri, signedPost]);
+  await client.receive([[postUri, {}, signedPost]]);
 
   // Moderator reads the post
   const [postRead] = await client.read(postUri);
@@ -187,7 +188,7 @@ Deno.test("listener: moderation service writes signed flags", async () => {
     modSigningKP.privateKeyHex,
   );
 
-  const flagResult = await client.receive([moderationUri, signedFlag]);
+  const [flagResult] = await client.receive([[moderationUri, {}, signedFlag]]);
   assertEquals(flagResult.accepted, true);
 
   // Anyone can read and verify the moderation flag
@@ -222,22 +223,24 @@ Deno.test("listener: indexing service maintains queryable index", async () => {
   const alicePost = { title: "Alice's Recipe", tags: ["food", "pasta"] };
   const bobPost = { title: "Bob's Travel Log", tags: ["travel", "europe"] };
 
-  await client.receive([
+  await client.receive([[
     `mutable://open/posts/${alice.publicKeyHex}/post-001`,
+    {},
     await createAuthenticatedMessageWithHex(
       alicePost,
       alice.publicKeyHex,
       alice.privateKeyHex,
     ),
-  ]);
-  await client.receive([
+  ]]);
+  await client.receive([[
     `mutable://open/posts/${bob.publicKeyHex}/post-001`,
+    {},
     await createAuthenticatedMessageWithHex(
       bobPost,
       bob.publicKeyHex,
       bob.privateKeyHex,
     ),
-  ]);
+  ]]);
 
   // Indexer builds an index
   const index = {
@@ -266,7 +269,7 @@ Deno.test("listener: indexing service maintains queryable index", async () => {
 
   const indexUri =
     `mutable://open/indexes/${indexerSigningKP.publicKeyHex}/posts`;
-  await client.receive([indexUri, signedIndex]);
+  await client.receive([[indexUri, {}, signedIndex]]);
 
   // Any client can read the index
   const [indexRead] = await client.read(indexUri);
@@ -318,7 +321,7 @@ Deno.test("end-to-end: oauth auth request → HMAC response → identity derivat
     new TextEncoder().encode(JSON.stringify(authRequest)),
     listenerEncKP.publicKeyHex,
   );
-  await client.receive([inboxUri, encryptedRequest]);
+  await client.receive([[inboxUri, {}, encryptedRequest]]);
 
   // Step 2: Listener reads, decrypts, processes
   const [reqRead] = await client.read(inboxUri);
@@ -347,7 +350,7 @@ Deno.test("end-to-end: oauth auth request → HMAC response → identity derivat
       listenerSigningKP.privateKeyHex,
     );
 
-    await client.receive([decryptedReq.replyTo, signedResponse]);
+    await client.receive([[decryptedReq.replyTo, {}, signedResponse]]);
   }
 
   // Step 3: Client reads response, decrypts, derives identity

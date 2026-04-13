@@ -83,7 +83,7 @@ export async function proxyWrite(
     }
 
     // Write to proxy client using receive()
-    const result = await proxyClient.receive([resolvedUri, signedMessage]);
+    const [result] = await proxyClient.receive([[resolvedUri, {}, signedMessage]]);
 
     if (!result.accepted) {
       return {

@@ -171,9 +171,9 @@ Deno.test("metrics: wrapClient records write latency", async () => {
   });
 
   const wrapped = collector.wrapClient(innerClient);
-  await wrapped.receive(["mutable://accounts/abc/nodes/n1/config", {
+  await wrapped.receive([["mutable://accounts/abc/nodes/n1/config", {}, {
     some: "data",
-  }]);
+  }]]);
 
   const snap = collector.snapshot();
   assertEquals(snap.writeLatencyP50 > 0, true);
@@ -195,9 +195,9 @@ Deno.test("metrics: wrapClient records read latency", async () => {
   const wrapped = collector.wrapClient(innerClient);
 
   // Write something first, then read it
-  await wrapped.receive(["mutable://accounts/abc/nodes/n1/config", {
+  await wrapped.receive([["mutable://accounts/abc/nodes/n1/config", {}, {
     foo: "bar",
-  }]);
+  }]]);
   await wrapped.read("mutable://accounts/abc/nodes/n1/config");
 
   const snap = collector.snapshot();

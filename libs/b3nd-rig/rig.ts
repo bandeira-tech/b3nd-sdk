@@ -60,7 +60,7 @@ import type { Connection } from "./connection.ts";
  * ```typescript
  * const id = await Identity.fromSeed("my-secret");
  * const session = id.rig(rig);
- * await session.send({ inputs: [], outputs: [["mutable://app/key", data]] });
+ * await session.send({ inputs: [], outputs: [["mutable://app/key", {}, data]] });
  * ```
  *
  * @example With schema, hooks, events, and react

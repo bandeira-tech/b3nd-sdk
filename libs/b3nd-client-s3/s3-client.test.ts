@@ -47,10 +47,9 @@ Deno.test("S3Client - receive and read", async () => {
   const { client } = createClient();
 
   const result = await client.receive([
-    "store://data/key-1",
-    { value: "hello" },
+    ["store://data/key-1", {}, { value: "hello" }],
   ]);
-  assertEquals(result.accepted, true);
+  assertEquals(result[0].accepted, true);
 
   const results = await client.read("store://data/key-1");
   assertEquals(results.length, 1);
@@ -70,15 +69,15 @@ Deno.test("S3Client - read not found", async () => {
 Deno.test("S3Client - receive accepts known program", async () => {
   const { client } = createClient();
 
-  const result = await client.receive(["store://data/x", { age: 30 }]);
-  assertEquals(result.accepted, true);
+  const result = await client.receive([["store://data/x", {}, { age: 30 }]]);
+  assertEquals(result[0].accepted, true);
 });
 
 Deno.test("S3Client - read with trailing slash lists items", async () => {
   const { client } = createClient();
 
-  await client.receive(["store://data/users/alice", { name: "Alice" }]);
-  await client.receive(["store://data/users/bob", { name: "Bob" }]);
+  await client.receive([["store://data/users/alice", {}, { name: "Alice" }]]);
+  await client.receive([["store://data/users/bob", {}, { name: "Bob" }]]);
 
   const results = await client.read("store://data/users/");
   assertEquals(results.length, 2);
@@ -99,8 +98,8 @@ Deno.test("S3Client - read with trailing slash empty prefix", async () => {
 Deno.test("S3Client - read multiple URIs", async () => {
   const { client } = createClient();
 
-  await client.receive(["store://data/a", "val-a"]);
-  await client.receive(["store://data/b", "val-b"]);
+  await client.receive([["store://data/a", {}, "val-a"]]);
+  await client.receive([["store://data/b", {}, "val-b"]]);
 
   const results = await client.read([
     "store://data/a",
@@ -140,7 +139,7 @@ Deno.test("S3Client - prefix is applied to keys", async () => {
     "prod/b3nd/",
   );
 
-  await client.receive(["store://data/key", "value"]);
+  await client.receive([["store://data/key", {}, "value"]]);
 
   // The key in the executor should include the prefix
   assertEquals(executor.objects.has("prod/b3nd/store/data/key.json"), true);
@@ -165,7 +164,7 @@ Deno.test("S3Client - constructor requires executor", () => {
 Deno.test("S3Client - receive invalid URI", async () => {
   const { client } = createClient();
 
-  const result = await client.receive(["", "data"]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "Message URI is required");
+  const result = await client.receive([["", {}, "data"]]);
+  assertEquals(result[0].accepted, false);
+  assertEquals(result[0].error, "Message URI is required");
 });

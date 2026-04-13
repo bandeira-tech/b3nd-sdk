@@ -208,7 +208,7 @@ export function respondTo<TReq = unknown, TRes = unknown>(
     );
 
     // 7. Write to replyTo
-    await client.receive([decrypted.replyTo, signedResponse]);
+    await client.receive([[decrypted.replyTo, {}, signedResponse]]);
 
     return { success: true };
   };
@@ -339,9 +339,9 @@ export async function writeRequest<T>(params: {
       signingKeyPair.publicKeyHex,
       signingKeyPair.privateKeyHex,
     );
-    await client.receive([inboxUri, signed]);
+    await client.receive([[inboxUri, {}, signed]]);
   } else {
-    await client.receive([inboxUri, encrypted]);
+    await client.receive([[inboxUri, {}, encrypted]]);
   }
 }
 

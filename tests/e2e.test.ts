@@ -43,7 +43,7 @@ async function receive(uri: string, data: unknown) {
   return fetchJson(`${BASE_URL}/api/v1/receive`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify([uri, data]),
+    body: JSON.stringify([uri, {}, data]),
   });
 }
 

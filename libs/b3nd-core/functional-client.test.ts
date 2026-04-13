@@ -15,9 +15,9 @@ import type { Message, ReadResult, ReceiveResult } from "./types.ts";
 
 Deno.test("FunctionalClient - receive defaults to not-implemented", async () => {
   const client = new FunctionalClient({});
-  const result = await client.receive(["mutable://test", { hello: "world" }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "not implemented");
+  const result = await client.receive([["mutable://test", {}, { hello: "world" }]]);
+  assertEquals(result[0].accepted, false);
+  assertEquals(result[0].error, "not implemented");
 });
 
 Deno.test("FunctionalClient - read defaults to not-implemented", async () => {
@@ -47,9 +47,9 @@ Deno.test("FunctionalClient - custom receive is called", async () => {
     },
   });
 
-  const msg: Message = ["mutable://users/alice", { name: "Alice" }];
-  const result = await client.receive(msg);
-  assertEquals(result.accepted, true);
+  const msg: Message = ["mutable://users/alice", {}, { name: "Alice" }];
+  const result = await client.receive([msg]);
+  assertEquals(result[0].accepted, true);
   assertEquals(calls.length, 1);
   assertEquals(calls[0], msg);
 });
@@ -138,7 +138,7 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
 
   const client = new FunctionalClient({
     receive: async (msg) => {
-      const [uri, data] = msg;
+      const [uri, , data] = msg;
       store.set(uri, { ts: Date.now(), data });
       return { accepted: true };
     },
@@ -169,10 +169,9 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
 
   // Write
   const writeResult = await client.receive([
-    "mutable://users/alice",
-    { name: "Alice" },
+    ["mutable://users/alice", {}, { name: "Alice" }],
   ]);
-  assertEquals(writeResult.accepted, true);
+  assertEquals(writeResult[0].accepted, true);
 
   // Read
   const readResults = await client.read("mutable://users/alice");

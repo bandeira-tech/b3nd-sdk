@@ -86,8 +86,8 @@ class MockWebSocket {
   protected generateResponse(request: any): any {
     const responses = {
       receive: () => {
-        // Handle receive message: payload is [uri, data]
-        const [uri, data] = request.payload;
+        // Handle receive message: payload is [uri, headers, data]
+        const [uri, , data] = request.payload;
         const ts = Date.now();
         this.storage.set(uri, { data, ts });
         return {
@@ -232,7 +232,7 @@ const factories: TestClientFactories = {
     class ValidationFailingMockWebSocket extends MockWebSocket {
       protected override generateResponse(request: any): any {
         if (request.type === "receive") {
-          const [, data] = request.payload;
+          const [, , data] = request.payload;
           if (!data?.name) {
             return {
               id: request.id,
@@ -280,8 +280,8 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // First operation should work
-    const result = await client.receive(["users://test/data", { value: 123 }]);
-    assertEquals(result.accepted, true);
+    const result = await client.receive([["users://test/data", {}, { value: 123 }]]);
+    assertEquals(result[0].accepted, true);
 
     mock.restore();
   },
@@ -307,8 +307,8 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work normally
-    const result1 = await client.receive(["users://test/data", { value: 123 }]);
-    assertEquals(result1.accepted, true);
+    const result1 = await client.receive([["users://test/data", {}, { value: 123 }]]);
+    assertEquals(result1[0].accepted, true);
 
     mock.restore();
   },
@@ -333,8 +333,8 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work with auth
-    const result = await client.receive(["users://test/data", { value: 123 }]);
-    assertEquals(result.accepted, true);
+    const result = await client.receive([["users://test/data", {}, { value: 123 }]]);
+    assertEquals(result[0].accepted, true);
 
     mock.restore();
   },
@@ -356,8 +356,8 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work with custom timeout
-    const result = await client.receive(["users://test/data", { value: 123 }]);
-    assertEquals(result.accepted, true);
+    const result = await client.receive([["users://test/data", {}, { value: 123 }]]);
+    assertEquals(result[0].accepted, true);
 
     mock.restore();
   },

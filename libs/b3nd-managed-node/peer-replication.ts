@@ -49,14 +49,14 @@ export function bestEffortClient(
   client: NodeProtocolInterface,
 ): NodeProtocolInterface {
   return {
-    async receive(msg) {
+    async receive(msgs) {
       try {
-        return await client.receive(msg);
+        return await client.receive(msgs);
       } catch (err) {
         console.warn(
           `[peer] Best-effort push failed: ${(err as Error).message}`,
         );
-        return { accepted: true };
+        return msgs.map(() => ({ accepted: true }));
       }
     },
     read: (uris) => client.read(uris),

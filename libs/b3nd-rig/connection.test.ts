@@ -80,8 +80,8 @@ Deno.test("rig routes receive to correct connection", async () => {
     ],
   });
 
-  await rig.receive(["mutable://open/x", { v: 1 }]);
-  await rig.receive(["local://app/y", { v: 2 }]);
+  await rig.receive([["mutable://open/x", {}, { v: 1 }]]);
+  await rig.receive([["local://app/y", {}, { v: 2 }]]);
 
   // remote has mutable data, local doesn't
   const r1 = (await remote.read("mutable://open/x"))[0];
@@ -101,7 +101,7 @@ Deno.test("rig reads from first matching connection", async () => {
   const fallback = new MemoryClient();
 
   // Write directly to fallback (simulating pre-existing data)
-  await fallback.receive(["mutable://open/old", { from: "fallback" }]);
+  await fallback.receive([["mutable://open/old", {}, { from: "fallback" }]]);
 
   const rig = new Rig({
     connections: [
@@ -111,7 +111,7 @@ Deno.test("rig reads from first matching connection", async () => {
   });
 
   // Write through rig goes to primary only (fallback has no receive)
-  await rig.receive(["mutable://open/new", { from: "primary" }]);
+  await rig.receive([["mutable://open/new", {}, { from: "primary" }]]);
 
   // Read "new" → primary has it (first match)
   const results1 = await rig.read("mutable://open/new");
@@ -137,7 +137,7 @@ Deno.test("rig broadcasts writes to all matching connections", async () => {
     ],
   });
 
-  await rig.receive(["mutable://open/x", { v: 1 }]);
+  await rig.receive([["mutable://open/x", {}, { v: 1 }]]);
 
   // Both have the data
   const r1 = (await primary.read("mutable://open/x"))[0];
@@ -153,7 +153,7 @@ Deno.test("rig rejects receive for unconnected URI", async () => {
     ],
   });
 
-  const result = await rig.receive(["mutable://open/x", { v: 1 }]);
+  const [result] = await rig.receive([["mutable://open/x", {}, { v: 1 }]]);
   assertEquals(result.accepted, false);
 });
 
@@ -180,7 +180,7 @@ Deno.test("best-effort: local connection enforces even if client accepts everyth
   });
 
   // hash:// not in connection → rejected by rig, even though client would accept it
-  const result = await rig.receive(["hash://sha256/abc", "some data"]);
+  const [result] = await rig.receive([["hash://sha256/abc", {}, "some data"]]);
   assertEquals(result.accepted, false);
 
   // Verify nothing was written
@@ -211,15 +211,15 @@ Deno.test("schema and connections are separate concerns", async () => {
   });
 
   // Matches connection + passes schema → accepted
-  const r1 = await rig.receive(["mutable://open/x", { valid: true }]);
+  const [r1] = await rig.receive([["mutable://open/x", {}, { valid: true }]]);
   assertEquals(r1.accepted, true);
 
   // Matches connection but fails schema → rejected with schema error
-  const r2 = await rig.receive(["mutable://open/y", "not an object"]);
+  const [r2] = await rig.receive([["mutable://open/y", {}, "not an object"]]);
   assertEquals(r2.accepted, false);
 
   // Doesn't match connection → rejected before schema runs
-  const r3 = await rig.receive(["hash://sha256/abc", { valid: true }]);
+  const [r3] = await rig.receive([["hash://sha256/abc", {}, { valid: true }]]);
   assertEquals(r3.accepted, false);
 });
 
@@ -243,11 +243,11 @@ Deno.test("schema validation runs after connection routing", async () => {
 
   // Unconnected URI → schema never called
   schemaCalledWith = [];
-  await rig.receive(["hash://sha256/abc", "data"]);
+  await rig.receive([["hash://sha256/abc", {}, "data"]]);
   assertEquals(schemaCalledWith.length, 0);
 
   // Subscribed URI → schema IS called
-  await rig.receive(["mutable://open/x", "data"]);
+  await rig.receive([["mutable://open/x", {}, "data"]]);
   assertEquals(schemaCalledWith.length, 1);
 });
 
@@ -259,9 +259,9 @@ Deno.test("single client via catch-all connection", async () => {
   });
 
   // Everything accepted — no filtering
-  const r1 = await rig.receive(["mutable://open/x", { v: 1 }]);
+  const [r1] = await rig.receive([["mutable://open/x", {}, { v: 1 }]]);
   assertEquals(r1.accepted, true);
-  const r2 = await rig.receive(["hash://sha256/whatever", "data"]);
+  const [r2] = await rig.receive([["hash://sha256/whatever", {}, "data"]]);
   assertEquals(r2.accepted, true);
 });
 
@@ -272,7 +272,7 @@ Deno.test("single client via explicit connection still works (catch-all)", async
     ],
   });
 
-  const r = await rig.receive(["mutable://open/x", { v: 1 }]);
+  const [r] = await rig.receive([["mutable://open/x", {}, { v: 1 }]]);
   assertEquals(r.accepted, true);
   const readResults = await rig.read("mutable://open/x");
   assertEquals(readResults[0].success, true);
@@ -283,8 +283,8 @@ Deno.test("status().schema unions all connection client schemas", async () => {
   const b = new MemoryClient();
 
   // Write some data so status has something to report
-  await a.receive(["mutable://open/x", "data"]);
-  await b.receive(["local://app/y", "data"]);
+  await a.receive([["mutable://open/x", {}, "data"]]);
+  await b.receive([["local://app/y", {}, "data"]]);
 
   const rig = new Rig({
     connections: [
@@ -321,8 +321,8 @@ Deno.test("list via trailing-slash read routes through connection", async () => 
     ],
   });
 
-  await rig.receive(["mutable://open/a", "one"]);
-  await rig.receive(["mutable://open/b", "two"]);
+  await rig.receive([["mutable://open/a", {}, "one"]]);
+  await rig.receive([["mutable://open/b", {}, "two"]]);
 
   const results = await rig.read("mutable://open/");
   const successful = results.filter((r) => r.success);

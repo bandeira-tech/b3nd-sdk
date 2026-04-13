@@ -16,11 +16,10 @@ Deno.test("ConsoleClient - receive logs to console", async () => {
   const { client, output } = createClient();
 
   const result = await client.receive([
-    "store://logs/entry-1",
-    { level: "info", msg: "hello" },
+    ["store://logs/entry-1", {}, { level: "info", msg: "hello" }],
   ]);
 
-  assertEquals(result.accepted, true);
+  assertEquals(result[0].accepted, true);
   assertEquals(output.length, 1);
   assertEquals(
     output[0],
@@ -31,7 +30,7 @@ Deno.test("ConsoleClient - receive logs to console", async () => {
 Deno.test("ConsoleClient - custom label", async () => {
   const { client, output } = createClient("myapp");
 
-  await client.receive(["store://logs/x", "data"]);
+  await client.receive([["store://logs/x", {}, "data"]]);
 
   assertEquals(output[0], '[myapp] RECEIVE store://logs/x "data"');
 });
@@ -39,10 +38,10 @@ Deno.test("ConsoleClient - custom label", async () => {
 Deno.test("ConsoleClient - rejects invalid URI", async () => {
   const { client } = createClient();
 
-  const result = await client.receive(["", "data"]);
+  const result = await client.receive([["", {}, "data"]]);
 
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "Message URI is required");
+  assertEquals(result[0].accepted, false);
+  assertEquals(result[0].error, "Message URI is required");
 });
 
 Deno.test("ConsoleClient - read returns empty results", async () => {

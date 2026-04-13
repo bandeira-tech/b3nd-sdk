@@ -88,8 +88,8 @@ async function main() {
         return c.json({ success: false, error: "signature invalid" }, 401);
       }
 
-      const allowedOrigins = Array.isArray(message.payload.allowedOrigins)
-        ? message.payload.allowedOrigins
+      const allowedOrigins = Array.isArray(message.allowedOrigins)
+        ? message.allowedOrigins
         : ["*"];
       const loaded = await loadAppConfig(
         dataClient,
@@ -101,7 +101,7 @@ async function main() {
         appKey,
         allowedOrigins,
         actions: loaded.actions,
-        encryptionPublicKeyHex: message.payload.encryptionPublicKeyHex ??
+        encryptionPublicKeyHex: message.encryptionPublicKeyHex ??
           loaded.encryptionPublicKeyHex ?? null,
         googleClientId: loaded.googleClientId ?? null,
       };
@@ -148,7 +148,7 @@ async function main() {
       );
       const merged: StoredAppConfig = {
         ...loaded,
-        googleClientId: message.payload.googleClientId ?? null,
+        googleClientId: message.googleClientId ?? null,
       };
       const res = await saveAppConfig(
         dataClient,
@@ -184,7 +184,7 @@ async function main() {
       if (!valid) {
         return c.json({ success: false, error: "signature invalid" }, 401);
       }
-      if (!Array.isArray(message.payload.actions)) {
+      if (!Array.isArray(message.actions)) {
         return c.json(
           { success: false, error: "invalid actions payload" },
           400,
@@ -197,10 +197,10 @@ async function main() {
         serverKeys.encryptionKey.privateKeyPem,
         appKey,
       );
-      const wantsEncrypted = message.payload.actions.some((a: any) =>
+      const wantsEncrypted = message.actions.some((a: any) =>
         a?.write?.encrypted
       );
-      const encryptionPublicKeyHex = message.payload.encryptionPublicKeyHex ??
+      const encryptionPublicKeyHex = message.encryptionPublicKeyHex ??
         loaded.encryptionPublicKeyHex ?? null;
       if (wantsEncrypted && !encryptionPublicKeyHex) {
         return c.json({
@@ -212,7 +212,7 @@ async function main() {
       const merged: StoredAppConfig = {
         appKey,
         allowedOrigins: loaded.allowedOrigins,
-        actions: message.payload.actions as any,
+        actions: message.actions as any,
         encryptionPublicKeyHex,
         googleClientId: loaded.googleClientId ?? null,
       };
@@ -282,16 +282,7 @@ async function main() {
       }
 
       const raw = readRes.record.data;
-      let data: unknown = raw;
-      const hasPayload = raw && typeof raw === "object" &&
-        "payload" in (raw as any);
-      // If payload is present and not encrypted, unwrap it for convenience
-      const maybeEncrypted = hasPayload && (raw as any).payload &&
-        typeof (raw as any).payload === "object" &&
-        "nonce" in (raw as any).payload && "data" in (raw as any).payload;
-      if (!maybeEncrypted && hasPayload) {
-        data = (raw as any).payload;
-      }
+      const data: unknown = raw;
 
       return c.json({
         success: true,
@@ -326,8 +317,8 @@ async function main() {
       }
 
       // Support both new (sessionPubkey) and legacy (session) fields during transition
-      const sessionPubkey = message.payload.sessionPubkey ||
-        message.payload.session;
+      const sessionPubkey = message.sessionPubkey ||
+        message.session;
       if (!sessionPubkey || typeof sessionPubkey !== "string") {
         return c.json({ success: false, error: "sessionPubkey required" }, 400);
       }
@@ -350,10 +341,10 @@ async function main() {
       const uri = `mutable://accounts/${appKey}/sessions/${sessionPubkey}`;
 
       // Write just the value 1 to indicate approval (0 would mean revoked)
-      const res = await rig.receive([uri, 1]);
-      if (!res.accepted) {
+      const res = await rig.receive([[uri, {}, 1]]);
+      if (!res[0].accepted) {
         return c.json(
-          { success: false, error: res.error || "write failed" },
+          { success: false, error: res[0].error || "write failed" },
           400,
         );
       }
@@ -381,7 +372,6 @@ async function main() {
     if (!valid) {
       return c.json({ success: false, error: "signature invalid" }, 401);
     }
-    const payload = signedMessage.payload;
 
     const config = await loadAppConfig(
       dataClient,
@@ -402,10 +392,11 @@ async function main() {
       return c.json({ success: false, error: "action not found" }, 404);
     }
 
-    // Validate (only for plain string payloads)
+    // Validate (only for plain string inputs)
+    const inputs = signedMessage.inputs;
     if (
-      !action.write.encrypted && typeof payload === "string" &&
-      !validateString(payload, action.validation?.stringValue)
+      !action.write.encrypted && typeof inputs === "string" &&
+      !validateString(inputs, action.validation?.stringValue)
     ) {
       return c.json({ success: false, error: "validation failed" }, 400);
     }

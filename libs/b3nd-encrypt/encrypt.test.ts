@@ -371,7 +371,8 @@ Deno.test("createAuthenticatedMessage — sign with multiple signers", async () 
   ]);
 
   assertEquals(msg.auth.length, 2);
-  assertEquals(msg.payload, payload);
+  const { auth: _auth, ...msgPayload } = msg;
+  assertEquals(msgPayload, payload);
 
   // Both signatures verify
   assertEquals(
@@ -453,8 +454,8 @@ Deno.test("createSignedEncryptedMessage + verifyAndDecryptMessage — full workf
 
   assertEquals(msg.auth.length, 1);
   assertEquals(msg.auth[0].pubkey, publicKeyHex);
-  assertEquals(typeof msg.payload.data, "string");
-  assertEquals(typeof msg.payload.nonce, "string");
+  assertEquals(typeof msg.data, "string");
+  assertEquals(typeof msg.nonce, "string");
 
   const result = await verifyAndDecryptMessage({
     message: msg,

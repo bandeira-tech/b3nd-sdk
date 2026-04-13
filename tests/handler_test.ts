@@ -33,7 +33,7 @@ Deno.test("httpApi - receive/read/list round-trip", async () => {
     new Request("http://localhost/api/v1/receive", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(["mutable://open/hello", { msg: "world" }]),
+      body: JSON.stringify(["mutable://open/hello", {}, { msg: "world" }]),
     }),
   );
   const receive = await receiveRes.json();
