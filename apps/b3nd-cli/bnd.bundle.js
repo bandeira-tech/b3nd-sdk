@@ -1751,8 +1751,8 @@ async function write(args, verbose = false) {
       console.log(`  URI: ${uri}`);
       console.log(`  Encrypted: ${config.encrypt ? "yes" : "no"}`);
       console.log(`  Value: ${JSON.stringify(originalData)}`);
-      if (result.record?.ts) {
-        console.log(`  Timestamp: ${new Date(result.record.ts).toISOString()}`);
+      if (result.record?.values) {
+        console.log(`  Values: ${JSON.stringify(result.record.values)}`);
       }
     } else {
       throw new Error(result.error || "Write failed with no error message");
@@ -1819,7 +1819,7 @@ async function read(uri, verbose = false) {
           }
         }
       }
-      console.log(`  Timestamp: ${new Date(result.record.ts).toISOString()}`);
+      console.log(`  Values: ${JSON.stringify(result.record.values)}`);
     } else if (!result.success) {
       throw new Error(result.error || "Read failed");
     } else {

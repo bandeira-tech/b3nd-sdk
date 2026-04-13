@@ -1,6 +1,6 @@
 // Core persistence types mirroring b3nd/persistence
 export interface PersistenceRecord<T = any> {
-  ts: number;
+  values: Record<string, number>;
   data: T;
 }
 

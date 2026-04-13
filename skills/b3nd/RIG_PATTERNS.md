@@ -36,7 +36,7 @@ const rig = new Rig({
   ],
 });
 
-await rig.receive(["mutable://open/test/hello", { msg: "works" }]);
+await rig.receive([["mutable://open/test/hello", {}, { msg: "works" }]]);
 const [result] = await rig.read("mutable://open/test/hello");
 // result.data → { msg: "works" }
 ```
@@ -153,10 +153,10 @@ The node interface has 3 methods: `receive`, `read`, `status`.
 
 ```typescript
 // Write
-await rig.receive(["mutable://open/app/pages/home", {
+await rig.receive([["mutable://open/app/pages/home", {}, {
   title: "Home",
   body: "Welcome",
-}]);
+}]]);
 
 // Read (returns ReadResult[])
 const [result] = await rig.read("mutable://open/app/pages/home");
@@ -179,7 +179,7 @@ const status = await rig.status();
 // read returns an array — destructure for single reads
 const [result] = await rig.read("mutable://open/app/config");
 if (!result.success) {
-  await rig.receive(["mutable://open/app/config", defaultConfig]);
+  await rig.receive([["mutable://open/app/config", {}, defaultConfig]]);
 }
 ```
 
@@ -296,10 +296,10 @@ const rig = new Rig({
 });
 
 // Succeeds — mutable://open is in the schema
-await rig.receive(["mutable://open/app/hello", { msg: "hi" }]);
+await rig.receive([["mutable://open/app/hello", {}, { msg: "hi" }]]);
 
 // Rejected — unknown://foo is not in the schema
-await rig.receive(["unknown://foo", { v: 1 }]);
+await rig.receive([["unknown://foo", {}, { v: 1 }]]);
 // → error: no validator for program "unknown://foo"
 ```
 
@@ -346,9 +346,9 @@ const rig = new Rig({
 });
 
 // Must pass BOTH schema (known URI program) AND hook (valid shape)
-await rig.receive(["mutable://open/app/post", { title: "Hello" }]); // ok
-await rig.receive(["mutable://open/app/post", { oops: true }]); // hook rejects
-await rig.receive(["unknown://app/post", { title: "Hello" }]); // schema rejects
+await rig.receive([["mutable://open/app/post", {}, { title: "Hello" }]]); // ok
+await rig.receive([["mutable://open/app/post", {}, { oops: true }]]); // hook rejects
+await rig.receive([["unknown://app/post", {}, { title: "Hello" }]]); // schema rejects
 ```
 
 ---
@@ -454,10 +454,10 @@ const rig = new Rig({
 });
 
 // This succeeds
-await rig.receive(["mutable://open/app/post", { title: "Hello" }]);
+await rig.receive([["mutable://open/app/post", {}, { title: "Hello" }]]);
 
 // This throws: "receive rejected: missing title"
-await rig.receive(["mutable://open/app/post", { oops: true }]);
+await rig.receive([["mutable://open/app/post", {}, { oops: true }]]);
 ```
 
 ---
@@ -681,7 +681,7 @@ const rig = new Rig({
   },
 });
 
-await rig.receive(["mutable://open/app/x", { v: 1 }]);
+await rig.receive([["mutable://open/app/x", {}, { v: 1 }]]);
 
 // Before exit — wait for all pending event handlers
 await Promise.allSettled(rig.drain());
@@ -706,9 +706,9 @@ const rig = new Rig({
   },
 });
 
-await rig.receive(["mutable://open/app/users/alice/profile", {
+await rig.receive([["mutable://open/app/users/alice/profile", {}, {
   name: "Alice",
-}]);
+}]]);
 // → "User alice updated their profile: { name: 'Alice' }"
 ```
 
@@ -726,10 +726,10 @@ const rig = new Rig({
   },
 });
 
-await rig.receive(["mutable://open/app/pages/home", { title: "Home" }]);
+await rig.receive([["mutable://open/app/pages/home", {}, { title: "Home" }]]);
 // → "Write to mutable://open/app/pages/home"
 
-await rig.receive(["mutable://open/app/config", { theme: "dark" }]);
+await rig.receive([["mutable://open/app/config", {}, { theme: "dark" }]]);
 // → "Write to mutable://open/app/config"
 ```
 
@@ -814,10 +814,10 @@ const rig = new Rig({
 });
 
 // Goes to remote
-await rig.receive(["mutable://open/app/data", { v: 1 }]);
+await rig.receive([["mutable://open/app/data", {}, { v: 1 }]]);
 
 // Goes to local
-await rig.receive(["local://cache/session", { token: "abc" }]);
+await rig.receive([["local://cache/session", {}, { token: "abc" }]]);
 
 // Read routes the same way
 const [remoteResult] = await rig.read("mutable://open/app/data");
@@ -862,7 +862,7 @@ const rig = new Rig({
 });
 
 // This write goes to both primary and replica
-await rig.receive(["mutable://open/app/data", { v: 1 }]);
+await rig.receive([["mutable://open/app/data", {}, { v: 1 }]]);
 
 // Reads come from primary (first client with read acceptance)
 const [result] = await rig.read("mutable://open/app/data");
@@ -1313,7 +1313,7 @@ Deno.test("app write and read round-trip", async () => {
     },
   );
 
-  await rig.receive(["mutable://open/test/hello", { msg: "world" }]);
+  await rig.receive([["mutable://open/test/hello", {}, { msg: "world" }]]);
 
   const [result] = await rig.read("mutable://open/test/hello");
   assertEquals(result.record?.data, { msg: "world" });
@@ -1368,7 +1368,7 @@ const rig = new Rig({
 });
 
 // Unsigned write — no identity needed
-await rig.receive(["mutable://open/app/x", { v: 1 }]);
+await rig.receive([["mutable://open/app/x", {}, { v: 1 }]]);
 
 // Signed write — identity drives, rig delivers
 const session = id.rig(rig);
@@ -1426,7 +1426,7 @@ const rig = new Rig({
 });
 
 // This succeeds — the event error is logged, not thrown
-const result = await rig.receive(["mutable://open/x", { v: 1 }]);
+const result = await rig.receive([["mutable://open/x", {}, { v: 1 }]]);
 console.log(result.accepted); // true
 ```
 
@@ -1495,7 +1495,7 @@ content-addressed envelope.
 
 ```typescript
 // receive: direct write, no identity needed
-await rig.receive(["mutable://open/app/x", data]);
+await rig.receive([["mutable://open/app/x", {}, data]]);
 
 // send: signed envelope via identity session
 const session = id.rig(rig);

@@ -14,10 +14,10 @@ Every piece of data has a URI. Four operations do everything:
 ```typescript
 const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
 
-// Write — submit a message to a URI
-await client.receive(["mutable://open/my-app/greeting", {
+// Write — submit a message [uri, values, data]
+await client.receive([["mutable://open/my-app/greeting", {}, {
   text: "Hello, world",
-}]);
+}]]);
 
 // Read — get data from any URI
 const result = await client.read("mutable://open/my-app/greeting");
@@ -64,11 +64,11 @@ import {
 ```typescript
 const client = new HttpClient({ url: "http://localhost:9942" });
 
-// Write
-await client.receive(["mutable://users/alice/profile", {
+// Write — message is [uri, values, data]
+await client.receive([["mutable://users/alice/profile", {}, {
   name: "Alice",
   age: 30,
-}]);
+}]]);
 
 // Read
 const result = await client.read("mutable://users/alice/profile");

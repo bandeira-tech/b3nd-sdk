@@ -24,7 +24,7 @@ import { HttpClient, send } from "@bandeira-tech/b3nd-web";
 const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
 
 // Write
-await client.receive(["mutable://open/my-app/hello", { message: "it works" }]);
+await client.receive([["mutable://open/my-app/hello", {}, { message: "it works" }]]);
 
 // Read
 const result = await client.read("mutable://open/my-app/hello");
@@ -51,7 +51,7 @@ import { HttpClient, send } from "@bandeira-tech/b3nd-sdk";
 const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
 
 // Same API — receive(), read(), send() work identically
-await client.receive(["mutable://open/my-app/hello", { message: "it works" }]);
+await client.receive([["mutable://open/my-app/hello", {}, { message: "it works" }]]);
 ```
 
 **Vocabulary note:** From the app's perspective you *send* data. From the node's
@@ -111,11 +111,11 @@ import { HttpClient, send } from "@bandeira-tech/b3nd-web";
 const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
 
 // CREATE / UPDATE — write data to a URI
-await client.receive(["mutable://open/my-app/pages/about", {
+await client.receive([["mutable://open/my-app/pages/about", {}, {
   title: "About Us",
   body: "Welcome to our app.",
   updatedAt: Date.now(),
-}]);
+}]]);
 
 // READ — fetch a single record (returns ReadResult[])
 const results = await client.read("mutable://open/my-app/pages/about");
@@ -168,10 +168,10 @@ const signed = await encrypt.createAuthenticatedMessageWithHex(
   user.publicKeyHex,
   user.privateKeyHex,
 );
-await client.receive([
+await client.receive([[
   `mutable://accounts/${user.publicKeyHex}/my-app/posts/my-first-post`,
-  signed,
-]);
+  {}, signed,
+]]);
 
 // READ — works the same as open (no auth needed to read)
 const results = await client.read(
@@ -190,10 +190,10 @@ const updated = await encrypt.createAuthenticatedMessageWithHex(
   user.publicKeyHex,
   user.privateKeyHex,
 );
-await client.receive([
+await client.receive([[
   `mutable://accounts/${user.publicKeyHex}/my-app/posts/my-first-post`,
-  updated,
-]);
+  {}, updated,
+]]);
 ```
 
 > **Note:** `delete` has been removed from the node interface. Use a
@@ -249,7 +249,7 @@ const postsListUri = (userKey: string) =>
 
 // Create a public page (no auth)
 async function createPage(slug: string, title: string, body: string) {
-  await client.receive([pageUri(slug), { title, body, updatedAt: Date.now() }]);
+  await client.receive([[pageUri(slug), {}, { title, body, updatedAt: Date.now() }]]);
 }
 
 // List all public pages (trailing slash = list, returns ReadResult[])
@@ -266,7 +266,7 @@ async function createPost(
   const signed = await encrypt.createAuthenticatedMessageWithHex(
     data, userKey, userPrivKey,
   );
-  await client.receive([postUri(userKey, slug), signed]);
+  await client.receive([[postUri(userKey, slug), {}, signed]]);
 }
 
 // List all posts by a user (trailing slash = list)
@@ -288,7 +288,7 @@ async function saveProfile(
   const signed = await encrypt.createAuthenticatedMessageWithHex(
     { ...profile, updatedAt: Date.now() }, userKey, userPrivKey,
   );
-  await client.receive([profileUri(userKey), signed]);
+  await client.receive([[profileUri(userKey), {}, signed]]);
 }
 ```
 
@@ -337,7 +337,7 @@ export function useWrite() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ uri, data }: { uri: string; data: unknown }) => {
-      const result = await client.receive([uri, data]);
+      const result = await client.receive([[uri, {}, data]]);
       if (!result.accepted) throw new Error(result.error);
       return result;
     },
@@ -357,7 +357,7 @@ export function useSignedWrite(userKey: string, userPrivKey: string) {
       const signed = await encrypt.createAuthenticatedMessageWithHex(
         data, userKey, userPrivKey,
       );
-      const result = await client.receive([uri, signed]);
+      const result = await client.receive([[uri, {}, signed]]);
       if (!result.accepted) throw new Error(result.error);
       return result;
     },
