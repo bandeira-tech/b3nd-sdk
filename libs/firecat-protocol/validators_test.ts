@@ -340,7 +340,7 @@ Deno.test("regular firecat: mutable://open writes work without gas", async () =>
     {},
     { message: "works" },
   ]]);
-  assertEquals(result.accepted, true);
+  assertEquals(result[0].accepted, true);
 
   const [readResult] = await client.read("mutable://open/my-app/hello");
   assertEquals(readResult.success, true);

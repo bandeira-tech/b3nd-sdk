@@ -70,7 +70,7 @@ export class S3Client implements NodeProtocolInterface {
   }
 
   private async receiveOne(msg: Message): Promise<ReceiveResult> {
-    const [uri, , data] = msg;
+    const [uri, values, data] = msg;
 
     if (!uri || typeof uri !== "string") {
       return {
@@ -81,20 +81,20 @@ export class S3Client implements NodeProtocolInterface {
     }
 
     try {
-      const { inputs, outputs } = data as {
-        inputs: string[];
-        outputs: [string, Record<string, number>, unknown][];
-      };
+      const msgData = data as { inputs?: unknown; outputs?: unknown } | null;
+      const isEnvelope = msgData != null &&
+        typeof msgData === "object" &&
+        Array.isArray(msgData.inputs) &&
+        Array.isArray(msgData.outputs);
 
-      // Delete every URI in inputs
-      if (inputs) {
+      if (isEnvelope) {
+        const inputs = msgData!.inputs as string[];
+        const outputs = msgData!.outputs as [string, Record<string, number>, unknown][];
+
         for (const inputUri of inputs) {
           await this.executor.deleteObject(this.resolveKey(inputUri));
         }
-      }
 
-      // Write every output
-      if (outputs) {
         for (const [outUri, outValues, outData] of outputs) {
           const encodedData = encodeBinaryForJson(outData);
           const record: PersistenceRecord = {
@@ -108,6 +108,19 @@ export class S3Client implements NodeProtocolInterface {
             "application/json",
           );
         }
+      } else {
+        // Direct write — store data at the message URI
+        const encodedData = encodeBinaryForJson(data);
+        const record: PersistenceRecord = {
+          values: values || {},
+          data: encodedData,
+        };
+        const key = this.resolveKey(uri);
+        await this.executor.putObject(
+          key,
+          JSON.stringify(record),
+          "application/json",
+        );
       }
 
       return { accepted: true };

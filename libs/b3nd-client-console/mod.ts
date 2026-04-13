@@ -76,8 +76,11 @@ export class ConsoleClient implements NodeProtocolInterface {
         continue;
       }
 
+      const valuesStr = values && Object.keys(values).length > 0
+        ? ` values=${JSON.stringify(values)}`
+        : "";
       this.log(
-        `[${this.label}] RECEIVE ${uri} values=${JSON.stringify(values)} ${safeStringify(data)}`,
+        `[${this.label}] RECEIVE ${uri}${valuesStr} ${safeStringify(data)}`,
       );
 
       results.push({ accepted: true });

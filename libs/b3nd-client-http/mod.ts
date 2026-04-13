@@ -18,7 +18,8 @@ import { openSseStream } from "./sse.ts";
 
 /**
  * Serialize message data for JSON transport.
- * Wraps Uint8Array in a base64-encoded marker object to prevent JSON corruption.
+ * Recursively wraps Uint8Array in a base64-encoded marker object to prevent
+ * JSON corruption — handles binary data inside envelope outputs.
  */
 function serializeMsgData(data: unknown): unknown {
   if (data instanceof Uint8Array) {
@@ -27,6 +28,16 @@ function serializeMsgData(data: unknown): unknown {
       encoding: "base64",
       data: encodeBase64(data),
     };
+  }
+  if (Array.isArray(data)) {
+    return data.map(serializeMsgData);
+  }
+  if (data !== null && typeof data === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(data)) {
+      result[key] = serializeMsgData(val);
+    }
+    return result;
   }
   return data;
 }

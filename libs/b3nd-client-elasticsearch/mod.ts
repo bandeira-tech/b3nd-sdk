@@ -108,7 +108,7 @@ export class ElasticsearchClient implements NodeProtocolInterface {
   }
 
   private async receiveOne(msg: Message): Promise<ReceiveResult> {
-    const [uri, , data] = msg;
+    const [uri, values, data] = msg;
 
     if (!uri || typeof uri !== "string") {
       return {
@@ -119,24 +119,26 @@ export class ElasticsearchClient implements NodeProtocolInterface {
     }
 
     try {
-      const { inputs, outputs } = data as {
-        inputs: string[];
-        outputs: [string, Record<string, number>, unknown][];
-      };
+      const msgData = data as { inputs?: unknown; outputs?: unknown } | null;
+      const isEnvelope = msgData != null &&
+        typeof msgData === "object" &&
+        Array.isArray(msgData.inputs) &&
+        Array.isArray(msgData.outputs);
 
-      // Delete every URI in inputs
-      if (inputs && this.executor.delete) {
-        for (const inputUri of inputs) {
-          const { index, docId } = uriToIndexAndDocId(
-            inputUri,
-            this.indexPrefix,
-          );
-          await this.executor.delete(index, docId);
+      if (isEnvelope) {
+        const inputs = msgData!.inputs as string[];
+        const outputs = msgData!.outputs as [string, Record<string, number>, unknown][];
+
+        if (this.executor.delete) {
+          for (const inputUri of inputs) {
+            const { index, docId } = uriToIndexAndDocId(
+              inputUri,
+              this.indexPrefix,
+            );
+            await this.executor.delete(index, docId);
+          }
         }
-      }
 
-      // Write every output
-      if (outputs) {
         for (const [outUri, outValues, outData] of outputs) {
           const encodedData = encodeBinaryForJson(outData);
           const { index, docId } = uriToIndexAndDocId(
@@ -148,6 +150,14 @@ export class ElasticsearchClient implements NodeProtocolInterface {
             data: encodedData,
           });
         }
+      } else {
+        // Direct write — store data at the message URI
+        const encodedData = encodeBinaryForJson(data);
+        const { index, docId } = uriToIndexAndDocId(uri, this.indexPrefix);
+        await this.executor.index(index, docId, {
+          values: values || {},
+          data: encodedData,
+        });
       }
 
       return { accepted: true };

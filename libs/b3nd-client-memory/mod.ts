@@ -98,38 +98,37 @@ export class MemoryClient implements NodeProtocolInterface {
   }
 
   private _receiveOne(msg: Message): ReceiveResult {
-    const [uri, , data] = msg;
+    const [uri, values, data] = msg;
 
     if (!uri || typeof uri !== "string") {
       return { accepted: false, error: "Message URI is required" };
     }
 
-    // Extract inputs and outputs from data
+    // Check if data follows the { inputs, outputs } envelope convention
     const msgData = data as {
-      inputs?: string[];
-      outputs?: [string, Record<string, number>, unknown][];
+      inputs?: unknown;
+      outputs?: unknown;
     } | null;
 
-    if (!msgData || typeof msgData !== "object") {
-      return { accepted: false, error: "Message data must be { inputs, outputs }" };
-    }
+    const isEnvelope = msgData != null &&
+      typeof msgData === "object" &&
+      Array.isArray(msgData.inputs) &&
+      Array.isArray(msgData.outputs);
 
-    const inputs: string[] = Array.isArray(msgData.inputs) ? msgData.inputs : [];
-    const outputs: [string, Record<string, number>, unknown][] =
-      Array.isArray(msgData.outputs) ? msgData.outputs : [];
+    // Always store the message at its URI as a persistence record
+    this._write(uri, { values: values || {}, data });
 
-    // 1. Delete inputs
-    for (const inputUri of inputs) {
-      this._delete(inputUri);
-    }
+    if (isEnvelope) {
+      // Additionally process inputs/outputs mechanically
+      const inputs = msgData!.inputs as string[];
+      const outputs = msgData!.outputs as [string, Record<string, number>, unknown][];
 
-    // 2. Write outputs
-    for (const [outUri, outValues, outData] of outputs) {
-      const record: PersistenceRecord = {
-        values: outValues || {},
-        data: outData,
-      };
-      this._write(outUri, record);
+      for (const inputUri of inputs) {
+        this._delete(inputUri);
+      }
+      for (const [outUri, outValues, outData] of outputs) {
+        this._write(outUri, { values: outValues || {}, data: outData });
+      }
     }
 
     return { accepted: true };

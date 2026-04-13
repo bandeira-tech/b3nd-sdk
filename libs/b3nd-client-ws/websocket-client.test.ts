@@ -86,15 +86,35 @@ class MockWebSocket {
   protected generateResponse(request: any): any {
     const responses = {
       receive: () => {
-        // Handle receive message: payload is [uri, values, data]
-        const [uri, , data] = request.payload;
-        this.storage.set(uri, { data, values: {} });
+        // Handle receive batch: payload is [[uri, values, data], ...]
+        const batch = request.payload as [string, Record<string, number>, unknown][];
+        const results: { accepted: boolean; error?: string }[] = [];
+
+        for (const [uri, values, data] of batch) {
+          const msgData = data as { inputs?: unknown; outputs?: unknown } | null;
+          const isEnvelope = msgData != null &&
+            typeof msgData === "object" &&
+            Array.isArray(msgData.inputs) &&
+            Array.isArray(msgData.outputs);
+
+          if (isEnvelope) {
+            for (const inputUri of msgData!.inputs as string[]) {
+              this.storage.delete(inputUri);
+            }
+            for (const [outUri, outValues, outData] of msgData!.outputs as [string, Record<string, number>, unknown][]) {
+              this.storage.set(outUri, { data: outData, values: outValues || {} });
+            }
+          } else {
+            this.storage.set(uri, { data, values: values || {} });
+          }
+
+          results.push({ accepted: true });
+        }
+
         return {
           id: request.id,
           success: true,
-          data: {
-            accepted: true,
-          },
+          data: results,
         };
       },
       read: () => {
@@ -231,17 +251,27 @@ const factories: TestClientFactories = {
     class ValidationFailingMockWebSocket extends MockWebSocket {
       protected override generateResponse(request: any): any {
         if (request.type === "receive") {
-          const [, , data] = request.payload;
-          if (!data?.name) {
-            return {
-              id: request.id,
-              success: true,
-              data: {
-                accepted: false,
-                error: "Name is required",
-              },
-            };
+          const batch = request.payload as [string, Record<string, number>, unknown][];
+          const results: { accepted: boolean; error?: string }[] = [];
+
+          for (const [, , data] of batch) {
+            // Check output data for name field (handles both envelope and direct)
+            const msgData = data as { outputs?: [string, Record<string, number>, unknown][] } | null;
+            const outputData = msgData?.outputs?.[0]?.[2] as Record<string, unknown> | undefined;
+            const directData = data as Record<string, unknown> | null;
+
+            if (outputData?.name || directData?.name) {
+              results.push({ accepted: true });
+            } else {
+              results.push({ accepted: false, error: "Name is required" });
+            }
           }
+
+          return {
+            id: request.id,
+            success: true,
+            data: results,
+          };
         }
         return super.generateResponse(request);
       }

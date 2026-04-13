@@ -32,7 +32,7 @@ export function parallelBroadcast(
         return msgs.map(() => ({ accepted: false, error: err }));
       }
 
-      // Use the first client's results as baseline, check for failures
+      // Collect fulfilled results
       const fulfilled = allResults.filter(
         (r) => r.status === "fulfilled",
       ) as PromiseFulfilledResult<ReceiveResult[]>[];
@@ -41,8 +41,15 @@ export function parallelBroadcast(
         return msgs.map(() => ({ accepted: false, error: "No client responded" }));
       }
 
-      // Return first client's results (all clients got the same batch)
-      return fulfilled[0].value;
+      // Merge results: if ANY backend rejects a message, the message is rejected
+      return msgs.map((_, i) => {
+        for (const f of fulfilled) {
+          if (f.value[i] && !f.value[i].accepted) {
+            return f.value[i];
+          }
+        }
+        return fulfilled[0].value[i];
+      });
     },
 
     async read<T>(uris: string | string[]): Promise<ReadResult<T>[]> {

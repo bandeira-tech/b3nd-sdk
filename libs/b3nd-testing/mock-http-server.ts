@@ -149,32 +149,41 @@ export class MockHttpServer {
         continue;
       }
 
-      const [_uri, _values, msgData] = msg;
+      const [msgUri, msgValues, msgData] = msg;
 
-      // Mechanical: delete inputs, write outputs
-      if (msgData && typeof msgData === "object" && !Array.isArray(msgData)) {
-        const { inputs, outputs } = msgData as { inputs?: string[]; outputs?: unknown[][] };
+      // Detect envelope format: { inputs: [...], outputs: [...] }
+      const isEnvelope = msgData != null &&
+        typeof msgData === "object" &&
+        !Array.isArray(msgData) &&
+        Array.isArray((msgData as Record<string, unknown>).inputs) &&
+        Array.isArray((msgData as Record<string, unknown>).outputs);
+
+      if (isEnvelope) {
+        const { inputs, outputs } = msgData as { inputs: string[]; outputs: unknown[][] };
 
         // Delete inputs
-        if (Array.isArray(inputs)) {
-          for (const inputUri of inputs) {
-            this.storage.delete(inputUri);
-          }
+        for (const inputUri of inputs) {
+          this.storage.delete(inputUri);
         }
 
         // Write outputs
-        if (Array.isArray(outputs)) {
-          for (const output of outputs) {
-            if (Array.isArray(output) && output.length >= 3) {
-              const [outUri, outValues, outData] = output;
-              const data = deserializeMsgData(outData);
-              this.storage.set(outUri as string, {
-                values: (outValues as Record<string, number>) || {},
-                data,
-              });
-            }
+        for (const output of outputs) {
+          if (Array.isArray(output) && output.length >= 3) {
+            const [outUri, outValues, outData] = output;
+            const data = deserializeMsgData(outData);
+            this.storage.set(outUri as string, {
+              values: (outValues as Record<string, number>) || {},
+              data,
+            });
           }
         }
+      } else {
+        // Direct write — store data at the message URI
+        const data = deserializeMsgData(msgData);
+        this.storage.set(msgUri as string, {
+          values: (msgValues as Record<string, number>) || {},
+          data,
+        });
       }
 
       results.push({ accepted: true });

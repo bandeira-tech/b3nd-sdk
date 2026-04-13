@@ -192,8 +192,8 @@ Deno.test("schema and connections are separate concerns", async () => {
   const client = new MemoryClient();
 
   const schema: Schema = {
-    "mutable://open": async ([_uri, value]) => {
-      if (typeof value !== "object" || value === null) {
+    "mutable://open": async ([_uri, _values, data]) => {
+      if (typeof data !== "object" || data === null) {
         return { valid: false, error: "must be an object" };
       }
       return { valid: true };
