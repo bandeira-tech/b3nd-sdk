@@ -9,7 +9,7 @@
  *
  * Routes:
  *   GET  /api/v1/status            → rig.status()
- *   POST /api/v1/receive           → rig.receive([uri, data])
+ *   POST /api/v1/receive           → rig.receive([[uri, values, data]])
  *   GET  /api/v1/read/:uri         → rig.read(uri)
  *   GET  /api/v1/observe/:pattern   → SSE stream from rig events
  *
@@ -211,20 +211,23 @@ export function httpApi(
       }
       if (!Array.isArray(msg) || msg.length < 2) {
         return json(
-          { accepted: false, error: "Expected [uri, data]" },
+          { accepted: false, error: "Expected [uri, values, data] or [uri, data]" },
           400,
         );
       }
-      const [uri, rawData] = msg;
+      const uri = msg[0];
       if (!uri || typeof uri !== "string") {
         return json(
           { accepted: false, error: "URI is required" },
           400,
         );
       }
+      // Support both 3-tuple [uri, values, data] and legacy 2-tuple [uri, data]
+      const values = msg.length >= 3 ? (msg[1] as Record<string, number>) : {};
+      const rawData = msg.length >= 3 ? msg[2] : msg[1];
       const data = deserializeBinary(rawData);
-      const result = await rig.receive([uri, data]);
-      return json(result, result.accepted ? 200 : 400);
+      const results = await rig.receive([[uri, values, data]]);
+      return json(results[0], results[0].accepted ? 200 : 400);
     }
 
     // ── Read ──

@@ -46,6 +46,14 @@ export type {
   WatchOptions,
 } from "./types.ts";
 
+// Program model — re-exported from core for convenience
+export type {
+  CodeHandler,
+  Output,
+  Program,
+  ProgramResult,
+} from "../b3nd-core/types.ts";
+
 // Hooks (immutable after init — throw to reject, observe to audit)
 export type {
   AfterHook,

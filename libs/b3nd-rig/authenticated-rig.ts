@@ -11,10 +11,11 @@
  * const alice = await Identity.fromSeed("alice-secret");
  *
  * const session = alice.rig(rig);
- * await session.send({ inputs: [], outputs: [["mutable://app/x", data]] });
+ * await session.send({ inputs: [], outputs: [["mutable://app/x", {}, data]] });
  * ```
  */
 
+import type { Output } from "../b3nd-core/types.ts";
 import type { EncryptedPayload } from "../b3nd-encrypt/mod.ts";
 import type { SendResult } from "../b3nd-msg/data/send.ts";
 import type { Identity } from "./identity.ts";
@@ -49,16 +50,15 @@ export class AuthenticatedRig {
    * ```typescript
    * await session.send({
    *   inputs: [],
-   *   outputs: [["mutable://accounts/" + id.pubkey + "/app/x", data]],
+   *   outputs: [["mutable://accounts/" + id.pubkey + "/app/x", {}, data]],
    * });
    * ```
    */
   async send<V = unknown>(
-    data: { inputs: string[]; outputs: [uri: string, value: V][] },
+    data: { inputs: string[]; outputs: Output<V>[] },
   ): Promise<SendResult> {
-    const payload = { inputs: data.inputs, outputs: data.outputs };
-    const auth = [await this.identity.sign(payload)];
-    return this.rig.send({ auth, payload });
+    const auth = [await this.identity.sign({ inputs: data.inputs, outputs: data.outputs })];
+    return this.rig.send({ auth, inputs: data.inputs, outputs: data.outputs });
   }
 
   /**
@@ -73,7 +73,7 @@ export class AuthenticatedRig {
    * // Self-encrypt
    * await session.sendEncrypted({
    *   inputs: [],
-   *   outputs: [["mutable://secrets/x", { apiKey: "sk-abc" }]],
+   *   outputs: [["mutable://secrets/x", {}, { apiKey: "sk-abc" }]],
    * });
    *
    * // Encrypt to another party
@@ -81,7 +81,7 @@ export class AuthenticatedRig {
    * ```
    */
   async sendEncrypted<V = unknown>(
-    data: { inputs: string[]; outputs: [uri: string, value: V][] },
+    data: { inputs: string[]; outputs: Output<V>[] },
     recipientEncPubkeyHex?: string,
   ): Promise<SendResult> {
     if (!this.identity.canEncrypt) {
@@ -92,11 +92,11 @@ export class AuthenticatedRig {
 
     const recipient = recipientEncPubkeyHex || this.identity.encryptionPubkey;
 
-    const encryptedOutputs: [string, unknown][] = await Promise.all(
-      data.outputs.map(async ([uri, value]) => {
+    const encryptedOutputs: Output[] = await Promise.all(
+      data.outputs.map(async ([uri, values, value]) => {
         const plaintext = new TextEncoder().encode(JSON.stringify(value));
         const encrypted = await this.identity.encrypt(plaintext, recipient);
-        return [uri, encrypted] as [string, unknown];
+        return [uri, values, encrypted] as Output;
       }),
     );
 
@@ -112,7 +112,7 @@ export class AuthenticatedRig {
    * Each entry becomes its own signed envelope with its own content hash.
    */
   async sendMany<V = unknown>(
-    envelopes: { inputs: string[]; outputs: [uri: string, value: V][] }[],
+    envelopes: { inputs: string[]; outputs: Output<V>[] }[],
   ): Promise<SendResult[]> {
     if (envelopes.length === 0) return [];
     const results: SendResult[] = [];
