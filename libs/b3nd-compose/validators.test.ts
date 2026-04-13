@@ -8,7 +8,7 @@ import {
   schema,
   uriPattern,
 } from "./validators.ts";
-import type { ReadResult } from "../b3nd-core/types.ts";
+import type { Output, ReadResult } from "../b3nd-core/types.ts";
 
 // ── Stub read function for validators that need state ──
 
@@ -240,7 +240,7 @@ Deno.test("schema - rejects unknown programs", async () => {
 
 Deno.test("schema - rejects invalid URI format", async () => {
   const s = schema({});
-  const result = await s(["not-a-uri", {}], undefined, stubRead());
+  const result = await s(["not-a-uri", {}, {}], undefined, stubRead());
   assertEquals(result.valid, false);
   assertEquals(result.error, "Invalid URI format");
 });
@@ -248,7 +248,7 @@ Deno.test("schema - rejects invalid URI format", async () => {
 Deno.test("schema - passes read function to program validator", async () => {
   let readCalled = false;
   const s = schema({
-    "mutable://users": async ([uri, value], upstream, read) => {
+    "mutable://users": async ([uri, , value], upstream, read) => {
       if (read) {
         const existing = await read("mutable://users/alice");
         readCalled = existing.success || !existing.success;
@@ -258,7 +258,7 @@ Deno.test("schema - passes read function to program validator", async () => {
   });
 
   await s(
-    ["mutable://users/alice", { name: "Alice" }],
+    ["mutable://users/alice", {}, { name: "Alice" }],
     undefined,
     stubRead({ "mutable://users/alice": { name: "Old" } }),
   );
@@ -270,7 +270,7 @@ Deno.test("schema - passes read function to program validator", async () => {
 Deno.test("msgSchema - validates plain messages like schema()", async () => {
   const v = msgSchema({
     // deno-lint-ignore require-await
-    "mutable://users": async ([uri, value], upstream, read) => {
+    "mutable://users": async ([uri, , value], upstream, read) => {
       const d = value as Record<string, unknown>;
       if (!d?.name) return { valid: false, error: "name required" };
       return { valid: true };
@@ -278,14 +278,14 @@ Deno.test("msgSchema - validates plain messages like schema()", async () => {
   });
 
   const pass = await v(
-    ["mutable://users/alice", { name: "Alice" }],
+    ["mutable://users/alice", {}, { name: "Alice" }],
     undefined,
     stubRead(),
   );
   assertEquals(pass.valid, true);
 
   const fail = await v(
-    ["mutable://users/bob", {}],
+    ["mutable://users/bob", {}, {}],
     undefined,
     stubRead(),
   );
@@ -297,26 +297,24 @@ Deno.test("msgSchema - validates MessageData envelopes", async () => {
     // deno-lint-ignore require-await
     "mutable://messages": async () => ({ valid: true }),
     // deno-lint-ignore require-await
-    "mutable://users": async ([uri, value], upstream, read) => {
+    "mutable://users": async ([uri, , value], upstream, read) => {
       const d = value as Record<string, unknown>;
       if (!d?.name) return { valid: false, error: "name required" };
       return { valid: true };
     },
   });
 
-  // MessageData envelope structure (requires payload.inputs + payload.outputs)
+  // MessageData envelope structure (inputs + outputs at top level)
   const messageData = {
-    payload: {
-      inputs: [] as string[],
-      outputs: [
-        ["mutable://users/alice", { name: "Alice" }],
-      ] as [string, unknown][],
-    },
+    inputs: [] as string[],
+    outputs: [
+      ["mutable://users/alice", {}, { name: "Alice" }],
+    ] as Output[],
     auth: [{ pubkey: "abc123", signature: "sig123" }],
   };
 
   const result = await v(
-    ["mutable://messages/msg1", messageData],
+    ["mutable://messages/msg1", {}, messageData],
     undefined,
     stubRead(),
   );
@@ -328,7 +326,7 @@ Deno.test("msgSchema - rejects envelope with invalid output", async () => {
     // deno-lint-ignore require-await
     "mutable://messages": async () => ({ valid: true }),
     // deno-lint-ignore require-await
-    "mutable://users": async ([uri, value], upstream, read) => {
+    "mutable://users": async ([uri, , value], upstream, read) => {
       const d = value as Record<string, unknown>;
       if (!d?.name) return { valid: false, error: "name required" };
       return { valid: true };
@@ -336,17 +334,15 @@ Deno.test("msgSchema - rejects envelope with invalid output", async () => {
   });
 
   const messageData = {
-    payload: {
-      inputs: [] as string[],
-      outputs: [
-        ["mutable://users/alice", {}], // missing name
-      ] as [string, unknown][],
-    },
+    inputs: [] as string[],
+    outputs: [
+      ["mutable://users/alice", {}, {}], // missing name
+    ] as Output[],
     auth: [{ pubkey: "abc123", signature: "sig123" }],
   };
 
   const result = await v(
-    ["mutable://messages/msg1", messageData],
+    ["mutable://messages/msg1", {}, messageData],
     undefined,
     stubRead(),
   );
@@ -361,17 +357,15 @@ Deno.test("msgSchema - rejects envelope with unknown output program", async () =
   });
 
   const messageData = {
-    payload: {
-      inputs: [] as string[],
-      outputs: [
-        ["mutable://unknown/x", { data: 1 }],
-      ] as [string, unknown][],
-    },
+    inputs: [] as string[],
+    outputs: [
+      ["mutable://unknown/x", {}, { data: 1 }],
+    ] as Output[],
     auth: [{ pubkey: "abc123", signature: "sig123" }],
   };
 
   const result = await v(
-    ["mutable://messages/msg1", messageData],
+    ["mutable://messages/msg1", {}, messageData],
     undefined,
     stubRead(),
   );
