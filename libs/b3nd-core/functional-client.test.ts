@@ -41,9 +41,9 @@ Deno.test("FunctionalClient - status defaults to healthy", async () => {
 Deno.test("FunctionalClient - custom receive is called", async () => {
   const calls: Message[] = [];
   const client = new FunctionalClient({
-    receive: async (msg) => {
-      calls.push(msg);
-      return { accepted: true };
+    receive: async (msgs) => {
+      for (const msg of msgs) calls.push(msg);
+      return msgs.map(() => ({ accepted: true }));
     },
   });
 
@@ -137,10 +137,11 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
   const store = new Map<string, { values: Record<string, number>; data: unknown }>();
 
   const client = new FunctionalClient({
-    receive: async (msg) => {
-      const [uri, , data] = msg;
-      store.set(uri, { values: {}, data });
-      return { accepted: true };
+    receive: async (msgs) => {
+      for (const [uri, , data] of msgs) {
+        store.set(uri, { values: {}, data });
+      }
+      return msgs.map(() => ({ accepted: true }));
     },
     read: async <T = unknown>(
       uris: string | string[],

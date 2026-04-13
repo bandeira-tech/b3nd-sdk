@@ -193,6 +193,7 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
   // Valid message
   const validTx: StateMessage = [
     "msg://alice/transfer/42",
+    {},
     {
       inputs: ["utxo://alice/1"],
       outputs: [
@@ -210,6 +211,7 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
   // Invalid message (fee too low)
   const invalidTx: StateMessage = [
     "msg://alice/transfer/43",
+    {},
     {
       inputs: ["utxo://alice/1"],
       outputs: [
@@ -258,6 +260,7 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   // Valid: data with sufficient fee
   const validTx: StateMessage = [
     "msg://alice/store/1",
+    {},
     {
       inputs: [],
       outputs: [
@@ -272,6 +275,7 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   // Invalid: data without fee
   const noFeeTx: StateMessage = [
     "msg://alice/store/2",
+    {},
     {
       inputs: [],
       outputs: [["immutable://open/def456", {}, { data: "hello" }]],
@@ -361,13 +365,13 @@ Deno.test("integration - message node with output validator", async () => {
     schema: {
       "utxo://alice": async (ctx) => {
         // Check that we're not creating money out of thin air
-        if (ctx.data < 0) {
+        if ((ctx.data as number) < 0) {
           return { valid: false, error: "negative_amount" };
         }
         return { valid: true };
       },
       "utxo://bob": async (ctx) => {
-        if (ctx.data < 0) {
+        if ((ctx.data as number) < 0) {
           return { valid: false, error: "negative_amount" };
         }
         return { valid: true };
@@ -410,6 +414,7 @@ Deno.test("integration - message node with output validator", async () => {
   // Valid transfer: 100 in, 50 + 50 out
   const validTx: StateMessage = [
     "msg://transfers/1",
+    {},
     {
       inputs: ["utxo://alice/1"],
       outputs: [
@@ -425,6 +430,7 @@ Deno.test("integration - message node with output validator", async () => {
   // Invalid transfer: trying to create money
   const invalidTx: StateMessage = [
     "msg://transfers/2",
+    {},
     {
       inputs: ["utxo://alice/2"], // Only 50 available
       outputs: [
