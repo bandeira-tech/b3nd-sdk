@@ -236,7 +236,7 @@ Deno.test("hashValidator — accepts valid write-once content", async () => {
 
   const validator = hashValidator();
   const result = await validator(
-    [uri, data],
+    [uri, {}, data],
     undefined,
     async (_uri: string) => ({ success: false }),
   );
@@ -251,7 +251,7 @@ Deno.test("hashValidator — rejects duplicate write (write-once)", async () => 
 
   const validator = hashValidator();
   const result = await validator(
-    [uri, data],
+    [uri, {}, data],
     undefined,
     async (_uri: string) => ({ success: true }),
   );
@@ -268,7 +268,7 @@ Deno.test("hashValidator — rejects content that doesn't match hash", async () 
 
   const validator = hashValidator();
   const result = await validator(
-    [uri, { msg: "tampered" }],
+    [uri, {}, { msg: "tampered" }],
     undefined,
     async (_uri: string) => ({ success: false }),
   );

@@ -209,24 +209,21 @@ export function httpApi(
           400,
         );
       }
-      if (!Array.isArray(msg) || msg.length < 2) {
+      if (!Array.isArray(msg) || msg.length !== 3) {
         return json(
-          { accepted: false, error: "Expected [uri, values, data] or [uri, data]" },
+          { accepted: false, error: "Expected [uri, values, data]" },
           400,
         );
       }
-      const uri = msg[0];
+      const [uri, values, rawData] = msg as [unknown, unknown, unknown];
       if (!uri || typeof uri !== "string") {
         return json(
           { accepted: false, error: "URI is required" },
           400,
         );
       }
-      // Support both 3-tuple [uri, values, data] and legacy 2-tuple [uri, data]
-      const values = msg.length >= 3 ? (msg[1] as Record<string, number>) : {};
-      const rawData = msg.length >= 3 ? msg[2] : msg[1];
       const data = deserializeBinary(rawData);
-      const results = await rig.receive([[uri, values, data]]);
+      const results = await rig.receive([[uri, values as Record<string, number>, data]]);
       return json(results[0], results[0].accepted ? 200 : 400);
     }
 

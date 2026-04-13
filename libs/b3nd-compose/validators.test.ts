@@ -32,7 +32,7 @@ function stubRead(
 Deno.test("accept - always returns valid", async () => {
   const v = accept();
   const result = await v(
-    ["mutable://anything", { x: 1 }],
+    ["mutable://anything", {}, { x: 1 }],
     undefined,
     stubRead(),
   );
@@ -41,7 +41,7 @@ Deno.test("accept - always returns valid", async () => {
 
 Deno.test("accept - works with null data", async () => {
   const v = accept();
-  const result = await v(["mutable://x", null], undefined, stubRead());
+  const result = await v(["mutable://x", {}, null], undefined, stubRead());
   assertEquals(result.valid, true);
 });
 
@@ -49,14 +49,14 @@ Deno.test("accept - works with null data", async () => {
 
 Deno.test("reject - always returns invalid with default message", async () => {
   const v = reject();
-  const result = await v(["mutable://x", {}], undefined, stubRead());
+  const result = await v(["mutable://x", {}, {}], undefined, stubRead());
   assertEquals(result.valid, false);
   assertEquals(result.error, "Rejected");
 });
 
 Deno.test("reject - uses custom message", async () => {
   const v = reject("Program disabled");
-  const result = await v(["mutable://x", {}], undefined, stubRead());
+  const result = await v(["mutable://x", {}, {}], undefined, stubRead());
   assertEquals(result.valid, false);
   assertEquals(result.error, "Program disabled");
 });
@@ -66,7 +66,7 @@ Deno.test("reject - uses custom message", async () => {
 Deno.test("format - passes when check returns true", async () => {
   const v = format(() => true);
   const result = await v(
-    ["mutable://x", { name: "Alice" }],
+    ["mutable://x", {}, { name: "Alice" }],
     undefined,
     stubRead(),
   );
@@ -75,18 +75,18 @@ Deno.test("format - passes when check returns true", async () => {
 
 Deno.test("format - fails when check returns false", async () => {
   const v = format(() => false);
-  const result = await v(["mutable://x", null], undefined, stubRead());
+  const result = await v(["mutable://x", {}, null], undefined, stubRead());
   assertEquals(result.valid, false);
   assertEquals(result.error, "Format validation failed");
 });
 
 Deno.test("format - uses custom error string from check", async () => {
   const v = format((output) => {
-    const [, data] = output;
+    const [, , data] = output;
     if (typeof data !== "object" || data === null) return "data must be object";
     return true;
   });
-  const result = await v(["mutable://x", "not-object"], undefined, stubRead());
+  const result = await v(["mutable://x", {}, "not-object"], undefined, stubRead());
   assertEquals(result.valid, false);
   assertEquals(result.error, "data must be object");
 });
@@ -97,9 +97,9 @@ Deno.test("format - receives the full message tuple", async () => {
     captured = output;
     return true;
   });
-  await v(["mutable://x", { key: "val" }], undefined, stubRead());
+  await v(["mutable://x", {}, { key: "val" }], undefined, stubRead());
   assertEquals(Array.isArray(captured), true);
-  assertEquals((captured as [string, unknown])[0], "mutable://x");
+  assertEquals((captured as [string, Record<string, number>, unknown])[0], "mutable://x");
 });
 
 // ── uriPattern() ──
@@ -107,7 +107,7 @@ Deno.test("format - receives the full message tuple", async () => {
 Deno.test("uriPattern - accepts matching URI", async () => {
   const v = uriPattern(/^mutable:\/\/users\//);
   const result = await v(
-    ["mutable://users/alice/profile", { name: "A" }],
+    ["mutable://users/alice/profile", {}, { name: "A" }],
     undefined,
     stubRead(),
   );
@@ -116,7 +116,7 @@ Deno.test("uriPattern - accepts matching URI", async () => {
 
 Deno.test("uriPattern - rejects non-matching URI", async () => {
   const v = uriPattern(/^mutable:\/\/users\//);
-  const result = await v(["mutable://posts/1", {}], undefined, stubRead());
+  const result = await v(["mutable://posts/1", {}, {}], undefined, stubRead());
   assertEquals(result.valid, false);
   assertEquals(
     result.error,
@@ -127,14 +127,14 @@ Deno.test("uriPattern - rejects non-matching URI", async () => {
 Deno.test("uriPattern - works with complex patterns", async () => {
   const v = uriPattern(/^mutable:\/\/users\/[a-z0-9-]+\/profile$/);
   const pass = await v(
-    ["mutable://users/alice-123/profile", {}],
+    ["mutable://users/alice-123/profile", {}, {}],
     undefined,
     stubRead(),
   );
   assertEquals(pass.valid, true);
 
   const fail = await v(
-    ["mutable://users/alice/settings", {}],
+    ["mutable://users/alice/settings", {}, {}],
     undefined,
     stubRead(),
   );
@@ -146,7 +146,7 @@ Deno.test("uriPattern - works with complex patterns", async () => {
 Deno.test("requireFields - passes when all fields present", async () => {
   const v = requireFields(["name", "email"]);
   const result = await v(
-    ["mutable://x", { name: "Alice", email: "a@b.com" }],
+    ["mutable://x", {}, { name: "Alice", email: "a@b.com" }],
     undefined,
     stubRead(),
   );
@@ -156,7 +156,7 @@ Deno.test("requireFields - passes when all fields present", async () => {
 Deno.test("requireFields - fails when fields missing", async () => {
   const v = requireFields(["name", "email"]);
   const result = await v(
-    ["mutable://x", { name: "Alice" }],
+    ["mutable://x", {}, { name: "Alice" }],
     undefined,
     stubRead(),
   );
@@ -166,21 +166,21 @@ Deno.test("requireFields - fails when fields missing", async () => {
 
 Deno.test("requireFields - fails with null data", async () => {
   const v = requireFields(["name"]);
-  const result = await v(["mutable://x", null], undefined, stubRead());
+  const result = await v(["mutable://x", {}, null], undefined, stubRead());
   assertEquals(result.valid, false);
   assertEquals(result.error, "Data must be an object");
 });
 
 Deno.test("requireFields - fails with string data", async () => {
   const v = requireFields(["name"]);
-  const result = await v(["mutable://x", "string-data"], undefined, stubRead());
+  const result = await v(["mutable://x", {}, "string-data"], undefined, stubRead());
   assertEquals(result.valid, false);
   assertEquals(result.error, "Data must be an object");
 });
 
 Deno.test("requireFields - lists all missing fields", async () => {
   const v = requireFields(["a", "b", "c"]);
-  const result = await v(["mutable://x", {}], undefined, stubRead());
+  const result = await v(["mutable://x", {}, {}], undefined, stubRead());
   assertEquals(result.valid, false);
   assertEquals(result.error, "Missing required fields: a, b, c");
 });
@@ -188,7 +188,7 @@ Deno.test("requireFields - lists all missing fields", async () => {
 Deno.test("requireFields - empty fields array always passes for objects", async () => {
   const v = requireFields([]);
   const result = await v(
-    ["mutable://x", { anything: true }],
+    ["mutable://x", {}, { anything: true }],
     undefined,
     stubRead(),
   );
@@ -200,7 +200,7 @@ Deno.test("requireFields - empty fields array always passes for objects", async 
 Deno.test("schema - routes to correct program validator", async () => {
   const s = schema({
     // deno-lint-ignore require-await
-    "mutable://users": async ([uri, value], upstream, read) => {
+    "mutable://users": async ([uri, , value], upstream, read) => {
       const v = value as Record<string, unknown>;
       if (!v?.name) return { valid: false, error: "name required" };
       return { valid: true };
@@ -208,14 +208,14 @@ Deno.test("schema - routes to correct program validator", async () => {
   });
 
   const pass = await s(
-    ["mutable://users/alice", { name: "Alice" }],
+    ["mutable://users/alice", {}, { name: "Alice" }],
     undefined,
     stubRead(),
   );
   assertEquals(pass.valid, true);
 
   const fail = await s(
-    ["mutable://users/bob", { email: "b@c.com" }],
+    ["mutable://users/bob", {}, { email: "b@c.com" }],
     undefined,
     stubRead(),
   );
@@ -230,7 +230,7 @@ Deno.test("schema - rejects unknown programs", async () => {
   });
 
   const result = await s(
-    ["mutable://posts/1", { title: "Hello" }],
+    ["mutable://posts/1", {}, { title: "Hello" }],
     undefined,
     stubRead(),
   );

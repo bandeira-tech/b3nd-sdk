@@ -49,8 +49,7 @@ Deno.test("info endpoint returns type and version", async () => {
 Deno.test("serve content from immutable:// target", async () => {
   const client = new MemoryClient();
   await client.receive([
-    "immutable://accounts/abc/site/v1/index.html",
-    "<h1>Hello</h1>",
+    ["immutable://accounts/abc/site/v1/index.html", {}, "<h1>Hello</h1>"],
   ]);
 
   const config = makeConfig({
@@ -70,12 +69,10 @@ Deno.test("serve content from immutable:// target", async () => {
 Deno.test("index.html fallback for directory paths", async () => {
   const client = new MemoryClient();
   await client.receive([
-    "immutable://accounts/abc/site/v1/index.html",
-    "<h1>Root</h1>",
+    ["immutable://accounts/abc/site/v1/index.html", {}, "<h1>Root</h1>"],
   ]);
   await client.receive([
-    "immutable://accounts/abc/site/v1/about/index.html",
-    "<h1>About</h1>",
+    ["immutable://accounts/abc/site/v1/about/index.html", {}, "<h1>About</h1>"],
   ]);
 
   const config = makeConfig({
@@ -99,12 +96,10 @@ Deno.test("mutable:// target pointer resolution", async () => {
 
   // Mutable pointer → immutable version
   await client.receive([
-    "mutable://accounts/abc/site",
-    "immutable://accounts/abc/site/v1/",
+    ["mutable://accounts/abc/site", {}, "immutable://accounts/abc/site/v1/"],
   ]);
   await client.receive([
-    "immutable://accounts/abc/site/v1/index.html",
-    "<h1>v1</h1>",
+    ["immutable://accounts/abc/site/v1/index.html", {}, "<h1>v1</h1>"],
   ]);
 
   const config = makeConfig({
@@ -122,12 +117,10 @@ Deno.test("link:// protocol following to hash://", async () => {
 
   // Link points to a hash URI
   await client.receive([
-    "link://accounts/abc/site/v1/app.js",
-    "hash://sha256/deadbeef",
+    ["link://accounts/abc/site/v1/app.js", {}, "hash://sha256/deadbeef"],
   ]);
   await client.receive([
-    "hash://sha256/deadbeef",
-    "console.log('hello');",
+    ["hash://sha256/deadbeef", {}, "console.log('hello');"],
   ]);
 
   const config = makeConfig({
@@ -148,16 +141,13 @@ Deno.test("link:// chain following (link → link → hash)", async () => {
   const client = new MemoryClient();
 
   await client.receive([
-    "link://accounts/abc/site/v1/style.css",
-    "link://open/redirect/style.css",
+    ["link://accounts/abc/site/v1/style.css", {}, "link://open/redirect/style.css"],
   ]);
   await client.receive([
-    "link://open/redirect/style.css",
-    "hash://sha256/cafebabe",
+    ["link://open/redirect/style.css", {}, "hash://sha256/cafebabe"],
   ]);
   await client.receive([
-    "hash://sha256/cafebabe",
-    "body { color: red; }",
+    ["hash://sha256/cafebabe", {}, "body { color: red; }"],
   ]);
 
   const config = makeConfig({
@@ -180,8 +170,7 @@ Deno.test("max link depth protection", async () => {
   // Create a chain of 12 links (exceeds max depth of 10)
   for (let i = 0; i < 12; i++) {
     await client.receive([
-      `link://open/chain/${i}`,
-      `link://open/chain/${i + 1}`,
+      [`link://open/chain/${i}`, {}, `link://open/chain/${i + 1}`],
     ]);
   }
 
@@ -199,12 +188,10 @@ Deno.test("custom domain lookup and serving", async () => {
 
   // Register domain
   await client.receive([
-    "mutable://open/domains/myapp.com",
-    { target: "immutable://accounts/xyz/site/v1/", created: Date.now() },
+    ["mutable://open/domains/myapp.com", {}, { target: "immutable://accounts/xyz/site/v1/", created: Date.now() }],
   ]);
   await client.receive([
-    "immutable://accounts/xyz/site/v1/index.html",
-    "<h1>My App</h1>",
+    ["immutable://accounts/xyz/site/v1/index.html", {}, "<h1>My App</h1>"],
   ]);
 
   const config = makeConfig({ primaryDomain: "api.firecat.dev" });
@@ -219,12 +206,10 @@ Deno.test("custom domain with string mapping", async () => {
   const client = new MemoryClient();
 
   await client.receive([
-    "mutable://open/domains/simple.com",
-    "immutable://accounts/xyz/site/v2/",
+    ["mutable://open/domains/simple.com", {}, "immutable://accounts/xyz/site/v2/"],
   ]);
   await client.receive([
-    "immutable://accounts/xyz/site/v2/page.html",
-    "<h1>Simple</h1>",
+    ["immutable://accounts/xyz/site/v2/page.html", {}, "<h1>Simple</h1>"],
   ]);
 
   const config = makeConfig({ primaryDomain: "api.firecat.dev" });
@@ -238,8 +223,7 @@ Deno.test("custom domain with string mapping", async () => {
 Deno.test("domain-check returns 200 for registered domain", async () => {
   const client = new MemoryClient();
   await client.receive([
-    "mutable://open/domains/registered.com",
-    { target: "immutable://accounts/xyz/site/", created: Date.now() },
+    ["mutable://open/domains/registered.com", {}, { target: "immutable://accounts/xyz/site/", created: Date.now() }],
   ]);
 
   const config = makeConfig();
@@ -275,8 +259,7 @@ Deno.test("MIME type detection for various extensions", async () => {
 
   for (const [name, content, expectedType] of files) {
     await client.receive([
-      `immutable://accounts/abc/site/v1/${name}`,
-      content,
+      [`immutable://accounts/abc/site/v1/${name}`, {}, content],
     ]);
   }
 
@@ -295,12 +278,10 @@ Deno.test("MIME type detection for various extensions", async () => {
 Deno.test("cache headers for fingerprinted assets", async () => {
   const client = new MemoryClient();
   await client.receive([
-    "immutable://accounts/abc/site/v1/app.a1b2c3d4.js",
-    "// hashed",
+    ["immutable://accounts/abc/site/v1/app.a1b2c3d4.js", {}, "// hashed"],
   ]);
   await client.receive([
-    "immutable://accounts/abc/site/v1/plain.js",
-    "// plain",
+    ["immutable://accounts/abc/site/v1/plain.js", {}, "// plain"],
   ]);
 
   const config = makeConfig({

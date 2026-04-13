@@ -5,6 +5,7 @@
  * envelopes for genesis claims and consensus records using immutable URIs.
  */
 
+import type { Output } from "@bandeira-tech/b3nd-sdk/types";
 import { createAuthenticatedMessageWithHex } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { MessageData } from "@bandeira-tech/b3nd-sdk";
 import { CONSENSUS_FEE, ROOT_KEY } from "./constants.ts";
@@ -30,13 +31,11 @@ export function buildGenesisEnvelope(
 ): MessageData {
   const utxoId = generateUtxoId();
   return {
-    payload: {
-      inputs: [],
-      outputs: [
-        [`immutable://genesis/${pubkey}`, true],
-        [`immutable://balance/${pubkey}/${utxoId}`, amount],
-      ],
-    },
+    inputs: [],
+    outputs: [
+      [`immutable://genesis/${pubkey}`, {}, true],
+      [`immutable://balance/${pubkey}/${utxoId}`, {}, amount],
+    ] as Output[],
   };
 }
 
@@ -60,7 +59,7 @@ export async function buildConsensusEnvelope(opts: {
   const changeId = generateUtxoId();
   const changeAmount = inputAmount - CONSENSUS_FEE;
 
-  const payload: MessageData["payload"] = {
+  const payload = {
     inputs: [inputUtxoUri],
     outputs: [
       // 1. Consumed marker — references the input balance URI
@@ -68,22 +67,20 @@ export async function buildConsensusEnvelope(opts: {
         `immutable://consumed/${
           inputUtxoUri.replace("immutable://balance/", "")
         }`,
+        {},
         inputUtxoUri,
       ],
       // 2. Change back to user (if any)
       ...(changeAmount > 0
         ? [
-          [`immutable://balance/${userPubKey}/${changeId}`, changeAmount] as [
-            string,
-            number,
-          ],
+          [`immutable://balance/${userPubKey}/${changeId}`, {}, changeAmount] as Output,
         ]
         : []),
       // 3. Fee to ROOT_KEY, keyed by content hash
-      [`immutable://balance/${ROOT_KEY}/${contentHash}`, CONSENSUS_FEE],
+      [`immutable://balance/${ROOT_KEY}/${contentHash}`, {}, CONSENSUS_FEE],
       // 4. Consensus record (last — validators read fee balance)
-      [`consensus://record/${contentHash}`, `hash://sha256/${contentHash}`],
-    ],
+      [`consensus://record/${contentHash}`, {}, `hash://sha256/${contentHash}`],
+    ] as Output[],
   };
 
   const signed = await createAuthenticatedMessageWithHex(
@@ -91,5 +88,5 @@ export async function buildConsensusEnvelope(opts: {
     userPubKey,
     userPrivKeyHex,
   );
-  return signed as unknown as MessageData;
+  return { auth: signed.auth, ...payload };
 }

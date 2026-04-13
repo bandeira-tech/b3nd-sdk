@@ -6,6 +6,7 @@
 import { assertEquals } from "@std/assert";
 import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
 import { send } from "@bandeira-tech/b3nd-sdk";
+import type { Output } from "@bandeira-tech/b3nd-sdk/types";
 import {
   createAuthenticatedMessageWithHex,
   generateSigningKeyPair,
@@ -34,13 +35,13 @@ function createClient() {
 /** Claim genesis tokens, returns the balance UTXO URI */
 async function claimGenesis(
   client: {
-    receive: (msg: [string, unknown]) => Promise<any>;
+    receive: (msgs: any[]) => Promise<any[]>;
     read: <T>(uri: string) => Promise<any[]>;
   },
   pubkey: string,
 ): Promise<{ utxoUri: string }> {
   const envelope = buildGenesisEnvelope(pubkey, GENESIS_AMOUNT);
-  const utxoOutput = envelope.payload.outputs.find(([uri]) =>
+  const utxoOutput = envelope.outputs.find(([uri]) =>
     uri.startsWith(`immutable://balance/${pubkey}/`)
   );
   const utxoUri = utxoOutput![0];
@@ -53,18 +54,16 @@ async function claimGenesis(
 /** Store content via send() and return the content hash */
 async function storeContent(
   client: {
-    receive: (msg: [string, unknown]) => Promise<any>;
+    receive: (msgs: any[]) => Promise<any[]>;
     read: <T>(uri: string) => Promise<any[]>;
   },
   content: unknown,
 ): Promise<string> {
   const envelope = {
-    payload: {
-      inputs: [] as string[],
-      outputs: [
-        ["mutable://open/temp", content],
-      ] as [string, unknown][],
-    },
+    inputs: [] as string[],
+    outputs: [
+      ["mutable://open/temp", {}, content],
+    ] as Output[],
   };
   const result = await send(envelope, client);
   assertEquals(result.accepted, true, `Content store failed: ${result.error}`);
@@ -203,11 +202,12 @@ Deno.test("missing fee: reject consensus record without fee", async () => {
     outputs: [
       [
         `immutable://consumed/${utxoUri.replace("immutable://balance/", "")}`,
+        {},
         utxoUri,
       ],
-      [`immutable://balance/${keys.publicKeyHex}/${changeId}`, GENESIS_AMOUNT], // keeps all, no fee
-      [`consensus://record/${contentHash}`, `hash://sha256/${contentHash}`],
-    ] as [string, unknown][],
+      [`immutable://balance/${keys.publicKeyHex}/${changeId}`, {}, GENESIS_AMOUNT], // keeps all, no fee
+      [`consensus://record/${contentHash}`, {}, `hash://sha256/${contentHash}`],
+    ] as Output[],
   };
 
   const signed = await createAuthenticatedMessageWithHex(
@@ -234,15 +234,17 @@ Deno.test("wrong fee key: reject fee with random ID instead of content hash", as
     outputs: [
       [
         `immutable://consumed/${utxoUri.replace("immutable://balance/", "")}`,
+        {},
         utxoUri,
       ],
       [
         `immutable://balance/${keys.publicKeyHex}/${changeId}`,
+        {},
         GENESIS_AMOUNT - CONSENSUS_FEE,
       ],
-      [`immutable://balance/${ROOT_KEY}/${randomFeeId}`, CONSENSUS_FEE], // wrong key!
-      [`consensus://record/${contentHash}`, `hash://sha256/${contentHash}`],
-    ] as [string, unknown][],
+      [`immutable://balance/${ROOT_KEY}/${randomFeeId}`, {}, CONSENSUS_FEE], // wrong key!
+      [`consensus://record/${contentHash}`, {}, `hash://sha256/${contentHash}`],
+    ] as Output[],
   };
 
   const signed = await createAuthenticatedMessageWithHex(
@@ -268,13 +270,15 @@ Deno.test("conservation: reject output sum > input sum", async () => {
     outputs: [
       [
         `immutable://consumed/${utxoUri.replace("immutable://balance/", "")}`,
+        {},
         utxoUri,
       ],
       [
         `immutable://balance/${keys.publicKeyHex}/${changeId}`,
+        {},
         GENESIS_AMOUNT + 100,
       ], // more than input!
-    ] as [string, unknown][],
+    ] as Output[],
   };
 
   const signed = await createAuthenticatedMessageWithHex(
@@ -303,15 +307,17 @@ Deno.test("auth: reject wrong signer", async () => {
     outputs: [
       [
         `immutable://consumed/${utxoUri.replace("immutable://balance/", "")}`,
+        {},
         utxoUri,
       ],
       [
         `immutable://balance/${attackerKeys.publicKeyHex}/${changeId}`,
+        {},
         GENESIS_AMOUNT - CONSENSUS_FEE,
       ],
-      [`immutable://balance/${ROOT_KEY}/${contentHash}`, CONSENSUS_FEE],
-      [`consensus://record/${contentHash}`, `hash://sha256/${contentHash}`],
-    ] as [string, unknown][],
+      [`immutable://balance/${ROOT_KEY}/${contentHash}`, {}, CONSENSUS_FEE],
+      [`consensus://record/${contentHash}`, {}, `hash://sha256/${contentHash}`],
+    ] as Output[],
   };
 
   // Signed by attacker, not the owner
@@ -329,10 +335,11 @@ Deno.test("auth: reject wrong signer", async () => {
 Deno.test("regular firecat: mutable://open writes work without gas", async () => {
   const client = createClient();
 
-  const result = await client.receive([
+  const result = await client.receive([[
     "mutable://open/my-app/hello",
+    {},
     { message: "works" },
-  ]);
+  ]]);
   assertEquals(result.accepted, true);
 
   const [readResult] = await client.read("mutable://open/my-app/hello");
@@ -356,7 +363,7 @@ Deno.test("genesis: envelopes mint tokens without conservation", async () => {
     `Genesis should work without gas: ${result.error}`,
   );
 
-  const utxoOutput = envelope.payload.outputs.find(([uri]) =>
+  const utxoOutput = envelope.outputs.find(([uri]) =>
     uri.startsWith(`immutable://balance/${keys.publicKeyHex}/`)
   );
   const [utxoResult] = await client.read<number>(utxoOutput![0]);
