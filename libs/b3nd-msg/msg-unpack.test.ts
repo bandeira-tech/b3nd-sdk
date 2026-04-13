@@ -202,7 +202,7 @@ Deno.test("msgSchema - delegates non-MessageData to plain schema validation", as
   const read = async () => ({ success: false as const, error: "not found" });
 
   const result = await validator(
-    ["mutable://open/x", { name: "Alice" }],
+    ["mutable://open/x", {}, { name: "Alice" }],
     undefined,
     read,
   );
@@ -218,7 +218,7 @@ Deno.test("msgSchema - rejects non-MessageData with unknown program", async () =
   const read = async () => ({ success: false as const, error: "not found" });
 
   const result = await validator(
-    ["unknown://program/x", { name: "Alice" }],
+    ["unknown://program/x", {}, { name: "Alice" }],
     undefined,
     read,
   );

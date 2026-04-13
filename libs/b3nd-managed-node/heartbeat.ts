@@ -79,7 +79,7 @@ export function createHeartbeatWriter(
       }
 
       const uri = nodeStatusUri(opts.signer.publicKeyHex);
-      await opts.statusClient.receive([uri, message]);
+      await opts.statusClient.receive([[uri, {}, message]]);
     } catch (error) {
       console.error("[heartbeat] Failed to write status:", error);
     }

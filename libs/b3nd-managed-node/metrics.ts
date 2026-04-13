@@ -99,7 +99,7 @@ export function createMetricsCollector(
       }
 
       const uri = nodeMetricsUri(opts.signer.publicKeyHex);
-      await opts.metricsClient.receive([uri, message]);
+      await opts.metricsClient.receive([[uri, {}, message]]);
     } catch (error) {
       console.error("[metrics] Failed to write metrics:", error);
     }

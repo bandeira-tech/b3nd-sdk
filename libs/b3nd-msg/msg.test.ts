@@ -17,7 +17,7 @@ import {
   type MessageData,
   type StateMessage,
 } from "./data/mod.ts";
-import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
+import { MemoryClient } from "../b3nd-client-memory/mod.ts";
 import type { Output } from "../b3nd-core/types.ts";
 
 // =============================================================================
@@ -80,16 +80,16 @@ Deno.test("createMessageNode - validator can read state", async () => {
   // Pre-populate balance
   await storage.receive([["accounts://balances/alice", {}, { balance: 50 }]]);
 
-  const validator: MessageValidator<{ amount: number }> = async (
+  const validator: MessageValidator = async (
     msg,
     read,
   ) => {
-    const [, data] = msg;
+    const [, , data] = msg;
     const balance = await read<{ balance: number }>(
       "accounts://balances/alice",
     );
 
-    if (!balance.success || balance.record!.data.balance < data.amount) {
+    if (!balance.success || balance.record!.data.balance < (data as { amount: number }).amount) {
       return { valid: false, error: "insufficient_balance" };
     }
     return { valid: true };
@@ -182,7 +182,7 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
       "utxo://bob": async () => ({ valid: true }),
       "utxo://alice": async () => ({ valid: true }),
       "fees://pool": async (ctx) => {
-        if (typeof ctx.value !== "number" || ctx.value < 1) {
+        if (typeof ctx.data !== "number" || ctx.data < 1) {
           return { valid: false, error: "fee must be at least 1" };
         }
         return { valid: true };
@@ -191,7 +191,7 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
   });
 
   // Valid message
-  const validTx: StateMessage<number> = [
+  const validTx: StateMessage = [
     "msg://alice/transfer/42",
     {
       inputs: ["utxo://alice/1"],
@@ -208,7 +208,7 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
   assertEquals(result1.valid, true);
 
   // Invalid message (fee too low)
-  const invalidTx: StateMessage<number> = [
+  const invalidTx: StateMessage = [
     "msg://alice/transfer/43",
     {
       inputs: ["utxo://alice/1"],
@@ -226,7 +226,7 @@ Deno.test("createOutputValidator - validates outputs against schema", async () =
 
 Deno.test("createOutputValidator - provides cross-output access", async () => {
   // Fee validator that requires fee based on data size
-  const validator = createOutputValidator<unknown>({
+  const validator = createOutputValidator({
     schema: {
       "immutable://open": async (ctx) => {
         // Check for fee output in the same message
@@ -237,7 +237,7 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
           return { valid: false, error: "fee_required" };
         }
 
-        const dataSize = JSON.stringify(ctx.value).length;
+        const dataSize = JSON.stringify(ctx.data).length;
         const requiredFee = Math.ceil(dataSize / 100); // 1 per 100 bytes
 
         if ((feeOutput[2] as number) < requiredFee) {
@@ -256,7 +256,7 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   const read = async () => ({ success: false, error: "not found" });
 
   // Valid: data with sufficient fee
-  const validTx: StateMessage<unknown> = [
+  const validTx: StateMessage = [
     "msg://alice/store/1",
     {
       inputs: [],
@@ -270,7 +270,7 @@ Deno.test("createOutputValidator - provides cross-output access", async () => {
   assertEquals(result1.valid, true);
 
   // Invalid: data without fee
-  const noFeeTx: StateMessage<unknown> = [
+  const noFeeTx: StateMessage = [
     "msg://alice/store/2",
     {
       inputs: [],
@@ -288,8 +288,8 @@ Deno.test("createOutputValidator - with preValidate", async () => {
       "utxo://test": async () => ({ valid: true }),
     },
     preValidate: async (msg) => {
-      const [, data] = msg;
-      if (!("sig" in data)) {
+      const [, , data] = msg;
+      if (!("sig" in (data as Record<string, unknown>))) {
         return { valid: false, error: "signature_required" };
       }
       return { valid: true };
@@ -299,8 +299,9 @@ Deno.test("createOutputValidator - with preValidate", async () => {
   const read = async () => ({ success: false, error: "not found" });
 
   // Missing signature
-  const noSigTx: StateMessage & { sig?: string } = [
+  const noSigTx: StateMessage = [
     "msg://alice/1",
+    {},
     {
       inputs: [],
       outputs: [["utxo://test/1", {}, 100]],
@@ -313,6 +314,7 @@ Deno.test("createOutputValidator - with preValidate", async () => {
   // With signature
   const withSigTx = [
     "msg://alice/2",
+    {},
     {
       sig: "abc123",
       inputs: [],
@@ -335,12 +337,12 @@ Deno.test("combineValidators - all must pass", async () => {
 
   // All pass
   const combined1 = combineValidators(v1, v2);
-  const result1 = await combined1(["msg://test/1", {}], read);
+  const result1 = await combined1(["msg://test/1", {}, {}], read);
   assertEquals(result1.valid, true);
 
   // One fails
   const combined2 = combineValidators(v1, v3, v2);
-  const result2 = await combined2(["msg://test/2", {}], read);
+  const result2 = await combined2(["msg://test/2", {}, {}], read);
   assertEquals(result2.valid, false);
   assertEquals(result2.error, "v3_failed");
 });
@@ -355,24 +357,25 @@ Deno.test("integration - message node with output validator", async () => {
   // Pre-populate UTXOs
   await storage.receive([["utxo://alice/1", {}, { amount: 100 }]]);
 
-  const validator = createOutputValidator<number>({
+  const validator = createOutputValidator({
     schema: {
       "utxo://alice": async (ctx) => {
         // Check that we're not creating money out of thin air
-        if (ctx.value < 0) {
+        if (ctx.data < 0) {
           return { valid: false, error: "negative_amount" };
         }
         return { valid: true };
       },
       "utxo://bob": async (ctx) => {
-        if (ctx.value < 0) {
+        if (ctx.data < 0) {
           return { valid: false, error: "negative_amount" };
         }
         return { valid: true };
       },
     },
     preValidate: async (msg, read) => {
-      const [, data] = msg;
+      const [, , rawData] = msg;
+      const data = rawData as MessageData;
 
       // Sum inputs
       let inputSum = 0;
@@ -385,7 +388,7 @@ Deno.test("integration - message node with output validator", async () => {
 
       // Sum outputs
       const outputSum = data.outputs.reduce(
-        (sum, [, , value]) => sum + (value as number),
+        (sum: number, [, , value]: Output) => sum + (value as number),
         0,
       );
 
@@ -405,7 +408,7 @@ Deno.test("integration - message node with output validator", async () => {
   });
 
   // Valid transfer: 100 in, 50 + 50 out
-  const validTx: StateMessage<number> = [
+  const validTx: StateMessage = [
     "msg://transfers/1",
     {
       inputs: ["utxo://alice/1"],
@@ -420,7 +423,7 @@ Deno.test("integration - message node with output validator", async () => {
   assertEquals(result1[0].accepted, true);
 
   // Invalid transfer: trying to create money
-  const invalidTx: StateMessage<number> = [
+  const invalidTx: StateMessage = [
     "msg://transfers/2",
     {
       inputs: ["utxo://alice/2"], // Only 50 available
