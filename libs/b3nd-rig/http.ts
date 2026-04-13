@@ -223,7 +223,12 @@ export function httpApi(
         );
       }
       const data = deserializeBinary(rawData);
-      const results = await rig.receive([[uri, values as Record<string, number>, data]]);
+      // Wrap into MessageData envelope so MemoryClient stores the data.
+      // The HTTP API is a convenience layer: callers send [uri, values, data]
+      // and we translate it into the internal { inputs, outputs } format.
+      const vals = values as Record<string, number>;
+      const envelope = { inputs: [] as string[], outputs: [[uri, vals, data]] };
+      const results = await rig.receive([[uri, vals, envelope]]);
       return json(results[0], results[0].accepted ? 200 : 400);
     }
 
