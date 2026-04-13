@@ -20,7 +20,7 @@ function stubRead(
     if (uri in store) {
       return {
         success: true,
-        record: { data: store[uri] as T, ts: Date.now() },
+        record: { data: store[uri] as T, values: {} },
       };
     }
     return { success: false, error: "Not found" };

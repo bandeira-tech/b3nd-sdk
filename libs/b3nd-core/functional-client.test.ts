@@ -62,7 +62,7 @@ Deno.test("FunctionalClient - custom read is called", async () => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map(() => ({
         success: true,
-        record: { ts: 1000, data: { name: "Alice" } as T },
+        record: { values: {}, data: { name: "Alice" } as T },
       }));
     },
   });
@@ -71,7 +71,7 @@ Deno.test("FunctionalClient - custom read is called", async () => {
   assertEquals(results.length, 1);
   assertEquals(results[0].success, true);
   assertEquals(results[0].record?.data, { name: "Alice" });
-  assertEquals(results[0].record?.ts, 1000);
+  assertEquals(typeof results[0].record?.values, "object");
 });
 
 Deno.test("FunctionalClient - custom status is called", async () => {
@@ -104,7 +104,7 @@ Deno.test("FunctionalClient - read with multiple URIs", async () => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map((uri) => {
         if (uri in store) {
-          return { success: true, record: { ts: 1, data: store[uri] as T } };
+          return { success: true, record: { values: {}, data: store[uri] as T } };
         }
         return { success: false, error: "not found" };
       });
@@ -134,12 +134,12 @@ Deno.test("FunctionalClient - read with empty array", async () => {
 // ============================================================================
 
 Deno.test("FunctionalClient - works as in-memory store", async () => {
-  const store = new Map<string, { ts: number; data: unknown }>();
+  const store = new Map<string, { values: Record<string, number>; data: unknown }>();
 
   const client = new FunctionalClient({
     receive: async (msg) => {
       const [uri, , data] = msg;
-      store.set(uri, { ts: Date.now(), data });
+      store.set(uri, { values: {}, data });
       return { accepted: true };
     },
     read: async <T = unknown>(
@@ -154,7 +154,7 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
             .map(([k, v]) => ({
               success: true as const,
               uri: k,
-              record: v as { ts: number; data: T },
+              record: v as { values: Record<string, number>; data: T },
             }));
           return items.length > 0
             ? items[0]
@@ -162,7 +162,7 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
         }
         const record = store.get(uri);
         if (!record) return { success: false, error: "not found" };
-        return { success: true, record: record as { ts: number; data: T } };
+        return { success: true, record: record as { values: Record<string, number>; data: T } };
       });
     },
   });

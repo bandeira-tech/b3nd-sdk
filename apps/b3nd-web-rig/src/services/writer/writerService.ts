@@ -32,7 +32,7 @@ export interface BackendClient {
   read(
     uri: string,
   ): Promise<
-    { success: boolean; record?: { ts: number; data: any }; error?: string }[]
+    { success: boolean; record?: { values: Record<string, number>; data: any }; error?: string }[]
   >;
 }
 

@@ -61,7 +61,7 @@ Deno.test("runAfter - null hook completes", async () => {
   await runAfter(
     null,
     { uri: "mutable://test" } as ReadCtx,
-    { success: true, record: { ts: 1, data: "hello" } },
+    { success: true, record: { values: {}, data: "hello" } },
   );
   // no error = pass
 });

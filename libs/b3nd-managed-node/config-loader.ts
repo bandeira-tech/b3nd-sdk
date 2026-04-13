@@ -138,6 +138,6 @@ export async function loadConfig(
 
   return {
     config,
-    timestamp: result.record.ts,
+    timestamp: Date.now(),
   };
 }

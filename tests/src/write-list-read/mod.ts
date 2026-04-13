@@ -203,7 +203,7 @@ export class WriteListReadTest {
       data,
       "Read data should match written data",
     );
-    assert(readResult.record.ts > 0, "Record should have a valid timestamp");
+    assertExists(readResult.record.values, "Record should have values");
     this.printVerificationLinks("Read", uri);
   }
 

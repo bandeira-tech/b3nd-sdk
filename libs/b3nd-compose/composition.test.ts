@@ -214,7 +214,7 @@ Deno.test("firstMatch - returns first successful read", async () => {
       return uriList.map((uri) => ({
         success: true as const,
         uri,
-        record: { data: { name: "Alice" } as T, ts: 1 },
+        record: { data: { name: "Alice" } as T, values: {} },
       }));
     },
   };

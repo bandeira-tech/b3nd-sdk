@@ -25,7 +25,7 @@ function createStubClient(opts?: {
       return uriList.map((uri) => ({
         success: true as const,
         uri,
-        record: { ts: Date.now(), data: { stub: true } as unknown as T },
+        record: { values: {}, data: { stub: true } as unknown as T },
       }));
     },
     async status() {

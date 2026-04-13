@@ -310,15 +310,14 @@ export function httpApi(
               for (const item of results) {
                 if (sub.closed) break;
                 if (!item.success || !item.record || !item.uri) continue;
-                const itemTs = item.record.ts ?? 0;
-                if (itemTs <= effectiveSince) continue;
+                const now = Date.now();
                 const event = {
                   uri: item.uri,
                   data: item.record.data,
-                  ts: item.record.ts,
+                  ts: now,
                 };
                 sub.write(
-                  `id: ${event.ts}\nevent: write\ndata: ${
+                  `id: ${now}\nevent: write\ndata: ${
                     JSON.stringify(event)
                   }\n\n`,
                 );

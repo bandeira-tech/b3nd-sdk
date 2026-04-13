@@ -116,7 +116,7 @@ Deno.test("receive + read round-trip", async () => {
   assertEquals(results[0].success, true);
   assertExists(results[0].record);
   assertEquals(results[0].record.data, { name: "Alice", age: 30 });
-  assertEquals(typeof results[0].record.ts, "number");
+  assertEquals(typeof results[0].record.values, "object");
 });
 
 Deno.test("read returns not found for missing URI", async () => {

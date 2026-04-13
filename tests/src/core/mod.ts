@@ -45,7 +45,7 @@ export class ApiClient {
     value: unknown,
   ): Promise<{
     success: boolean;
-    record?: { ts: number; data: unknown };
+    record?: { values: Record<string, number>; data: unknown };
     error?: string;
   }> {
     try {
@@ -83,7 +83,7 @@ export class ApiClient {
 
   async read(uri: string): Promise<{
     success: boolean;
-    record?: { ts: number; data: unknown };
+    record?: { values: Record<string, number>; data: unknown };
     error?: string;
   }> {
     try {

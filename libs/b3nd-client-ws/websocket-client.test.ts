@@ -86,10 +86,9 @@ class MockWebSocket {
   protected generateResponse(request: any): any {
     const responses = {
       receive: () => {
-        // Handle receive message: payload is [uri, headers, data]
+        // Handle receive message: payload is [uri, values, data]
         const [uri, , data] = request.payload;
-        const ts = Date.now();
-        this.storage.set(uri, { data, ts });
+        this.storage.set(uri, { data, values: {} });
         return {
           id: request.id,
           success: true,
@@ -111,7 +110,7 @@ class MockWebSocket {
                 allResults.push({
                   success: true,
                   uri: storedUri,
-                  record: { ts: stored.ts, data: stored.data },
+                  record: { values: stored.values, data: stored.data },
                 });
               }
             }
@@ -121,7 +120,7 @@ class MockWebSocket {
               allResults.push({
                 success: true,
                 uri,
-                record: { ts: stored.ts, data: stored.data },
+                record: { values: stored.values, data: stored.data },
               });
             } else {
               allResults.push({ success: false, uri, error: "Not found" });

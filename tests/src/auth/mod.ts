@@ -103,18 +103,17 @@ export class AuthTest {
     assertEqual(data.auth.length, 1, "Should have one signature");
 
     // Verify the signature
-    const { auth: singleAuth, ...singlePayload } = data;
     const verified = await this.cryptoManager.verify(
-      singleAuth[0].pubkey,
-      singleAuth[0].signature,
-      singlePayload,
+      data.auth[0].pubkey,
+      data.auth[0].signature,
+      data.payload,
     );
     assert(verified, "Signature should be valid");
 
     // Verify it's from the correct user
     const user1 = this.userSimulator.getUser("user1");
     assertEqual(
-      singleAuth[0].pubkey,
+      data.auth[0].pubkey,
       user1?.signingKeys.publicKeyHex,
       "Public key should match user1",
     );
@@ -151,15 +150,14 @@ export class AuthTest {
     assertExists(readResult.record, "Should return a record");
 
     const data = readResult.record.data as AuthenticatedMessage;
-    const { auth: multiAuth, ...multiPayload } = data;
-    assertEqual(multiAuth.length, 2, "Should have two signatures");
+    assertEqual(data.auth.length, 2, "Should have two signatures");
 
     // Verify all signatures
-    for (const authEntry of multiAuth) {
+    for (const authEntry of data.auth) {
       const verified = await this.cryptoManager.verify(
         authEntry.pubkey,
         authEntry.signature,
-        multiPayload,
+        data.payload,
       );
       assert(
         verified,
@@ -170,7 +168,7 @@ export class AuthTest {
     // Verify signers are correct
     const admin = this.userSimulator.getUser("admin");
     const user1 = this.userSimulator.getUser("user1");
-    const pubkeys = multiAuth.map((a) => a.pubkey);
+    const pubkeys = data.auth.map((a) => a.pubkey);
 
     assert(
       pubkeys.includes(admin?.signingKeys.publicKeyHex || ""),
@@ -225,13 +223,12 @@ export class AuthTest {
       assertExists(readResult.record, "Should return a record");
 
       const data = readResult.record.data as AuthenticatedMessage;
-      const { auth: tamperedAuth, ...tamperedPayload } = data;
 
       // Verify signature should fail
       const verified = await this.cryptoManager.verify(
-        tamperedAuth[0].pubkey,
-        tamperedAuth[0].signature,
-        tamperedPayload,
+        data.auth[0].pubkey,
+        data.auth[0].signature,
+        data.payload,
       );
       assert(!verified, "Tampered signature should be invalid");
     } else {
@@ -267,15 +264,17 @@ export class AuthTest {
     // Modify the payload but keep the signature
     const modifiedMessage = {
       ...authMessage,
-      amount: 1000000, // Changed amount
+      payload: {
+        ...originalPayload,
+        amount: 1000000, // Changed amount
+      },
     };
 
     // Verify signature with modified payload should fail
-    const { auth: modAuth, ...modPayload } = modifiedMessage;
     const verified = await this.cryptoManager.verify(
-      modAuth[0].pubkey,
-      modAuth[0].signature,
-      modPayload,
+      modifiedMessage.auth[0].pubkey,
+      modifiedMessage.auth[0].signature,
+      modifiedMessage.payload,
     );
     assert(!verified, "Signature should be invalid for modified payload");
   }
@@ -310,18 +309,17 @@ export class AuthTest {
     assertExists(readResult.record, "Should return a record");
 
     const data = readResult.record.data as AuthenticatedMessage;
-    const { auth: tsAuth, ...tsPayload } = data;
     assertEqual(
-      (tsPayload as Record<string, unknown>).timestamp,
+      data.payload.timestamp,
       payload.timestamp,
       "Timestamp should be preserved",
     );
 
     // Verify signature is still valid
     const verified = await this.cryptoManager.verify(
-      tsAuth[0].pubkey,
-      tsAuth[0].signature,
-      tsPayload,
+      data.auth[0].pubkey,
+      data.auth[0].signature,
+      data.payload,
     );
     assert(verified, "Signature should remain valid");
   }
@@ -362,26 +360,23 @@ export class AuthTest {
     assert(readResult.success, "Read should succeed");
     assertExists(readResult.record, "Should return a record");
 
-    const data = readResult.record.data as AuthenticatedMessage;
-
-    // Destructure outer auth from content (inner AuthenticatedMessage)
-    const { auth: outerAuth, ...outerContent } = data;
-    // Destructure inner auth from initial payload
-    const { auth: innerAuth, ...innerPayload } = outerContent as AuthenticatedMessage;
+    const data = readResult.record.data as AuthenticatedMessage<
+      AuthenticatedMessage
+    >;
 
     // Verify admin's signature
     const adminVerified = await this.cryptoManager.verify(
-      outerAuth[0].pubkey,
-      outerAuth[0].signature,
-      outerContent,
+      data.auth[0].pubkey,
+      data.auth[0].signature,
+      data.payload,
     );
     assert(adminVerified, "Admin signature should be valid");
 
     // Verify user1's signature within the payload
     const user1Verified = await this.cryptoManager.verify(
-      innerAuth[0].pubkey,
-      innerAuth[0].signature,
-      innerPayload,
+      data.payload.auth[0].pubkey,
+      data.payload.auth[0].signature,
+      data.payload.payload,
     );
     assert(user1Verified, "User1 signature should be valid");
 
@@ -390,12 +385,12 @@ export class AuthTest {
     const user1 = this.userSimulator.getUser("user1");
 
     assertEqual(
-      outerAuth[0].pubkey,
+      data.auth[0].pubkey,
       admin?.signingKeys.publicKeyHex,
       "Top level should be signed by admin",
     );
     assertEqual(
-      innerAuth[0].pubkey,
+      data.payload.auth[0].pubkey,
       user1?.signingKeys.publicKeyHex,
       "Inner level should be signed by user1",
     );

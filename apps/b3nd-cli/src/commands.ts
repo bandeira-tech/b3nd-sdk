@@ -423,7 +423,7 @@ export async function read(uri: string, verbose = false): Promise<void> {
         }
       }
 
-      console.log(`  Timestamp: ${new Date(result.record.ts).toISOString()}`);
+      console.log(`  Values: ${JSON.stringify(result.record.values)}`);
     } else if (result && !result.success) {
       throw new Error(result.error || "Read failed");
     } else {
