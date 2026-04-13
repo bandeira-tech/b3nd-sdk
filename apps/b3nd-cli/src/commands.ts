@@ -487,9 +487,8 @@ export async function list(
       for (const item of results) {
         const record = item.record;
         const itemName = item.uri || "unknown";
-        const itemTime = record?.ts || Date.now();
         console.log(
-          `  - ${itemName} (${new Date(Number(itemTime)).toISOString()})`,
+          `  - ${itemName}`,
         );
       }
     } else {
