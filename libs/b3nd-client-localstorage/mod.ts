@@ -223,3 +223,6 @@ export class LocalStorageClient implements NodeProtocolInterface {
     }
   }
 }
+
+// Store implementation (new pattern — prefer over LocalStorageClient)
+export { LocalStorageStore } from "./store.ts";

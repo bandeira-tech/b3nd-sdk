@@ -268,3 +268,6 @@ export class MongoClient implements NodeProtocolInterface {
     return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }
+
+// Store implementation (new pattern — prefer over MongoClient)
+export { MongoStore } from "./store.ts";

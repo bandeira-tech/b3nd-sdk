@@ -364,3 +364,6 @@ export class IndexedDBClient implements NodeProtocolInterface {
     }
   }
 }
+
+// Store implementation (new pattern — prefer over IndexedDBClient)
+export { IndexedDBStore } from "./store.ts";

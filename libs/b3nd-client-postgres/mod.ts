@@ -270,3 +270,6 @@ export class PostgresClient implements NodeProtocolInterface {
     }
   }
 }
+
+// Store implementation (new pattern — prefer over PostgresClient)
+export { PostgresStore } from "./store.ts";

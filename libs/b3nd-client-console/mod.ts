@@ -108,3 +108,6 @@ export class ConsoleClient implements NodeProtocolInterface {
     });
   }
 }
+
+// Store implementation (new pattern — prefer over ConsoleClient)
+export { ConsoleStore } from "./store.ts";

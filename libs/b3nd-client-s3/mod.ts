@@ -269,3 +269,6 @@ export class S3Client implements NodeProtocolInterface {
     return `${this.prefix}${uriToKey(uri)}`;
   }
 }
+
+// Store implementation (new pattern — prefer over S3Client)
+export { S3Store } from "./store.ts";

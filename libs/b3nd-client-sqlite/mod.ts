@@ -262,3 +262,6 @@ export class SqliteClient implements NodeProtocolInterface {
     }
   }
 }
+
+// Store implementation (new pattern — prefer over SqliteClient)
+export { SqliteStore } from "./store.ts";

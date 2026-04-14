@@ -220,3 +220,6 @@ export class FilesystemClient implements NodeProtocolInterface {
     return `${this.rootDir}/${uriToRelPath(uri)}`;
   }
 }
+
+// Store implementation (new pattern — prefer over FilesystemClient)
+export { FsStore } from "./store.ts";

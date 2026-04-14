@@ -241,3 +241,6 @@ export class IpfsClient implements NodeProtocolInterface {
     }
   }
 }
+
+// Store implementation (new pattern — prefer over IpfsClient)
+export { IpfsStore } from "./store.ts";

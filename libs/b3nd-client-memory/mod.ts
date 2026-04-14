@@ -351,3 +351,6 @@ export function createTestSchema(): Record<string, () => Promise<{ valid: boolea
     "immutable://data": acceptAll,
   };
 }
+
+// Store implementation (new pattern — prefer over MemoryClient)
+export { MemoryStore } from "./store.ts";

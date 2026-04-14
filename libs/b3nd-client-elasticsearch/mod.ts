@@ -287,3 +287,6 @@ export class ElasticsearchClient implements NodeProtocolInterface {
     }
   }
 }
+
+// Store implementation (new pattern — prefer over ElasticsearchClient)
+export { ElasticsearchStore } from "./store.ts";

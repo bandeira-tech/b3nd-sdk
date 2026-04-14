@@ -134,7 +134,10 @@ export class FsStore implements Store {
 
   private async _list<T>(uri: string): Promise<ReadResult<T>[]> {
     try {
-      const relDir = uriToRelPath(uri).replace(/\.json$/, "");
+      const relDir = uriToRelPath(uri).replace(/\.json$/, "").replace(
+        /\/+$/,
+        "",
+      );
       const dirPath = `${this.rootDir}/${relDir}`;
 
       const files = await this.executor.listFiles(dirPath);
