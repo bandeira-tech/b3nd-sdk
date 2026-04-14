@@ -9,6 +9,7 @@
 
 
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
+import type { Payload } from "../b3nd-core/types.ts";
 
 /**
  * Deserialize message data from JSON transport.
@@ -35,13 +36,13 @@ export interface MockServerConfig {
   mode: "happy" | "connectionError" | "validationError";
 
   /** In-memory storage for happy path */
-  storage?: Map<string, { values: Record<string, number>; data: unknown }>;
+  storage?: Map<string, Payload>;
 }
 
 export class MockHttpServer {
   private server?: Deno.HttpServer;
   private config: MockServerConfig;
-  private storage: Map<string, { values: Record<string, number>; data: unknown }>;
+  private storage: Map<string, Payload>;
 
   constructor(config: MockServerConfig) {
     this.config = config;
@@ -311,7 +312,7 @@ export async function createMockServers(): Promise<{
   validationError: MockHttpServer;
   cleanup: () => Promise<void>;
 }> {
-  const sharedStorage = new Map<string, { values: Record<string, number>; data: unknown }>();
+  const sharedStorage = new Map<string, Payload>();
 
   const happy = new MockHttpServer({
     port: 8765,

@@ -21,6 +21,7 @@
 
 import type {
   DeleteResult,
+  Payload,
   ReadResult,
   StatusResult,
   Store,
@@ -31,7 +32,7 @@ import type {
 import { matchPattern } from "../b3nd-core/match-pattern.ts";
 
 type StorageNode<T = unknown> = {
-  value?: { values: Record<string, number>; data: T };
+  value?: Payload<T>;
   children?: Map<string, StorageNode>;
 };
 
@@ -87,7 +88,7 @@ export class MemoryStore implements Store {
 
   private _writeOne(
     uri: string,
-    record: { values: Record<string, number>; data: unknown },
+    record: Payload,
   ): void {
     const { node, parts } = resolveTarget(uri, this.storage);
 
@@ -143,7 +144,7 @@ export class MemoryStore implements Store {
 
     return {
       success: true,
-      record: current.value as { values: Record<string, number>; data: T },
+      record: current.value as Payload<T>,
     };
   }
 
@@ -166,7 +167,7 @@ export class MemoryStore implements Store {
         results.push({
           success: true,
           uri: currentUri,
-          record: node.value as { values: Record<string, number>; data: T },
+          record: node.value as Payload<T>,
         });
       }
       if (node.children) {

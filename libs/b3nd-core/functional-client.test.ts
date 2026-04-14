@@ -7,7 +7,7 @@
 
 import { assertEquals } from "@std/assert";
 import { FunctionalClient } from "./functional-client.ts";
-import type { Message, ReadResult, ReceiveResult } from "./types.ts";
+import type { Message, Payload, ReadResult, ReceiveResult } from "./types.ts";
 
 // ============================================================================
 // Default behavior (no config functions provided)
@@ -134,7 +134,7 @@ Deno.test("FunctionalClient - read with empty array", async () => {
 // ============================================================================
 
 Deno.test("FunctionalClient - works as in-memory store", async () => {
-  const store = new Map<string, { values: Record<string, number>; data: unknown }>();
+  const store = new Map<string, Payload>();
 
   const client = new FunctionalClient({
     receive: async (msgs) => {
@@ -155,7 +155,7 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
             .map(([k, v]) => ({
               success: true as const,
               uri: k,
-              record: v as { values: Record<string, number>; data: T },
+              record: v as Payload<T>,
             }));
           return items.length > 0
             ? items[0]
@@ -163,7 +163,7 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
         }
         const record = store.get(uri);
         if (!record) return { success: false, error: "not found" };
-        return { success: true, record: record as { values: Record<string, number>; data: T } };
+        return { success: true, record: record as Payload<T> };
       });
     },
   });
