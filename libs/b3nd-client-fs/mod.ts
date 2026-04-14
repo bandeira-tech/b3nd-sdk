@@ -15,7 +15,7 @@ import {
   type FsClientConfig,
   type Message,
   type NodeProtocolInterface,
-
+  type Payload,
   type ReadResult,
   type ReceiveResult,
   type StatusResult,
@@ -145,7 +145,7 @@ export class FilesystemClient implements NodeProtocolInterface {
       }
 
       const content = await this.executor.readFile(filePath);
-      const record = JSON.parse(content) as { values: Record<string, number>; data: unknown };
+      const record = JSON.parse(content) as Payload;
       const decodedData = decodeBinaryFromJson(record.data) as T;
 
       return {

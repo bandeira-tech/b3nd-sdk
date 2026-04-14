@@ -69,6 +69,7 @@ export type {
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Output,
+  Payload,
   PostgresClientConfig,
   ReadFn,
   ReadMultiResult,

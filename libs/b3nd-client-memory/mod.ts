@@ -11,7 +11,7 @@
 import type {
   Message,
   NodeProtocolInterface,
-
+  Payload,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -134,7 +134,7 @@ export class MemoryClient implements NodeProtocolInterface {
     return { accepted: true };
   }
 
-  private _write(uri: string, record: { values: Record<string, number>; data: unknown }): void {
+  private _write(uri: string, record: Payload): void {
     const result = target(uri, this.storage);
     if (!result.success) return;
 
@@ -230,7 +230,7 @@ export class MemoryClient implements NodeProtocolInterface {
 
     return {
       success: true,
-      record: current.value as { values: Record<string, number>; data: T },
+      record: current.value as Payload<T>,
     };
   }
 
@@ -265,7 +265,7 @@ export class MemoryClient implements NodeProtocolInterface {
         results.push({
           success: true,
           uri: currentUri,
-          record: node.value as { values: Record<string, number>; data: T },
+          record: node.value as Payload<T>,
         });
       }
       if (node.children) {

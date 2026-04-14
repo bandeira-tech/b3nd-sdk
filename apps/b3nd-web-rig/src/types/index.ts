@@ -6,10 +6,16 @@ export interface NavigationNode {
   children?: NavigationNode[]; // Lazy-loaded via listPath
 }
 
+/** Payload — the stored content at an address: values + data. */
+export interface Payload<T = unknown> {
+  values: Record<string, number>;
+  data: T;
+}
+
 export interface SearchResult {
   path: string;
   name: string;
-  record: { values: Record<string, number>; data: unknown };
+  record: Payload;
   snippet?: string;
 }
 
@@ -46,7 +52,7 @@ export interface BackendAdapter {
     path: string,
     options?: { page?: number; limit?: number },
   ): Promise<PaginatedResponse<NavigationNode>>;
-  readRecord(path: string): Promise<{ values: Record<string, number>; data: unknown }>;
+  readRecord(path: string): Promise<Payload>;
   searchPaths(
     query: string,
     filters?: SearchFilters,

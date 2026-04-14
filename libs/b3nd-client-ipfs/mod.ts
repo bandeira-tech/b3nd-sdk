@@ -12,7 +12,7 @@ import {
   Errors,
   type Message,
   type NodeProtocolInterface,
-
+  type Payload,
   type ReadResult,
   type ReceiveResult,
   type StatusResult,
@@ -157,7 +157,7 @@ export class IpfsClient implements NodeProtocolInterface {
       }
 
       const content = await this.executor.cat(entry.cid);
-      const record = JSON.parse(content) as { values: Record<string, number>; data: unknown };
+      const record = JSON.parse(content) as Payload;
       const decodedData = decodeBinaryFromJson(record.data) as T;
 
       return {

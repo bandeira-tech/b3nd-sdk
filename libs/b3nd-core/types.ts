@@ -3,12 +3,18 @@
  * Core types for the universal B3nd protocol interface
  */
 
+/** Payload — the stored content at an address: values + data. */
+export interface Payload<T = unknown> {
+  values: Record<string, number>;
+  data: T;
+}
+
 /**
  * Result of a write operation
  */
 export interface WriteResult<T = unknown> {
   success: boolean;
-  record?: { values: Record<string, number>; data: T };
+  record?: Payload<T>;
   error?: string;
 }
 
@@ -19,7 +25,7 @@ export interface WriteResult<T = unknown> {
 export interface ReadResult<T> {
   success: boolean;
   uri?: string;
-  record?: { values: Record<string, number>; data: T };
+  record?: Payload<T>;
   error?: string;
   errorDetail?: B3ndError;
 }
@@ -31,7 +37,7 @@ export type ReadMultiResultItem<T = unknown> =
   | {
     uri: string;
     success: true;
-    record: { values: Record<string, number>; data: T };
+    record: Payload<T>;
   }
   | { uri: string; success: false; error: string };
 

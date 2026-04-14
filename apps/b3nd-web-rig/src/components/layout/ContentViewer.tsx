@@ -7,6 +7,7 @@ import { useActiveBackend } from "../../stores/appStore";
 import type {
   NavigationNode,
   PaginatedResponse,
+  Payload,
 } from "../../types";
 import {
   Calendar,
@@ -27,7 +28,7 @@ interface ContentViewerProps {
 }
 
 export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
-  const [record, setRecord] = useState<{ values: Record<string, number>; data: unknown } | null>(null);
+  const [record, setRecord] = useState<Payload | null>(null);
   const [directoryContents, setDirectoryContents] = useState<NavigationNode[]>(
     [],
   );
@@ -167,7 +168,7 @@ function FileViewer({
   onCopy,
   readUrl,
 }: {
-  record: { values: Record<string, number>; data: unknown };
+  record: Payload;
   onCopy: () => Promise<void>;
   readUrl?: string;
 }) {

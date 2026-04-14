@@ -28,6 +28,7 @@ export type {
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Output,
+  Payload,
   ReadFn,
   ReadMultiResult,
   ReadMultiResultItem,
