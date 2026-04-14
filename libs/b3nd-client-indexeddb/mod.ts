@@ -11,7 +11,7 @@ import type {
   IndexedDBClientConfig,
   Message,
   NodeProtocolInterface,
-  PersistenceRecord,
+
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -75,8 +75,8 @@ declare global {
 
 interface StoredRecord {
   uri: string;
+  values: Record<string, number>;
   data: unknown;
-  ts: number;
 }
 
 export class IndexedDBClient implements NodeProtocolInterface {
@@ -152,8 +152,6 @@ export class IndexedDBClient implements NodeProtocolInterface {
               });
               // Create index for efficient querying by URI prefix
               store.createIndex("uri_index", "uri");
-              // Create index for timestamp-based sorting
-              store.createIndex("ts_index", "ts");
             }
           } catch (error) {
             reject(new Error(`Failed to upgrade database: ${error}`));
@@ -177,51 +175,61 @@ export class IndexedDBClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a message - the unified entry point for all state changes
-   * @param msg - Message tuple [uri, data]
-   * @returns ReceiveResult indicating acceptance
+   * Receive a batch of messages — mechanical: delete inputs, write outputs.
+   * @param msgs - Array of Message tuples [uri, values, data]
+   * @returns Array of ReceiveResult, one per message
    */
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
 
-    // Basic URI validation
-    if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Message URI is required" };
-    }
-
-    try {
-      const store = await this.getStore("readwrite");
-      const record: PersistenceRecord<D> = {
-        ts: Date.now(),
-        data,
+    for (const msg of msgs) {
+      const [, , data] = msg;
+      const { inputs, outputs } = data as {
+        inputs: string[];
+        outputs: [string, Record<string, number>, unknown][];
       };
 
-      const storedRecord: StoredRecord = {
-        uri,
-        data,
-        ts: record.ts,
-      };
+      try {
+        const store = await this.getStore("readwrite");
 
-      return new Promise<ReceiveResult>((resolve) => {
-        const request = store.put(storedRecord);
-
-        request.onsuccess = () => {
-          resolve({ accepted: true });
-        };
-
-        request.onerror = () => {
-          resolve({
-            accepted: false,
-            error: `Failed to store message: ${request.error}`,
+        // Delete every URI in inputs
+        for (const inputUri of inputs) {
+          await new Promise<void>((resolve, reject) => {
+            const request = store.delete(inputUri);
+            request.onsuccess = () => resolve();
+            request.onerror = () =>
+              reject(new Error(`Failed to delete ${inputUri}: ${request.error}`));
           });
-        };
-      });
-    } catch (error) {
-      return {
-        accepted: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+        }
+
+        // Write every output
+        for (const [outUri, outValues, outData] of outputs) {
+          const storedRecord: StoredRecord = {
+            uri: outUri,
+            values: outValues,
+            data: outData,
+          };
+
+          await new Promise<void>((resolve, reject) => {
+            const request = store.put(storedRecord);
+            request.onsuccess = () => resolve();
+            request.onerror = () =>
+              reject(
+                new Error(`Failed to store ${outUri}: ${request.error}`),
+              );
+          });
+        }
+
+        results.push({ accepted: true });
+      } catch (error) {
+        results.push({
+          accepted: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
+
+    return results;
   }
 
   public async read<T = unknown>(
@@ -260,8 +268,8 @@ export class IndexedDBClient implements NodeProtocolInterface {
             return;
           }
 
-          const record: PersistenceRecord<T> = {
-            ts: storedRecord.ts,
+          const record = {
+            values: storedRecord.values,
             data: storedRecord.data as T,
           };
 
@@ -303,11 +311,11 @@ export class IndexedDBClient implements NodeProtocolInterface {
             if (record.uri.startsWith(uri)) {
               results.push({
                 success: true,
+                uri: record.uri,
                 record: {
-                  ts: record.ts,
+                  values: record.values,
                   data: record.data as T,
-                  uri: record.uri,
-                } as PersistenceRecord<T>,
+                },
               });
             }
             cursor.continue();

@@ -12,7 +12,7 @@
  * const client = new MemoryClient();
  *
  * // Receive a message (the unified interface for all state changes)
- * await client.receive(["mutable://users/alice", { name: "Alice", age: 30 }]);
+ * await client.receive([["mutable://users/alice", {}, { name: "Alice", age: 30 }]]);
  *
  * // Read data
  * const results = await client.read("mutable://users/alice");
@@ -30,7 +30,7 @@
  * const client = new HttpClient({ url: "https://api.example.com" });
  *
  * // Same interface as MemoryClient
- * await client.receive(["mutable://data/key", { value: 123 }]);
+ * await client.receive([["mutable://data/key", {}, { value: 123 }]]);
  * const result = await client.read("mutable://data/key");
  * ```
  *
@@ -69,7 +69,6 @@ export type {
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Output,
-  PersistenceRecord,
   PostgresClientConfig,
   ReadFn,
   ReadMultiResult,
@@ -80,6 +79,10 @@ export type {
   Schema,
   SqliteClientConfig,
   StatusResult,
+  Store,
+  StoreCapabilities,
+  StoreEntry,
+  StoreWriteResult,
   ValidationResult,
   Validator,
   WebSocketClientConfig,
@@ -88,6 +91,12 @@ export type {
   WriteResult,
 } from "../libs/b3nd-core/types.ts";
 export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
+
+// Store implementations
+export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
+
+// Protocol clients (Store → NodeProtocolInterface)
+export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
 
 // Client implementations
 export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";

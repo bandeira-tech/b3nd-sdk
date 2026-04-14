@@ -1,20 +1,18 @@
 /**
  * @module
  * Built-in processors for common processing patterns
+ *
+ * @deprecated Use CodeHandler from b3nd-core instead.
  */
 
-import type { Message, Processor } from "./types.ts";
+import type { Message } from "../b3nd-core/types.ts";
+import type { Processor } from "./types.ts";
 
 /**
  * Emit processor
- * Calls a callback function with the message (for events, logging, etc.)
+ * Calls a callback function with the message
  *
- * @example
- * ```typescript
- * const process = emit(async (msg) => {
- *   await webhookService.notify(msg)
- * })
- * ```
+ * @deprecated Use CodeHandler from b3nd-core instead.
  */
 export function emit<D = unknown>(
   callback: (msg: Message<D>) => Promise<void> | void,
@@ -36,13 +34,7 @@ export function emit<D = unknown>(
  * Conditional processor
  * Only processes if the condition is met
  *
- * @example
- * ```typescript
- * const process = when(
- *   (msg) => msg[0].startsWith("mutable://important/"),
- *   parallel(postgresClient)
- * )
- * ```
+ * @deprecated
  */
 export function when<D = unknown>(
   condition: (msg: Message<D>) => boolean | Promise<boolean>,
@@ -53,21 +45,15 @@ export function when<D = unknown>(
     if (shouldProcess) {
       return processor(msg);
     }
-    return { success: true }; // Skip silently
+    return { success: true };
   };
 }
 
 /**
  * Log processor
- * Logs the message (for debugging)
+ * Logs the message URI
  *
- * @example
- * ```typescript
- * const process = pipeline(
- *   log("Received message"),
- *   parallel(postgresClient)
- * )
- * ```
+ * @deprecated
  */
 export function log<D = unknown>(prefix = "msg"): Processor<D> {
   // deno-lint-ignore require-await
@@ -82,13 +68,7 @@ export function log<D = unknown>(prefix = "msg"): Processor<D> {
  * Noop processor
  * Does nothing, always succeeds
  *
- * @example
- * ```typescript
- * const process = when(
- *   (msg) => msg[0].startsWith("mutable://temp/"),
- *   noop() // Don't persist temporary data
- * )
- * ```
+ * @deprecated
  */
 export function noop<D = unknown>(): Processor<D> {
   // deno-lint-ignore require-await

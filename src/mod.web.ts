@@ -28,7 +28,6 @@ export type {
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Output,
-  PersistenceRecord,
   ReadFn,
   ReadMultiResult,
   ReadMultiResultItem,
@@ -36,6 +35,10 @@ export type {
   ReceiveResult,
   Schema,
   StatusResult,
+  Store,
+  StoreCapabilities,
+  StoreEntry,
+  StoreWriteResult,
   ValidationResult,
   Validator,
   WebSocketClientConfig,
@@ -44,6 +47,14 @@ export type {
   WriteResult,
 } from "../libs/b3nd-core/types.ts";
 export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
+
+// ── Store implementations ──
+
+export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
+
+// ── Protocol clients (Store → NodeProtocolInterface) ──
+
+export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
 
 // ── Client implementations ──
 

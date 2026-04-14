@@ -12,7 +12,7 @@ import {
   Errors,
   type Message,
   type NodeProtocolInterface,
-  type PersistenceRecord,
+
   type ReadResult,
   type ReceiveResult,
   type StatusResult,
@@ -21,7 +21,6 @@ import {
   decodeBinaryFromJson,
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
-import { isMessageData } from "../b3nd-msg/data/detect.ts";
 
 export interface IpfsClientConfig {
   apiUrl: string;
@@ -39,7 +38,6 @@ export interface IpfsExecutor {
 
 interface IndexEntry {
   cid: string;
-  ts: number;
 }
 
 export class IpfsClient implements NodeProtocolInterface {
@@ -62,51 +60,50 @@ export class IpfsClient implements NodeProtocolInterface {
     this.executor = executor;
   }
 
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
 
-    if (!uri || typeof uri !== "string") {
-      return {
-        accepted: false,
-        error: "Message URI is required",
-        errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
-      };
-    }
+    for (const msg of msgs) {
+      const [uri, , data] = msg;
 
-    try {
-      const encodedData = encodeBinaryForJson(data);
-      const ts = Date.now();
-      const record: PersistenceRecord = { ts, data: encodedData };
-      const content = JSON.stringify(record);
-
-      const cid = await this.executor.add(content);
-      await this.executor.pin(cid);
-
-      const existing = this.index.get(uri);
-      if (existing) {
-        try {
-          await this.executor.unpin(existing.cid);
-        } catch {
-          // Old CID may already be unpinned — ignore
-        }
+      if (!uri || typeof uri !== "string") {
+        results.push({
+          accepted: false,
+          error: "Message URI is required",
+          errorDetail: Errors.invalidUri(uri ?? "", "Message URI is required"),
+        });
+        continue;
       }
 
-      this.index.set(uri, { cid, ts });
+      try {
+        const { inputs, outputs } = data as {
+          inputs: string[];
+          outputs: [string, Record<string, number>, unknown][];
+        };
 
-      if (isMessageData(data)) {
-        for (const [outputUri, outputValue] of data.payload.outputs) {
-          const outputEncoded = encodeBinaryForJson(outputValue);
-          const outputTs = Date.now();
-          const outputRecord: PersistenceRecord = {
-            ts: outputTs,
-            data: outputEncoded,
-          };
-          const outputContent = JSON.stringify(outputRecord);
+        // Delete inputs
+        for (const inputUri of inputs) {
+          const existing = this.index.get(inputUri);
+          if (existing) {
+            try {
+              await this.executor.unpin(existing.cid);
+            } catch {
+              // Old CID may already be unpinned — ignore
+            }
+            this.index.delete(inputUri);
+          }
+        }
 
-          const outputCid = await this.executor.add(outputContent);
-          await this.executor.pin(outputCid);
+        // Write outputs
+        for (const [outUri, outValues, outData] of outputs) {
+          const encodedData = encodeBinaryForJson(outData);
+          const record = { values: outValues, data: encodedData };
+          const content = JSON.stringify(record);
 
-          const existingOutput = this.index.get(outputUri);
+          const cid = await this.executor.add(content);
+          await this.executor.pin(cid);
+
+          const existingOutput = this.index.get(outUri);
           if (existingOutput) {
             try {
               await this.executor.unpin(existingOutput.cid);
@@ -115,19 +112,21 @@ export class IpfsClient implements NodeProtocolInterface {
             }
           }
 
-          this.index.set(outputUri, { cid: outputCid, ts: outputTs });
+          this.index.set(outUri, { cid });
         }
-      }
 
-      return { accepted: true };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        accepted: false,
-        error: msg,
-        errorDetail: Errors.storageError(msg, uri),
-      };
+        results.push({ accepted: true });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        results.push({
+          accepted: false,
+          error: msg,
+          errorDetail: Errors.storageError(msg, uri),
+        });
+      }
     }
+
+    return results;
   }
 
   async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
@@ -158,12 +157,12 @@ export class IpfsClient implements NodeProtocolInterface {
       }
 
       const content = await this.executor.cat(entry.cid);
-      const record = JSON.parse(content) as PersistenceRecord;
+      const record = JSON.parse(content) as { values: Record<string, number>; data: unknown };
       const decodedData = decodeBinaryFromJson(record.data) as T;
 
       return {
         success: true,
-        record: { ts: record.ts, data: decodedData },
+        record: { values: record.values || {}, data: decodedData },
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -179,17 +178,17 @@ export class IpfsClient implements NodeProtocolInterface {
     const prefix = uri.endsWith("/") ? uri : uri + "/";
     const results: ReadResult<T>[] = [];
 
-    for (const [indexUri, entry] of this.index) {
+    for (const [indexUri] of this.index) {
       if (indexUri.startsWith(prefix) || indexUri === uri.replace(/\/$/, "")) {
         // We can't async-fetch content here synchronously, so return index metadata
         // For list, we include the URI in the record for identification
         results.push({
           success: true,
+          uri: indexUri,
           record: {
-            ts: entry.ts,
+            values: {},
             data: undefined as unknown as T,
-            uri: indexUri,
-          } as PersistenceRecord<T>,
+          },
         });
       }
     }

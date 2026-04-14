@@ -14,10 +14,10 @@ function createStubClient(opts?: {
   const calls: string[] = [];
   return {
     calls,
-    async receive(msg) {
-      calls.push(`receive:${msg[0]}`);
+    async receive(msgs) {
+      for (const msg of msgs) calls.push(`receive:${msg[0]}`);
       if (opts?.receiveError) throw new Error("peer down");
-      return { accepted: true };
+      return msgs.map(() => ({ accepted: true }));
     },
     async read<T = unknown>(uris: string | string[]) {
       const uriList = Array.isArray(uris) ? uris : [uris];
@@ -25,7 +25,7 @@ function createStubClient(opts?: {
       return uriList.map((uri) => ({
         success: true as const,
         uri,
-        record: { ts: Date.now(), data: { stub: true } as unknown as T },
+        record: { values: {}, data: { stub: true } as unknown as T },
       }));
     },
     async status() {
@@ -94,8 +94,8 @@ Deno.test("bestEffortClient: swallows receive errors and returns accepted", asyn
   const stub = createStubClient({ receiveError: true });
   const wrapped = bestEffortClient(stub);
 
-  const result = await wrapped.receive(["mutable://open/test", { data: 1 }]);
-  assertEquals(result.accepted, true);
+  const results = await wrapped.receive([["mutable://open/test", {}, { data: 1 }]]);
+  assertEquals(results[0].accepted, true);
   assertEquals(stub.calls, ["receive:mutable://open/test"]);
 });
 
@@ -103,8 +103,8 @@ Deno.test("bestEffortClient: passes through successful receive", async () => {
   const stub = createStubClient();
   const wrapped = bestEffortClient(stub);
 
-  const result = await wrapped.receive(["mutable://open/test", { data: 1 }]);
-  assertEquals(result.accepted, true);
+  const results = await wrapped.receive([["mutable://open/test", {}, { data: 1 }]]);
+  assertEquals(results[0].accepted, true);
   assertEquals(stub.calls, ["receive:mutable://open/test"]);
 });
 

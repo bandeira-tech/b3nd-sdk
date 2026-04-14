@@ -5,7 +5,7 @@ import { emit, log, noop, when } from "./processors.ts";
 
 Deno.test("noop - always succeeds", async () => {
   const p = noop();
-  const result = await p(["mutable://x", {}]);
+  const result = await p(["mutable://x", {}, {}]);
   assertEquals(result.success, true);
 });
 
@@ -17,10 +17,10 @@ Deno.test("emit - calls callback and succeeds", async () => {
     captured = msg;
   });
 
-  const result = await p(["mutable://x", { val: 42 }]);
+  const result = await p(["mutable://x", {}, { val: 42 }]);
   assertEquals(result.success, true);
   assertEquals(Array.isArray(captured), true);
-  assertEquals((captured as [string, unknown])[0], "mutable://x");
+  assertEquals((captured as [string, Record<string, number>, unknown])[0], "mutable://x");
 });
 
 Deno.test("emit - async callback succeeds", async () => {
@@ -28,7 +28,7 @@ Deno.test("emit - async callback succeeds", async () => {
     await new Promise((r) => setTimeout(r, 1));
   });
 
-  const result = await p(["mutable://x", {}]);
+  const result = await p(["mutable://x", {}, {}]);
   assertEquals(result.success, true);
 });
 
@@ -37,7 +37,7 @@ Deno.test("emit - callback error returns failure", async () => {
     throw new Error("webhook failed");
   });
 
-  const result = await p(["mutable://x", {}]);
+  const result = await p(["mutable://x", {}, {}]);
   assertEquals(result.success, false);
   assertEquals(result.error, "webhook failed");
 });
@@ -55,7 +55,7 @@ Deno.test("when - runs processor when condition is true", async () => {
     },
   );
 
-  const result = await p(["mutable://important/x", {}]);
+  const result = await p(["mutable://important/x", {}, {}]);
   assertEquals(result.success, true);
   assertEquals(ran, true);
 });
@@ -71,7 +71,7 @@ Deno.test("when - skips processor when condition is false", async () => {
     },
   );
 
-  const result = await p(["mutable://other/x", {}]);
+  const result = await p(["mutable://other/x", {}, {}]);
   assertEquals(result.success, true);
   assertEquals(ran, false);
 });
@@ -86,7 +86,7 @@ Deno.test("when - async condition works", async () => {
     async () => ({ success: true }),
   );
 
-  const result = await p(["mutable://x", {}]);
+  const result = await p(["mutable://x", {}, {}]);
   assertEquals(result.success, true);
 });
 
@@ -100,7 +100,7 @@ Deno.test("log - always succeeds", async () => {
 
   try {
     const p = log("test");
-    const result = await p(["mutable://x/y", { data: 1 }]);
+    const result = await p(["mutable://x/y", {}, { data: 1 }]);
     assertEquals(result.success, true);
     assertEquals(logged.length, 1);
     assertEquals(logged[0].includes("[test]"), true);
@@ -117,7 +117,7 @@ Deno.test("log - default prefix is 'msg'", async () => {
 
   try {
     const p = log();
-    await p(["mutable://z", {}]);
+    await p(["mutable://z", {}, {}]);
     assertEquals(logged[0].includes("[msg]"), true);
   } finally {
     console.log = origLog;

@@ -4,19 +4,11 @@
  */
 
 /**
- * Persistence record with timestamp
- */
-export interface PersistenceRecord<T = unknown> {
-  ts: number;
-  data: T;
-}
-
-/**
  * Result of a write operation
  */
 export interface WriteResult<T = unknown> {
   success: boolean;
-  record?: PersistenceRecord<T>;
+  record?: { values: Record<string, number>; data: T };
   error?: string;
 }
 
@@ -27,7 +19,7 @@ export interface WriteResult<T = unknown> {
 export interface ReadResult<T> {
   success: boolean;
   uri?: string;
-  record?: PersistenceRecord<T>;
+  record?: { values: Record<string, number>; data: T };
   error?: string;
   errorDetail?: B3ndError;
 }
@@ -36,7 +28,11 @@ export interface ReadResult<T> {
  * Result for a single URI in a multi-read operation
  */
 export type ReadMultiResultItem<T = unknown> =
-  | { uri: string; success: true; record: PersistenceRecord<T> }
+  | {
+    uri: string;
+    success: true;
+    record: { values: Record<string, number>; data: T };
+  }
   | { uri: string; success: false; error: string };
 
 /**
@@ -122,10 +118,17 @@ export interface StatusResult {
 }
 
 /**
- * Output — the universal addressed-content primitive: [uri, data]
- * Every message, every inner payload entry, every write — is an Output.
+ * Output — the universal addressed-content primitive: [uri, values, data]
+ *
+ * - uri: identity/address
+ * - values: conserved quantities ({} for none, always present)
+ * - data: always { inputs: string[], outputs: Output[] }
  */
-export type Output<T = unknown> = [uri: string, data: T];
+export type Output<T = unknown> = [
+  uri: string,
+  values: Record<string, number>,
+  data: T,
+];
 
 /**
  * Message — alias for Output. A message is an addressed output.
@@ -133,7 +136,62 @@ export type Output<T = unknown> = [uri: string, data: T];
 export type Message<D = unknown> = Output<D>;
 
 /**
- * Validation result
+ * Read function for storage lookups.
+ * Single-URI convenience — returns first result from read().
+ */
+export type ReadFn = <T = unknown>(uri: string) => Promise<ReadResult<T>>;
+
+/**
+ * Receive function — batch of messages through the rig pipeline.
+ */
+export type ReceiveFn = (msgs: Message[]) => Promise<ReceiveResult[]>;
+
+// ── Program model ───────────────────────────────────────────────────
+
+/**
+ * Program result — classification of a message by a program.
+ * Programs return protocol-defined codes, not binary valid/invalid.
+ */
+export interface ProgramResult {
+  code: string;
+  error?: string;
+}
+
+/**
+ * Program — classifies a message and returns a protocol-defined code.
+ *
+ * Programs are pure classifiers with no side effects. A protocol ships its
+ * own programs as a closed package — sub-output classification is handled
+ * internally by the protocol, not by calling back into the rig.
+ *
+ * - `output`   — the [uri, values, data] being classified
+ * - `upstream` — the parent output (undefined at top level)
+ * - `read`     — storage lookup (only confirmed state)
+ */
+export type Program<T = unknown> = (
+  output: Output<T>,
+  upstream: Output | undefined,
+  read: ReadFn,
+) => Promise<ProgramResult>;
+
+/**
+ * Code handler — what to do when a program returns a specific code.
+ * Handlers get broadcast (direct to clients, bypasses programs) and read.
+ *
+ * - `message`   — the classified message
+ * - `broadcast` — direct dispatch to clients (trusted, no re-validation)
+ * - `read`      — storage lookup (confirmed state)
+ */
+export type CodeHandler = (
+  message: Message,
+  broadcast: ReceiveFn,
+  read: ReadFn,
+) => Promise<void>;
+
+// ── Deprecated validation types (transitional) ─────────────────────
+
+/**
+ * @deprecated Use ProgramResult instead.
  */
 export interface ValidationResult {
   valid: boolean;
@@ -141,21 +199,7 @@ export interface ValidationResult {
 }
 
 /**
- * Read function for storage lookups during validation.
- * Single-URI convenience — returns first result from read().
- */
-export type ReadFn = <T = unknown>(uri: string) => Promise<ReadResult<T>>;
-
-/**
- * Validator — the single validation primitive.
- *
- * - `output`   — the [uri, data] being validated
- * - `upstream` — the parent output that contains this one (undefined at top level)
- * - `read`     — storage lookup (only committed data)
- *
- * A top-level message is validated as: `validator(msg, undefined, read)`
- * An inner output within an envelope: `validator(inner, envelope, read)`
- * Protocols can nest further:        `validator(deep, inner, read)`
+ * @deprecated Use Program instead.
  */
 export type Validator<T = unknown> = (
   output: Output<T>,
@@ -164,7 +208,7 @@ export type Validator<T = unknown> = (
 ) => Promise<ValidationResult>;
 
 /**
- * Schema mapping program keys to validators
+ * @deprecated Use Record<string, Program> instead.
  */
 export type Schema = Record<string, Validator>;
 
@@ -192,8 +236,14 @@ export interface ReceiveResult {
  * implement this interface, enabling recursive composition and uniform usage.
  */
 export interface NodeProtocolInterface {
-  /** Receive a message — the unified entry point for all state changes. */
-  receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult>;
+  /**
+   * Receive a batch of messages — the unified entry point for all state changes.
+   *
+   * Each message is [uri, values, data] where data is { inputs, outputs }.
+   * Clients are mechanical: delete inputs, write outputs for each message.
+   * Returns one ReceiveResult per message.
+   */
+  receive(msgs: Message[]): Promise<ReceiveResult[]>;
 
   /**
    * Read data from one or more URIs.
@@ -233,6 +283,128 @@ export interface NodeProtocolInterface {
    * Clients report health. The rig aggregates and adds schema.
    */
   status(): Promise<StatusResult>;
+}
+
+// ── Store — batch-native storage primitive ────────────────────────
+
+/**
+ * Entry for a batch write operation.
+ *
+ * @example
+ * ```typescript
+ * await store.write([
+ *   { uri: "mutable://users/alice", values: {}, data: { name: "Alice" } },
+ *   { uri: "mutable://users/bob", values: {}, data: { name: "Bob" } },
+ * ]);
+ * ```
+ */
+export interface StoreEntry<T = unknown> {
+  uri: string;
+  values: Record<string, number>;
+  data: T;
+}
+
+/**
+ * Per-entry result of a write operation.
+ */
+export interface StoreWriteResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Optional capability reporting for a Store.
+ *
+ * Backends declare what they can do so protocol clients and rigs
+ * can make informed decisions (e.g., wrap deletes+writes in a
+ * transaction when atomicBatch is true).
+ */
+export interface StoreCapabilities {
+  /** Whether write+delete within a single call can be made atomic. */
+  atomicBatch?: boolean;
+  /** Whether this store supports observe(). */
+  observe?: boolean;
+  /** Whether this store can handle binary (Uint8Array) data natively. */
+  binaryData?: boolean;
+}
+
+/**
+ * Store — the batch-native storage abstraction.
+ *
+ * Every operation takes arrays and returns per-item results.
+ * This lets each backend optimize for its technology:
+ * Postgres → single multi-row INSERT, S3 → parallel PutObject, etc.
+ *
+ * The Store knows nothing about protocols, envelopes, or message
+ * semantics. It is pure mechanical storage: write entries, read
+ * entries, delete entries, observe changes.
+ *
+ * Protocol clients (SimpleClient, FirecatClient) wrap a Store
+ * with protocol semantics to produce a NodeProtocolInterface.
+ *
+ * @example
+ * ```typescript
+ * const store = new MemoryStore();
+ *
+ * // Write
+ * await store.write([
+ *   { uri: "mutable://app/config", values: {}, data: { theme: "dark" } },
+ * ]);
+ *
+ * // Read
+ * const results = await store.read(["mutable://app/config"]);
+ *
+ * // Delete
+ * await store.delete(["mutable://app/config"]);
+ * ```
+ */
+export interface Store {
+  /**
+   * Write entries in batch. Returns one result per entry.
+   */
+  write(entries: StoreEntry[]): Promise<StoreWriteResult[]>;
+
+  /**
+   * Read data from URIs in batch. Returns one result per URI.
+   *
+   * Trailing-slash URIs list all entries under that path prefix —
+   * the result array may contain multiple items for a single input URI.
+   */
+  read<T = unknown>(uris: string[]): Promise<ReadResult<T>[]>;
+
+  /**
+   * Delete URIs in batch. Returns one result per URI.
+   */
+  delete(uris: string[]): Promise<DeleteResult[]>;
+
+  /**
+   * Observe changes matching a URI pattern.
+   *
+   * Not all backends can observe natively (e.g., S3).
+   * Check `capabilities().observe` before calling.
+   *
+   * @example
+   * ```typescript
+   * const ac = new AbortController();
+   * for await (const result of store.observe("mutable://app/*", ac.signal)) {
+   *   console.log(result.uri, result.record?.data);
+   * }
+   * ```
+   */
+  observe?<T = unknown>(
+    pattern: string,
+    signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>>;
+
+  /**
+   * Health and capability status.
+   */
+  status(): Promise<StatusResult>;
+
+  /**
+   * Optional capability reporting.
+   */
+  capabilities?(): StoreCapabilities;
 }
 
 // ── Deprecated interfaces (transitional) ──

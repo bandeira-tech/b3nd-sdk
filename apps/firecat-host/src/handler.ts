@@ -53,14 +53,11 @@ function isCustomDomain(host: string, config: HostConfig): boolean {
 }
 
 /**
- * Unwrap authenticated message wrapper.
- * B3nd stores data either raw or inside { auth, payload } envelopes.
+ * Data is stored directly — no wrapping.
+ * In the new primitive, data is the third element of [uri, values, data].
  */
-function unwrapData<T>(data: T | { payload: T; auth?: unknown }): T {
-  if (data && typeof data === "object" && "payload" in data) {
-    return (data as { payload: T }).payload;
-  }
-  return data as T;
+function unwrapData<T>(data: T): T {
+  return data;
 }
 
 // ── Handler factory ──────────────────────────────────────────────────

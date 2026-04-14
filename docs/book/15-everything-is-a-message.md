@@ -38,7 +38,7 @@ says. From this single unit, everything composes.
 stored at an address only they can access:
 
 ```
-receive(["mutable://accounts/{me}/journal/today", encrypted({ thoughts: "..." })])
+receive([["mutable://accounts/{me}/journal/today", {}, encrypted({ thoughts: "..." })]])
 ```
 
 One message. One address. One person's private record. Like writing in a diary
@@ -166,19 +166,19 @@ Let's make this concrete. A "complex" web workflow:
 
 ```
 1. User registers:
-   User → receive(["mutable://accounts/{user}/profile", signed({ name, email })])
+   User → receive([["mutable://accounts/{user}/profile", {}, signed({ name, email })]])
 
 2. Email verification:
-   System → receive(["immutable://inbox/{user}/verify/{ts}", { code: "abc123" }])
+   System → receive([["immutable://inbox/{user}/verify/{ts}", {}, { code: "abc123" }]])
 
 3. User confirms:
-   User → receive(["immutable://inbox/{system}/verify-confirm/{ts}", signed({ code: "abc123" })])
+   User → receive([["immutable://inbox/{system}/verify-confirm/{ts}", {}, signed({ code: "abc123" })]])
 
 4. Profile activated:
-   System → receive(["mutable://accounts/{user}/status", signed({ verified: true })])
+   System → receive([["mutable://accounts/{user}/status", {}, signed({ verified: true })]])
 
 5. Welcome notification:
-   System → receive(["immutable://inbox/{user}/welcome/{ts}", { message: "Welcome!" }])
+   System → receive([["immutable://inbox/{user}/welcome/{ts}", {}, { message: "Welcome!" }]])
 ```
 
 Five messages. Five addresses. That's the entire registration flow. A person

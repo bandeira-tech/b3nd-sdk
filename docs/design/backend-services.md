@@ -12,7 +12,7 @@ Backend services must work within these constraints:
    from encryption, not network topology.
 2. **No specialized servers** — A backend is just another Firecat participant.
    It reads and writes messages like any client.
-3. **Minimal concepts** — The message primitive (`[uri, data]`) is the only
+3. **Minimal concepts** — The message primitive (`[uri, values, data]`) is the only
    building block. Auth, payments, moderation, indexing — all expressible as
    message exchange.
 4. **Transparent behavior** — What a service does is observable by what it reads
@@ -68,7 +68,7 @@ The handler runs inside a node's receive pipeline. Messages arrive via
 compose chain:
 
 ```
-Client ──receive([uri, data])──> Node
+Client ──receive([[uri, values, data]])──> Node
                                   ├── validate(schema)
                                   ├── persist(storageClient)
                                   ├── when(matchesPattern, respondTo(handler))
@@ -157,7 +157,7 @@ The boundary matters. Getting it wrong means building things twice.
 The network and its protocol:
 
 - **The URI space**: `mutable://`, `hash://` — where data lives
-- **The message shape**: `[uri, data]` — the universal primitive
+- **The message shape**: `[uri, values, data]` — the universal primitive
 - **The node protocol**: `receive()`, `read()`, `list()`, `delete()` — how
   participants interact
 - **Locations**: What URIs exist and can be observed
@@ -443,7 +443,7 @@ visible participants in a public network.
 
 A handler is a function. A node is a composed pipeline. A listener is a handler
 connected to a remote node with a filter. There are no new concepts — only
-compositions of `[uri, data]`.
+compositions of `[uri, values, data]`.
 
 When everything is a message:
 

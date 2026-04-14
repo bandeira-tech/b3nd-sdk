@@ -135,7 +135,7 @@ for the ideas above. Here's how they map:
 | What we called it here | What the technical docs call it |
 | ---------------------- | ------------------------------- |
 | Address                | URI                             |
-| Message                | Message (same word, now a typed tuple `[uri, data]`) |
+| Message                | Message (same word, now a typed tuple `[uri, values, data]`) |
 | The checks             | Validation / schema             |
 | Rules for an address   | Program (`scheme://hostname`)   |
 | Key / signature        | Ed25519 signing / auth          |

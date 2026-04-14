@@ -147,11 +147,11 @@ export function isValidSha256Hash(hash: string): boolean {
  * ```
  */
 export function hashValidator(): (
-  output: [string, unknown],
-  upstream: [string, unknown] | undefined,
+  output: [string, Record<string, number>, unknown],
+  upstream: [string, Record<string, number>, unknown] | undefined,
   read: (uri: string) => Promise<{ success: boolean }>,
 ) => Promise<{ valid: boolean; error?: string }> {
-  return async ([uri, value], _upstream, read) => {
+  return async ([uri, , value], _upstream, read) => {
     // Enforce write-once: reject if resource already exists
     const existing = await read(uri);
     if (existing.success) {

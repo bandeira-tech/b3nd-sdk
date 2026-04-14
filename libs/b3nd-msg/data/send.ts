@@ -9,13 +9,10 @@
  * import { send } from "@bandeira-tech/b3nd-sdk";
  *
  * const result = await send({
- *   payload: {
- *     inputs: [],
- *     outputs: [
- *       ["mutable://open/config", { theme: "dark" }],
- *       ["hash://sha256/abc123...", data],
- *     ],
- *   },
+ *   inputs: [],
+ *   outputs: [
+ *     ["mutable://open/config", {}, { theme: "dark" }],
+ *   ],
  * }, client);
  *
  * console.log(result.uri);      // "hash://sha256/{hex}"
@@ -23,7 +20,7 @@
  * ```
  */
 
-import type { ReceiveResult } from "../../b3nd-core/types.ts";
+import type { Message, ReceiveResult } from "../../b3nd-core/types.ts";
 import type { MessageData } from "./types.ts";
 import { message } from "./message.ts";
 
@@ -35,15 +32,15 @@ export interface SendResult extends ReceiveResult {
 /**
  * Build a content-addressed message envelope and send it.
  *
- * @param data - Canonical MessageData with payload (and optional auth)
- * @param client - Any object with a `receive()` method
+ * @param data - MessageData with inputs, outputs, and optional auth
+ * @param client - Any object with a batch `receive()` method
  * @returns The envelope URI and receive result
  */
-export async function send<V = unknown>(
-  data: MessageData<V>,
-  client: { receive: (msg: [string, unknown]) => Promise<ReceiveResult> },
+export async function send(
+  data: MessageData,
+  client: { receive: (msgs: Message[]) => Promise<ReceiveResult[]> },
 ): Promise<SendResult> {
-  const [uri, envelope] = await message(data);
-  const result = await client.receive([uri, envelope]);
-  return { uri, ...result };
+  const msg = await message(data);
+  const results = await client.receive([msg]);
+  return { uri: msg[0], ...results[0] };
 }

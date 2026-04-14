@@ -1,52 +1,18 @@
 /**
  * @module
- * B3nd Message Data Convention (Level 2)
+ * B3nd Message Data Convention
  *
- * A standard way to structure message data for state transitions.
- * This is a **convention**, not a requirement. Protocols that want explicit
- * state transitions use it. Others don't.
+ * In the new primitive, data is always { inputs: string[], outputs: Output[] }.
+ * This is not optional — every message carries this shape.
  *
  * ## The Convention
  *
  * ```typescript
- * type MessageData = {
- *   inputs: string[]                         // URIs consumed/referenced
- *   outputs: [uri: string, value: unknown][] // URIs produced with values
+ * // data is always:
+ * {
+ *   inputs: string[],                             // URIs consumed/referenced
+ *   outputs: [uri, values, data][]                // Output 3-tuples
  * }
- * ```
- *
- * ## Why Inputs/Outputs?
- *
- * This pattern enables:
- * - **UTXO-style transfers**: inputs consumed, outputs created
- * - **Hash storage with payment**: hash output + fee output in same msg
- * - **Atomic swaps**: multiple inputs/outputs in single message
- * - **Cross-output validation**: fee validators can check sibling outputs
- *
- * ## Program Validators
- *
- * Just like the data node has schema validators for programs, the message
- * layer can run program validators against outputs:
- *
- * @example Fee requirement for hash storage
- * ```typescript
- * import { createOutputValidator } from "b3nd/msg-data"
- *
- * const validator = createOutputValidator({
- *   schema: {
- *     "hash://sha256": async (ctx) => {
- *       // Find fee output in the same message
- *       const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"))
- *       const requiredFee = Math.ceil(ctx.value.length / 1024) // 1 token per KB
- *
- *       if (!feeOutput || feeOutput[1] < requiredFee) {
- *         return { valid: false, error: "insufficient_fee" }
- *       }
- *
- *       return { valid: true }
- *     }
- *   }
- * })
  * ```
  *
  * @example UTXO-style transfer using send()
@@ -56,33 +22,40 @@
  * await send({
  *   inputs: ["utxo://alice/1"],
  *   outputs: [
- *     ["utxo://bob/99", 50],
- *     ["utxo://alice/2", 30],
- *     ["fees://pool", 1],
+ *     ["utxo://bob/99", { fire: 50 }, null],
+ *     ["utxo://alice/2", { fire: 30 }, null],
+ *     ["fees://pool", { fire: 1 }, null],
  *   ],
  * }, client);
- * // Envelope stored at hash://sha256/{hex} — replay-protected
  * ```
  */
 
 // Types
 export type {
   MessageData,
+  /** @deprecated Use Program from b3nd-core */
   MessageValidationContext,
+  /** @deprecated Use Record<string, Program> from b3nd-core */
   ProgramSchema,
+  /** @deprecated Use Program from b3nd-core */
   ProgramValidator,
   StateMessage,
 } from "./types.ts";
 
-// Validators
+// Validators (deprecated — use Programs instead)
 export {
+  /** @deprecated */
   combineValidators,
+  /** @deprecated */
   createOutputValidator,
   extractProgram,
 } from "./validators.ts";
 
-// Detection
-export { isMessageData } from "./detect.ts";
+// Detection (deprecated — data is always { inputs, outputs })
+export {
+  /** @deprecated Data is always { inputs, outputs } */
+  isMessageData,
+} from "./detect.ts";
 
 // Content-addressed message constructor + sender
 export { message } from "./message.ts";

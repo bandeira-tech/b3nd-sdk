@@ -1,32 +1,29 @@
 /**
  * @b3nd/sdk/msg-data Types
- * Level 2: The Inputs/Outputs Convention
+ * The Inputs/Outputs Convention
  *
- * A standard way to structure message data for state transitions.
- * This is a convention, not a requirement. Protocols that want explicit
- * state transitions use it. Others don't.
+ * In the new primitive, data is ALWAYS { inputs, outputs }.
+ * This is not optional — every message carries this shape.
  */
 
-import type { Message } from "../node-types.ts";
+import type { Message, Output, ReadResult } from "../../b3nd-core/types.ts";
 
 /**
- * Standard message data structure for state transitions
+ * Standard message data structure
  *
  * @example
  * ```typescript
  * const data: MessageData = {
- *   payload: {
- *     inputs: ["utxo://alice/1", "utxo://alice/2"],
- *     outputs: [
- *       ["utxo://bob/99", 50],
- *       ["utxo://alice/3", 30],
- *       ["fees://pool", 1]
- *     ]
- *   }
+ *   inputs: ["utxo://alice/1", "utxo://alice/2"],
+ *   outputs: [
+ *     ["utxo://bob/99", { fire: 50 }, null],
+ *     ["utxo://alice/3", { fire: 30 }, null],
+ *     ["fees://pool", { fire: 1 }, null],
+ *   ],
  * }
  * ```
  */
-export interface MessageData<V = unknown> {
+export interface MessageData {
   /**
    * Optional auth attestations (signatures, etc.)
    * Protocols decide whether auth is required.
@@ -34,93 +31,62 @@ export interface MessageData<V = unknown> {
   auth?: Array<{ pubkey: string; signature: string }>;
 
   /**
-   * Payload containing inputs and outputs
+   * URIs consumed or referenced by this message
    */
-  payload: {
-    /**
-     * URIs consumed or referenced by this message
-     * Semantics (consumed vs referenced) are protocol-defined
-     */
-    inputs: string[];
+  inputs: string[];
 
-    /**
-     * URIs produced with their values
-     * Each output is [uri, value]
-     */
-    outputs: [uri: string, value: V][];
-  };
+  /**
+   * Outputs produced — each is [uri, values, data]
+   */
+  outputs: Output[];
 }
 
 /**
  * A message with the inputs/outputs data convention
  */
-export type StateMessage<V = unknown> = Message<MessageData<V>>;
+export type StateMessage = Message<MessageData>;
 
 /**
- * Extended validation context for messages using the inputs/outputs convention
- * Provides access to message context during program validation
+ * Extended validation context for messages using the inputs/outputs convention.
+ * Provides access to message context during program validation.
+ *
+ * @deprecated Use Program from b3nd-core — programs receive the full Output
+ * and call sub-programs directly via scoped routing.
  */
-export interface MessageValidationContext<V = unknown> {
-  /**
-   * The URI being validated
-   */
+export interface MessageValidationContext {
+  /** The URI being validated */
   uri: string;
 
-  /**
-   * The value being written to the URI
-   */
-  value: V;
+  /** The values on this output */
+  values: Record<string, number>;
 
-  /**
-   * All inputs from the message
-   */
+  /** The data on this output */
+  data: unknown;
+
+  /** All inputs from the message */
   inputs: string[];
 
-  /**
-   * All outputs from the message (for cross-output validation)
-   */
-  outputs: [uri: string, value: V][];
+  /** All outputs from the message (for cross-output validation) */
+  outputs: Output[];
 
-  /**
-   * Read function for state lookups
-   */
+  /** Read function for state lookups */
   read: <T>(
     uri: string,
-  ) => Promise<{ success: boolean; record?: { data: T }; error?: string }>;
+  ) => Promise<ReadResult<T>>;
 }
 
 /**
- * Program validator for outputs in messages using the inputs/outputs convention
+ * Program validator for outputs in messages using the inputs/outputs convention.
  *
- * @example Fee requirement validator
- * ```typescript
- * const hashValidator: ProgramValidator = async (ctx) => {
- *   // Find fee output in the same message
- *   const feeOutput = ctx.outputs.find(([uri]) => uri.startsWith("fees://"))
- *   const requiredFee = Math.ceil(ctx.value.length / 1024) // 1 token per KB
- *
- *   if (!feeOutput || feeOutput[1] < requiredFee) {
- *     return { valid: false, error: "insufficient_fee" }
- *   }
- *
- *   return { valid: true }
- * }
- * ```
+ * @deprecated Use Program from b3nd-core instead.
  */
-export type ProgramValidator<V = unknown> = (
-  ctx: MessageValidationContext<V>,
+export type ProgramValidator = (
+  ctx: MessageValidationContext,
 ) => Promise<{ valid: boolean; error?: string }>;
 
 /**
- * Schema mapping program prefixes to validators
+ * Schema mapping program prefixes to validators.
  *
- * @example
- * ```typescript
- * const schema: ProgramSchema = {
- *   "hash://sha256": hashValidator,
- *   "mutable://accounts": accountValidator,
- *   "fees://pool": feeValidator
- * }
- * ```
+ * @deprecated Use Record<string, Program> from b3nd-core instead.
  */
-export type ProgramSchema<V = unknown> = Record<string, ProgramValidator<V>>;
+export type ProgramSchema = Record<string, ProgramValidator>;

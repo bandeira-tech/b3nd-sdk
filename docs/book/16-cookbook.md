@@ -531,7 +531,7 @@ const client = createValidatedClient({
 });
 
 // Use normally — replication is automatic
-await client.receive(["mutable://open/data/item1", { value: "hello" }]);
+await client.receive([["mutable://open/data/item1", {}, { value: "hello" }]]);
 // Both nodes now have the message
 ```
 

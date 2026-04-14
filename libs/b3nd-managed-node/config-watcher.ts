@@ -29,7 +29,7 @@ export interface ConfigWatcher {
  */
 export function createConfigWatcher(opts: ConfigWatcherOptions): ConfigWatcher {
   let timer: ReturnType<typeof setInterval> | null = null;
-  let lastTimestamp = 0;
+  let lastConfigJson = "";
   let polling = false;
 
   async function poll() {
@@ -42,8 +42,9 @@ export function createConfigWatcher(opts: ConfigWatcherOptions): ConfigWatcher {
         opts.nodeId,
       );
 
-      if (loaded.timestamp > lastTimestamp) {
-        lastTimestamp = loaded.timestamp;
+      const configJson = JSON.stringify(loaded.config);
+      if (configJson !== lastConfigJson) {
+        lastConfigJson = configJson;
         await opts.onConfigChange(loaded.config);
       }
     } catch (error) {

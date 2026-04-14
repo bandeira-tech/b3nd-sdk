@@ -18,7 +18,7 @@ Deno.test("config-watcher: detects config change", async () => {
 
   const client = createPermissiveClient();
   const uri = nodeConfigUri(keypair.publicKeyHex, config.nodeId);
-  await client.receive([uri, signed]);
+  await client.receive([[uri, {}, signed]]);
 
   let receivedConfig: ManagedNodeConfig | null = null;
 
@@ -47,7 +47,7 @@ Deno.test("config-watcher: does not fire callback for same timestamp", async () 
 
   const client = createPermissiveClient();
   const uri = nodeConfigUri(keypair.publicKeyHex, config.nodeId);
-  await client.receive([uri, signed]);
+  await client.receive([[uri, {}, signed]]);
 
   let callCount = 0;
 
@@ -82,7 +82,7 @@ Deno.test("config-watcher: fires again when config updated with new timestamp", 
 
   const client = createPermissiveClient();
   const uri = nodeConfigUri(keypair.publicKeyHex, config.nodeId);
-  await client.receive([uri, signed]);
+  await client.receive([[uri, {}, signed]]);
 
   let callCount = 0;
 
@@ -107,7 +107,7 @@ Deno.test("config-watcher: fires again when config updated with new timestamp", 
   // Write updated config signed with the SAME keypair
   const updatedConfig = createTestConfig({ name: "Updated Node" });
   const signed2 = await createAuthenticatedMessage(updatedConfig, [signer]);
-  await client.receive([uri, signed2]);
+  await client.receive([[uri, {}, signed2]]);
 
   // Wait for watcher to detect the change
   await new Promise((r) => setTimeout(r, 200));
@@ -148,7 +148,7 @@ Deno.test("config-watcher: stop cancels polling", async () => {
 
   const client = createPermissiveClient();
   const uri = nodeConfigUri(keypair.publicKeyHex, config.nodeId);
-  await client.receive([uri, signed]);
+  await client.receive([[uri, {}, signed]]);
 
   let callCount = 0;
 

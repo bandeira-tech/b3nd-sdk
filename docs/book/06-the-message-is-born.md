@@ -105,8 +105,9 @@ content from an identifiable sender.
 
 ## Forward: The Digital Message
 
-In b3nd, a message is `[uri, data]` — address and content. That's it. Two
-things. The same two things that every letter has carried for millennia.
+In b3nd, a message is `[uri, values, data]` — address, values, and content.
+The same things that every letter has carried for millennia, plus a slot for
+conserved quantities.
 
 ```
 ["mutable://accounts/alice/profile", { name: "Alice", bio: "Hello world" }]

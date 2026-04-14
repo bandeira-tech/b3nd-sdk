@@ -9,7 +9,6 @@ import type {
   HttpClientConfig,
   Message,
   NodeProtocolInterface,
-  PersistenceRecord,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -19,15 +18,26 @@ import { openSseStream } from "./sse.ts";
 
 /**
  * Serialize message data for JSON transport.
- * Wraps Uint8Array in a base64-encoded marker object to prevent JSON corruption.
+ * Recursively wraps Uint8Array in a base64-encoded marker object to prevent
+ * JSON corruption — handles binary data inside envelope outputs.
  */
-function serializeMsgData<D>(data: D): unknown {
+function serializeMsgData(data: unknown): unknown {
   if (data instanceof Uint8Array) {
     return {
       __b3nd_binary__: true,
       encoding: "base64",
       data: encodeBase64(data),
     };
+  }
+  if (Array.isArray(data)) {
+    return data.map(serializeMsgData);
+  }
+  if (data !== null && typeof data === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(data)) {
+      result[key] = serializeMsgData(val);
+    }
+    return result;
   }
   return data;
 }
@@ -98,46 +108,69 @@ export class HttpClient implements NodeProtocolInterface {
   }
 
   /**
-   * Receive a message (unified interface)
+   * Receive a batch of messages (unified interface)
    * POSTs to /api/v1/receive endpoint
-   * @param msg - Message tuple [uri, data]
-   * @returns ReceiveResult indicating acceptance
+   * @param msgs - Array of Message tuples [uri, values, data]
+   * @returns ReceiveResult[] — one result per message
    */
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri] = msg;
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    // Pre-validate URIs — return error results for invalid ones without sending
+    const results: (ReceiveResult | null)[] = msgs.map(([uri]) => {
+      if (!uri || typeof uri !== "string") {
+        return { accepted: false, error: "Message URI is required" };
+      }
+      return null; // valid, will be sent
+    });
 
-    // Basic URI validation
-    if (!uri || typeof uri !== "string") {
-      return { accepted: false, error: "Message URI is required" };
+    const validIndices: number[] = [];
+    const validMsgs: Message[] = [];
+    for (let i = 0; i < msgs.length; i++) {
+      if (results[i] === null) {
+        validIndices.push(i);
+        validMsgs.push(msgs[i]);
+      }
+    }
+
+    // If no valid messages, return the error results
+    if (validMsgs.length === 0) {
+      return results as ReceiveResult[];
     }
 
     try {
-      const [uri, data] = msg;
-      const serializedMsg = [uri, serializeMsgData(data)];
+      const serializedBatch = JSON.stringify(
+        validMsgs.map(([uri, values, data]) => [uri, values, serializeMsgData(data)]),
+      );
+
       const response = await this.request("/api/v1/receive", {
         method: "POST",
-        body: JSON.stringify(serializedMsg),
+        body: serializedBatch,
       });
 
-      const result = await response.json();
+      const serverResults: ReceiveResult[] = await response.json();
 
       if (!response.ok) {
-        return {
-          accepted: false,
-          error: result.error || response.statusText,
-        };
+        // Server returned an error — apply to all valid messages
+        const errorMsg = (serverResults as unknown as { error?: string }).error || response.statusText;
+        for (const idx of validIndices) {
+          results[idx] = { accepted: false, error: errorMsg };
+        }
+      } else {
+        // Map server results back into the combined results array
+        for (let j = 0; j < validIndices.length; j++) {
+          results[validIndices[j]] = serverResults[j] ?? {
+            accepted: false,
+            error: "No result from server",
+          };
+        }
       }
-
-      return {
-        accepted: result.accepted ?? true,
-        error: result.error,
-      };
     } catch (error) {
-      return {
-        accepted: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      for (const idx of validIndices) {
+        results[idx] = { accepted: false, error: errorMsg };
+      }
     }
+
+    return results as ReceiveResult[];
   }
 
   async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
@@ -247,14 +280,14 @@ export class HttpClient implements NodeProtocolInterface {
         const data = new Uint8Array(buffer) as unknown as T;
         return {
           success: true,
-          record: { data, ts: Date.now() },
+          record: { values: {}, data },
         };
       }
 
-      const result = await response.json();
+      const record = await response.json();
       return {
         success: true,
-        record: result,
+        record,
       };
     } catch (error) {
       return {
@@ -313,7 +346,7 @@ export class HttpClient implements NodeProtocolInterface {
       yield {
         success: true,
         uri: event.uri,
-        record: { data: event.data as T, ts: event.ts },
+        record: { data: event.data as T, values: {} },
       } as ReadResult<T>;
     }
   }

@@ -11,16 +11,19 @@
  */
 
 import type {
+  CodeHandler,
   Message,
   NodeProtocolInterface,
+  Program,
   ReadResult,
   ReceiveResult,
+  Schema,
   StatusResult,
+  Validator,
 } from "../b3nd-core/types.ts";
 import type { MessageData } from "../b3nd-msg/data/types.ts";
 import type { SendResult } from "../b3nd-msg/data/send.ts";
 import { send } from "../b3nd-msg/data/send.ts";
-import type { Schema, Validator } from "../b3nd-core/types.ts";
 import { msgSchema } from "../b3nd-compose/validators.ts";
 import type {
   RigConfig,
@@ -49,7 +52,7 @@ import type { Connection } from "./connection.ts";
  * const rig = new Rig({
  *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
  * });
- * await rig.receive(["mutable://open/app/x", data]);
+ * const results = await rig.receive([["mutable://open/app/x", {}, data]]);
  * const result = await rig.readData("mutable://open/app/x");
  * ```
  *
@@ -57,7 +60,7 @@ import type { Connection } from "./connection.ts";
  * ```typescript
  * const id = await Identity.fromSeed("my-secret");
  * const session = id.rig(rig);
- * await session.send({ inputs: [], outputs: [["mutable://app/key", data]] });
+ * await session.send({ inputs: [], outputs: [["mutable://app/key", {}, data]] });
  * ```
  *
  * @example With schema, hooks, events, and react
@@ -84,6 +87,8 @@ export class Rig {
   // ── Internal state ──
   private readonly _connections: Connection[];
   private readonly _dispatch: NodeProtocolInterface;
+  private readonly _programs: Record<string, Program> | null;
+  private readonly _handlers: Record<string, CodeHandler> | null;
   private readonly _schema: Schema | null;
   private readonly _validator: Validator | null;
   private readonly _hooks: RigHooks;
@@ -99,6 +104,8 @@ export class Rig {
 
     this._connections = config.connections;
     this._dispatch = createConnectionDispatch(config.connections);
+    this._programs = config.programs ?? null;
+    this._handlers = config.handlers ?? null;
     this._schema = config.schema ?? null;
     this._validator = this._schema ? msgSchema(this._schema) : null;
     this._hooks = resolveHooks(config.hooks);
@@ -133,7 +140,7 @@ export class Rig {
   get client(): NodeProtocolInterface {
     const d = this._dispatch;
     return {
-      receive: (msg) => d.receive(msg),
+      receive: (msgs) => d.receive(msgs),
       read: (uris) => d.read(uris),
       observe: (pattern, signal) => d.observe(pattern, signal),
       status: () => d.status(),
@@ -152,18 +159,18 @@ export class Rig {
    * @example Pre-signed via AuthenticatedRig
    * ```typescript
    * const session = identity.rig(rig);
-   * await session.send({ inputs: [], outputs: [["mutable://app/x", data]] });
+   * await session.send({ inputs: [], outputs: [["mutable://app/x", {}, data]] });
    * ```
    *
    * @example Manual signing
    * ```typescript
-   * const payload = { inputs: [], outputs: [["mutable://app/x", data]] };
-   * const auth = [await identity.sign(payload)];
-   * await rig.send({ auth, payload });
+   * const outputs = [["mutable://app/x", {}, data]];
+   * const auth = [await identity.sign({ inputs: [], outputs })];
+   * await rig.send({ auth, inputs: [], outputs });
    * ```
    */
-  async send<V = unknown>(
-    data: MessageData<V>,
+  async send(
+    data: MessageData,
   ): Promise<SendResult> {
     // Before-hook — throw to reject
     const ctx: SendCtx = {
@@ -196,7 +203,7 @@ export class Rig {
         result,
         ts: Date.now(),
       });
-      for (const [outputUri, outputData] of messageData.payload.outputs) {
+      for (const [outputUri, , outputData] of messageData.outputs) {
         this._reactors.match(outputUri, outputData);
       }
     } else {
@@ -211,59 +218,79 @@ export class Rig {
   }
 
   /**
-   * Receive an external message into the rig.
+   * Receive external messages into the rig.
    *
-   * Passes a raw message tuple `[uri, data]` to the underlying client.
-   * This is for messages arriving from external sources — other rigs,
-   * users, or systems — distinct from what the rig sends to the network.
+   * Batch receive — processes each message through hooks, programs (or
+   * legacy schema validation), then dispatches to connections. Returns
+   * one ReceiveResult per input message.
+   *
+   * When `programs` is configured, the rig looks up the program for the
+   * message URI, classifies it, and routes to the handler for the
+   * returned code. Handlers dispatch via `broadcast` (direct to clients,
+   * bypasses programs).
    *
    * @example
    * ```typescript
-   * // Receive a message from an external source
-   * const result = await rig.receive(["mutable://open/external", { source: "webhook" }]);
-   * console.log(result.accepted); // true
+   * const results = await rig.receive([
+   *   ["mutable://open/external", {}, { source: "webhook" }],
+   * ]);
+   * console.log(results[0].accepted); // true
    * ```
    */
-  async receive<D = unknown>(msg: Message<D>): Promise<ReceiveResult> {
-    const [uri, data] = msg;
+  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    const results: ReceiveResult[] = [];
+    for (const msg of msgs) {
+      results.push(await this._receiveOne(msg));
+    }
+    return results;
+  }
+
+  private async _receiveOne(msg: Message): Promise<ReceiveResult> {
+    const [uri, values, data] = msg;
 
     // Before-hook — throw to reject
     const ctx: ReceiveCtx = { uri, data };
     const recvCtx = await runBefore(this._hooks.beforeReceive, ctx);
     const finalUri = recvCtx.uri;
     const finalData = recvCtx.data;
+    const finalMsg: Message = [finalUri, values, finalData];
 
-    // Schema validation — application-level gatekeeper
-    if (this._validator) {
-      const readFn = async <T = unknown>(u: string) => {
-        const results = await this._dispatch.read<T>(u);
-        return results[0] ??
-          {
-            success: false,
-            error: "No results",
-          } as import("../b3nd-core/types.ts").ReadResult<T>;
-      };
-      const validation = await this._validator(
-        [finalUri, finalData],
-        undefined,
-        readFn,
-      );
-      if (!validation.valid) {
-        const error = validation.error || "Schema validation failed";
-        this._events.emit("receive:error", {
-          op: "receive",
-          uri: finalUri,
-          error,
-          ts: Date.now(),
-        });
-        return { accepted: false, error };
-      }
-    }
+    // Read helper — single-URI convenience wrapping dispatch.read
+    const readFn = async <T = unknown>(u: string) => {
+      const results = await this._dispatch.read<T>(u);
+      return results[0] ??
+        { success: false, error: "No results" } as ReadResult<T>;
+    };
 
-    // Execute
     let result: ReceiveResult;
     try {
-      result = await this._dispatch.receive([finalUri, finalData]);
+      if (this._programs) {
+        // New program pipeline — classify, then route to handler
+        result = await this._runProgram(finalMsg, readFn);
+      } else if (this._validator) {
+        // Legacy schema validation
+        const validation = await this._validator(
+          finalMsg,
+          undefined,
+          readFn,
+        );
+        if (!validation.valid) {
+          const error = validation.error || "Schema validation failed";
+          this._events.emit("receive:error", {
+            op: "receive",
+            uri: finalUri,
+            error,
+            ts: Date.now(),
+          });
+          return { accepted: false, error };
+        }
+        const dispatchResults = await this._dispatch.receive([finalMsg]);
+        result = dispatchResults[0];
+      } else {
+        // No programs, no schema — direct dispatch
+        const dispatchResults = await this._dispatch.receive([finalMsg]);
+        result = dispatchResults[0];
+      }
     } catch (err) {
       this._events.emit("receive:error", {
         op: "receive",
@@ -277,7 +304,7 @@ export class Rig {
     // After-hook — observe only
     await runAfter(this._hooks.afterReceive, recvCtx, result);
 
-    // Events + react
+    // Events + reactions
     if (result.accepted) {
       this._events.emit("receive:success", {
         op: "receive",
@@ -297,6 +324,66 @@ export class Rig {
     }
 
     return result;
+  }
+
+  /**
+   * Run the program pipeline for a single message.
+   *
+   * 1. Find the program matching the message URI (longest prefix).
+   * 2. Classify → ProgramResult { code, error? }.
+   * 3. If error → reject.
+   * 4. Look up handler for the code → run with broadcast + read.
+   * 5. If no handler → dispatch directly to connections.
+   */
+  private async _runProgram(
+    msg: Message,
+    readFn: <T = unknown>(u: string) => Promise<ReadResult<T>>,
+  ): Promise<ReceiveResult> {
+    const [uri] = msg;
+    const program = this._findProgram(uri);
+
+    if (!program) {
+      // No matching program — dispatch directly
+      const results = await this._dispatch.receive([msg]);
+      return results[0];
+    }
+
+    // Classify
+    const classification = await program(msg, undefined, readFn);
+
+    if (classification.error) {
+      return { accepted: false, error: classification.error };
+    }
+
+    // Look up handler for the returned code
+    const handler = this._handlers?.[classification.code];
+
+    if (handler) {
+      // Handler manages dispatch via broadcast (direct to clients)
+      const broadcastFn = (msgs: Message[]) => this._dispatch.receive(msgs);
+      await handler(msg, broadcastFn, readFn);
+      return { accepted: true };
+    }
+
+    // No handler for this code — dispatch directly
+    const results = await this._dispatch.receive([msg]);
+    return results[0];
+  }
+
+  /**
+   * Find the program with the longest matching URI prefix.
+   */
+  private _findProgram(uri: string): Program | null {
+    if (!this._programs) return null;
+    let bestMatch: string | null = null;
+    for (const prefix of Object.keys(this._programs)) {
+      if (uri === prefix || uri.startsWith(prefix + "/")) {
+        if (!bestMatch || prefix.length > bestMatch.length) {
+          bestMatch = prefix;
+        }
+      }
+    }
+    return bestMatch ? this._programs[bestMatch] : null;
   }
 
   // ── Observation ──
@@ -705,13 +792,13 @@ export class Rig {
    * ```typescript
    * const session = identity.rig(rig);
    * const results = await session.sendMany([
-   *   { inputs: [], outputs: [["mutable://app/counter", { value: 1 }]] },
-   *   { inputs: [], outputs: [["mutable://app/log/1", { event: "init" }]] },
+   *   { inputs: [], outputs: [["mutable://app/counter", {}, { value: 1 }]] },
+   *   { inputs: [], outputs: [["mutable://app/log/1", {}, { event: "init" }]] },
    * ]);
    * ```
    */
-  async sendMany<V = unknown>(
-    envelopes: MessageData<V>[],
+  async sendMany(
+    envelopes: MessageData[],
   ): Promise<SendResult[]> {
     if (envelopes.length === 0) return [];
     const results: SendResult[] = [];
@@ -737,21 +824,28 @@ function createConnectionDispatch(
   connections: Connection[],
 ): NodeProtocolInterface {
   return {
-    async receive(msg) {
-      const [uri] = msg;
-      const matching = connections.filter((s) => s.accepts("receive", uri));
-      if (matching.length === 0) {
-        return {
-          accepted: false,
-          error: `No connection accepts receive for ${uri}`,
-        };
+    async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+      const results: ReceiveResult[] = [];
+      for (const msg of msgs) {
+        const [uri] = msg;
+        const matching = connections.filter((s) => s.accepts("receive", uri));
+        if (matching.length === 0) {
+          results.push({
+            accepted: false,
+            error: `No connection accepts receive for ${uri}`,
+          });
+          continue;
+        }
+        // Broadcast to all matching connections
+        const writeResults = await Promise.all(
+          matching.map((s) =>
+            s.client.receive([msg]).then((r) => r[0])
+          ),
+        );
+        const failed = writeResults.find((r) => !r.accepted);
+        results.push(failed ?? writeResults[0]);
       }
-      const results = await Promise.all(
-        matching.map((s) => s.client.receive(msg)),
-      );
-      const failed = results.find((r) => !r.accepted);
-      if (failed) return failed;
-      return results[0];
+      return results;
     },
 
     async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {

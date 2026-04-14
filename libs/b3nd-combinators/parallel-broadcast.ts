@@ -14,33 +14,42 @@ export function parallelBroadcast(
   }
 
   return {
-    async receive<D>(msg: Message<D>): Promise<ReceiveResult> {
-      const results = await Promise.allSettled(
-        clients.map((c) => c.receive(msg)),
+    async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+      // Broadcast the entire batch to all clients in parallel
+      const allResults = await Promise.allSettled(
+        clients.map((c) => c.receive(msgs)),
       );
-      const [uri] = msg;
-      const rejected = results.find((r) => r.status === "rejected") as
+
+      // Check for rejected promises
+      const rejected = allResults.find((r) => r.status === "rejected") as
         | PromiseRejectedResult
         | undefined;
       if (rejected) {
         const err = rejected.reason instanceof Error
           ? rejected.reason.message
           : String(rejected.reason);
-        console.warn(`[broadcast] Client threw on ${uri}: ${err}`);
-        return { accepted: false, error: err };
+        console.warn(`[broadcast] Client threw: ${err}`);
+        return msgs.map(() => ({ accepted: false, error: err }));
       }
-      // deno-lint-ignore no-explicit-any
-      const failures = results.filter((r: any) =>
-        r.status === "fulfilled" && r.value?.accepted === false
-      ) as PromiseFulfilledResult<ReceiveResult>[];
-      if (failures.length) {
-        const err = failures[0].value.error || "Broadcast failed";
-        console.warn(
-          `[broadcast] ${failures.length}/${clients.length} client(s) rejected ${uri}: ${err}`,
-        );
-        return { accepted: false, error: err };
+
+      // Collect fulfilled results
+      const fulfilled = allResults.filter(
+        (r) => r.status === "fulfilled",
+      ) as PromiseFulfilledResult<ReceiveResult[]>[];
+
+      if (fulfilled.length === 0) {
+        return msgs.map(() => ({ accepted: false, error: "No client responded" }));
       }
-      return { accepted: true };
+
+      // Merge results: if ANY backend rejects a message, the message is rejected
+      return msgs.map((_, i) => {
+        for (const f of fulfilled) {
+          if (f.value[i] && !f.value[i].accepted) {
+            return f.value[i];
+          }
+        }
+        return fulfilled[0].value[i];
+      });
     },
 
     async read<T>(uris: string | string[]): Promise<ReadResult<T>[]> {

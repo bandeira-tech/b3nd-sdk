@@ -29,15 +29,15 @@ The rig has two core actions. Everything else is observation.
 
 - **`send()`** — outward: builds a signed envelope, content-addresses it, sends
   to network (via AuthenticatedRig)
-- **`receive()`** — inward: accepts a raw message `[uri, data]` from an external
-  source
+- **`receive()`** — inward: accepts a batch of `[uri, values, data]` messages
+  from an external source
 
 ```typescript
 // Send a signed envelope (auto-signs with identity, content-addressed)
-await session.send({ inputs: [], outputs: [["mutable://app/key", value]] });
+await session.send({ inputs: [], outputs: [["mutable://app/key", {}, value]] });
 
 // Receive a raw message from an external source
-await rig.receive(["mutable://open/external", { source: "webhook" }]);
+await rig.receive([["mutable://open/external", {}, { source: "webhook" }]]);
 ```
 
 ## Observation

@@ -107,17 +107,16 @@ Deno.test("receive + read round-trip", async () => {
   const { client } = createClient();
 
   const result = await client.receive([
-    "mutable://accounts/alice/profile",
-    { name: "Alice", age: 30 },
+    ["mutable://accounts/alice/profile", {}, { name: "Alice", age: 30 }],
   ]);
-  assertEquals(result.accepted, true);
+  assertEquals(result[0].accepted, true);
 
   const results = await client.read("mutable://accounts/alice/profile");
   assertEquals(results.length, 1);
   assertEquals(results[0].success, true);
   assertExists(results[0].record);
   assertEquals(results[0].record.data, { name: "Alice", age: 30 });
-  assertEquals(typeof results[0].record.ts, "number");
+  assertEquals(typeof results[0].record.values, "object");
 });
 
 Deno.test("read returns not found for missing URI", async () => {
@@ -133,17 +132,16 @@ Deno.test("receive accepts valid data", async () => {
   const { client } = createClient();
 
   const result = await client.receive([
-    "mutable://accounts/alice",
-    { name: "Alice" },
+    ["mutable://accounts/alice", {}, { name: "Alice" }],
   ]);
-  assertEquals(result.accepted, true);
+  assertEquals(result[0].accepted, true);
 });
 
 Deno.test("read multiple URIs", async () => {
   const { client } = createClient();
 
-  await client.receive(["mutable://accounts/alice", { name: "Alice" }]);
-  await client.receive(["mutable://accounts/bob", { name: "Bob" }]);
+  await client.receive([["mutable://accounts/alice", {}, { name: "Alice" }]]);
+  await client.receive([["mutable://accounts/bob", {}, { name: "Bob" }]]);
 
   const results = await client.read([
     "mutable://accounts/alice",
@@ -168,11 +166,11 @@ Deno.test("read multiple URIs", async () => {
 Deno.test("read with trailing slash lists children", async () => {
   const { client } = createClient();
 
-  await client.receive(["mutable://accounts/alice/profile", { name: "Alice" }]);
-  await client.receive(["mutable://accounts/alice/settings", {
+  await client.receive([["mutable://accounts/alice/profile", {}, { name: "Alice" }]]);
+  await client.receive([["mutable://accounts/alice/settings", {}, {
     theme: "dark",
-  }]);
-  await client.receive(["mutable://accounts/bob/profile", { name: "Bob" }]);
+  }]]);
+  await client.receive([["mutable://accounts/bob/profile", {}, { name: "Bob" }]]);
 
   const results = await client.read("mutable://accounts/alice/");
   assertEquals(results.length, 2);
@@ -224,8 +222,7 @@ Deno.test("indexPrefix mapping is correct", async () => {
   const { client } = createClient(executor);
 
   await client.receive([
-    "mutable://accounts/alice/profile",
-    { name: "Alice" },
+    ["mutable://accounts/alice/profile", {}, { name: "Alice" }],
   ]);
 
   // Verify the index name in the executor store
@@ -241,10 +238,9 @@ Deno.test("binary encoding round-trip", async () => {
   const binaryData = new Uint8Array([1, 2, 3, 4, 5]);
 
   const result = await client.receive([
-    "mutable://data/binary-test",
-    binaryData,
+    ["mutable://data/binary-test", {}, binaryData],
   ]);
-  assertEquals(result.accepted, true);
+  assertEquals(result[0].accepted, true);
 
   const results = await client.read<Uint8Array>("mutable://data/binary-test");
   assertEquals(results.length, 1);
@@ -261,12 +257,11 @@ Deno.test("receive handles executor errors gracefully", async () => {
   const { client } = createClient(executor);
 
   const result = await client.receive([
-    "mutable://accounts/alice",
-    { name: "Alice" },
+    ["mutable://accounts/alice", {}, { name: "Alice" }],
   ]);
-  assertEquals(result.accepted, false);
-  assertExists(result.error);
-  assertEquals(result.error!.includes("ES index failed"), true);
+  assertEquals(result[0].accepted, false);
+  assertExists(result[0].error);
+  assertEquals(result[0].error!.includes("ES index failed"), true);
 });
 
 Deno.test("read handles executor errors gracefully", async () => {
@@ -302,8 +297,8 @@ Deno.test("constructor requires executor", () => {
 Deno.test("receive overwrites existing document (upsert)", async () => {
   const { client } = createClient();
 
-  await client.receive(["mutable://accounts/alice", { v: 1 }]);
-  await client.receive(["mutable://accounts/alice", { v: 2 }]);
+  await client.receive([["mutable://accounts/alice", {}, { v: 1 }]]);
+  await client.receive([["mutable://accounts/alice", {}, { v: 2 }]]);
 
   const results = await client.read("mutable://accounts/alice");
   assertEquals(results.length, 1);

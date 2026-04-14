@@ -24,11 +24,10 @@ Deno.test("createValidatedClient - accept validator allows writes", async () => 
     validate: accept(),
   });
 
-  const result = await client.receive([
-    "mutable://data/alice",
-    { name: "Alice" },
+  const results = await client.receive([
+    ["mutable://data/alice", {}, { name: "Alice" }],
   ]);
-  assertEquals(result.accepted, true);
+  assertEquals(results[0].accepted, true);
 
   const readResults = await client.read("mutable://data/alice");
   assertEquals(readResults[0].success, true);
@@ -46,9 +45,9 @@ Deno.test("createValidatedClient - reject validator blocks writes", async () => 
     validate: reject("not allowed"),
   });
 
-  const result = await client.receive(["mutable://data/x", { data: 1 }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "not allowed");
+  const results = await client.receive([["mutable://data/x", {}, { data: 1 }]]);
+  assertEquals(results[0].accepted, false);
+  assertEquals(results[0].error, "not allowed");
 
   // Data should NOT be written
   const readResults = await client.read("mutable://data/x");
@@ -64,19 +63,17 @@ Deno.test("createValidatedClient - requireFields blocks invalid data", async () 
   });
 
   // Missing email
-  const fail = await client.receive([
-    "mutable://data/alice",
-    { name: "Alice" },
+  const failResults = await client.receive([
+    ["mutable://data/alice", {}, { name: "Alice" }],
   ]);
-  assertEquals(fail.accepted, false);
-  assertEquals(fail.error, "Missing required fields: email");
+  assertEquals(failResults[0].accepted, false);
+  assertEquals(failResults[0].error, "Missing required fields: email");
 
   // All fields present
-  const pass = await client.receive([
-    "mutable://data/alice",
-    { name: "Alice", email: "a@b.com" },
+  const passResults = await client.receive([
+    ["mutable://data/alice", {}, { name: "Alice", email: "a@b.com" }],
   ]);
-  assertEquals(pass.accepted, true);
+  assertEquals(passResults[0].accepted, true);
 });
 
 Deno.test("createValidatedClient - rejects empty URI", async () => {
@@ -87,9 +84,9 @@ Deno.test("createValidatedClient - rejects empty URI", async () => {
     validate: accept(),
   });
 
-  const result = await client.receive(["", { data: 1 }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "Message URI is required");
+  const results = await client.receive([["", {}, { data: 1 }]]);
+  assertEquals(results[0].accepted, false);
+  assertEquals(results[0].error, "Message URI is required");
 });
 
 Deno.test("createValidatedClient - read delegates to read backend", async () => {
@@ -97,8 +94,8 @@ Deno.test("createValidatedClient - read delegates to read backend", async () => 
   const readMem = mem();
 
   // Pre-populate read backend
-  await readMem.receive(["mutable://data/a", { val: 1 }]);
-  await readMem.receive(["mutable://data/b", { val: 2 }]);
+  await readMem.receive([["mutable://data/a", {}, { val: 1 }]]);
+  await readMem.receive([["mutable://data/b", {}, { val: 2 }]]);
 
   const client = createValidatedClient({
     write: writeMem,
@@ -128,9 +125,9 @@ Deno.test("createValidatedClient - handles validator that throws", async () => {
     validate: throwingValidator,
   });
 
-  const result = await client.receive(["mutable://data/x", { data: 1 }]);
-  assertEquals(result.accepted, false);
-  assertEquals(result.error, "Validation error: validator exploded");
+  const results = await client.receive([["mutable://data/x", {}, { data: 1 }]]);
+  assertEquals(results[0].accepted, false);
+  assertEquals(results[0].error, "Validation error: validator exploded");
 });
 
 // ── upstream vs read distinction ──
@@ -139,17 +136,17 @@ Deno.test("msgSchema - upstream provides sibling outputs, read provides storage"
   // A validator that inspects upstream for sibling outputs
   // and read for storage, verifying the distinction
   let readResult: ReadResult<unknown> | null = null;
-  let siblingFromUpstream: [string, unknown] | undefined = undefined;
+  let siblingFromUpstream: Output | undefined = undefined;
 
-  const testValidator: Validator = async ([uri, value], upstream, read) => {
+  const testValidator: Validator = async ([uri, , value], upstream, read) => {
     // Explicit: check storage via read()
     readResult = await read("mutable://data/sibling");
 
     // Explicit: check sibling outputs via upstream
     if (upstream) {
-      const [, envelope] = upstream;
+      const [, , envelope] = upstream;
       const msg = envelope as MessageData;
-      siblingFromUpstream = msg.payload.outputs.find(([u]) =>
+      siblingFromUpstream = msg.outputs.find(([u]) =>
         u === "mutable://data/sibling"
       );
     }
@@ -171,20 +168,17 @@ Deno.test("msgSchema - upstream provides sibling outputs, read provides storage"
 
   // Send a MessageData envelope with two sibling outputs
   const envelope = {
-    payload: {
-      inputs: [],
-      outputs: [
-        ["mutable://data/sibling", { greeting: "hello" }],
-        ["mutable://data/main", { value: 42 }],
-      ] as [string, unknown][],
-    },
+    inputs: [],
+    outputs: [
+      ["mutable://data/sibling", {}, { greeting: "hello" }],
+      ["mutable://data/main", {}, { value: 42 }],
+    ] as Output[],
   };
 
-  const result = await client.receive([
-    "hash://sha256/test-envelope",
-    envelope,
+  const results = await client.receive([
+    ["hash://sha256/test-envelope", {}, envelope],
   ]);
-  assertEquals(result.accepted, true, `Envelope rejected: ${result.error}`);
+  assertEquals(results[0].accepted, true, `Envelope rejected: ${results[0].error}`);
 
   // read() should NOT find the sibling (not yet committed to storage)
   assertEquals(
@@ -200,7 +194,7 @@ Deno.test("msgSchema - upstream provides sibling outputs, read provides storage"
     "upstream should have sibling output",
   );
   assertEquals(
-    (siblingFromUpstream![1] as Record<string, unknown>)?.greeting,
+    (siblingFromUpstream![2] as Record<string, unknown>)?.greeting,
     "hello",
   );
 });
@@ -225,8 +219,8 @@ Deno.test("msgSchema - upstream is undefined for plain writes", async () => {
   });
 
   // Plain message (not a MessageData envelope)
-  const result = await client.receive(["mutable://data/item", { value: 1 }]);
-  assertEquals(result.accepted, true);
+  const results = await client.receive([["mutable://data/item", {}, { value: 1 }]]);
+  assertEquals(results[0].accepted, true);
 
   // For plain messages, upstream should be undefined
   assertEquals(receivedUpstream, undefined, "Plain writes have no upstream");
@@ -253,19 +247,16 @@ Deno.test("msgSchema - upstream is the envelope for inner outputs", async () => 
   });
 
   const envelope = {
-    payload: {
-      inputs: [],
-      outputs: [
-        ["mutable://data/item", { value: 1 }],
-      ] as [string, unknown][],
-    },
+    inputs: [],
+    outputs: [
+      ["mutable://data/item", {}, { value: 1 }],
+    ] as Output[],
   };
 
-  const result = await client.receive([
-    "hash://sha256/test-envelope",
-    envelope,
+  const results = await client.receive([
+    ["hash://sha256/test-envelope", {}, envelope],
   ]);
-  assertEquals(result.accepted, true, `Envelope rejected: ${result.error}`);
+  assertEquals(results[0].accepted, true, `Envelope rejected: ${results[0].error}`);
 
   // Upstream should be the envelope itself
   assertEquals(
@@ -275,8 +266,7 @@ Deno.test("msgSchema - upstream is the envelope for inner outputs", async () => 
   );
   assertEquals(receivedUpstream![0], "hash://sha256/test-envelope");
   assertEquals(
-    (receivedUpstream![1] as { payload: { outputs: unknown[] } }).payload
-      .outputs.length,
+    (receivedUpstream![2] as { outputs: unknown[] }).outputs.length,
     1,
   );
 });

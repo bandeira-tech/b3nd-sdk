@@ -2,7 +2,7 @@
  * SQLite schema utilities for b3nd
  *
  * Generates SQLite-compatible DDL for the b3nd storage system.
- * Simpler than PostgreSQL — no triggers, functions, or views needed.
+ * Stores uri, values (JSON), and data (JSON) per record.
  */
 
 /**
@@ -28,12 +28,10 @@ export function generateSqliteSchema(tablePrefix: string): string {
 
 CREATE TABLE IF NOT EXISTS ${tablePrefix}_data (
     uri TEXT PRIMARY KEY,
+    "values" TEXT NOT NULL DEFAULT '{}',
     data TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
 );
-
-CREATE INDEX IF NOT EXISTS idx_${tablePrefix}_data_timestamp ON ${tablePrefix}_data (timestamp);
 `;
 }
