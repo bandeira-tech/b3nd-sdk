@@ -33,7 +33,11 @@ let _seq = 0;
 function msg(
   outputs: [string, Record<string, number>, unknown][],
   inputs: string[] = [],
-): [string, Record<string, number>, { inputs: string[]; outputs: [string, Record<string, number>, unknown][] }] {
+): [
+  string,
+  Record<string, number>,
+  { inputs: string[]; outputs: [string, Record<string, number>, unknown][] },
+] {
   return [`envelope://test/${++_seq}`, {}, { inputs, outputs }];
 }
 
@@ -127,7 +131,11 @@ export function runSharedSuite(
 
       const readResults = await client.read("store://users/scalar-string/data");
       assertEquals(readResults.length, 1);
-      assertEquals(readResults[0].success, true, "String data read should succeed");
+      assertEquals(
+        readResults[0].success,
+        true,
+        "String data read should succeed",
+      );
       assertEquals(readResults[0].record?.data, "hello world");
     },
   });
@@ -145,7 +153,11 @@ export function runSharedSuite(
 
       const readResults = await client.read("store://users/scalar-number/data");
       assertEquals(readResults.length, 1);
-      assertEquals(readResults[0].success, true, "Number data read should succeed");
+      assertEquals(
+        readResults[0].success,
+        true,
+        "Number data read should succeed",
+      );
       assertEquals(readResults[0].record?.data, 42);
     },
   });
@@ -163,7 +175,11 @@ export function runSharedSuite(
 
       const readResults = await client.read("store://users/scalar-bool/data");
       assertEquals(readResults.length, 1);
-      assertEquals(readResults[0].success, true, "Boolean data read should succeed");
+      assertEquals(
+        readResults[0].success,
+        true,
+        "Boolean data read should succeed",
+      );
       assertEquals(readResults[0].record?.data, true);
     },
   });
@@ -181,7 +197,11 @@ export function runSharedSuite(
 
       const readResults = await client.read("store://users/scalar-null/data");
       assertEquals(readResults.length, 1);
-      assertEquals(readResults[0].success, true, "Null data read should succeed");
+      assertEquals(
+        readResults[0].success,
+        true,
+        "Null data read should succeed",
+      );
       assertEquals(readResults[0].record?.data, null);
     },
   });
@@ -199,7 +219,11 @@ export function runSharedSuite(
 
       const readResults = await client.read("store://users/scalar-empty/data");
       assertEquals(readResults.length, 1);
-      assertEquals(readResults[0].success, true, "Empty string data read should succeed");
+      assertEquals(
+        readResults[0].success,
+        true,
+        "Empty string data read should succeed",
+      );
       assertEquals(readResults[0].record?.data, "");
     },
   });
@@ -217,7 +241,11 @@ export function runSharedSuite(
 
       const readResults = await client.read("store://users/scalar-zero/data");
       assertEquals(readResults.length, 1);
-      assertEquals(readResults[0].success, true, "Zero data read should succeed");
+      assertEquals(
+        readResults[0].success,
+        true,
+        "Zero data read should succeed",
+      );
       assertEquals(readResults[0].record?.data, 0);
     },
   });
@@ -250,7 +278,9 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://balance/alice/utxo-2", { fire: 50, usd: 200 }, { memo: "deposit" }]]),
+        msg([["store://balance/alice/utxo-2", { fire: 50, usd: 200 }, {
+          memo: "deposit",
+        }]]),
       ]);
       assertEquals(results[0].accepted, true);
 
@@ -409,22 +439,44 @@ export function runSharedSuite(
         const client = await Promise.resolve(factories.happy());
 
         const binaryData = new Uint8Array([
-          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-          0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+          0x89,
+          0x50,
+          0x4E,
+          0x47,
+          0x0D,
+          0x0A,
+          0x1A,
+          0x0A,
+          0x00,
+          0x00,
+          0x00,
+          0x0D,
+          0x49,
+          0x48,
+          0x44,
+          0x52,
         ]);
 
         const results = await client.receive([
           msg([["store://files/test-image.png", {}, binaryData]]),
         ]);
 
-        assertEquals(results[0].accepted, true, "Binary message should be accepted");
+        assertEquals(
+          results[0].accepted,
+          true,
+          "Binary message should be accepted",
+        );
 
         const readResults = await client.read<Uint8Array>(
           "store://files/test-image.png",
         );
 
         assertEquals(readResults.length, 1);
-        assertEquals(readResults[0].success, true, "Binary read should succeed");
+        assertEquals(
+          readResults[0].success,
+          true,
+          "Binary read should succeed",
+        );
         assertEquals(
           readResults[0].record?.data instanceof Uint8Array,
           true,
@@ -432,10 +484,18 @@ export function runSharedSuite(
         );
 
         const readData = readResults[0].record?.data as Uint8Array;
-        assertEquals(readData.length, binaryData.length, "Binary data length should match");
+        assertEquals(
+          readData.length,
+          binaryData.length,
+          "Binary data length should match",
+        );
 
         for (let i = 0; i < binaryData.length; i++) {
-          assertEquals(readData[i], binaryData[i], `Byte at position ${i} should match`);
+          assertEquals(
+            readData[i],
+            binaryData[i],
+            `Byte at position ${i} should match`,
+          );
         }
       },
     });
@@ -456,17 +516,29 @@ export function runSharedSuite(
           msg([["store://files/large-file.bin", {}, binaryData]]),
         ]);
 
-        assertEquals(results[0].accepted, true, "Large binary message should be accepted");
+        assertEquals(
+          results[0].accepted,
+          true,
+          "Large binary message should be accepted",
+        );
 
         const readResults = await client.read<Uint8Array>(
           "store://files/large-file.bin",
         );
 
         assertEquals(readResults.length, 1);
-        assertEquals(readResults[0].success, true, "Large binary read should succeed");
+        assertEquals(
+          readResults[0].success,
+          true,
+          "Large binary read should succeed",
+        );
 
         const readData = readResults[0].record?.data as Uint8Array;
-        assertEquals(readData.length, binaryData.length, "Large binary data length should match");
+        assertEquals(
+          readData.length,
+          binaryData.length,
+          "Large binary data length should match",
+        );
 
         let matches = true;
         for (let i = 0; i < binaryData.length && matches; i++) {
@@ -488,12 +560,18 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       await client.receive([
-        msg([["store://users/overwrite/profile", {}, { name: "Alice", version: 1 }]]),
+        msg([["store://users/overwrite/profile", {}, {
+          name: "Alice",
+          version: 1,
+        }]]),
       ]);
 
       // Write again to the same URI — second write wins
       await client.receive([
-        msg([["store://users/overwrite/profile", {}, { name: "Alice Updated", version: 2 }]]),
+        msg([["store://users/overwrite/profile", {}, {
+          name: "Alice Updated",
+          version: 2,
+        }]]),
       ]);
 
       const readResults = await client.read("store://users/overwrite/profile");
@@ -517,7 +595,9 @@ export function runSharedSuite(
       ]);
 
       await client.receive([
-        msg([["store://balance/overwrite/utxo", { fire: 75, usd: 25 }, { memo: "updated" }]]),
+        msg([["store://balance/overwrite/utxo", { fire: 75, usd: 25 }, {
+          memo: "updated",
+        }]]),
       ]);
 
       const readResults = await client.read("store://balance/overwrite/utxo");
@@ -527,113 +607,9 @@ export function runSharedSuite(
     },
   });
 
-  // ── Input consumption (client deletes inputs, writes outputs) ────────
-
-  Deno.test({
-    name: `${suiteName} - inputs are deleted, outputs are written`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      // Write data
-      await client.receive([
-        msg([["store://data/consumable", {}, { value: 1 }]]),
-      ]);
-
-      // Verify it exists
-      const before = await client.read("store://data/consumable");
-      assertEquals(before[0].success, true);
-
-      // Send message with it as input — client deletes it, writes output
-      await client.receive([
-        msg(
-          [["store://data/replacement", {}, { value: 2 }]],
-          ["store://data/consumable"],
-        ),
-      ]);
-
-      // Input deleted
-      const after = await client.read("store://data/consumable");
-      assertEquals(after[0].success, false, "Input must be deleted by client");
-
-      // Output written
-      const created = await client.read("store://data/replacement");
-      assertEquals(created[0].success, true);
-      assertEquals(created[0].record?.data, { value: 2 });
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - empty inputs means no deletions`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      await client.receive([
-        msg([["store://data/existing", {}, { value: 1 }]]),
-      ]);
-
-      // Message with empty inputs — nothing deleted
-      await client.receive([
-        msg([["store://data/new-item", {}, { value: 2 }]]),
-      ]);
-
-      // Both exist
-      const existing = await client.read("store://data/existing");
-      assertEquals(existing[0].success, true);
-      const newItem = await client.read("store://data/new-item");
-      assertEquals(newItem[0].success, true);
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - multiple inputs all deleted`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      await client.receive([
-        msg([["store://data/a", {}, { v: 1 }]]),
-        msg([["store://data/b", {}, { v: 2 }]]),
-      ]);
-
-      await client.receive([
-        msg(
-          [["store://data/combined", {}, { v: 3 }]],
-          ["store://data/a", "store://data/b"],
-        ),
-      ]);
-
-      assertEquals((await client.read("store://data/a"))[0].success, false);
-      assertEquals((await client.read("store://data/b"))[0].success, false);
-      assertEquals((await client.read("store://data/combined"))[0].success, true);
-    },
-  });
-
-  Deno.test({
-    name: `${suiteName} - multiple outputs written from single message`,
-    ...noSanitize,
-    fn: async () => {
-      const client = await Promise.resolve(factories.happy());
-
-      const results = await client.receive([
-        msg([
-          ["store://data/multi-out-1", {}, { text: "hello" }],
-          ["store://data/multi-out-2", {}, { text: "world" }],
-          ["store://data/multi-out-3", { fire: 10 }, null],
-        ]),
-      ]);
-
-      assertEquals(results[0].accepted, true);
-
-      const r1 = await client.read("store://data/multi-out-1");
-      assertEquals(r1[0].record?.data, { text: "hello" });
-      const r2 = await client.read("store://data/multi-out-2");
-      assertEquals(r2[0].record?.data, { text: "world" });
-      const r3 = await client.read("store://data/multi-out-3");
-      assertEquals(r3[0].record?.values, { fire: 10 });
-    },
-  });
+  // NOTE: Input consumption and output fan-out tests have been moved to
+  // firecat-client.test.ts — envelope decomposition is a FirecatClient
+  // concern, not a generic NodeProtocolInterface behavior.
 
   // ── Error handling ─────────────────────────────────────────────────
 
