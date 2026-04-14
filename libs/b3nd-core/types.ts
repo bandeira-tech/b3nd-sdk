@@ -28,7 +28,11 @@ export interface ReadResult<T> {
  * Result for a single URI in a multi-read operation
  */
 export type ReadMultiResultItem<T = unknown> =
-  | { uri: string; success: true; record: { values: Record<string, number>; data: T } }
+  | {
+    uri: string;
+    success: true;
+    record: { values: Record<string, number>; data: T };
+  }
   | { uri: string; success: false; error: string };
 
 /**
@@ -279,6 +283,128 @@ export interface NodeProtocolInterface {
    * Clients report health. The rig aggregates and adds schema.
    */
   status(): Promise<StatusResult>;
+}
+
+// ── Store — batch-native storage primitive ────────────────────────
+
+/**
+ * Entry for a batch write operation.
+ *
+ * @example
+ * ```typescript
+ * await store.write([
+ *   { uri: "mutable://users/alice", values: {}, data: { name: "Alice" } },
+ *   { uri: "mutable://users/bob", values: {}, data: { name: "Bob" } },
+ * ]);
+ * ```
+ */
+export interface StoreEntry<T = unknown> {
+  uri: string;
+  values: Record<string, number>;
+  data: T;
+}
+
+/**
+ * Per-entry result of a write operation.
+ */
+export interface StoreWriteResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Optional capability reporting for a Store.
+ *
+ * Backends declare what they can do so protocol clients and rigs
+ * can make informed decisions (e.g., wrap deletes+writes in a
+ * transaction when atomicBatch is true).
+ */
+export interface StoreCapabilities {
+  /** Whether write+delete within a single call can be made atomic. */
+  atomicBatch?: boolean;
+  /** Whether this store supports observe(). */
+  observe?: boolean;
+  /** Whether this store can handle binary (Uint8Array) data natively. */
+  binaryData?: boolean;
+}
+
+/**
+ * Store — the batch-native storage abstraction.
+ *
+ * Every operation takes arrays and returns per-item results.
+ * This lets each backend optimize for its technology:
+ * Postgres → single multi-row INSERT, S3 → parallel PutObject, etc.
+ *
+ * The Store knows nothing about protocols, envelopes, or message
+ * semantics. It is pure mechanical storage: write entries, read
+ * entries, delete entries, observe changes.
+ *
+ * Protocol clients (SimpleClient, FirecatClient) wrap a Store
+ * with protocol semantics to produce a NodeProtocolInterface.
+ *
+ * @example
+ * ```typescript
+ * const store = new MemoryStore();
+ *
+ * // Write
+ * await store.write([
+ *   { uri: "mutable://app/config", values: {}, data: { theme: "dark" } },
+ * ]);
+ *
+ * // Read
+ * const results = await store.read(["mutable://app/config"]);
+ *
+ * // Delete
+ * await store.delete(["mutable://app/config"]);
+ * ```
+ */
+export interface Store {
+  /**
+   * Write entries in batch. Returns one result per entry.
+   */
+  write(entries: StoreEntry[]): Promise<StoreWriteResult[]>;
+
+  /**
+   * Read data from URIs in batch. Returns one result per URI.
+   *
+   * Trailing-slash URIs list all entries under that path prefix —
+   * the result array may contain multiple items for a single input URI.
+   */
+  read<T = unknown>(uris: string[]): Promise<ReadResult<T>[]>;
+
+  /**
+   * Delete URIs in batch. Returns one result per URI.
+   */
+  delete(uris: string[]): Promise<DeleteResult[]>;
+
+  /**
+   * Observe changes matching a URI pattern.
+   *
+   * Not all backends can observe natively (e.g., S3).
+   * Check `capabilities().observe` before calling.
+   *
+   * @example
+   * ```typescript
+   * const ac = new AbortController();
+   * for await (const result of store.observe("mutable://app/*", ac.signal)) {
+   *   console.log(result.uri, result.record?.data);
+   * }
+   * ```
+   */
+  observe?<T = unknown>(
+    pattern: string,
+    signal: AbortSignal,
+  ): AsyncIterable<ReadResult<T>>;
+
+  /**
+   * Health and capability status.
+   */
+  status(): Promise<StatusResult>;
+
+  /**
+   * Optional capability reporting.
+   */
+  capabilities?(): StoreCapabilities;
 }
 
 // ── Deprecated interfaces (transitional) ──
