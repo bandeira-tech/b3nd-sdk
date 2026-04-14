@@ -94,11 +94,21 @@ export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 
 // Store implementations
 export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
+export { PostgresStore } from "../libs/b3nd-client-postgres/store.ts";
+export { SqliteStore } from "../libs/b3nd-client-sqlite/store.ts";
+export { MongoStore } from "../libs/b3nd-client-mongo/store.ts";
+export { S3Store } from "../libs/b3nd-client-s3/store.ts";
+export { ElasticsearchStore } from "../libs/b3nd-client-elasticsearch/store.ts";
+export { FsStore } from "../libs/b3nd-client-fs/store.ts";
+export { IpfsStore } from "../libs/b3nd-client-ipfs/store.ts";
+export { ConsoleStore } from "../libs/b3nd-client-console/store.ts";
+// Note: LocalStorageStore and IndexedDBStore are browser-only
+// and not included in the JSR package. Use the npm package for browser support.
 
 // Protocol clients (Store → NodeProtocolInterface)
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
 
-// Client implementations
+// Client implementations (legacy — prefer Store + SimpleClient/FirecatClient)
 export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";

@@ -51,12 +51,15 @@ export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 // ── Store implementations ──
 
 export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
+export { LocalStorageStore } from "../libs/b3nd-client-localstorage/store.ts";
+export { IndexedDBStore } from "../libs/b3nd-client-indexeddb/store.ts";
+export { ConsoleStore } from "../libs/b3nd-client-console/store.ts";
 
 // ── Protocol clients (Store → NodeProtocolInterface) ──
 
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
 
-// ── Client implementations ──
+// ── Client implementations (legacy — prefer Store + SimpleClient/FirecatClient) ──
 
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
