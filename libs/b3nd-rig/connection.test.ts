@@ -9,14 +9,14 @@
 
 import { assertEquals } from "@std/assert";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { DataClient } from "../b3nd-core/data-client.ts";
+import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import { connection } from "./connection.ts";
 import { Rig } from "./rig.ts";
 import type { Schema } from "../b3nd-core/types.ts";
 
 /** Shorthand: envelope-aware client backed by an in-memory store. */
 function memClient() {
-  return new DataClient(new MemoryStore());
+  return new MessageDataClient(new MemoryStore());
 }
 
 // ── connection() unit tests ──

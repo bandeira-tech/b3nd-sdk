@@ -8,7 +8,7 @@ import {
   hmac,
 } from "@b3nd/encrypt";
 import { MemoryStore } from "../../libs/b3nd-client-memory/store.ts";
-import { DataClient } from "../../libs/b3nd-core/data-client.ts";
+import { MessageDataClient } from "../../libs/b3nd-core/message-data-client.ts";
 
 import {
   createVaultHandler,
@@ -18,7 +18,7 @@ import {
 } from "./vault.ts";
 
 Deno.test("vault: end-to-end auth flow with mock verifier", async () => {
-  const client = new DataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
 
   // Vault identity
   const vaultSigning = await generateSigningKeyPair();
@@ -91,7 +91,7 @@ Deno.test("vault: end-to-end auth flow with mock verifier", async () => {
 });
 
 Deno.test("vault: same provider account always yields same identity", async () => {
-  const client = new DataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
 
   const vaultSigning = await generateSigningKeyPair();
   const vaultEnc = await generateEncryptionKeyPair();

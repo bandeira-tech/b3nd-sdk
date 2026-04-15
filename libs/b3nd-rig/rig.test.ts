@@ -8,12 +8,12 @@ import { Rig } from "./rig.ts";
 import { AuthenticatedRig } from "./authenticated-rig.ts";
 import { createTestSchema } from "../b3nd-client-memory/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { DataClient } from "../b3nd-core/data-client.ts";
+import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import { connection } from "./connection.ts";
 
 /** Shorthand: envelope-aware client backed by an in-memory store. */
 function memClient() {
-  return new DataClient(new MemoryStore());
+  return new MessageDataClient(new MemoryStore());
 }
 import { httpApi } from "./http.ts";
 
@@ -1764,23 +1764,23 @@ Deno.test("createStoreFromUrl - rejects unknown protocol", async () => {
 
 Deno.test("createClientFromUrl - accepts client class arg", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
-  const { DataClient } = await import(
-    "../b3nd-core/data-client.ts"
+  const { MessageDataClient } = await import(
+    "../b3nd-core/message-data-client.ts"
   );
 
-  const client = await createClientFromUrl("memory://", DataClient);
+  const client = await createClientFromUrl("memory://", MessageDataClient);
   const health = await client.status();
   assertEquals(health.status, "healthy");
 });
 
 Deno.test("createClientFromUrl - client class in options", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
-  const { DataClient } = await import(
-    "../b3nd-core/data-client.ts"
+  const { MessageDataClient } = await import(
+    "../b3nd-core/message-data-client.ts"
   );
 
   const client = await createClientFromUrl("memory://", {
-    client: DataClient,
+    client: MessageDataClient,
   });
   const health = await client.status();
   assertEquals(health.status, "healthy");
@@ -1849,13 +1849,13 @@ Deno.test("createClientResolver - resolves memory URL with default SimpleClient"
   assertEquals(reads[0].record?.data, { val: 1 });
 });
 
-Deno.test("createClientResolver - resolves with DataClient", async () => {
+Deno.test("createClientResolver - resolves with MessageDataClient", async () => {
   const { createClientResolver } = await import("./backend-factory.ts");
-  const { DataClient } = await import(
-    "../b3nd-core/data-client.ts"
+  const { MessageDataClient } = await import(
+    "../b3nd-core/message-data-client.ts"
   );
 
-  const resolveClient = createClientResolver(DataClient);
+  const resolveClient = createClientResolver(MessageDataClient);
   const client = await resolveClient("memory://");
   const health = await client.status();
   assertEquals(health.status, "healthy");

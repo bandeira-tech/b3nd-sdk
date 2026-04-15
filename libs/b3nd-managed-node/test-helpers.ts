@@ -4,7 +4,7 @@
 
 import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { DataClient } from "../b3nd-core/data-client.ts";
+import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import {
   createAuthenticatedMessage,
   generateSigningKeyPair,
@@ -123,5 +123,5 @@ export async function signConfig(config: ManagedNodeConfig): Promise<{
  * Create an in-memory client that accepts all writes.
  */
 export function createPermissiveClient(): NodeProtocolInterface {
-  return new DataClient(new MemoryStore());
+  return new MessageDataClient(new MemoryStore());
 }

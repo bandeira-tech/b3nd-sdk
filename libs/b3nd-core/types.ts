@@ -339,7 +339,7 @@ export interface StoreCapabilities {
  * semantics. It is pure mechanical storage: write entries, read
  * entries, delete entries, observe changes.
  *
- * Protocol clients (SimpleClient, DataClient) wrap a Store
+ * Protocol clients (SimpleClient, MessageDataClient) wrap a Store
  * with protocol semantics to produce a NodeProtocolInterface.
  *
  * @example

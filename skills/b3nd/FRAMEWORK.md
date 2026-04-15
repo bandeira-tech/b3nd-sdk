@@ -455,7 +455,7 @@ Protocol developers define the validation rules that sit between them — the
 schema table. They don't couple to either side.
 
 The SDK provides storage backends (MemoryStore, PostgresStore,
-MongoStore, etc.) wrapped by protocol clients (DataClient, SimpleClient)
+MongoStore, etc.) wrapped by protocol clients (MessageDataClient, SimpleClient)
 as ready-made NodeProtocolInterface implementations. But these are tools for
 node operators, not framework guarantees. A node using MemoryStore loses
 everything on restart. A node using PostgresStore retains everything. Both are
@@ -485,7 +485,7 @@ accepted messages.
 
 | Client               | Package    | Use                                  |
 | -------------------- | ---------- | ------------------------------------ |
-| `DataClient`  | Both       | Envelope-aware (wraps any Store)     |
+| `MessageDataClient`  | Both       | Envelope-aware (wraps any Store)     |
 | `SimpleClient`       | Both       | Bare storage access (wraps any Store)|
 
 **Transport clients** — direct NodeProtocolInterface, no Store:
@@ -741,13 +741,13 @@ const schema: Schema = {
 
 ### Testing Protocol Validators
 
-Test validators using a `DataClient` backed by `MemoryStore` with your
+Test validators using a `MessageDataClient` backed by `MemoryStore` with your
 protocol's schema. Test both the happy path (valid messages accepted) and the
 rejection path (invalid messages rejected with the right error):
 
 ```typescript
 import { assertEquals } from "@std/assert";
-import { DataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
+import { MessageDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
   "mutable://accounts": async ([uri, , data]) => {
@@ -760,7 +760,7 @@ const schema: Schema = {
 };
 
 Deno.test("accepts valid account write", async () => {
-  const client = new DataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
   const result = await send({
     payload: {
       inputs: [],
@@ -771,7 +771,7 @@ Deno.test("accepts valid account write", async () => {
 });
 
 Deno.test("rejects invalid account write", async () => {
-  const client = new DataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
   const result = await send({
     payload: {
       inputs: [],
@@ -793,7 +793,7 @@ Deno.test("validator reads cross-program state", async () => {
     },
     "link://accounts": async () => ({ valid: true }),
   };
-  const client = new DataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
 
   // Pre-populate: register the account
   await client.receive([["link://accounts/alice/auth", {}, { active: true }]]);
@@ -922,10 +922,10 @@ const publishingProtocol: Schema = {
 **How it's used:**
 
 ```typescript
-import { DataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
+import { MessageDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";
 
-const client = new DataClient(new MemoryStore());
+const client = new MessageDataClient(new MemoryStore());
 
 // 1. User publishes content
 const post = { title: "Hello World", body: "First post on B3nd" };
@@ -1100,10 +1100,10 @@ const schema: Schema = {
 **Node setup:**
 
 ```typescript
-import { createServerNode, DataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
-const client = new DataClient(new MemoryStore());
+const client = new MessageDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(9942);
@@ -1585,11 +1585,11 @@ export default schema;
 ### createServerNode
 
 ```typescript
-import { createServerNode, DataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 import schema from "./schema.ts";
 
-const client = new DataClient(new MemoryStore());
+const client = new MessageDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -1601,8 +1601,8 @@ node.listen(43100);
 ```typescript
 const programs = Object.keys(schema);
 const clients = [
-  new DataClient(new MemoryStore()),
-  new DataClient(new PostgresStore("b3nd", executor)),
+  new MessageDataClient(new MemoryStore()),
+  new MessageDataClient(new PostgresStore("b3nd", executor)),
 ];
 
 const client = createValidatedClient({
@@ -1621,11 +1621,11 @@ createServerNode({ frontend, client });
 // Postgres
 const pgStore = new PostgresStore("b3nd", executor);
 await pgStore.initializeSchema();
-const pg = new DataClient(pgStore);
+const pg = new MessageDataClient(pgStore);
 
 // MongoDB
 const mongoStore = new MongoStore("b3nd", executor);
-const mongo = new DataClient(mongoStore);
+const mongo = new MessageDataClient(mongoStore);
 ```
 
 ---
@@ -1797,7 +1797,7 @@ source code with line numbers.
 - `libs/b3nd-client-indexeddb/` — IndexedDBStore (browser IndexedDB storage)
 
 ### Protocol Clients
-- `libs/b3nd-core/` — DataClient, SimpleClient (wrap Store → NodeProtocolInterface)
+- `libs/b3nd-core/` — MessageDataClient, SimpleClient (wrap Store → NodeProtocolInterface)
 
 ### Transport Clients
 - `libs/b3nd-client-http/` — HttpClient (HTTP transport)

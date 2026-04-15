@@ -5,13 +5,13 @@ The universal harness for b3nd. One import, convention over configuration.
 ## Quick Start
 
 ```typescript
-import { connection, DataClient, Identity, Rig } from "@b3nd/rig";
+import { connection, MessageDataClient, Identity, Rig } from "@b3nd/rig";
 import { MemoryStore } from "@b3nd/client-memory";
 
 const id = await Identity.fromSeed("my-secret");
 const rig = new Rig({
   connections: [
-    connection(new DataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
 });
 const session = id.rig(rig);
@@ -188,7 +188,7 @@ URI-pattern reactions that fire on successful writes (send or receive).
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new DataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
   reactions: {
     "mutable://app/users/:id": (uri, data, { id }) => {
@@ -252,7 +252,7 @@ await rig.status(); // StatusResult { status, schema }
 ```typescript
 // Minimal
 const rig = new Rig({
-  connections: [connection(new DataClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
+  connections: [connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
 });
 
 // Full config

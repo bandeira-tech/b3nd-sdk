@@ -11,7 +11,7 @@
 
 import { connection, httpApi, Rig } from "../libs/b3nd-rig/mod.ts";
 import { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
-import { DataClient } from "../libs/b3nd-core/data-client.ts";
+import { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
 import type { Schema } from "../libs/b3nd-core/types.ts";
 
 // Create a permissive schema that allows any program key
@@ -42,7 +42,7 @@ const testSchema = new Proxy(baseSchema, {
 // Create rig with in-memory backend + schema validation
 const rig = new Rig({
   connections: [
-    connection(new DataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
   schema: testSchema,
 });

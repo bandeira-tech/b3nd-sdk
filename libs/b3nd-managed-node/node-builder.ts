@@ -2,7 +2,7 @@
  * Node builder for managed nodes.
  *
  * Constructs NodeProtocolInterface clients from BackendSpec arrays,
- * using Store + DataClient (envelope-aware protocol wrapper).
+ * using Store + MessageDataClient (envelope-aware protocol wrapper).
  */
 
 import {
@@ -10,7 +10,7 @@ import {
   type NodeProtocolInterface,
   type Schema,
 } from "@bandeira-tech/b3nd-sdk";
-import { DataClient } from "../b3nd-core/data-client.ts";
+import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import type { BackendSpec } from "./types.ts";
 
@@ -40,7 +40,7 @@ export async function buildClientsFromSpec(
   for (const spec of backends) {
     switch (spec.type) {
       case "memory": {
-        clients.push(new DataClient(new MemoryStore()));
+        clients.push(new MessageDataClient(new MemoryStore()));
         break;
       }
 
@@ -63,7 +63,7 @@ export async function buildClientsFromSpec(
         const schemaSQL = generatePostgresSchema(tablePrefix);
         await executor.query(schemaSQL);
         const store = new PostgresStore(tablePrefix, executor);
-        clients.push(new DataClient(store));
+        clients.push(new MessageDataClient(store));
         break;
       }
 
@@ -89,7 +89,7 @@ export async function buildClientsFromSpec(
           collectionName,
         );
         const store = new MongoStore(collectionName, executor);
-        clients.push(new DataClient(store));
+        clients.push(new MessageDataClient(store));
         break;
       }
 
@@ -105,7 +105,7 @@ export async function buildClientsFromSpec(
         const tablePrefix =
           (spec.options?.tablePrefix as string) ?? "b3nd";
         const store = new SqliteStore(tablePrefix, executor);
-        clients.push(new DataClient(store));
+        clients.push(new MessageDataClient(store));
         break;
       }
 
@@ -119,7 +119,7 @@ export async function buildClientsFromSpec(
         const { FsStore } = await import("../b3nd-client-fs/store.ts");
         const executor = executors.fs(rootDir);
         const store = new FsStore(rootDir, executor);
-        clients.push(new DataClient(store));
+        clients.push(new MessageDataClient(store));
         break;
       }
 

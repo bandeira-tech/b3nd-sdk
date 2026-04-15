@@ -1,13 +1,13 @@
 /**
- * DataClient Tests
+ * MessageDataClient Tests
  *
- * Tests protocol-aware envelope decomposition over a Store.
+ * Tests message-aware envelope decomposition over a Store.
  */
 
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import { DataClient } from "./data-client.ts";
+import { MessageDataClient } from "./message-data-client.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 
 const noSanitize = { sanitizeOps: false, sanitizeResources: false };
@@ -15,11 +15,11 @@ const noSanitize = { sanitizeOps: false, sanitizeResources: false };
 // ── Envelope decomposition ─────────────────────────────────────────
 
 Deno.test({
-  name: "DataClient - decomposes envelope: deletes inputs, writes outputs",
+  name: "MessageDataClient - decomposes envelope: deletes inputs, writes outputs",
   ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
-    const client = new DataClient(store);
+    const client = new MessageDataClient(store);
 
     // Seed an input that will be consumed
     await store.write([
@@ -60,11 +60,11 @@ Deno.test({
 });
 
 Deno.test({
-  name: "DataClient - non-envelope data is stored without decomposition",
+  name: "MessageDataClient - non-envelope data is stored without decomposition",
   ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
-    const client = new DataClient(store);
+    const client = new MessageDataClient(store);
 
     // Data that doesn't have { inputs, outputs } shape
     await client.receive([
@@ -78,11 +78,11 @@ Deno.test({
 });
 
 Deno.test({
-  name: "DataClient - envelope with no inputs, only outputs",
+  name: "MessageDataClient - envelope with no inputs, only outputs",
   ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
-    const client = new DataClient(store);
+    const client = new MessageDataClient(store);
 
     await client.receive([
       ["hash://sha256/def456", {}, {
@@ -102,11 +102,11 @@ Deno.test({
 // ── Batch receive ──────────────────────────────────────────────────
 
 Deno.test({
-  name: "DataClient - batch receive processes each message independently",
+  name: "MessageDataClient - batch receive processes each message independently",
   ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
-    const client = new DataClient(store);
+    const client = new MessageDataClient(store);
 
     const results = await client.receive([
       ["hash://sha256/msg1", {}, {
@@ -131,11 +131,11 @@ Deno.test({
 // ── Read ───────────────────────────────────────────────────────────
 
 Deno.test({
-  name: "DataClient - read delegates to store",
+  name: "MessageDataClient - read delegates to store",
   ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
-    const client = new DataClient(store);
+    const client = new MessageDataClient(store);
 
     await store.write([
       { uri: "mutable://app/x", values: {}, data: "hello" },
@@ -154,11 +154,11 @@ Deno.test({
 // ── Observe ────────────────────────────────────────────────────────
 
 Deno.test({
-  name: "DataClient - observe sees outputs from envelope decomposition",
+  name: "MessageDataClient - observe sees outputs from envelope decomposition",
   ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
-    const client = new DataClient(store);
+    const client = new MessageDataClient(store);
     const ac = new AbortController();
 
     const observed: unknown[] = [];
@@ -187,11 +187,11 @@ Deno.test({
 // ── Status ─────────────────────────────────────────────────────────
 
 Deno.test({
-  name: "DataClient - status delegates to store",
+  name: "MessageDataClient - status delegates to store",
   ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
-    const client = new DataClient(store);
+    const client = new MessageDataClient(store);
 
     const status = await client.status();
     assertEquals(status.status, "healthy");
@@ -201,11 +201,11 @@ Deno.test({
 // ── Edge cases ─────────────────────────────────────────────────────
 
 Deno.test({
-  name: "DataClient - rejects message without URI",
+  name: "MessageDataClient - rejects message without URI",
   ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
-    const client = new DataClient(store);
+    const client = new MessageDataClient(store);
 
     // deno-lint-ignore no-explicit-any
     const results = await client.receive([[null as any, {}, {}]]);
@@ -215,11 +215,11 @@ Deno.test({
 });
 
 Deno.test({
-  name: "DataClient - null data is stored without decomposition",
+  name: "MessageDataClient - null data is stored without decomposition",
   ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
-    const client = new DataClient(store);
+    const client = new MessageDataClient(store);
 
     await client.receive([
       ["mutable://app/empty", {}, null],

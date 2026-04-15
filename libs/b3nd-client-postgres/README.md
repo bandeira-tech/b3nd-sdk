@@ -4,7 +4,7 @@
 PostgreSQL. It ships with a co-located schema generator.
 
 `PostgresStore` is pure mechanical storage with no protocol awareness. Wrap it
-with `DataClient` (envelope semantics — decompose inputs/outputs) or
+with `MessageDataClient` (envelope semantics — decompose inputs/outputs) or
 `SimpleClient` (raw storage, no protocol logic) to get a full
 `NodeProtocolInterface`.
 
@@ -19,7 +19,7 @@ with `DataClient` (envelope semantics — decompose inputs/outputs) or
 
 ```ts
 import {
-  DataClient,
+  MessageDataClient,
   generatePostgresSchema,
   PostgresStore,
 } from "@bandeira-tech/b3nd-sdk";
@@ -44,7 +44,7 @@ const executor: SqlExecutor = {
 
 // 3) Create the store and wrap it with a protocol client
 const store = new PostgresStore("b3nd", executor);
-const client = new DataClient(store);
+const client = new MessageDataClient(store);
 
 // Protocol-aware: decomposes envelopes, deletes inputs, writes outputs
 await client.receive([

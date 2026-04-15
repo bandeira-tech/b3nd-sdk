@@ -8,7 +8,7 @@
 
 import { assertEquals } from "@std/assert";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { DataClient } from "../b3nd-core/data-client.ts";
+import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
 import { parallelBroadcast } from "./parallel-broadcast.ts";
 import { firstMatchSequence } from "./first-match-sequence.ts";
@@ -39,8 +39,8 @@ function rejectingClient(): NodeProtocolInterface {
 // --- parallelBroadcast tests ---
 
 Deno.test("parallelBroadcast - writes to all backends", async () => {
-  const a = new DataClient(new MemoryStore());
-  const b = new DataClient(new MemoryStore());
+  const a = new MessageDataClient(new MemoryStore());
+  const b = new MessageDataClient(new MemoryStore());
   const combined = parallelBroadcast([a, b]);
 
   const results = await combined.receive([
@@ -58,8 +58,8 @@ Deno.test("parallelBroadcast - writes to all backends", async () => {
 });
 
 Deno.test("parallelBroadcast - reads from first backend only", async () => {
-  const a = new DataClient(new MemoryStore());
-  const b = new DataClient(new MemoryStore());
+  const a = new MessageDataClient(new MemoryStore());
+  const b = new MessageDataClient(new MemoryStore());
 
   // Write directly to each backend with different data
   await a.receive([["mutable://data/test", {}, { source: "a" }]]);
@@ -75,8 +75,8 @@ Deno.test("parallelBroadcast - reads from first backend only", async () => {
 });
 
 Deno.test("parallelBroadcast - multi-read from first backend", async () => {
-  const a = new DataClient(new MemoryStore());
-  const b = new DataClient(new MemoryStore());
+  const a = new MessageDataClient(new MemoryStore());
+  const b = new MessageDataClient(new MemoryStore());
 
   await a.receive([["mutable://data/x", {}, { from: "a" }]]);
   await b.receive([["mutable://data/x", {}, { from: "b" }]]);
@@ -92,7 +92,7 @@ Deno.test("parallelBroadcast - multi-read from first backend", async () => {
 });
 
 Deno.test("parallelBroadcast - fails if any backend rejects write", async () => {
-  const a = new DataClient(new MemoryStore());
+  const a = new MessageDataClient(new MemoryStore());
   const b = rejectingClient();
 
   const combined = parallelBroadcast([a, b]);
@@ -105,8 +105,8 @@ Deno.test("parallelBroadcast - fails if any backend rejects write", async () => 
 // --- firstMatchSequence tests ---
 
 Deno.test("firstMatchSequence - reads from first backend that has data", async () => {
-  const primary = new DataClient(new MemoryStore());
-  const fallback = new DataClient(new MemoryStore());
+  const primary = new MessageDataClient(new MemoryStore());
+  const fallback = new MessageDataClient(new MemoryStore());
 
   // Only fallback has the data
   await fallback.receive([["mutable://data/only-in-fallback", {}, { found: true }]]);
@@ -121,8 +121,8 @@ Deno.test("firstMatchSequence - reads from first backend that has data", async (
 });
 
 Deno.test("firstMatchSequence - prefers primary over fallback", async () => {
-  const primary = new DataClient(new MemoryStore());
-  const fallback = new DataClient(new MemoryStore());
+  const primary = new MessageDataClient(new MemoryStore());
+  const fallback = new MessageDataClient(new MemoryStore());
 
   await primary.receive([["mutable://data/both", {}, { source: "primary" }]]);
   await fallback.receive([["mutable://data/both", {}, { source: "fallback" }]]);
@@ -137,8 +137,8 @@ Deno.test("firstMatchSequence - prefers primary over fallback", async () => {
 });
 
 Deno.test("firstMatchSequence - returns failure when no backend has data", async () => {
-  const a = new DataClient(new MemoryStore());
-  const b = new DataClient(new MemoryStore());
+  const a = new MessageDataClient(new MemoryStore());
+  const b = new MessageDataClient(new MemoryStore());
 
   const combined = firstMatchSequence([a, b]);
   const results = await combined.read("mutable://data/nowhere");
@@ -149,7 +149,7 @@ Deno.test("firstMatchSequence - returns failure when no backend has data", async
 Deno.test("firstMatchSequence - write goes to first accepting backend", async () => {
   // primary rejects all writes
   const primary = rejectingClient();
-  const fallback = new DataClient(new MemoryStore());
+  const fallback = new MessageDataClient(new MemoryStore());
 
   const combined = firstMatchSequence([primary, fallback]);
   const results = await combined.receive([
@@ -163,8 +163,8 @@ Deno.test("firstMatchSequence - write goes to first accepting backend", async ()
 });
 
 Deno.test("firstMatchSequence - multi-read falls through to fallback", async () => {
-  const primary = new DataClient(new MemoryStore());
-  const fallback = new DataClient(new MemoryStore());
+  const primary = new MessageDataClient(new MemoryStore());
+  const fallback = new MessageDataClient(new MemoryStore());
 
   await fallback.receive([["mutable://data/a", {}, { v: 1 }]]);
   await fallback.receive([["mutable://data/b", {}, { v: 2 }]]);

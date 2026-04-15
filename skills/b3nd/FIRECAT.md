@@ -601,7 +601,7 @@ schema above.
 { "imports": { "@bandeira-tech/b3nd-sdk": "jsr:@bandeira-tech/b3nd-sdk" } }
 
 import {
-  connection, DataClient, HttpClient, MemoryStore, MongoStore, msgSchema,
+  connection, MessageDataClient, HttpClient, MemoryStore, MongoStore, msgSchema,
   PostgresStore, Rig, send, servers,
 } from "@bandeira-tech/b3nd-sdk";
 ```
@@ -609,13 +609,13 @@ import {
 ### HTTP Server with Hono
 
 ```typescript
-import { connection, DataClient, MemoryStore, Rig, servers } from "@bandeira-tech/b3nd-sdk";
+import { connection, MessageDataClient, MemoryStore, Rig, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
 // Import or define the Firecat schema
 import firecatSchema from "./firecat-schema.ts";
 
-const client = new DataClient(new MemoryStore());
+const client = new MessageDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const rig = new Rig({
@@ -630,8 +630,8 @@ rig.listen(43100);
 
 ```typescript
 const clients = [
-  new DataClient(new MemoryStore()),
-  new DataClient(new PostgresStore("b3nd", executor)),
+  new MessageDataClient(new MemoryStore()),
+  new MessageDataClient(new PostgresStore("b3nd", executor)),
 ];
 
 const rig = new Rig({
@@ -645,11 +645,11 @@ const rig = new Rig({
 
 ```typescript
 // Postgres
-const pg = new DataClient(new PostgresStore("b3nd", executor));
+const pg = new MessageDataClient(new PostgresStore("b3nd", executor));
 await pg.initializeSchema();
 
 // MongoDB
-const mongo = new DataClient(new MongoStore(collection, executor));
+const mongo = new MessageDataClient(new MongoStore(collection, executor));
 ```
 
 ### Environment Variables
@@ -885,13 +885,13 @@ main();
 
 ```typescript
 import { assertEquals } from "@std/assert";
-import { DataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
+import { MessageDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
 
 // Use the Firecat schema for realistic testing
 import firecatSchema from "./firecat-schema.ts";
 
 Deno.test("send and read on Firecat schema", async () => {
-  const client = new DataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
   const result = await send({
     payload: {
       inputs: [],
@@ -943,12 +943,12 @@ Memory client that survives page reloads by backing to localStorage:
 
 ```typescript
 export class PersistedMemoryClient implements NodeProtocolInterface {
-  private client: DataClient;
+  private client: MessageDataClient;
   private storageKey: string;
 
   constructor(storageKey: string) {
     this.storageKey = storageKey;
-    this.client = new DataClient(new MemoryStore());
+    this.client = new MessageDataClient(new MemoryStore());
     this.loadFromStorage();
   }
 

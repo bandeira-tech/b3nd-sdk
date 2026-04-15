@@ -2,10 +2,10 @@ import { assertEquals } from "@std/assert";
 import { connection, httpApi, Rig } from "../libs/b3nd-rig/mod.ts";
 import { createTestSchema } from "../libs/b3nd-client-memory/mod.ts";
 import { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
-import { DataClient } from "../libs/b3nd-core/data-client.ts";
+import { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
 
 function memClient() {
-  return new DataClient(new MemoryStore());
+  return new MessageDataClient(new MemoryStore());
 }
 
 Deno.test("httpApi - status endpoint", async () => {
