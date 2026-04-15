@@ -4,8 +4,8 @@
  * Pure mechanical storage with no protocol awareness.
  * Write entries, read entries, delete entries. Observe is not supported.
  *
- * Uses the same S3Executor pattern as S3Client, keeping the SDK
- * decoupled from any specific S3 library.
+ * Uses an injected S3Executor, keeping the SDK decoupled from any
+ * specific S3 library.
  *
  * @example
  * ```typescript

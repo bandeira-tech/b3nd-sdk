@@ -7,7 +7,8 @@ import {
   generateSigningKeyPair,
   hmac,
 } from "@b3nd/encrypt";
-import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
+import { MemoryStore } from "../../libs/b3nd-client-memory/store.ts";
+import { FirecatDataClient } from "../../libs/firecat-protocol/firecat-client.ts";
 
 import {
   createVaultHandler,
@@ -17,7 +18,7 @@ import {
 } from "./vault.ts";
 
 Deno.test("vault: end-to-end auth flow with mock verifier", async () => {
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
 
   // Vault identity
   const vaultSigning = await generateSigningKeyPair();
@@ -90,7 +91,7 @@ Deno.test("vault: end-to-end auth flow with mock verifier", async () => {
 });
 
 Deno.test("vault: same provider account always yields same identity", async () => {
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
 
   const vaultSigning = await generateSigningKeyPair();
   const vaultEnc = await generateEncryptionKeyPair();

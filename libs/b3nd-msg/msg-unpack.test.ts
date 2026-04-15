@@ -12,7 +12,8 @@
 import { assertEquals } from "@std/assert";
 import type { MessageData } from "./data/types.ts";
 import type { Schema } from "../b3nd-core/types.ts";
-import { MemoryClient } from "../b3nd-client-memory/mod.ts";
+import { MemoryStore } from "../b3nd-client-memory/store.ts";
+import { FirecatDataClient } from "../firecat-protocol/firecat-client.ts";
 import { createValidatedClient, msgSchema } from "../b3nd-compose/mod.ts";
 
 // =============================================================================
@@ -113,7 +114,7 @@ Deno.test("integration - receive MessageData through node → client unpacks out
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
 
   const node = createValidatedClient({
     write: client,
@@ -153,7 +154,7 @@ Deno.test("integration - plain messages still work alongside MessageData", async
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
 
   const node = createValidatedClient({
     write: client,
@@ -194,7 +195,7 @@ Deno.test("integration - MessageData with mixed programs (mutable + immutable)",
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
 
   const node = createValidatedClient({
     write: client,
@@ -232,7 +233,7 @@ Deno.test("integration - msgSchema rejects invalid outputs before client sees th
     "msg://open": async () => ({ valid: true }),
   };
 
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
 
   const node = createValidatedClient({
     write: client,

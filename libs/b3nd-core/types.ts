@@ -440,16 +440,6 @@ export interface ClientAccepts {
 }
 
 /**
- * Configuration for MemoryClient
- */
-export interface MemoryClientConfig {
-  /**
-   * Optional pre-existing storage
-   */
-  storage?: Map<string, unknown>;
-}
-
-/**
  * Configuration for HttpClient
  */
 export interface HttpClientConfig {
@@ -552,116 +542,6 @@ export interface IndexedDBClientConfig {
    */
   // deno-lint-ignore no-explicit-any
   indexedDB?: any;
-}
-
-/**
- * Configuration for PostgresClient
- */
-export interface PostgresClientConfig {
-  /**
-   * PostgreSQL connection string or configuration
-   * Examples:
-   *   - "postgresql://user:password@localhost:5432/database"
-   *   - { host: "localhost", port: 5432, database: "mydb", user: "user", password: "pass" }
-   */
-  connection: string | {
-    host: string;
-    port: number;
-    database: string;
-    user: string;
-    password: string;
-    ssl?: boolean | object;
-  };
-
-  /**
-   * Table name prefix for b3nd data - must be explicitly provided
-   */
-  tablePrefix: string;
-
-  /**
-   * Connection pool size - must be explicitly provided
-   */
-  poolSize: number;
-
-  /**
-   * Connection timeout in milliseconds - must be explicitly provided
-   */
-  connectionTimeout: number;
-}
-
-/**
- * Configuration for MongoClient
- */
-export interface MongoClientConfig {
-  /**
-   * MongoDB connection string
-   * Example: "mongodb://user:password@localhost:27017/database"
-   */
-  connectionString: string;
-
-  /**
-   * Collection name for b3nd data - must be explicitly provided
-   */
-  collectionName: string;
-}
-
-/**
- * Configuration for FilesystemClient
- */
-export interface FsClientConfig {
-  /**
-   * Root directory for data storage
-   * All URI paths are stored relative to this root
-   */
-  rootDir: string;
-}
-
-/**
- * Configuration for SqliteClient
- */
-export interface SqliteClientConfig {
-  /**
-   * Path to the SQLite database file, or ":memory:" for in-memory databases
-   * Example: "/data/b3nd.db" or ":memory:"
-   */
-  path: string;
-
-  /**
-   * Table name prefix for b3nd data tables
-   * Must start with a letter and contain only letters, numbers, and underscores
-   */
-  tablePrefix: string;
-}
-
-/**
- * Configuration for S3Client
- */
-export interface S3ClientConfig {
-  /**
-   * S3 bucket name
-   */
-  bucket: string;
-
-  /**
-   * Optional key prefix for all objects (e.g., "b3nd/" or "prod/data/")
-   * Must end with "/" if provided.
-   */
-  prefix?: string;
-}
-
-/**
- * Configuration for ConsoleClient
- */
-export interface ConsoleClientConfig {
-  /**
-   * Optional label prefix for console output (default: "b3nd")
-   */
-  label?: string;
-
-  /**
-   * Optional custom logger (defaults to console.log)
-   */
-  logger?: (message: string) => void;
 }
 
 /**

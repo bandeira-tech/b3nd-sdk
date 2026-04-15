@@ -4,8 +4,8 @@
  * Pure mechanical storage with no protocol awareness.
  * Write entries, read entries, delete entries. Observe is not supported.
  *
- * Uses the same SqliteExecutor pattern as SqliteClient, keeping the SDK
- * decoupled from any specific SQLite driver. The executor is synchronous,
+ * Uses an injected SqliteExecutor, keeping the SDK decoupled from any
+ * specific SQLite driver. The executor is synchronous,
  * so results are wrapped in Promise.resolve() to satisfy the async Store
  * interface.
  *

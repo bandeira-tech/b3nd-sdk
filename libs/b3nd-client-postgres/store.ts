@@ -4,8 +4,8 @@
  * Pure mechanical storage with no protocol awareness.
  * Write entries, read entries, delete entries. Observe is not supported.
  *
- * Uses the same SqlExecutor pattern as PostgresClient, keeping the SDK
- * decoupled from any specific PostgreSQL driver.
+ * Uses an injected SqlExecutor, keeping the SDK decoupled from any
+ * specific PostgreSQL driver.
  *
  * @example
  * ```typescript

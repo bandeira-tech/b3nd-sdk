@@ -4,7 +4,8 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
+import { MemoryStore } from "../../libs/b3nd-client-memory/store.ts";
+import { FirecatDataClient } from "./firecat-client.ts";
 import { send } from "@bandeira-tech/b3nd-sdk";
 import type { Output } from "@bandeira-tech/b3nd-sdk/types";
 import {
@@ -24,7 +25,7 @@ import {
 } from "./helpers.ts";
 
 function createClient() {
-  const mem = new MemoryClient();
+  const mem = new FirecatDataClient(new MemoryStore());
   return createValidatedClient({
     write: mem,
     read: mem,

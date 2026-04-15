@@ -5,11 +5,11 @@
  * Provides URI-based data addressing with multiple backend support,
  * encryption, and schema validation.
  *
- * @example Basic usage with MemoryClient
+ * @example Basic usage with Store + protocol client
  * ```typescript
- * import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
+ * import { MemoryStore, FirecatDataClient } from "@bandeira-tech/b3nd-sdk";
  *
- * const client = new MemoryClient();
+ * const client = new FirecatDataClient(new MemoryStore());
  *
  * // Receive a message (the unified interface for all state changes)
  * await client.receive([["mutable://users/alice", {}, { name: "Alice", age: 30 }]]);
@@ -29,23 +29,9 @@
  *
  * const client = new HttpClient({ url: "https://api.example.com" });
  *
- * // Same interface as MemoryClient
+ * // Same NodeProtocolInterface as Store-backed clients
  * await client.receive([["mutable://data/key", {}, { value: 123 }]]);
  * const result = await client.read("mutable://data/key");
- * ```
- *
- * @example Schema validation
- * ```typescript
- * import { MemoryClient } from "@bandeira-tech/b3nd-sdk";
- *
- * const client = new MemoryClient({
- *   schema: {
- *     "mutable://users": async (uri, data) => {
- *       if (!data?.name) return { valid: false, error: "name required" };
- *       return { valid: true };
- *     },
- *   },
- * });
  * ```
  */
 
@@ -53,31 +39,22 @@
 export type {
   B3ndError,
   ClientError,
-  ConsoleClientConfig,
   DeleteResult,
-  FsClientConfig,
   HealthStatus,
   HttpClientConfig,
-  IndexedDBClientConfig,
   ListItem,
   ListOptions,
   ListResult,
-  LocalStorageClientConfig,
-  MemoryClientConfig,
-  MongoClientConfig,
   NodeProtocolInterface,
   NodeProtocolReadInterface,
   NodeProtocolWriteInterface,
   Output,
-  PostgresClientConfig,
   ReadFn,
   ReadMultiResult,
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
-  S3ClientConfig,
   Schema,
-  SqliteClientConfig,
   StatusResult,
   Store,
   StoreCapabilities,
@@ -109,24 +86,16 @@ export { ConsoleStore } from "../libs/b3nd-client-console/store.ts";
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
 export { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
 
-// Client implementations (legacy — prefer Store + SimpleClient/FirecatDataClient)
-export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
+// Transport clients (direct NodeProtocolInterface, no Store)
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
-export { PostgresClient } from "../libs/b3nd-client-postgres/mod.ts";
-export { MongoClient } from "../libs/b3nd-client-mongo/mod.ts";
-export { SqliteClient } from "../libs/b3nd-client-sqlite/mod.ts";
-export { FilesystemClient } from "../libs/b3nd-client-fs/mod.ts";
-export { ConsoleClient } from "../libs/b3nd-client-console/mod.ts";
-export { S3Client } from "../libs/b3nd-client-s3/mod.ts";
+
+// Executor types (for injecting platform-specific drivers)
 export type { S3Executor } from "../libs/b3nd-client-s3/mod.ts";
-export { ElasticsearchClient } from "../libs/b3nd-client-elasticsearch/mod.ts";
 export type {
   ElasticsearchClientConfig,
   ElasticsearchExecutor,
 } from "../libs/b3nd-client-elasticsearch/mod.ts";
-// Note: LocalStorageClient and IndexedDBClient are browser-only
-// and not included in the JSR package. Use the npm package for browser support.
 
 // PostgreSQL schema utilities
 export {

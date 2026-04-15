@@ -4,8 +4,8 @@
  * Pure mechanical storage with no protocol awareness.
  * Write entries, read entries, delete entries. Observe is not supported.
  *
- * Uses the same ElasticsearchExecutor pattern as ElasticsearchClient,
- * keeping the SDK decoupled from any specific Elasticsearch library.
+ * Uses an injected ElasticsearchExecutor, keeping the SDK decoupled
+ * from any specific Elasticsearch library.
  *
  * @example
  * ```typescript

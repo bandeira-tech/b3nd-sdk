@@ -6,8 +6,15 @@ import {
 } from "./backend-factory.ts";
 import { Rig } from "./rig.ts";
 import { AuthenticatedRig } from "./authenticated-rig.ts";
-import { createTestSchema, MemoryClient } from "../b3nd-client-memory/mod.ts";
+import { createTestSchema } from "../b3nd-client-memory/mod.ts";
+import { MemoryStore } from "../b3nd-client-memory/store.ts";
+import { FirecatDataClient } from "../firecat-protocol/firecat-client.ts";
 import { connection } from "./connection.ts";
+
+/** Shorthand: envelope-aware client backed by an in-memory store. */
+function memClient() {
+  return new FirecatDataClient(new MemoryStore());
+}
 import { httpApi } from "./http.ts";
 
 // ── Identity tests ──
@@ -392,7 +399,7 @@ Deno.test("SUPPORTED_PROTOCOLS - is a readonly array", () => {
 Deno.test("Rig -with memory backend", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const health = await rig.status();
@@ -400,7 +407,7 @@ Deno.test("Rig -with memory backend", async () => {
 });
 
 Deno.test("Rig -with pre-built client", async () => {
-  const client = new MemoryClient();
+  const client = memClient();
   const rig = new Rig({
     connections: [connection(client, { receive: ["*"], read: ["*"] })],
   });
@@ -412,7 +419,7 @@ Deno.test("AuthenticatedRig - identity.rig(rig) creates session", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -426,7 +433,7 @@ Deno.test("AuthenticatedRig - identity.rig(rig) creates session", async () => {
 Deno.test("Rig.receive - receives a message", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const [result] = await rig.receive([["mutable://open/test", {}, {
@@ -444,7 +451,7 @@ Deno.test("AuthenticatedRig.send - signs and sends via session", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -468,7 +475,7 @@ Deno.test("AuthenticatedRig - multiple identities on same rig", async () => {
   const bob = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
 
@@ -497,7 +504,7 @@ Deno.test("AuthenticatedRig - multiple identities on same rig", async () => {
 Deno.test("Rig.read - trailing-slash lists items", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/a", {}, 1]]);
@@ -512,7 +519,7 @@ Deno.test("Rig.read - trailing-slash lists items", async () => {
 Deno.test("Rig.read - reads multiple URIs", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/m1", {}, "a"]]);
@@ -526,7 +533,7 @@ Deno.test("Rig.read - reads multiple URIs", async () => {
 Deno.test("Rig.client - exposes underlying client", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   assertEquals(typeof rig.client.receive, "function");
@@ -535,8 +542,8 @@ Deno.test("Rig.client - exposes underlying client", async () => {
 
 Deno.test("Rig -multi-client dispatch composes correctly", async () => {
   // Two memory backends — writes should go to both, reads from first match
-  const clientA = new MemoryClient();
-  const clientB = new MemoryClient();
+  const clientA = memClient();
+  const clientB = memClient();
   const rig = new Rig({
     connections: [
       connection(clientA, {
@@ -560,7 +567,7 @@ Deno.test("Rig -multi-client dispatch composes correctly", async () => {
 Deno.test("Rig.status - returns schema keys", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const status = await rig.status();
@@ -572,7 +579,7 @@ Deno.test("Rig.status - returns schema keys", async () => {
 Deno.test("Rig -quick connect to memory backend", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const health = await rig.status();
@@ -583,7 +590,7 @@ Deno.test("Rig -session.send round-trip", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -598,7 +605,7 @@ Deno.test("Rig -session.send round-trip", async () => {
 Deno.test("Rig -receive and read round-trip", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/hello", {}, "world"]]);
@@ -614,7 +621,7 @@ Deno.test("AuthenticatedRig.canSign - true for full identity", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -625,7 +632,7 @@ Deno.test("AuthenticatedRig.canSign - false for public-only identity", async () 
   const publicId = Identity.publicOnly({ signing: "ab".repeat(32) });
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = publicId.rig(rig);
@@ -636,7 +643,7 @@ Deno.test("AuthenticatedRig.canEncrypt - true for full identity", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -653,7 +660,7 @@ Deno.test("AuthenticatedRig.canEncrypt - false for public-only identity", () => 
 Deno.test("Rig.exists - returns true for existing data", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/check", {}, { present: true }]]);
@@ -663,7 +670,7 @@ Deno.test("Rig.exists - returns true for existing data", async () => {
 Deno.test("Rig.exists - returns false for missing data", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   assertEquals(await rig.exists("mutable://open/nonexistent"), false);
@@ -676,7 +683,7 @@ Deno.test("Rig.exists - returns false for missing data", async () => {
 Deno.test("Rig.read - handles mix of existing and missing URIs", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/yes", {}, "found"]]);
@@ -693,7 +700,7 @@ Deno.test("Rig.read - handles mix of existing and missing URIs", async () => {
 Deno.test("Rig.read - handles empty URI array", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const results = await rig.read([]);
@@ -730,7 +737,7 @@ Deno.test("createClientFromUrl - rejects unknown protocol", async () => {
 Deno.test("Rig.readData - returns data for existing URI", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/profile", {}, {
@@ -747,7 +754,7 @@ Deno.test("Rig.readData - returns data for existing URI", async () => {
 Deno.test("Rig.readData - returns null for missing URI", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const data = await rig.readData("mutable://open/ghost");
@@ -759,7 +766,7 @@ Deno.test("Rig.readData - returns null for missing URI", async () => {
 Deno.test("Rig.readData - handles scalar values", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
 
@@ -778,7 +785,7 @@ Deno.test("Rig.readData - handles scalar values", async () => {
 Deno.test("Rig.readOrThrow - returns data for existing URI", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/config", {}, { debug: false }]]);
@@ -792,7 +799,7 @@ Deno.test("Rig.readOrThrow - returns data for existing URI", async () => {
 Deno.test("Rig.readOrThrow - throws for missing URI", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await assertRejects(
@@ -810,7 +817,7 @@ Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async ()
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -857,7 +864,7 @@ Deno.test("AuthenticatedRig.send - different identities produce different signat
   const bob = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
 
@@ -901,7 +908,7 @@ Deno.test("AuthenticatedRig.send - different identities produce different signat
 Deno.test("Rig.read - multi-URI returns data for each", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
 
@@ -921,7 +928,7 @@ Deno.test("Rig.read - multi-URI returns data for each", async () => {
 Deno.test("Rig.read - multi-URI omits missing URIs", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
 
@@ -941,7 +948,7 @@ Deno.test("Rig.read - multi-URI omits missing URIs", async () => {
 Deno.test("Rig.read - empty array returns empty results", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const results = await rig.read([]);
@@ -951,7 +958,7 @@ Deno.test("Rig.read - empty array returns empty results", async () => {
 Deno.test("Rig.read - multi-URI all missing returns all failures", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const results = await rig.read([
@@ -965,7 +972,7 @@ Deno.test("AuthenticatedRig.send - multiple outputs in single envelope", async (
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1002,7 +1009,7 @@ Deno.test("AuthenticatedRig.send - multiple outputs in single envelope", async (
 Deno.test("Rig.read - trailing-slash returns URI strings", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/ld/a", {}, 1]]);
@@ -1022,7 +1029,7 @@ Deno.test("Rig.read - trailing-slash returns URI strings", async () => {
 Deno.test("Rig.read - trailing-slash returns empty for empty prefix", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const results = await rig.read("mutable://open/nothing-here/");
@@ -1034,7 +1041,7 @@ Deno.test("Rig.read - trailing-slash returns empty for empty prefix", async () =
 Deno.test("Rig.read - trailing-slash reads all data under a prefix", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/ra/alice", {}, { name: "Alice" }]]);
@@ -1054,7 +1061,7 @@ Deno.test("Rig.read - trailing-slash reads all data under a prefix", async () =>
 Deno.test("Rig.read - trailing-slash returns empty for empty prefix", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const results = await rig.read("mutable://open/empty-prefix/");
@@ -1067,7 +1074,7 @@ Deno.test("AuthenticatedRig.readEncrypted - returns null for missing URI", async
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1080,7 +1087,7 @@ Deno.test("AuthenticatedRig.readEncrypted - throws for non-encrypted data", asyn
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1100,7 +1107,7 @@ Deno.test("AuthenticatedRig.readEncryptedMany - returns empty array for empty in
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1113,7 +1120,7 @@ Deno.test("AuthenticatedRig.readEncryptedMany - returns null for missing URIs", 
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1137,7 +1144,7 @@ Deno.test("AuthenticatedRig.readEncryptedMany - returns null for missing URIs", 
 Deno.test("Rig.info - returns behavior info", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     hooks: {
       beforeReceive: () => {},
@@ -1161,7 +1168,7 @@ Deno.test("Rig.info - returns behavior info", async () => {
 Deno.test("Rig.info - empty rig has empty behavior", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
 
@@ -1175,7 +1182,7 @@ Deno.test("Rig.info - empty rig has empty behavior", async () => {
 Deno.test("Rig.read - trailing-slash empty prefix returns empty", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const results = await rig.read("mutable://open/empty-prefix/");
@@ -1185,7 +1192,7 @@ Deno.test("Rig.read - trailing-slash empty prefix returns empty", async () => {
 Deno.test("Rig.read - trailing-slash returns all items under prefix", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/coll/a", {}, { v: 1 }]]);
@@ -1207,7 +1214,7 @@ Deno.test("Rig.read - trailing-slash returns all items under prefix", async () =
 Deno.test("Rig.status - returns healthy for memory backend", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const health = await rig.status();
@@ -1217,7 +1224,7 @@ Deno.test("Rig.status - returns healthy for memory backend", async () => {
 Deno.test("Rig.status - returns schema keys for memory backend", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const status = await rig.status();
@@ -1233,7 +1240,7 @@ Deno.test({
   async fn() {
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
     const uri = "mutable://open/watch-test";
@@ -1275,7 +1282,7 @@ Deno.test({
   async fn() {
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
     const uri = "mutable://open/watch-abort";
@@ -1306,7 +1313,7 @@ Deno.test({
   async fn() {
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
     const uri = "mutable://open/watch-dedup";
@@ -1353,7 +1360,7 @@ Deno.test("Rig -schema validates receive", async () => {
   const schema = createTestSchema();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     schema,
   });
@@ -1372,7 +1379,7 @@ Deno.test("Rig -schema rejects invalid domain", async () => {
   const schema = createTestSchema();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     schema,
   });
@@ -1387,11 +1394,11 @@ Deno.test("Rig -multi-connection dispatch with schema validates receive", async 
   const schema = createTestSchema();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), {
+      connection(memClient(), {
         receive: ["mutable://*", "immutable://*", "hash://*", "local://*"],
         read: ["mutable://*", "immutable://*", "hash://*", "local://*"],
       }),
-      connection(new MemoryClient(), {
+      connection(memClient(), {
         receive: ["mutable://*", "immutable://*", "hash://*", "local://*"],
         read: ["mutable://*", "immutable://*", "hash://*", "local://*"],
       }),
@@ -1414,11 +1421,11 @@ Deno.test("Rig -multi-connection dispatch with schema rejects invalid domain", a
   const schema = createTestSchema();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), {
+      connection(memClient(), {
         receive: ["mutable://*", "immutable://*", "hash://*", "local://*"],
         read: ["mutable://*", "immutable://*", "hash://*", "local://*"],
       }),
-      connection(new MemoryClient(), {
+      connection(memClient(), {
         receive: ["mutable://*", "immutable://*", "hash://*", "local://*"],
         read: ["mutable://*", "immutable://*", "hash://*", "local://*"],
       }),
@@ -1438,7 +1445,7 @@ Deno.test("Rig -schema with session allows send", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     schema,
   });
@@ -1459,7 +1466,7 @@ Deno.test("Rig -schema with session allows send", async () => {
 Deno.test("Rig.count - returns count of items under prefix", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   await rig.receive([["mutable://open/cnt/a", {}, 1]]);
@@ -1473,7 +1480,7 @@ Deno.test("Rig.count - returns count of items under prefix", async () => {
 Deno.test("Rig.count - returns 0 for empty prefix", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const count = await rig.count("mutable://open/empty-count");
@@ -1489,7 +1496,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to self and read back", asyn
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1514,7 +1521,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - stored data is actually encrypted (n
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1543,7 +1550,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - multiple encrypted outputs", async (
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1572,7 +1579,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to another party", async () 
   const receiver = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
 
@@ -1605,7 +1612,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - throws for public-only identity", as
   const id = Identity.publicOnly({ signing: "ab".repeat(32) });
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1624,7 +1631,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - envelope is signed and verifiable", 
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -1885,7 +1892,7 @@ Deno.test({
   async fn() {
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
     await rig.receive([["mutable://open/wacol/a", {}, { n: 1 }]]);
@@ -1919,7 +1926,7 @@ Deno.test({
   async fn() {
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
     await rig.receive([["mutable://open/wacol/a", {}, { n: 1 }]]);
@@ -1958,7 +1965,7 @@ Deno.test({
   async fn() {
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
     await rig.receive([["mutable://open/wacol/a", {}, { n: 1 }]]);
@@ -1995,7 +2002,7 @@ Deno.test({
   async fn() {
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
     await rig.receive([["mutable://open/wacol/a", {}, { n: 1 }]]);
@@ -2028,7 +2035,7 @@ Deno.test({
   async fn() {
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
 
@@ -2054,9 +2061,9 @@ Deno.test({
 // ── Rig.observe() tests (client-backed streaming) ──
 
 Deno.test({
-  name: "Rig.observe - yields matching writes from MemoryClient",
+  name: "Rig.observe - yields matching writes from memory backend",
   async fn() {
-    const mem = new MemoryClient();
+    const mem = memClient();
     const rig = new Rig({
       connections: [
         connection(mem, { receive: ["*"], read: ["*"], observe: ["*"] }),
@@ -2095,7 +2102,7 @@ Deno.test({
   async fn() {
     const rig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
         // No observe patterns
       ],
     });
@@ -2119,7 +2126,7 @@ Deno.test("AuthenticatedRig.sendMany - sends multiple envelopes", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -2144,7 +2151,7 @@ Deno.test("AuthenticatedRig.sendMany - returns empty array for empty input", asy
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -2157,7 +2164,7 @@ Deno.test("AuthenticatedRig.sendMany - each envelope gets its own hash", async (
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const session = id.rig(rig);
@@ -2178,7 +2185,7 @@ Deno.test("AuthenticatedRig.sendMany - each envelope gets its own hash", async (
 Deno.test("Rig hooks - beforeReceive throw rejects receive", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     hooks: {
       beforeReceive: () => {
@@ -2197,7 +2204,7 @@ Deno.test("Rig hooks - beforeReceive throw rejects receive", async () => {
 Deno.test("Rig hooks - beforeReceive mutates context", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     hooks: {
       beforeReceive: (ctx) => ({
@@ -2221,7 +2228,7 @@ Deno.test("Rig hooks - afterRead observes result without modifying", async () =>
   const observed: unknown[] = [];
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     hooks: {
       afterRead: (_ctx, result) => {
@@ -2241,7 +2248,7 @@ Deno.test("Rig hooks - afterRead observes result without modifying", async () =>
 Deno.test("Rig hooks - afterRead throw propagates to caller", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     hooks: {
       afterRead: () => {
@@ -2264,7 +2271,7 @@ Deno.test("Rig hooks - beforeSend throw rejects send", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     hooks: {
       beforeSend: () => {
@@ -2291,7 +2298,7 @@ Deno.test("Rig events - fires on receive success", async () => {
   const events: unknown[] = [];
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     on: {
       "receive:success": [(e) => {
@@ -2311,7 +2318,7 @@ Deno.test("Rig events - fires on receive error (schema rejection)", async () => 
   const errors: unknown[] = [];
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     schema: createTestSchema(),
     on: {
@@ -2332,7 +2339,7 @@ Deno.test("Rig events - wildcard fires for all ops", async () => {
   const events: unknown[] = [];
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     on: {
       "*:success": [(e) => {
@@ -2356,7 +2363,7 @@ Deno.test("Rig reaction - fires on receive matching pattern", async () => {
   const calls: { uri: string; params: Record<string, string> }[] = [];
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     reactions: {
       "mutable://open/:key": (uri, _data, params) => {
@@ -2378,7 +2385,7 @@ Deno.test("Rig reaction - fires on send for each output", async () => {
   const uris: string[] = [];
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     reactions: {
       "mutable://open/:key": (uri) => {
@@ -2406,7 +2413,7 @@ Deno.test("Rig reaction - does not fire on read", async () => {
   let called = false;
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     reactions: {
       "mutable://open/:key": () => {
@@ -2430,7 +2437,7 @@ Deno.test("Rig reaction - does not fire on read", async () => {
 Deno.test("Rig hooks - immutable after init", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     hooks: {
       beforeReceive: () => {},
@@ -2445,7 +2452,7 @@ Deno.test("Rig hooks - immutable after init", async () => {
 Deno.test("Rig.on - runtime event handler works", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const events: unknown[] = [];
@@ -2468,7 +2475,7 @@ Deno.test("Rig.on - runtime event handler works", async () => {
 Deno.test("Rig.off - removes event handler", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const events: unknown[] = [];
@@ -2490,7 +2497,7 @@ Deno.test("Rig.off - removes event handler", async () => {
 Deno.test("Rig.reaction - runtime react works", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
   const calls: string[] = [];
@@ -2513,8 +2520,8 @@ Deno.test("Rig.reaction - runtime react works", async () => {
 // ── Per-operation connection routing tests ──
 
 Deno.test("Rig connections - per-op routing uses separate backends", async () => {
-  const writeClient = new MemoryClient();
-  const readClient = new MemoryClient();
+  const writeClient = memClient();
+  const readClient = memClient();
 
   // Write some data to readClient directly
   await readClient.receive([["mutable://open/cached", {}, { from: "cache" }]]);
@@ -2548,7 +2555,7 @@ Deno.test("Rig - schema still works with hooks", async () => {
   const schema = createTestSchema();
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     schema,
     hooks: {
@@ -2568,8 +2575,8 @@ Deno.test("Rig - schema still works with hooks", async () => {
 // No hook chain replacement test — hooks are immutable after init.
 
 Deno.test("Rig dispatch - status returns healthy for multi-client", async () => {
-  const c1 = new MemoryClient();
-  const c2 = new MemoryClient();
+  const c1 = memClient();
+  const c2 = memClient();
 
   await c1.receive([["mutable://open/x", {}, "data"]]);
   await c2.receive([["hash://sha256/abc", {}, "data"]]);
@@ -2595,7 +2602,7 @@ Deno.test({
     // 1. Start a server rig with memory backend
     const serverRig = new Rig({
       connections: [
-        connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+        connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
     const requestHandler = httpApi(serverRig);

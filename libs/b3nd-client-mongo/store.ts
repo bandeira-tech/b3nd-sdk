@@ -4,8 +4,8 @@
  * Pure mechanical storage with no protocol awareness.
  * Write entries, read entries, delete entries. Observe is not supported.
  *
- * Uses the same MongoExecutor pattern as MongoClient, keeping the SDK
- * decoupled from any specific MongoDB driver.
+ * Uses an injected MongoExecutor, keeping the SDK decoupled from any
+ * specific MongoDB driver.
  *
  * @example
  * ```typescript

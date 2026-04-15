@@ -66,7 +66,7 @@ import type { Connection } from "./connection.ts";
  * @example With schema, hooks, events, and react
  * ```typescript
  * const rig = new Rig({
- *   connections: [connection(new MemoryClient(), { receive: ["*"], read: ["*"] })],
+ *   connections: [connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
  *   schema,
  *   hooks: {
  *     beforeReceive: (ctx) => { rateLimit(ctx.uri); },
