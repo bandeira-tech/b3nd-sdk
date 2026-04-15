@@ -8,7 +8,7 @@
 
 import { assertEquals } from "jsr:@std/assert";
 import { FirecatDataClient } from "./firecat-client.ts";
-import { MemoryStore } from "../b3nd-client-memory/store.ts";
+import { MemoryStore } from "@bandeira-tech/b3nd-sdk";
 
 const noSanitize = { sanitizeOps: false, sanitizeResources: false };
 

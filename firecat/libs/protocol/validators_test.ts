@@ -4,7 +4,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { MemoryStore } from "../../libs/b3nd-client-memory/store.ts";
+import { MemoryStore } from "@bandeira-tech/b3nd-sdk";
 import { FirecatDataClient } from "./firecat-client.ts";
 import { send } from "@bandeira-tech/b3nd-sdk";
 import type { Output } from "@bandeira-tech/b3nd-sdk/types";
@@ -15,7 +15,7 @@ import {
 import {
   createValidatedClient,
   msgSchema,
-} from "../../libs/b3nd-compose/mod.ts";
+} from "@bandeira-tech/b3nd-sdk";
 import schema from "./mod.ts";
 import { CONSENSUS_FEE, GENESIS_AMOUNT, ROOT_KEY } from "./constants.ts";
 import {

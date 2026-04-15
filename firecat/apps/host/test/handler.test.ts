@@ -1,6 +1,6 @@
 import { assertEquals } from "jsr:@std/assert";
-import { MemoryStore } from "../../../libs/b3nd-client-memory/store.ts";
-import { FirecatDataClient } from "../../../libs/firecat-protocol/firecat-client.ts";
+import { MemoryStore } from "@bandeira-tech/b3nd-sdk";
+import { FirecatDataClient } from "@firecat/protocol/client";
 import { createHandler } from "../src/handler.ts";
 import type { HostConfig } from "../src/types.ts";
 
