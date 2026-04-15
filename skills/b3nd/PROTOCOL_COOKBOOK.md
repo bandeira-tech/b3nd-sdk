@@ -30,10 +30,10 @@ const schema: Schema = {
 **Node setup:**
 
 ```typescript
-import { createServerNode, FirecatDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
-const client = new FirecatDataClient(new MemoryStore());
+const client = new MessageDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(9942);
@@ -463,11 +463,11 @@ export default schema;
 ### createServerNode
 
 ```typescript
-import { createServerNode, FirecatDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 import schema from "./schema.ts";
 
-const client = new FirecatDataClient(new MemoryStore());
+const client = new MessageDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -478,7 +478,7 @@ node.listen(43100);
 
 ```typescript
 const clients = [
-  new FirecatDataClient(new MemoryStore()),
+  new MessageDataClient(new MemoryStore()),
   new PostgresStore({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 

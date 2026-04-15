@@ -7,9 +7,9 @@
  *
  * @example Basic usage with Store + protocol client
  * ```typescript
- * import { MemoryStore, FirecatDataClient } from "@bandeira-tech/b3nd-sdk";
+ * import { MemoryStore, MessageDataClient } from "@bandeira-tech/b3nd-sdk";
  *
- * const client = new FirecatDataClient(new MemoryStore());
+ * const client = new MessageDataClient(new MemoryStore());
  *
  * // Receive a message (the unified interface for all state changes)
  * await client.receive([["mutable://users/alice", {}, { name: "Alice", age: 30 }]]);
@@ -83,7 +83,7 @@ export { IpfsStore } from "../libs/b3nd-client-ipfs/store.ts";
 
 // Protocol clients (Store → NodeProtocolInterface)
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
-export { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
+export { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
 
 // Transport clients (direct NodeProtocolInterface, no Store)
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";

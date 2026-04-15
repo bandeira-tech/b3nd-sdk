@@ -3,7 +3,6 @@ import { connection, createClientFromUrl, httpApi, Rig } from "@b3nd/rig";
 import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
 import { parallelBroadcast } from "../../libs/b3nd-combinators/parallel-broadcast.ts";
 import { firstMatchSequence } from "../../libs/b3nd-combinators/first-match-sequence.ts";
-import firecatSchema from "@firecat/protocol";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
 import { createSqliteExecutor } from "./sqlite-executor.ts";
@@ -27,7 +26,7 @@ if (!Number.isFinite(PORT)) {
   throw new Error("PORT env var must be a valid number");
 }
 
-// Schema: load from module if provided, otherwise use Firecat protocol
+// Schema: load from module if provided, otherwise use open schema (accept all)
 let schema: Schema;
 if (SCHEMA_MODULE) {
   const imported = await import(SCHEMA_MODULE);
@@ -36,7 +35,14 @@ if (SCHEMA_MODULE) {
     throw new Error("SCHEMA_MODULE must export default Schema object");
   }
 } else {
-  schema = firecatSchema;
+  // Open schema: accepts all URI protocols. Deploy with SCHEMA_MODULE for
+  // production validation (e.g. @firecat/protocol or a custom schema).
+  schema = new Proxy({} as Schema, {
+    get(_target, prop: string | symbol) {
+      if (typeof prop === "string") return async () => ({ valid: true });
+      return undefined;
+    },
+  });
 }
 
 // Parse BACKEND_URL into individual backend specs

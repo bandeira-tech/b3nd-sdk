@@ -11,6 +11,10 @@
       "import": "./dist/src/mod.web.js",
       "types": "./dist/src/mod.web.d.ts"
     },
+    "./auth": {
+      "import": "./dist/auth/mod.js",
+      "types": "./dist/auth/mod.d.ts"
+    },
     "./encrypt": {
       "import": "./dist/encrypt/mod.js",
       "types": "./dist/encrypt/mod.d.ts"

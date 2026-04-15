@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "exports": {
     ".": "./mod.ts",
+    "./client": "./firecat-client.ts",
     "./validators": "./validators.ts",
     "./helpers": "./helpers.ts",
     "./constants": "./constants.ts"

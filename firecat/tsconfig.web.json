@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@bandeira-tech/b3nd-sdk": ["../node_modules/@bandeira-tech/b3nd-web"],
+      "@bandeira-tech/b3nd-sdk/types": ["../node_modules/@bandeira-tech/b3nd-web"],
+      "@bandeira-tech/b3nd-sdk/auth": ["../node_modules/@bandeira-tech/b3nd-web/auth"],
+      "@bandeira-tech/b3nd-sdk/hash": ["../node_modules/@bandeira-tech/b3nd-web"],
+      "@bandeira-tech/b3nd-sdk/encrypt": ["../node_modules/@bandeira-tech/b3nd-web/encrypt"]
+    }
+  },
+  "include": ["libs/protocol/**/*.ts"],
+  "exclude": ["**/*_test.ts", "**/*.test.ts"]
+}

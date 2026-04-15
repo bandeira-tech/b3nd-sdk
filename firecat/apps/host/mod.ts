@@ -1,5 +1,5 @@
 /// <reference lib="deno.ns" />
-import { connection, createClientFromUrl, Rig } from "@b3nd/rig";
+import { connection, createClientFromUrl, Rig } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createHandler } from "./src/handler.ts";

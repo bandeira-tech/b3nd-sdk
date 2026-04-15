@@ -8,7 +8,6 @@ This document covers everything an infrastructure operator needs: standalone
 nodes, managed mode, backend configuration, peer replication, monitoring,
 Docker deployment, and multi-node networks.
 
-**Building an app?** See [FIRECAT.md](./FIRECAT.md).
 **Designing a protocol?** See [FRAMEWORK.md](./FRAMEWORK.md).
 
 ---

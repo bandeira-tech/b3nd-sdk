@@ -52,7 +52,7 @@ export { IndexedDBStore } from "../libs/b3nd-client-indexeddb/store.ts";
 // ── Protocol clients (Store → NodeProtocolInterface) ──
 
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
-export { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
+export { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
 
 // ── Transport clients (direct NodeProtocolInterface, no Store) ──
 
@@ -113,6 +113,7 @@ export {
 
 export {
   createAuthenticatedMessage,
+  createAuthenticatedMessageWithHex,
   createSignedEncryptedMessage,
   decrypt,
   decryptSymmetric,
@@ -137,6 +138,20 @@ export type {
   EncryptedPayload,
   SignedEncryptedMessage,
 } from "../libs/b3nd-encrypt/mod.ts";
+
+// ── Validated client convenience ──
+
+export { createValidatedClient } from "../libs/b3nd-compose/validated-client.ts";
+export { msgSchema } from "../libs/b3nd-compose/validators.ts";
+
+// ── Auth (access control & signature validation) ──
+
+export {
+  authValidation,
+  createCombinedAccess,
+  createPubkeyBasedAccess,
+  createRelativePathAccess,
+} from "../libs/b3nd-auth/mod.ts";
 
 // ── Message layer ──
 

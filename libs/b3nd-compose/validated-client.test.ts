@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { createValidatedClient } from "./validated-client.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { FirecatDataClient } from "../firecat-protocol/firecat-client.ts";
+import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import { accept, msgSchema, reject, requireFields } from "./validators.ts";
 import type {
   Output,
@@ -12,7 +12,7 @@ import type {
 import type { MessageData } from "../b3nd-msg/data/types.ts";
 
 function mem() {
-  return new FirecatDataClient(new MemoryStore());
+  return new MessageDataClient(new MemoryStore());
 }
 
 // ── createValidatedClient ──

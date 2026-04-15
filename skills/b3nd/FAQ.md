@@ -124,7 +124,7 @@ deno test --allow-all libs/ --ignore=libs/b3nd-client-localstorage
 Define a custom schema and start a server:
 
 ```typescript
-import { createServerNode, FirecatDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
 const schema: Schema = {
@@ -134,7 +134,7 @@ const schema: Schema = {
   },
 };
 
-const client = new FirecatDataClient(new MemoryStore());
+const client = new MessageDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(43100);

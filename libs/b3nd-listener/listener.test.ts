@@ -1,14 +1,14 @@
 import { assertEquals } from "@std/assert";
 import { connect, readResponse, respondTo, writeRequest } from "./mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { FirecatDataClient } from "../firecat-protocol/firecat-client.ts";
+import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import {
   generateEncryptionKeyPair,
   generateSigningKeyPair,
 } from "../b3nd-encrypt/mod.ts";
 
 Deno.test("respondTo + connect: request-response round-trip", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
 
   // Service identity
   const signing = await generateSigningKeyPair();
@@ -66,7 +66,7 @@ Deno.test("respondTo + connect: request-response round-trip", async () => {
 });
 
 Deno.test("connect: processes multiple requests in one poll", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
 
   const signing = await generateSigningKeyPair();
   const enc = await generateEncryptionKeyPair();
@@ -102,7 +102,7 @@ Deno.test("connect: processes multiple requests in one poll", async () => {
 });
 
 Deno.test("respondTo: handles unsigned requests", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
 
   const signing = await generateSigningKeyPair();
   const enc = await generateEncryptionKeyPair();
@@ -146,7 +146,7 @@ Deno.test("respondTo: handles unsigned requests", async () => {
 });
 
 Deno.test("connect: empty inbox returns 0", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
 
   const signing = await generateSigningKeyPair();
   const enc = await generateEncryptionKeyPair();

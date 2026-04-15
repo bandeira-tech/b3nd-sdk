@@ -3,8 +3,6 @@ name: b3nd
 description: |
   B3nd SDK — single entry point for all B3nd knowledge. Read this file first for the conceptual overview (three roles, core ideas, example use cases), then read the referenced file when the question matches a topic below.
 
-  FIRECAT.md — Firecat app development: quick start, canonical schema, authentication, resource identity/visibility, CRUD patterns, URI design, React hooks, browser apps, Deno CLI, testing, environment variables. Read when building apps on the Firecat network.
-
   FRAMEWORK.md — DePIN framework & SDK: message primitives, schema dispatch, envelope structure, NodeProtocolInterface, auth/encryption, content-addressing, client composition, ProgramValidator, createOutputValidator, protocol versioning, packaging a protocol SDK. Read when designing a new DePIN protocol.
 
   OPERATORS.md — Node operations: two-phase binary, backend configuration (memory/Postgres/MongoDB/HTTP), managed mode, peer replication, multi-node networks, key generation, environment variables, MCP node tools. Read when deploying or managing infrastructure.
@@ -143,10 +141,6 @@ for the ideas above. Here's how they map:
 | The network            | Node (one computer in the network) |
 
 With that vocabulary in hand, here's where to go next:
-
-- **Building an app on Firecat?** Start with [FIRECAT.md > Quick Start](./FIRECAT.md)
-  for working code in 60 seconds, then browse server setup, browser apps,
-  and testing sections.
 
 - **Creating your own DePIN network?** See [FRAMEWORK.md](./FRAMEWORK.md) for
   the B3nd SDK, protocol examples, node setup, and how to package your

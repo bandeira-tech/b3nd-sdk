@@ -10,7 +10,6 @@
     "@bandeira-tech/b3nd-sdk/client-mongo": "jsr:@bandeira-tech/b3nd-sdk@0.8.1/client-mongo",
     "@b3nd/managed-node": "jsr:@b3nd/managed-node@0.1.0",
     "@b3nd/managed-node/types": "jsr:@b3nd/managed-node@0.1.0/types",
-    "@firecat/protocol": "jsr:@firecat/protocol@0.1.0",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
     "hono": "npm:hono",
     "canonicalize": "npm:canonicalize@2.0.0"

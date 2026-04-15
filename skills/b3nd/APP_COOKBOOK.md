@@ -4,7 +4,7 @@ Recipes and patterns for building apps on the Firecat network. Each section is
 self-contained — jump to what you need.
 
 For reference material on Firecat's schema, URIs, auth, and visibility model,
-see [FIRECAT.md](./FIRECAT.md).
+see the firecat repo docs.
 
 ---
 
@@ -581,10 +581,10 @@ function RecordViewer({ uri }: { uri: string }) {
 
 ```typescript
 import { assertEquals } from "@std/assert";
-import { FirecatDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
+import { MessageDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
 
 Deno.test("send and read on Firecat schema", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new MessageDataClient(new MemoryStore());
   const result = await send({
     payload: {
       inputs: [],
@@ -624,12 +624,12 @@ Memory client that survives page reloads by backing to localStorage:
 
 ```typescript
 export class PersistedMemoryStore implements NodeProtocolInterface {
-  private client: FirecatDataClient;
+  private client: MessageDataClient;
   private storageKey: string;
 
   constructor(storageKey: string) {
     this.storageKey = storageKey;
-    this.client = new FirecatDataClient(new MemoryStore());
+    this.client = new MessageDataClient(new MemoryStore());
     this.loadFromStorage();
   }
 

@@ -44,7 +44,7 @@ protocol works for profiles, posts, configs, messages — any data.
 // Deno/Server
 import {
   ConsoleClient,
-  FirecatDataClient,
+  MessageDataClient,
   HttpClient,
   MemoryStore,
   PostgresStore,
@@ -89,12 +89,12 @@ await client.delete("mutable://users/alice/profile");
 Storage and protocol are separate concerns:
 
 - **Stores** handle mechanical read/write (MemoryStore, PostgresStore, S3Store, etc.)
-- **Protocol clients** wrap a Store to implement `NodeProtocolInterface` (FirecatDataClient, SimpleClient)
+- **Protocol clients** wrap a Store to implement `NodeProtocolInterface` (MessageDataClient, SimpleClient)
 - **Transport clients** talk directly to remote peers (HttpClient, WebSocketClient, ConsoleClient)
 
 ```typescript
 // Store-backed: choose your storage, wrap with a protocol client
-const client = new FirecatDataClient(new MemoryStore());
+const client = new MessageDataClient(new MemoryStore());
 
 // Transport: connect to a remote node
 const remote = new HttpClient({ url: "https://api.example.com" });

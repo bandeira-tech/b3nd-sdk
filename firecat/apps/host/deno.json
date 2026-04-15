@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "dev": "deno run --watch -A --env-file=.env mod.ts"
+  },
+  "imports": {
+    "@bandeira-tech/b3nd-sdk": "jsr:@bandeira-tech/b3nd-sdk@^0.8.1",
+    "@firecat/protocol": "jsr:@firecat/protocol@^0.1.0",
+    "@firecat/protocol/client": "jsr:@firecat/protocol@^0.1.0/client",
+    "@std/assert": "jsr:@std/assert@^1.0.15",
+    "hono": "npm:hono",
+    "hono/cors": "npm:hono/cors"
+  }
+}

@@ -1,7 +1,7 @@
 /**
- * FirecatDataClient — protocol-aware NodeProtocolInterface over a Store.
+ * MessageDataClient — message-aware NodeProtocolInterface over a Store.
  *
- * Knows about the Firecat envelope convention: data is
+ * Knows about the B3nd message convention: data is
  * `{ inputs: string[], outputs: [uri, values, data][] }`.
  *
  * For each received message:
@@ -11,20 +11,20 @@
  *
  * This is the ONE implementation that replaces the envelope logic
  * previously duplicated across every storage client. Any Store
- * can be wrapped with FirecatDataClient to get full protocol behavior.
+ * can be wrapped with MessageDataClient to get full message behavior.
  *
- * Named "DataClient" because it only wraps Stores (local data backends),
- * not transport peers like HTTP or WebSocket.
+ * The framework accepts any data on outputs, but a *message* is the
+ * one that carries the { inputs, outputs } payload. SimpleClient
+ * stores data as-is; MessageDataClient decomposes messages.
  *
  * @example
  * ```typescript
- * import { FirecatDataClient } from "@bandeira-tech/firecat-protocol";
- * import { MemoryStore } from "@bandeira-tech/b3nd-sdk";
+ * import { MessageDataClient, MemoryStore } from "@bandeira-tech/b3nd-sdk";
  *
  * const store = new MemoryStore();
- * const client = new FirecatDataClient(store);
+ * const client = new MessageDataClient(store);
  *
- * // Protocol-aware: decomposes envelope, deletes inputs, writes outputs
+ * // Message-aware: decomposes envelope, deletes inputs, writes outputs
  * await client.receive([
  *   ["hash://sha256/abc...", {}, {
  *     inputs: ["mutable://tokens/1"],
@@ -45,9 +45,9 @@ import type {
   ReceiveResult,
   StatusResult,
   Store,
-} from "../b3nd-core/types.ts";
+} from "./types.ts";
 
-export class FirecatDataClient implements NodeProtocolInterface {
+export class MessageDataClient implements NodeProtocolInterface {
   readonly store: Store;
 
   constructor(store: Store) {
@@ -121,7 +121,7 @@ export class FirecatDataClient implements NodeProtocolInterface {
   ): AsyncIterable<ReadResult<T>> {
     if (!this.store.observe) {
       throw new Error(
-        "FirecatDataClient.observe: underlying store does not support observe",
+        "MessageDataClient.observe: underlying store does not support observe",
       );
     }
     return this.store.observe<T>(pattern, signal);
