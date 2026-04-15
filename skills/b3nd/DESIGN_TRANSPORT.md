@@ -516,7 +516,7 @@ function createMyService(client: NodeProtocolInterface, identity: Identity) {
 }
 
 // Development
-createMyService(new FirecatDataClient(new MemoryStore()), devIdentity);
+createMyService(new DataClient(new MemoryStore()), devIdentity);
 
 // Production — HTTP polling
 createMyService(new HttpClient({ url: PROD_URL }), prodIdentity);

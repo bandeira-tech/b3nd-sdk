@@ -31,12 +31,12 @@ import {
 } from "../../../libs/b3nd-encrypt/mod.ts";
 
 import { MemoryStore } from "../../../libs/b3nd-client-memory/store.ts";
-import { FirecatDataClient } from "../../../libs/firecat-protocol/firecat-client.ts";
+import { DataClient } from "../../../libs/b3nd-core/data-client.ts";
 
 // --- Request-Response over memory backend ---
 
 Deno.test("listener: encrypted request-response round-trip", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new DataClient(new MemoryStore());
 
   // Listener setup: has signing and encryption keypairs
   const listenerSigningKP = await generateSigningKeyPair();
@@ -154,7 +154,7 @@ Deno.test("listener: encrypted request-response round-trip", async () => {
 // --- Listener as moderation service ---
 
 Deno.test("listener: moderation service writes signed flags", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new DataClient(new MemoryStore());
 
   // Moderation listener setup
   const modSigningKP = await generateSigningKeyPair();
@@ -212,7 +212,7 @@ Deno.test("listener: moderation service writes signed flags", async () => {
 // --- Listener as indexing service ---
 
 Deno.test("listener: indexing service maintains queryable index", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new DataClient(new MemoryStore());
 
   // Indexer listener setup
   const indexerSigningKP = await generateSigningKeyPair();
@@ -291,7 +291,7 @@ Deno.test("listener: indexing service maintains queryable index", async () => {
 // --- End-to-end: OAuth auth request via listener ---
 
 Deno.test("end-to-end: oauth auth request → HMAC response → identity derivation", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new DataClient(new MemoryStore());
 
   // Listener setup
   const listenerSigningKP = await generateSigningKeyPair();

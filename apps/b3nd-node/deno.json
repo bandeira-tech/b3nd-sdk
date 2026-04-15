@@ -12,7 +12,6 @@
     "@b3nd/managed-node": "../../libs/b3nd-managed-node/mod.ts",
     "@b3nd/managed-node/types": "../../libs/b3nd-managed-node/types.ts",
     "@bandeira-tech/b3nd-sdk/encrypt": "../../libs/b3nd-encrypt/mod.ts",
-    "@firecat/protocol": "../../libs/firecat-protocol/mod.ts",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
     "hono": "npm:hono"
   }

@@ -334,9 +334,9 @@ export function createStoreResolver(
  *
  * @example
  * ```typescript
- * import { FirecatDataClient } from "@bandeira-tech/b3nd-sdk";
+ * import { DataClient } from "@bandeira-tech/b3nd-sdk";
  *
- * const resolveClient = createClientResolver(FirecatDataClient, {
+ * const resolveClient = createClientResolver(DataClient, {
  *   postgres: (url) => createPgExecutor(url),
  * });
  *

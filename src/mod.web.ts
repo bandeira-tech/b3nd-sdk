@@ -52,7 +52,7 @@ export { IndexedDBStore } from "../libs/b3nd-client-indexeddb/store.ts";
 // ── Protocol clients (Store → NodeProtocolInterface) ──
 
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
-export { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
+export { DataClient } from "../libs/b3nd-core/data-client.ts";
 
 // ── Transport clients (direct NodeProtocolInterface, no Store) ──
 

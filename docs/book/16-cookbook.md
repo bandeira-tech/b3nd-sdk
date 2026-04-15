@@ -408,7 +408,7 @@ verify the entire chain. Alter any event and the hashes break.
 ```typescript
 import {
   createServerNode,
-  FirecatDataClient,
+  DataClient,
   MemoryStore,
   servers,
 } from "@bandeira-tech/b3nd-sdk";
@@ -421,7 +421,7 @@ const programs = [
   "hash://sha256",
 ];
 
-const client = new FirecatDataClient(new MemoryStore());
+const client = new DataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });

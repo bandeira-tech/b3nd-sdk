@@ -31,7 +31,7 @@ import {
 } from "../../../libs/b3nd-encrypt/mod.ts";
 
 import { MemoryStore } from "../../../libs/b3nd-client-memory/store.ts";
-import { FirecatDataClient } from "../../../libs/firecat-protocol/firecat-client.ts";
+import { DataClient } from "../../../libs/b3nd-core/data-client.ts";
 
 // --- PKCE ---
 
@@ -108,7 +108,7 @@ Deno.test("pkce: challenge is SHA-256 of verifier in base64url", async () => {
 // --- PKCE + OAuth full flow ---
 
 Deno.test("pkce + oauth: SPA flow with custom node — end to end", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new DataClient(new MemoryStore());
 
   // Node setup
   const nodeSecret = "node-hmac-secret-for-oauth";
@@ -202,7 +202,7 @@ Deno.test("password auth: derive keypair, write signed message, re-derive, read"
   const signingKeypair = await deriveSigningKeyPairFromSeed(seed);
 
   // Write signed message to a node
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new DataClient(new MemoryStore());
   const payload = { name: "Alice", bio: "Loves cooking" };
   const authedMessage = await createAuthenticatedMessageWithHex(
     payload,

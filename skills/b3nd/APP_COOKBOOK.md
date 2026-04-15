@@ -581,10 +581,10 @@ function RecordViewer({ uri }: { uri: string }) {
 
 ```typescript
 import { assertEquals } from "@std/assert";
-import { FirecatDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
+import { DataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
 
 Deno.test("send and read on Firecat schema", async () => {
-  const client = new FirecatDataClient(new MemoryStore());
+  const client = new DataClient(new MemoryStore());
   const result = await send({
     payload: {
       inputs: [],
@@ -624,12 +624,12 @@ Memory client that survives page reloads by backing to localStorage:
 
 ```typescript
 export class PersistedMemoryStore implements NodeProtocolInterface {
-  private client: FirecatDataClient;
+  private client: DataClient;
   private storageKey: string;
 
   constructor(storageKey: string) {
     this.storageKey = storageKey;
-    this.client = new FirecatDataClient(new MemoryStore());
+    this.client = new DataClient(new MemoryStore());
     this.loadFromStorage();
   }
 
