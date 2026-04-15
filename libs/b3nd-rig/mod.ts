@@ -85,6 +85,7 @@ export type { HttpApiOptions, RigHandlerOptions } from "./http.ts";
 // Backend factory
 export {
   createClientFromUrl,
+  createStoreFromUrl,
   getSupportedProtocols,
   SUPPORTED_PROTOCOLS,
 } from "./backend-factory.ts";

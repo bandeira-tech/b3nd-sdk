@@ -429,7 +429,9 @@ Deno.test("Rig.receive - receives a message", async () => {
       connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const [result] = await rig.receive([["mutable://open/test", {}, { hello: "world" }]]);
+  const [result] = await rig.receive([["mutable://open/test", {}, {
+    hello: "world",
+  }]]);
   assertEquals(result.accepted, true);
 
   const reads = await rig.read("mutable://open/test");
@@ -731,7 +733,10 @@ Deno.test("Rig.readData - returns data for existing URI", async () => {
       connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/profile", {}, { name: "Alice", age: 30 }]]);
+  await rig.receive([["mutable://open/profile", {}, {
+    name: "Alice",
+    age: 30,
+  }]]);
 
   const data = await rig.readData<{ name: string; age: number }>(
     "mutable://open/profile",
@@ -886,7 +891,10 @@ Deno.test("AuthenticatedRig.send - different identities produce different signat
   assertEquals(e2.auth[0].pubkey, bob.pubkey);
 
   // Alice's signature should not verify with Bob's key and vice versa
-  const crossCheck = await bob.verify({ inputs: e1.inputs, outputs: e1.outputs }, e1.auth[0].signature);
+  const crossCheck = await bob.verify({
+    inputs: e1.inputs,
+    outputs: e1.outputs,
+  }, e1.auth[0].signature);
   assertEquals(crossCheck, false);
 });
 
@@ -1351,7 +1359,9 @@ Deno.test("Rig -schema validates receive", async () => {
   });
 
   // Valid receive (mutable://open is in the test schema)
-  const [accepted] = await rig.receive([["mutable://open/valid", {}, { ok: true }]]);
+  const [accepted] = await rig.receive([["mutable://open/valid", {}, {
+    ok: true,
+  }]]);
   assertEquals(accepted.accepted, true);
 
   const data = await rig.readData("mutable://open/valid");
@@ -1389,7 +1399,11 @@ Deno.test("Rig -multi-connection dispatch with schema validates receive", async 
     schema,
   });
 
-  const [accepted] = await rig.receive([["mutable://open/multi-schema", {}, 42]]);
+  const [accepted] = await rig.receive([[
+    "mutable://open/multi-schema",
+    {},
+    42,
+  ]]);
   assertEquals(accepted.accepted, true);
 
   const data = await rig.readData("mutable://open/multi-schema");
@@ -1482,7 +1496,9 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to self and read back", asyn
 
   const result = await session.sendEncrypted({
     inputs: [],
-    outputs: [["mutable://open/enc-send/secrets", {}, { apiKey: "sk-test-123" }]],
+    outputs: [["mutable://open/enc-send/secrets", {}, {
+      apiKey: "sk-test-123",
+    }]],
   });
   assertEquals(result.accepted, true);
   assertEquals(result.uri.startsWith("hash://sha256/"), true);
@@ -1505,7 +1521,9 @@ Deno.test("AuthenticatedRig.sendEncrypted - stored data is actually encrypted (n
 
   await session.sendEncrypted({
     inputs: [],
-    outputs: [["mutable://open/enc-send/check", {}, { secret: "plaintext-value" }]],
+    outputs: [["mutable://open/enc-send/check", {}, {
+      secret: "plaintext-value",
+    }]],
   });
 
   // Read raw data (not decrypted) — should be an EncryptedPayload, not the original
@@ -1625,7 +1643,10 @@ Deno.test("AuthenticatedRig.sendEncrypted - envelope is signed and verifiable", 
 
   // Verify the signature
   assertEquals(envelope.auth[0].pubkey, id.pubkey);
-  const valid = await id.verify({ inputs: envelope.inputs, outputs: envelope.outputs }, envelope.auth[0].signature);
+  const valid = await id.verify({
+    inputs: envelope.inputs,
+    outputs: envelope.outputs,
+  }, envelope.auth[0].signature);
   assertEquals(valid, true);
 });
 
@@ -1656,6 +1677,111 @@ Deno.test("createClientFromUrl - rejects sqlite without executor", async () => {
     Error,
     "executor factory",
   );
+});
+
+// ── createStoreFromUrl tests ──
+
+Deno.test("createStoreFromUrl - creates memory store", async () => {
+  const { createStoreFromUrl } = await import("./backend-factory.ts");
+  const store = await createStoreFromUrl("memory://");
+
+  await store.write([
+    { uri: "store://test/key", values: { fire: 10 }, data: { val: 1 } },
+  ]);
+  const results = await store.read(["store://test/key"]);
+  assertEquals(results[0].success, true);
+  assertEquals(results[0].record?.data, { val: 1 });
+  assertEquals(results[0].record?.values, { fire: 10 });
+});
+
+Deno.test("createStoreFromUrl - creates console store", async () => {
+  const { createStoreFromUrl } = await import("./backend-factory.ts");
+  const store = await createStoreFromUrl("console://debug");
+
+  const writeResults = await store.write([
+    { uri: "store://test/key", values: {}, data: "hello" },
+  ]);
+  assertEquals(writeResults[0].success, true);
+
+  // Console store is write-only
+  const readResults = await store.read(["store://test/key"]);
+  assertEquals(readResults[0].success, false);
+});
+
+Deno.test("createStoreFromUrl - rejects http (transport protocol)", async () => {
+  const { createStoreFromUrl } = await import("./backend-factory.ts");
+  await assertRejects(
+    () => createStoreFromUrl("http://example.com"),
+    Error,
+    "transport protocol",
+  );
+});
+
+Deno.test("createStoreFromUrl - rejects ws (transport protocol)", async () => {
+  const { createStoreFromUrl } = await import("./backend-factory.ts");
+  await assertRejects(
+    () => createStoreFromUrl("ws://example.com"),
+    Error,
+    "transport protocol",
+  );
+});
+
+Deno.test("createStoreFromUrl - rejects postgresql without executor", async () => {
+  const { createStoreFromUrl } = await import("./backend-factory.ts");
+  await assertRejects(
+    () => createStoreFromUrl("postgresql://localhost/db"),
+    Error,
+    "executor factory",
+  );
+});
+
+Deno.test("createStoreFromUrl - rejects unknown protocol", async () => {
+  const { createStoreFromUrl } = await import("./backend-factory.ts");
+  await assertRejects(
+    () => createStoreFromUrl("ftp://example.com"),
+    Error,
+    "Unsupported backend URL protocol",
+  );
+});
+
+// ── createClientFromUrl with client class arg ──
+
+Deno.test("createClientFromUrl - accepts client class arg", async () => {
+  const { createClientFromUrl } = await import("./backend-factory.ts");
+  const { FirecatClient } = await import(
+    "../firecat-protocol/firecat-client.ts"
+  );
+
+  const client = await createClientFromUrl("memory://", FirecatClient);
+  const health = await client.status();
+  assertEquals(health.status, "healthy");
+});
+
+Deno.test("createClientFromUrl - client class in options", async () => {
+  const { createClientFromUrl } = await import("./backend-factory.ts");
+  const { FirecatClient } = await import(
+    "../firecat-protocol/firecat-client.ts"
+  );
+
+  const client = await createClientFromUrl("memory://", {
+    client: FirecatClient,
+  });
+  const health = await client.status();
+  assertEquals(health.status, "healthy");
+});
+
+Deno.test("createClientFromUrl - defaults to SimpleClient for storage", async () => {
+  const { createClientFromUrl } = await import("./backend-factory.ts");
+
+  const client = await createClientFromUrl("memory://");
+  const health = await client.status();
+  assertEquals(health.status, "healthy");
+
+  // SimpleClient: receive just writes, no envelope decomposition
+  await client.receive([["store://test/key", {}, { val: 1 }]]);
+  const reads = await client.read("store://test/key");
+  assertEquals(reads[0].success, true);
+  assertEquals(reads[0].record?.data, { val: 1 });
 });
 
 // ── Identity edge cases ──
