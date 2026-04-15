@@ -3,6 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: {
     "src/mod.web": "src/mod.web.ts",
+    "auth/mod": "./libs/b3nd-auth/mod.ts",
     "wallet/mod": "./libs/b3nd-wallet/mod.ts",
     "encrypt/mod": "./libs/b3nd-encrypt/mod.ts",
     "hash/mod": "./libs/b3nd-hash/mod.ts",
