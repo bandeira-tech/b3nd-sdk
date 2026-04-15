@@ -49,8 +49,6 @@ export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
 export { LocalStorageStore } from "../libs/b3nd-client-localstorage/store.ts";
 export { IndexedDBStore } from "../libs/b3nd-client-indexeddb/store.ts";
-export { ConsoleStore } from "../libs/b3nd-client-console/store.ts";
-
 // ── Protocol clients (Store → NodeProtocolInterface) ──
 
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
@@ -60,6 +58,7 @@ export { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
 
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
+export { ConsoleClient } from "../libs/b3nd-client-console/client.ts";
 
 // ── Wallet client (signing) ──
 

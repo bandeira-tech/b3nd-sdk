@@ -78,7 +78,6 @@ export { S3Store } from "../libs/b3nd-client-s3/store.ts";
 export { ElasticsearchStore } from "../libs/b3nd-client-elasticsearch/store.ts";
 export { FsStore } from "../libs/b3nd-client-fs/store.ts";
 export { IpfsStore } from "../libs/b3nd-client-ipfs/store.ts";
-export { ConsoleStore } from "../libs/b3nd-client-console/store.ts";
 // Note: LocalStorageStore and IndexedDBStore are browser-only
 // and not included in the JSR package. Use the npm package for browser support.
 
@@ -89,6 +88,7 @@ export { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
 // Transport clients (direct NodeProtocolInterface, no Store)
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
+export { ConsoleClient } from "../libs/b3nd-client-console/client.ts";
 
 // Executor types (for injecting platform-specific drivers)
 export type { S3Executor } from "../libs/b3nd-client-s3/mod.ts";

@@ -18,11 +18,11 @@
  *   ipfs://               → IpfsStore (requires executor)
  *   s3://                 → S3Store (requires executor)
  *   elasticsearch://      → ElasticsearchStore (requires executor)
- *   console://            → ConsoleStore
  *
  * Transport protocols (no Store — return clients directly):
  *   https:// | http://    → HttpClient
  *   wss:// | ws://        → WebSocketClient
+ *   console://            → ConsoleClient (write-only sink, no storage)
  */
 
 import type { NodeProtocolInterface, Store } from "../b3nd-core/types.ts";
@@ -38,7 +38,7 @@ import type {
 import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { WebSocketClient } from "../b3nd-client-ws/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { ConsoleStore } from "../b3nd-client-console/store.ts";
+import { ConsoleClient } from "../b3nd-client-console/client.ts";
 import { SimpleClient } from "../b3nd-core/simple-client.ts";
 
 /** All supported backend URL protocols. */
@@ -81,7 +81,7 @@ export type StoreClientConstructor = new (store: Store) => NodeProtocolInterface
 
 // ── Storage protocols (URL → Store) ─────────────────────────────────
 
-const TRANSPORT_PROTOCOLS = new Set(["https:", "http:", "wss:", "ws:"]);
+const TRANSPORT_PROTOCOLS = new Set(["https:", "http:", "wss:", "ws:", "console:"]);
 
 /**
  * Create a Store from a URL string.
@@ -106,11 +106,6 @@ export async function createStoreFromUrl(
   switch (protocol) {
     case "memory:":
       return new MemoryStore();
-
-    case "console:": {
-      const label = parsed.hostname || "b3nd";
-      return new ConsoleStore(label);
-    }
 
     case "postgresql:":
     case "postgres:": {
@@ -286,6 +281,10 @@ export async function createClientFromUrl(
     case "wss:":
     case "ws:":
       return new WebSocketClient({ url });
+    case "console:": {
+      const label = parsed.hostname || "b3nd";
+      return new ConsoleClient(label);
+    }
   }
 
   // Storage protocols — create Store, wrap with client

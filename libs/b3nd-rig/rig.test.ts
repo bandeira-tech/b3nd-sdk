@@ -1701,17 +1701,26 @@ Deno.test("createStoreFromUrl - creates memory store", async () => {
   assertEquals(results[0].record?.values, { fire: 10 });
 });
 
-Deno.test("createStoreFromUrl - creates console store", async () => {
+Deno.test("createStoreFromUrl - rejects console (transport protocol)", async () => {
   const { createStoreFromUrl } = await import("./backend-factory.ts");
-  const store = await createStoreFromUrl("console://debug");
+  await assertRejects(
+    () => createStoreFromUrl("console://debug"),
+    Error,
+    "transport protocol",
+  );
+});
 
-  const writeResults = await store.write([
-    { uri: "store://test/key", values: {}, data: "hello" },
+Deno.test("createClientFromUrl - creates console client", async () => {
+  const { createClientFromUrl } = await import("./backend-factory.ts");
+  const client = await createClientFromUrl("console://debug");
+
+  const results = await client.receive([
+    ["mutable://test/key", {}, "hello"],
   ]);
-  assertEquals(writeResults[0].success, true);
+  assertEquals(results[0].accepted, true);
 
-  // Console store is write-only
-  const readResults = await store.read(["store://test/key"]);
+  // Console client is write-only
+  const readResults = await client.read("mutable://test/key");
   assertEquals(readResults[0].success, false);
 });
 

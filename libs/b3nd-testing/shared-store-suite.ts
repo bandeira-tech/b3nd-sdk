@@ -30,7 +30,7 @@ export interface StoreTestConfig {
 
   /**
    * Whether this store supports reading back written data.
-   * Set to false for write-only stores like ConsoleStore.
+   * Set to false for write-only stores.
    * Defaults to true.
    */
   supportsRead?: boolean;
