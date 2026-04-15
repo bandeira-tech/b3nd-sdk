@@ -608,7 +608,7 @@ export function runSharedSuite(
   });
 
   // NOTE: Input consumption and output fan-out tests have been moved to
-  // firecat-client.test.ts — envelope decomposition is a FirecatClient
+  // firecat-client.test.ts — envelope decomposition is a FirecatDataClient
   // concern, not a generic NodeProtocolInterface behavior.
 
   // ── Error handling ─────────────────────────────────────────────────

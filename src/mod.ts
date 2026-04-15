@@ -107,9 +107,9 @@ export { ConsoleStore } from "../libs/b3nd-client-console/store.ts";
 
 // Protocol clients (Store → NodeProtocolInterface)
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
-export { FirecatClient } from "../libs/firecat-protocol/firecat-client.ts";
+export { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
 
-// Client implementations (legacy — prefer Store + SimpleClient/FirecatClient)
+// Client implementations (legacy — prefer Store + SimpleClient/FirecatDataClient)
 export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
@@ -218,7 +218,9 @@ export type {
 // Rig — the universal harness
 export {
   createClientFromUrl,
+  createClientResolver,
   createStoreFromUrl,
+  createStoreResolver,
   getSupportedProtocols,
   Identity,
   Rig,
@@ -233,6 +235,7 @@ export type {
   RigConfig,
   RigInfo,
   S3Executor as S3ExecutorFactory,
+  StoreClientConstructor,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,

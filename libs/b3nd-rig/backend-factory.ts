@@ -77,7 +77,7 @@ export interface BackendFactoryOptions {
 }
 
 /** Constructor type for clients that wrap a Store. */
-type StoreClientConstructor = new (store: Store) => NodeProtocolInterface;
+export type StoreClientConstructor = new (store: Store) => NodeProtocolInterface;
 
 // ── Storage protocols (URL → Store) ─────────────────────────────────
 
@@ -291,4 +291,65 @@ export async function createClientFromUrl(
   // Storage protocols — create Store, wrap with client
   const store = await createStoreFromUrl(url, options);
   return new ClientClass(store);
+}
+
+// ── Resolvers (configure once, resolve many) ───────────────────────
+
+/**
+ * Create a store resolver — bind executor factories once, resolve URLs later.
+ *
+ * This is the primary pattern for runtime URL → Store mapping.
+ * Configure your executor factories once (from env, config, DI container),
+ * then use the returned function to resolve any number of URLs.
+ *
+ * Only handles storage protocols (memory, postgresql, mongodb, etc.).
+ * Transport URLs (http, ws) will throw — those produce clients directly,
+ * not Stores.
+ *
+ * @example
+ * ```typescript
+ * const resolveStore = createStoreResolver({
+ *   postgres: (url) => createPgExecutor(url),
+ *   mongo: (url, db, coll) => createMongoExecutor(url, db, coll),
+ * });
+ *
+ * // Map env-var URLs to stores
+ * const urls = process.env.BACKEND_URLS!.split(",");
+ * const stores = await Promise.all(urls.map(resolveStore));
+ * ```
+ */
+export function createStoreResolver(
+  executors: BackendFactoryOptions["executors"] = {},
+): (url: string) => Promise<Store> {
+  const options: BackendFactoryOptions = { executors };
+  return (url: string) => createStoreFromUrl(url, options);
+}
+
+/**
+ * Create a client resolver — bind a client class and executor factories once,
+ * resolve URLs later.
+ *
+ * For storage protocols: creates a Store and wraps it with the given client class.
+ * For transport protocols (http, ws): returns the transport client directly
+ * (client class is ignored — there's no Store to wrap).
+ *
+ * @example
+ * ```typescript
+ * import { FirecatDataClient } from "@bandeira-tech/b3nd-sdk";
+ *
+ * const resolveClient = createClientResolver(FirecatDataClient, {
+ *   postgres: (url) => createPgExecutor(url),
+ * });
+ *
+ * // Map env-var URLs to clients
+ * const urls = process.env.BACKEND_URLS!.split(",");
+ * const clients = await Promise.all(urls.map(resolveClient));
+ * ```
+ */
+export function createClientResolver(
+  ClientClass: StoreClientConstructor = SimpleClient,
+  executors: BackendFactoryOptions["executors"] = {},
+): (url: string) => Promise<NodeProtocolInterface> {
+  const options: BackendFactoryOptions = { executors };
+  return (url: string) => createClientFromUrl(url, ClientClass, options);
 }

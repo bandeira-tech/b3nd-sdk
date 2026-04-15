@@ -1748,23 +1748,23 @@ Deno.test("createStoreFromUrl - rejects unknown protocol", async () => {
 
 Deno.test("createClientFromUrl - accepts client class arg", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
-  const { FirecatClient } = await import(
+  const { FirecatDataClient } = await import(
     "../firecat-protocol/firecat-client.ts"
   );
 
-  const client = await createClientFromUrl("memory://", FirecatClient);
+  const client = await createClientFromUrl("memory://", FirecatDataClient);
   const health = await client.status();
   assertEquals(health.status, "healthy");
 });
 
 Deno.test("createClientFromUrl - client class in options", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
-  const { FirecatClient } = await import(
+  const { FirecatDataClient } = await import(
     "../firecat-protocol/firecat-client.ts"
   );
 
   const client = await createClientFromUrl("memory://", {
-    client: FirecatClient,
+    client: FirecatDataClient,
   });
   const health = await client.status();
   assertEquals(health.status, "healthy");
@@ -1782,6 +1782,81 @@ Deno.test("createClientFromUrl - defaults to SimpleClient for storage", async ()
   const reads = await client.read("store://test/key");
   assertEquals(reads[0].success, true);
   assertEquals(reads[0].record?.data, { val: 1 });
+});
+
+// ── createStoreResolver tests ──
+
+Deno.test("createStoreResolver - binds executors once, resolves many URLs", async () => {
+  const { createStoreResolver } = await import("./backend-factory.ts");
+
+  const resolveStore = createStoreResolver();
+
+  // Resolve multiple memory stores from a single resolver
+  const stores = await Promise.all([
+    resolveStore("memory://"),
+    resolveStore("memory://"),
+  ]);
+
+  assertEquals(stores.length, 2);
+  // Each call creates a distinct store
+  for (const store of stores) {
+    const status = await store.status();
+    assertEquals(status.status, "healthy");
+  }
+});
+
+Deno.test("createStoreResolver - rejects transport protocols", async () => {
+  const { createStoreResolver } = await import("./backend-factory.ts");
+
+  const resolveStore = createStoreResolver();
+  await assertRejects(
+    () => resolveStore("http://example.com"),
+    Error,
+    "transport protocol",
+  );
+});
+
+// ── createClientResolver tests ──
+
+Deno.test("createClientResolver - resolves memory URL with default SimpleClient", async () => {
+  const { createClientResolver } = await import("./backend-factory.ts");
+
+  const resolveClient = createClientResolver();
+  const client = await resolveClient("memory://");
+  const health = await client.status();
+  assertEquals(health.status, "healthy");
+
+  // SimpleClient: receive just writes, no envelope decomposition
+  await client.receive([["store://test/key", {}, { val: 1 }]]);
+  const reads = await client.read("store://test/key");
+  assertEquals(reads[0].success, true);
+  assertEquals(reads[0].record?.data, { val: 1 });
+});
+
+Deno.test("createClientResolver - resolves with FirecatDataClient", async () => {
+  const { createClientResolver } = await import("./backend-factory.ts");
+  const { FirecatDataClient } = await import(
+    "../firecat-protocol/firecat-client.ts"
+  );
+
+  const resolveClient = createClientResolver(FirecatDataClient);
+  const client = await resolveClient("memory://");
+  const health = await client.status();
+  assertEquals(health.status, "healthy");
+});
+
+Deno.test("createClientResolver - maps multiple URLs", async () => {
+  const { createClientResolver } = await import("./backend-factory.ts");
+
+  const resolveClient = createClientResolver();
+  const urls = ["memory://", "memory://", "console://test"];
+  const clients = await Promise.all(urls.map(resolveClient));
+
+  assertEquals(clients.length, 3);
+  for (const client of clients) {
+    const health = await client.status();
+    assertEquals(health.status, "healthy");
+  }
 });
 
 // ── Identity edge cases ──

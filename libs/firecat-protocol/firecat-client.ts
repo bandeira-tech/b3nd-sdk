@@ -1,5 +1,5 @@
 /**
- * FirecatClient — protocol-aware NodeProtocolInterface over a Store.
+ * FirecatDataClient — protocol-aware NodeProtocolInterface over a Store.
  *
  * Knows about the Firecat envelope convention: data is
  * `{ inputs: string[], outputs: [uri, values, data][] }`.
@@ -11,15 +11,18 @@
  *
  * This is the ONE implementation that replaces the envelope logic
  * previously duplicated across every storage client. Any Store
- * can be wrapped with FirecatClient to get full protocol behavior.
+ * can be wrapped with FirecatDataClient to get full protocol behavior.
+ *
+ * Named "DataClient" because it only wraps Stores (local data backends),
+ * not transport peers like HTTP or WebSocket.
  *
  * @example
  * ```typescript
- * import { FirecatClient } from "@bandeira-tech/firecat-protocol";
+ * import { FirecatDataClient } from "@bandeira-tech/firecat-protocol";
  * import { MemoryStore } from "@bandeira-tech/b3nd-sdk";
  *
  * const store = new MemoryStore();
- * const client = new FirecatClient(store);
+ * const client = new FirecatDataClient(store);
  *
  * // Protocol-aware: decomposes envelope, deletes inputs, writes outputs
  * await client.receive([
@@ -44,7 +47,7 @@ import type {
   Store,
 } from "../b3nd-core/types.ts";
 
-export class FirecatClient implements NodeProtocolInterface {
+export class FirecatDataClient implements NodeProtocolInterface {
   readonly store: Store;
 
   constructor(store: Store) {
@@ -118,7 +121,7 @@ export class FirecatClient implements NodeProtocolInterface {
   ): AsyncIterable<ReadResult<T>> {
     if (!this.store.observe) {
       throw new Error(
-        "FirecatClient.observe: underlying store does not support observe",
+        "FirecatDataClient.observe: underlying store does not support observe",
       );
     }
     return this.store.observe<T>(pattern, signal);
