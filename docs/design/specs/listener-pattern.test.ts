@@ -1,7 +1,7 @@
 /**
  * Listener Pattern — Failing Spec
  *
- * Tests the request-response pattern over MemoryClient:
+ * Tests the request-response pattern over MemoryStore:
  * client writes encrypted request, listener processes it,
  * writes encrypted response, client reads and decrypts.
  *

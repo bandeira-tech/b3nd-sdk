@@ -30,10 +30,10 @@ const schema: Schema = {
 **Node setup:**
 
 ```typescript
-import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, FirecatDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
-const client = new MemoryClient();
+const client = new FirecatDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(9942);
@@ -463,11 +463,11 @@ export default schema;
 ### createServerNode
 
 ```typescript
-import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, FirecatDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 import schema from "./schema.ts";
 
-const client = new MemoryClient();
+const client = new FirecatDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -478,8 +478,8 @@ node.listen(43100);
 
 ```typescript
 const clients = [
-  new MemoryClient(),
-  new PostgresClient({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new FirecatDataClient(new MemoryStore()),
+  new PostgresStore({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
 
 const client = createValidatedClient({
@@ -496,14 +496,14 @@ createServerNode({ frontend, client });
 
 ```typescript
 // Postgres
-const pg = new PostgresClient({
+const pg = new PostgresStore({
   connection: "postgresql://user:pass@localhost:5432/db",
   tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
 }, executor);
 await pg.initializeSchema();
 
 // MongoDB
-const mongo = new MongoClient({
+const mongo = new MongoStore({
   connectionString: "mongodb://localhost:27017/mydb",
   collectionName: "b3nd_data",
 }, executor);

@@ -474,7 +474,7 @@ transport delivered the message.
               ┌────────────────────┼────────────────────┐
               │                    │                    │
      ┌────────▼───────┐  ┌────────▼───────┐  ┌────────▼───────┐
-     │   HttpClient   │  │ WebSocketClient│  │  MemoryClient  │
+     │   HttpClient   │  │ WebSocketClient│  │  MemoryStore   │
      │                │  │                │  │                │
      │  HTTP/REST     │  │  WS frames     │  │  In-process    │
      │  fetch()       │  │  reconnect     │  │  Map storage   │
@@ -499,7 +499,7 @@ transport delivered the message.
 This is the core architectural insight: the protocol interface is the
 abstraction boundary. Transport is an implementation detail. You can:
 
-- **Develop** with `MemoryClient` (zero network, instant)
+- **Develop** with `MemoryStore` (zero network, instant)
 - **Test** with `HttpClient` against a local node
 - **Deploy** with `WebSocketClient` for low latency
 - **Future-proof** with `subscribe()` when it ships
@@ -516,7 +516,7 @@ function createMyService(client: NodeProtocolInterface, identity: Identity) {
 }
 
 // Development
-createMyService(new MemoryClient(), devIdentity);
+createMyService(new FirecatDataClient(new MemoryStore()), devIdentity);
 
 // Production — HTTP polling
 createMyService(new HttpClient({ url: PROD_URL }), prodIdentity);

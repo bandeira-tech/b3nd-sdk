@@ -99,7 +99,7 @@ features (family members editing recipes together), polling via
 `refetchInterval` is the only option. Is there a plan for server-push or
 subscriptions?
 
-**Q5: What are the atomicity guarantees of `send()`?** The `MemoryClient`
+**Q5: What are the atomicity guarantees of `send()`?** The `MemoryStore`
 processes outputs sequentially and returns on first failure. Are failed outputs
 after a successful one rolled back? Can a batch write leave partial state
 (recipe exists but index doesn't)?
@@ -282,7 +282,7 @@ hash://sha256/{hash}                        -- generated PDFs, attachments
    `readMulti()`. No data migration needed to switch providers.
 7. **Client-side PDF generation** -- since the app has all data in the browser,
    jsPDF/html2pdf works naturally. PDFs can be stored at `hash://sha256/{hash}`.
-8. **Offline invoice creation** -- `IndexedDBClient` enables field workers to
+8. **Offline invoice creation** -- `IndexedDBStore` enables field workers to
    create invoices without connectivity.
 
 ### Open Questions for B3nd Team
@@ -366,8 +366,8 @@ These strengths are consistent across all three app explorations:
 5. **No vendor lock-in.** Data is JSON at URIs. Export is trivial. Provider
    switching requires changing one URL.
 
-6. **Uniform client interface.** `MemoryClient`, `HttpClient`,
-   `IndexedDBClient`, `LocalStorageClient`, `PostgresClient`, `MongoClient` all
+6. **Uniform client interface.** `MemoryStore`, `HttpClient`,
+   `IndexedDBStore`, `LocalStorageStore`, `PostgresStore`, `MongoStore` all
    implement the same interface. Offline-first, testing, and multi-backend are
    architecturally natural.
 

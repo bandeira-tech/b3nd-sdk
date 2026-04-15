@@ -517,7 +517,7 @@ only be spent once.
   This is the next design question.
 
 - **How does `inputs = consumption` work at the framework level?** Today
-  MemoryClient doesn't enforce consumption semantics — it would need to mark
+  MemoryStore doesn't enforce consumption semantics — it would need to mark
   consumed URIs as spent and reject reads/re-consumption. This is a framework
   change.
 

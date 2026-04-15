@@ -44,17 +44,19 @@ protocol works for profiles, posts, configs, messages — any data.
 // Deno/Server
 import {
   ConsoleClient,
+  FirecatDataClient,
   HttpClient,
-  MemoryClient,
-  PostgresClient,
-  S3Client,
-  SqliteClient,
+  MemoryStore,
+  PostgresStore,
+  S3Store,
+  SqliteStore,
 } from "@bandeira-tech/b3nd-sdk";
 
 // Browser/React
 import {
   HttpClient,
-  LocalStorageClient,
+  IndexedDBStore,
+  LocalStorageStore,
   WalletClient,
 } from "@bandeira-tech/b3nd-web";
 ```
@@ -82,22 +84,44 @@ console.log(items.data); // [{ uri: "mutable://users/alice/profile" }]
 await client.delete("mutable://users/alice/profile");
 ```
 
-## Available Clients
+## Architecture
 
-| Client               | Environment | Backend                     |
-| -------------------- | ----------- | --------------------------- |
-| `MemoryClient`       | Any         | In-memory storage           |
-| `HttpClient`         | Any         | Remote HTTP server          |
-| `WebSocketClient`    | Any         | Remote WebSocket server     |
-| `PostgresClient`     | Deno/Node   | PostgreSQL database         |
-| `MongoClient`        | Deno/Node   | MongoDB database            |
-| `SqliteClient`       | Deno/Node   | SQLite database             |
-| `FilesystemClient`   | Deno/Node   | Local filesystem            |
-| `S3Client`           | Deno/Node   | S3-compatible storage       |
-| `IpfsClient`         | Deno/Node   | IPFS via Kubo               |
-| `ConsoleClient`      | Any         | Console output (write-only) |
-| `LocalStorageClient` | Browser     | localStorage                |
-| `IndexedDBClient`    | Browser     | IndexedDB                   |
+Storage and protocol are separate concerns:
+
+- **Stores** handle mechanical read/write (MemoryStore, PostgresStore, S3Store, etc.)
+- **Protocol clients** wrap a Store to implement `NodeProtocolInterface` (FirecatDataClient, SimpleClient)
+- **Transport clients** talk directly to remote peers (HttpClient, WebSocketClient, ConsoleClient)
+
+```typescript
+// Store-backed: choose your storage, wrap with a protocol client
+const client = new FirecatDataClient(new MemoryStore());
+
+// Transport: connect to a remote node
+const remote = new HttpClient({ url: "https://api.example.com" });
+```
+
+### Stores
+
+| Store                | Environment | Backend               |
+| -------------------- | ----------- | --------------------- |
+| `MemoryStore`        | Any         | In-memory             |
+| `PostgresStore`      | Deno/Node   | PostgreSQL database   |
+| `MongoStore`         | Deno/Node   | MongoDB database      |
+| `SqliteStore`        | Deno/Node   | SQLite database       |
+| `FsStore`            | Deno/Node   | Local filesystem      |
+| `S3Store`            | Deno/Node   | S3-compatible storage |
+| `IpfsStore`          | Deno/Node   | IPFS via Kubo         |
+| `ElasticsearchStore` | Deno/Node   | Elasticsearch         |
+| `LocalStorageStore`  | Browser     | localStorage          |
+| `IndexedDBStore`     | Browser     | IndexedDB             |
+
+### Transport Clients
+
+| Client            | Environment | Backend                     |
+| ----------------- | ----------- | --------------------------- |
+| `HttpClient`      | Any         | Remote HTTP server          |
+| `WebSocketClient` | Any         | Remote WebSocket server     |
+| `ConsoleClient`   | Any         | Console output (write-only) |
 
 ## Running a Node
 

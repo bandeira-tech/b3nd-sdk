@@ -188,7 +188,7 @@ operator's choice. The Firecat protocol defines validation rules, not storage
 requirements.
 
 Testnet nodes (`testnet-evergreen.fire.cat`) use persistent backends, but this
-is an operator decision. A Firecat node backed by MemoryClient is still a valid
+is an operator decision. A Firecat node backed by MemoryStore is still a valid
 Firecat node — it just loses state on restart. App developers should not assume
 durability from the protocol. If an app needs guaranteed persistence, it should
 confirm reads after writes or use redundant nodes.
@@ -601,21 +601,21 @@ schema above.
 { "imports": { "@bandeira-tech/b3nd-sdk": "jsr:@bandeira-tech/b3nd-sdk" } }
 
 import {
-  connection, HttpClient, MemoryClient, MongoClient, msgSchema,
-  PostgresClient, Rig, send, servers,
+  connection, FirecatDataClient, HttpClient, MemoryStore, MongoStore, msgSchema,
+  PostgresStore, Rig, send, servers,
 } from "@bandeira-tech/b3nd-sdk";
 ```
 
 ### HTTP Server with Hono
 
 ```typescript
-import { connection, MemoryClient, Rig, servers } from "@bandeira-tech/b3nd-sdk";
+import { connection, FirecatDataClient, MemoryStore, Rig, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
 // Import or define the Firecat schema
 import firecatSchema from "./firecat-schema.ts";
 
-const client = new MemoryClient();
+const client = new FirecatDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const rig = new Rig({
@@ -630,8 +630,8 @@ rig.listen(43100);
 
 ```typescript
 const clients = [
-  new MemoryClient(),
-  new PostgresClient({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new FirecatDataClient(new MemoryStore()),
+  new FirecatDataClient(new PostgresStore("b3nd", executor)),
 ];
 
 const rig = new Rig({
@@ -645,17 +645,11 @@ const rig = new Rig({
 
 ```typescript
 // Postgres
-const pg = new PostgresClient({
-  connection: "postgresql://user:pass@localhost:5432/db",
-  tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
-}, executor);
+const pg = new FirecatDataClient(new PostgresStore("b3nd", executor));
 await pg.initializeSchema();
 
 // MongoDB
-const mongo = new MongoClient({
-  connectionString: "mongodb://localhost:27017/mydb",
-  collectionName: "b3nd_data",
-}, executor);
+const mongo = new FirecatDataClient(new MongoStore(collection, executor));
 ```
 
 ### Environment Variables
@@ -887,17 +881,17 @@ main();
 
 ## Testing Firecat Apps
 
-### Unit Testing with MemoryClient
+### Unit Testing with MemoryStore
 
 ```typescript
 import { assertEquals } from "@std/assert";
-import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
+import { FirecatDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
 
 // Use the Firecat schema for realistic testing
 import firecatSchema from "./firecat-schema.ts";
 
 Deno.test("send and read on Firecat schema", async () => {
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
   const result = await send({
     payload: {
       inputs: [],
@@ -949,12 +943,12 @@ Memory client that survives page reloads by backing to localStorage:
 
 ```typescript
 export class PersistedMemoryClient implements NodeProtocolInterface {
-  private client: MemoryClient;
+  private client: FirecatDataClient;
   private storageKey: string;
 
   constructor(storageKey: string) {
     this.storageKey = storageKey;
-    this.client = new MemoryClient();
+    this.client = new FirecatDataClient(new MemoryStore());
     this.loadFromStorage();
   }
 
