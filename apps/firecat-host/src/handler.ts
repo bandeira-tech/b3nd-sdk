@@ -67,7 +67,7 @@ const MAX_LINK_DEPTH = 10;
 /**
  * Create the request handler.
  *
- * @param client - B3nd read client (HttpClient or MemoryClient)
+ * @param client - B3nd read client (HttpClient or Store-backed client)
  * @param config - Host configuration
  * @returns Hono-compatible request handler
  */

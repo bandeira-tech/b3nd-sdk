@@ -10,7 +10,8 @@
  */
 
 import { connection, httpApi, Rig } from "../libs/b3nd-rig/mod.ts";
-import { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
+import { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
+import { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
 import type { Schema } from "../libs/b3nd-core/types.ts";
 
 // Create a permissive schema that allows any program key
@@ -41,7 +42,7 @@ const testSchema = new Proxy(baseSchema, {
 // Create rig with in-memory backend + schema validation
 const rig = new Rig({
   connections: [
-    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
   schema: testSchema,
 });

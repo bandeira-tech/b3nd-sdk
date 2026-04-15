@@ -1,4 +1,4 @@
-// Mongo executor for MongoClient, following the same pattern as the Postgres
+// Mongo executor for MongoStore, following the same pattern as the Postgres
 // executor but using the official MongoDB driver. This module is installation-
 // specific so the core SDK stays decoupled from any concrete driver.
 

@@ -2,7 +2,9 @@
  * Shared test helpers for managed node tests.
  */
 
-import { MemoryClient } from "../b3nd-client-memory/mod.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+import { MemoryStore } from "../b3nd-client-memory/store.ts";
+import { FirecatDataClient } from "../firecat-protocol/firecat-client.ts";
 import {
   createAuthenticatedMessage,
   generateSigningKeyPair,
@@ -118,9 +120,8 @@ export async function signConfig(config: ManagedNodeConfig): Promise<{
 }
 
 /**
- * Create a MemoryClient that accepts all writes to accounts URIs.
- * Uses mutable://accounts as the canonical program.
+ * Create an in-memory client that accepts all writes.
  */
-export function createPermissiveClient(): MemoryClient {
-  return new MemoryClient();
+export function createPermissiveClient(): NodeProtocolInterface {
+  return new FirecatDataClient(new MemoryStore());
 }

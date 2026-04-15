@@ -223,7 +223,7 @@ export function httpApi(
         );
       }
       const data = deserializeBinary(rawData);
-      // Wrap into MessageData envelope so MemoryClient stores the data.
+      // Wrap into MessageData envelope so the backend stores the data.
       // The HTTP API is a convenience layer: callers send [uri, values, data]
       // and we translate it into the internal { inputs, outputs } format.
       const vals = values as Record<string, number>;

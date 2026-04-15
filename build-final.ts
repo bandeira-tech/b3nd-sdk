@@ -313,10 +313,10 @@ import * as encrypt from '@bandeira-tech/b3nd-sdk/encrypt';
 
 ## Available Clients
 
-- \`MemoryClient\` - In-memory storage
+- \`MemoryStore\` - In-memory storage
 - \`HttpClient\` - HTTP-based storage
-- \`IndexedDBClient\` - Browser IndexedDB storage
-- \`LocalStorageClient\` - Browser localStorage
+- \`IndexedDBStore\` - Browser IndexedDB storage
+- \`LocalStorageStore\` - Browser localStorage
 - \`WebSocketClient\` - WebSocket-based storage
 
 ## Auth & Encryption

@@ -32,7 +32,7 @@ Tests, prototypes, offline-first apps — no network needed.
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
 });
 
@@ -278,7 +278,8 @@ store and retrieve data without opinions.
 
 ```typescript
 import { Rig } from "@b3nd/rig";
-import { MemoryClient } from "@b3nd/client-memory";
+import { MemoryStore } from "@b3nd/client-memory";
+import { FirecatDataClient } from "@b3nd/client-firecat";
 
 const schema = {
   "mutable://open": async () => ({ valid: true }),
@@ -289,7 +290,7 @@ const schema = {
 };
 
 // Schema on the rig — client has no schema
-const client = new MemoryClient();
+const client = new FirecatDataClient(new MemoryStore());
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
   schema,
@@ -310,7 +311,7 @@ await rig.receive([["unknown://foo", {}, { v: 1 }]]);
 Pass `schema` alongside `connections` — the rig validates, the client stores.
 
 ```typescript
-const client = new MemoryClient();
+const client = new FirecatDataClient(new MemoryStore());
 
 // No schema validation
 const simple = new Rig({
@@ -364,7 +365,7 @@ automatically.
 const id = await Identity.generate();
 const rig = new Rig({
   connections: [
-    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
 });
 const session = id.rig(rig);
@@ -394,7 +395,7 @@ const bob = await Identity.generate();
 
 const rig = new Rig({
   connections: [
-    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
 });
 const aliceSession = alice.rig(rig);
@@ -567,7 +568,7 @@ const prodRig = new Rig({
 });
 const testRig = new Rig({
   connections: [
-    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
   hooks: testHooks,
 });
@@ -641,7 +642,7 @@ Unlike hooks, events can be registered and removed dynamically.
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
 });
 
@@ -740,7 +741,7 @@ await rig.receive([["mutable://open/app/config", {}, { theme: "dark" }]]);
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
 });
 
@@ -795,10 +796,11 @@ client and routes accordingly.
 ```typescript
 import { connection, Rig } from "@b3nd/rig";
 import { HttpClient } from "@b3nd/client-http";
-import { MemoryClient } from "@b3nd/client-memory";
+import { MemoryStore } from "@b3nd/client-memory";
+import { FirecatDataClient } from "@b3nd/client-firecat";
 
 const remote = new HttpClient({ url: "https://node.example.com" });
-const local = new MemoryClient();
+const local = new FirecatDataClient(new MemoryStore());
 
 const rig = new Rig({
   connections: [
@@ -895,7 +897,7 @@ operations it handles.
 const pgClient = await createClientFromUrl("postgresql://primary", {
   executors: { postgres: pgFactory },
 });
-const cacheClient = new MemoryClient();
+const cacheClient = new FirecatDataClient(new MemoryStore());
 
 const rig = new Rig({
   connections: [
@@ -1095,7 +1097,7 @@ A rig can be a client inside another rig's routing table.
 ```typescript
 const innerRig = new Rig({
   connections: [
-    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
   hooks: { beforeReceive: validateInner },
 });
@@ -1211,7 +1213,7 @@ Deno.serve({ port: 9942 }, httpApi(rig));
 
 ```typescript
 const remote = new HttpClient({ url: "https://node.example.com" });
-const cache = new MemoryClient();
+const cache = new FirecatDataClient(new MemoryStore());
 
 const rig = new Rig({
   connections: [
@@ -1300,7 +1302,7 @@ Deno.test("app write and read round-trip", async () => {
 
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
     ],
   });
   rig.on("receive:success", (e) => {
@@ -1328,7 +1330,7 @@ Deno.test("app write and read round-trip", async () => {
 ### CLI tool backed by a rig
 
 ```typescript
-const client = new MemoryClient(); // or build from env
+const client = new FirecatDataClient(new MemoryStore()); // or build from env
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
 });
@@ -1363,7 +1365,7 @@ for unsigned writes.
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+    connection(new FirecatDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
 });
 

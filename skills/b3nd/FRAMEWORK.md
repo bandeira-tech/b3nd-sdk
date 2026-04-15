@@ -367,8 +367,8 @@ import {
 
 // Compose multiple backends
 const client = createValidatedClient({
-  receive: parallelBroadcast([postgresClient, memoryClient]),
-  read: firstMatchSequence([postgresClient, memoryClient]),
+  receive: parallelBroadcast([postgresBackend, memoryBackend]),
+  read: firstMatchSequence([postgresBackend, memoryBackend]),
   validate: msgSchema(schema),
 });
 
@@ -454,27 +454,47 @@ retention policies. They don't know or care what apps are sending.
 Protocol developers define the validation rules that sit between them — the
 schema table. They don't couple to either side.
 
-The SDK provides client implementations (PostgresClient, MemoryClient,
-MongoClient, etc.) as ready-made backends. But these are tools for node
-operators, not framework guarantees. A node using MemoryClient loses everything
-on restart. A node using PostgresClient retains everything. Both are valid B3nd
-nodes — the framework doesn't distinguish between them.
+The SDK provides storage backends (MemoryStore, PostgresStore,
+MongoStore, etc.) wrapped by protocol clients (FirecatDataClient, SimpleClient)
+as ready-made NodeProtocolInterface implementations. But these are tools for
+node operators, not framework guarantees. A node using MemoryStore loses
+everything on restart. A node using PostgresStore retains everything. Both are
+valid B3nd nodes — the framework doesn't distinguish between them.
 
 This is what makes B3nd a universal backend layer. Like HTTPS standardizes
 transport without dictating what servers do with requests, B3nd standardizes
 resource addressing and validation without dictating what nodes do with
 accepted messages.
 
-### Available Clients
+### Available Stores, Protocol Clients & Transport Clients
+
+**Stores** — pure mechanical storage (no protocol awareness):
+
+| Store                | Package    | Use                        |
+| -------------------- | ---------- | -------------------------- |
+| `MemoryStore`        | Both       | Testing, in-process        |
+| `PostgresStore`      | JSR        | PostgreSQL storage         |
+| `MongoStore`         | JSR        | MongoDB storage            |
+| `SqliteStore`        | JSR        | SQLite storage             |
+| `S3Store`            | JSR        | S3-compatible storage      |
+| `FsStore`            | JSR        | Filesystem storage         |
+| `LocalStorageStore`  | NPM        | Browser offline cache      |
+| `IndexedDBStore`     | NPM        | Browser IndexedDB storage  |
+
+**Protocol clients** — wrap a Store into a NodeProtocolInterface:
+
+| Client               | Package    | Use                                  |
+| -------------------- | ---------- | ------------------------------------ |
+| `FirecatDataClient`  | Both       | Envelope-aware (wraps any Store)     |
+| `SimpleClient`       | Both       | Bare storage access (wraps any Store)|
+
+**Transport clients** — direct NodeProtocolInterface, no Store:
 
 | Client               | Package    | Use                        |
 | -------------------- | ---------- | -------------------------- |
 | `HttpClient`         | Both       | Connect to any HTTP node   |
-| `MemoryClient`       | Both       | Testing, in-process        |
-| `LocalStorageClient` | NPM        | Browser offline cache      |
-| `IndexedDBClient`    | NPM        | Browser IndexedDB storage  |
-| `PostgresClient`     | JSR        | PostgreSQL storage         |
-| `MongoClient`        | JSR        | MongoDB storage            |
+| `WebSocketClient`    | Both       | Real-time node connection  |
+| `ConsoleClient`      | Both       | Debugging / logging        |
 
 ### Packages
 
@@ -499,10 +519,13 @@ import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 
 | Feature            | b3nd-sdk (JSR) | b3nd-web (NPM) |
 | ------------------ | -------------- | --------------- |
-| PostgresClient     | Yes            | No              |
-| MongoClient        | Yes            | No              |
-| LocalStorageClient | No             | Yes             |
-| IndexedDBClient    | No             | Yes             |
+| PostgresStore      | Yes            | No              |
+| MongoStore         | Yes            | No              |
+| SqliteStore        | Yes            | No              |
+| S3Store            | Yes            | No              |
+| FsStore            | Yes            | No              |
+| LocalStorageStore  | No             | Yes             |
+| IndexedDBStore     | No             | Yes             |
 | Server primitives  | Full           | Limited         |
 
 ---
@@ -718,13 +741,13 @@ const schema: Schema = {
 
 ### Testing Protocol Validators
 
-Test validators using `MemoryClient` with your protocol's schema. Test both
-the happy path (valid messages accepted) and the rejection path (invalid
-messages rejected with the right error):
+Test validators using a `FirecatDataClient` backed by `MemoryStore` with your
+protocol's schema. Test both the happy path (valid messages accepted) and the
+rejection path (invalid messages rejected with the right error):
 
 ```typescript
 import { assertEquals } from "@std/assert";
-import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
+import { FirecatDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
   "mutable://accounts": async ([uri, , data]) => {
@@ -737,7 +760,7 @@ const schema: Schema = {
 };
 
 Deno.test("accepts valid account write", async () => {
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
   const result = await send({
     payload: {
       inputs: [],
@@ -748,7 +771,7 @@ Deno.test("accepts valid account write", async () => {
 });
 
 Deno.test("rejects invalid account write", async () => {
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
   const result = await send({
     payload: {
       inputs: [],
@@ -770,7 +793,7 @@ Deno.test("validator reads cross-program state", async () => {
     },
     "link://accounts": async () => ({ valid: true }),
   };
-  const client = new MemoryClient();
+  const client = new FirecatDataClient(new MemoryStore());
 
   // Pre-populate: register the account
   await client.receive([["link://accounts/alice/auth", {}, { active: true }]]);
@@ -899,10 +922,10 @@ const publishingProtocol: Schema = {
 **How it's used:**
 
 ```typescript
-import { MemoryClient, send } from "@bandeira-tech/b3nd-sdk";
+import { FirecatDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";
 
-const client = new MemoryClient();
+const client = new FirecatDataClient(new MemoryStore());
 
 // 1. User publishes content
 const post = { title: "Hello World", body: "First post on B3nd" };
@@ -1077,10 +1100,10 @@ const schema: Schema = {
 **Node setup:**
 
 ```typescript
-import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, FirecatDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
-const client = new MemoryClient();
+const client = new FirecatDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(9942);
@@ -1562,11 +1585,11 @@ export default schema;
 ### createServerNode
 
 ```typescript
-import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, FirecatDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 import schema from "./schema.ts";
 
-const client = new MemoryClient();
+const client = new FirecatDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 const node = createServerNode({ frontend, client });
@@ -1578,8 +1601,8 @@ node.listen(43100);
 ```typescript
 const programs = Object.keys(schema);
 const clients = [
-  new MemoryClient(),
-  new PostgresClient({ connection, programs, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new FirecatDataClient(new MemoryStore()),
+  new FirecatDataClient(new PostgresStore("b3nd", executor)),
 ];
 
 const client = createValidatedClient({
@@ -1596,17 +1619,13 @@ createServerNode({ frontend, client });
 
 ```typescript
 // Postgres
-const pg = new PostgresClient({
-  connection: "postgresql://user:pass@localhost:5432/db",
-  programs, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
-}, executor);
-await pg.initializeSchema();
+const pgStore = new PostgresStore("b3nd", executor);
+await pgStore.initializeSchema();
+const pg = new FirecatDataClient(pgStore);
 
 // MongoDB
-const mongo = new MongoClient({
-  connectionString: "mongodb://localhost:27017/mydb",
-  programs, collectionName: "b3nd_data",
-}, executor);
+const mongoStore = new MongoStore("b3nd", executor);
+const mongo = new FirecatDataClient(mongoStore);
 ```
 
 ---
@@ -1679,9 +1698,10 @@ entire surface area. An app developer imports your client factory, connects to a
 node, and uses the standard B3nd operations. They never define validators,
 inspect schemas, or think about dispatch.
 
-**Apps compose with `LocalStorageClient` for offline.** Browser apps often layer
-a local cache in front of the remote node. They `receive()` to both local and
-remote, and `read()` from local first. This is transparent to the protocol.
+**Apps compose with `LocalStorageStore` for offline.** Browser apps often layer
+a local cache (via a protocol client wrapping `LocalStorageStore`) in front of
+the remote node. They `receive()` to both local and remote, and `read()` from
+local first. This is transparent to the protocol.
 
 **Apps never see the schema.** They trust the node to validate. If an app sends
 an invalid message, the node rejects it. The app handles the rejection. The app
@@ -1769,14 +1789,19 @@ source code with line numbers.
 - `libs/b3nd-hash/` — Content-addressed hashing utilities
 - `libs/b3nd-msg/` — Message system, send(), message()
 
-### Clients
-- `libs/b3nd-client-memory/` — In-memory client
-- `libs/b3nd-client-http/` — HTTP client
-- `libs/b3nd-client-ws/` — WebSocket client
-- `libs/b3nd-client-postgres/` — PostgreSQL client
-- `libs/b3nd-client-mongo/` — MongoDB client
-- `libs/b3nd-client-localstorage/` — LocalStorage client
-- `libs/b3nd-client-indexeddb/` — IndexedDB client
+### Stores
+- `libs/b3nd-client-memory/` — MemoryStore (in-memory storage)
+- `libs/b3nd-client-postgres/` — PostgresStore (PostgreSQL storage)
+- `libs/b3nd-client-mongo/` — MongoStore (MongoDB storage)
+- `libs/b3nd-client-localstorage/` — LocalStorageStore (browser offline cache)
+- `libs/b3nd-client-indexeddb/` — IndexedDBStore (browser IndexedDB storage)
+
+### Protocol Clients
+- `libs/b3nd-core/` — FirecatDataClient, SimpleClient (wrap Store → NodeProtocolInterface)
+
+### Transport Clients
+- `libs/b3nd-client-http/` — HttpClient (HTTP transport)
+- `libs/b3nd-client-ws/` — WebSocketClient (WebSocket transport)
 - `libs/b3nd-combinators/` — parallelBroadcast, firstMatchSequence
 
 ### Auth & Encryption

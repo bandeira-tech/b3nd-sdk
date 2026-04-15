@@ -1,4 +1,4 @@
-// SQLite executor for SqliteClient, following the same pattern as the Postgres
+// SQLite executor for SqliteStore, following the same pattern as the Postgres
 // and Mongo executors. Uses Deno's built-in FFI-based SQLite via @db/sqlite.
 // This module is installation-specific so the core SDK stays decoupled from
 // any concrete driver.

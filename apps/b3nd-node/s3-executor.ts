@@ -1,4 +1,4 @@
-// S3 executor for S3Client using the S3-compatible REST API.
+// S3 executor for S3Store using the S3-compatible REST API.
 // Uses MinIO or any S3-compatible service. Talks directly to the S3 HTTP
 // API so no external SDK dependency is required.
 //

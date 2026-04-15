@@ -13,16 +13,12 @@
 export type {
   B3ndError,
   ClientError,
-  ConsoleClientConfig,
   DeleteResult,
   HealthStatus,
   HttpClientConfig,
-  IndexedDBClientConfig,
   ListItem,
   ListOptions,
   ListResult,
-  LocalStorageClientConfig,
-  MemoryClientConfig,
   Message,
   NodeProtocolInterface,
   NodeProtocolReadInterface,
@@ -51,19 +47,21 @@ export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 // ── Store implementations ──
 
 export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
-
+export { LocalStorageStore } from "../libs/b3nd-client-localstorage/store.ts";
+export { IndexedDBStore } from "../libs/b3nd-client-indexeddb/store.ts";
 // ── Protocol clients (Store → NodeProtocolInterface) ──
 
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
+export { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
 
-// ── Client implementations ──
+// ── Transport clients (direct NodeProtocolInterface, no Store) ──
 
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
-export { MemoryClient } from "../libs/b3nd-client-memory/mod.ts";
-export { LocalStorageClient } from "../libs/b3nd-client-localstorage/mod.ts";
-export { IndexedDBClient } from "../libs/b3nd-client-indexeddb/mod.ts";
-export { ConsoleClient } from "../libs/b3nd-client-console/mod.ts";
+export { ConsoleClient } from "../libs/b3nd-client-console/client.ts";
+
+// ── Wallet client (signing) ──
+
 export { WalletClient } from "../libs/b3nd-wallet/mod.ts";
 
 // FunctionalClient (composable client pattern)
@@ -91,6 +89,9 @@ export type {
 export type { BackendFactoryOptions } from "../libs/b3nd-rig/backend-factory.ts";
 export {
   createClientFromUrl,
+  createClientResolver,
+  createStoreFromUrl,
+  createStoreResolver,
   getSupportedProtocols,
   SUPPORTED_PROTOCOLS,
 } from "../libs/b3nd-rig/backend-factory.ts";

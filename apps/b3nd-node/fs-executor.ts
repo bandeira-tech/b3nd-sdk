@@ -1,4 +1,4 @@
-// Filesystem executor for FilesystemClient, following the same pattern as
+// Filesystem executor for FsStore, following the same pattern as
 // the Postgres and Mongo executors. Uses Deno's built-in fs APIs.
 // This module is installation-specific so the core SDK stays decoupled from
 // any concrete filesystem API.

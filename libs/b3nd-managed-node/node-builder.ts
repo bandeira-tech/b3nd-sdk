@@ -2,15 +2,16 @@
  * Node builder for managed nodes.
  *
  * Constructs NodeProtocolInterface clients from BackendSpec arrays,
- * extracted from the client construction logic in apps/b3nd-node/mod.ts.
+ * using Store + FirecatDataClient (envelope-aware protocol wrapper).
  */
 
 import {
   HttpClient,
-  MemoryClient,
   type NodeProtocolInterface,
   type Schema,
 } from "@bandeira-tech/b3nd-sdk";
+import { FirecatDataClient } from "../firecat-protocol/firecat-client.ts";
+import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import type { BackendSpec } from "./types.ts";
 
 /**
@@ -39,36 +40,34 @@ export async function buildClientsFromSpec(
   for (const spec of backends) {
     switch (spec.type) {
       case "memory": {
-        clients.push(new MemoryClient());
+        clients.push(new FirecatDataClient(new MemoryStore()));
         break;
       }
 
       case "postgresql": {
-        // Dynamic import to avoid hard dependency on postgres driver
-        const { PostgresClient } = await import("@bandeira-tech/b3nd-sdk");
         if (!executors?.postgres) {
           throw new Error(
             "PostgreSQL executor factory required for postgresql backend",
           );
         }
-        const executor = await executors.postgres(spec.url);
-        const pg = new PostgresClient(
-          {
-            connection: spec.url,
-            tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
-            poolSize: (spec.options?.poolSize as number) ?? 5,
-            connectionTimeout: (spec.options?.connectionTimeout as number) ??
-              10_000,
-          },
-          executor as any,
+        const { PostgresStore } = await import(
+          "../b3nd-client-postgres/store.ts"
         );
-        await pg.initializeSchema();
-        clients.push(pg);
+        const { generatePostgresSchema } = await import(
+          "../b3nd-client-postgres/schema.ts"
+        );
+        const executor = await executors.postgres(spec.url);
+        const tablePrefix =
+          (spec.options?.tablePrefix as string) ?? "b3nd";
+        // Initialize schema (create tables if needed)
+        const schemaSQL = generatePostgresSchema(tablePrefix);
+        await executor.query(schemaSQL);
+        const store = new PostgresStore(tablePrefix, executor);
+        clients.push(new FirecatDataClient(store));
         break;
       }
 
       case "mongodb": {
-        const { MongoClient } = await import("@bandeira-tech/b3nd-sdk");
         if (!executors?.mongo) {
           throw new Error(
             "MongoDB executor factory required for mongodb backend",
@@ -83,60 +82,44 @@ export async function buildClientsFromSpec(
         }
         const collectionName = (spec.options?.collectionName as string) ??
           url.searchParams.get("collection") ?? "b3nd_data";
+        const { MongoStore } = await import("../b3nd-client-mongo/store.ts");
         const executor = await executors.mongo(
           spec.url,
           dbName,
           collectionName,
         );
-        const mongo = new MongoClient(
-          {
-            connectionString: spec.url,
-            collectionName,
-          },
-          executor,
-        );
-        clients.push(mongo);
+        const store = new MongoStore(collectionName, executor);
+        clients.push(new FirecatDataClient(store));
         break;
       }
 
       case "sqlite": {
-        const { SqliteClient } = await import("../b3nd-client-sqlite/mod.ts");
         if (!executors?.sqlite) {
           throw new Error(
             "SQLite executor factory required for sqlite backend",
           );
         }
         const sqlitePath = new URL(spec.url).pathname || ":memory:";
+        const { SqliteStore } = await import("../b3nd-client-sqlite/store.ts");
         const executor = executors.sqlite(sqlitePath);
-        clients.push(
-          new SqliteClient(
-            {
-              path: sqlitePath,
-              tablePrefix: (spec.options?.tablePrefix as string) ?? "b3nd",
-            },
-            executor,
-          ),
-        );
+        const tablePrefix =
+          (spec.options?.tablePrefix as string) ?? "b3nd";
+        const store = new SqliteStore(tablePrefix, executor);
+        clients.push(new FirecatDataClient(store));
         break;
       }
 
       case "filesystem": {
-        const { FilesystemClient } = await import("../b3nd-client-fs/mod.ts");
         if (!executors?.fs) {
           throw new Error(
             "Filesystem executor factory required for filesystem backend",
           );
         }
         const rootDir = new URL(spec.url).pathname;
+        const { FsStore } = await import("../b3nd-client-fs/store.ts");
         const executor = executors.fs(rootDir);
-        clients.push(
-          new FilesystemClient(
-            {
-              rootDir,
-            },
-            executor,
-          ),
-        );
+        const store = new FsStore(rootDir, executor);
+        clients.push(new FirecatDataClient(store));
         break;
       }
 

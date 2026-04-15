@@ -10,7 +10,7 @@ Set these required environment variables (or use a `.env` file):
 
 - `BACKEND_URL` (required): Comma-separated list of backend specs. Each entry
   can be:
-  - `memory://` — in-memory backend using `MemoryClient`.
+  - `memory://` — in-memory backend using `MemoryStore`.
   - `postgres://...` — PostgreSQL connection string (e.g.
     `postgres://user:pass@host:5432/db`).
   - `mongodb://...` — MongoDB connection string with database in the path (e.g.
@@ -39,13 +39,13 @@ Set these required environment variables (or use a `.env` file):
 
 ## Supported backends
 
-| Protocol      | Client           | Notes                                     |
+| Protocol      | Store            | Notes                                     |
 | ------------- | ---------------- | ----------------------------------------- |
-| `memory://`   | MemoryClient     | In-memory, no persistence across restarts |
-| `postgres://` | PostgresClient   | JSONB storage, table prefix `b3nd`        |
-| `mongodb://`  | MongoClient      | Collection `b3nd_data`, DB from URL path  |
-| `sqlite://`   | SqliteClient     | WAL mode, file or `:memory:`              |
-| `file://`     | FilesystemClient | One JSON file per record, recursive dirs  |
+| `memory://`   | MemoryStore      | In-memory, no persistence across restarts |
+| `postgres://` | PostgresStore    | JSONB storage, table prefix `b3nd`        |
+| `mongodb://`  | MongoStore       | Collection `b3nd_data`, DB from URL path  |
+| `sqlite://`   | SqliteStore      | WAL mode, file or `:memory:`              |
+| `file://`     | FilesystemStore  | One JSON file per record, recursive dirs  |
 
 ## Quick start
 

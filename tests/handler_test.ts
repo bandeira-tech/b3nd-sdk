@@ -1,14 +1,17 @@
 import { assertEquals } from "@std/assert";
 import { connection, httpApi, Rig } from "../libs/b3nd-rig/mod.ts";
-import {
-  createTestSchema,
-  MemoryClient,
-} from "../libs/b3nd-client-memory/mod.ts";
+import { createTestSchema } from "../libs/b3nd-client-memory/mod.ts";
+import { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
+import { FirecatDataClient } from "../libs/firecat-protocol/firecat-client.ts";
+
+function memClient() {
+  return new FirecatDataClient(new MemoryStore());
+}
 
 Deno.test("httpApi - status endpoint", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     schema: createTestSchema(),
   });
@@ -22,7 +25,7 @@ Deno.test("httpApi - status endpoint", async () => {
 Deno.test("httpApi - receive/read/list round-trip", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     schema: createTestSchema(),
   });
@@ -57,7 +60,7 @@ Deno.test("httpApi - receive/read/list round-trip", async () => {
 Deno.test("httpApi - unknown route returns 404", async () => {
   const rig = new Rig({
     connections: [
-      connection(new MemoryClient(), { receive: ["*"], read: ["*"] }),
+      connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     schema: createTestSchema(),
   });

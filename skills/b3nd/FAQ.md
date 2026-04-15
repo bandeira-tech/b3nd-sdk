@@ -69,7 +69,7 @@ specific storage backend. Node operators choose their infrastructure — Postgre
 MongoDB, in-memory, or something custom — without coupling to any specific
 application.
 
-A node using MemoryClient and a node using PostgresClient are both valid B3nd
+A node using MemoryStore and a node using PostgresStore are both valid B3nd
 nodes. The framework treats them identically. Storage durability, replication,
 and retention are infrastructure concerns that B3nd intentionally leaves to the
 people who run the infrastructure.
@@ -110,9 +110,9 @@ const canonicalize = _canonicalize as unknown as (input: unknown) => string | un
 
 The root `deno.json` import map includes `"canonicalize": "npm:canonicalize@2.0.0"`.
 
-### How do I run tests without LocalStorageClient failures?
+### How do I run tests without LocalStorageStore failures?
 
-LocalStorageClient requires `window.localStorage`, which is unavailable in Deno
+LocalStorageStore requires `window.localStorage`, which is unavailable in Deno
 CLI. Exclude it:
 
 ```bash
@@ -124,7 +124,7 @@ deno test --allow-all libs/ --ignore=libs/b3nd-client-localstorage
 Define a custom schema and start a server:
 
 ```typescript
-import { createServerNode, MemoryClient, servers } from "@bandeira-tech/b3nd-sdk";
+import { createServerNode, FirecatDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
 const schema: Schema = {
@@ -134,14 +134,14 @@ const schema: Schema = {
   },
 };
 
-const client = new MemoryClient();
+const client = new FirecatDataClient(new MemoryStore());
 const app = new Hono();
 const frontend = servers.httpServer(app);
 createServerNode({ frontend, client }).listen(43100);
 ```
 
-The schema defines your network's programs. Replace `MemoryClient` with
-`PostgresClient` or `MongoClient` for persistent storage.
+The schema defines your network's programs. Replace `MemoryStore` with
+`PostgresStore` or `MongoStore` for persistent storage.
 
 ### How do I organize domain concepts in URI paths?
 
