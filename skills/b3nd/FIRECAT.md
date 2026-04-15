@@ -674,15 +674,15 @@ npm install @bandeira-tech/b3nd-web
 ```
 
 ```typescript
-import { HttpClient, LocalStorageClient } from "@bandeira-tech/b3nd-web";
+import { HttpClient, LocalStorageStore } from "@bandeira-tech/b3nd-web";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-web/hash";
 ```
 
-### LocalStorageClient
+### LocalStorageStore
 
 ```typescript
-const local = new LocalStorageClient({
+const local = new LocalStorageStore({
   keyPrefix: "myapp_",
 });
 ```

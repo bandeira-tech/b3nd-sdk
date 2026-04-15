@@ -496,55 +496,6 @@ export interface WebSocketClientConfig {
 }
 
 /**
- * Configuration for LocalStorageClient
- */
-export interface LocalStorageClientConfig {
-  /**
-   * Optional prefix for localStorage keys to avoid collisions
-   */
-  keyPrefix?: string;
-
-  /**
-   * Optional serialization functions
-   */
-  serializer?: {
-    serialize?: (data: unknown) => string;
-    deserialize?: (data: string) => unknown;
-  };
-
-  /**
-   * Optional injectable storage dependency (defaults to global localStorage)
-   */
-  storage?: Storage;
-}
-
-/**
- * Configuration for IndexedDBClient
- */
-export interface IndexedDBClientConfig {
-  /**
-   * Database name
-   */
-  databaseName?: string;
-
-  /**
-   * Object store name
-   */
-  storeName?: string;
-
-  /**
-   * Database version
-   */
-  version?: number;
-
-  /**
-   * Optional injectable indexedDB dependency (defaults to global indexedDB)
-   */
-  // deno-lint-ignore no-explicit-any
-  indexedDB?: any;
-}
-
-/**
  * Structured error codes for programmatic error handling.
  * Callers can switch on `error.code` without string parsing.
  */

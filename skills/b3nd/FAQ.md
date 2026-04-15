@@ -110,9 +110,9 @@ const canonicalize = _canonicalize as unknown as (input: unknown) => string | un
 
 The root `deno.json` import map includes `"canonicalize": "npm:canonicalize@2.0.0"`.
 
-### How do I run tests without LocalStorageClient failures?
+### How do I run tests without LocalStorageStore failures?
 
-LocalStorageClient requires `window.localStorage`, which is unavailable in Deno
+LocalStorageStore requires `window.localStorage`, which is unavailable in Deno
 CLI. Exclude it:
 
 ```bash
