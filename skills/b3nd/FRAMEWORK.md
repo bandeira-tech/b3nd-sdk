@@ -5,8 +5,7 @@ design, schema-driven validation, and cryptographic primitives. Protocols (like
 Firecat) are built on top of B3nd. Apps are built on top of protocols.
 
 This document covers B3nd itself — what the framework provides and how protocols
-use it. **Building an app?** See [FIRECAT.md](./FIRECAT.md) for the Firecat
-protocol's Quick Start, server setup, browser apps, and testing.
+use it. Firecat is one protocol built on B3nd — its docs live in the firecat repo.
 
 ---
 
@@ -1563,7 +1562,7 @@ trusted at each layer, and the schema enforces it.
 
 After defining your protocol's schema, you need to run a node that validates
 messages against it. This section covers generic node setup — for
-Firecat-specific node setup, see [FIRECAT.md > Running a Firecat Node](./FIRECAT.md).
+Firecat-specific node setup, see the firecat repo docs.
 
 ### Schema Module Pattern
 
@@ -1716,9 +1715,9 @@ never imports your schema — that's the node's responsibility.
 - Provide typed helpers in your SDK so apps get autocomplete and compile-time
   checks
 
-For a concrete worked example of an app built on a protocol, see
-[FIRECAT.md](./FIRECAT.md) — it covers Quick Start, React patterns, state
-management, and testing for app developers consuming the Firecat protocol.
+For a concrete worked example of an app built on a protocol, see the
+firecat repo — it covers Quick Start, React patterns, state management,
+and testing for app developers consuming the Firecat protocol.
 
 ---
 

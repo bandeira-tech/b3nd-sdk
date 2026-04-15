@@ -85,12 +85,6 @@ const BOOK_META: Record<string, BookMeta> = {
     description: "What B3nd is and how it works",
     tier: "documentation",
   },
-  "FIRECAT.md": {
-    key: "firecat",
-    label: "Firecat Reference",
-    description: "Schema, URIs, auth, visibility",
-    tier: "documentation",
-  },
   "FRAMEWORK.md": {
     key: "framework",
     label: "Framework Reference",

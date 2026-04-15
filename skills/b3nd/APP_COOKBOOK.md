@@ -4,7 +4,7 @@ Recipes and patterns for building apps on the Firecat network. Each section is
 self-contained — jump to what you need.
 
 For reference material on Firecat's schema, URIs, auth, and visibility model,
-see [FIRECAT.md](./FIRECAT.md).
+see the firecat repo docs.
 
 ---
 
