@@ -1,5 +1,5 @@
 /**
- * Vault Listener — Non-custodial OAuth identity service for Firecat.
+ * Vault Listener — Non-custodial OAuth identity service.
  *
  * Run:
  *   VAULT_SECRET=your-hmac-secret GOOGLE_CLIENT_ID=... deno run -A mod.ts
@@ -8,7 +8,7 @@
  *   deno task dev
  *
  * The vault:
- * 1. Connects to a Firecat node and watches its inbox for encrypted auth requests
+ * 1. Connects to a node and watches its inbox for encrypted auth requests
  * 2. respondTo() decrypts each request and calls the vault handler
  * 3. The handler verifies OAuth tokens and returns HMAC(nodeSecret, provider:sub)
  * 4. respondTo() encrypts the response and writes it to the client's outbox
@@ -41,7 +41,7 @@ if (!VAULT_SECRET) {
 }
 
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID");
-const FIRECAT_URL = Deno.env.get("FIRECAT_URL") || "http://localhost:8080";
+const BACKEND_URL = Deno.env.get("BACKEND_URL") || "http://localhost:8080";
 const VAULT_SEED = Deno.env.get("VAULT_SEED");
 const POLL_INTERVAL_MS = parseInt(Deno.env.get("POLL_INTERVAL_MS") || "2000");
 
@@ -90,9 +90,9 @@ if (verifiers.size === 0) {
 
 // --- Client ---
 
-const firecatClient = await createClientFromUrl(FIRECAT_URL);
+const backendClient = await createClientFromUrl(BACKEND_URL);
 const rig = new Rig({
-  connections: [rigConnection(firecatClient, { receive: ["*"], read: ["*"] })],
+  connections: [rigConnection(backendClient, { receive: ["*"], read: ["*"] })],
 });
 rig.on("receive:error", (e) => {
   console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
@@ -101,7 +101,7 @@ rig.on("read:error", (e) => {
   console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
 });
 const health = await rig.health();
-console.log(`Firecat node: ${FIRECAT_URL} (${health.status})`);
+console.log(`Backend node: ${BACKEND_URL} (${health.status})`);
 
 // --- Compose: handler + respondTo + connect ---
 // Pass the rig directly — it satisfies NodeProtocolInterface and
