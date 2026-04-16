@@ -12,7 +12,7 @@ and any app can read the same addresses.
 Every piece of data has a URI. Four operations do everything:
 
 ```typescript
-const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+const client = new HttpClient({ url: "http://localhost:9942" });
 
 // Write — submit a message [uri, values, data]
 await client.receive([["mutable://open/my-app/greeting", {}, {

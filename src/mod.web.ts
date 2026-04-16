@@ -139,10 +139,16 @@ export type {
   SignedEncryptedMessage,
 } from "../libs/b3nd-encrypt/mod.ts";
 
-// ── Validated client convenience ──
+// ── Validated client + schema validation ──
 
 export { createValidatedClient } from "../libs/b3nd-compose/validated-client.ts";
-export { msgSchema } from "../libs/b3nd-compose/validators.ts";
+export {
+  accept,
+  msgSchema,
+  reject,
+  requireFields,
+  uriPattern,
+} from "../libs/b3nd-compose/validators.ts";
 
 // ── Auth (access control & signature validation) ──
 
@@ -159,7 +165,6 @@ export {
   combineValidators,
   createOutputValidator,
   extractProgram,
-  isMessageData,
   message,
   send,
 } from "../libs/b3nd-msg/data/mod.ts";

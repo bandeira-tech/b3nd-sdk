@@ -122,56 +122,21 @@ export { deriveObfuscatedPath } from "../libs/b3nd-encrypt/utils.ts";
 export { FunctionalClient } from "../libs/b3nd-core/functional-client.ts";
 export type { FunctionalClientConfig } from "../libs/b3nd-core/functional-client.ts";
 
-// Validated client convenience
+// Validated client + schema validation
 export { createValidatedClient } from "../libs/b3nd-compose/validated-client.ts";
-
-// Unified Node system (deprecated — use createValidatedClient instead)
-export { createNode } from "../libs/b3nd-compose/mod.ts";
-export type {
-  Node,
-  NodeConfig,
-  Processor,
-  ReadInterface,
-} from "../libs/b3nd-compose/mod.ts";
 export {
-  // Built-in validators
   accept,
-  // Composition utilities
-  all,
-  any,
-  // Built-in processors
-  emit,
-  firstMatch,
-  format,
-  log,
-  // Message schema validator (new name)
   msgSchema,
-  noop,
-  parallel,
-  pipeline,
   reject,
   requireFields,
-  schema as schemaValidator,
-  seq,
   uriPattern,
-  when,
 } from "../libs/b3nd-compose/mod.ts";
 
-// Message layer (new names)
-export { createMessageNode } from "../libs/b3nd-msg/node-mod.ts";
-export type {
-  MessageNode,
-  MessageNodeConfig,
-  MessageValidator,
-  SubmitResult,
-} from "../libs/b3nd-msg/node-mod.ts";
-
-// Message data convention (Level 2)
+// Message data convention
 export {
   combineValidators,
   createOutputValidator,
   extractProgram,
-  isMessageData,
   message,
   send,
 } from "../libs/b3nd-msg/data/mod.ts";
@@ -186,6 +151,7 @@ export type {
 
 // Rig — the universal harness
 export {
+  connection,
   createClientFromUrl,
   createClientResolver,
   createStoreFromUrl,
@@ -211,4 +177,4 @@ export type {
 } from "../libs/b3nd-rig/mod.ts";
 
 // HTTP API — standalone function for serving a rig over HTTP
-export { createRigHandler, httpApi } from "../libs/b3nd-rig/http.ts";
+export { httpApi } from "../libs/b3nd-rig/http.ts";
