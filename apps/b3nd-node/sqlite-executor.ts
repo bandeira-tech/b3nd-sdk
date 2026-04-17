@@ -8,7 +8,7 @@ import { type BindValue, Database } from "jsr:@db/sqlite@0.12";
 import type {
   SqliteExecutor,
   SqliteExecutorResult,
-} from "@bandeira-tech/b3nd-sdk/client-sqlite";
+} from "@bandeira-tech/b3nd-sdk/clients/sqlite";
 
 export function createSqliteExecutor(path: string): SqliteExecutor {
   const db = new Database(path);

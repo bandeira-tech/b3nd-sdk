@@ -7,7 +7,7 @@ import { ensureDir } from "jsr:@std/fs@1/ensure-dir";
 import { walk } from "jsr:@std/fs@1/walk";
 import { dirname, relative } from "jsr:@std/path@1";
 
-import type { FsExecutor } from "@bandeira-tech/b3nd-sdk/client-fs";
+import type { FsExecutor } from "@bandeira-tech/b3nd-sdk/clients/fs";
 
 export function createFsExecutor(rootDir: string): FsExecutor {
   return {
