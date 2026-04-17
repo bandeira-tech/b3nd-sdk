@@ -21,7 +21,7 @@ Set these required environment variables (or use a `.env` file):
     file under the given root directory.
 
 - `SCHEMA_MODULE` (optional): Path or URL to a module exporting a default
-  `Schema` object. Defaults to the Firecat protocol schema.
+  `Schema` object. Defaults to an open schema (accepts all URIs).
 
 - `PORT` (required): HTTP port to listen on.
 - `CORS_ORIGIN` (required): CORS origin for the HTTP API (use `*` to allow all

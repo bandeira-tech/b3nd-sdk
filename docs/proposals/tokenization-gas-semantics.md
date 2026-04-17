@@ -1,7 +1,7 @@
 # B3nd Tokenization & Gas Semantics — Engineering Proposals
 
 **Status:** Draft — Conceptual exploration for first-round discussion **Date:**
-2026-02-24 **Context:** Decentralized message passing on B3nd/Firecat
+2026-02-24 **Context:** Decentralized message passing on B3nd
 
 ---
 
@@ -942,28 +942,28 @@ writing messages at agreed-upon URIs.
 
 ---
 
-## Appendix: How Gas Validators Compose with Existing Firecat Schema
+## Appendix: How Gas Validators Compose with an Existing Schema
 
-The gas schema is _additive_ — it extends the existing Firecat schema without
+The gas schema is _additive_ — it extends an existing protocol schema without
 modifying it:
 
 ```typescript
-import firecatSchema from "./firecat-schema.ts";
+import baseSchema from "./protocol-schema.ts";
 import gasSchema from "./gas-schema.ts";
 
 // Merge schemas — gas validators wrap existing ones
 const networkSchema: Schema = {
-  ...firecatSchema,
+  ...baseSchema,
   ...gasSchema,
 
-  // Override Firecat programs to add fee checking
+  // Override base programs to add fee checking
   "mutable://accounts": async (ctx) => {
     // 1. Check gas fee output exists in the message
     const feeCheck = await validateGasFee(ctx);
     if (!feeCheck.valid) return feeCheck;
 
-    // 2. Run original Firecat auth validation
-    return firecatSchema["mutable://accounts"](ctx);
+    // 2. Run original auth validation
+    return baseSchema["mutable://accounts"](ctx);
   },
 };
 ```

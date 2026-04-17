@@ -491,11 +491,6 @@ invariants.
 
 ## Related Documentation
 
-- `libs/firecat-protocol/CONFIRMATION.md` — Confirmation protocol design
-  (concrete validators, trust model, migration path). More specified than this
-  outline for the confirmation stage specifically.
-- `libs/firecat-protocol/TEMPORAL_CONSENSUS.md` — Initial temporal consensus
-  proposal
 - `docs/book/README.md` — "What's in a Message" (foundational B3nd concepts)
 - `skills/b3nd/FRAMEWORK.md` — DePIN protocol SDK patterns
 
@@ -512,13 +507,13 @@ with full validator code
 
 ## Contributing
 
-This book is a living document. As Firecat implementation progresses, lessons
+This book is a living document. As implementation progresses, lessons
 learned should flow back into these chapters. Open questions should be resolved
 through prototyping, not speculation.
 
 **Process:**
 
-1. Prototype shift ID mechanism in `libs/firecat-protocol/`
+1. Prototype shift ID mechanism
 2. Document findings in this README
 3. Update chapter outlines with learnings
 4. Write chapter once design is stable

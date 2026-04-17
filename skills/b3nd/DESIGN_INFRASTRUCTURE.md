@@ -9,7 +9,7 @@ handlers and listeners, how to deploy them, and how to scale.
 
 ## Node Requirements for Handler Support
 
-A Firecat node that supports handlers must provide the full protocol
+A node that supports handlers must provide the full protocol
 interface. Handlers compose with these operations:
 
 ```
@@ -395,7 +395,7 @@ A production node deployment requires:
 | `VAULT_SECRET`     | Handler-specific secret          | `(random 256-bit hex)`          |
 | `VAULT_SEED`       | Deterministic identity seed      | `(random 256-bit hex)`          |
 | `POLL_INTERVAL_MS` | Listener poll frequency          | `5000`                          |
-| `FIRECAT_URL`      | Remote node URL (for listeners)  | `https://testnet.fire.cat`      |
+| `BACKEND_URL`      | Remote node URL (for listeners)  | `https://your-node.example.com` |
 
 ### Health Checks
 
@@ -465,7 +465,7 @@ It demonstrates every pattern in this document.
 │  └─────────────────┘    └──────────────────────────┘    │
 │                                                          │
 │  Identity: deterministic (from VAULT_SEED)               │
-│  Client: HttpClient → remote Firecat node                │
+│  Client: HttpClient → remote node                        │
 │  Handler: vault.ts (pure function)                       │
 │                                                          │
 └─────────────────────────────────────────────────────────┘
@@ -500,7 +500,7 @@ import { connect, respondTo } from "@bandeira-tech/b3nd-sdk/listener";
 import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
 
-const client = new HttpClient({ url: Deno.env.get("FIRECAT_URL")! });
+const client = new HttpClient({ url: Deno.env.get("BACKEND_URL")! });
 const identity = await encrypt.generateSigningKeyPair();
 
 const processor = respondTo(

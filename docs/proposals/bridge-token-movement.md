@@ -2,7 +2,7 @@
 
 **Status:** Draft — Design exploration based on adversarial analysis **Date:**
 2026-02-25 **Companion:** See `tokenization-gas-semantics.md` for UTXO gas
-model, `firecat-economic-model.md` for economic context
+model
 
 ---
 
@@ -172,7 +172,7 @@ Responses are offers. Competition drives rates toward fair value.
 - **Supports serverless frontends**: A browser-only app publishes a transaction
   reference. It doesn't need to run a bridge — the network handles verification.
 - **Reproducible pattern**: `solana://tx/...`, `ethereum://tx/...`,
-  `bitcoin://tx/...` — same pattern for any chain. Not Firecat-specific.
+  `bitcoin://tx/...` — same pattern for any chain. Not protocol-specific.
 
 ### 4.5 Double-Deposit Prevention
 
@@ -443,7 +443,7 @@ Elapsed: seconds to minutes (Solana finality + B3nd message propagation)
 ### 8.2 Pattern: Earning With Protocol Locks
 
 ```
-Alice uses a Firecat app for 3 months.
+Alice uses a B3nd app for 3 months.
 
 Month 1:
   - Views ads, earns 50 B3ND from ad revenue → locked 30 days

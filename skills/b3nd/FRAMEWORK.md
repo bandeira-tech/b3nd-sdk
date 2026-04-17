@@ -1,11 +1,11 @@
 # B3nd — DePIN Framework & SDK
 
 You are here to create a DePIN network. B3nd provides URI-addressed resource
-design, schema-driven validation, and cryptographic primitives. Protocols (like
-Firecat) are built on top of B3nd. Apps are built on top of protocols.
+design, schema-driven validation, and cryptographic primitives. Protocols are
+built on top of B3nd. Apps are built on top of protocols.
 
 This document covers B3nd itself — what the framework provides and how protocols
-use it. Firecat is one protocol built on B3nd — its docs live in the firecat repo.
+use it.
 
 ---
 
@@ -14,7 +14,7 @@ use it. Firecat is one protocol built on B3nd — its docs live in the firecat r
 | Layer | What | Who | Relies on |
 |-------|------|-----|-----------|
 | **1. Framework** | B3nd — addressed data, schema dispatch, auth primitives, SDK | B3nd developers | Nothing — this is the foundation |
-| **2. Protocol** | e.g., Firecat — program schemas, consensus, fees, URI conventions | Protocol developers | B3nd SDK |
+| **2. Protocol** | Program schemas, consensus, fees, URI conventions | Protocol developers | B3nd SDK |
 | **3. App** | e.g., social network — UX, auth flows, data display | App developers | B3nd SDK + protocol SDK/endpoints |
 
 The SDK is Layer 1's product. It provides tools to everyone above. Protocol
@@ -1562,7 +1562,7 @@ trusted at each layer, and the schema enforces it.
 
 After defining your protocol's schema, you need to run a node that validates
 messages against it. This section covers generic node setup — for
-Firecat-specific node setup, see the firecat repo docs.
+protocol-specific node setup, see the protocol's docs.
 
 ### Schema Module Pattern
 
@@ -1679,10 +1679,10 @@ export function noteUri(path: string) {
 }
 ```
 
-**How Firecat does it:** Firecat's schema module (`apps/b3nd-node/example-schema.ts`)
-exports the canonical 8-program schema. The `@bandeira-tech/b3nd-web` and
+**Example:** A protocol's schema module (`apps/b3nd-node/example-schema.ts`)
+exports a canonical program schema. The `@bandeira-tech/b3nd-web` and
 `@bandeira-tech/b3nd-sdk` packages provide the transport layer. Together they
-form the Firecat SDK that app developers consume — without knowing they're
+form the protocol SDK that app developers consume — without knowing they're
 using B3nd underneath.
 
 ---
@@ -1715,9 +1715,9 @@ never imports your schema — that's the node's responsibility.
 - Provide typed helpers in your SDK so apps get autocomplete and compile-time
   checks
 
-For a concrete worked example of an app built on a protocol, see the
-firecat repo — it covers Quick Start, React patterns, state management,
-and testing for app developers consuming the Firecat protocol.
+For concrete worked examples of apps built on a protocol, see the protocol
+SDK documentation — covering Quick Start, React patterns, state management,
+and testing for app developers.
 
 ---
 
@@ -1729,11 +1729,11 @@ and testing for app developers consuming the Firecat protocol.
 | **Program**              | `scheme://hostname` pair — the unit of validation dispatch         |
 | **Resource**             | Data addressed by a URI path within a program                         |
 | **Envelope**             | Message with `{ auth?, payload: { inputs, outputs } }` structure   |
-| **Protocol**             | System built on B3nd (e.g., Firecat) — defines programs and rules  |
+| **Protocol**             | System built on B3nd — defines programs and rules                  |
 | **DePIN**                | Decentralized Physical Infrastructure Network                      |
 
 Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
-(like Firecat). "Envelope" for `{ auth?, payload: { inputs, outputs } }` messages.
+"Envelope" for `{ auth?, payload: { inputs, outputs } }` messages.
 
 ---
 

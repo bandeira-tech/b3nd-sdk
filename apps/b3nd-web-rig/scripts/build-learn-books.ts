@@ -105,7 +105,7 @@ const BOOK_META: Record<string, BookMeta> = {
   },
   "APP_COOKBOOK.md": {
     key: "app-cookbook",
-    label: "Building Firecat Apps",
+    label: "Building Apps",
     description: "Quick start, CRUD, browser apps, testing",
     tier: "cookbook",
   },
@@ -151,13 +151,6 @@ const BOOK_META: Record<string, BookMeta> = {
     key: "tokenization-gas-semantics",
     label: "Tokenization & Gas Semantics",
     description: "Economic layer proposals for B3nd message passing",
-    tier: "proposals",
-  },
-  "firecat-economic-model.md": {
-    key: "firecat-economic-model",
-    label: "Firecat Economic Model",
-    description:
-      "Full economic vision: subsidies, ads, node operators, DePIN template",
     tier: "proposals",
   },
   "bridge-token-movement.md": {

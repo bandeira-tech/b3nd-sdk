@@ -1485,11 +1485,6 @@
           "npm:hono@*"
         ]
       },
-      "apps/firecat-host": {
-        "dependencies": [
-          "npm:hono@*"
-        ]
-      },
       "apps/sdk-inspector": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15",
@@ -1602,12 +1597,6 @@
       },
       "libs/b3nd-wallet": {
         "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/firecat-protocol": {
-        "dependencies": [
-          "jsr:@bandeira-tech/b3nd-sdk@~0.8.1",
           "jsr:@std/assert@^1.0.15"
         ]
       },

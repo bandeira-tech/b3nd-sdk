@@ -24,7 +24,7 @@ export function ApiDocsLeftSlot() {
 function IndexMode({ catalog }: { catalog: ApiCatalog }) {
   const openLibrary = useApiDocsStore((s) => s.openLibrary);
 
-  // Group libraries by prefix: b3nd-client-*, b3nd-*, firecat-*
+  // Group libraries by prefix: b3nd-client-*, b3nd-*, protocol-*
   const groups = groupLibraries(catalog.libraries);
 
   const [expanded, setExpanded] = useState<Set<string>>(() =>
@@ -208,7 +208,7 @@ const GROUP_PREFIXES: [string, string][] = [
   ["b3nd-client-", "Clients"],
   ["b3nd-wallet", "Wallet"],
   ["b3nd-server", "Servers"],
-  ["firecat-", "Firecat"],
+  ["protocol-", "Protocol"],
 ];
 
 function groupLibraries(libs: LibGroup[]): [string, LibGroup[]][] {

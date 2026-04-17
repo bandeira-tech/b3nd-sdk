@@ -937,7 +937,7 @@ async function getClient(logger) {
   const config = await loadConfig();
   if (!config.node) {
     throw new Error(
-      "No node configured. Run: bnd conf node <url>\nExample: bnd conf node https://testnet-evergreen.fire.cat",
+      "No node configured. Run: bnd conf node <url>\nExample: bnd conf node https://your-node.example.com",
     );
   }
   try {

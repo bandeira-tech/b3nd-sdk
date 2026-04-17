@@ -55,7 +55,7 @@ const results = await client.read("mutable://users/alice");
 console.log(results[0]?.record?.data); // { name: "Alice" }
 ```
 
-For raw storage without Firecat envelope handling, use `SimpleClient` instead:
+For raw storage without envelope handling, use `SimpleClient` instead:
 
 ```ts
 import { SimpleClient, PostgresStore } from "@bandeira-tech/b3nd-sdk";

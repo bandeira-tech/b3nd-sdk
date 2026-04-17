@@ -85,7 +85,7 @@ its own protocol's programs directly. The protocol ships as a closed package
 that knows its own routing:
 
 ```typescript
-// firecat/programs/msg.ts
+// protocol/programs/msg.ts
 import { balanceProgram } from "./balance.ts";
 import { dataProgram } from "./data.ts";
 
@@ -106,11 +106,11 @@ const msgProgram: Program = async (output, _upstream, read) => {
   const [, , data] = output;
   for (const subOutput of data.outputs) {
     const sub = routeSubOutput(subOutput);
-    if (!sub) return { code: "firecat:invalid", error: "unknown output URI" };
+    if (!sub) return { code: "proto:invalid", error: "unknown output URI" };
     const result = await sub(subOutput, output, read);
     if (result.error) return result;
   }
-  return { code: "firecat:valid" };
+  return { code: "proto:valid" };
 };
 ```
 
@@ -120,8 +120,8 @@ codes to handlers. Programs never cause side effects.
 
 ### Codes are Protocol-Defined
 
-Programs return codes like `"firecat:valid"`, `"firecat:confirmed"`,
-`"firecat:invalid"`. The framework doesn't know what these mean. The protocol
+Programs return codes like `"proto:valid"`, `"proto:confirmed"`,
+`"proto:invalid"`. The framework doesn't know what these mean. The protocol
 defines them. The operator decides what to do with each one.
 
 This is different from the current `{ valid: boolean }` model. A binary
@@ -208,7 +208,7 @@ A protocol ships **programs** (the classification logic) and **default handlers*
 (the operational meaning of each code). This IS the protocol spec in code.
 
 ```typescript
-// firecat/mod.ts
+// protocol/mod.ts
 
 // Programs — the classification logic
 export const programs: Record<string, Program> = {
@@ -216,13 +216,13 @@ export const programs: Record<string, Program> = {
   "store://genesis":      genesisProgram,
   "store://data":         dataProgram,
   "consensus://record":   consensusProgram,
-  "firecat://msg":        firecatMsgProgram,
+  "proto://msg":        protoMsgProgram,
 };
 
 // Default handlers — what each code means
 // broadcast goes direct to clients (bypasses programs)
 export const handlers: Record<string, CodeHandler> = {
-  "firecat:valid": async (msg, broadcast, _read) => {
+  "proto:valid": async (msg, broadcast, _read) => {
     // Store the message opaquely — wrap it so the client stores
     // the whole message as data, without decomposing its outputs.
     const hash = await computeHash(msg);
@@ -237,7 +237,7 @@ export const handlers: Record<string, CodeHandler> = {
     // The inner outputs are NOT written to domain URIs — just data.
   },
 
-  "firecat:confirmed": async (msg, broadcast, read) => {
+  "proto:confirmed": async (msg, broadcast, read) => {
     // Store the confirmation record (wrapped, same pattern)
     const confirmHash = await computeHash(msg);
     await broadcast([[
@@ -258,7 +258,7 @@ export const handlers: Record<string, CodeHandler> = {
     await broadcast([originalMsg]);
   },
 
-  "firecat:invalid": async () => {
+  "proto:invalid": async () => {
     // Rejection — handler not called (rig returns error)
   },
 };
@@ -274,8 +274,8 @@ const fullNode = new Rig({
   connections: [
     connection(pgClient, { receive: ["*"], read: ["*"] }),
   ],
-  programs: firecat.programs,
-  on: firecat.handlers,
+  programs: protocol.programs,
+  on: protocol.handlers,
 });
 
 // ── Light node: only store confirmed state ──
@@ -283,13 +283,13 @@ const lightNode = new Rig({
   connections: [
     connection(sqliteClient, { receive: ["consensus://*"], read: ["*"] }),
   ],
-  programs: firecat.programs,
+  programs: protocol.programs,
   on: {
-    ...firecat.handlers,
-    "firecat:valid": async () => {
+    ...protocol.handlers,
+    "proto:valid": async () => {
       // Don't store unconfirmed messages at all
     },
-    "firecat:confirmed": async (msg, broadcast, _read) => {
+    "proto:confirmed": async (msg, broadcast, _read) => {
       // Only store the consensus record, skip state application
       const hash = await computeHash(msg);
       await broadcast([[
@@ -305,10 +305,10 @@ const indexer = new Rig({
   connections: [
     connection(elasticClient, { receive: ["store://*"], read: ["store://*"] }),
   ],
-  programs: firecat.programs,
+  programs: protocol.programs,
   on: {
-    ...firecat.handlers,
-    "firecat:confirmed": async () => {
+    ...protocol.handlers,
+    "proto:confirmed": async () => {
       // Don't care about consensus — just indexing content
     },
   },
@@ -319,10 +319,10 @@ const mirror = new Rig({
   connections: [
     connection(localClient, { receive: ["*"], read: ["*"] }),
   ],
-  programs: firecat.programs,
+  programs: protocol.programs,
   on: {
-    ...firecat.handlers,
-    "firecat:valid": async (msg, broadcast, _read) => {
+    ...protocol.handlers,
+    "proto:valid": async (msg, broadcast, _read) => {
       // Store locally (wrapped) AND replicate to peer
       const hash = await computeHash(msg);
       await broadcast([[
@@ -368,7 +368,7 @@ Message arrives: [hash://sha256/abc, {}, {
   ]
 }]
 
-Program returns: "firecat:valid"
+Program returns: "proto:valid"
 Handler wraps and broadcasts:
   → client stores the whole message as data at hash://sha256/abc
   → inner outputs NOT decomposed — just data
@@ -378,7 +378,7 @@ read("store://balance/alice/utxo-1") → not found (not confirmed)
 
 ---
 
-Confirmation arrives, program returns: "firecat:confirmed"
+Confirmation arrives, program returns: "proto:confirmed"
 Handler broadcasts the original message UNWRAPPED:
   → client decomposes: deletes inputs, writes outputs to domain URIs
 
@@ -414,15 +414,15 @@ The handler controls what's in those messages.
 
 Consumption happens when the handler broadcasts a message with inputs. The
 client deletes those inputs. This only happens on confirmation — the
-`firecat:valid` handler wraps messages (no inputs reach the client), while
-the `firecat:confirmed` handler broadcasts the original unwrapped (inputs
+`proto:valid` handler wraps messages (no inputs reach the client), while
+the `proto:confirmed` handler broadcasts the original unwrapped (inputs
 get deleted, outputs get written).
 
 The handler shapes what reaches the client. The client executes mechanically.
 
 ---
 
-## Example: UGC Through Firecat
+## Example: UGC Through a Protocol
 
 Walkthrough of a user-generated content post flowing through the system.
 
@@ -436,9 +436,9 @@ const ugc = [
   { title: "Hello World", body: "My first post" },
 ];
 
-// Wrapped in a firecat message
+// Wrapped in a protocol message
 const message = [
-  "firecat://msg", {},
+  "proto://msg", {},
   {
     inputs: [],
     outputs: [ugc],
@@ -451,12 +451,12 @@ await rig.receive([message]);
 
 ### 2. Rig Processes
 
-The rig finds the `firecat://msg` program, which:
+The rig finds the `proto://msg` program, which:
 - Validates the message format
 - Verifies the auth signature
 - Runs its own sub-programs on each output (scoped protocol routing)
 - Checks conservation (zero values in, zero values out — OK)
-- Returns `"firecat:valid"`
+- Returns `"proto:valid"`
 
 The `valid` handler wraps the message and broadcasts it. Client stores the
 whole message as data at `hash://sha256/{hash}`. The UGC output is NOT at
@@ -479,7 +479,7 @@ const confirmation = [
 ```
 
 The `consensus://record` program verifies the proof and returns
-`"firecat:confirmed"`.
+`"proto:confirmed"`.
 
 The `confirmed` handler loads the original message from `hash://sha256/abc`
 and broadcasts it unwrapped. The client decomposes it — the UGC output is
@@ -513,9 +513,9 @@ await rig.read("store://accounts/loremipsum/posts/hello");
 └────────────────────┬────────────────────────────┘
                      │
 ┌────────────────────┴────────────────────────────┐
-│  Protocol (e.g., Firecat)                        │
+│  Protocol Layer                                  │
 │  - Programs: classification logic                │
-│  - Codes: firecat:valid, firecat:confirmed, ...  │
+│  - Codes: proto:valid, proto:confirmed, ...      │
 │  - Default handlers: what each code means        │
 │  - Ships as a package with programs + handlers   │
 └────────────────────┬────────────────────────────┘
@@ -530,8 +530,8 @@ await rig.read("store://accounts/loremipsum/posts/hello");
 ```
 
 Protocols can publish their own rig constructors with defaults and config
-sugar. An operator can use `firecat.fullNode(pgClient)` or
-`firecat.lightNode(sqliteClient)` without writing handler code. But the
+sugar. An operator can use `protocol.fullNode(pgClient)` or
+`protocol.lightNode(sqliteClient)` without writing handler code. But the
 verbose rig config is always available for custom deployments.
 
 ```typescript
@@ -550,7 +550,7 @@ export function lightNode(client: NodeProtocolInterface): Rig {
     programs,
     on: {
       ...handlers,
-      "firecat:valid": async () => {},
+      "proto:valid": async () => {},
     },
   });
 }
@@ -572,7 +572,7 @@ export function lightNode(client: NodeProtocolInterface): Rig {
 | Rig has `schema` | Rig has `programs` + `on` |
 | Binary accept/reject | Open-ended codes |
 | Client processes MessageData | Client is mechanical: delete inputs, write outputs |
-| Conservation in firecat validators | Conservation in programs, values on primitive |
+| Conservation in protocol validators | Conservation in programs, values on primitive |
 | `consumed://` marker URIs | Consumption via inputs (client deletes) |
 | `isMessageData()` branching | No branching — always `{ inputs, outputs }` |
 | `_dispatch` (raw client access) | `broadcast` (direct to clients, bypasses programs) |

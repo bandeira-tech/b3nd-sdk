@@ -1,37 +1,25 @@
 {
   "defaults": {
-    "backend": "testnet",
-    "wallet": "testnet-wallet",
-    "appServer": "testnet-app"
+    "backend": "local-api",
+    "wallet": "local-wallet",
+    "appServer": "local-app"
   },
   "backends": {
     "local-api": {
       "name": "Local HTTP API",
       "baseUrl": "http://localhost:9942"
-    },
-    "testnet": {
-      "name": "Testnet Evergreen",
-      "baseUrl": "https://testnet-evergreen.fire.cat"
     }
   },
   "walletServers": {
     "local-wallet": {
       "name": "Local Wallet",
       "url": "http://localhost:9943"
-    },
-    "testnet-wallet": {
-      "name": "Testnet Wallet",
-      "url": "https://testnet-wallet.fire.cat"
     }
   },
   "appServers": {
     "local-app": {
       "name": "Local App Server",
       "url": "http://localhost:9944"
-    },
-    "testnet-app": {
-      "name": "Testnet App Server",
-      "url": "https://testnet-app.fire.cat"
     }
   }
 }

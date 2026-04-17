@@ -28,7 +28,7 @@ export async function getRig(
   if (!config.node) {
     throw new Error(
       "No node configured. Run: bnd conf node <url>\n" +
-        "Example: bnd conf node https://testnet-evergreen.fire.cat",
+        "Example: bnd conf node https://your-node.example.com",
     );
   }
 

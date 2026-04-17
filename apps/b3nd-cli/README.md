@@ -26,7 +26,7 @@ alias bnd='deno run --allow-read --allow-write --allow-env --allow-net /path/to/
 Configure your node and account:
 
 ```bash
-bnd conf node https://testnet-evergreen.fire.cat
+bnd conf node https://your-node.example.com
 bnd conf account path/to/my/key
 ```
 
@@ -106,7 +106,7 @@ bnd --help
 
 ```bash
 # Configure
-bnd conf node https://testnet-evergreen.fire.cat
+bnd conf node https://your-node.example.com
 bnd conf account path/to/my/key
 
 # Write operations
@@ -131,7 +131,7 @@ cat ~/.bnd/config.toml
 Configuration is stored in `~/.bnd/config.toml` in TOML format:
 
 ```toml
-node = "https://testnet-evergreen.fire.cat"
+node = "https://your-node.example.com"
 account = "path/to/my/key"
 ```
 

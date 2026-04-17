@@ -17,7 +17,7 @@ familiar — and the code should feel like the natural last step.
 ```typescript
 import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 
-const client = new HttpClient({ url: "https://testnet-evergreen.fire.cat" });
+const client = new HttpClient({ url: "http://localhost:9942" });
 
 // Post a public note
 await client.receive([

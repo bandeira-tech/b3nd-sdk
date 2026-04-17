@@ -13,7 +13,7 @@ Feature: Deterministic Identity from Credentials
   Scenario: Identity enables authenticated writes
     Given user "alice" has derived identity from password "s3cret-passw0rd"
     When she writes signed data to her account URI
-    Then the Firecat node accepts the write
+    Then the node accepts the write
     And the signature is verifiable by anyone with her public key
 
   Scenario: Identity recovery is re-derivation

@@ -7,7 +7,7 @@
  *   Handles decrypt → call → encrypt → sign → route.
  *
  * - `connect(client, config)` — Transport that bridges a processor to
- *   a remote Firecat node via polling.
+ *   a remote node via polling.
  *
  * The handler is the portable unit. `respondTo` makes it composable.
  * `connect` provides transport. They compose independently.
@@ -77,7 +77,7 @@ export interface Identity {
 }
 
 /**
- * A connection to a remote Firecat node.
+ * A connection to a remote node.
  */
 export interface Connection {
   /** Poll once, process all pending messages. Returns count processed. */
@@ -217,7 +217,7 @@ export function respondTo<TReq = unknown, TRes = unknown>(
 // ── connect ──────────────────────────────────────────────────────────
 
 /**
- * Bridge a processor to a remote Firecat node via polling.
+ * Bridge a processor to a remote node via polling.
  *
  * Watches the node for messages at a URI prefix, reads new messages,
  * and passes them to the processor. Tracks processed URIs to avoid

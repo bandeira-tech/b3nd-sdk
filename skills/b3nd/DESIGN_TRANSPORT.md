@@ -243,7 +243,7 @@ browsers without routing through a server.
 
 **How it maps to B3nd:**
 
-1. **Signaling through Firecat URIs.** Alice writes her SDP offer to
+1. **Signaling through B3nd URIs.** Alice writes her SDP offer to
    Bob's inbox. Bob reads it, generates an answer, writes it to Alice's
    inbox. ICE candidates flow the same way.
 

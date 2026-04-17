@@ -560,7 +560,7 @@ export function noteUri(path: string) {
 }
 ```
 
-**How Firecat does it:** Firecat's schema module exports the canonical 8-program
+**Example:** A protocol's schema module exports the canonical program
 schema. The `@bandeira-tech/b3nd-web` and `@bandeira-tech/b3nd-sdk` packages
-provide the transport layer. Together they form the Firecat SDK that app
+provide the transport layer. Together they form the protocol SDK that app
 developers consume — without knowing they're using B3nd underneath.

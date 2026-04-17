@@ -58,7 +58,7 @@ evaluate whether rational actors would participate.
 - How do selected attestors claim rewards? Is there a
   `immutable://reward/{shiftID}/{blockNumber}` output in the slot assignment
   message?
-- Are rewards UTXO outputs in the same conservation model as Firecat balances?
+- Are rewards UTXO outputs in the same conservation model as protocol balances?
   If so, the slot assignment message would have balance outputs for each
   credited worker
 - How does the confirmer get paid for bundling? Fee from the attestation

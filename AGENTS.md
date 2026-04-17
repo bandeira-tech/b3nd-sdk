@@ -21,5 +21,5 @@ SDK entry: `src/mod.ts` (JSR), `src/mod.web.ts` (NPM). Packages: `@bandeira-tech
 5. Minimize abstractions — use JS knowledge, stay fresh on deps
 
 ## Skills
-Read `skills/b3nd/` for SDK API, Firecat patterns, protocol design, node operations, and cookbooks.
+Read `skills/b3nd/` for SDK API, protocol design, node operations, and cookbooks.
 After any SDK change, update the relevant skill file so agents use correct imports.

@@ -91,7 +91,7 @@ rules about who can enter.
 In b3nd, the **schema** is the house rules. It defines what kind of messages
 this node accepts.
 
-A Firecat node (b3nd's public network protocol) accepts messages to these
+A B3nd node accepts messages to these
 addresses:
 
 | Address type                   | Who can write         | Persistence | Use case                        |

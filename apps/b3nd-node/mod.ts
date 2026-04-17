@@ -36,7 +36,7 @@ if (SCHEMA_MODULE) {
   }
 } else {
   // Open schema: accepts all URI protocols. Deploy with SCHEMA_MODULE for
-  // production validation (e.g. @firecat/protocol or a custom schema).
+  // production validation (e.g. a custom protocol schema module).
   schema = new Proxy({} as Schema, {
     get(_target, prop: string | symbol) {
       if (typeof prop === "string") return async () => ({ valid: true });

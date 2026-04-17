@@ -69,7 +69,7 @@ export function BrandHeader() {
       {/* Left side - Brand */}
       <div className="flex items-center space-x-4">
         <div className="font-semibold">Rig</div>
-        <div className="text-brand-fg/60">Firecat network</div>
+        <div className="text-brand-fg/60">B3nd network</div>
       </div>
 
       {/* Center - App switcher */}

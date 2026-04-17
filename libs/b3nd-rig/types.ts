@@ -132,11 +132,11 @@ export interface RigConfig {
    *   connections: [...],
    *   programs: {
    *     "store://balance": balanceProgram,
-   *     "firecat://msg": firecatMsgProgram,
+   *     "msg://app": appMsgProgram,
    *   },
    *   handlers: {
-   *     "firecat:valid": async (msg, broadcast) => { ... },
-   *     "firecat:confirmed": async (msg, broadcast, read) => { ... },
+   *     "app:valid": async (msg, broadcast) => { ... },
+   *     "app:confirmed": async (msg, broadcast, read) => { ... },
    *   },
    * });
    * ```

@@ -12,7 +12,7 @@ Feature: Compose Primitives for Backend Services
     And it handles decrypt → call → encrypt → route internally
 
   Scenario: connect bridges a handler to a remote node
-    Given a remote Firecat node accessible via HttpClient
+    Given a remote node accessible via HttpClient
     And a handler wrapped with respondTo(handler, { identity })
     When connect(remoteNode, { filter, handler }) is created
     Then it polls the remote node for new messages matching the filter

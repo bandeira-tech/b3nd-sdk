@@ -293,7 +293,7 @@ docs/book/
   | **Enforcement** | Social pressure / reputation | Legal system | Schema rules / cryptographic proof |
   | **What "cheating" requires** | Denying what everyone saw | Forging a notarized document | Breaking a cryptographic signature |
 
-- Walk through a complete trade between two Firecat users
+- Walk through a complete trade between two users
 
 #### Chapter 13: Building Consensus
 - **In speech:** three friends deciding where to eat. A town hall vote. A jury deliberation. The pattern: propose, discuss, converge on agreement. Everyone in the room.

@@ -1,6 +1,6 @@
 Feature: OAuth Authentication via PKCE and Trusted Party
   SPAs and frontend-only apps use PKCE to safely obtain OAuth tokens
-  without a backend server. A Firecat trusted party (listener or
+  without a backend server. A trusted party (listener or
   custom node) then verifies the token and provides a deterministic
   secret for key derivation.
 
@@ -8,7 +8,7 @@ Feature: OAuth Authentication via PKCE and Trusted Party
     PKCE (RFC 7636) binds the authorization code to the client that
     requested it, preventing interception attacks. The SPA handles
     the full OAuth flow client-side, then passes the ID token to a
-    Firecat trusted party for identity derivation.
+    trusted party for identity derivation.
 
   Scenario: PKCE code verifier and challenge generation
     Given a client preparing an OAuth authorization request
@@ -22,13 +22,13 @@ Feature: OAuth Authentication via PKCE and Trusted Party
 
   Scenario: SPA PKCE flow with custom node
     Given an SPA with no backend server
-    And an app running its own Firecat node with OAuth support
+    And an app running its own B3nd node with OAuth support
     When the SPA generates a PKCE verifier and challenge
     And redirects to the OAuth provider with the challenge
     And the user authenticates with the provider
     And the SPA exchanges the authorization code with the code verifier
     Then the SPA receives an ID token directly from the provider
-    When the SPA sends the ID token to the Firecat node
+    When the SPA sends the ID token to the B3nd node
     Then the node verifies the token against the provider's JWKS
     And derives a deterministic secret via HMAC(nodeSecret, sub)
     And returns the secret encrypted to the client
@@ -53,7 +53,7 @@ Feature: OAuth Authentication via PKCE and Trusted Party
     Because SHA-256(attacker_verifier) does not match the original challenge
 
   Scenario: OAuth via custom node (without PKCE, server-rendered apps)
-    Given a server-rendered app with its own Firecat node
+    Given a server-rendered app with its own B3nd node
     When a user authenticates with a Google ID token obtained server-side
     Then the node verifies the token against Google's public keys
     And derives a deterministic secret via HMAC(nodeSecret, sub)

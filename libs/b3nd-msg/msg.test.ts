@@ -167,7 +167,7 @@ Deno.test("extractProgram - extracts protocol://hostname", () => {
     extractProgram("mutable://accounts/alice/profile"),
     "mutable://accounts",
   );
-  assertEquals(extractProgram("msg://firecat/block/1000"), "msg://firecat");
+  assertEquals(extractProgram("msg://myapp/block/1000"), "msg://myapp");
   assertEquals(extractProgram("utxo://alice/1"), "utxo://alice");
   assertEquals(extractProgram("fees://pool"), "fees://pool");
 });
