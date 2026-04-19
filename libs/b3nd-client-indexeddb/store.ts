@@ -302,6 +302,6 @@ export class IndexedDBStore implements Store {
   }
 
   capabilities(): StoreCapabilities {
-    return { atomicBatch: false, observe: false, binaryData: false };
+    return { atomicBatch: false, binaryData: false };
   }
 }

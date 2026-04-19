@@ -427,8 +427,8 @@ Deno.test("phase2: signed config round-trip through HTTP API", async () => {
     const record = await readRes.json();
     assertEquals(readRes.status, 200);
     assertEquals(record.data.auth[0].pubkey, operatorKeypair.publicKeyHex);
-    assertEquals(record.data.nodeId, nodeKeypair.publicKeyHex);
-    assertEquals(record.data.name, "Integration Test Node");
+    assertEquals(record.data.payload.nodeId, nodeKeypair.publicKeyHex);
+    assertEquals(record.data.payload.name, "Integration Test Node");
   } finally {
     await killNode(node);
   }

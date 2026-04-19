@@ -184,6 +184,67 @@ Deno.test({
   },
 });
 
+Deno.test({
+  name: "MessageDataClient - observe emits null for deleted inputs",
+  ...noSanitize,
+  fn: async () => {
+    const store = new MemoryStore();
+    const client = new MessageDataClient(store);
+    const ac = new AbortController();
+
+    // Seed an input that will be consumed
+    await store.write([
+      { uri: "mutable://tokens/1", values: { fire: 100 }, data: "live" },
+    ]);
+
+    const observed: { uri?: string; data: unknown }[] = [];
+    const done = (async () => {
+      for await (const r of client.observe("mutable://tokens/*", ac.signal)) {
+        observed.push({ uri: r.uri, data: r.record?.data });
+        if (observed.length >= 2) ac.abort();
+      }
+    })();
+
+    await client.receive([
+      ["hash://sha256/burn", {}, {
+        inputs: ["mutable://tokens/1"],
+        outputs: [["mutable://tokens/2", { fire: 100 }, "reborn"]],
+      }],
+    ]);
+
+    await done;
+    assertEquals(observed, [
+      { uri: "mutable://tokens/1", data: null }, // delete
+      { uri: "mutable://tokens/2", data: "reborn" }, // output write
+    ]);
+  },
+});
+
+Deno.test({
+  name: "MessageDataClient - observe emits envelope URI on write",
+  ...noSanitize,
+  fn: async () => {
+    const store = new MemoryStore();
+    const client = new MessageDataClient(store);
+    const ac = new AbortController();
+
+    const observed: string[] = [];
+    const done = (async () => {
+      for await (const r of client.observe("hash://sha256/*", ac.signal)) {
+        if (r.uri) observed.push(r.uri);
+        ac.abort();
+      }
+    })();
+
+    await client.receive([
+      ["hash://sha256/env1", {}, { theme: "dark" }],
+    ]);
+
+    await done;
+    assertEquals(observed, ["hash://sha256/env1"]);
+  },
+});
+
 // ── Status ─────────────────────────────────────────────────────────
 
 Deno.test({

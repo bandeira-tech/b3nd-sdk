@@ -204,7 +204,6 @@ export class FsStore implements Store {
   capabilities(): StoreCapabilities {
     return {
       atomicBatch: false,
-      observe: false,
       binaryData: false,
     };
   }

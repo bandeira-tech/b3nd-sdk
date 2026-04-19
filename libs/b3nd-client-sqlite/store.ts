@@ -214,7 +214,6 @@ export class SqliteStore implements Store {
   capabilities(): StoreCapabilities {
     return {
       atomicBatch: true,
-      observe: false,
       binaryData: false,
     };
   }
