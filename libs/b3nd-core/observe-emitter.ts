@@ -34,7 +34,7 @@ export type ObserveListener = (
  * is a plug-and-play `NodeProtocolInterface.observe` implementation.
  */
 export class ObserveEmitter {
-  protected _listeners = new Set<ObserveListener>();
+  protected _listeners: Set<ObserveListener> = new Set<ObserveListener>();
 
   /**
    * Notify all listeners of a URI change.
