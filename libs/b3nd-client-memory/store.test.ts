@@ -11,8 +11,6 @@ import { assertEquals } from "jsr:@std/assert";
 import { runSharedStoreSuite } from "../b3nd-testing/shared-store-suite.ts";
 import { MemoryStore } from "./store.ts";
 
-const noSanitize = { sanitizeOps: false, sanitizeResources: false };
-
 // ── Shared suite ──────────────────────────────────────────────────
 
 runSharedStoreSuite("MemoryStore", {
@@ -23,7 +21,6 @@ runSharedStoreSuite("MemoryStore", {
 
 Deno.test({
   name: "MemoryStore - capabilities shape",
-  ...noSanitize,
   fn: () => {
     const store = new MemoryStore();
     const caps = store.capabilities();

@@ -10,11 +10,8 @@ import { assertEquals } from "jsr:@std/assert";
 import { SimpleClient } from "./simple-client.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 
-const noSanitize = { sanitizeOps: false, sanitizeResources: false };
-
 Deno.test({
   name: "SimpleClient - receive writes message at its URI",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
@@ -32,7 +29,6 @@ Deno.test({
 
 Deno.test({
   name: "SimpleClient - receive does NOT decompose envelopes",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
@@ -57,7 +53,6 @@ Deno.test({
 
 Deno.test({
   name: "SimpleClient - batch receive",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
@@ -84,7 +79,6 @@ Deno.test({
 
 Deno.test({
   name: "SimpleClient - read with string or array",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
@@ -103,7 +97,6 @@ Deno.test({
 
 Deno.test({
   name: "SimpleClient - observe emits on successful write",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
@@ -126,7 +119,6 @@ Deno.test({
 
 Deno.test({
   name: "SimpleClient - observe works without store.observe (store-agnostic)",
-  ...noSanitize,
   fn: async () => {
     // Store without observe — observe lives on the client.
     const bareStore: import("./types.ts").Store = {
@@ -155,7 +147,6 @@ Deno.test({
 
 Deno.test({
   name: "SimpleClient - status delegates to store",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);

@@ -1,18 +1,15 @@
 /**
- * Test the test runner to verify it correctly parses Deno test output
+ * Test the test-runner service's output parser.
+ *
+ * Imports the actual regex patterns and `stripAnsi` helper from the
+ * service module so the tests never drift from what the service uses.
  */
 import { assertEquals, assertExists } from "@std/assert";
-
-// Import the stripAnsi function and patterns by testing the module
-const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
-const FILE_HEADER_PATTERN =
-  /^running \d+ tests? from (?:\.\/)?(.+\.test\.ts)/;
-const TEST_RESULT_PATTERN =
-  /^(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
-
-function stripAnsi(str: string): string {
-  return str.replace(ANSI_PATTERN, "");
-}
+import {
+  FILE_HEADER_PATTERN,
+  stripAnsi,
+  TEST_RESULT_PATTERN,
+} from "../services/test-runner.ts";
 
 Deno.test("stripAnsi removes color codes", () => {
   const input =

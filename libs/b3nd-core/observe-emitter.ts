@@ -30,7 +30,7 @@ export type ObserveListener = (uri: string, data: unknown) => void;
  * is a plug-and-play `NodeProtocolInterface.observe` implementation.
  */
 export class ObserveEmitter {
-  private _listeners = new Set<ObserveListener>();
+  protected _listeners = new Set<ObserveListener>();
 
   /** Notify all listeners of a URI change. */
   protected _emit(uri: string, data: unknown): void {

@@ -10,13 +10,10 @@ import { assertEquals } from "jsr:@std/assert";
 import { MessageDataClient } from "./message-data-client.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 
-const noSanitize = { sanitizeOps: false, sanitizeResources: false };
-
 // ── Envelope decomposition ─────────────────────────────────────────
 
 Deno.test({
   name: "MessageDataClient - decomposes envelope: deletes inputs, writes outputs",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -61,7 +58,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - non-envelope data is stored without decomposition",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -79,7 +75,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - envelope with no inputs, only outputs",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -103,7 +98,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - batch receive processes each message independently",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -132,7 +126,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - read delegates to store",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -155,7 +148,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - observe sees outputs from envelope decomposition",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -186,7 +178,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - observe emits null for deleted inputs",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -222,7 +213,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - observe emits envelope URI on write",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -249,7 +239,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - status delegates to store",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -263,7 +252,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - rejects message without URI",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -277,7 +265,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - null data is stored without decomposition",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
