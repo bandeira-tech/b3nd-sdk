@@ -12,6 +12,26 @@ import { assert, assertEquals, assertExists } from "@std/assert";
 const DASHBOARD_URL = "http://localhost:5556";
 const DASHBOARD_WS_URL = "ws://localhost:5556/ws";
 
+/**
+ * Probe the dashboard once at module load — if it's not up, we `ignore` these
+ * tests rather than failing. Run `deno task dev` in apps/sdk-inspector to
+ * bring the server up, then `deno task test:e2e`.
+ */
+const DASHBOARD_UP = await (async () => {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 500);
+    const res = await fetch(`${DASHBOARD_URL}/health`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    await res.body?.cancel();
+    return res.ok;
+  } catch {
+    return false;
+  }
+})();
+
 // Helper to wait for WebSocket messages
 function waitForWsMessage(
   ws: WebSocket,
@@ -41,6 +61,7 @@ function waitForWsMessage(
 }
 
 Deno.test({
+  ignore: !DASHBOARD_UP,
   name: "E2E - health endpoint returns status",
   async fn() {
     const response = await fetch(`${DASHBOARD_URL}/health`);
@@ -56,6 +77,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !DASHBOARD_UP,
   name: "E2E - WebSocket connects and receives connected message",
   async fn() {
     const ws = new WebSocket(DASHBOARD_WS_URL);
@@ -90,6 +112,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !DASHBOARD_UP,
   name: "E2E - WebSocket receives health updates",
   async fn() {
     const ws = new WebSocket(DASHBOARD_WS_URL);
@@ -122,6 +145,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !DASHBOARD_UP,
   name: "E2E - test run can be triggered and streams results",
   async fn() {
     const ws = new WebSocket(DASHBOARD_WS_URL);
@@ -187,6 +211,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !DASHBOARD_UP,
   name: "E2E - test cancel endpoint works",
   async fn() {
     // Start a test run
@@ -209,6 +234,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !DASHBOARD_UP,
   name: "E2E - tests list endpoint returns test files grouped by theme",
   async fn() {
     const response = await fetch(`${DASHBOARD_URL}/tests`);

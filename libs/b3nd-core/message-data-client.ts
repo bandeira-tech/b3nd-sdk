@@ -17,6 +17,11 @@
  * one that carries the { inputs, outputs } payload. SimpleClient
  * stores data as-is; MessageDataClient decomposes messages.
  *
+ * Observe is implemented at the client layer via `ObserveEmitter`:
+ * - the envelope write emits `(uri, data)`
+ * - each output write emits `(outUri, outData)`
+ * - each input delete emits `(inputUri, null)`
+ *
  * @example
  * ```typescript
  * import { MessageDataClient, MemoryStore } from "@bandeira-tech/b3nd-sdk";
@@ -46,11 +51,14 @@ import type {
   StatusResult,
   Store,
 } from "./types.ts";
+import { ObserveEmitter } from "./observe-emitter.ts";
 
-export class MessageDataClient implements NodeProtocolInterface {
+export class MessageDataClient extends ObserveEmitter
+  implements NodeProtocolInterface {
   readonly store: Store;
 
   constructor(store: Store) {
+    super();
     this.store = store;
   }
 
@@ -80,6 +88,8 @@ export class MessageDataClient implements NodeProtocolInterface {
       return { accepted: false, error: envelopeWrite[0].error };
     }
 
+    this._emit(uri, data, values || {});
+
     // Decompose if data follows the { inputs, outputs } convention
     const msgData = data as { inputs?: unknown; outputs?: unknown } | null;
     const isEnvelope = msgData != null &&
@@ -93,7 +103,12 @@ export class MessageDataClient implements NodeProtocolInterface {
 
       // Delete inputs
       if (inputs.length > 0) {
-        await this.store.delete(inputs);
+        const deleteResults = await this.store.delete(inputs);
+        const deleted: string[] = [];
+        for (let i = 0; i < deleteResults.length; i++) {
+          if (deleteResults[i].success) deleted.push(inputs[i]);
+        }
+        this._emitDeletes(deleted);
       }
 
       // Write outputs
@@ -103,7 +118,12 @@ export class MessageDataClient implements NodeProtocolInterface {
           values: outValues || {},
           data: outData,
         }));
-        await this.store.write(entries);
+        const writeResults = await this.store.write(entries);
+        for (let i = 0; i < writeResults.length; i++) {
+          if (writeResults[i].success) {
+            this._emit(entries[i].uri, entries[i].data, entries[i].values);
+          }
+        }
       }
     }
 
@@ -113,18 +133,6 @@ export class MessageDataClient implements NodeProtocolInterface {
   read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
     const uriList = Array.isArray(uris) ? uris : [uris];
     return this.store.read<T>(uriList);
-  }
-
-  observe<T = unknown>(
-    pattern: string,
-    signal: AbortSignal,
-  ): AsyncIterable<ReadResult<T>> {
-    if (!this.store.observe) {
-      throw new Error(
-        "MessageDataClient.observe: underlying store does not support observe",
-      );
-    }
-    return this.store.observe<T>(pattern, signal);
   }
 
   status(): Promise<StatusResult> {

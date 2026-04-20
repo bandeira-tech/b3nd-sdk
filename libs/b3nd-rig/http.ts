@@ -223,12 +223,10 @@ export function httpApi(
         );
       }
       const data = deserializeBinary(rawData);
-      // Wrap into MessageData envelope so the backend stores the data.
-      // The HTTP API is a convenience layer: callers send [uri, values, data]
-      // and we translate it into the internal { inputs, outputs } format.
+      // Pass the message through as-is. Whether to decompose envelopes is
+      // a client concern (MessageDataClient yes, SimpleClient no).
       const vals = values as Record<string, number>;
-      const envelope = { inputs: [] as string[], outputs: [[uri, vals, data]] };
-      const results = await rig.receive([[uri, vals, envelope]]);
+      const results = await rig.receive([[uri, vals, data]]);
       return json(results[0], results[0].accepted ? 200 : 400);
     }
 

@@ -10,13 +10,10 @@ import { assertEquals } from "jsr:@std/assert";
 import { MessageDataClient } from "./message-data-client.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 
-const noSanitize = { sanitizeOps: false, sanitizeResources: false };
-
 // ── Envelope decomposition ─────────────────────────────────────────
 
 Deno.test({
   name: "MessageDataClient - decomposes envelope: deletes inputs, writes outputs",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -61,7 +58,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - non-envelope data is stored without decomposition",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -79,7 +75,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - envelope with no inputs, only outputs",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -103,7 +98,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - batch receive processes each message independently",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -132,7 +126,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - read delegates to store",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -155,7 +148,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - observe sees outputs from envelope decomposition",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -184,11 +176,102 @@ Deno.test({
   },
 });
 
+Deno.test({
+  name: "MessageDataClient - observe emits null for deleted inputs",
+  fn: async () => {
+    const store = new MemoryStore();
+    const client = new MessageDataClient(store);
+    const ac = new AbortController();
+
+    // Seed an input that will be consumed
+    await store.write([
+      { uri: "mutable://tokens/1", values: { fire: 100 }, data: "live" },
+    ]);
+
+    const observed: { uri?: string; data: unknown }[] = [];
+    const done = (async () => {
+      for await (const r of client.observe("mutable://tokens/*", ac.signal)) {
+        observed.push({ uri: r.uri, data: r.record?.data });
+        if (observed.length >= 2) ac.abort();
+      }
+    })();
+
+    await client.receive([
+      ["hash://sha256/burn", {}, {
+        inputs: ["mutable://tokens/1"],
+        outputs: [["mutable://tokens/2", { fire: 100 }, "reborn"]],
+      }],
+    ]);
+
+    await done;
+    assertEquals(observed, [
+      { uri: "mutable://tokens/1", data: null }, // delete
+      { uri: "mutable://tokens/2", data: "reborn" }, // output write
+    ]);
+  },
+});
+
+Deno.test({
+  name: "MessageDataClient - observe forwards values from outputs",
+  fn: async () => {
+    const store = new MemoryStore();
+    const client = new MessageDataClient(store);
+    const ac = new AbortController();
+
+    const seen: { uri?: string; values?: Record<string, number> }[] = [];
+    const done = (async () => {
+      for await (const r of client.observe("mutable://tokens/*", ac.signal)) {
+        seen.push({ uri: r.uri, values: r.record?.values });
+        if (seen.length >= 2) ac.abort();
+      }
+    })();
+
+    await client.receive([
+      ["hash://sha256/split", {}, {
+        inputs: [],
+        outputs: [
+          ["mutable://tokens/a", { fire: 60 }, null],
+          ["mutable://tokens/b", { fire: 40 }, null],
+        ],
+      }],
+    ]);
+
+    await done;
+    assertEquals(seen, [
+      { uri: "mutable://tokens/a", values: { fire: 60 } },
+      { uri: "mutable://tokens/b", values: { fire: 40 } },
+    ]);
+  },
+});
+
+Deno.test({
+  name: "MessageDataClient - observe emits envelope URI on write",
+  fn: async () => {
+    const store = new MemoryStore();
+    const client = new MessageDataClient(store);
+    const ac = new AbortController();
+
+    const observed: string[] = [];
+    const done = (async () => {
+      for await (const r of client.observe("hash://sha256/*", ac.signal)) {
+        if (r.uri) observed.push(r.uri);
+        ac.abort();
+      }
+    })();
+
+    await client.receive([
+      ["hash://sha256/env1", {}, { theme: "dark" }],
+    ]);
+
+    await done;
+    assertEquals(observed, ["hash://sha256/env1"]);
+  },
+});
+
 // ── Status ─────────────────────────────────────────────────────────
 
 Deno.test({
   name: "MessageDataClient - status delegates to store",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -202,7 +285,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - rejects message without URI",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
@@ -216,7 +298,6 @@ Deno.test({
 
 Deno.test({
   name: "MessageDataClient - null data is stored without decomposition",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);

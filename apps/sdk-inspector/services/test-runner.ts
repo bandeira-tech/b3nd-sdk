@@ -40,21 +40,22 @@ export interface TestRunSummary {
 }
 
 // Regex to strip ANSI color codes
-const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
+export const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 
 // Regex patterns to parse Deno test output
-const FILE_HEADER_PATTERN = /^running \d+ tests? from (?:\.\/)?(.+\.test\.ts)/;
-const TEST_RESULT_PATTERN =
+export const FILE_HEADER_PATTERN =
+  /^running \d+ tests? from (?:\.\/)?(.+\.test\.ts)/;
+export const TEST_RESULT_PATTERN =
   /^(.+?)\s+\.\.\.\s+(ok|FAILED|ignored)\s*(?:\((\d+)(ms|s)?\))?/;
-const SUMMARY_PATTERN =
+export const SUMMARY_PATTERN =
   /^ok \| (\d+) passed(?: \| (\d+) failed)?(?: \| (\d+) ignored)? \(([^)]+)\)/;
-const FAIL_SUMMARY_PATTERN =
+export const FAIL_SUMMARY_PATTERN =
   /^FAILED \| (\d+) passed \| (\d+) failed(?: \| (\d+) ignored)? \(([^)]+)\)/;
 
 /**
  * Strip ANSI color codes from a string
  */
-function stripAnsi(str: string): string {
+export function stripAnsi(str: string): string {
   return str.replace(ANSI_PATTERN, "");
 }
 

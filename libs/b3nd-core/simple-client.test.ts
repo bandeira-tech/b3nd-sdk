@@ -7,15 +7,11 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import { assertRejects } from "jsr:@std/assert";
 import { SimpleClient } from "./simple-client.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 
-const noSanitize = { sanitizeOps: false, sanitizeResources: false };
-
 Deno.test({
   name: "SimpleClient - receive writes message at its URI",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
@@ -33,7 +29,6 @@ Deno.test({
 
 Deno.test({
   name: "SimpleClient - receive does NOT decompose envelopes",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
@@ -58,7 +53,6 @@ Deno.test({
 
 Deno.test({
   name: "SimpleClient - batch receive",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
@@ -85,7 +79,6 @@ Deno.test({
 
 Deno.test({
   name: "SimpleClient - read with string or array",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
@@ -103,17 +96,16 @@ Deno.test({
 });
 
 Deno.test({
-  name: "SimpleClient - observe delegates to store",
-  ...noSanitize,
+  name: "SimpleClient - observe emits on successful write",
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);
     const ac = new AbortController();
 
-    const observed: unknown[] = [];
+    const observed: { uri?: string; data: unknown }[] = [];
     const observePromise = (async () => {
       for await (const result of client.observe("mutable://app/*", ac.signal)) {
-        observed.push(result.record?.data);
+        observed.push({ uri: result.uri, data: result.record?.data });
         ac.abort();
       }
     })();
@@ -121,13 +113,66 @@ Deno.test({
     await client.receive([["mutable://app/x", {}, "hello"]]);
     await observePromise;
 
-    assertEquals(observed, ["hello"]);
+    assertEquals(observed, [{ uri: "mutable://app/x", data: "hello" }]);
+  },
+});
+
+Deno.test({
+  name: "SimpleClient - observe works without store.observe (store-agnostic)",
+  fn: async () => {
+    // Store without observe — observe lives on the client.
+    const bareStore: import("./types.ts").Store = {
+      write: async (entries) => entries.map(() => ({ success: true })),
+      read: async (uris) =>
+        uris.map(() => ({ success: false, error: "not found" })),
+      delete: async (uris) => uris.map(() => ({ success: true })),
+      status: async () => ({ status: "healthy" }),
+    };
+    const client = new SimpleClient(bareStore);
+    const ac = new AbortController();
+
+    const observed: unknown[] = [];
+    const done = (async () => {
+      for await (const r of client.observe("mutable://x/:k", ac.signal)) {
+        observed.push(r.record?.data);
+        ac.abort();
+      }
+    })();
+
+    await client.receive([["mutable://x/a", {}, 42]]);
+    await done;
+    assertEquals(observed, [42]);
+  },
+});
+
+Deno.test({
+  name: "SimpleClient - observe carries values from the write",
+  fn: async () => {
+    const store = new MemoryStore();
+    const client = new SimpleClient(store);
+    const ac = new AbortController();
+
+    let seenValues: Record<string, number> | undefined;
+    const done = (async () => {
+      for await (
+        const r of client.observe("mutable://tokens/:id", ac.signal)
+      ) {
+        seenValues = r.record?.values;
+        ac.abort();
+      }
+    })();
+
+    await client.receive([
+      ["mutable://tokens/1", { fire: 75, usd: 25 }, "payload"],
+    ]);
+    await done;
+
+    assertEquals(seenValues, { fire: 75, usd: 25 });
   },
 });
 
 Deno.test({
   name: "SimpleClient - status delegates to store",
-  ...noSanitize,
   fn: async () => {
     const store = new MemoryStore();
     const client = new SimpleClient(store);

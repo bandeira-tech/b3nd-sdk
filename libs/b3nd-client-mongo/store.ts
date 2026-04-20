@@ -209,7 +209,6 @@ export class MongoStore implements Store {
   capabilities(): StoreCapabilities {
     return {
       atomicBatch: false,
-      observe: false,
       binaryData: false,
     };
   }

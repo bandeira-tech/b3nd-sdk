@@ -2,7 +2,8 @@
  * MemoryStore — in-memory reference implementation of Store.
  *
  * Pure mechanical storage with no protocol awareness.
- * Write entries, read entries, delete entries, observe changes.
+ * Write entries, read entries, delete entries.
+ * Observation is a client concern — see `ObserveEmitter`.
  *
  * @example
  * ```typescript
@@ -28,7 +29,6 @@ import type {
   StoreEntry,
   StoreWriteResult,
 } from "../b3nd-core/types.ts";
-import { matchPattern } from "../b3nd-core/match-pattern.ts";
 
 type StorageNode<T = unknown> = {
   value?: { values: Record<string, number>; data: T };
@@ -56,7 +56,6 @@ function resolveTarget(
 
 export class MemoryStore implements Store {
   private storage: Storage;
-  private _writeListeners = new Set<(uri: string, data: unknown) => void>();
 
   constructor(storage?: Storage) {
     this.storage = storage || new Map();
@@ -104,10 +103,6 @@ export class MemoryStore implements Store {
     }
 
     current.value = record;
-
-    for (const listener of this._writeListeners) {
-      listener(uri, record.data);
-    }
   }
 
   // ── Read ─────────────────────────────────────────────────────────
@@ -230,48 +225,6 @@ export class MemoryStore implements Store {
     }
   }
 
-  // ── Observe ──────────────────────────────────────────────────────
-
-  async *observe<T = unknown>(
-    pattern: string,
-    signal: AbortSignal,
-  ): AsyncIterable<ReadResult<T>> {
-    const segments = pattern.split("/");
-
-    while (!signal.aborted) {
-      const result = await new Promise<ReadResult<T> | null>((resolve) => {
-        const onAbort = () => {
-          cleanup();
-          resolve(null);
-        };
-
-        const listener = (uri: string, data: unknown) => {
-          const params = matchPattern(segments, uri);
-          if (params !== null) {
-            cleanup();
-            resolve({
-              success: true,
-              uri,
-              record: { data: data as T, values: {} },
-              params,
-            } as ReadResult<T>);
-          }
-        };
-
-        const cleanup = () => {
-          this._writeListeners.delete(listener);
-          signal.removeEventListener("abort", onAbort);
-        };
-
-        signal.addEventListener("abort", onAbort, { once: true });
-        this._writeListeners.add(listener);
-      });
-
-      if (result === null) break;
-      yield result;
-    }
-  }
-
   // ── Status ───────────────────────────────────────────────────────
 
   status(): Promise<StatusResult> {
@@ -284,7 +237,6 @@ export class MemoryStore implements Store {
   capabilities(): StoreCapabilities {
     return {
       atomicBatch: false,
-      observe: true,
       binaryData: false,
     };
   }

@@ -229,7 +229,6 @@ export class S3Store implements Store {
   capabilities(): StoreCapabilities {
     return {
       atomicBatch: false,
-      observe: false,
       binaryData: false,
     };
   }

@@ -322,8 +322,6 @@ export interface StoreWriteResult {
 export interface StoreCapabilities {
   /** Whether write+delete within a single call can be made atomic. */
   atomicBatch?: boolean;
-  /** Whether this store supports observe(). */
-  observe?: boolean;
   /** Whether this store can handle binary (Uint8Array) data natively. */
   binaryData?: boolean;
 }
@@ -337,7 +335,9 @@ export interface StoreCapabilities {
  *
  * The Store knows nothing about protocols, envelopes, or message
  * semantics. It is pure mechanical storage: write entries, read
- * entries, delete entries, observe changes.
+ * entries, delete entries. Observation is a client concern —
+ * `NodeProtocolInterface.observe` is implemented by clients via
+ * `ObserveEmitter`, not by stores.
  *
  * Protocol clients (SimpleClient, MessageDataClient) wrap a Store
  * with protocol semantics to produce a NodeProtocolInterface.
@@ -376,25 +376,6 @@ export interface Store {
    * Delete URIs in batch. Returns one result per URI.
    */
   delete(uris: string[]): Promise<DeleteResult[]>;
-
-  /**
-   * Observe changes matching a URI pattern.
-   *
-   * Not all backends can observe natively (e.g., S3).
-   * Check `capabilities().observe` before calling.
-   *
-   * @example
-   * ```typescript
-   * const ac = new AbortController();
-   * for await (const result of store.observe("mutable://app/*", ac.signal)) {
-   *   console.log(result.uri, result.record?.data);
-   * }
-   * ```
-   */
-  observe?<T = unknown>(
-    pattern: string,
-    signal: AbortSignal,
-  ): AsyncIterable<ReadResult<T>>;
 
   /**
    * Health and capability status.

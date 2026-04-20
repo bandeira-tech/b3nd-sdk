@@ -482,7 +482,6 @@ export function runSharedStoreSuite(
       if (store.capabilities) {
         const caps = store.capabilities();
         assertEquals(typeof caps.atomicBatch, "boolean");
-        assertEquals(typeof caps.observe, "boolean");
         assertEquals(typeof caps.binaryData, "boolean");
       }
     },

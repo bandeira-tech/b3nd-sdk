@@ -122,6 +122,10 @@ export { deriveObfuscatedPath } from "../libs/b3nd-encrypt/utils.ts";
 export { FunctionalClient } from "../libs/b3nd-core/functional-client.ts";
 export type { FunctionalClientConfig } from "../libs/b3nd-core/functional-client.ts";
 
+// ObserveEmitter — client-side observe primitive
+export { ObserveEmitter } from "../libs/b3nd-core/observe-emitter.ts";
+export type { ObserveListener } from "../libs/b3nd-core/observe-emitter.ts";
+
 // Validated client convenience
 export { createValidatedClient } from "../libs/b3nd-compose/validated-client.ts";
 
