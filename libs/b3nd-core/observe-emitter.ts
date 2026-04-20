@@ -11,8 +11,10 @@
  *   - write  → `_emit(uri, data)`
  *   - delete → `_emit(uri, null)` (via `_emitDeletes([uri, ...])`)
  *
- * Listeners receive every URI change; the async iterator filters by
- * pattern before yielding.
+ * Each call to `observe(pattern, signal)` registers a persistent
+ * per-iterator listener that survives yields — events emitted while the
+ * consumer is processing a yielded value are buffered in a per-iterator
+ * queue, not lost.
  */
 import { matchPattern } from "./match-pattern.ts";
 import type { ReadResult } from "./types.ts";
@@ -51,42 +53,59 @@ export class ObserveEmitter {
    * the pattern. Runs until `signal` aborts.
    *
    * Deletes surface as `{ success: true, uri, record: { data: null, values: {} } }`.
+   *
+   * The listener stays registered for the lifetime of the iteration;
+   * events fired while the consumer is processing a yielded value are
+   * buffered in a per-iterator queue so nothing is dropped across the
+   * yield boundary.
    */
   async *observe<T = unknown>(
     pattern: string,
     signal: AbortSignal,
   ): AsyncIterable<ReadResult<T>> {
     const segments = pattern.split("/");
+    const queue: ReadResult<T>[] = [];
+    let wake: (() => void) | null = null;
 
-    while (!signal.aborted) {
-      const result = await new Promise<ReadResult<T> | null>((resolve) => {
-        const onAbort = () => {
-          cleanup();
-          resolve(null);
-        };
+    const listener: ObserveListener = (uri, data) => {
+      if (matchPattern(segments, uri) !== null) {
+        queue.push({
+          success: true,
+          uri,
+          record: { data: data as T, values: {} },
+        });
+        const w = wake;
+        if (w) {
+          wake = null;
+          w();
+        }
+      }
+    };
 
-        const listener: ObserveListener = (uri, data) => {
-          if (matchPattern(segments, uri) !== null) {
-            cleanup();
-            resolve({
-              success: true,
-              uri,
-              record: { data: data as T, values: {} },
-            });
-          }
-        };
+    const onAbort = () => {
+      const w = wake;
+      if (w) {
+        wake = null;
+        w();
+      }
+    };
 
-        const cleanup = () => {
-          this._listeners.delete(listener);
-          signal.removeEventListener("abort", onAbort);
-        };
+    this._listeners.add(listener);
+    signal.addEventListener("abort", onAbort, { once: true });
 
-        signal.addEventListener("abort", onAbort, { once: true });
-        this._listeners.add(listener);
-      });
-
-      if (result === null) break;
-      yield result;
+    try {
+      while (true) {
+        // Drain everything buffered so far.
+        while (queue.length > 0) yield queue.shift()!;
+        if (signal.aborted) return;
+        // Nothing buffered — wait for an event or abort.
+        await new Promise<void>((resolve) => {
+          wake = resolve;
+        });
+      }
+    } finally {
+      this._listeners.delete(listener);
+      signal.removeEventListener("abort", onAbort);
     }
   }
 }
