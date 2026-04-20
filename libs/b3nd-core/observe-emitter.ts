@@ -19,7 +19,11 @@
 import { matchPattern } from "./match-pattern.ts";
 import type { ReadResult } from "./types.ts";
 
-export type ObserveListener = (uri: string, data: unknown) => void;
+export type ObserveListener = (
+  uri: string,
+  data: unknown,
+  values: Record<string, number>,
+) => void;
 
 /**
  * Base class providing a write/delete listener bus and an async iterator
@@ -32,20 +36,30 @@ export type ObserveListener = (uri: string, data: unknown) => void;
 export class ObserveEmitter {
   protected _listeners = new Set<ObserveListener>();
 
-  /** Notify all listeners of a URI change. */
-  protected _emit(uri: string, data: unknown): void {
+  /**
+   * Notify all listeners of a URI change.
+   *
+   * `values` is the conserved-quantities record that was written alongside
+   * `data`. For deletes, callers should pass `{}` (there are no values
+   * associated with a removal).
+   */
+  protected _emit(
+    uri: string,
+    data: unknown,
+    values: Record<string, number> = {},
+  ): void {
     for (const listener of this._listeners) {
       try {
-        listener(uri, data);
+        listener(uri, data, values);
       } catch {
         // Listener errors must never break the emitter.
       }
     }
   }
 
-  /** Notify all listeners that each URI was deleted (data = null). */
+  /** Notify all listeners that each URI was deleted (data = null, no values). */
   protected _emitDeletes(uris: readonly string[]): void {
-    for (const uri of uris) this._emit(uri, null);
+    for (const uri of uris) this._emit(uri, null, {});
   }
 
   /**
@@ -67,12 +81,12 @@ export class ObserveEmitter {
     const queue: ReadResult<T>[] = [];
     let wake: (() => void) | null = null;
 
-    const listener: ObserveListener = (uri, data) => {
+    const listener: ObserveListener = (uri, data, values) => {
       if (matchPattern(segments, uri) !== null) {
         queue.push({
           success: true,
           uri,
-          record: { data: data as T, values: {} },
+          record: { data: data as T, values },
         });
         const w = wake;
         if (w) {

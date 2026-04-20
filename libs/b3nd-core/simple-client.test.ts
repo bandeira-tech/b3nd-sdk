@@ -146,6 +146,32 @@ Deno.test({
 });
 
 Deno.test({
+  name: "SimpleClient - observe carries values from the write",
+  fn: async () => {
+    const store = new MemoryStore();
+    const client = new SimpleClient(store);
+    const ac = new AbortController();
+
+    let seenValues: Record<string, number> | undefined;
+    const done = (async () => {
+      for await (
+        const r of client.observe("mutable://tokens/:id", ac.signal)
+      ) {
+        seenValues = r.record?.values;
+        ac.abort();
+      }
+    })();
+
+    await client.receive([
+      ["mutable://tokens/1", { fire: 75, usd: 25 }, "payload"],
+    ]);
+    await done;
+
+    assertEquals(seenValues, { fire: 75, usd: 25 });
+  },
+});
+
+Deno.test({
   name: "SimpleClient - status delegates to store",
   fn: async () => {
     const store = new MemoryStore();

@@ -88,7 +88,7 @@ export class MessageDataClient extends ObserveEmitter
       return { accepted: false, error: envelopeWrite[0].error };
     }
 
-    this._emit(uri, data);
+    this._emit(uri, data, values || {});
 
     // Decompose if data follows the { inputs, outputs } convention
     const msgData = data as { inputs?: unknown; outputs?: unknown } | null;
@@ -121,7 +121,7 @@ export class MessageDataClient extends ObserveEmitter
         const writeResults = await this.store.write(entries);
         for (let i = 0; i < writeResults.length; i++) {
           if (writeResults[i].success) {
-            this._emit(entries[i].uri, entries[i].data);
+            this._emit(entries[i].uri, entries[i].data, entries[i].values);
           }
         }
       }

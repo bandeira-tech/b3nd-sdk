@@ -212,6 +212,39 @@ Deno.test({
 });
 
 Deno.test({
+  name: "MessageDataClient - observe forwards values from outputs",
+  fn: async () => {
+    const store = new MemoryStore();
+    const client = new MessageDataClient(store);
+    const ac = new AbortController();
+
+    const seen: { uri?: string; values?: Record<string, number> }[] = [];
+    const done = (async () => {
+      for await (const r of client.observe("mutable://tokens/*", ac.signal)) {
+        seen.push({ uri: r.uri, values: r.record?.values });
+        if (seen.length >= 2) ac.abort();
+      }
+    })();
+
+    await client.receive([
+      ["hash://sha256/split", {}, {
+        inputs: [],
+        outputs: [
+          ["mutable://tokens/a", { fire: 60 }, null],
+          ["mutable://tokens/b", { fire: 40 }, null],
+        ],
+      }],
+    ]);
+
+    await done;
+    assertEquals(seen, [
+      { uri: "mutable://tokens/a", values: { fire: 60 } },
+      { uri: "mutable://tokens/b", values: { fire: 40 } },
+    ]);
+  },
+});
+
+Deno.test({
   name: "MessageDataClient - observe emits envelope URI on write",
   fn: async () => {
     const store = new MemoryStore();

@@ -65,7 +65,7 @@ export class SimpleClient extends ObserveEmitter
 
     for (let i = 0; i < writeResults.length; i++) {
       if (writeResults[i].success) {
-        this._emit(entries[i].uri, entries[i].data);
+        this._emit(entries[i].uri, entries[i].data, entries[i].values);
       }
     }
 

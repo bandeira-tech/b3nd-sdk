@@ -19,8 +19,8 @@ import { ObserveEmitter, type ObserveListener } from "./observe-emitter.ts";
  *  - read listener count (`listenerCount`) to assert cleanup
  */
 class Harness extends ObserveEmitter {
-  emit(uri: string, data: unknown) {
-    this._emit(uri, data);
+  emit(uri: string, data: unknown, values: Record<string, number> = {}) {
+    this._emit(uri, data, values);
   }
   emitDeletes(uris: string[]) {
     this._emitDeletes(uris);
@@ -54,14 +54,22 @@ Deno.test("ObserveEmitter - yields on matching write", async () => {
   assertEquals(seen, ["mutable://app/x"]);
 });
 
-Deno.test("ObserveEmitter - deletes surface as data: null", async () => {
+Deno.test("ObserveEmitter - deletes surface as data: null with empty values", async () => {
   const bus = new Harness();
   const ac = new AbortController();
 
-  const seen: { uri?: string; data: unknown }[] = [];
+  const seen: {
+    uri?: string;
+    data: unknown;
+    values?: Record<string, number>;
+  }[] = [];
   const done = (async () => {
     for await (const r of bus.observe("mutable://app/*", ac.signal)) {
-      seen.push({ uri: r.uri, data: r.record?.data });
+      seen.push({
+        uri: r.uri,
+        data: r.record?.data,
+        values: r.record?.values,
+      });
       ac.abort();
     }
   })();
@@ -70,7 +78,28 @@ Deno.test("ObserveEmitter - deletes surface as data: null", async () => {
   bus.emitDeletes(["mutable://app/gone"]);
   await done;
 
-  assertEquals(seen, [{ uri: "mutable://app/gone", data: null }]);
+  assertEquals(seen, [
+    { uri: "mutable://app/gone", data: null, values: {} },
+  ]);
+});
+
+Deno.test("ObserveEmitter - values are forwarded to the observer", async () => {
+  const bus = new Harness();
+  const ac = new AbortController();
+
+  const seen: Record<string, number>[] = [];
+  const done = (async () => {
+    for await (const r of bus.observe("tokens/:id", ac.signal)) {
+      if (r.record) seen.push(r.record.values);
+      ac.abort();
+    }
+  })();
+
+  await Promise.resolve();
+  bus.emit("tokens/42", "payload", { fire: 100, water: 50 });
+  await done;
+
+  assertEquals(seen, [{ fire: 100, water: 50 }]);
 });
 
 Deno.test("ObserveEmitter - non-matching URIs are ignored", async () => {
