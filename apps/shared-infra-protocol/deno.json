@@ -1,0 +1,22 @@
+{
+  "name": "@bandeira-tech/shared-infra-protocol",
+  "version": "0.1.0",
+  "description": "Sample B3nd protocol for a private, multi-app, shared-node network, with three sample apps on top.",
+  "exports": {
+    "./schema": "./schema/mod.ts",
+    "./sdk": "./sdk/mod.ts",
+    "./node": "./node/mod.ts",
+    "./apps/list-manager": "./apps/list-manager/mod.ts",
+    "./apps/blog": "./apps/blog/mod.ts",
+    "./apps/chat": "./apps/chat/mod.ts"
+  },
+  "tasks": {
+    "node": "deno run -A node/mod.ts",
+    "test": "deno test -A stress/",
+    "test:protocol": "deno test -A stress/protocol.test.ts",
+    "test:apps": "deno test -A stress/apps.test.ts",
+    "test:replication": "deno test -A stress/replication.test.ts",
+    "test:throughput": "deno test -A stress/throughput.test.ts",
+    "demo": "deno run -A scripts/demo.ts"
+  }
+}

@@ -99,6 +99,7 @@
     "apps/b3nd-node",
     "apps/sdk-inspector",
     "apps/vault-listener",
+    "apps/shared-infra-protocol",
     "tests",
     ".claude-plugin/mcp-server"
   ]
