@@ -1,48 +1,45 @@
 /**
  * @module
- * `pathVector()` — loop avoidance via the message's signer chain.
+ * `pathVector(peers)` — flood with signer-chain loop avoidance.
  *
- * Treats the `auth: [{pubkey, signature}]` array of an
- * `AuthenticatedMessage`-shaped payload as a path record. Before
- * forwarding to peer P, check whether P's `id` appears in that chain;
- * if yes, P has already seen (or signed) the message — skip it.
+ * Returns the same shape as `flood(peers)` but filters the outbound fan
+ * per-peer: before sending a message to peer P, inspect
+ * `data.auth[*].pubkey` on the message (the signer chain of an
+ * `AuthenticatedMessage`-shaped payload); if P's id appears in that
+ * chain, skip P — they have already seen (or signed) the message.
  *
- * This handles arbitrary-length cycles (A → B → C → A) without a
- * stateful seen-set, because the chain grows with every relay that
- * re-signs. It's free when messages already flow through
- * `AuthenticatedRig.send`; for plain messages without auth the filter
- * is a no-op and every peer receives the message.
+ * Handles arbitrary-length cycles (A → B → C → A) without any state,
+ * because the chain grows with every relay that re-signs. Works "for
+ * free" when messages flow through `AuthenticatedRig.send`.
  *
  * ## Peer id convention
  *
- * For this to work, `peer.id` must match the peer's signing pubkey
- * (typically the hex-encoded Ed25519 key). If you want pathVector
- * semantics, construct peers explicitly:
+ * For this to work, each `peer.id` must equal the peer's signing pubkey
+ * (typically the hex-encoded Ed25519 key):
  *
  * ```ts
  * peer(client, { id: peerPubkeyHex })
  * ```
  *
- * Auto-assigned uuid ids won't match any signer and pathVector becomes
- * a no-op (not harmful, just ineffective).
+ * Auto-assigned UUID ids never match any signer and the filter becomes
+ * a no-op — pathVector then degenerates to plain `flood`.
  *
  * ## Scope
  *
  * pathVector only *reads* the chain. It does not add the local
- * identity's signature on relay — that's an orthogonal "relay-signing"
- * policy you'd compose on top when the downstream is expected to prune
- * via pathVector too.
+ * identity's signature on relay — that's `AuthenticatedRig`'s job.
  */
 
-import type { Message } from "../../b3nd-core/types.ts";
-import type { Peer, Policy } from "../types.ts";
+import type { Message, NodeProtocolInterface } from "../../b3nd-core/types.ts";
+import type { Peer } from "../types.ts";
+import { validatePeers } from "../network.ts";
+import { floodImpl } from "./flood.ts";
 
-export function pathVector(): Policy {
-  return {
-    send(msgs: Message[], peer: Peer): Message[] {
-      return msgs.filter((msg) => !signerChain(msg).includes(peer.id));
-    },
-  };
+export function pathVector(peers: Peer[]): NodeProtocolInterface {
+  const { originId, peers: frozenPeers } = validatePeers(peers);
+  return floodImpl(originId, frozenPeers, (msg, peer) =>
+    !signerChain(msg).includes(peer.id)
+  );
 }
 
 /**

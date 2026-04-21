@@ -1,21 +1,27 @@
 /**
  * @module
- * `createNetwork(peers, policy?)` — construct the **participant primitive**.
+ * `network(target, peers, policies?, opts?)` — the participant verb.
  *
- * Returns a callable: given a receive-target (typically a Rig) and an
- * optional options bag, it subscribes each peer's observe stream, passes
- * events through `Policy.receive` (pass-through when absent), and forwards
- * yielded events into `target.receive`. Returns an async unbind.
+ * Subscribes each peer's observe stream, passes events through the
+ * (optional) chain of `Policy.receive` hooks, and forwards yielded
+ * events into `target.receive`. Returns an async unbind that aborts
+ * every peer loop and awaits clean teardown.
  *
  * ```ts
- * const net = createNetwork(peers, pathVector());
- * const unbind = net(rig, { pattern: "mutable://chat/*" });
- * await unbind();  // awaits clean teardown of every peer loop
+ * import { network, peer, pathVector } from "@bandeira-tech/b3nd-sdk/network";
+ *
+ * const unbind = network(rig, peers);                           // no policies
+ * const unbind = network(rig, peers, [myPolicy]);               // one policy
+ * const unbind = network(rig, peers, [filter, tellAndRead], {   // multiple, chained
+ *   pattern: "mutable://chat/*",
+ * });
+ *
+ * await unbind();
  * ```
  *
- * Network is deliberately NOT a `NodeProtocolInterface`. Passing it to
- * `connection()` is a compile error. For the remote-client role, use
- * `createFederation()` instead.
+ * `network()` is not a `NodeProtocolInterface`. Passing a peer list to
+ * a strategy factory (`flood(peers)`, `pathVector(peers)`) is how you
+ * build the remote-client shape for `connection()`.
  */
 
 import type {
@@ -23,82 +29,66 @@ import type {
   NodeProtocolInterface,
   ReadResult,
 } from "../b3nd-core/types.ts";
-import { flood } from "./policies/flood.ts";
 import type {
   InboundCtx,
-  Network,
   NetworkOptions,
   Peer,
   Policy,
 } from "./types.ts";
 
 /**
- * Build a Network from peers and a Policy (defaults to `flood()`).
+ * Wire peers into a target's `receive` pipeline.
  *
- * @example
- * ```ts
- * import { createNetwork, peer, pathVector } from "@bandeira-tech/b3nd-sdk/network";
- *
- * const net = createNetwork(
- *   [peer(clientB, { id: "B" }), peer(clientC, { id: "C" })],
- *   pathVector(),
- * );
- * const unbind = net(rig);
- * ```
+ * Returns an async unbind; calling it aborts each peer's observe signal
+ * and awaits the per-peer loops so teardown is resource-sanitizer-clean.
+ * Idempotent — calling twice is a no-op.
  */
-export function createNetwork(
+export function network(
+  target: Pick<NodeProtocolInterface, "receive">,
   peers: Peer[],
-  policy: Policy = flood(),
-): Network {
-  const { originId, peers: frozenPeers } = buildSpec(peers, policy);
+  policies: Policy[] = [],
+  opts: NetworkOptions = {},
+): () => Promise<void> {
+  const { originId, peers: frozenPeers } = validatePeers(peers);
+  const pattern = opts.pattern ?? "*";
+  const onError = opts.onError ?? (() => {});
+  const ac = new AbortController();
 
-  return function attach(target, opts = {}) {
-    const pattern = opts.pattern ?? "*";
-    const ac = new AbortController();
-    const onError = opts.onError ?? (() => {});
+  const tasks = frozenPeers.map((peer) =>
+    runPeer(peer, policies, originId, target, pattern, ac.signal, onError)
+  );
 
-    const tasks = frozenPeers.map((peer) =>
-      runPeer(peer, policy, originId, target, pattern, ac.signal, onError)
-    );
-
-    let unbound = false;
-    return async () => {
-      if (unbound) return;
-      unbound = true;
-      ac.abort();
-      // Wait for every per-peer loop to exit so the caller can rely on
-      // clean teardown (no leaked observe connections, no in-flight
-      // receive calls). Resource-sanitizer-safe.
-      await Promise.allSettled(tasks);
-    };
+  let unbound = false;
+  return async () => {
+    if (unbound) return;
+    unbound = true;
+    ac.abort();
+    await Promise.allSettled(tasks);
   };
 }
 
 /**
- * Shared construction path used by both `createNetwork` and
- * `createFederation`. Validates peers, enforces unique ids, assigns a
- * stable `originId`, freezes the peer list.
+ * Shared peer-list validation. Exported for strategy factories that
+ * want the same uniqueness / non-empty guarantees.
  *
- * Internal, exported for `federation.ts` only.
+ * @internal
  */
-export function buildSpec(
+export function validatePeers(
   peers: Peer[],
-  policy: Policy,
-): { originId: string; peers: readonly Peer[]; policy: Policy } {
+): { originId: string; peers: readonly Peer[] } {
   if (!peers || peers.length === 0) {
-    throw new Error("createNetwork: peers[] must be non-empty");
+    throw new Error("peers[] must be non-empty");
   }
   const ids = new Set<string>();
   for (const p of peers) {
     if (ids.has(p.id)) {
-      throw new Error(`createNetwork: duplicate peer id "${p.id}"`);
+      throw new Error(`duplicate peer id "${p.id}"`);
     }
     ids.add(p.id);
   }
   return {
     originId: `net-${crypto.randomUUID()}`,
     peers: Object.freeze([...peers]),
-    policy,
   };
 }
 
@@ -110,7 +100,7 @@ export function buildSpec(
  */
 async function runPeer(
   peer: Peer,
-  policy: Policy,
+  policies: Policy[],
   originId: string,
   target: Pick<NodeProtocolInterface, "receive">,
   pattern: string,
@@ -118,14 +108,14 @@ async function runPeer(
   onError: (err: Error, ctx: { peerId?: string }) => void,
 ): Promise<void> {
   const ctx: InboundCtx = { originId, source: peer };
+  const hooks = policies
+    .map((p) => p.receive?.bind(p))
+    .filter((r): r is NonNullable<typeof r> => r !== undefined);
 
   try {
     for await (const ev of peer.client.observe(pattern, signal)) {
       if (signal.aborted) break;
-      const stream = policy.receive
-        ? policy.receive(ev, peer, ctx)
-        : passthrough(ev);
-      for await (const out of stream) {
+      for await (const out of foldReceive(ev, hooks, peer, ctx)) {
         if (signal.aborted) break;
         await forward(target, out, onError, peer.id);
       }
@@ -135,11 +125,31 @@ async function runPeer(
   }
 }
 
-/** Pass-through generator used when `policy.receive` is absent. */
-async function* passthrough<T>(
-  ev: ReadResult<T>,
-): AsyncIterable<ReadResult<T>> {
-  yield ev;
+/**
+ * Fold `hooks` over `ev`: apply `hooks[0]` to `ev`, then `hooks[1]` to
+ * each event yielded, and so on. The result is one merged stream of
+ * events the target should receive.
+ */
+async function* foldReceive(
+  ev: ReadResult<unknown>,
+  hooks: Array<
+    (
+      ev: ReadResult<unknown>,
+      source: Peer,
+      ctx: InboundCtx,
+    ) => AsyncIterable<ReadResult<unknown>>
+  >,
+  source: Peer,
+  ctx: InboundCtx,
+): AsyncIterable<ReadResult<unknown>> {
+  if (hooks.length === 0) {
+    yield ev;
+    return;
+  }
+  const [first, ...rest] = hooks;
+  for await (const out of first(ev, source, ctx)) {
+    yield* foldReceive(out, rest, source, ctx);
+  }
 }
 
 /** Forward one event into the target's `receive`. Swallows errors via `onError`. */

@@ -1,29 +1,30 @@
 /**
  * @module @bandeira-tech/b3nd-sdk/network
  *
- * Peer-network primitive: compose `NodeProtocolInterface` clients into a
- * single `Network` (also a `NodeProtocolInterface`) governed by a `Policy`.
+ * Peer-network primitives.
  *
- * See `./types.ts` for the shape of `Peer`, `Policy`, `Network`, and the
- * inbound/outbound contexts. See `./policies/flood.ts` for the trivial
- * fan-out baseline.
+ * - **`network(target, peers, policies?, opts?)`** — the participant
+ *   verb. Subscribes peer observe streams, applies Policy chains, and
+ *   forwards into the target's receive pipeline.
+ * - **Strategy factories** — `flood(peers)`, `pathVector(peers)`, …
+ *   Build plain `NodeProtocolInterface` clients from a peer list for
+ *   use as rig connections via `connection(factory(peers), patterns)`.
+ *
+ * See README for the three deployment modes.
  */
 
 export type {
-  Federation,
   InboundCtx,
-  Network,
+  Message,
   NetworkOptions,
-  OutboundCtx,
   Peer,
   PeerDecorator,
   Policy,
+  StrategyFactory,
 } from "./types.ts";
 export { peer } from "./peer.ts";
-export { createNetwork } from "./network.ts";
-export { createFederation } from "./federation.ts";
+export { network } from "./network.ts";
 
-// ── Policies ──────────────────────────────────────────────────────────
+// ── Strategy factories (remote-client shape) ─────────────────────────
 export { flood } from "./policies/flood.ts";
 export { pathVector } from "./policies/path-vector.ts";
-export { compose } from "./policies/compose.ts";

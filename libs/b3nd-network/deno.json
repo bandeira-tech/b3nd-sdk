@@ -2,10 +2,8 @@
   "version": "0.1.0",
   "exports": {
     ".": "./mod.ts",
-    "./federation": "./federation.ts",
     "./policies/flood": "./policies/flood.ts",
-    "./policies/path-vector": "./policies/path-vector.ts",
-    "./policies/compose": "./policies/compose.ts"
+    "./policies/path-vector": "./policies/path-vector.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.15"

@@ -1,13 +1,22 @@
 /**
  * @module
- * Types for `@bandeira-tech/b3nd-sdk/network` — the peer/network primitive.
+ * Types for `@bandeira-tech/b3nd-sdk/network`.
  *
- * A **Network** is a `NodeProtocolInterface` composed of **Peer**s, governed
- * by a **Policy** that decides how outbound writes are transformed per peer
- * and how inbound events are translated before they reach a local rig.
+ * Two mental primitives, both just functions over a peer list:
  *
- * Loop avoidance, tell/read synchronization, rate-limiting, authenticated
- * relay — all expressed as Policies over the same primitive.
+ * - **`network(target, peers, policies?, opts?)`** — participant verb.
+ *   Subscribes each peer's observe stream, passes events through the
+ *   (optional) chain of `Policy.receive` hooks, and forwards yielded
+ *   events into `target.receive`. Returns an async unbind.
+ *
+ * - **Strategy factories** (`flood(peers)`, `pathVector(peers)`, …) —
+ *   remote-client shape. Each factory returns a
+ *   `NodeProtocolInterface` consumed as a rig connection:
+ *   `connection(flood(peers), patterns)`.
+ *
+ * `network()` and the strategy factories are entirely different shapes
+ * (a verb vs. a NodeProtocolInterface), so they cannot be accidentally
+ * swapped.
  */
 
 import type {
@@ -24,7 +33,7 @@ import type {
  * path-vector loop avoidance) pass their pubkey hex as the id explicitly.
  *
  * The id is not advertised on the wire by the network itself; it is
- * purely local bookkeeping used by Policies.
+ * purely local bookkeeping used by strategy factories and Policies.
  */
 export interface Peer {
   readonly id: string;
@@ -41,135 +50,51 @@ export type PeerDecorator = (
 ) => NodeProtocolInterface;
 
 /**
- * Context passed to `Policy.send` — outbound path (rig → peer).
- */
-export interface OutboundCtx {
-  /** Local network identity (stable across the lifetime of this network). */
-  readonly originId: string;
-}
-
-/**
- * Context passed to `Policy.receive` — inbound path (peer → rig).
+ * Context passed to `Policy.receive` — inbound path, peer → rig.
  *
  * Carries only information the bridge uniquely knows at call time. Any
  * data sources a policy needs (local store, cache, index, etc.) are
- * the policy's own concern and should be injected at its construction,
- * not plumbed through the bridge.
+ * the policy's own concern and should be injected at its construction.
  */
 export interface InboundCtx {
-  /** Local network identity. Useful for policies that stamp outbound
-   *  messages with "from me"; most policies will ignore it. */
+  /** Local identity for this network invocation. */
   readonly originId: string;
   /** The peer this event came from. `source.client` exposes `read`/`receive`
    *  for side-requests to the sender (e.g., pulling a full payload after
-   *  an announcement). This is the only bridge-unique piece of state —
-   *  without it, a policy cannot direct replies back to the origin. */
+   *  an announcement). */
   readonly source: Peer;
 }
 
 /**
- * A Policy shapes the Network's behavior.
+ * A Policy shapes how the `network()` verb translates inbound peer
+ * events before feeding them into the target rig. It is scoped to the
+ * participant side — strategy factories (flood, pathVector, etc.)
+ * encapsulate their own outbound behavior and do not consult a Policy.
  *
- * All three hooks are optional. A Policy with no hooks is a pass-through
- * (equivalent to `flood()`): outbound messages fan to every peer unchanged,
- * inbound events pass through unchanged, reads try peers in order.
- *
- * Hooks are called on a per-peer basis — the same outbound batch is
- * offered to each peer separately, and each inbound event is tagged
- * with its source peer before being transformed.
+ * Multiple policies can be passed as an array to `network()`; their
+ * `receive` hooks are chained left-to-right (each yielded event flows
+ * through the next policy).
  */
 export interface Policy {
   /**
-   * Per-peer batch transform on the outbound path. Called once per peer
-   * for each `network.receive(msgs)`. Return the messages that should
-   * actually be delivered to that peer. Return an empty array to skip
-   * the peer entirely.
-   *
-   * Defaults to identity (`msgs`).
-   */
-  send?(msgs: Message[], peer: Peer, ctx: OutboundCtx): Message[];
-
-  /**
-   * Per-event transform on the inbound path. Invoked by a Network's
-   * attach call with the events observed from each peer. Yield zero or
-   * more events that should be delivered into the consuming target's
-   * pipeline.
+   * Per-event transform on the inbound path. Yield zero or more events
+   * that should be delivered into the consuming target's pipeline.
    *
    * The async-generator shape lets the policy:
    *  - consume a control-plane event silently (yield nothing)
-   *  - trigger a side-read from the source peer and yield the fetched
-   *    content to the target
+   *  - trigger a side-read from the source peer (via `source.client.read`)
+   *    and yield the fetched content to the target
    *  - pass the event through unchanged
-   *
-   * Defaults to identity (single-event pass-through).
    */
   receive?(
     ev: ReadResult<unknown>,
     source: Peer,
     ctx: InboundCtx,
   ): AsyncIterable<ReadResult<unknown>>;
-
-  /**
-   * Strategy for `network.read()`. `first-match` tries peers in order and
-   * returns the first success. `merge-unique` fans out in parallel and
-   * deduplicates results. Defaults to `first-match`.
-   */
-  read?: "first-match" | "merge-unique";
 }
 
 /**
- * A Network is a `NodeProtocolInterface` composed of peers.
- *
- * Two integration surfaces:
- *  - Use as a rig connection via `connection(network, patterns)` — the
- *    network becomes an outbound client the rig writes to / reads from /
- *    observes through.
- *  - Use as a bridge via `work(rig, network)` (shipped in a follow-up
- *    release) — binds the network's inbound observe streams to feed the
- *    rig's receive pipeline with side-effects routed via `Policy.receive`.
- */
-/**
- * A Network is the **participant primitive**: a function that, given a
- * receive-target (typically a Rig), wires the peers' observe streams into
- * the target's receive pipeline and returns an async unbind.
- *
- * Network is produced by `createNetwork(peers, policy?)` and encapsulates
- * everything about the participant mode in a single callable. Because it
- * is NOT a `NodeProtocolInterface`, it cannot be passed to `connection()`
- * — the type-level guard against the accidental loop that would otherwise
- * arise from composing the participant and remote-client roles on the
- * same object.
- *
- * For the remote-client role (outbound, `connection()`), construct a
- * `Federation` via `createFederation()` — same inputs, different output
- * type that *is* a `NodeProtocolInterface`.
- */
-export type Network = (
-  target: Pick<NodeProtocolInterface, "receive">,
-  opts?: NetworkOptions,
-) => () => Promise<void>;
-
-/**
- * A Federation is the **remote-client primitive** — peers + policy
- * presented as a single `NodeProtocolInterface`. Consumed by
- * `connection(federation, patterns)` in a rig's connection list.
- *
- * Federation is deliberately *not* a `Network`. Passing one to
- * `work(rig, ...)` is a compile error. If your node needs both to
- * participate (Mode 3 / "full participant"), construct one of each
- * from the same inputs — they will cooperate correctly only if a
- * loop-avoidance Policy like `pathVector()` is in play, because the
- * outbound path cannot know the origin of an inbound message.
- */
-export interface Federation extends NodeProtocolInterface {
-  // Nominally distinct from Network via the absence of peers/policy/originId;
-  // structurally it's just a NodeProtocolInterface.
-}
-
-/**
- * Options passed to the Network attach call — strictly bridge-level
- * concerns. Policies carry their own data dependencies (stores, caches,
- * indexes) via factory construction.
+ * Options passed to the `network()` verb — strictly bridge-level concerns.
  */
 export interface NetworkOptions {
   /**
@@ -185,3 +110,20 @@ export interface NetworkOptions {
    */
   onError?: (err: Error, ctx: { peerId?: string }) => void;
 }
+
+/**
+ * A StrategyFactory builds a plain `NodeProtocolInterface` from a peer
+ * list. Examples: `flood(peers)` (fan-out to all, first-match reads),
+ * `pathVector(peers)` (flood with signer-chain loop avoidance).
+ *
+ * The returned value is an ordinary client and goes into a rig
+ * connection list unchanged:
+ *
+ * ```ts
+ * connection(flood(peers), { receive: ["*"] })
+ * ```
+ */
+export type StrategyFactory = (peers: Peer[]) => NodeProtocolInterface;
+
+// Re-export Message for policy hook signatures that need it.
+export type { Message };

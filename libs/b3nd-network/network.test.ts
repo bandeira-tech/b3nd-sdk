@@ -1,12 +1,7 @@
 /**
  * @module
- * Tests for `peer()` and `createNetwork(peers, policy?)` — the
- * participant primitive.
- *
- * `createNetwork` returns a callable (`(target, opts?) => unbind`) that
- * encapsulates both the data (peers+policy) and the attach behavior.
- * These tests cover both the construction contract and the attach
- * bridge's forwarding, policy hooks, error isolation, and teardown.
+ * Tests for `peer()` and `network(target, peers, policies?, opts?)` —
+ * the participant verb.
  *
  * No `noSanitize` anywhere — Deno's op and resource sanitizers are
  * active on every test.
@@ -24,8 +19,8 @@ import type {
   NodeProtocolInterface,
   ReadResult,
 } from "../b3nd-core/types.ts";
-import { createNetwork, peer } from "./mod.ts";
-import type { Peer, Policy } from "./mod.ts";
+import { network, peer } from "./mod.ts";
+import type { Policy } from "./mod.ts";
 
 function mem(): SimpleClient {
   return new SimpleClient(new MemoryStore());
@@ -91,27 +86,28 @@ Deno.test("peer() applies decorators in order", () => {
       });
 
   const p = peer(mem(), { via: [deco("outer"), deco("inner")] });
-  // Outer is applied last, so calls happen outer → inner.
   p.client.receive([["mutable://x/1", {}, "v"]]);
   assertEquals(calls, ["inner", "outer"]);
 });
 
-// ── createNetwork — validation ────────────────────────────────────────
+// ── network() — validation ────────────────────────────────────────────
 
-Deno.test("createNetwork rejects empty peer list", () => {
+Deno.test("network() rejects empty peer list", () => {
+  const { target } = capturingTarget();
   let threw = false;
   try {
-    createNetwork([]);
+    network(target, []);
   } catch {
     threw = true;
   }
   if (!threw) throw new Error("expected empty peers to throw");
 });
 
-Deno.test("createNetwork rejects duplicate peer ids", () => {
+Deno.test("network() rejects duplicate peer ids", () => {
+  const { target } = capturingTarget();
   let threw = false;
   try {
-    createNetwork([
+    network(target, [
       peer(mem(), { id: "X" }),
       peer(mem(), { id: "X" }),
     ]);
@@ -121,31 +117,12 @@ Deno.test("createNetwork rejects duplicate peer ids", () => {
   if (!threw) throw new Error("expected duplicate ids to throw");
 });
 
-// ── Type-level guarantee ──────────────────────────────────────────────
-//
-// Network is a function — it has no NodeProtocolInterface methods, so
-// passing it to `connection()` fails at compile time. Runtime spot-check.
-
-Deno.test("createNetwork returns a function (participant-only)", () => {
-  const net = createNetwork([peer(mem(), { id: "A" })]);
-  assertEquals(typeof net, "function");
-  // Casting to any to probe; production code never does this.
-  // deno-lint-ignore no-explicit-any
-  const asAny = net as any;
-  assertEquals(typeof asAny.receive, "undefined");
-  assertEquals(typeof asAny.read, "undefined");
-  assertEquals(typeof asAny.observe, "undefined");
-  assertEquals(typeof asAny.status, "undefined");
-});
-
 // ── Bridge forwarding ─────────────────────────────────────────────────
 
-Deno.test("Network forwards events from a single peer into target.receive", async () => {
+Deno.test("network() forwards events from a single peer into target.receive", async () => {
   const a = mem();
-  const net = createNetwork([peer(a, { id: "A" })]);
   const { target, calls } = capturingTarget();
-
-  const unbind = net(target);
+  const unbind = network(target, [peer(a, { id: "A" })]);
   try {
     await a.receive([["mutable://x/1", {}, "hello"]]);
     await until(() => calls.length >= 1);
@@ -156,13 +133,11 @@ Deno.test("Network forwards events from a single peer into target.receive", asyn
   }
 });
 
-Deno.test("Network forwards from every peer in parallel", async () => {
+Deno.test("network() forwards from every peer in parallel", async () => {
   const a = mem();
   const b = mem();
-  const net = createNetwork([peer(a, { id: "A" }), peer(b, { id: "B" })]);
   const { target, calls } = capturingTarget();
-
-  const unbind = net(target);
+  const unbind = network(target, [peer(a, { id: "A" }), peer(b, { id: "B" })]);
   try {
     await a.receive([["mutable://x/a", {}, 1]]);
     await b.receive([["mutable://x/b", {}, 2]]);
@@ -174,27 +149,26 @@ Deno.test("Network forwards from every peer in parallel", async () => {
   }
 });
 
-// ── policy.receive — source tagging ───────────────────────────────────
+// ── policy chain ──────────────────────────────────────────────────────
 
-Deno.test("Network tags events with the source peer", async () => {
+Deno.test("network() tags events with the source peer", async () => {
   const a = mem();
   const b = mem();
   const seen: { peerId: string; uri: string }[] = [];
 
   const policy: Policy = {
-    async *receive(ev, source, _ctx) {
+    async *receive(ev, source) {
       if (ev.uri) seen.push({ peerId: source.id, uri: ev.uri });
       yield ev;
     },
   };
 
-  const net = createNetwork(
-    [peer(a, { id: "A" }), peer(b, { id: "B" })],
-    policy,
-  );
   const { target, calls } = capturingTarget();
-
-  const unbind = net(target);
+  const unbind = network(
+    target,
+    [peer(a, { id: "A" }), peer(b, { id: "B" })],
+    [policy],
+  );
   try {
     await a.receive([["mutable://x/1", {}, 1]]);
     await b.receive([["mutable://x/2", {}, 2]]);
@@ -209,21 +183,40 @@ Deno.test("Network tags events with the source peer", async () => {
   }
 });
 
-// ── policy.receive — silent consumption ──────────────────────────────
+Deno.test("network() chains multiple policies left-to-right on each event", async () => {
+  const a = mem();
+  const uppercase: Policy = {
+    async *receive(ev) {
+      if (ev.uri) yield { ...ev, uri: ev.uri.toUpperCase() };
+    },
+  };
+  const wrap: Policy = {
+    async *receive(ev) {
+      if (ev.uri) yield { ...ev, uri: `w(${ev.uri})` };
+    },
+  };
 
-Deno.test("Network respects a policy that yields nothing (control-plane consumption)", async () => {
+  const { target, calls } = capturingTarget();
+  const unbind = network(target, [peer(a, { id: "A" })], [uppercase, wrap]);
+  try {
+    await a.receive([["mutable://hello", {}, 1]]);
+    await until(() => calls.length >= 1);
+    assertEquals(calls[0][0], "w(MUTABLE://HELLO)");
+  } finally {
+    await unbind();
+  }
+});
+
+Deno.test("network() respects a policy that yields nothing (control-plane consumption)", async () => {
   const a = mem();
   const policy: Policy = {
     async *receive(ev) {
-      // Consume every event silently — should never reach target.
       if (ev.uri && !ev.uri.startsWith("data://")) return;
       yield ev;
     },
   };
-  const net = createNetwork([peer(a, { id: "A" })], policy);
   const { target, calls } = capturingTarget();
-
-  const unbind = net(target);
+  const unbind = network(target, [peer(a, { id: "A" })], [policy]);
   try {
     await a.receive([["mutable://noise/1", {}, "drop me"]]);
     await new Promise((r) => setTimeout(r, 30));
@@ -233,9 +226,7 @@ Deno.test("Network respects a policy that yields nothing (control-plane consumpt
   }
 });
 
-// ── policy.receive — transform ───────────────────────────────────────
-
-Deno.test("Network forwards transformed events to target", async () => {
+Deno.test("network() forwards transformed events to target", async () => {
   const a = mem();
   const policy: Policy = {
     async *receive(ev) {
@@ -243,18 +234,13 @@ Deno.test("Network forwards transformed events to target", async () => {
         yield {
           success: true,
           uri: `wrapped://${ev.uri}`,
-          record: {
-            values: {},
-            data: { wrapped: ev.record?.data },
-          },
+          record: { values: {}, data: { wrapped: ev.record?.data } },
         };
       }
     },
   };
-  const net = createNetwork([peer(a, { id: "A" })], policy);
   const { target, calls } = capturingTarget();
-
-  const unbind = net(target);
+  const unbind = network(target, [peer(a, { id: "A" })], [policy]);
   try {
     await a.receive([["mutable://raw/1", {}, 42]]);
     await until(() => calls.length >= 1);
@@ -265,14 +251,12 @@ Deno.test("Network forwards transformed events to target", async () => {
   }
 });
 
-// ── policy.receive — side-read via ctx.source.client.read ────────────
-
-Deno.test("Network exposes source.client.read for side-pulls", async () => {
+Deno.test("network() exposes source.client.read for side-pulls", async () => {
   const a = mem();
   await a.receive([["data://full/payload", {}, { big: "content" }]]);
 
   const policy: Policy = {
-    async *receive(ev, source, _ctx) {
+    async *receive(ev, source) {
       if (ev.uri?.startsWith("inv://")) {
         const want = (ev.record?.data as { have: string }).have;
         const results = await source.client.read<unknown>(want);
@@ -283,10 +267,8 @@ Deno.test("Network exposes source.client.read for side-pulls", async () => {
     },
   };
 
-  const net = createNetwork([peer(a, { id: "A" })], policy);
   const { target, calls } = capturingTarget();
-
-  const unbind = net(target);
+  const unbind = network(target, [peer(a, { id: "A" })], [policy]);
   try {
     await a.receive([["inv://1", {}, { have: "data://full/payload" }]]);
     await until(() => calls.some((c) => c[0] === "data://full/payload"));
@@ -297,7 +279,7 @@ Deno.test("Network exposes source.client.read for side-pulls", async () => {
   }
 });
 
-// ── Policy dependency self-injection ──────────────────────────────────
+// ── Policies carry their own dependencies ─────────────────────────────
 
 Deno.test("policies carry their own data dependencies via closure", async () => {
   const a = mem();
@@ -305,25 +287,24 @@ Deno.test("policies carry their own data dependencies via closure", async () => 
   await localStore.receive([["mutable://known", {}, "yes"]]);
 
   const policyWithStore = (store: typeof localStore): Policy => ({
-    async *receive(ev, _source, _ctx) {
+    async *receive(ev) {
       const existing = await store.read<string>("mutable://known");
       if (existing[0]?.success && ev.uri) {
         yield {
           success: true,
           uri: `wrapped://${ev.uri}`,
-          record: {
-            values: {},
-            data: existing[0].record?.data,
-          },
+          record: { values: {}, data: existing[0].record?.data },
         };
       }
     },
   });
 
-  const net = createNetwork([peer(a, { id: "A" })], policyWithStore(localStore));
   const { target, calls } = capturingTarget();
-
-  const unbind = net(target);
+  const unbind = network(
+    target,
+    [peer(a, { id: "A" })],
+    [policyWithStore(localStore)],
+  );
   try {
     await a.receive([["trigger://1", {}, 0]]);
     await until(() => calls.length >= 1);
@@ -334,14 +315,17 @@ Deno.test("policies carry their own data dependencies via closure", async () => 
   }
 });
 
-// ── Pattern option ────────────────────────────────────────────────────
+// ── opts ──────────────────────────────────────────────────────────────
 
-Deno.test("Network honors a narrowed observe pattern", async () => {
+Deno.test("network() honors a narrowed observe pattern", async () => {
   const a = mem();
-  const net = createNetwork([peer(a, { id: "A" })]);
   const { target, calls } = capturingTarget();
-
-  const unbind = net(target, { pattern: "mutable://keep/:id" });
+  const unbind = network(
+    target,
+    [peer(a, { id: "A" })],
+    [],
+    { pattern: "mutable://keep/:id" },
+  );
   try {
     await a.receive([["mutable://keep/1", {}, "match"]]);
     await a.receive([["mutable://drop/1", {}, "skip"]]);
@@ -354,9 +338,9 @@ Deno.test("Network honors a narrowed observe pattern", async () => {
   }
 });
 
-// ── Error isolation ───────────────────────────────────────────────────
+// ── error isolation ──────────────────────────────────────────────────
 
-Deno.test("Network catches target.receive errors without stalling the bridge", async () => {
+Deno.test("network() catches target.receive errors without stalling", async () => {
   const a = mem();
   let count = 0;
   const errors: Error[] = [];
@@ -371,8 +355,12 @@ Deno.test("Network catches target.receive errors without stalling the bridge", a
     status: () => Promise.resolve({ status: "healthy" as const }),
   };
 
-  const net = createNetwork([peer(a, { id: "A" })]);
-  const unbind = net(target, { onError: (err) => errors.push(err) });
+  const unbind = network(
+    target,
+    [peer(a, { id: "A" })],
+    [],
+    { onError: (err) => errors.push(err) },
+  );
   try {
     await a.receive([["mutable://x/1", {}, 1]]);
     await a.receive([["mutable://x/2", {}, 2]]);
@@ -384,7 +372,7 @@ Deno.test("Network catches target.receive errors without stalling the bridge", a
   }
 });
 
-Deno.test("Network surfaces peer observe errors via onError", async () => {
+Deno.test("network() surfaces peer observe errors via onError", async () => {
   const errors: Error[] = [];
   const badPeer: NodeProtocolInterface = {
     receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
@@ -395,13 +383,16 @@ Deno.test("Network surfaces peer observe errors via onError", async () => {
     status: () => Promise.resolve({ status: "unhealthy" as const }),
   };
 
-  const net = createNetwork([peer(badPeer, { id: "X" })]);
   const { target } = capturingTarget();
-
-  const unbind = net(target, {
-    onError: (err, ctx) =>
-      errors.push(new Error(`${ctx.peerId}: ${err.message}`)),
-  });
+  const unbind = network(
+    target,
+    [peer(badPeer, { id: "X" })],
+    [],
+    {
+      onError: (err, ctx) =>
+        errors.push(new Error(`${ctx.peerId}: ${err.message}`)),
+    },
+  );
   try {
     await until(() => errors.length >= 1);
     assertEquals(errors[0].message, "X: observe broken");
@@ -410,14 +401,12 @@ Deno.test("Network surfaces peer observe errors via onError", async () => {
   }
 });
 
-// ── Teardown ──────────────────────────────────────────────────────────
+// ── teardown ──────────────────────────────────────────────────────────
 
 Deno.test("unbind() stops forwarding and awaits peer loops", async () => {
   const a = mem();
-  const net = createNetwork([peer(a, { id: "A" })]);
   const { target, calls } = capturingTarget();
-
-  const unbind = net(target);
+  const unbind = network(target, [peer(a, { id: "A" })]);
   await a.receive([["mutable://pre/1", {}, 1]]);
   await until(() => calls.length >= 1);
 
@@ -429,16 +418,15 @@ Deno.test("unbind() stops forwarding and awaits peer loops", async () => {
 });
 
 Deno.test("unbind() is idempotent", async () => {
-  const net = createNetwork([peer(mem(), { id: "A" })]);
   const { target } = capturingTarget();
-  const unbind = net(target);
+  const unbind = network(target, [peer(mem(), { id: "A" })]);
   await unbind();
   await unbind(); // must not throw
 });
 
-// ── Real Rig integration ──────────────────────────────────────────────
+// ── real Rig integration ──────────────────────────────────────────────
 
-Deno.test("createNetwork against a real Rig fires reactions on peer-originated writes", async () => {
+Deno.test("network() against a real Rig fires reactions on peer-originated writes", async () => {
   const a = mem();
   const local = mem();
   const reactionCalls: { uri: string; id: string }[] = [];
@@ -452,8 +440,7 @@ Deno.test("createNetwork against a real Rig fires reactions on peer-originated w
     },
   });
 
-  const net = createNetwork([peer(a, { id: "A" })]);
-  const unbind = net(rig);
+  const unbind = network(rig, [peer(a, { id: "A" })]);
   try {
     await a.receive([["mutable://chat/42", {}, "hello"]]);
     await until(() => reactionCalls.length >= 1);
@@ -463,15 +450,14 @@ Deno.test("createNetwork against a real Rig fires reactions on peer-originated w
   }
 });
 
-Deno.test("createNetwork persists bridged writes through the rig pipeline", async () => {
+Deno.test("network() persists bridged writes through the rig pipeline", async () => {
   const a = mem();
   const local = mem();
   const rig = new Rig({
     connections: [connection(local, { receive: ["*"], read: ["*"] })],
   });
 
-  const net = createNetwork([peer(a, { id: "A" })]);
-  const unbind = net(rig);
+  const unbind = network(rig, [peer(a, { id: "A" })]);
   try {
     await a.receive([["mutable://k/1", {}, { v: 1 }]]);
     await until(async () => {
