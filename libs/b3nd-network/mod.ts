@@ -20,5 +20,9 @@ export type {
 } from "./types.ts";
 export { peer } from "./peer.ts";
 export { createNetwork } from "./network.ts";
-export { flood } from "./policies/flood.ts";
 export { work } from "./work.ts";
+
+// ── Policies ──────────────────────────────────────────────────────────
+export { flood } from "./policies/flood.ts";
+export { pathVector } from "./policies/path-vector.ts";
+export { compose } from "./policies/compose.ts";

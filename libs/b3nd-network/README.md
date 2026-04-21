@@ -26,7 +26,7 @@ import {
             outbound (rig → peers)                 inbound (peers → rig)
             ──────────────────────                 ──────────────────────
 rig.receive ─▶ Network ─▶ Policy.send ─▶ peers    peers ─▶ Policy.receive ─▶ rig.receive
-                         (per peer)                 (PR-2: via work(rig, network))
+                         (per peer)                 (via work(rig, network))
 
 rig.read    ─▶ Network ─▶ Policy.read strategy ─▶ peers
 rig.observe ─▶ Network ─▶ merged peer streams
@@ -108,16 +108,16 @@ interface Network extends NodeProtocolInterface {
 
 ## Composing a Policy
 
-Policies are plain objects. The canonical policies (`splitHorizon`,
-`pathVector`, `tellAndRead`) each ship as small factory functions that
-return a `Policy`. Combine them with the `compose()` helper (PR-3):
+Policies are plain objects. Canonical policies (`pathVector`, future
+`tellAndRead`) each ship as small factory functions that return a
+`Policy`. Combine them with the `compose()` helper:
 
 ```ts
 const policy = compose(
-  pathVector({ identity }),                  // skip peers already in signer chain
+  pathVector(),                              // skip peers already in signer chain
   tellAndRead({                              // advertise content, pull on interest
     announce: (msg) => myAnnounce(msg),
-    onAnnounce: (ev, _, ctx) => myInterest(ev, ctx),
+    onAnnounce: (ev, source) => myInterest(ev, source),
   }),
 );
 ```
@@ -136,6 +136,54 @@ export function myPolicy(): Policy {
 }
 ```
 
+## Two modes — know which one you're using
+
+The network library supports two distinct deployment shapes. **Do not
+compose them on the same network instance**: they overlap in a way that
+creates feedback loops on unauthenticated content.
+
+### Mode 1 — remote-client (outbound only)
+
+```ts
+const rig = new Rig({
+  connections: [connection(net, { receive: ["*"], read: ["*"] })],
+});
+```
+
+Use when the local rig is a *consumer* of the network. Writes fan to
+every peer via `Policy.send`; reads delegate to peers by strategy.
+Typical for browser apps, CLI tools, background workers — anything that
+doesn't itself *participate* in gossip by serving observe streams back
+to peers.
+
+### Mode 2 — participant (inbound only)
+
+```ts
+const unbind = work(rig, net);
+```
+
+Use when the local rig *joins* the mesh by pulling from peers over
+their observe streams. `work()` feeds the rig's receive pipeline with
+events observed on each peer, tagged by source. Typical for nodes that
+run their own HTTP/SSE server and are observed by other nodes in
+return.
+
+### Mode 3 — full participant (both)
+
+Technically possible; **require `pathVector()` with signed messages**.
+Each message carries a signer chain, and `pathVector` filters outbound
+peers that already appear in it. Unsigned messages will loop
+infinitely because the outbound path (Mode 1) cannot know which peer
+an inbound message came from — that information only exists inside
+`work()` (Mode 2). `pathVector` puts the origin *on the wire* so both
+paths can read it without coordination.
+
+For unsigned content, either:
+- Use a DAG topology (push-only on one side of each edge).
+- Write a `beforeReceive` rig hook that de-duplicates URIs (content-
+  based seen-set). A canonical helper for this may ship in a later
+  release; for now it's a one-off operator responsibility.
+
 ## Ergonomics
 
 **Batch-native.** `send` takes and returns `Message[]`, matching the rest
@@ -152,18 +200,19 @@ specific peer (e.g., pull a full payload after an announcement), it calls
 is no special side-channel API — everything is addressed content flowing
 through `NodeProtocolInterface`. Works in browsers, serverless, embedded.
 
-**Loop avoidance is a Policy concern.** The rig core has no dedup. Use
-`pathVector` (PR-3) for arbitrary cycles, `splitHorizon` for simple
-bidirectional pairs. If your topology is a DAG (push-only on one side of
-each edge), you need no policy — flood is safe.
+**Loop avoidance is a Policy concern.** The rig core has no dedup.
+`pathVector()` handles arbitrary cycles by inspecting the signer chain
+on authenticated messages — stateless and correct by construction.
+Unsigned bidirectional meshes need either a DAG topology or a rig-level
+seen-set hook (see "Two modes" above).
 
 ## Roadmap
 
 | PR | Status | Scope |
 |----|--------|-------|
 | PR-1 | ✅ merged | `peer`, `createNetwork`, `flood`, subpath export, tests |
-| PR-2 | ✅ shipped | `work(target, network, opts?)` — observe-bridge, source tagging, `InboundCtx.local`, unbind |
-| PR-3 | pending  | `splitHorizon`, `pathVector`, `compose` |
+| PR-2 | ✅ shipped | `work(target, network, opts?)` — observe-bridge, source tagging, unbind |
+| PR-3 | ✅ shipped | `pathVector()`, `compose()` — loop avoidance via signer chain + policy composition |
 | PR-4 | pending  | `tellAndRead` helper + content-sync example |
 | PR-5 | pending  | retire `b3nd-combinators`, port `createPeerClients` to `Peer[]` |
 
@@ -253,6 +302,28 @@ const ac = new AbortController();
 for await (const ev of rig.observe("mutable://shared/*", ac.signal)) {
   console.log(ev.uri, ev.record?.data);
 }
+```
+
+## Example: signed mesh with pathVector
+
+```ts
+import { createNetwork, peer, pathVector, compose } from "@bandeira-tech/b3nd-sdk/network";
+import { Rig, connection, HttpClient } from "@bandeira-tech/b3nd-sdk";
+
+// Peer ids MUST be the peers' signing pubkey (hex) for pathVector to
+// recognize them in the signer chain.
+const net = createNetwork(
+  [
+    peer(new HttpClient({ url: "https://node-b" }), { id: bPubkeyHex }),
+    peer(new HttpClient({ url: "https://node-c" }), { id: cPubkeyHex }),
+  ],
+  pathVector(),
+);
+
+// Use with AuthenticatedRig so outbound messages carry a signer chain.
+// When A signs a message and pushes to B, B pushes to C — but when B
+// pushes back toward A (because C's network also has A as a peer),
+// pathVector drops it: A's pubkey is already in the chain.
 ```
 
 ## Example: per-peer rewrite (preview of PR-4)
