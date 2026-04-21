@@ -13,7 +13,6 @@
 import type {
   Message,
   NodeProtocolInterface,
-  ReadFn,
   ReadResult,
 } from "../b3nd-core/types.ts";
 
@@ -51,20 +50,21 @@ export interface OutboundCtx {
 
 /**
  * Context passed to `Policy.receive` — inbound path (peer → rig).
+ *
+ * Carries only information the bridge uniquely knows at call time. Any
+ * data sources a policy needs (local store, cache, index, etc.) are
+ * the policy's own concern and should be injected at its construction,
+ * not plumbed through the bridge.
  */
 export interface InboundCtx {
-  /** Local network identity. */
+  /** Local network identity. Useful for policies that stamp outbound
+   *  messages with "from me"; most policies will ignore it. */
   readonly originId: string;
   /** The peer this event came from. `source.client` exposes `read`/`receive`
-   *  for side-requests (e.g., pulling a full payload after an announcement). */
+   *  for side-requests to the sender (e.g., pulling a full payload after
+   *  an announcement). This is the only bridge-unique piece of state —
+   *  without it, a policy cannot direct replies back to the origin. */
   readonly source: Peer;
-  /** Read-only accessor into the consuming rig's local storage.
-   *  Only bound when the network is engaged via `work(rig, network)`;
-   *  otherwise these functions return "not available" errors. */
-  readonly local: {
-    has(uri: string): Promise<boolean>;
-    read: ReadFn;
-  };
 }
 
 /**
@@ -132,4 +132,29 @@ export interface Network extends NodeProtocolInterface {
   readonly originId: string;
   /** Snapshot of the configured peers. Treat as immutable. */
   readonly peers: readonly Peer[];
+  /** The Policy this network was built with. Exposed so the `work()`
+   *  bridge and debugging tools can inspect/apply it. */
+  readonly policy: Policy;
+}
+
+/**
+ * Options for `work(target, network, opts?)`.
+ *
+ * Strictly bridge-level concerns. Policies carry their own data
+ * dependencies (stores, caches, indexes) via factory construction — the
+ * bridge does not plumb them.
+ */
+export interface WorkOptions {
+  /**
+   * Observe pattern subscribed to on each peer. Defaults to `"*"` —
+   * every event is bridged. Narrow to reduce noise in busy networks.
+   */
+  pattern?: string;
+
+  /**
+   * Called when a peer's observe stream or `target.receive` throws.
+   * Defaults to a silent catch so one bad peer/message does not tear
+   * down the whole bridge.
+   */
+  onError?: (err: Error, ctx: { peerId?: string }) => void;
 }
