@@ -1,204 +1,173 @@
 /**
  * @module
- * `createNetwork(peers, policy?)` — compose peers into a single
- * `NodeProtocolInterface`.
+ * `network(target, peers, policies?, opts?)` — the participant verb.
  *
- * The network is itself a client and can be used as a rig connection via
- * `connection(network, patterns)`. Outbound traffic fans through the
- * policy's `send` hook per peer; reads delegate to peers by strategy;
- * observe merges peer streams into a single iterator.
+ * Subscribes each peer's observe stream, passes events through the
+ * (optional) chain of `Policy.receive` hooks, and forwards yielded
+ * events into `target.receive`. Returns an async unbind that aborts
+ * every peer loop and awaits clean teardown.
+ *
+ * ```ts
+ * import { network, peer, pathVector } from "@bandeira-tech/b3nd-sdk/network";
+ *
+ * const unbind = network(rig, peers);                           // no policies
+ * const unbind = network(rig, peers, [myPolicy]);               // one policy
+ * const unbind = network(rig, peers, [filter, tellAndRead], {   // multiple, chained
+ *   pattern: "mutable://chat/*",
+ * });
+ *
+ * await unbind();
+ * ```
+ *
+ * `network()` is not a `NodeProtocolInterface`. Passing a peer list to
+ * a strategy factory (`flood(peers)`, `pathVector(peers)`) is how you
+ * build the remote-client shape for `connection()`.
  */
 
 import type {
   Message,
+  NodeProtocolInterface,
   ReadResult,
-  ReceiveResult,
-  StatusResult,
 } from "../b3nd-core/types.ts";
-import type { Network, OutboundCtx, Peer, Policy } from "./types.ts";
-import { flood } from "./policies/flood.ts";
+import type {
+  InboundCtx,
+  NetworkOptions,
+  Peer,
+  Policy,
+} from "./types.ts";
 
 /**
- * Build a Network from peers and a Policy (defaults to `flood()`).
+ * Wire peers into a target's `receive` pipeline.
  *
- * @example
- * ```ts
- * import { createNetwork, peer } from "@bandeira-tech/b3nd-sdk/network";
- *
- * const net = createNetwork([
- *   peer(new HttpClient({ url: "https://node-b" })),
- *   peer(new HttpClient({ url: "https://node-c" })),
- * ]);
- *
- * const rig = new Rig({
- *   connections: [
- *     connection(localStore, { receive: ["*"], read: ["*"] }),
- *     connection(net, { receive: ["mutable://*"], read: ["mutable://*"] }),
- *   ],
- * });
- * ```
+ * Returns an async unbind; calling it aborts each peer's observe signal
+ * and awaits the per-peer loops so teardown is resource-sanitizer-clean.
+ * Idempotent — calling twice is a no-op.
  */
-export function createNetwork(
+export function network(
+  target: Pick<NodeProtocolInterface, "receive">,
   peers: Peer[],
-  policy: Policy = flood(),
-): Network {
+  policies: Policy[] = [],
+  opts: NetworkOptions = {},
+): () => Promise<void> {
+  const { originId, peers: frozenPeers } = validatePeers(peers);
+  const pattern = opts.pattern ?? "*";
+  const onError = opts.onError ?? (() => {});
+  const ac = new AbortController();
+
+  const tasks = frozenPeers.map((peer) =>
+    runPeer(peer, policies, originId, target, pattern, ac.signal, onError)
+  );
+
+  let unbound = false;
+  return async () => {
+    if (unbound) return;
+    unbound = true;
+    ac.abort();
+    await Promise.allSettled(tasks);
+  };
+}
+
+/**
+ * Shared peer-list validation. Exported for strategy factories that
+ * want the same uniqueness / non-empty guarantees.
+ *
+ * @internal
+ */
+export function validatePeers(
+  peers: Peer[],
+): { originId: string; peers: readonly Peer[] } {
   if (!peers || peers.length === 0) {
-    throw new Error("createNetwork: peers[] must be non-empty");
+    throw new Error("peers[] must be non-empty");
   }
-  // Detect duplicate ids — loop-avoidance policies depend on uniqueness.
   const ids = new Set<string>();
   for (const p of peers) {
     if (ids.has(p.id)) {
-      throw new Error(`createNetwork: duplicate peer id "${p.id}"`);
+      throw new Error(`duplicate peer id "${p.id}"`);
     }
     ids.add(p.id);
   }
-
-  const originId = `net-${crypto.randomUUID()}`;
-  const frozenPeers: readonly Peer[] = Object.freeze([...peers]);
-  const readStrategy = policy.read ?? "first-match";
-
   return {
-    originId,
-    peers: frozenPeers,
-    policy,
-
-    // ── receive ──────────────────────────────────────────────────────
-
-    async receive(msgs: Message[]): Promise<ReceiveResult[]> {
-      if (msgs.length === 0) return [];
-      const ctx: OutboundCtx = { originId };
-
-      await Promise.all(frozenPeers.map(async (p) => {
-        const transformed = policy.send ? policy.send(msgs, p, ctx) : msgs;
-        if (transformed.length === 0) return;
-        await p.client.receive(transformed);
-      }));
-
-      // The Network reports success per *input* message — we fanned out to
-      // the peers the policy selected. Transport-level failures throw and
-      // propagate to the caller; wrap individual peers with a best-effort
-      // decorator if you want rejection tolerance.
-      return msgs.map(() => ({ accepted: true }));
-    },
-
-    // ── read ─────────────────────────────────────────────────────────
-
-    async read<T = unknown>(
-      uris: string | string[],
-    ): Promise<ReadResult<T>[]> {
-      const uriList = Array.isArray(uris) ? uris : [uris];
-      if (uriList.length === 0) return [];
-
-      if (readStrategy === "first-match") {
-        let lastErr: string | undefined;
-        for (const p of frozenPeers) {
-          try {
-            const results = await p.client.read<T>(uriList);
-            if (results.some((r) => r.success)) return results;
-          } catch (err) {
-            lastErr = err instanceof Error ? err.message : String(err);
-          }
-        }
-        return uriList.map(() => ({
-          success: false,
-          error: lastErr ?? "no peer returned a match",
-        } as ReadResult<T>));
-      }
-
-      // merge-unique: fan out in parallel, first successful hit per URI wins.
-      const merged = new Map<string, ReadResult<T>>();
-      const settled = await Promise.allSettled(
-        frozenPeers.map((p) => p.client.read<T>(uriList)),
-      );
-      for (const s of settled) {
-        if (s.status !== "fulfilled") continue;
-        for (const r of s.value) {
-          const key = r.uri ?? uriList[0];
-          if (r.success && !merged.has(key)) merged.set(key, r);
-        }
-      }
-      return uriList.map((u) => {
-        for (const [, r] of merged) if (r.uri === u) return r;
-        return { success: false, error: "not found" } as ReadResult<T>;
-      });
-    },
-
-    // ── observe ──────────────────────────────────────────────────────
-
-    async *observe<T = unknown>(
-      pattern: string,
-      signal: AbortSignal,
-    ): AsyncIterable<ReadResult<T>> {
-      const queue: ReadResult<T>[] = [];
-      let wake: (() => void) | null = null;
-
-      const forwarders = frozenPeers.map(async (p) => {
-        try {
-          for await (const r of p.client.observe<T>(pattern, signal)) {
-            queue.push(r);
-            const w = wake;
-            if (w) {
-              wake = null;
-              w();
-            }
-          }
-        } catch {
-          // Per-peer observe errors are swallowed — one broken peer
-          // should not tear down the merged stream. The signal is still
-          // the mechanism the caller uses to stop everything.
-        }
-      });
-
-      const onAbort = () => {
-        const w = wake;
-        if (w) {
-          wake = null;
-          w();
-        }
-      };
-      signal.addEventListener("abort", onAbort, { once: true });
-
-      try {
-        while (true) {
-          while (queue.length > 0) yield queue.shift()!;
-          if (signal.aborted) return;
-          await new Promise<void>((resolve) => {
-            wake = resolve;
-          });
-        }
-      } finally {
-        signal.removeEventListener("abort", onAbort);
-        // Peer observe loops close themselves when their signal aborts.
-        // Await them so resource-sanitizer-clean teardown is guaranteed.
-        await Promise.allSettled(forwarders);
-      }
-    },
-
-    // ── status ───────────────────────────────────────────────────────
-
-    async status(): Promise<StatusResult> {
-      const settled = await Promise.allSettled(
-        frozenPeers.map((p) => p.client.status()),
-      );
-      let healthy = 0;
-      for (const s of settled) {
-        if (s.status === "fulfilled" && s.value.status === "healthy") healthy++;
-      }
-      const total = frozenPeers.length;
-      return {
-        status: healthy === total
-          ? "healthy"
-          : healthy > 0
-          ? "degraded"
-          : "unhealthy",
-        message: `${healthy}/${total} peers healthy`,
-        details: {
-          originId,
-          peerCount: total,
-          healthyPeers: healthy,
-        },
-      };
-    },
+    originId: `net-${crypto.randomUUID()}`,
+    peers: Object.freeze([...peers]),
   };
+}
+
+// ── Internals: the bridge ─────────────────────────────────────────────
+
+/**
+ * One peer's subscription loop. Kept as a separate function (not an
+ * inline IIFE) so error stacks identify the misbehaving peer.
+ */
+async function runPeer(
+  peer: Peer,
+  policies: Policy[],
+  originId: string,
+  target: Pick<NodeProtocolInterface, "receive">,
+  pattern: string,
+  signal: AbortSignal,
+  onError: (err: Error, ctx: { peerId?: string }) => void,
+): Promise<void> {
+  const ctx: InboundCtx = { originId, source: peer };
+  const hooks = policies
+    .map((p) => p.receive?.bind(p))
+    .filter((r): r is NonNullable<typeof r> => r !== undefined);
+
+  try {
+    for await (const ev of peer.client.observe(pattern, signal)) {
+      if (signal.aborted) break;
+      for await (const out of foldReceive(ev, hooks, peer, ctx)) {
+        if (signal.aborted) break;
+        await forward(target, out, onError, peer.id);
+      }
+    }
+  } catch (err) {
+    onError(toError(err), { peerId: peer.id });
+  }
+}
+
+/**
+ * Fold `hooks` over `ev`: apply `hooks[0]` to `ev`, then `hooks[1]` to
+ * each event yielded, and so on. The result is one merged stream of
+ * events the target should receive.
+ */
+async function* foldReceive(
+  ev: ReadResult<unknown>,
+  hooks: Array<
+    (
+      ev: ReadResult<unknown>,
+      source: Peer,
+      ctx: InboundCtx,
+    ) => AsyncIterable<ReadResult<unknown>>
+  >,
+  source: Peer,
+  ctx: InboundCtx,
+): AsyncIterable<ReadResult<unknown>> {
+  if (hooks.length === 0) {
+    yield ev;
+    return;
+  }
+  const [first, ...rest] = hooks;
+  for await (const out of first(ev, source, ctx)) {
+    yield* foldReceive(out, rest, source, ctx);
+  }
+}
+
+/** Forward one event into the target's `receive`. Swallows errors via `onError`. */
+async function forward(
+  target: Pick<NodeProtocolInterface, "receive">,
+  ev: ReadResult<unknown>,
+  onError: (err: Error, ctx: { peerId?: string }) => void,
+  peerId: string,
+): Promise<void> {
+  if (!ev.uri || !ev.record) return;
+  const msg: Message = [ev.uri, ev.record.values, ev.record.data];
+  try {
+    await target.receive([msg]);
+  } catch (err) {
+    onError(toError(err), { peerId });
+  }
+}
+
+function toError(e: unknown): Error {
+  return e instanceof Error ? e : new Error(String(e));
 }
