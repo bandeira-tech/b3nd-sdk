@@ -45,21 +45,24 @@ import { validatePeers } from "../network.ts";
  */
 export function flood(peers: Peer[]): NodeProtocolInterface {
   const { originId, peers: frozenPeers } = validatePeers(peers);
-  return floodImpl(originId, frozenPeers, () => true);
+  return floodImpl(originId, frozenPeers, identityTransform);
 }
 
+const identityTransform = <T>(xs: T): T => xs;
+
 /**
- * Internal shared implementation used by `flood` and `pathVector`. The
- * `accept` predicate decides per-peer whether to include a message in
- * the outbound fan. `flood` always accepts; `pathVector` skips peers
- * that already appear in the message's signer chain.
+ * Internal shared implementation used by `flood`, `pathVector`, and
+ * `tellAndRead.outbound`. The `transform` rewrites the per-peer
+ * outbound batch: return `msgs` unchanged to flood as-is, return a
+ * subset to filter, return rewritten messages to change what the peer
+ * receives, or return `[]` to skip the peer entirely.
  *
  * @internal
  */
 export function floodImpl(
   originId: string,
   peers: readonly Peer[],
-  accept: (msg: Message, peer: Peer) => boolean,
+  transform: (msgs: Message[], peer: Peer) => Message[],
 ): NodeProtocolInterface {
   return {
     // ── receive ──────────────────────────────────────────────────────
@@ -68,15 +71,15 @@ export function floodImpl(
       if (msgs.length === 0) return [];
 
       await Promise.all(peers.map(async (p) => {
-        const filtered = msgs.filter((m) => accept(m, p));
-        if (filtered.length === 0) return;
-        await p.client.receive(filtered);
+        const outbound = transform(msgs, p);
+        if (outbound.length === 0) return;
+        await p.client.receive(outbound);
       }));
 
-      // Success per *input* message — we fanned out to the peers that
-      // accepted it. Transport-level failures throw and propagate;
-      // wrap individual peers with a best-effort decorator if you want
-      // rejection tolerance.
+      // Success per *input* message — we fanned out to the peers the
+      // transform selected. Transport-level failures throw and
+      // propagate; wrap individual peers with a best-effort decorator
+      // if you want rejection tolerance.
       return msgs.map(() => ({ accepted: true }));
     },
 

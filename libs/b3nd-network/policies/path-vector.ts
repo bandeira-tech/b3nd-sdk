@@ -37,8 +37,8 @@ import { floodImpl } from "./flood.ts";
 
 export function pathVector(peers: Peer[]): NodeProtocolInterface {
   const { originId, peers: frozenPeers } = validatePeers(peers);
-  return floodImpl(originId, frozenPeers, (msg, peer) =>
-    !signerChain(msg).includes(peer.id)
+  return floodImpl(originId, frozenPeers, (msgs, peer) =>
+    msgs.filter((m) => !signerChain(m).includes(peer.id))
   );
 }
 

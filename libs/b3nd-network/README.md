@@ -195,6 +195,51 @@ await rig.receive([["mutable://shared/hello", {}, { text: "hi" }]]);
 const r = await rig.read("mutable://shared/hello");
 ```
 
+## Example: content sync with `tellAndRead`
+
+Announce small messages on the wire; let consumers pull the full
+payload via `read()` only when they want it. The "pull" leg is the
+existing `NodeProtocolInterface.read` — no new protocol, no new
+transport, no special side-channel. URI layout for announcements is
+the protocol author's call; the framework never peeks at a scheme.
+
+```ts
+import { network, peer, tellAndRead } from "@bandeira-tech/b3nd-sdk/network";
+import { Rig, connection } from "@bandeira-tech/b3nd-sdk";
+
+const sync = tellAndRead({
+  // Outbound: rewrite every hash:// payload into a tiny inv:// message.
+  announce: (msgs) => msgs.map(([uri]) =>
+    uri.startsWith("hash://")
+      ? [`inv://${uri}`, {}, { have: uri }]
+      : [uri, {}, null /* untouched */]
+  ),
+  // Inbound: when we see an inv:// announcement, return the URI to pull
+  // from the source peer via its existing read().
+  onAnnounce: (ev) => {
+    if (!ev.uri?.startsWith("inv://")) return null;       // passthrough
+    const have = (ev.record?.data as { have: string }).have;
+    return [have];                                         // pull it
+  },
+});
+
+const rig = new Rig({
+  connections: [
+    connection(localStore, { receive: ["*"], read: ["*"] }),
+    // Outbound: announce hash:// content; everything else flows as-is.
+    connection(sync.outbound(peers), { receive: ["hash://*"] }),
+  ],
+});
+
+// Inbound: announcements flowing from peer observe streams trigger pulls.
+const unbind = network(rig, peers, [sync.inbound]);
+```
+
+Compound announcements, per-peer asymmetry ("full to trusted, INV to
+others"), and "I already have it" short-circuits are all expressible
+in the `announce`/`onAnnounce` hooks — see `tell-and-read.test.ts` for
+worked cases.
+
 ## Example: signed full-participant mesh
 
 ```ts
@@ -247,9 +292,9 @@ embedded.
 |----|--------|-------|
 | PR-1 | ✅ merged | `peer`, network skeleton, subpath export, tests |
 | PR-2 | ✅ merged | observe-bridge, source tagging, unbind |
-| PR-3 | ✅ shipped | `network()` verb + `flood(peers)` + `pathVector(peers)` + policy-chain composition inline |
-| PR-4 | pending  | `tellAndRead` helper + content-sync example |
-| PR-5 | pending  | retire `b3nd-combinators`, port `createPeerClients` to `Peer[]` |
+| PR-3 | ✅ merged  | `network()` verb + `flood(peers)` + `pathVector(peers)` + policy-chain composition inline |
+| PR-4 | ✅ shipped | `tellAndRead` — INV/READ-style content sync; outbound strategy factory + inbound Policy |
+| PR-5 | pending   | retire `b3nd-combinators`, port `createPeerClients` to `Peer[]` |
 
 ## Tests
 

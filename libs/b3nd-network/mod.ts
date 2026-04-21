@@ -28,3 +28,10 @@ export { network } from "./network.ts";
 // ── Strategy factories (remote-client shape) ─────────────────────────
 export { flood } from "./policies/flood.ts";
 export { pathVector } from "./policies/path-vector.ts";
+
+// ── Sync patterns ────────────────────────────────────────────────────
+export { tellAndRead } from "./policies/tell-and-read.ts";
+export type {
+  TellAndReadBundle,
+  TellAndReadOptions,
+} from "./policies/tell-and-read.ts";
