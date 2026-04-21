@@ -90,14 +90,15 @@ export interface Policy {
   send?(msgs: Message[], peer: Peer, ctx: OutboundCtx): Message[];
 
   /**
-   * Per-event transform on the inbound path. Bound by `work(rig, network)`
-   * to observe streams from each peer. Yield zero or more events that
-   * should be delivered into the consuming rig's pipeline.
+   * Per-event transform on the inbound path. Invoked by a Network's
+   * attach call with the events observed from each peer. Yield zero or
+   * more events that should be delivered into the consuming target's
+   * pipeline.
    *
    * The async-generator shape lets the policy:
    *  - consume a control-plane event silently (yield nothing)
    *  - trigger a side-read from the source peer and yield the fetched
-   *    content to the rig
+   *    content to the target
    *  - pass the event through unchanged
    *
    * Defaults to identity (single-event pass-through).
@@ -128,27 +129,25 @@ export interface Policy {
  *    rig's receive pipeline with side-effects routed via `Policy.receive`.
  */
 /**
- * A Network is the **participant primitive** — peers + policy + a stable
- * local id — consumed by `work(rig, network)`.
+ * A Network is the **participant primitive**: a function that, given a
+ * receive-target (typically a Rig), wires the peers' observe streams into
+ * the target's receive pipeline and returns an async unbind.
  *
- * Network is deliberately NOT a `NodeProtocolInterface`. This is the
- * type-level guard against the accidental loop that would otherwise
- * arise from composing `work(rig, net)` AND `connection(net, ...)` on
- * the same object: the outbound and inbound paths can't coordinate
- * origin, so bidirectional meshes storm on unauthenticated content.
+ * Network is produced by `createNetwork(peers, policy?)` and encapsulates
+ * everything about the participant mode in a single callable. Because it
+ * is NOT a `NodeProtocolInterface`, it cannot be passed to `connection()`
+ * — the type-level guard against the accidental loop that would otherwise
+ * arise from composing the participant and remote-client roles on the
+ * same object.
  *
- * To use a peer set as a remote client (outbound, `connection()`),
- * construct a `Federation` via `createFederation()` — same inputs,
- * different output type that *is* a `NodeProtocolInterface`.
+ * For the remote-client role (outbound, `connection()`), construct a
+ * `Federation` via `createFederation()` — same inputs, different output
+ * type that *is* a `NodeProtocolInterface`.
  */
-export interface Network {
-  /** Stable local id for this instance. */
-  readonly originId: string;
-  /** Snapshot of the configured peers. Treat as immutable. */
-  readonly peers: readonly Peer[];
-  /** The Policy this network was built with. */
-  readonly policy: Policy;
-}
+export type Network = (
+  target: Pick<NodeProtocolInterface, "receive">,
+  opts?: NetworkOptions,
+) => () => Promise<void>;
 
 /**
  * A Federation is the **remote-client primitive** — peers + policy
@@ -168,13 +167,11 @@ export interface Federation extends NodeProtocolInterface {
 }
 
 /**
- * Options for `work(target, network, opts?)`.
- *
- * Strictly bridge-level concerns. Policies carry their own data
- * dependencies (stores, caches, indexes) via factory construction — the
- * bridge does not plumb them.
+ * Options passed to the Network attach call — strictly bridge-level
+ * concerns. Policies carry their own data dependencies (stores, caches,
+ * indexes) via factory construction.
  */
-export interface WorkOptions {
+export interface NetworkOptions {
   /**
    * Observe pattern subscribed to on each peer. Defaults to `"*"` —
    * every event is bridged. Narrow to reduce noise in busy networks.

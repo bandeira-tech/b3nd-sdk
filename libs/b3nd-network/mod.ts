@@ -13,16 +13,15 @@ export type {
   Federation,
   InboundCtx,
   Network,
+  NetworkOptions,
   OutboundCtx,
   Peer,
   PeerDecorator,
   Policy,
-  WorkOptions,
 } from "./types.ts";
 export { peer } from "./peer.ts";
 export { createNetwork } from "./network.ts";
 export { createFederation } from "./federation.ts";
-export { work } from "./work.ts";
 
 // ── Policies ──────────────────────────────────────────────────────────
 export { flood } from "./policies/flood.ts";

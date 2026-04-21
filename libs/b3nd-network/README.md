@@ -7,15 +7,17 @@ fan-out, inbound event translation, and read strategy.
 The library exposes **two deliberately distinct primitives** so the
 wrong composition fails at the type level instead of silently looping:
 
-- **`createNetwork(peers, policy?)` → Network** — the *participant* view.
-  Consumed by `work(rig, network)` to make a rig receive events from peers
-  via observe bridges. Network is **not** a `NodeProtocolInterface`; it
-  cannot be passed to `connection()`.
-- **`createFederation(peers, policy?)` → Federation** — the *remote-client*
-  view. Consumed as a rig connection (`connection(federation, patterns)`)
-  to fan writes/reads out across peers. Federation **is** a
-  `NodeProtocolInterface` but hides `peers`/`policy`/`originId`, so it
-  cannot be passed to `work()`.
+- **`createNetwork(peers, policy?)` → Network** — the *participant*
+  primitive. A callable: `net(rig, opts?)` subscribes each peer's
+  observe stream and forwards events into the rig's receive pipeline,
+  returning an async unbind. Network is not a `NodeProtocolInterface`
+  and cannot be passed to `connection()`.
+- **`createFederation(peers, policy?)` → Federation** — the
+  *remote-client* primitive. A `NodeProtocolInterface` consumed as a
+  rig connection (`connection(federation, patterns)`) to fan writes/
+  reads out across peers. Federation hides `peers`/`policy`/`originId`
+  and cannot be called like a function, so it cannot be mistaken for a
+  Network.
 
 Same input shape, different output types. No accidental both-ways.
 
@@ -26,7 +28,6 @@ import {
   createNetwork,
   createFederation,
   peer,
-  work,
   pathVector,
   compose,
   type Policy,
@@ -44,12 +45,13 @@ Two primitives — same inputs, different consumers, disjoint types:
      createNetwork(...)           createFederation(...)
               │                             │
               ▼                             ▼
-            Network                      Federation
+         Network (fn)               Federation (NPI)
               │                             │
               ▼                             ▼
-       work(rig, network)            connection(federation,
-       (inbound observe bridge)        patterns)
-                                      (outbound as NPI)
+         net(rig, opts?)         connection(federation,
+         (returns unbind,              patterns)
+          inbound observe               (outbound)
+          bridge)
 ```
 
 If you need both (full participant, Mode 3), construct one of each from
@@ -160,13 +162,13 @@ to peers.
 
 ```ts
 const net = createNetwork(peers);
-const unbind = work(rig, net);
+const unbind = net(rig);
 ```
 
 Use when the local rig *joins* the mesh by pulling from peers over
-their observe streams. `work()` feeds the rig's receive pipeline with
-events observed on each peer, tagged by source. Typical for nodes that
-run their own HTTP/SSE server and are observed by other nodes in
+their observe streams. The Network feeds the rig's receive pipeline
+with events observed on each peer, tagged by source. Typical for nodes
+that run their own HTTP/SSE server and are observed by other nodes in
 return.
 
 ### Mode 3 — full participant (both — requires pathVector + signing)
@@ -174,7 +176,7 @@ return.
 ```ts
 const net = createNetwork(peers, pathVector());
 const fed = createFederation(peers, pathVector());
-work(rig, net);
+const unbind = net(rig);
 new Rig({ connections: [connection(fed, patterns)] });
 ```
 
@@ -218,15 +220,15 @@ seen-set hook (see "Two modes" above).
 | PR | Status | Scope |
 |----|--------|-------|
 | PR-1 | ✅ merged | `peer`, `createNetwork`, `flood`, subpath export, tests |
-| PR-2 | ✅ shipped | `work(target, network, opts?)` — observe-bridge, source tagging, unbind |
-| PR-3 | ✅ shipped | `pathVector()`, `compose()` — loop avoidance via signer chain + policy composition |
+| PR-2 | ✅ merged | observe-bridge, source tagging, unbind |
+| PR-3 | ✅ shipped | `pathVector()`, `compose()`; split into `Network` (callable) and `Federation` (NPI); `work` folded into `createNetwork` |
 | PR-4 | pending  | `tellAndRead` helper + content-sync example |
 | PR-5 | pending  | retire `b3nd-combinators`, port `createPeerClients` to `Peer[]` |
 
 ## Example: bridging peers into a Rig
 
 ```ts
-import { createNetwork, peer, work } from "@bandeira-tech/b3nd-sdk/network";
+import { createNetwork, peer } from "@bandeira-tech/b3nd-sdk/network";
 import {
   HttpClient,
   MemoryStore,
@@ -250,14 +252,14 @@ const rig = new Rig({
 
 // Peer writes stream into the rig's receive pipeline and fire
 // reactions / programs / hooks as if they were local writes.
-const unbind = work(rig, net);
+const unbind = net(rig);
 // later:
 await unbind();
 ```
 
-Note: `net` cannot be passed to `connection()` — it's a Network, not a
-Federation. If you want the rig to also fan its own writes out to peers,
-construct a Federation (Mode 3, see above).
+Note: `net` is a function, not a `NodeProtocolInterface` — passing it to
+`connection()` is a compile error. If you want the rig to also fan its
+own writes out to peers, construct a Federation (Mode 3, see above).
 
 ### Policies carry their own dependencies
 
@@ -320,7 +322,6 @@ import {
   createFederation,
   peer,
   pathVector,
-  work,
 } from "@bandeira-tech/b3nd-sdk/network";
 import { AuthenticatedRig, Rig, connection, HttpClient } from "@bandeira-tech/b3nd-sdk";
 
@@ -334,8 +335,8 @@ const policy = pathVector();
 
 // One object for each role. Same inputs, different output types —
 // you cannot accidentally pass either to the wrong consumer.
-const net = createNetwork(peers, policy);          // for work()
-const fed = createFederation(peers, policy);       // for connection()
+const net = createNetwork(peers, policy);          // participant (callable)
+const fed = createFederation(peers, policy);       // remote-client (NPI)
 
 const rig = new Rig({
   connections: [
@@ -343,7 +344,7 @@ const rig = new Rig({
     connection(fed,        { receive: ["mutable://*"] }),
   ],
 });
-work(rig, net);
+net(rig);
 
 // Use AuthenticatedRig so outbound messages carry a signer chain.
 // When A signs a message and it reaches B, pathVector on B's fed drops
