@@ -1494,6 +1494,31 @@
           "npm:hono@4"
         ]
       },
+      "apps/sharenet-apps/inkwell": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "apps/sharenet-apps/listify": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "apps/sharenet-apps/whisper": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "apps/sharenet-protocol": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
+      "apps/sharenet-stress": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
       "apps/vault-listener": {
         "dependencies": [
           "jsr:@std/assert@1"

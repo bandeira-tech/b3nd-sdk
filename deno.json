@@ -99,6 +99,12 @@
     "apps/b3nd-node",
     "apps/sdk-inspector",
     "apps/vault-listener",
+    "apps/sharenet-protocol",
+    "apps/sharenet-node",
+    "apps/sharenet-apps/listify",
+    "apps/sharenet-apps/inkwell",
+    "apps/sharenet-apps/whisper",
+    "apps/sharenet-stress",
     "tests",
     ".claude-plugin/mcp-server"
   ]
