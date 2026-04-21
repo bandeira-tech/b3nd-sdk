@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "dev": "deno run --watch -A server.ts",
+    "start": "deno run -A server.ts",
+    "test": "deno test -A schema.test.ts"
+  },
+  "imports": {
+    "@b3nd/rig": "../../libs/b3nd-rig/mod.ts",
+    "@bandeira-tech/b3nd-sdk": "../../src/mod.ts",
+    "@bandeira-tech/b3nd-sdk/types": "../../libs/b3nd-core/types.ts",
+    "@std/assert": "jsr:@std/assert@^1.0.15"
+  }
+}

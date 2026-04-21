@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>B3nd Arena</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --panel: #151923;
+      --ink: #e6e6e6;
+      --dim: #8b93a7;
+      --accent: #7fd1ff;
+      --bad: #ff6464;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%;
+      background: var(--bg); color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      grid-template-rows: auto 1fr auto;
+      height: 100%;
+      gap: 8px;
+      padding: 8px;
+    }
+    header {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--panel);
+      border-radius: 6px;
+    }
+    header h1 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 2px; }
+    header .me { color: var(--dim); font-size: 12px; }
+    header .me b { color: var(--accent); }
+
+    #stage {
+      grid-row: 2; grid-column: 1;
+      background: var(--panel);
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    canvas { display: block; background: #0f1320; cursor: crosshair; }
+
+    aside {
+      grid-row: 2 / span 2; grid-column: 2;
+      background: var(--panel);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex; flex-direction: column; gap: 14px;
+      overflow: hidden;
+    }
+    aside h2 {
+      font-size: 11px; letter-spacing: 1.5px;
+      color: var(--dim); margin: 0 0 6px 0;
+      text-transform: uppercase;
+    }
+    .panel-section { display: flex; flex-direction: column; min-height: 0; }
+    .scroll { overflow-y: auto; flex: 1; min-height: 0; }
+
+    .scores, .feed, .chat-log {
+      list-style: none; margin: 0; padding: 0;
+      font-size: 12px;
+    }
+    .scores li {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 6px; border-radius: 4px;
+    }
+    .scores li.me { background: rgba(127, 209, 255, 0.1); }
+    .scores .swatch {
+      width: 10px; height: 10px; border-radius: 50%;
+      display: inline-block; margin-right: 6px;
+    }
+    .scores .nm { flex: 1; }
+    .scores .k  { color: var(--accent); margin-left: 6px; }
+    .scores .d  { color: var(--dim); margin-left: 6px; }
+
+    .feed li {
+      padding: 3px 4px;
+      font-size: 11px;
+      color: var(--dim);
+      border-left: 2px solid var(--bad);
+      padding-left: 6px;
+      margin-bottom: 3px;
+    }
+    .feed li b { color: var(--ink); }
+
+    footer {
+      grid-row: 3; grid-column: 1;
+      background: var(--panel);
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .chat-log {
+      max-height: 80px; overflow-y: auto;
+      font-size: 12px;
+    }
+    .chat-log li { padding: 1px 0; }
+    .chat-log b { color: var(--accent); }
+
+    .chat-form { display: flex; gap: 6px; }
+    .chat-form input {
+      flex: 1; background: var(--bg); color: var(--ink);
+      border: 1px solid #222a3a; border-radius: 4px;
+      padding: 6px 8px; font-family: inherit; font-size: 12px;
+      outline: none;
+    }
+    .chat-form input:focus { border-color: var(--accent); }
+
+    .badges { display: flex; gap: 6px; align-items: center; }
+    .badge {
+      font-size: 10px; padding: 2px 6px; border-radius: 10px;
+      background: #1e2432; color: var(--dim);
+    }
+    .badge.live { background: rgba(127,209,255,0.15); color: var(--accent); }
+
+    .hint {
+      color: var(--dim); font-size: 11px; text-align: center;
+      padding: 6px; background: rgba(255,255,255,0.02); border-radius: 4px;
+    }
+    .hint kbd {
+      background: #222a3a; padding: 1px 5px; border-radius: 3px;
+      color: var(--ink); font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <header>
+      <h1>B3ND · ARENA</h1>
+      <div class="badges">
+        <span class="badge" id="room-badge">room: …</span>
+        <span class="badge" id="peers-badge">peers: 0</span>
+        <span class="badge live" id="link-badge">offline</span>
+      </div>
+      <div class="me">you: <b id="me-name">…</b></div>
+    </header>
+
+    <section id="stage"><canvas id="cv" width="960" height="600"></canvas></section>
+
+    <aside>
+      <div class="panel-section" style="flex: 1;">
+        <h2>Scoreboard</h2>
+        <ul class="scores scroll" id="scores"></ul>
+      </div>
+      <div class="panel-section" style="max-height: 180px;">
+        <h2>Kill feed</h2>
+        <ul class="feed scroll" id="feed"></ul>
+      </div>
+      <div class="hint">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>click</kbd> shoot · <kbd>Enter</kbd> chat
+      </div>
+    </aside>
+
+    <footer>
+      <ul class="chat-log" id="chat-log"></ul>
+      <form class="chat-form" id="chat-form">
+        <input id="chat-input" placeholder="say something…" maxlength="240" autocomplete="off" />
+      </form>
+    </footer>
+  </div>
+
+  <script type="module" src="./b3nd.js"></script>
+  <script type="module" src="./game.js"></script>
+</body>
+</html>
