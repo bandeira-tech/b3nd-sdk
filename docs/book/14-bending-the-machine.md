@@ -86,14 +86,17 @@ In b3nd, a node can be configured to broadcast every received message to one or
 more peer nodes:
 
 ```typescript
-const clients = [
-  primaryNode,
-  replicaNode,
+import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
+
+const backends = [
+  peer(primaryNode, { id: "primary" }),
+  peer(replicaNode, { id: "replica" }),
 ];
+const composed = flood(backends); // broadcast write, first-match read
 
 const client = createValidatedClient({
-  receive: parallelBroadcast(clients), // Write to all
-  read: firstMatchSequence(clients), // Read from first that has it
+  write: composed,
+  read: composed,
 });
 ```
 

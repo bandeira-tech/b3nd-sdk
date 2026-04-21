@@ -27,8 +27,8 @@ import type {
  * @example
  * ```typescript
  * const client = createValidatedClient({
- *   write: parallelBroadcast(clients),
- *   read: firstMatchSequence(clients),
+ *   write: flood(peers),
+ *   read: flood(peers),
  *   validate: msgSchema(schema),
  * });
  * ```

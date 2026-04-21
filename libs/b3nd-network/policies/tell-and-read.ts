@@ -148,10 +148,17 @@ export function tellAndRead(opts: TellAndReadOptions): TellAndReadBundle {
           yield ev;
           return;
         }
-        // It's an announcement (possibly empty). Pull each listed URI.
-        for (const uri of result) {
-          const pulled = await source.client.read<unknown>(uri);
-          for (const r of pulled) {
+        // It's an announcement (possibly empty). Pull each listed URI
+        // in parallel — announcements carrying many URIs (compact
+        // block-style) shouldn't serialize into a chain of RTTs.
+        const pulls = await Promise.all(
+          result.map(async (uri) => ({
+            uri,
+            results: await source.client.read<unknown>(uri),
+          })),
+        );
+        for (const { uri, results } of pulls) {
+          for (const r of results) {
             if (r.success) yield { ...r, uri };
           }
         }

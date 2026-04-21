@@ -149,24 +149,25 @@ BACKEND_URL=memory://,postgresql://user:pass@localhost:5432/b3nd
 
 ### How Composition Works
 
-Multiple backends are composed using two combinators:
+Multiple backends are composed via **`flood(peers)`** from
+`@bandeira-tech/b3nd-sdk/network`. A `flood`:
 
-- **`parallelBroadcast`** — writes go to ALL backends simultaneously. A write
-  succeeds if at least one backend accepts it. This provides redundancy.
-
-- **`firstMatchSequence`** — reads try backends in order and return the first
-  successful result. This provides fallback behavior.
+- **Writes** fan out to every peer in parallel. Transport-level failures
+  propagate; wrap individual peers with the `bestEffort` decorator if you
+  want per-peer failures to be non-fatal.
+- **Reads** try peers in order and return the first successful result —
+  fall-through via `first-match`.
 
 ```
-Write: [message] → parallelBroadcast → [memory, postgres, peer1, peer2]
-                                        ↓        ↓         ↓       ↓
-                                       all receive simultaneously
+Write: [message] → flood → [memory, postgres, peer1, peer2]
+                           ↓        ↓         ↓       ↓
+                          all receive simultaneously
 
-Read:  read(uri) → firstMatchSequence → memory → postgres → peer1
-                                        miss      miss      hit → return
+Read:  read(uri) → flood → memory → postgres → peer1
+                           miss      miss      hit → return
 ```
 
-Local backends are tried before peer backends on reads.
+Local backends are ordered before peer backends on reads.
 
 ---
 
@@ -583,13 +584,13 @@ interface PeerSpec {
 
 ### How It Works
 
-**Push**: After a local write succeeds, the message is also sent to push peers
-via `parallelBroadcast`. Push peers are wrapped in a best-effort client that
-swallows errors — a downed peer never blocks local writes.
+**Push**: A local write fans to push peers via `flood([...localPeers, ...pushPeers])`.
+Push peers come pre-wrapped in the `bestEffort` decorator, so a downed peer is
+logged and ignored rather than blocking the write.
 
-**Pull**: When a local read misses (no data found), pull peers are tried in
-sequence via `firstMatchSequence`. This provides read fallback without requiring
-full data replication.
+**Pull**: Reads use `flood([...localPeers, ...pullPeers])`. `flood.read` tries
+peers in order and returns the first success, so local backends are consulted
+before pull peers — read fallback without requiring full data replication.
 
 **Bidirectional**: Both push and pull. The peer receives writes and serves as
 a read fallback.
@@ -610,8 +611,8 @@ const config: ManagedNodeConfig = {
 ### Composition
 
 ```
-Local write → parallelBroadcast([local backends, bestEffort(push peers)])
-Local read  → firstMatchSequence([local backends, pull peers])
+Local write → flood([local peers, bestEffort(push peers)])
+Local read  → flood([local peers, pull peers])
 ```
 
 Local backends always come first. Peer failures are isolated:

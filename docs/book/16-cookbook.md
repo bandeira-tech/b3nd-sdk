@@ -516,19 +516,18 @@ Same input, two nodes. Compare outputs. If they disagree, investigate.
 **In b3nd:**
 
 ```typescript
-import {
-  createValidatedClient,
-  firstMatchSequence,
-  parallelBroadcast,
-} from "@bandeira-tech/b3nd-sdk";
+import { createValidatedClient } from "@bandeira-tech/b3nd-sdk";
+import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
 
-const primary = new HttpClient({ url: "https://primary.example.com" });
-const replica = new HttpClient({ url: "https://replica.example.com" });
+const peers = [
+  peer(new HttpClient({ url: "https://primary.example.com" }), { id: "primary" }),
+  peer(new HttpClient({ url: "https://replica.example.com" }), { id: "replica" }),
+];
+const composed = flood(peers); // broadcast writes, first-match reads
 
-// Every write goes to both. Reads try primary first.
 const client = createValidatedClient({
-  receive: parallelBroadcast([primary, replica]),
-  read: firstMatchSequence([primary, replica]),
+  write: composed,
+  read: composed,
 });
 
 // Use normally — replication is automatic

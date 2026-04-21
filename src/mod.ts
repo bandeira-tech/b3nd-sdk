@@ -108,12 +108,6 @@ export {
 // SQLite schema utilities
 export { generateSqliteSchema } from "../libs/b3nd-client-sqlite/schema.ts";
 
-// Combinators
-export {
-  firstMatchSequence,
-  parallelBroadcast,
-} from "../libs/b3nd-combinators/mod.ts";
-
 // Crypto utilities
 export { pemToCryptoKey } from "../libs/b3nd-encrypt/mod.ts";
 export { deriveObfuscatedPath } from "../libs/b3nd-encrypt/utils.ts";
