@@ -16,7 +16,9 @@ export type {
   Peer,
   PeerDecorator,
   Policy,
+  WorkOptions,
 } from "./types.ts";
 export { peer } from "./peer.ts";
 export { createNetwork } from "./network.ts";
 export { flood } from "./policies/flood.ts";
+export { work } from "./work.ts";

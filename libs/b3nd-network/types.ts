@@ -132,4 +132,37 @@ export interface Network extends NodeProtocolInterface {
   readonly originId: string;
   /** Snapshot of the configured peers. Treat as immutable. */
   readonly peers: readonly Peer[];
+  /** The Policy this network was built with. Exposed so the `work()`
+   *  bridge and debugging tools can inspect/apply it. */
+  readonly policy: Policy;
+}
+
+/**
+ * Options for `work(target, network, opts?)`.
+ */
+export interface WorkOptions {
+  /**
+   * Observe pattern subscribed to on each peer. Defaults to `"*"` —
+   * every event is bridged. Narrow to reduce noise in busy networks.
+   */
+  pattern?: string;
+
+  /**
+   * Local client used to back `InboundCtx.local.has` and
+   * `InboundCtx.local.read`. Typically the rig's store client, NOT the
+   * rig itself — passing the rig would cause reads to loop back through
+   * the network connection.
+   *
+   * When omitted, `local.has` returns false and `local.read` returns a
+   * "not available" error. Policies that need local storage access must
+   * have this supplied.
+   */
+  local?: NodeProtocolInterface;
+
+  /**
+   * Called when a peer's observe stream or `target.receive` throws.
+   * Defaults to a silent catch so one bad peer/message does not tear
+   * down the whole bridge.
+   */
+  onError?: (err: Error, ctx: { peerId?: string }) => void;
 }

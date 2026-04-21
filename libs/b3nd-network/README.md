@@ -162,10 +162,48 @@ each edge), you need no policy — flood is safe.
 | PR | Status | Scope |
 |----|--------|-------|
 | PR-1 | ✅ merged | `peer`, `createNetwork`, `flood`, subpath export, tests |
-| PR-2 | pending  | `work(rig, network)` — observe-bridge, source tagging, unbind |
+| PR-2 | ✅ shipped | `work(target, network, opts?)` — observe-bridge, source tagging, `InboundCtx.local`, unbind |
 | PR-3 | pending  | `splitHorizon`, `pathVector`, `compose` |
 | PR-4 | pending  | `tellAndRead` helper + content-sync example |
 | PR-5 | pending  | retire `b3nd-combinators`, port `createPeerClients` to `Peer[]` |
+
+## Example: bridging peers into a Rig
+
+```ts
+import { createNetwork, peer, work } from "@bandeira-tech/b3nd-sdk/network";
+import {
+  HttpClient,
+  MemoryStore,
+  Rig,
+  SimpleClient,
+  connection,
+} from "@bandeira-tech/b3nd-sdk";
+
+const local = new SimpleClient(new MemoryStore());
+const net = createNetwork([
+  peer(new HttpClient({ url: "https://node-b" }), { id: "B" }),
+  peer(new HttpClient({ url: "https://node-c" }), { id: "C" }),
+]);
+
+const rig = new Rig({
+  connections: [connection(local, { receive: ["*"], read: ["*"] })],
+  reactions: {
+    "mutable://chat/:id": (uri) => console.log("saw", uri),
+  },
+});
+
+// Outbound: rig.receive writes fan out via the network connection.
+// (Add `connection(net, { receive: ["mutable://*"] })` to enable.)
+
+// Inbound: peer writes stream into the rig's receive pipeline and fire
+// reactions / programs / hooks as if they were local writes.
+const unbind = work(rig, net, { local });
+// later:
+await unbind();
+```
+
+`opts.local` is the local store client (not the rig) so `InboundCtx.local.{has, read}`
+queries only the rig's storage and never loops back through peers.
 
 ## Example: flood network
 

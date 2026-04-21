@@ -61,6 +61,7 @@ export function createNetwork(
   return {
     originId,
     peers: frozenPeers,
+    policy,
 
     // ── receive ──────────────────────────────────────────────────────
 
