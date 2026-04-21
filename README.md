@@ -1,15 +1,20 @@
 # B3nd
 
-A protocol for URI-based data where users own their data, privacy is encryption,
-and any app can read the same addresses.
+A framework for building DePIN protocols. B3nd provides URI-addressed resources,
+schema-driven validation, and cryptographic primitives. You define the rules —
+what data is allowed, who can write where, how messages are validated — and B3nd
+handles the rest: dispatch, storage composition, transport, and encryption.
+
+Protocols are built on B3nd. Apps are built on protocols.
 
 [Website](https://b3nd.dev) | [GitHub](https://github.com/bandeira-tech/b3nd) |
 [JSR](https://jsr.io/@bandeira-tech/b3nd-sdk) |
 [NPM](https://www.npmjs.com/package/@bandeira-tech/b3nd-web)
 
-## The Protocol in 30 Seconds
+## The Framework in 30 Seconds
 
-Every piece of data has a URI. Four operations do everything:
+Every piece of data has a URI. Programs validate what can be written where.
+Four operations do everything:
 
 ```typescript
 const client = new HttpClient({ url: "http://localhost:9942" });
@@ -30,8 +35,35 @@ const items = await client.list("mutable://open/my-app/");
 await client.delete("mutable://open/my-app/greeting");
 ```
 
-URIs define behavior (mutable, immutable, encrypted), not meaning. The same
-protocol works for profiles, posts, configs, messages — any data.
+The URI scheme determines which program validates the message. `mutable://open`
+is a permissive program that accepts anything — useful for prototyping. Real
+protocols define their own programs with authentication, conservation rules,
+and custom validation logic.
+
+## What You Build With B3nd
+
+B3nd is the foundation layer. Here's how the pieces stack:
+
+```
+┌─────────────────────────────────────────────┐
+│  App          (UX, auth flows, data display) │
+├─────────────────────────────────────────────┤
+│  Protocol     (programs, validation rules,   │
+│                URI conventions, consensus)    │
+├─────────────────────────────────────────────┤
+│  B3nd         (framework: dispatch, storage, │
+│                transport, crypto primitives)  │
+└─────────────────────────────────────────────┘
+```
+
+**Protocol designers** use B3nd to define programs — the rules for their
+network. What URIs exist, who can write to them, how messages are validated.
+
+**App developers** use B3nd + a protocol SDK to build applications. They don't
+need to know the framework internals — just `receive()`, `read()`, `list()`.
+
+**Infrastructure operators** run B3nd nodes with a protocol's schema loaded.
+They choose backends, manage replication, and handle uptime.
 
 ## Packages
 
@@ -63,34 +95,56 @@ import {
 
 ## Quick Start
 
+### Define a Protocol
+
+A protocol is a set of programs that validate messages:
+
+```typescript
+import type { Schema } from "@bandeira-tech/b3nd-sdk";
+import { authValidation, createPubkeyBasedAccess } from "@bandeira-tech/b3nd-sdk/auth";
+
+const schema: Schema = {
+  // Open program — anyone can write
+  "mutable://open": async () => ({ valid: true }),
+
+  // Auth program — only the key holder can write
+  "mutable://accounts": async ([uri, value]) => {
+    const getAccess = createPubkeyBasedAccess();
+    const validator = authValidation(getAccess);
+    const isValid = await validator([uri, value]);
+    return { valid: isValid, error: isValid ? undefined : "Auth failed" };
+  },
+};
+```
+
+### Run a Node
+
+```typescript
+import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import { Hono } from "hono";
+
+const client = new MessageDataClient(new MemoryStore());
+const app = new Hono();
+const frontend = servers.httpServer(app);
+createServerNode({ frontend, client, schema }).listen(9942);
+```
+
+### Use It
+
 ```typescript
 const client = new HttpClient({ url: "http://localhost:9942" });
 
-// Write — message is [uri, values, data]
-await client.receive([["mutable://users/alice/profile", {}, {
-  name: "Alice",
-  age: 30,
-}]]);
-
-// Read
-const result = await client.read("mutable://users/alice/profile");
-console.log(result.record?.data); // { name: "Alice", age: 30 }
-
-// List
-const items = await client.list("mutable://users/");
-console.log(items.data); // [{ uri: "mutable://users/alice/profile" }]
-
-// Delete
-await client.delete("mutable://users/alice/profile");
+await client.receive([["mutable://open/notes/1", {}, { text: "Hello" }]]);
+const result = await client.read("mutable://open/notes/1");
 ```
 
 ## Architecture
 
-Storage and protocol are separate concerns:
+The framework separates storage from protocol logic:
 
 - **Stores** handle mechanical read/write (MemoryStore, PostgresStore, S3Store, etc.)
 - **Protocol clients** wrap a Store to implement `NodeProtocolInterface` (MessageDataClient, SimpleClient)
-- **Transport clients** talk directly to remote peers (HttpClient, WebSocketClient, ConsoleClient)
+- **Transport clients** talk to remote nodes (HttpClient, WebSocketClient, ConsoleClient)
 
 ```typescript
 // Store-backed: choose your storage, wrap with a protocol client
@@ -125,12 +179,13 @@ const remote = new HttpClient({ url: "https://api.example.com" });
 
 ## Running a Node
 
-The B3nd node lives in `apps/b3nd-node/`. Configuration is via `.env`:
+The B3nd node lives in `apps/b3nd-node/`. Configuration is via environment
+variables:
 
 | Variable        | Description              | Example                                                                         |
 | --------------- | ------------------------ | ------------------------------------------------------------------------------- |
 | `BACKEND_URL`   | Comma-separated backends | `memory://`, `postgresql://...`, `sqlite://...`, `s3://bucket`, or combinations |
-| `SCHEMA_MODULE` | Path to schema file      | `./example-schema.ts`                                                           |
+| `SCHEMA_MODULE` | Path to protocol schema  | `./my-protocol-schema.ts`                                                       |
 | `PORT`          | Listen port              | `9942`                                                                          |
 | `CORS_ORIGIN`   | Allowed origins          | `*`                                                                             |
 
@@ -146,8 +201,6 @@ deno task dev           # http://localhost:9942
 ```
 
 ### With PostgreSQL
-
-Start a Postgres container, then point the node at it:
 
 ```bash
 # Ephemeral test DBs (Postgres :55432, Mongo :57017)
@@ -182,11 +235,7 @@ No containers needed — SQLite runs embedded:
 BACKEND_URL=sqlite:///tmp/b3nd.sqlite
 ```
 
-The node auto-creates the database and tables on first connect.
-
 ### With S3 (MinIO)
-
-Start MinIO, then point the node at it:
 
 ```bash
 make up p=dev   # Starts MinIO on :9000 (console on :9001)
@@ -204,8 +253,6 @@ S3_SECRET_KEY=minioadmin
 
 ### Memory + PostgreSQL (hybrid)
 
-Combine backends for fast reads with persistent fallback:
-
 ```bash
 BACKEND_URL=memory://,postgresql://postgres:postgres@localhost:55432/b3nd_test
 ```
@@ -216,7 +263,7 @@ BACKEND_URL=memory://,postgresql://postgres:postgres@localhost:55432/b3nd_test
 make pkg target=b3nd-node
 docker run -p 9942:9942 \
   -e BACKEND_URL=memory:// \
-  -e SCHEMA_MODULE=./example-schema.ts \
+  -e SCHEMA_MODULE=./my-protocol-schema.ts \
   -e PORT=9942 \
   -e CORS_ORIGIN=* \
   ghcr.io/bandeira-tech/b3nd/b3nd-node:latest
@@ -270,8 +317,8 @@ MCP tools: `b3nd_read`, `b3nd_receive`, `b3nd_list`, `b3nd_delete`,
 
 - [AGENTS.md](AGENTS.md) — Agent reference, architecture, and development
   workflows
-- Protocol philosophy: URIs express behavior (mutability, authentication), not
-  meaning. Higher-level features are workflows on canonical protocols.
+- [skills/b3nd/](skills/b3nd/) — Framework reference, protocol design,
+  node operations, and design documents
 
 ## License
 
