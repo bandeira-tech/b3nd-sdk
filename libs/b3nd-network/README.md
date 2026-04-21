@@ -197,13 +197,33 @@ const rig = new Rig({
 
 // Inbound: peer writes stream into the rig's receive pipeline and fire
 // reactions / programs / hooks as if they were local writes.
-const unbind = work(rig, net, { local });
+const unbind = work(rig, net);
 // later:
 await unbind();
 ```
 
-`opts.local` is the local store client (not the rig) so `InboundCtx.local.{has, read}`
-queries only the rig's storage and never loops back through peers.
+### Policies carry their own dependencies
+
+The bridge does **not** plumb data sources into policies. If a policy
+needs a store, cache, or index to make decisions (e.g., "do I already
+have this hash?"), it takes that dependency at construction time:
+
+```ts
+function myPolicy(opts: { store: NodeProtocolInterface }): Policy {
+  return {
+    async *receive(ev, source) {
+      if (await hasLocal(opts.store, ev.uri)) return;
+      yield ev;
+    },
+  };
+}
+
+const net = createNetwork(peers, myPolicy({ store: local }));
+work(rig, net);
+```
+
+This keeps `WorkOptions` to pure bridge concerns (`pattern`, `onError`)
+and keeps each policy's data needs explicit where they're used.
 
 ## Example: flood network
 

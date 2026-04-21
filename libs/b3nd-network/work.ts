@@ -13,20 +13,26 @@
  * identical to local writes from the Rig's perspective. Any
  * `NodeProtocolInterface` works though.
  *
- * ## Local storage access
+ * ## Scope
  *
- * `InboundCtx.local.{has, read}` is backed by `opts.local`. Typically
- * this is the rig's store client — *not* the rig itself, because
- * querying the rig would try the network connection and loop.
+ * The bridge only concerns itself with routing events. It does not carry
+ * data sources on behalf of policies. Policies that need a store/cache/
+ * index accept those at construction time:
+ *
+ * ```ts
+ * tellAndRead({ local: myStore, ... })       // policy's own dependency
+ * work(rig, createNetwork(peers, policy))    // bridge just wires events
+ * ```
  *
  * ## Teardown
  *
- * `work()` returns an unbind function. Calling it aborts every peer's
- * observe signal and waits for the per-peer loops to unwind.
+ * `work()` returns an async unbind function. Calling it aborts every
+ * peer's observe signal and awaits the per-peer loops to unwind so
+ * sanitizer-clean shutdown is guaranteed.
  *
  * @example
  * ```ts
- * const unbind = work(rig, network, { local: localStore });
+ * const unbind = work(rig, network);
  * // later:
  * await unbind();
  * ```
@@ -35,7 +41,6 @@
 import type {
   Message,
   NodeProtocolInterface,
-  ReadFn,
   ReadResult,
 } from "../b3nd-core/types.ts";
 import type { InboundCtx, Network, Peer, WorkOptions } from "./types.ts";
@@ -55,10 +60,8 @@ export function work(
   const ac = new AbortController();
   const onError = opts.onError ?? (() => {});
 
-  const local = makeLocalAccessor(opts.local);
-
   const tasks = network.peers.map((peer) =>
-    runPeer(peer, network, target, pattern, local, ac.signal, onError)
+    runPeer(peer, network, target, pattern, ac.signal, onError)
   );
 
   let unbound = false;
@@ -85,12 +88,11 @@ async function runPeer(
   network: Network,
   target: Pick<NodeProtocolInterface, "receive">,
   pattern: string,
-  local: InboundCtx["local"],
   signal: AbortSignal,
   onError: (err: Error, ctx: { peerId?: string }) => void,
 ): Promise<void> {
   const { policy, originId } = network;
-  const ctx: InboundCtx = { originId, source: peer, local };
+  const ctx: InboundCtx = { originId, source: peer };
 
   try {
     for await (const ev of peer.client.observe(pattern, signal)) {
@@ -129,35 +131,6 @@ async function forward(
   } catch (err) {
     onError(toError(err), { peerId });
   }
-}
-
-/** Build an `InboundCtx.local` backed by `opts.local`, or a graceful stub. */
-function makeLocalAccessor(
-  client: NodeProtocolInterface | undefined,
-): InboundCtx["local"] {
-  if (!client) {
-    return {
-      has: () => Promise.resolve(false),
-      read: (<T>(_uri: string) =>
-        Promise.resolve({
-          success: false,
-          error: "InboundCtx.local not available (no `local` supplied to work())",
-        } as ReadResult<T>)) as ReadFn,
-    };
-  }
-  return {
-    has: async (uri) => {
-      const results = await client.read(uri);
-      return results[0]?.success === true;
-    },
-    read: (<T>(uri: string) =>
-      client.read<T>(uri).then((results) =>
-        results[0] ?? {
-          success: false,
-          error: "no results",
-        } as ReadResult<T>
-      )) as ReadFn,
-  };
 }
 
 function toError(e: unknown): Error {

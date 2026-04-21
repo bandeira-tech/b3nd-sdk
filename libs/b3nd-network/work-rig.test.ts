@@ -51,7 +51,7 @@ Deno.test("work(rig, net) fires rig reactions on peer-originated writes", async 
   });
 
   const net = createNetwork([peer(a, { id: "A" })]);
-  const unbind = work(rig, net, { local });
+  const unbind = work(rig, net);
   try {
     await a.receive([["mutable://chat/42", {}, "hello"]]);
     await until(() => reactionCalls.length >= 1);
@@ -74,7 +74,7 @@ Deno.test("work(rig, net) persists bridged writes through the rig pipeline", asy
   });
 
   const net = createNetwork([peer(a, { id: "A" })]);
-  const unbind = work(rig, net, { local });
+  const unbind = work(rig, net);
   try {
     await a.receive([["mutable://k/1", {}, { v: 1 }]]);
     // Poll until the rig's local store has the bridged write.

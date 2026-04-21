@@ -228,58 +228,41 @@ Deno.test("work() exposes source.client.read for side-pulls", async () => {
   }
 });
 
-// ── InboundCtx.local ──────────────────────────────────────────────────
+// ── policy dependency self-injection ──────────────────────────────────
 
-Deno.test("work() wires InboundCtx.local when opts.local is provided", async () => {
+Deno.test("policies carry their own data dependencies via closure", async () => {
+  // The bridge deliberately does not plumb data sources. Policies that
+  // need a store/cache/index close over it themselves — this test is
+  // the canonical shape.
   const a = mem();
   const localStore = mem();
   await localStore.receive([["mutable://known", {}, "yes"]]);
 
-  const seen: { has: boolean; data: unknown }[] = [];
-  const policy: Policy = {
-    async *receive(_ev, _source, ctx) {
-      seen.push({
-        has: await ctx.local.has("mutable://known"),
-        data: (await ctx.local.read<string>("mutable://known")).record?.data,
-      });
-      // No yield — pure probe.
+  const policyWithStore = (store: typeof localStore): Policy => ({
+    async *receive(ev, _source, _ctx) {
+      const existing = await store.read<string>("mutable://known");
+      if (existing[0]?.success && ev.uri) {
+        yield {
+          success: true,
+          uri: `wrapped://${ev.uri}`,
+          record: {
+            values: {},
+            data: existing[0].record?.data,
+          },
+        };
+      }
     },
-  };
+  });
 
-  const net = createNetwork([peer(a, { id: "A" })], policy);
-  const { target } = capturingTarget();
-
-  const unbind = work(target, net, { local: localStore });
-  try {
-    await a.receive([["trigger://1", {}, 0]]);
-    await until(() => seen.length >= 1);
-    assertEquals(seen[0], { has: true, data: "yes" });
-  } finally {
-    await unbind();
-  }
-});
-
-Deno.test("work() falls back to not-available local when opts.local omitted", async () => {
-  const a = mem();
-
-  const seen: { has: boolean; readErr?: string }[] = [];
-  const policy: Policy = {
-    async *receive(_ev, _source, ctx) {
-      const has = await ctx.local.has("mutable://anything");
-      const read = await ctx.local.read<unknown>("mutable://anything");
-      seen.push({ has, readErr: read.error });
-    },
-  };
-  const net = createNetwork([peer(a, { id: "A" })], policy);
-  const { target } = capturingTarget();
+  const net = createNetwork([peer(a, { id: "A" })], policyWithStore(localStore));
+  const { target, calls } = capturingTarget();
 
   const unbind = work(target, net);
   try {
     await a.receive([["trigger://1", {}, 0]]);
-    await until(() => seen.length >= 1);
-    assertEquals(seen[0].has, false);
-    // Error message is stable; assert presence rather than exact wording.
-    if (!seen[0].readErr) throw new Error("expected a read error");
+    await until(() => calls.length >= 1);
+    assertEquals(calls[0][0], "wrapped://trigger://1");
+    assertEquals(calls[0][2], "yes");
   } finally {
     await unbind();
   }
