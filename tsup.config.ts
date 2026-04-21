@@ -14,6 +14,7 @@ export default defineConfig({
     "clients/console/mod": "./libs/b3nd-client-console/mod.ts",
     "clients/s3/mod": "./libs/b3nd-client-s3/mod.ts",
     "clients/elasticsearch/mod": "./libs/b3nd-client-elasticsearch/mod.ts",
+    "network/mod": "./libs/b3nd-network/mod.ts",
   },
   dts: true,
   format: ["esm"],
