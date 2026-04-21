@@ -14,7 +14,8 @@
     "./client-ipfs": "./src/client-ipfs.ts",
     "./client-s3": "./src/client-s3.ts",
     "./client-console": "./src/client-console.ts",
-    "./client-elasticsearch": "./src/client-elasticsearch.ts"
+    "./client-elasticsearch": "./src/client-elasticsearch.ts",
+    "./network": "./src/network.ts"
   },
   "nodeModulesDir": "auto",
   "imports": {
@@ -85,6 +86,7 @@
     "libs/b3nd-client-s3",
     "libs/b3nd-client-localstorage",
     "libs/b3nd-combinators",
+    "libs/b3nd-network",
     "libs/b3nd-testing",
     "libs/b3nd-auth",
     "libs/b3nd-encrypt",

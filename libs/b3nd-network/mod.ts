@@ -1,0 +1,22 @@
+/**
+ * @module @bandeira-tech/b3nd-sdk/network
+ *
+ * Peer-network primitive: compose `NodeProtocolInterface` clients into a
+ * single `Network` (also a `NodeProtocolInterface`) governed by a `Policy`.
+ *
+ * See `./types.ts` for the shape of `Peer`, `Policy`, `Network`, and the
+ * inbound/outbound contexts. See `./policies/flood.ts` for the trivial
+ * fan-out baseline.
+ */
+
+export type {
+  InboundCtx,
+  Network,
+  OutboundCtx,
+  Peer,
+  PeerDecorator,
+  Policy,
+} from "./types.ts";
+export { peer } from "./peer.ts";
+export { createNetwork } from "./network.ts";
+export { flood } from "./policies/flood.ts";

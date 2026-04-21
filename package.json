@@ -54,6 +54,10 @@
     "./hash": {
       "import": "./dist/hash/mod.js",
       "types": "./dist/hash/mod.d.ts"
+    },
+    "./network": {
+      "import": "./dist/network/mod.js",
+      "types": "./dist/network/mod.d.ts"
     }
   },
   "files": [

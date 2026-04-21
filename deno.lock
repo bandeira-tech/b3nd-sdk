@@ -1590,6 +1590,11 @@
           "jsr:@std/assert@^1.0.15"
         ]
       },
+      "libs/b3nd-network": {
+        "dependencies": [
+          "jsr:@std/assert@^1.0.15"
+        ]
+      },
       "libs/b3nd-testing": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15"
