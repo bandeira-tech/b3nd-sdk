@@ -127,48 +127,7 @@ cryptographically.
 - Trust in the vault to not alter the HMAC secret
 - Trust in the OAuth provider for initial authentication
 
-### 3. Custodial — Wallet Server (removed)
-
-> **Note:** The custodial wallet server (`libs/b3nd-wallet-server`,
-> `apps/wallet-node`, `apps/apps-node`) has been removed from the codebase. This
-> section is kept for architectural reference only.
-
-**Trust required:** Full. You trust the server to hold your keys.
-
-```
-┌──────────┐                    ┌──────────┐
-│  Client   │──[plaintext]─────>│  Wallet  │
-│           │                   │  Server  │
-│           │                   │          │
-│           │                   │ signs &  │
-│           │                   │ encrypts │
-│           │                   │ on your  │
-│           │                   │ behalf   │
-│           │                   │    │     │
-└──────────┘                    └────┼─────┘
-                                     │
-                                ┌────▼─────┐
-                                │   Node   │
-                                └──────────┘
-```
-
-A traditional server holds the user's private key and performs all crypto
-operations on their behalf. This is the easiest to build but offers no
-cryptographic guarantees to the user.
-
-**Use cases:** Internal tools, prototypes, apps where UX matters more than
-sovereignty.
-
-**What you get:**
-
-- Simplest client implementation (no crypto in the browser)
-- Password recovery, admin resets
-
-**What you give up:**
-
-- Everything — the server can read, forge, and delete your data
-
-### 4. Pubkey Access Control
+### 3. Pubkey Access Control
 
 **Trust required:** Trust the schema, not the operator.
 
@@ -200,7 +159,7 @@ access is identity-bound.
 - Key management complexity (secure storage, backup)
 - No recovery if the private key is lost
 
-### 5. Managed Node Operator
+### 4. Managed Node Operator
 
 **Trust required:** Trust the infrastructure.
 
@@ -239,7 +198,7 @@ access control.
 - Dependence on the operator for availability
 - Operator can see metadata (URIs, timestamps, data sizes)
 
-### 6. Three-Party Consensus (Future)
+### 5. Three-Party Consensus
 
 **Trust required:** Distributed. No single party can cheat.
 
@@ -577,7 +536,6 @@ encryption, or access control. It just processes requests and returns responses.
 | --------------------- | --------------- | ----------------- | -------------------- |
 | Serverless (password) | Nobody          | Yes (symmetric)   | No                   |
 | Non-custodial (vault) | Client          | Yes (asymmetric)  | No                   |
-| Custodial (wallet)    | Server          | No                | Yes                  |
 | Pubkey access control | Client          | Yes (signing)     | Yes (data only)      |
 | Managed operator      | Varies          | Varies            | Varies               |
 | Three-party consensus | Client          | Yes               | No                   |

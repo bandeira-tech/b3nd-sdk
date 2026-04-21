@@ -9,17 +9,15 @@ description: |
 
   FAQ.md — Design rationale, trade-offs, architectural decisions, troubleshooting. Read when asking "why does B3nd do X?"
 
-  APP_COOKBOOK.md — App recipes: quick start, URI design, CRUD, authenticated writes, batch envelopes, React hooks, content app recipe, browser setup, testing. Read for task-oriented app patterns.
+  PROTOCOL_COOKBOOK.md — Protocol recipes: packaging a protocol SDK, running nodes with schema modules, multi-backend composition. Read for protocol deployment patterns.
 
-  PROTOCOL_COOKBOOK.md — Protocol recipes: open CRUD, auth-based, content-addressed, fee collection, UTXO conservation, hash-chain retelling, consensus chain, packaging a protocol SDK, running nodes with schema modules. Read for worked protocol examples.
-
-  NODE_COOKBOOK.md — Node recipes: standalone quick start, key generation (Ed25519/X25519), config signing, monitoring, multi-node networks (NetworkManifest, Docker Compose), Docker deployment. Read for infrastructure how-tos.
-
-  DESIGN_EXCHANGE.md — Exchange patterns & trust models: serverless, non-custodial, custodial, pubkey access control, managed operator, three-party consensus, party interaction diagrams, crypto guarantees. Read for trust model design.
+  DESIGN_EXCHANGE.md — Exchange patterns & trust models: serverless, non-custodial, pubkey access control, managed operator, three-party consensus, party interaction diagrams, crypto guarantees. Read for trust model design.
 
   DESIGN_INFRASTRUCTURE.md — Infrastructure design: node requirements, deployment topologies (single node, remote listener, cluster, peer replication), inbox/outbox URIs, scaling, vault listener reference architecture. Read for deployment architecture.
 
   DESIGN_TRANSPORT.md — Transport design: HTTP polling, WebSocket, SSE, WebRTC, WebTransport, comparison matrix, subscribe() primitive, NodeProtocolInterface convergence. Read for transport layer decisions.
+
+  DESIGN_PRIMITIVE.md — Message primitive & rig architecture: 3-tuple outputs, programs as classifiers returning codes, rig receive loop, code handlers, protocol packages, state/storage model, wrapping controls decomposition. Read for core architecture details.
 
   All files are in skills/b3nd/. Read the relevant file to answer the user's question.
 ---
@@ -144,11 +142,16 @@ With that vocabulary in hand, here's where to go next:
 
 - **Creating your own DePIN network?** See [FRAMEWORK.md](./FRAMEWORK.md) for
   the B3nd SDK, protocol examples, node setup, and how to package your
-  protocol as an SDK.
+  protocol as an SDK. See [PROTOCOL_COOKBOOK.md](./PROTOCOL_COOKBOOK.md) for
+  deployment and packaging recipes.
 
 - **Running B3nd infrastructure?** See [OPERATORS.md](./OPERATORS.md) for
   node deployment, managed mode, backends, monitoring, replication,
   and multi-node networks.
+
+- **Understanding the core architecture?** See
+  [DESIGN_PRIMITIVE.md](./DESIGN_PRIMITIVE.md) for the message primitive,
+  program model, and rig composition.
 
 - **Curious why B3nd works this way?** See [FAQ.md](./FAQ.md) for design
   rationale, trade-offs, and architectural decisions.

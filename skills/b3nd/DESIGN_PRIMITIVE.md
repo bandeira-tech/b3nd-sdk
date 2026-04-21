@@ -1,8 +1,6 @@
-# Design: Message Primitive & Rig Architecture
+# Message Primitive & Rig Architecture
 
-Target architecture for the b3nd message primitive, program model, and rig
-composition. This document captures the design direction — not the current
-implementation.
+The b3nd message primitive, program model, and rig composition.
 
 ---
 
@@ -556,25 +554,3 @@ export function lightNode(client: NodeProtocolInterface): Rig {
 }
 ```
 
----
-
-## Relationship to Current Architecture
-
-| Current | Target |
-|---------|--------|
-| `Output = [uri, data]` | `Output = [uri, values, data]` |
-| `Message = Output` | Same — `Message = Output` |
-| `data` is any shape | `data` is always `{ inputs, outputs }` |
-| `receive(msg: Message)` singular | `receive(msgs: Message[])` batch |
-| `PersistenceRecord = { ts, data }` | `record = { values, data }` |
-| `Validator → { valid, error }` | `Program → { code, error }` |
-| Schema maps programs to validators | Programs map to classifiers |
-| Rig has `schema` | Rig has `programs` + `on` |
-| Binary accept/reject | Open-ended codes |
-| Client processes MessageData | Client is mechanical: delete inputs, write outputs |
-| Conservation in protocol validators | Conservation in programs, values on primitive |
-| `consumed://` marker URIs | Consumption via inputs (client deletes) |
-| `isMessageData()` branching | No branching — always `{ inputs, outputs }` |
-| `_dispatch` (raw client access) | `broadcast` (direct to clients, bypasses programs) |
-| Single `receive` for all callers | Programs are pure (no rig callback), handlers get `broadcast` (trusted) |
-| Handler not separated from validation | Handler is `(message, broadcast, read) => void` — trusted internal code |
