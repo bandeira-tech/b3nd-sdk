@@ -1,69 +1,178 @@
 # B3nd
 
-A framework for building DePIN protocols. B3nd provides URI-addressed resources,
-schema-driven validation, and cryptographic primitives. You define the rules —
-what data is allowed, who can write where, how messages are validated — and B3nd
-handles the rest: dispatch, storage composition, transport, and encryption.
-
-Protocols are built on B3nd. Apps are built on protocols.
+A framework for building DePIN protocols. Wire up storage, define validation
+rules, and get a running network — the Rig composes everything.
 
 [Website](https://b3nd.dev) | [GitHub](https://github.com/bandeira-tech/b3nd) |
 [JSR](https://jsr.io/@bandeira-tech/b3nd-sdk) |
 [NPM](https://www.npmjs.com/package/@bandeira-tech/b3nd-web)
 
-## The Framework in 30 Seconds
+## The Rig
 
-Every piece of data has a URI. Programs validate what can be written where.
-Four operations do everything:
+The Rig is B3nd's top-level abstraction. It wires storage, validation, and
+behavior into a single object that speaks the universal protocol interface.
 
 ```typescript
-const client = new HttpClient({ url: "http://localhost:9942" });
+import { connection, Identity, Rig } from "@bandeira-tech/b3nd-sdk/rig";
+import { MessageDataClient, MemoryStore } from "@bandeira-tech/b3nd-sdk";
 
-// Write — submit a message [uri, values, data]
-await client.receive([["mutable://open/my-app/greeting", {}, {
-  text: "Hello, world",
-}]]);
+const rig = new Rig({
+  connections: [
+    connection(new MessageDataClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
+  ],
+});
 
-// Read — get data from any URI
-const result = await client.read("mutable://open/my-app/greeting");
-console.log(result.record?.data); // { text: "Hello, world" }
+// Write
+await rig.receive([["mutable://open/greeting", {}, { text: "Hello" }]]);
 
-// List — browse URIs by prefix
-const items = await client.list("mutable://open/my-app/");
-
-// Delete — remove data
-await client.delete("mutable://open/my-app/greeting");
+// Read
+const data = await rig.readData("mutable://open/greeting");
+// → { text: "Hello" }
 ```
 
-The URI scheme determines which program validates the message. `mutable://open`
-is a permissive program that accepts anything — useful for prototyping. Real
-protocols define their own programs with authentication, conservation rules,
-and custom validation logic.
+That's a working node. No config files, no database — just a rig with a
+memory connection. Swap `MemoryStore` for `PostgresStore` and it's persistent.
+Add a second connection and writes broadcast to both.
 
-## What You Build With B3nd
+### Connections — Where Data Lives
 
-B3nd is the foundation layer. Here's how the pieces stack:
+Connections bind clients to URI patterns. The rig routes automatically: writes
+broadcast to all matching connections, reads try each in order.
+
+```typescript
+const rig = new Rig({
+  connections: [
+    // Fast cache (tried first on reads)
+    connection(memoryClient, {
+      read: ["mutable://*", "hash://*"],
+    }),
+
+    // Persistent storage
+    connection(postgresClient, {
+      receive: ["mutable://*", "hash://*", "link://*"],
+      read: ["mutable://*", "hash://*", "link://*"],
+    }),
+
+    // Local-only state (never leaves the device)
+    connection(memoryClient, {
+      receive: ["local://*"],
+      read: ["local://*"],
+    }),
+  ],
+});
+```
+
+### Programs — The Rules
+
+Programs are pure functions that classify messages. A protocol defines them;
+the rig dispatches to them by URI prefix.
+
+```typescript
+const rig = new Rig({
+  connections: [...],
+  programs: {
+    "store://balance": balanceProgram,
+    "proto://msg":     msgProgram,
+  },
+  handlers: {
+    "proto:valid":     async (msg, broadcast) => { /* store opaquely */ },
+    "proto:confirmed": async (msg, broadcast, read) => { /* apply state */ },
+  },
+});
+```
+
+Programs return codes (`"proto:valid"`, `"proto:confirmed"`, `"proto:invalid"`).
+Handlers decide what each code means operationally. Same programs, different
+handlers — that's how you get full nodes, light nodes, indexers, and mirrors
+from one protocol definition.
+
+### Identity — Sign and Encrypt
+
+```typescript
+const id = await Identity.fromSeed("my-secret");
+const session = id.rig(rig);
+
+// Signed envelope — content-addressed, authenticated
+await session.send({
+  inputs: [],
+  outputs: [["mutable://accounts/" + id.pubkey + "/profile", {}, { name: "Alice" }]],
+});
+
+// Encrypted
+await session.sendEncrypted({
+  inputs: [],
+  outputs: [["mutable://accounts/" + id.pubkey + "/private", {}, secret]],
+});
+```
+
+### Hooks, Events, Reactions
+
+The rig has three behavior layers beyond connections and programs:
+
+```typescript
+const rig = new Rig({
+  connections: [...],
+  hooks: {
+    beforeReceive: (ctx) => { validateSchema(ctx); },  // throw to reject
+    afterRead: (ctx, result) => { audit(ctx, result); },
+  },
+  on: {
+    "send:success": [notifyPeers],
+    "*:error": [alertOps],
+  },
+  reactions: {
+    "mutable://app/users/:id": (uri, data, { id }) => {
+      console.log(`User ${id} updated`);
+    },
+  },
+});
+```
+
+- **Hooks** are synchronous gates — throw to reject, observe after
+- **Events** are async fire-and-forget — never block the caller
+- **Reactions** are URI-pattern triggers on successful writes
+
+### HTTP API
+
+The rig is pure orchestration. Transport is external:
+
+```typescript
+import { httpApi } from "@bandeira-tech/b3nd-sdk/rig/http";
+
+const api = httpApi(rig);
+Deno.serve({ port: 9942 }, api);
+```
+
+One function — returns a standard `(Request) => Promise<Response>` handler.
+Works with Deno.serve, Hono, Express, Cloudflare Workers.
+
+---
+
+## Framework Layers
 
 ```
 ┌─────────────────────────────────────────────┐
-│  App          (UX, auth flows, data display) │
+│  App          (UX, domain logic, display)    │
 ├─────────────────────────────────────────────┤
-│  Protocol     (programs, validation rules,   │
-│                URI conventions, consensus)    │
+│  Protocol     (programs, handlers, URI       │
+│                conventions, consensus)        │
 ├─────────────────────────────────────────────┤
-│  B3nd         (framework: dispatch, storage, │
+│  B3nd         (rig, connections, storage,    │
 │                transport, crypto primitives)  │
 └─────────────────────────────────────────────┘
 ```
 
-**Protocol designers** use B3nd to define programs — the rules for their
-network. What URIs exist, who can write to them, how messages are validated.
+**Protocol designers** use B3nd to define programs and handlers — the rules
+for their network. This is B3nd's primary audience.
 
-**App developers** use B3nd + a protocol SDK to build applications. They don't
-need to know the framework internals — just `receive()`, `read()`, `list()`.
+**App developers** use a protocol SDK built on B3nd. They call `send()`,
+`read()`, `list()` and don't need to know the framework internals.
 
-**Infrastructure operators** run B3nd nodes with a protocol's schema loaded.
-They choose backends, manage replication, and handle uptime.
+**Infrastructure operators** run rigs loaded with a protocol's programs.
+They choose connections (backends), manage replication, handle uptime.
 
 ## Packages
 
@@ -74,94 +183,22 @@ They choose backends, manage replication, and handle uptime.
 
 ```typescript
 // Deno/Server
-import {
-  ConsoleClient,
-  MessageDataClient,
-  HttpClient,
-  MemoryStore,
-  PostgresStore,
-  S3Store,
-  SqliteStore,
-} from "@bandeira-tech/b3nd-sdk";
+import { Rig, connection, Identity } from "@bandeira-tech/b3nd-sdk/rig";
+import { MessageDataClient, MemoryStore, PostgresStore, HttpClient } from "@bandeira-tech/b3nd-sdk";
 
 // Browser/React
-import {
-  HttpClient,
-  IndexedDBStore,
-  LocalStorageStore,
-  WalletClient,
-} from "@bandeira-tech/b3nd-web";
+import { Rig, connection, Identity } from "@bandeira-tech/b3nd-web/rig";
+import { HttpClient, IndexedDBStore } from "@bandeira-tech/b3nd-web";
 ```
 
-## Quick Start
-
-### Define a Protocol
-
-A protocol is a set of programs that validate messages:
-
-```typescript
-import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { authValidation, createPubkeyBasedAccess } from "@bandeira-tech/b3nd-sdk/auth";
-
-const schema: Schema = {
-  // Open program — anyone can write
-  "mutable://open": async () => ({ valid: true }),
-
-  // Auth program — only the key holder can write
-  "mutable://accounts": async ([uri, value]) => {
-    const getAccess = createPubkeyBasedAccess();
-    const validator = authValidation(getAccess);
-    const isValid = await validator([uri, value]);
-    return { valid: isValid, error: isValid ? undefined : "Auth failed" };
-  },
-};
-```
-
-### Run a Node
-
-```typescript
-import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
-import { Hono } from "hono";
-
-const client = new MessageDataClient(new MemoryStore());
-const app = new Hono();
-const frontend = servers.httpServer(app);
-createServerNode({ frontend, client, schema }).listen(9942);
-```
-
-### Use It
-
-```typescript
-const client = new HttpClient({ url: "http://localhost:9942" });
-
-await client.receive([["mutable://open/notes/1", {}, { text: "Hello" }]]);
-const result = await client.read("mutable://open/notes/1");
-```
-
-## Architecture
-
-The framework separates storage from protocol logic:
-
-- **Stores** handle mechanical read/write (MemoryStore, PostgresStore, S3Store, etc.)
-- **Protocol clients** wrap a Store to implement `NodeProtocolInterface` (MessageDataClient, SimpleClient)
-- **Transport clients** talk to remote nodes (HttpClient, WebSocketClient, ConsoleClient)
-
-```typescript
-// Store-backed: choose your storage, wrap with a protocol client
-const client = new MessageDataClient(new MemoryStore());
-
-// Transport: connect to a remote node
-const remote = new HttpClient({ url: "https://api.example.com" });
-```
-
-### Stores
+## Storage Backends
 
 | Store                | Environment | Backend               |
 | -------------------- | ----------- | --------------------- |
 | `MemoryStore`        | Any         | In-memory             |
-| `PostgresStore`      | Deno/Node   | PostgreSQL database   |
-| `MongoStore`         | Deno/Node   | MongoDB database      |
-| `SqliteStore`        | Deno/Node   | SQLite database       |
+| `PostgresStore`      | Deno/Node   | PostgreSQL            |
+| `MongoStore`         | Deno/Node   | MongoDB               |
+| `SqliteStore`        | Deno/Node   | SQLite                |
 | `FsStore`            | Deno/Node   | Local filesystem      |
 | `S3Store`            | Deno/Node   | S3-compatible storage |
 | `IpfsStore`          | Deno/Node   | IPFS via Kubo         |
@@ -169,156 +206,68 @@ const remote = new HttpClient({ url: "https://api.example.com" });
 | `LocalStorageStore`  | Browser     | localStorage          |
 | `IndexedDBStore`     | Browser     | IndexedDB             |
 
-### Transport Clients
+## Transport Clients
 
 | Client            | Environment | Backend                     |
 | ----------------- | ----------- | --------------------------- |
-| `HttpClient`      | Any         | Remote HTTP server          |
-| `WebSocketClient` | Any         | Remote WebSocket server     |
+| `HttpClient`      | Any         | Remote HTTP node            |
+| `WebSocketClient` | Any         | Remote WebSocket node       |
 | `ConsoleClient`   | Any         | Console output (write-only) |
+
+All clients implement `NodeProtocolInterface`. The rig itself also satisfies
+this interface — pass it anywhere a client is expected.
 
 ## Running a Node
 
-The B3nd node lives in `apps/b3nd-node/`. Configuration is via environment
+The prebuilt node binary (`apps/b3nd-node/`) configures a rig from environment
 variables:
 
-| Variable        | Description              | Example                                                                         |
-| --------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| `BACKEND_URL`   | Comma-separated backends | `memory://`, `postgresql://...`, `sqlite://...`, `s3://bucket`, or combinations |
-| `SCHEMA_MODULE` | Path to protocol schema  | `./my-protocol-schema.ts`                                                       |
-| `PORT`          | Listen port              | `9942`                                                                          |
-| `CORS_ORIGIN`   | Allowed origins          | `*`                                                                             |
-
-When multiple backends are listed, **writes broadcast to all** and **reads try
-each in order** until one succeeds.
-
-### Memory only (no dependencies)
+| Variable        | Description              | Example                            |
+| --------------- | ------------------------ | ---------------------------------- |
+| `BACKEND_URL`   | Comma-separated backends | `memory://`, `postgresql://...`    |
+| `SCHEMA_MODULE` | Path to protocol schema  | `./my-protocol-schema.ts`          |
+| `PORT`          | Listen port              | `9942`                             |
+| `CORS_ORIGIN`   | Allowed origins          | `*`                                |
 
 ```bash
-cd apps/b3nd-node
-cp .env.example .env   # BACKEND_URL=memory://
-deno task dev           # http://localhost:9942
-```
+# Memory (no dependencies)
+PORT=9942 BACKEND_URL=memory:// deno run -A apps/b3nd-node/mod.ts
 
-### With PostgreSQL
+# PostgreSQL
+PORT=9942 BACKEND_URL=postgresql://b3nd:b3nd@localhost:5432/b3nd deno run -A apps/b3nd-node/mod.ts
 
-```bash
-# Ephemeral test DBs (Postgres :55432, Mongo :57017)
-make up p=test
+# Hybrid (memory cache + postgres persistence)
+BACKEND_URL=memory://,postgresql://b3nd:b3nd@localhost:5432/b3nd
 
-# — or — persistent dev DBs (Postgres :5432, Mongo :27017)
-make up p=dev
-```
-
-Then set `.env`:
-
-```bash
-# Test DB
-BACKEND_URL=postgresql://postgres:postgres@localhost:55432/b3nd_test
-
-# Dev DB
-BACKEND_URL=postgresql://b3nd:b3nd@localhost:5432/b3nd
-```
-
-```bash
-cd apps/b3nd-node
-deno task dev
-```
-
-The node auto-creates the required tables on first connect.
-
-### With SQLite
-
-No containers needed — SQLite runs embedded:
-
-```bash
-BACKEND_URL=sqlite:///tmp/b3nd.sqlite
-```
-
-### With S3 (MinIO)
-
-```bash
-make up p=dev   # Starts MinIO on :9000 (console on :9001)
-make node-s3    # B3nd node with S3 backend
-```
-
-Or configure manually:
-
-```bash
-BACKEND_URL=s3://b3nd
-S3_ENDPOINT=http://localhost:9000
-S3_ACCESS_KEY=minioadmin
-S3_SECRET_KEY=minioadmin
-```
-
-### Memory + PostgreSQL (hybrid)
-
-```bash
-BACKEND_URL=memory://,postgresql://postgres:postgres@localhost:55432/b3nd_test
-```
-
-### Docker (production)
-
-```bash
-make pkg target=b3nd-node
-docker run -p 9942:9942 \
-  -e BACKEND_URL=memory:// \
-  -e SCHEMA_MODULE=./my-protocol-schema.ts \
-  -e PORT=9942 \
-  -e CORS_ORIGIN=* \
+# Docker
+docker run -p 9942:9942 -e BACKEND_URL=memory:// -e PORT=9942 -e CORS_ORIGIN=* \
   ghcr.io/bandeira-tech/b3nd/b3nd-node:latest
 ```
 
-### Verify
-
-```bash
-curl http://localhost:9942/api/v1/health
-```
+Multiple backends: **writes broadcast to all**, **reads try each in order**.
 
 ## Development
 
 ```bash
-# Run tests
-make test-unit
-
-# Type check
-deno check src/mod.ts
-
-# Build npm package
-npm run build
-
-# Publish
-make version v=X.Y.Z
-make publish
+make test-unit              # Run tests
+deno check src/mod.ts       # Type check
+npm run build               # Build npm package
+make version v=X.Y.Z        # Version + publish
 ```
 
 ## Project Structure
 
 ```
 src/           # SDK entry points (mod.ts, mod.web.ts)
-libs/          # Core libraries (clients, compose, encrypt, etc.)
-apps/          # Server applications (b3nd-node, vault-listener, etc.)
-tests/         # E2E tests
-skills/        # Claude Code plugin skills
+libs/          # Core libraries (rig, clients, compose, encrypt, etc.)
+apps/          # Deployables (b3nd-node, vault-listener, web-rig)
+skills/        # Framework documentation for AI agents
 ```
-
-## Claude Code Plugin
-
-The B3nd plugin provides a unified `b3nd` skill for AI-assisted development:
-
-```bash
-claude mcp add b3nd -- npx -y @anthropic-ai/mcp-b3nd
-```
-
-MCP tools: `b3nd_read`, `b3nd_receive`, `b3nd_list`, `b3nd_delete`,
-`b3nd_health`
 
 ## Learn More
 
-- [AGENTS.md](AGENTS.md) — Agent reference, architecture, and development
-  workflows
-- [skills/b3nd/](skills/b3nd/) — Framework reference, protocol design,
-  node operations, and design documents
+- [skills/b3nd/](skills/b3nd/) — Framework reference, protocol design, node
+  operations, and architecture documents
 
 ## License
 
