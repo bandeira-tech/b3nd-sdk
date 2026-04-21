@@ -10,6 +10,7 @@
  */
 
 export type {
+  Federation,
   InboundCtx,
   Network,
   OutboundCtx,
@@ -20,6 +21,7 @@ export type {
 } from "./types.ts";
 export { peer } from "./peer.ts";
 export { createNetwork } from "./network.ts";
+export { createFederation } from "./federation.ts";
 export { work } from "./work.ts";
 
 // ── Policies ──────────────────────────────────────────────────────────

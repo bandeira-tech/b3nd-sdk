@@ -1,23 +1,18 @@
 /**
  * @module
- * Tests for `createNetwork(peers, policy?)` — the core primitive.
+ * Tests for `peer()` and `createNetwork(peers, policy?)` — the
+ * participant-primitive factory.
  *
- * Uses `MemoryStore + SimpleClient` as test peers so each peer emits
- * observe events when it receives a write. No sanitizers disabled —
- * every test is a real exercise of the fan-out / fan-in paths.
+ * Network is data-only (peers + policy + originId); its NodeProtocolInterface
+ * surface lives on `Federation` and is tested in `federation.test.ts`.
  */
 
 /// <reference lib="deno.ns" />
 
-import { assertEquals, assertRejects } from "jsr:@std/assert";
+import { assertEquals } from "jsr:@std/assert";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import { SimpleClient } from "../b3nd-core/simple-client.ts";
-import type {
-  Message,
-  NodeProtocolInterface,
-  ReadResult,
-  StatusResult,
-} from "../b3nd-core/types.ts";
+import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
 import { createNetwork, peer } from "./mod.ts";
 
 function mem(): SimpleClient {
@@ -58,7 +53,38 @@ Deno.test("peer() applies decorators in order", () => {
   assertEquals(calls, ["inner", "outer"]);
 });
 
-// ── createNetwork — validation ────────────────────────────────────────
+// ── createNetwork — shape & validation ────────────────────────────────
+
+Deno.test("createNetwork returns a Network with peers, policy, originId", () => {
+  const a = peer(mem(), { id: "A" });
+  const b = peer(mem(), { id: "B" });
+  const policy = { read: "first-match" as const };
+  const net = createNetwork([a, b], policy);
+
+  assertEquals(net.peers.length, 2);
+  assertEquals(net.peers[0].id, "A");
+  assertEquals(net.peers[1].id, "B");
+  assertEquals(net.policy, policy);
+  if (!net.originId.startsWith("net-")) {
+    throw new Error("originId should be a generated network id");
+  }
+});
+
+Deno.test("createNetwork freezes the peer list", () => {
+  const a = peer(mem(), { id: "A" });
+  const net = createNetwork([a]);
+  // peers is declared `readonly`; runtime-freeze makes the guarantee real.
+  let threw = false;
+  try {
+    (net.peers as Peer[]).push(peer(mem(), { id: "B" }));
+  } catch {
+    threw = true;
+  }
+  if (!threw) throw new Error("expected frozen peers array");
+});
+
+// Import for the freeze test above.
+import type { Peer } from "./mod.ts";
 
 Deno.test("createNetwork rejects empty peer list", () => {
   let threw = false;
@@ -83,216 +109,19 @@ Deno.test("createNetwork rejects duplicate peer ids", () => {
   if (!threw) throw new Error("expected duplicate ids to throw");
 });
 
-// ── receive — fan-out ─────────────────────────────────────────────────
+// ── Type-level guarantee ──────────────────────────────────────────────
+//
+// Network has no `receive`/`read`/`observe`/`status`, so passing it to
+// anything expecting a NodeProtocolInterface fails at compile time. The
+// best we can do at runtime is assert the properties are absent.
 
-Deno.test("network.receive fans out to every peer (default flood)", async () => {
-  const a = mem();
-  const b = mem();
-  const net = createNetwork([peer(a, { id: "A" }), peer(b, { id: "B" })]);
-
-  const results = await net.receive([
-    ["mutable://shared/x", {}, "hello"],
-  ]);
-  assertEquals(results, [{ accepted: true }]);
-
-  const ra = await a.read("mutable://shared/x");
-  const rb = await b.read("mutable://shared/x");
-  assertEquals(ra[0].record?.data, "hello");
-  assertEquals(rb[0].record?.data, "hello");
-});
-
-Deno.test("network.receive lets policy.send skip a peer via empty batch", async () => {
-  const a = mem();
-  const b = mem();
-  const net = createNetwork(
-    [peer(a, { id: "A" }), peer(b, { id: "B" })],
-    { send: (msgs, p) => p.id === "B" ? [] : msgs },
-  );
-
-  await net.receive([["mutable://shared/x", {}, 1]]);
-  const ra = await a.read("mutable://shared/x");
-  const rb = await b.read("mutable://shared/x");
-  assertEquals(ra[0].success, true);
-  assertEquals(rb[0].success, false);
-});
-
-Deno.test("network.receive lets policy.send rewrite messages per peer", async () => {
-  const a = mem();
-  const b = mem();
-  const net = createNetwork(
-    [peer(a, { id: "A" }), peer(b, { id: "B" })],
-    {
-      // Send full payload to A, only an announcement to B.
-      send: (msgs, p): Message[] =>
-        p.id === "A" ? msgs : msgs.map(([uri]) => [
-          `mutable://inv/${uri}`,
-          {},
-          { have: uri },
-        ]),
-    },
-  );
-
-  await net.receive([["mutable://data/big", {}, "payload"]]);
-  const aGot = await a.read("mutable://data/big");
-  const bGotFull = await b.read("mutable://data/big");
-  const bGotInv = await b.read("mutable://inv/mutable://data/big");
-  assertEquals(aGot[0].record?.data, "payload");
-  assertEquals(bGotFull[0].success, false);
-  assertEquals(bGotInv[0].success, true);
-  assertEquals(bGotInv[0].record?.data, { have: "mutable://data/big" });
-});
-
-Deno.test("network.receive propagates transport errors", async () => {
-  const broken: NodeProtocolInterface = {
-    receive: () => Promise.reject(new Error("peer offline")),
-    read: <T,>(u: string | string[]) =>
-      Promise.resolve(
-        (Array.isArray(u) ? u : [u]).map(() => ({
-          success: false,
-          error: "x",
-        } as ReadResult<T>)),
-      ),
-    observe: async function* () {},
-    status: () => Promise.resolve({ status: "unhealthy" } as StatusResult),
-  };
-  const net = createNetwork([peer(broken, { id: "X" })]);
-  await assertRejects(
-    () => net.receive([["mutable://x", {}, 1]]),
-    Error,
-    "peer offline",
-  );
-});
-
-// ── read — first-match ────────────────────────────────────────────────
-
-Deno.test("network.read tries peers in order and returns the first hit", async () => {
-  const a = mem();
-  const b = mem();
-  await b.receive([["mutable://only/on/b", {}, "B-has-it"]]);
-  const net = createNetwork([peer(a, { id: "A" }), peer(b, { id: "B" })]);
-
-  const results = await net.read("mutable://only/on/b");
-  assertEquals(results[0].success, true);
-  assertEquals(results[0].record?.data, "B-has-it");
-});
-
-Deno.test("network.read falls through failing peers", async () => {
-  const broken: NodeProtocolInterface = {
-    receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
-    read: () => Promise.reject(new Error("broken")),
-    observe: async function* () {},
-    status: () => Promise.resolve({ status: "unhealthy" } as StatusResult),
-  };
-  const good = mem();
-  await good.receive([["mutable://z", {}, "ok"]]);
-  const net = createNetwork(
-    [peer(broken, { id: "X" }), peer(good, { id: "Y" })],
-  );
-
-  const results = await net.read("mutable://z");
-  assertEquals(results[0].record?.data, "ok");
-});
-
-Deno.test("network.read returns not-found when no peer has it", async () => {
-  const net = createNetwork([peer(mem(), { id: "A" }), peer(mem(), { id: "B" })]);
-  const results = await net.read("mutable://nope");
-  assertEquals(results[0].success, false);
-});
-
-// ── observe — merged stream ───────────────────────────────────────────
-
-Deno.test("network.observe merges writes from every peer", async () => {
-  const a = mem();
-  const b = mem();
-  const net = createNetwork([peer(a, { id: "A" }), peer(b, { id: "B" })]);
-
-  const ac = new AbortController();
-  const seen: string[] = [];
-  const done = (async () => {
-    for await (const ev of net.observe("mutable://shared/*", ac.signal)) {
-      if (ev.uri) seen.push(ev.uri);
-      if (seen.length >= 2) ac.abort();
-    }
-  })();
-
-  // Let the observe loops register on each peer.
-  await new Promise((r) => setTimeout(r, 10));
-
-  // Each peer sees its own write and emits via SimpleClient's ObserveEmitter.
-  await a.receive([["mutable://shared/a-write", {}, 1]]);
-  await b.receive([["mutable://shared/b-write", {}, 2]]);
-
-  await done;
-  seen.sort();
-  assertEquals(seen, ["mutable://shared/a-write", "mutable://shared/b-write"]);
-});
-
-Deno.test("network.observe unwinds cleanly on abort", async () => {
-  const a = mem();
-  const net = createNetwork([peer(a, { id: "A" })]);
-
-  const ac = new AbortController();
-  const done = (async () => {
-    const seen: string[] = [];
-    for await (const _ of net.observe("mutable://x/*", ac.signal)) {
-      seen.push("yielded");
-    }
-    return seen;
-  })();
-
-  await new Promise((r) => setTimeout(r, 5));
-  ac.abort();
-  const result = await done;
-  assertEquals(result, []);
-});
-
-// ── status — aggregated ───────────────────────────────────────────────
-
-Deno.test("network.status reports healthy when all peers are healthy", async () => {
-  const net = createNetwork([peer(mem(), { id: "A" }), peer(mem(), { id: "B" })]);
-  const s = await net.status();
-  assertEquals(s.status, "healthy");
-  assertEquals(s.details?.peerCount, 2);
-  assertEquals(s.details?.healthyPeers, 2);
-});
-
-Deno.test("network.status reports degraded when a peer is unhealthy", async () => {
-  const sick: NodeProtocolInterface = {
-    receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
-    read: <T,>(u: string | string[]) =>
-      Promise.resolve(
-        (Array.isArray(u) ? u : [u]).map(() => ({
-          success: false,
-          error: "x",
-        } as ReadResult<T>)),
-      ),
-    observe: async function* () {},
-    status: () => Promise.resolve({ status: "unhealthy" }),
-  };
-  const net = createNetwork(
-    [peer(mem(), { id: "A" }), peer(sick, { id: "B" })],
-  );
-  const s = await net.status();
-  assertEquals(s.status, "degraded");
-  assertEquals(s.details?.healthyPeers, 1);
-});
-
-Deno.test("network.status reports unhealthy when all peers are unhealthy", async () => {
-  const sick = (): NodeProtocolInterface => ({
-    receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
-    read: <T,>(u: string | string[]) =>
-      Promise.resolve(
-        (Array.isArray(u) ? u : [u]).map(() => ({
-          success: false,
-          error: "x",
-        } as ReadResult<T>)),
-      ),
-    observe: async function* () {},
-    status: () => Promise.resolve({ status: "unhealthy" }),
-  });
-  const net = createNetwork(
-    [peer(sick(), { id: "A" }), peer(sick(), { id: "B" })],
-  );
-  const s = await net.status();
-  assertEquals(s.status, "unhealthy");
+Deno.test("Network instances intentionally lack NodeProtocolInterface methods", () => {
+  const net = createNetwork([peer(mem(), { id: "A" })]);
+  // Cast to any to probe; production code never does this.
+  // deno-lint-ignore no-explicit-any
+  const asAny = net as any;
+  assertEquals(typeof asAny.receive, "undefined");
+  assertEquals(typeof asAny.read, "undefined");
+  assertEquals(typeof asAny.observe, "undefined");
+  assertEquals(typeof asAny.status, "undefined");
 });

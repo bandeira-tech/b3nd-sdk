@@ -127,14 +127,44 @@ export interface Policy {
  *    release) — binds the network's inbound observe streams to feed the
  *    rig's receive pipeline with side-effects routed via `Policy.receive`.
  */
-export interface Network extends NodeProtocolInterface {
-  /** Stable local id for this network instance. */
+/**
+ * A Network is the **participant primitive** — peers + policy + a stable
+ * local id — consumed by `work(rig, network)`.
+ *
+ * Network is deliberately NOT a `NodeProtocolInterface`. This is the
+ * type-level guard against the accidental loop that would otherwise
+ * arise from composing `work(rig, net)` AND `connection(net, ...)` on
+ * the same object: the outbound and inbound paths can't coordinate
+ * origin, so bidirectional meshes storm on unauthenticated content.
+ *
+ * To use a peer set as a remote client (outbound, `connection()`),
+ * construct a `Federation` via `createFederation()` — same inputs,
+ * different output type that *is* a `NodeProtocolInterface`.
+ */
+export interface Network {
+  /** Stable local id for this instance. */
   readonly originId: string;
   /** Snapshot of the configured peers. Treat as immutable. */
   readonly peers: readonly Peer[];
-  /** The Policy this network was built with. Exposed so the `work()`
-   *  bridge and debugging tools can inspect/apply it. */
+  /** The Policy this network was built with. */
   readonly policy: Policy;
+}
+
+/**
+ * A Federation is the **remote-client primitive** — peers + policy
+ * presented as a single `NodeProtocolInterface`. Consumed by
+ * `connection(federation, patterns)` in a rig's connection list.
+ *
+ * Federation is deliberately *not* a `Network`. Passing one to
+ * `work(rig, ...)` is a compile error. If your node needs both to
+ * participate (Mode 3 / "full participant"), construct one of each
+ * from the same inputs — they will cooperate correctly only if a
+ * loop-avoidance Policy like `pathVector()` is in play, because the
+ * outbound path cannot know the origin of an inbound message.
+ */
+export interface Federation extends NodeProtocolInterface {
+  // Nominally distinct from Network via the absence of peers/policy/originId;
+  // structurally it's just a NodeProtocolInterface.
 }
 
 /**

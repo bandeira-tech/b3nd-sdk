@@ -1,21 +1,34 @@
 # @bandeira-tech/b3nd-sdk/network
 
-Peer-composition primitive for B3nd. Compose `NodeProtocolInterface` clients
-into a single **Network** governed by a **Policy** that shapes outbound
+Peer-composition primitives for B3nd. Compose `NodeProtocolInterface`
+clients into a peer set governed by a **Policy** that shapes outbound
 fan-out, inbound event translation, and read strategy.
 
-This is the building block for multi-node deployments, gossip protocols,
-loop avoidance, and tell/read content synchronization. It does *not* ship
-any of those behaviors by default — it ships the substrate they compose
-against.
+The library exposes **two deliberately distinct primitives** so the
+wrong composition fails at the type level instead of silently looping:
+
+- **`createNetwork(peers, policy?)` → Network** — the *participant* view.
+  Consumed by `work(rig, network)` to make a rig receive events from peers
+  via observe bridges. Network is **not** a `NodeProtocolInterface`; it
+  cannot be passed to `connection()`.
+- **`createFederation(peers, policy?)` → Federation** — the *remote-client*
+  view. Consumed as a rig connection (`connection(federation, patterns)`)
+  to fan writes/reads out across peers. Federation **is** a
+  `NodeProtocolInterface` but hides `peers`/`policy`/`originId`, so it
+  cannot be passed to `work()`.
+
+Same input shape, different output types. No accidental both-ways.
 
 ## Install & import
 
 ```ts
 import {
   createNetwork,
+  createFederation,
   peer,
-  flood,
+  work,
+  pathVector,
+  compose,
   type Policy,
 } from "@bandeira-tech/b3nd-sdk/network";
 ```
@@ -23,35 +36,25 @@ import {
 ## Mental model
 
 ```
-            outbound (rig → peers)                 inbound (peers → rig)
-            ──────────────────────                 ──────────────────────
-rig.receive ─▶ Network ─▶ Policy.send ─▶ peers    peers ─▶ Policy.receive ─▶ rig.receive
-                         (per peer)                 (via work(rig, network))
+Two primitives — same inputs, different consumers, disjoint types:
 
-rig.read    ─▶ Network ─▶ Policy.read strategy ─▶ peers
-rig.observe ─▶ Network ─▶ merged peer streams
+         peers + policy                peers + policy
+              │                             │
+              ▼                             ▼
+     createNetwork(...)           createFederation(...)
+              │                             │
+              ▼                             ▼
+            Network                      Federation
+              │                             │
+              ▼                             ▼
+       work(rig, network)            connection(federation,
+       (inbound observe bridge)        patterns)
+                                      (outbound as NPI)
 ```
 
-A Network is a `NodeProtocolInterface`, so anywhere a rig accepts a client,
-it accepts a network:
-
-```ts
-const net = createNetwork([
-  peer(new HttpClient({ url: "https://node-b" })),
-  peer(new HttpClient({ url: "https://node-c" })),
-]);
-
-const rig = new Rig({
-  connections: [
-    connection(localStore, { receive: ["*"], read: ["*"], observe: ["*"] }),
-    connection(net, {
-      receive: ["mutable://chat/*"],
-      read:    ["mutable://chat/*"],
-      observe: ["mutable://chat/*"],
-    }),
-  ],
-});
-```
+If you need both (full participant, Mode 3), construct one of each from
+the same inputs — two objects, two roles. `pathVector()` with signed
+messages makes this safe across unauthenticated loops.
 
 ## Concepts
 
@@ -136,17 +139,14 @@ export function myPolicy(): Policy {
 }
 ```
 
-## Two modes — know which one you're using
+## Three deployment shapes
 
-The network library supports two distinct deployment shapes. **Do not
-compose them on the same network instance**: they overlap in a way that
-creates feedback loops on unauthenticated content.
-
-### Mode 1 — remote-client (outbound only)
+### Mode 1 — remote-client (Federation only)
 
 ```ts
+const fed = createFederation(peers);
 const rig = new Rig({
-  connections: [connection(net, { receive: ["*"], read: ["*"] })],
+  connections: [connection(fed, { receive: ["*"], read: ["*"] })],
 });
 ```
 
@@ -156,9 +156,10 @@ Typical for browser apps, CLI tools, background workers — anything that
 doesn't itself *participate* in gossip by serving observe streams back
 to peers.
 
-### Mode 2 — participant (inbound only)
+### Mode 2 — participant (Network only)
 
 ```ts
+const net = createNetwork(peers);
 const unbind = work(rig, net);
 ```
 
@@ -168,21 +169,27 @@ events observed on each peer, tagged by source. Typical for nodes that
 run their own HTTP/SSE server and are observed by other nodes in
 return.
 
-### Mode 3 — full participant (both)
+### Mode 3 — full participant (both — requires pathVector + signing)
 
-Technically possible; **require `pathVector()` with signed messages**.
-Each message carries a signer chain, and `pathVector` filters outbound
-peers that already appear in it. Unsigned messages will loop
-infinitely because the outbound path (Mode 1) cannot know which peer
-an inbound message came from — that information only exists inside
-`work()` (Mode 2). `pathVector` puts the origin *on the wire* so both
-paths can read it without coordination.
+```ts
+const net = createNetwork(peers, pathVector());
+const fed = createFederation(peers, pathVector());
+work(rig, net);
+new Rig({ connections: [connection(fed, patterns)] });
+```
+
+Two separate objects, two roles. `pathVector()` with
+`AuthenticatedRig`-signed messages makes this safe: each message carries
+a signer chain, and `pathVector` filters outbound peers that already
+appear in it. Unsigned messages will loop infinitely because the
+outbound path cannot know which peer an inbound message came from —
+`pathVector` puts the origin *on the wire* so both paths can read it
+without coordination.
 
 For unsigned content, either:
 - Use a DAG topology (push-only on one side of each edge).
 - Write a `beforeReceive` rig hook that de-duplicates URIs (content-
-  based seen-set). A canonical helper for this may ship in a later
-  release; for now it's a one-off operator responsibility.
+  based seen-set). A canonical helper may ship in a later release.
 
 ## Ergonomics
 
@@ -241,15 +248,16 @@ const rig = new Rig({
   },
 });
 
-// Outbound: rig.receive writes fan out via the network connection.
-// (Add `connection(net, { receive: ["mutable://*"] })` to enable.)
-
-// Inbound: peer writes stream into the rig's receive pipeline and fire
+// Peer writes stream into the rig's receive pipeline and fire
 // reactions / programs / hooks as if they were local writes.
 const unbind = work(rig, net);
 // later:
 await unbind();
 ```
+
+Note: `net` cannot be passed to `connection()` — it's a Network, not a
+Federation. If you want the rig to also fan its own writes out to peers,
+construct a Federation (Mode 3, see above).
 
 ### Policies carry their own dependencies
 
@@ -274,20 +282,20 @@ work(rig, net);
 This keeps `WorkOptions` to pure bridge concerns (`pattern`, `onError`)
 and keeps each policy's data needs explicit where they're used.
 
-## Example: flood network
+## Example: federation (remote-client)
 
 ```ts
-import { createNetwork, peer } from "@bandeira-tech/b3nd-sdk/network";
+import { createFederation, peer } from "@bandeira-tech/b3nd-sdk/network";
 import { Rig, connection, HttpClient } from "@bandeira-tech/b3nd-sdk";
 
-const net = createNetwork([
+const fed = createFederation([
   peer(new HttpClient({ url: "https://node-b" }), { id: "B" }),
   peer(new HttpClient({ url: "https://node-c" }), { id: "C" }),
 ]);
 
 const rig = new Rig({
   connections: [
-    connection(net, { receive: ["*"], read: ["*"], observe: ["*"] }),
+    connection(fed, { receive: ["*"], read: ["*"], observe: ["*"] }),
   ],
 });
 
@@ -304,32 +312,49 @@ for await (const ev of rig.observe("mutable://shared/*", ac.signal)) {
 }
 ```
 
-## Example: signed mesh with pathVector
+## Example: signed full-participant mesh
 
 ```ts
-import { createNetwork, peer, pathVector, compose } from "@bandeira-tech/b3nd-sdk/network";
-import { Rig, connection, HttpClient } from "@bandeira-tech/b3nd-sdk";
+import {
+  createNetwork,
+  createFederation,
+  peer,
+  pathVector,
+  work,
+} from "@bandeira-tech/b3nd-sdk/network";
+import { AuthenticatedRig, Rig, connection, HttpClient } from "@bandeira-tech/b3nd-sdk";
 
 // Peer ids MUST be the peers' signing pubkey (hex) for pathVector to
 // recognize them in the signer chain.
-const net = createNetwork(
-  [
-    peer(new HttpClient({ url: "https://node-b" }), { id: bPubkeyHex }),
-    peer(new HttpClient({ url: "https://node-c" }), { id: cPubkeyHex }),
-  ],
-  pathVector(),
-);
+const peers = [
+  peer(new HttpClient({ url: "https://node-b" }), { id: bPubkeyHex }),
+  peer(new HttpClient({ url: "https://node-c" }), { id: cPubkeyHex }),
+];
+const policy = pathVector();
 
-// Use with AuthenticatedRig so outbound messages carry a signer chain.
-// When A signs a message and pushes to B, B pushes to C — but when B
-// pushes back toward A (because C's network also has A as a peer),
-// pathVector drops it: A's pubkey is already in the chain.
+// One object for each role. Same inputs, different output types —
+// you cannot accidentally pass either to the wrong consumer.
+const net = createNetwork(peers, policy);          // for work()
+const fed = createFederation(peers, policy);       // for connection()
+
+const rig = new Rig({
+  connections: [
+    connection(localStore, { receive: ["*"], read: ["*"] }),
+    connection(fed,        { receive: ["mutable://*"] }),
+  ],
+});
+work(rig, net);
+
+// Use AuthenticatedRig so outbound messages carry a signer chain.
+// When A signs a message and it reaches B, pathVector on B's fed drops
+// the re-broadcast to A because A is already in the chain. Arbitrary
+// longer cycles are also cut as the chain grows per relay.
 ```
 
 ## Example: per-peer rewrite (preview of PR-4)
 
 ```ts
-import { createNetwork, peer, type Policy } from "@bandeira-tech/b3nd-sdk/network";
+import { createFederation, peer, type Policy } from "@bandeira-tech/b3nd-sdk/network";
 
 // Send full payload to trusted peers, announcement-only to untrusted ones.
 const asymmetric: Policy = {
@@ -341,7 +366,7 @@ const asymmetric: Policy = {
     ]),
 };
 
-const net = createNetwork(peers, asymmetric);
+const fed = createFederation(peers, asymmetric);
 ```
 
 This shape is exactly what `tellAndRead` (PR-4) packages behind a clean
