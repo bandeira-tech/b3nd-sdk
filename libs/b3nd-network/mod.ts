@@ -25,6 +25,9 @@ export type {
 export { peer } from "./peer.ts";
 export { network } from "./network.ts";
 
+// ── Peer decorators ──────────────────────────────────────────────────
+export { bestEffort } from "./decorators.ts";
+
 // ── Strategy factories (remote-client shape) ─────────────────────────
 export { flood } from "./policies/flood.ts";
 export { pathVector } from "./policies/path-vector.ts";

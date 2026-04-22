@@ -21,8 +21,10 @@ passing one where the other is expected is a compile error.
 import {
   network,
   peer,
+  bestEffort,      // peer decorator — swallows per-peer receive errors
   flood,
   pathVector,
+  tellAndRead,
   type Policy,
 } from "@bandeira-tech/b3nd-sdk/network";
 ```
@@ -293,8 +295,8 @@ embedded.
 | PR-1 | ✅ merged | `peer`, network skeleton, subpath export, tests |
 | PR-2 | ✅ merged | observe-bridge, source tagging, unbind |
 | PR-3 | ✅ merged  | `network()` verb + `flood(peers)` + `pathVector(peers)` + policy-chain composition inline |
-| PR-4 | ✅ shipped | `tellAndRead` — INV/READ-style content sync; outbound strategy factory + inbound Policy |
-| PR-5 | pending   | retire `b3nd-combinators`, port `createPeerClients` to `Peer[]` |
+| PR-4 | ✅ merged  | `tellAndRead` — INV/READ-style content sync; outbound strategy factory + inbound Policy |
+| PR-5 | ✅ shipped | `bestEffort` peer decorator; `createPeerClients → Peer[]`; retire `b3nd-combinators`; full-lib review pass |
 
 ## Tests
 

@@ -360,19 +360,24 @@ const hashUri = generateHashUri(hash); // "hash://sha256/{hash}"
 
 ```typescript
 import {
-  createValidatedClient, parallelBroadcast, firstMatchSequence, msgSchema,
-  FunctionalClient,
+  createValidatedClient, msgSchema, FunctionalClient,
 } from "@bandeira-tech/b3nd-sdk";
+import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
 
-// Compose multiple backends
+// Compose multiple backends via `flood` — broadcast writes, first-match reads.
+const backends = [postgresBackend, memoryBackend].map((c, i) =>
+  peer(c, { id: `local-${i}` })
+);
+const composed = flood(backends);
 const client = createValidatedClient({
-  receive: parallelBroadcast([postgresBackend, memoryBackend]),
-  read: firstMatchSequence([postgresBackend, memoryBackend]),
+  write: composed,
+  read: composed,
   validate: msgSchema(schema),
 });
 
 // Validators: seq(), any(), all(), msgSchema(), schemaValidator()
-// Combinators: parallelBroadcast(), firstMatchSequence()
+// Strategy factories: flood(peers), pathVector(peers) — see
+// `@bandeira-tech/b3nd-sdk/network` for the full network lib.
 
 // Custom behavior without class inheritance
 const client = new FunctionalClient({
@@ -1598,15 +1603,18 @@ node.listen(43100);
 ### Multi-Backend Composition
 
 ```typescript
+import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
+
 const programs = Object.keys(schema);
-const clients = [
+const backends = [
   new MessageDataClient(new MemoryStore()),
   new MessageDataClient(new PostgresStore("b3nd", executor)),
 ];
+const composed = flood(backends.map((c, i) => peer(c, { id: `local-${i}` })));
 
 const client = createValidatedClient({
-  receive: parallelBroadcast(clients),
-  read: firstMatchSequence(clients),
+  write: composed,
+  read: composed,
   validate: msgSchema(schema),
 });
 
@@ -1801,7 +1809,7 @@ source code with line numbers.
 ### Transport Clients
 - `libs/b3nd-client-http/` — HttpClient (HTTP transport)
 - `libs/b3nd-client-ws/` — WebSocketClient (WebSocket transport)
-- `libs/b3nd-combinators/` — parallelBroadcast, firstMatchSequence
+- `libs/b3nd-network/` — `network()` verb, `flood(peers)`, `pathVector(peers)`, `tellAndRead(...)`, `bestEffort` decorator
 
 ### Auth & Encryption
 - `libs/b3nd-auth/` — Pubkey-based access control

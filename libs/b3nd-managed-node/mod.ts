@@ -55,8 +55,10 @@ export { createMetricsCollector } from "./metrics.ts";
 // Module loader
 export { createModuleWatcher, loadSchemaModule } from "./module-loader.ts";
 
-// Peer replication
-export { bestEffortClient, createPeerClients } from "./peer-replication.ts";
+// Peer replication — returns `{ pushPeers, pullPeers }` for the
+// network primitives. `bestEffort` itself lives in
+// `@bandeira-tech/b3nd-sdk/network`.
+export { createPeerClients } from "./peer-replication.ts";
 
 // Update protocol
 export { createUpdateChecker } from "./update-protocol.ts";

@@ -27,6 +27,21 @@
  * For bidirectional signed meshes that need loop avoidance, use
  * `pathVector(peers)` instead — same shape, plus a signer-chain filter
  * on outbound.
+ *
+ * ## Error handling
+ *
+ * - `receive` propagates transport-level failures — one peer rejecting
+ *   aborts the fan-out. Wrap individual peers with the `bestEffort`
+ *   decorator if you want per-peer failures to be non-fatal.
+ * - `read` falls through: a failing peer is skipped, and if no peer
+ *   returns a hit the result is a `not-found` per input URI.
+ * - `observe` silently drops a peer whose stream throws (the merged
+ *   stream keeps flowing from the remaining peers). This is
+ *   intentional — `flood` is a one-shot NPI with no `onError` hook.
+ *   For observability over the inbound side, use `network()`, which
+ *   accepts an `onError` callback and reports per-peer failures.
+ * - `status` aggregates; individual unhealthy peers degrade the
+ *   overall status rather than throwing.
  */
 
 import type {

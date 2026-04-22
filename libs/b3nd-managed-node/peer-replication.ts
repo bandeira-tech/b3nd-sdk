@@ -1,72 +1,53 @@
 /**
+ * @module
  * Peer replication for managed nodes.
  *
- * Splits PeerSpec[] into push/pull client sets and wraps push clients
- * for best-effort delivery (non-fatal receive failures).
+ * Splits `PeerSpec[]` into push/pull `Peer[]` lists suitable for passing
+ * to `flood(peers)`, `pathVector(peers)`, or the `network()` verb from
+ * `@bandeira-tech/b3nd-sdk/network`.
+ *
+ * Push peers come pre-wrapped with `bestEffort` so a single peer's
+ * transient failure does not abort the broadcast fan-out.
  */
 
+import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 import {
-  HttpClient,
-  type NodeProtocolInterface,
-  type ReadResult,
-} from "@bandeira-tech/b3nd-sdk";
+  bestEffort,
+  peer,
+  type Peer,
+} from "@bandeira-tech/b3nd-sdk/network";
 import type { PeerSpec } from "./types.ts";
 
 /**
- * Split peers into push and pull HttpClient sets.
+ * Split peers into push and pull `Peer[]` lists.
  *
- * - Push peers (direction "push" or "bidirectional") receive writes via broadcast.
- * - Pull peers (direction "pull" or "bidirectional") serve as read fallbacks.
+ * - Push peers (direction `"push"` or `"bidirectional"`) receive writes
+ *   via broadcast. Each is wrapped with `bestEffort` so transient
+ *   per-peer failures are logged rather than fatal.
+ * - Pull peers (direction `"pull"` or `"bidirectional"`) serve as read
+ *   fallbacks. Not wrapped — read paths want transparent failures.
+ *
+ * Peer ids default to the peer's URL. Override by extending `PeerSpec`
+ * and mapping to `peer(client, { id: myId })` before passing to the
+ * network primitives.
  */
 export function createPeerClients(peers: PeerSpec[]): {
-  pushClients: NodeProtocolInterface[];
-  pullClients: NodeProtocolInterface[];
+  pushPeers: Peer[];
+  pullPeers: Peer[];
 } {
-  const pushClients: NodeProtocolInterface[] = [];
-  const pullClients: NodeProtocolInterface[] = [];
+  const pushPeers: Peer[] = [];
+  const pullPeers: Peer[] = [];
 
-  for (const peer of peers) {
-    const client = new HttpClient({ url: peer.url });
+  for (const spec of peers) {
+    const client = new HttpClient({ url: spec.url });
 
-    if (peer.direction === "push" || peer.direction === "bidirectional") {
-      pushClients.push(client);
+    if (spec.direction === "push" || spec.direction === "bidirectional") {
+      pushPeers.push(peer(client, { id: spec.url, via: [bestEffort] }));
     }
-    if (peer.direction === "pull" || peer.direction === "bidirectional") {
-      pullClients.push(client);
+    if (spec.direction === "pull" || spec.direction === "bidirectional") {
+      pullPeers.push(peer(client, { id: spec.url }));
     }
   }
 
-  return { pushClients, pullClients };
-}
-
-/**
- * Wrap a client so receive() failures are non-fatal (best-effort push).
- *
- * On receive() error, logs a warning and returns `{ accepted: true }`.
- * All other methods delegate unchanged.
- */
-export function bestEffortClient(
-  client: NodeProtocolInterface,
-): NodeProtocolInterface {
-  return {
-    async receive(msgs) {
-      try {
-        return await client.receive(msgs);
-      } catch (err) {
-        console.warn(
-          `[peer] Best-effort push failed: ${(err as Error).message}`,
-        );
-        return msgs.map(() => ({ accepted: true }));
-      }
-    },
-    read: (uris) => client.read(uris),
-    // deno-lint-ignore require-yield
-    async *observe<T = unknown>(
-      _pattern: string,
-      _signal: AbortSignal,
-    ): AsyncIterable<ReadResult<T>> {
-      // Not implemented.
-    },
-    status: () => client.status(),
-  };
+  return { pushPeers, pullPeers };
 }

@@ -14,7 +14,7 @@ rm -rf "$VENDOR"
 for lib in b3nd-core b3nd-compose b3nd-hash b3nd-msg \
            b3nd-client-memory b3nd-client-http b3nd-client-ws \
            b3nd-client-postgres b3nd-client-mongo \
-           b3nd-combinators b3nd-encrypt b3nd-auth; do
+           b3nd-network b3nd-encrypt b3nd-auth; do
   src="$ROOT_DIR/libs/$lib"
   dest="$VENDOR/$lib"
   mkdir -p "$dest"

@@ -18,7 +18,7 @@ endif
 # Run unit tests only (no external dependencies like Postgres/Mongo)
 test-unit:
 	@echo "Running unit tests..."
-	@deno test --allow-all libs/b3nd-client-memory/ libs/b3nd-wallet/ libs/b3nd-combinators/ libs/b3nd-managed-node/
+	@deno test --allow-all libs/b3nd-client-memory/ libs/b3nd-wallet/ libs/b3nd-network/ libs/b3nd-managed-node/
 
 test-e2e-http:
 	@if [ -z "$(URL)" ]; then \

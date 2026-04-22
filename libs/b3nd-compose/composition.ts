@@ -113,7 +113,7 @@ function toProcessor<D>(item: ProcessorOrReceiver<D>): Processor<D> {
  * Parallel processor composition
  * Run processors/receivers in parallel, at least one must succeed
  *
- * @deprecated Use parallelBroadcast from b3nd-combinators instead.
+ * @deprecated Use `flood(peers)` from b3nd-sdk/network instead.
  */
 export function parallel<D = unknown>(
   ...items: ProcessorOrReceiver<D>[]
@@ -177,7 +177,7 @@ export function pipeline<D = unknown>(
  * First-match reader composition
  * Try readers until one succeeds
  *
- * @deprecated Use firstMatchSequence from b3nd-combinators instead.
+ * @deprecated Use `flood(peers)` from b3nd-sdk/network instead.
  */
 export function firstMatch(...readers: ReadInterface[]): ReadInterface {
   return {

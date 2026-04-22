@@ -37,9 +37,9 @@ export type {
 export {
   all,
   any,
-  /** @deprecated Use firstMatchSequence from b3nd-combinators instead */
+  /** @deprecated Use `flood(peers)` from b3nd-sdk/network instead */
   firstMatch,
-  /** @deprecated Use parallelBroadcast from b3nd-combinators, or pass clients to createValidatedClient */
+  /** @deprecated Use `flood(peers)` from b3nd-sdk/network, or pass clients to createValidatedClient */
   parallel,
   /** @deprecated Use createValidatedClient with sequential logic instead */
   pipeline,

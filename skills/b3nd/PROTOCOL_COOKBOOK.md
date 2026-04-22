@@ -47,14 +47,17 @@ node.listen(43100);
 ### Multi-Backend Composition
 
 ```typescript
-const clients = [
+import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
+
+const backends = [
   new MessageDataClient(new MemoryStore()),
   new PostgresStore({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
 ];
+const composed = flood(backends.map((c, i) => peer(c, { id: `local-${i}` })));
 
 const client = createValidatedClient({
-  receive: parallelBroadcast(clients),
-  read: firstMatchSequence(clients),
+  write: composed,
+  read: composed,
   validate: msgSchema(schema),
 });
 

@@ -1,8 +1,7 @@
 /// <reference lib="deno.ns" />
 import { connection, createClientFromUrl, httpApi, Rig } from "@b3nd/rig";
 import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
-import { parallelBroadcast } from "../../libs/b3nd-combinators/parallel-broadcast.ts";
-import { firstMatchSequence } from "../../libs/b3nd-combinators/first-match-sequence.ts";
+import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
 import { createSqliteExecutor } from "./sqlite-executor.ts";
@@ -66,14 +65,11 @@ const backends = await Promise.all(
   backendSpecs.map((url) => createClientFromUrl(url, { executors })),
 );
 
-// Single backend → use directly; multi-backend → compose
-const client = backends.length === 1 ? backends[0] : {
-  receive: (msg: Parameters<typeof backends[0]["receive"]>[0]) =>
-    parallelBroadcast(backends).receive(msg),
-  read: <T = unknown>(uris: string | string[]) =>
-    firstMatchSequence(backends).read<T>(uris),
-  status: () => backends[0].status(),
-};
+// Single backend → use directly; multi-backend → compose via flood
+// (broadcast write, first-match read).
+const client = backends.length === 1
+  ? backends[0]
+  : flood(backends.map((b, i) => peer(b, { id: `local-${i}` })));
 
 // ── The Rig: schema validation, events, hooks ──
 
@@ -132,7 +128,6 @@ if (OPERATOR_KEY) {
   );
   const { Identity } = await import("@b3nd/rig");
   const {
-    bestEffortClient,
     buildClientsFromSpec,
     createConfigWatcher,
     createHeartbeatWriter,
@@ -143,12 +138,9 @@ if (OPERATOR_KEY) {
     loadConfig,
     loadSchemaModule,
   } = await import("@b3nd/managed-node");
-  const {
-    createValidatedClient,
-    parallelBroadcast,
-    firstMatchSequence,
-    msgSchema,
-  } = await import("@bandeira-tech/b3nd-sdk");
+  const { createValidatedClient, msgSchema } = await import(
+    "@bandeira-tech/b3nd-sdk"
+  );
 
   // Derive node identity from PEM
   const privateKey = await pemToCryptoKey(
@@ -252,13 +244,15 @@ if (OPERATOR_KEY) {
         s3: createS3Executor,
       } as any,
     );
-    const { pushClients, pullClients } = createPeerClients(config.peers ?? []);
+    const { pushPeers, pullPeers } = createPeerClients(config.peers ?? []);
+    // Wrap each local client as an unadorned peer so it composes with
+    // the already-Peer-shaped push/pull lists. Writes fan to every
+    // local + push-peer client; reads try local first, then fall
+    // through to pull peers.
+    const localPeers = localClients.map((c, i) => peer(c, { id: `local-${i}` }));
     return createValidatedClient({
-      write: parallelBroadcast([
-        ...localClients,
-        ...pushClients.map(bestEffortClient),
-      ]),
-      read: firstMatchSequence([...localClients, ...pullClients]),
+      write: flood([...localPeers, ...pushPeers]),
+      read: flood([...localPeers, ...pullPeers]),
       validate: msgSchema(schemaToUse),
     });
   }

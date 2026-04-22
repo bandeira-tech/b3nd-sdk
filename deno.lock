@@ -1551,11 +1551,6 @@
           "jsr:@std/assert@^1.0.15"
         ]
       },
-      "libs/b3nd-combinators": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
       "libs/b3nd-compose": {
         "dependencies": [
           "jsr:@std/assert@^1.0.15"
