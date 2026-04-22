@@ -9,7 +9,7 @@ import {
   HttpClient,
   type NodeProtocolInterface,
 } from "@bandeira-tech/b3nd-sdk";
-import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
+import { MessageDataClient } from "../b3nd-rig/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import type { BackendSpec } from "./types.ts";
 
@@ -49,10 +49,10 @@ export async function buildClientsFromSpec(
           );
         }
         const { PostgresStore } = await import(
-          "../b3nd-client-postgres/store.ts"
+          "@bandeira-tech/b3nd-stores/postgres"
         );
         const { generatePostgresSchema } = await import(
-          "../b3nd-client-postgres/schema.ts"
+          "@bandeira-tech/b3nd-stores/postgres"
         );
         const executor = await executors.postgres(spec.url);
         const tablePrefix =
@@ -80,7 +80,7 @@ export async function buildClientsFromSpec(
         }
         const collectionName = (spec.options?.collectionName as string) ??
           url.searchParams.get("collection") ?? "b3nd_data";
-        const { MongoStore } = await import("../b3nd-client-mongo/store.ts");
+        const { MongoStore } = await import("@bandeira-tech/b3nd-stores/mongo");
         const executor = await executors.mongo(
           spec.url,
           dbName,
@@ -98,7 +98,7 @@ export async function buildClientsFromSpec(
           );
         }
         const sqlitePath = new URL(spec.url).pathname || ":memory:";
-        const { SqliteStore } = await import("../b3nd-client-sqlite/store.ts");
+        const { SqliteStore } = await import("@bandeira-tech/b3nd-stores/sqlite");
         const executor = executors.sqlite(sqlitePath);
         const tablePrefix =
           (spec.options?.tablePrefix as string) ?? "b3nd";
@@ -114,7 +114,7 @@ export async function buildClientsFromSpec(
           );
         }
         const rootDir = new URL(spec.url).pathname;
-        const { FsStore } = await import("../b3nd-client-fs/store.ts");
+        const { FsStore } = await import("@bandeira-tech/b3nd-stores/fs");
         const executor = executors.fs(rootDir);
         const store = new FsStore(rootDir, executor);
         clients.push(new MessageDataClient(store));

@@ -45,13 +45,20 @@ export type {
   WatchOptions,
 } from "./types.ts";
 
-// Program model — re-exported from core for convenience
+// Core types — re-exported so app-specific libs import from rig, not core
 export type {
   CodeHandler,
+  Message,
+  NodeProtocolInterface,
   Output,
   Program,
   ProgramResult,
+  ReadResult,
+  ReceiveResult,
+  StatusResult,
+  Store,
 } from "../b3nd-core/types.ts";
+export { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 
 // Hooks (immutable after init — throw to reject, observe to audit)
 export type {

@@ -58,21 +58,21 @@ export type MongoExecutorFactory = (
  */
 export type SqliteExecutorFactory = (
   path: string,
-) => import("../b3nd-client-sqlite/mod.ts").SqliteExecutor;
+) => import("@bandeira-tech/b3nd-stores/sqlite").SqliteExecutor;
 
 /**
  * Factory function for creating a filesystem executor from a root directory path.
  */
 export type FsExecutorFactory = (
   rootDir: string,
-) => import("../b3nd-client-fs/mod.ts").FsExecutor;
+) => import("@bandeira-tech/b3nd-stores/fs").FsExecutor;
 
 /**
  * Factory function for creating an IPFS executor from an API URL.
  */
 export type IpfsExecutorFactory = (
   apiUrl: string,
-) => import("../b3nd-client-ipfs/mod.ts").IpfsExecutor;
+) => import("@bandeira-tech/b3nd-stores/ipfs").IpfsExecutor;
 
 /**
  * Factory function for creating an S3 executor from a bucket URL.
@@ -80,14 +80,14 @@ export type IpfsExecutorFactory = (
 export type S3ExecutorFactory = (
   bucket: string,
   prefix: string,
-) => import("../b3nd-client-s3/mod.ts").S3Executor;
+) => import("@bandeira-tech/b3nd-stores/s3").S3Executor;
 
 /**
  * Factory function for creating an Elasticsearch executor from an endpoint URL.
  */
 export type ElasticsearchExecutorFactory = (
   endpoint: string,
-) => import("../b3nd-client-elasticsearch/mod.ts").ElasticsearchExecutor;
+) => import("@bandeira-tech/b3nd-stores/elasticsearch").ElasticsearchExecutor;
 
 /**
  * Configuration for `new Rig()`.

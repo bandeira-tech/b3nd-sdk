@@ -38,7 +38,7 @@
  * ```
  */
 
-import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
+import type { NodeProtocolInterface, ReadResult } from "../b3nd-rig/mod.ts";
 import {
   createAuthenticatedMessageWithHex,
   decrypt,

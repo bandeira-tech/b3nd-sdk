@@ -23,10 +23,6 @@
       "import": "./dist/clients/http/mod.js",
       "types": "./dist/clients/http/mod.d.ts"
     },
-    "./clients/local-storage": {
-      "import": "./dist/clients/local-storage/mod.js",
-      "types": "./dist/clients/local-storage/mod.d.ts"
-    },
     "./clients/websocket": {
       "import": "./dist/clients/websocket/mod.js",
       "types": "./dist/clients/websocket/mod.d.ts"
@@ -38,14 +34,6 @@
     "./clients/console": {
       "import": "./dist/clients/console/mod.js",
       "types": "./dist/clients/console/mod.d.ts"
-    },
-    "./clients/s3": {
-      "import": "./dist/clients/s3/mod.js",
-      "types": "./dist/clients/s3/mod.d.ts"
-    },
-    "./clients/elasticsearch": {
-      "import": "./dist/clients/elasticsearch/mod.js",
-      "types": "./dist/clients/elasticsearch/mod.d.ts"
     },
     "./wallet": {
       "import": "./dist/wallet/mod.js",

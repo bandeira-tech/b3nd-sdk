@@ -116,7 +116,7 @@ export async function createStoreFromUrl(
         );
       }
       const { PostgresStore } = await import(
-        "../b3nd-client-postgres/store.ts"
+        "@bandeira-tech/b3nd-stores/postgres"
       );
       const executor = await options.executors.postgres(url);
       return new PostgresStore("b3nd", executor);
@@ -132,7 +132,7 @@ export async function createStoreFromUrl(
       }
       const dbName = parsed.pathname.replace(/^\//, "") || "b3nd";
       const collectionName = "b3nd_data";
-      const { MongoStore } = await import("../b3nd-client-mongo/store.ts");
+      const { MongoStore } = await import("@bandeira-tech/b3nd-stores/mongo");
       const executor = await options.executors.mongo(
         url,
         dbName,
@@ -151,7 +151,7 @@ export async function createStoreFromUrl(
       const path = parsed.pathname === "/:memory:"
         ? ":memory:"
         : parsed.pathname;
-      const { SqliteStore } = await import("../b3nd-client-sqlite/store.ts");
+      const { SqliteStore } = await import("@bandeira-tech/b3nd-stores/sqlite");
       const executor = options.executors.sqlite(path);
       return new SqliteStore("b3nd", executor);
     }
@@ -164,7 +164,7 @@ export async function createStoreFromUrl(
         );
       }
       const rootDir = parsed.pathname;
-      const { FsStore } = await import("../b3nd-client-fs/store.ts");
+      const { FsStore } = await import("@bandeira-tech/b3nd-stores/fs");
       const executor = options.executors.fs(rootDir);
       return new FsStore(rootDir, executor);
     }
@@ -179,7 +179,7 @@ export async function createStoreFromUrl(
       const apiUrl = `http://${parsed.hostname}${
         parsed.port ? ":" + parsed.port : ":5001"
       }${parsed.pathname}`;
-      const { IpfsStore } = await import("../b3nd-client-ipfs/store.ts");
+      const { IpfsStore } = await import("@bandeira-tech/b3nd-stores/ipfs");
       const executor = options.executors.ipfs(apiUrl);
       return new IpfsStore(executor);
     }
@@ -195,7 +195,7 @@ export async function createStoreFromUrl(
       const prefix = parsed.pathname.length > 1
         ? parsed.pathname.substring(1)
         : "";
-      const { S3Store } = await import("../b3nd-client-s3/store.ts");
+      const { S3Store } = await import("@bandeira-tech/b3nd-stores/s3");
       const executor = options.executors.s3(bucket, prefix);
       return new S3Store(bucket, executor, prefix);
     }
@@ -208,7 +208,7 @@ export async function createStoreFromUrl(
         );
       }
       const { ElasticsearchStore } = await import(
-        "../b3nd-client-elasticsearch/store.ts"
+        "@bandeira-tech/b3nd-stores/elasticsearch"
       );
       const executor = options.executors.elasticsearch(
         `http://${parsed.hostname}${parsed.port ? ":" + parsed.port : ":9200"}`,

@@ -42,8 +42,8 @@ export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 // ── Store implementations ──
 
 export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
-export { LocalStorageStore } from "../libs/b3nd-client-localstorage/store.ts";
-export { IndexedDBStore } from "../libs/b3nd-client-indexeddb/store.ts";
+export { LocalStorageStore } from "@bandeira-tech/b3nd-stores/localstorage";
+export { IndexedDBStore } from "@bandeira-tech/b3nd-stores/indexeddb";
 // ── Protocol clients (Store → NodeProtocolInterface) ──
 
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";

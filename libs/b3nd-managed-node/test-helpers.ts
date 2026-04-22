@@ -2,9 +2,9 @@
  * Shared test helpers for managed node tests.
  */
 
-import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+import type { NodeProtocolInterface } from "../b3nd-rig/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
+import { MessageDataClient } from "../b3nd-rig/mod.ts";
 import {
   createAuthenticatedMessage,
   generateSigningKeyPair,

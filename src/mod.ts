@@ -64,17 +64,27 @@ export type {
 } from "../libs/b3nd-core/types.ts";
 export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 
-// Store implementations
+// Binary encoding utilities (used by storage backends for JSON round-tripping)
+export {
+  decodeBinaryFromJson,
+  encodeBinaryForJson,
+  isBinary,
+  isEncodedBinary,
+} from "../libs/b3nd-core/binary.ts";
+
+// Store implementations (core — ships with SDK)
 export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
-export { PostgresStore } from "../libs/b3nd-client-postgres/store.ts";
-export { SqliteStore } from "../libs/b3nd-client-sqlite/store.ts";
-export { MongoStore } from "../libs/b3nd-client-mongo/store.ts";
-export { S3Store } from "../libs/b3nd-client-s3/store.ts";
-export { ElasticsearchStore } from "../libs/b3nd-client-elasticsearch/store.ts";
-export { FsStore } from "../libs/b3nd-client-fs/store.ts";
-export { IpfsStore } from "../libs/b3nd-client-ipfs/store.ts";
+
+// Store implementations (external — @bandeira-tech/b3nd-stores)
+export { PostgresStore } from "@bandeira-tech/b3nd-stores/postgres";
+export { SqliteStore } from "@bandeira-tech/b3nd-stores/sqlite";
+export { MongoStore } from "@bandeira-tech/b3nd-stores/mongo";
+export { S3Store } from "@bandeira-tech/b3nd-stores/s3";
+export { ElasticsearchStore } from "@bandeira-tech/b3nd-stores/elasticsearch";
+export { FsStore } from "@bandeira-tech/b3nd-stores/fs";
+export { IpfsStore } from "@bandeira-tech/b3nd-stores/ipfs";
 // Note: LocalStorageStore and IndexedDBStore are browser-only
-// and not included in the JSR package. Use the npm package for browser support.
+// and available from @bandeira-tech/b3nd-stores/localstorage and /indexeddb.
 
 // Protocol clients (Store → NodeProtocolInterface)
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
@@ -86,11 +96,11 @@ export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
 export { ConsoleClient } from "../libs/b3nd-client-console/client.ts";
 
 // Executor types (for injecting platform-specific drivers)
-export type { S3Executor } from "../libs/b3nd-client-s3/mod.ts";
+export type { S3Executor } from "@bandeira-tech/b3nd-stores/s3";
 export type {
   ElasticsearchClientConfig,
   ElasticsearchExecutor,
-} from "../libs/b3nd-client-elasticsearch/mod.ts";
+} from "@bandeira-tech/b3nd-stores/elasticsearch";
 
 // PostgreSQL schema utilities
 export {
@@ -98,10 +108,10 @@ export {
   generateCompleteSchemaSQL,
   generatePostgresSchema,
   type SchemaInitOptions,
-} from "../libs/b3nd-client-postgres/schema.ts";
+} from "@bandeira-tech/b3nd-stores/postgres";
 
 // SQLite schema utilities
-export { generateSqliteSchema } from "../libs/b3nd-client-sqlite/schema.ts";
+export { generateSqliteSchema } from "@bandeira-tech/b3nd-stores/sqlite";
 
 // Crypto utilities
 export { pemToCryptoKey } from "../libs/b3nd-encrypt/mod.ts";
