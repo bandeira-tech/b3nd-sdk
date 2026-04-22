@@ -3,7 +3,11 @@
  * Types for the b3nd Rig — the universal harness.
  */
 
-import type { CodeHandler, NodeProtocolInterface, Program } from "../b3nd-core/types.ts";
+import type {
+  CodeHandler,
+  NodeProtocolInterface,
+  Program,
+} from "../b3nd-core/types.ts";
 import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import type { ReactionHandler } from "./reactions.ts";

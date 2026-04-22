@@ -75,7 +75,6 @@ export {
 // Store implementations (core — ships with SDK)
 export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
 
-
 // Protocol clients (Store → NodeProtocolInterface)
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
 export { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
@@ -84,7 +83,6 @@ export { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
 export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
 export { ConsoleClient } from "../libs/b3nd-client-console/client.ts";
-
 
 // Crypto utilities
 export { pemToCryptoKey } from "../libs/b3nd-encrypt/mod.ts";

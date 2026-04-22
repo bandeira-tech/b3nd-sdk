@@ -1,8 +1,6 @@
 import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
 import { Identity } from "./identity.ts";
-import {
-  getSupportedProtocols,
-} from "./backend-factory.ts";
+import { getSupportedProtocols } from "./backend-factory.ts";
 import type { BackendResolver } from "./backend-factory.ts";
 import { Rig } from "./rig.ts";
 import { AuthenticatedRig } from "./authenticated-rig.ts";
