@@ -1,13 +1,14 @@
 /// <reference lib="deno.ns" />
 import { connection, createClientFromUrl, httpApi, Rig } from "@b3nd/rig";
+import type { BackendResolver } from "@b3nd/rig";
 import type { Program } from "@bandeira-tech/b3nd-sdk/types";
 import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
-import { createPostgresExecutor } from "./pg-executor.ts";
-import { createMongoExecutor } from "./mongo-executor.ts";
-import { createSqliteExecutor } from "./sqlite-executor.ts";
-import { createFsExecutor } from "./fs-executor.ts";
-import { createIpfsExecutor } from "./ipfs-executor.ts";
-import { createS3Executor } from "./s3-executor.ts";
+import { postgresBackend } from "./backends/postgres.ts";
+import { mongoBackend } from "./backends/mongo.ts";
+import { sqliteBackend } from "./backends/sqlite.ts";
+import { fsBackend } from "./backends/fs.ts";
+import { ipfsBackend } from "./backends/ipfs.ts";
+import { s3Backend } from "./backends/s3.ts";
 
 // ── Phase 1: Standard node from env vars ─────────────────────────────
 
@@ -46,18 +47,19 @@ const backendSpecs = BACKEND_URL.split(",").map((s) => s.trim()).filter(
 
 // ── Build clients outside the rig — clients are pure plumbing ──
 
-const executors = {
-  postgres: createPostgresExecutor,
-  mongo: (connStr: string, dbName: string, collectionName: string) =>
-    createMongoExecutor(connStr, dbName, collectionName),
-  sqlite: createSqliteExecutor,
-  fs: createFsExecutor,
-  ipfs: createIpfsExecutor,
-  s3: createS3Executor,
-};
+const registeredBackends: BackendResolver[] = [
+  postgresBackend(),
+  mongoBackend(),
+  sqliteBackend(),
+  fsBackend(),
+  ipfsBackend(),
+  s3Backend(),
+];
 
 const backends = await Promise.all(
-  backendSpecs.map((url) => createClientFromUrl(url, { executors })),
+  backendSpecs.map((url) =>
+    createClientFromUrl(url, { backends: registeredBackends })
+  ),
 );
 
 // Single backend → use directly; multi-backend → compose via flood

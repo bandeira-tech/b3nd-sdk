@@ -2,7 +2,7 @@
 // This module is installation-specific so the core SDK stays decoupled from
 // any concrete IPFS library. Talks to Kubo's /api/v0/* endpoints.
 
-import type { IpfsExecutor } from "../../libs/b3nd-client-ipfs/mod.ts";
+import type { IpfsExecutor } from "@bandeira-tech/b3nd-stores/ipfs";
 
 export function createIpfsExecutor(apiUrl: string): IpfsExecutor {
   const base = apiUrl.replace(/\/+$/, "");

@@ -144,10 +144,6 @@ export class TestRunner {
       // Default to libs tests, excluding browser and integration-heavy tests
       testPaths.push(this.libsPath);
       args.push(
-        "--ignore=b3nd-client-indexeddb",
-        "--ignore=b3nd-client-localstorage",
-        "--ignore=b3nd-client-mongo",
-        "--ignore=b3nd-client-postgres",
         "--ignore=b3nd-client-ws",
       );
     }

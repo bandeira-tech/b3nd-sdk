@@ -31,25 +31,25 @@ Deno.test("node-builder: multiple memory backends returns multiple clients", asy
   assertEquals(clients.length, 2);
 });
 
-Deno.test("node-builder: postgresql without executor throws", async () => {
+Deno.test("node-builder: postgresql without backend resolver throws", async () => {
   await assertRejects(
     () =>
       buildClientsFromSpec(
         [{ type: "postgresql", url: "postgresql://localhost/db" }],
       ),
     Error,
-    "PostgreSQL executor factory required",
+    "Unsupported backend type",
   );
 });
 
-Deno.test("node-builder: mongodb without executor throws", async () => {
+Deno.test("node-builder: mongodb without backend resolver throws", async () => {
   await assertRejects(
     () =>
       buildClientsFromSpec(
         [{ type: "mongodb", url: "mongodb://localhost/mydb" }],
       ),
     Error,
-    "MongoDB executor factory required",
+    "Unsupported backend type",
   );
 });
 

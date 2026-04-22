@@ -5,7 +5,7 @@
 // This module is installation-specific so the core SDK stays decoupled from
 // any concrete S3 library.
 
-import type { S3Executor } from "../../libs/b3nd-client-s3/mod.ts";
+import type { S3Executor } from "@bandeira-tech/b3nd-stores/s3";
 
 /**
  * Create an S3Executor that talks to an S3-compatible endpoint (MinIO, AWS, etc.)

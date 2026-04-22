@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { connect, readResponse, respondTo, writeRequest } from "./mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
+import { MessageDataClient } from "../b3nd-rig/mod.ts";
 import {
   generateEncryptionKeyPair,
   generateSigningKeyPair,

@@ -42,8 +42,6 @@ export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
 // ── Store implementations ──
 
 export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
-export { LocalStorageStore } from "../libs/b3nd-client-localstorage/store.ts";
-export { IndexedDBStore } from "../libs/b3nd-client-indexeddb/store.ts";
 // ── Protocol clients (Store → NodeProtocolInterface) ──
 
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
@@ -84,14 +82,16 @@ export type {
   WatchAllSnapshot,
   WatchOptions,
 } from "../libs/b3nd-rig/types.ts";
-export type { BackendFactoryOptions } from "../libs/b3nd-rig/backend-factory.ts";
+export type {
+  BackendFactoryOptions,
+  BackendResolver,
+} from "../libs/b3nd-rig/backend-factory.ts";
 export {
   createClientFromUrl,
   createClientResolver,
   createStoreFromUrl,
   createStoreResolver,
   getSupportedProtocols,
-  SUPPORTED_PROTOCOLS,
 } from "../libs/b3nd-rig/backend-factory.ts";
 
 // ── Content addressing (hash) ──

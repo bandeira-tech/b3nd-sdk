@@ -1,9 +1,7 @@
 import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
 import { Identity } from "./identity.ts";
-import {
-  getSupportedProtocols,
-  SUPPORTED_PROTOCOLS,
-} from "./backend-factory.ts";
+import { getSupportedProtocols } from "./backend-factory.ts";
+import type { BackendResolver } from "./backend-factory.ts";
 import { Rig } from "./rig.ts";
 import { AuthenticatedRig } from "./authenticated-rig.ts";
 import { createTestPrograms } from "../b3nd-client-memory/mod.ts";
@@ -378,18 +376,27 @@ Deno.test("Identity.decrypt - throws for public-only identity", async () => {
 
 // ── getSupportedProtocols tests ──
 
-Deno.test("getSupportedProtocols - returns all supported protocols", () => {
+Deno.test("getSupportedProtocols - returns built-in protocols with no backends", () => {
   const protocols = getSupportedProtocols();
   assertEquals(protocols.includes("memory://"), true);
   assertEquals(protocols.includes("https://"), true);
-  assertEquals(protocols.includes("postgresql://"), true);
-  assertEquals(protocols.includes("sqlite://"), true);
-  assertEquals(protocols.includes("mongodb://"), true);
+  assertEquals(protocols.includes("http://"), true);
+  assertEquals(protocols.includes("wss://"), true);
+  assertEquals(protocols.includes("ws://"), true);
+  assertEquals(protocols.includes("console://"), true);
+  // External backends not included without registration
+  assertEquals(protocols.includes("postgresql://"), false);
 });
 
-Deno.test("SUPPORTED_PROTOCOLS - is a readonly array", () => {
-  assertEquals(Array.isArray(SUPPORTED_PROTOCOLS), true);
-  assertEquals(SUPPORTED_PROTOCOLS.length > 0, true);
+Deno.test("getSupportedProtocols - includes registered backends", () => {
+  const fakeBackend: BackendResolver = {
+    protocols: ["postgresql:", "postgres:"],
+    resolve: () => new MemoryStore(),
+  };
+  const protocols = getSupportedProtocols([fakeBackend]);
+  assertEquals(protocols.includes("memory://"), true);
+  assertEquals(protocols.includes("postgresql://"), true);
+  assertEquals(protocols.includes("postgres://"), true);
 });
 
 // Rig.init no longer exists — unsupported protocol test removed
@@ -1664,32 +1671,32 @@ Deno.test("AuthenticatedRig.sendEncrypted - envelope is signed and verifiable", 
   assertEquals(valid, true);
 });
 
-// ── Executor rejection tests (createClientFromUrl) ──
+// ── No-backend-registered rejection tests (createClientFromUrl) ──
 
-Deno.test("createClientFromUrl - rejects postgresql without executor", async () => {
+Deno.test("createClientFromUrl - rejects postgresql without registered backend", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
   await assertRejects(
     () => createClientFromUrl("postgresql://localhost/db"),
     Error,
-    "executor factory",
+    "Unsupported backend URL protocol",
   );
 });
 
-Deno.test("createClientFromUrl - rejects mongodb without executor", async () => {
+Deno.test("createClientFromUrl - rejects mongodb without registered backend", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
   await assertRejects(
     () => createClientFromUrl("mongodb://localhost/db"),
     Error,
-    "executor factory",
+    "Unsupported backend URL protocol",
   );
 });
 
-Deno.test("createClientFromUrl - rejects sqlite without executor", async () => {
+Deno.test("createClientFromUrl - rejects sqlite without registered backend", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
   await assertRejects(
     () => createClientFromUrl("sqlite:///tmp/test.db"),
     Error,
-    "executor factory",
+    "Unsupported backend URL protocol",
   );
 });
 
@@ -1749,12 +1756,12 @@ Deno.test("createStoreFromUrl - rejects ws (transport protocol)", async () => {
   );
 });
 
-Deno.test("createStoreFromUrl - rejects postgresql without executor", async () => {
+Deno.test("createStoreFromUrl - rejects postgresql without registered backend", async () => {
   const { createStoreFromUrl } = await import("./backend-factory.ts");
   await assertRejects(
     () => createStoreFromUrl("postgresql://localhost/db"),
     Error,
-    "executor factory",
+    "Unsupported backend URL protocol",
   );
 });
 
@@ -1880,6 +1887,52 @@ Deno.test("createClientResolver - maps multiple URLs", async () => {
     const health = await client.status();
     assertEquals(health.status, "healthy");
   }
+});
+
+// ── BackendResolver registry tests ──
+
+Deno.test("createStoreFromUrl - resolves registered backend", async () => {
+  const { createStoreFromUrl } = await import("./backend-factory.ts");
+
+  const fakeBackend: BackendResolver = {
+    protocols: ["fake:"],
+    resolve: () => new MemoryStore(),
+  };
+
+  const store = await createStoreFromUrl("fake://test", {
+    backends: [fakeBackend],
+  });
+  const status = await store.status();
+  assertEquals(status.status, "healthy");
+});
+
+Deno.test("createClientFromUrl - resolves registered backend", async () => {
+  const { createClientFromUrl } = await import("./backend-factory.ts");
+
+  const fakeBackend: BackendResolver = {
+    protocols: ["fake:"],
+    resolve: () => new MemoryStore(),
+  };
+
+  const client = await createClientFromUrl("fake://test", {
+    backends: [fakeBackend],
+  });
+  const health = await client.status();
+  assertEquals(health.status, "healthy");
+});
+
+Deno.test("createStoreResolver - passes backends through", async () => {
+  const { createStoreResolver } = await import("./backend-factory.ts");
+
+  const fakeBackend: BackendResolver = {
+    protocols: ["fake:"],
+    resolve: () => new MemoryStore(),
+  };
+
+  const resolveStore = createStoreResolver([fakeBackend]);
+  const store = await resolveStore("fake://test");
+  const status = await store.status();
+  assertEquals(status.status, "healthy");
 });
 
 // ── Identity edge cases ──
