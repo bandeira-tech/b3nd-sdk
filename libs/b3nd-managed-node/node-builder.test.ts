@@ -1,21 +1,13 @@
-import { assertEquals } from "@std/assert";
-import { assertRejects } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { buildClientsFromSpec } from "./node-builder.ts";
 
 Deno.test("node-builder: memory backend returns a working client", async () => {
-  const acceptAll = async () => ({ valid: true });
-  const schema = {
-    "mutable://accounts": acceptAll,
-  };
-
   const clients = await buildClientsFromSpec(
     [{ type: "memory", url: "memory://" }],
-    schema,
   );
 
   assertEquals(clients.length, 1);
 
-  // Verify the client works
   const [result] = await clients[0].receive([[
     "mutable://accounts/abc/nodes/n1/config",
     {},
@@ -30,30 +22,20 @@ Deno.test("node-builder: memory backend returns a working client", async () => {
 });
 
 Deno.test("node-builder: multiple memory backends returns multiple clients", async () => {
-  const acceptAll = async () => ({ valid: true });
-  const schema = {
-    "mutable://accounts": acceptAll,
-  };
-
   const clients = await buildClientsFromSpec(
     [
       { type: "memory", url: "memory://1" },
       { type: "memory", url: "memory://2" },
     ],
-    schema,
   );
-
   assertEquals(clients.length, 2);
 });
 
 Deno.test("node-builder: postgresql without executor throws", async () => {
-  const schema = { "mutable://accounts": async () => ({ valid: true }) };
-
   await assertRejects(
     () =>
       buildClientsFromSpec(
         [{ type: "postgresql", url: "postgresql://localhost/db" }],
-        schema,
       ),
     Error,
     "PostgreSQL executor factory required",
@@ -61,13 +43,10 @@ Deno.test("node-builder: postgresql without executor throws", async () => {
 });
 
 Deno.test("node-builder: mongodb without executor throws", async () => {
-  const schema = { "mutable://accounts": async () => ({ valid: true }) };
-
   await assertRejects(
     () =>
       buildClientsFromSpec(
         [{ type: "mongodb", url: "mongodb://localhost/mydb" }],
-        schema,
       ),
     Error,
     "MongoDB executor factory required",
@@ -75,7 +54,6 @@ Deno.test("node-builder: mongodb without executor throws", async () => {
 });
 
 Deno.test("node-builder: empty backends returns empty array", async () => {
-  const schema = { "mutable://accounts": async () => ({ valid: true }) };
-  const clients = await buildClientsFromSpec([], schema);
+  const clients = await buildClientsFromSpec([]);
   assertEquals(clients.length, 0);
 });

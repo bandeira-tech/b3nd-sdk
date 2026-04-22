@@ -52,9 +52,6 @@ export { createHeartbeatWriter } from "./heartbeat.ts";
 // Metrics collector
 export { createMetricsCollector } from "./metrics.ts";
 
-// Module loader
-export { createModuleWatcher, loadSchemaModule } from "./module-loader.ts";
-
 // Peer replication — returns `{ pushPeers, pullPeers }` for the
 // network primitives. `bestEffort` itself lives in
 // `@bandeira-tech/b3nd-sdk/network`.

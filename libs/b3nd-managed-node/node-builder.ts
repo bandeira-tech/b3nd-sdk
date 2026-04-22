@@ -8,7 +8,6 @@
 import {
   HttpClient,
   type NodeProtocolInterface,
-  type Schema,
 } from "@bandeira-tech/b3nd-sdk";
 import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
@@ -22,7 +21,6 @@ import type { BackendSpec } from "./types.ts";
  */
 export async function buildClientsFromSpec(
   backends: BackendSpec[],
-  schema: Schema,
   executors?: {
     postgres?: (connectionString: string) => Promise<any>;
     mongo?: (

@@ -54,14 +54,11 @@ export type {
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
-  Schema,
   StatusResult,
   Store,
   StoreCapabilities,
   StoreEntry,
   StoreWriteResult,
-  ValidationResult,
-  Validator,
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
@@ -119,41 +116,6 @@ export type { FunctionalClientConfig } from "../libs/b3nd-core/functional-client
 // ObserveEmitter — client-side observe primitive
 export { ObserveEmitter } from "../libs/b3nd-core/observe-emitter.ts";
 export type { ObserveListener } from "../libs/b3nd-core/observe-emitter.ts";
-
-// Validated client convenience
-export { createValidatedClient } from "../libs/b3nd-compose/validated-client.ts";
-
-// Unified Node system (deprecated — use createValidatedClient instead)
-export { createNode } from "../libs/b3nd-compose/mod.ts";
-export type {
-  Node,
-  NodeConfig,
-  Processor,
-  ReadInterface,
-} from "../libs/b3nd-compose/mod.ts";
-export {
-  // Built-in validators
-  accept,
-  // Composition utilities
-  all,
-  any,
-  // Built-in processors
-  emit,
-  firstMatch,
-  format,
-  log,
-  // Message schema validator (new name)
-  msgSchema,
-  noop,
-  parallel,
-  pipeline,
-  reject,
-  requireFields,
-  schema as schemaValidator,
-  seq,
-  uriPattern,
-  when,
-} from "../libs/b3nd-compose/mod.ts";
 
 // Message layer (new names)
 export { createMessageNode } from "../libs/b3nd-msg/node-mod.ts";

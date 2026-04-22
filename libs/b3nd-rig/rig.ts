@@ -17,14 +17,11 @@ import type {
   Program,
   ReadResult,
   ReceiveResult,
-  Schema,
   StatusResult,
-  Validator,
 } from "../b3nd-core/types.ts";
 import type { MessageData } from "../b3nd-msg/data/types.ts";
 import type { SendResult } from "../b3nd-msg/data/send.ts";
 import { send } from "../b3nd-msg/data/send.ts";
-import { msgSchema } from "../b3nd-compose/validators.ts";
 import type {
   RigConfig,
   RigInfo,
@@ -63,11 +60,12 @@ import type { Connection } from "./connection.ts";
  * await session.send({ inputs: [], outputs: [["mutable://app/key", {}, data]] });
  * ```
  *
- * @example With schema, hooks, events, and react
+ * @example With programs, hooks, events, and reactions
  * ```typescript
  * const rig = new Rig({
  *   connections: [connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
- *   schema,
+ *   programs,
+ *   handlers,
  *   hooks: {
  *     beforeReceive: (ctx) => { rateLimit(ctx.uri); },
  *     afterRead: (ctx, result) => { audit(ctx.uri, result); },
@@ -89,8 +87,6 @@ export class Rig {
   private readonly _dispatch: NodeProtocolInterface;
   private readonly _programs: Record<string, Program> | null;
   private readonly _handlers: Record<string, CodeHandler> | null;
-  private readonly _schema: Schema | null;
-  private readonly _validator: Validator | null;
   private readonly _hooks: RigHooks;
   private readonly _events: RigEventEmitter;
   private readonly _reactors: ReactionRegistry;
@@ -106,8 +102,6 @@ export class Rig {
     this._dispatch = createConnectionDispatch(config.connections);
     this._programs = config.programs ?? null;
     this._handlers = config.handlers ?? null;
-    this._schema = config.schema ?? null;
-    this._validator = this._schema ? msgSchema(this._schema) : null;
     this._hooks = resolveHooks(config.hooks);
 
     // Build event emitter
@@ -220,9 +214,9 @@ export class Rig {
   /**
    * Receive external messages into the rig.
    *
-   * Batch receive — processes each message through hooks, programs (or
-   * legacy schema validation), then dispatches to connections. Returns
-   * one ReceiveResult per input message.
+   * Batch receive — processes each message through hooks and (if
+   * configured) programs, then dispatches to connections. Returns one
+   * ReceiveResult per input message.
    *
    * When `programs` is configured, the rig looks up the program for the
    * message URI, classifies it, and routes to the handler for the
@@ -265,29 +259,10 @@ export class Rig {
     let result: ReceiveResult;
     try {
       if (this._programs) {
-        // New program pipeline — classify, then route to handler
+        // Program pipeline — classify, then route to handler.
         result = await this._runProgram(finalMsg, readFn);
-      } else if (this._validator) {
-        // Legacy schema validation
-        const validation = await this._validator(
-          finalMsg,
-          undefined,
-          readFn,
-        );
-        if (!validation.valid) {
-          const error = validation.error || "Schema validation failed";
-          this._events.emit("receive:error", {
-            op: "receive",
-            uri: finalUri,
-            error,
-            ts: Date.now(),
-          });
-          return { accepted: false, error };
-        }
-        const dispatchResults = await this._dispatch.receive([finalMsg]);
-        result = dispatchResults[0];
       } else {
-        // No programs, no schema — direct dispatch
+        // No programs — direct dispatch.
         const dispatchResults = await this._dispatch.receive([finalMsg]);
         result = dispatchResults[0];
       }
@@ -578,14 +553,10 @@ export class Rig {
 
   /**
    * Status — health + schema.
-   * Aggregates client status and includes rig schema if set.
+   * Aggregates client status across all connections.
    */
   async status(): Promise<StatusResult> {
-    const clientStatus = await this._dispatch.status();
-    if (this._schema) {
-      return { ...clientStatus, schema: Object.keys(this._schema) };
-    }
-    return clientStatus;
+    return await this._dispatch.status();
   }
 
   /**

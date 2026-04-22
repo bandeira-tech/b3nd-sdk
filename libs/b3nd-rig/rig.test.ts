@@ -6,7 +6,8 @@ import {
 } from "./backend-factory.ts";
 import { Rig } from "./rig.ts";
 import { AuthenticatedRig } from "./authenticated-rig.ts";
-import { createTestSchema } from "../b3nd-client-memory/mod.ts";
+import { createTestPrograms } from "../b3nd-client-memory/mod.ts";
+import type { Program } from "../b3nd-core/types.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import { connection } from "./connection.ts";
@@ -1353,35 +1354,44 @@ Deno.test({
   },
 });
 
-// ── Schema-validated Rig tests ──
-// Schema is a rig concern — clients are pure plumbing.
+// ── Program-validated Rig tests ──
+// Programs classify messages by URI prefix and can reject via `error`.
 
-Deno.test("Rig -schema validates receive", async () => {
-  const schema = createTestSchema();
-  const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-    schema,
+// Accept-all program under a prefix that intentionally mismatches the
+// "bad" test URIs. Messages under the listed prefixes flow through.
+// Messages outside any registered prefix also flow through (unmatched
+// URIs are not validated by programs — that's the new default, unlike
+// the old schema which rejected unknown prefixes).
+//
+// Tests that want rejection semantics register an explicit rejecter.
+const rejectUnknown: Program = (msg) =>
+  Promise.resolve({
+    code: "rejected",
+    error: `rejected by program: ${msg[0]}`,
   });
 
-  // Valid receive (mutable://open is in the test schema)
-  const [accepted] = await rig.receive([["mutable://open/valid", {}, {
-    ok: true,
-  }]]);
+Deno.test("Rig - program accepts valid receive", async () => {
+  const rig = new Rig({
+    connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
+    programs: createTestPrograms(),
+  });
+
+  const [accepted] = await rig.receive([
+    ["mutable://open/valid", {}, { ok: true }],
+  ]);
   assertEquals(accepted.accepted, true);
 
   const data = await rig.readData("mutable://open/valid");
   assertEquals(data, { ok: true });
 });
 
-Deno.test("Rig -schema rejects invalid domain", async () => {
-  const schema = createTestSchema();
+Deno.test("Rig - program can reject by returning error", async () => {
   const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-    schema,
+    connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
+    programs: {
+      ...createTestPrograms(),
+      "mutable://unknown-domain": rejectUnknown,
+    },
   });
 
   const [result] = await rig.receive([
@@ -1390,8 +1400,7 @@ Deno.test("Rig -schema rejects invalid domain", async () => {
   assertEquals(result.accepted, false);
 });
 
-Deno.test("Rig -multi-connection dispatch with schema validates receive", async () => {
-  const schema = createTestSchema();
+Deno.test("Rig - multi-connection dispatch with programs accepts valid", async () => {
   const rig = new Rig({
     connections: [
       connection(memClient(), {
@@ -1403,22 +1412,19 @@ Deno.test("Rig -multi-connection dispatch with schema validates receive", async 
         read: ["mutable://*", "immutable://*", "hash://*", "local://*"],
       }),
     ],
-    schema,
+    programs: createTestPrograms(),
   });
 
-  const [accepted] = await rig.receive([[
-    "mutable://open/multi-schema",
-    {},
-    42,
-  ]]);
+  const [accepted] = await rig.receive([
+    ["mutable://open/multi-prog", {}, 42],
+  ]);
   assertEquals(accepted.accepted, true);
 
-  const data = await rig.readData("mutable://open/multi-schema");
+  const data = await rig.readData("mutable://open/multi-prog");
   assertEquals(data, 42);
 });
 
-Deno.test("Rig -multi-connection dispatch with schema rejects invalid domain", async () => {
-  const schema = createTestSchema();
+Deno.test("Rig - multi-connection dispatch with programs rejects via rejecter", async () => {
   const rig = new Rig({
     connections: [
       connection(memClient(), {
@@ -1430,24 +1436,25 @@ Deno.test("Rig -multi-connection dispatch with schema rejects invalid domain", a
         read: ["mutable://*", "immutable://*", "hash://*", "local://*"],
       }),
     ],
-    schema,
+    programs: {
+      ...createTestPrograms(),
+      "mutable://unknown": rejectUnknown,
+    },
   });
 
   const [result] = await rig.receive([["mutable://unknown/x", {}, "nope"]]);
   assertEquals(result.accepted, false);
 });
 
-Deno.test("Rig -schema with session allows send", async () => {
-  const schema = {
-    ...createTestSchema(),
-    "hash://sha256": async () => ({ valid: true }),
-  };
+Deno.test("Rig - programs allow signed send via session", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-    schema,
+    connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
+    programs: {
+      ...createTestPrograms(),
+      // deno-lint-ignore require-await
+      "hash://sha256": async () => ({ code: "ok" }),
+    },
   });
   const session = id.rig(rig);
 
@@ -2323,13 +2330,15 @@ Deno.test("Rig events - fires on receive success", async () => {
   assertEquals((events[0] as { op: string }).op, "receive");
 });
 
-Deno.test("Rig events - fires on receive error (schema rejection)", async () => {
+Deno.test("Rig events - fires on receive error (program rejection)", async () => {
   const errors: unknown[] = [];
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
-    schema: createTestSchema(),
+    programs: {
+      "mutable://invalid-domain": rejectUnknown,
+    },
     on: {
       "receive:error": [(e) => {
         errors.push(e);
@@ -2337,7 +2346,6 @@ Deno.test("Rig events - fires on receive error (schema rejection)", async () => 
     },
   });
 
-  // Write to an invalid domain to trigger a rig schema rejection
   await rig.receive([["mutable://invalid-domain/test", {}, { x: 1 }]]);
   await new Promise((r) => setTimeout(r, 20));
 
@@ -2560,23 +2568,23 @@ Deno.test("Rig connections - per-op routing uses separate backends", async () =>
   assertEquals(fromRead.success, false);
 });
 
-Deno.test("Rig - schema still works with hooks", async () => {
-  const schema = createTestSchema();
+Deno.test("Rig - programs still work with hooks", async () => {
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
-    schema,
+    programs: {
+      ...createTestPrograms(),
+      "mutable://invalid": rejectUnknown,
+    },
     hooks: {
       afterReceive: () => {}, // observer hook
     },
   });
 
-  // Valid domain
   const [r1] = await rig.receive([["mutable://open/test", {}, { v: 1 }]]);
   assertEquals(r1.accepted, true);
 
-  // Invalid domain — rig schema should reject
   const [r2] = await rig.receive([["mutable://invalid/test", {}, { v: 1 }]]);
   assertEquals(r2.accepted, false);
 });

@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { connection, httpApi, Rig } from "../libs/b3nd-rig/mod.ts";
-import { createTestSchema } from "../libs/b3nd-client-memory/mod.ts";
+import { createTestPrograms } from "../libs/b3nd-client-memory/mod.ts";
 import { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
 import { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
 
@@ -10,10 +10,8 @@ function memClient() {
 
 Deno.test("httpApi - status endpoint", async () => {
   const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-    schema: createTestSchema(),
+    connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
+    programs: createTestPrograms(),
   });
   const api = httpApi(rig, { statusMeta: { test: true } });
   const res = await api(new Request("http://localhost/api/v1/status"));
@@ -24,14 +22,11 @@ Deno.test("httpApi - status endpoint", async () => {
 
 Deno.test("httpApi - receive/read/list round-trip", async () => {
   const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-    schema: createTestSchema(),
+    connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
+    programs: createTestPrograms(),
   });
   const api = httpApi(rig);
 
-  // Receive
   const receiveRes = await api(
     new Request("http://localhost/api/v1/receive", {
       method: "POST",
@@ -42,14 +37,12 @@ Deno.test("httpApi - receive/read/list round-trip", async () => {
   const receive = await receiveRes.json();
   assertEquals(receive.accepted, true);
 
-  // Read
   const readRes = await api(
     new Request("http://localhost/api/v1/read/mutable/open/hello"),
   );
   const read = await readRes.json();
   assertEquals(read.data.msg, "world");
 
-  // List (via trailing-slash read)
   const listRes = await api(
     new Request("http://localhost/api/v1/list/mutable/open"),
   );
@@ -59,10 +52,8 @@ Deno.test("httpApi - receive/read/list round-trip", async () => {
 
 Deno.test("httpApi - unknown route returns 404", async () => {
   const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-    schema: createTestSchema(),
+    connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
+    programs: createTestPrograms(),
   });
   const api = httpApi(rig);
   const res = await api(new Request("http://localhost/unknown"));

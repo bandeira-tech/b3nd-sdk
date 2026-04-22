@@ -3,7 +3,7 @@
  * Types for the b3nd Rig — the universal harness.
  */
 
-import type { CodeHandler, NodeProtocolInterface, Program, Schema } from "../b3nd-core/types.ts";
+import type { CodeHandler, NodeProtocolInterface, Program } from "../b3nd-core/types.ts";
 import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import type { ReactionHandler } from "./reactions.ts";
@@ -150,14 +150,6 @@ export interface RigConfig {
    * direct to clients (bypasses programs). The handler decides what to store.
    */
   handlers?: Record<string, CodeHandler>;
-
-  /**
-   * Application-level schema — validates URIs before they reach clients.
-   *
-   * @deprecated Use `programs` and `handlers` instead. When `programs` is
-   * provided, `schema` is ignored.
-   */
-  schema?: Schema;
 
   /**
    * Hooks — frozen after construction, one function per slot.
