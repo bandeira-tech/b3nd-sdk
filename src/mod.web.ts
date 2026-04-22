@@ -29,14 +29,11 @@ export type {
   ReadMultiResultItem,
   ReadResult,
   ReceiveResult,
-  Schema,
   StatusResult,
   Store,
   StoreCapabilities,
   StoreEntry,
   StoreWriteResult,
-  ValidationResult,
-  Validator,
   WebSocketClientConfig,
   WebSocketRequest,
   WebSocketResponse,
@@ -142,11 +139,6 @@ export type {
   EncryptedPayload,
   SignedEncryptedMessage,
 } from "../libs/b3nd-encrypt/mod.ts";
-
-// ── Validated client convenience ──
-
-export { createValidatedClient } from "../libs/b3nd-compose/validated-client.ts";
-export { msgSchema } from "../libs/b3nd-compose/validators.ts";
 
 // ── Auth (access control & signature validation) ──
 

@@ -4,7 +4,7 @@
  *
  * Covers: local routing, multi-connection broadcast/first-match,
  * unconnected URI rejection, serialization for wire, best-effort
- * enforcement, and schema/connection separation.
+ * enforcement, and program/connection separation.
  */
 
 import { assertEquals } from "@std/assert";
@@ -12,7 +12,7 @@ import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
 import { connection } from "./connection.ts";
 import { Rig } from "./rig.ts";
-import type { Schema } from "../b3nd-core/types.ts";
+import type { Program } from "../b3nd-core/types.ts";
 
 /** Shorthand: envelope-aware client backed by an in-memory store. */
 function memClient() {
@@ -194,16 +194,17 @@ Deno.test("best-effort: local connection enforces even if client accepts everyth
   assertEquals(readResults[0].success, false);
 });
 
-Deno.test("schema and connections are separate concerns", async () => {
+Deno.test("programs and connections are separate concerns", async () => {
   const client = memClient();
 
-  const schema: Schema = {
-    "mutable://open": async ([_uri, _values, data]) => {
-      if (typeof data !== "object" || data === null) {
-        return { valid: false, error: "must be an object" };
-      }
-      return { valid: true };
-    },
+  const validate: Program = ([_uri, _values, data]) => {
+    if (typeof data !== "object" || data === null) {
+      return Promise.resolve({
+        code: "invalid",
+        error: "must be an object",
+      });
+    }
+    return Promise.resolve({ code: "ok" });
   };
 
   const rig = new Rig({
@@ -213,48 +214,44 @@ Deno.test("schema and connections are separate concerns", async () => {
         read: ["mutable://*"],
       }),
     ],
-    schema,
+    programs: { "mutable://open": validate },
   });
 
-  // Matches connection + passes schema → accepted
+  // Matches connection + passes program → accepted
   const [r1] = await rig.receive([["mutable://open/x", {}, { valid: true }]]);
   assertEquals(r1.accepted, true);
 
-  // Matches connection but fails schema → rejected with schema error
+  // Matches connection but fails program → rejected with program error
   const [r2] = await rig.receive([["mutable://open/y", {}, "not an object"]]);
   assertEquals(r2.accepted, false);
 
-  // Doesn't match connection → rejected before schema runs
+  // Doesn't match connection → rejected before program runs
   const [r3] = await rig.receive([["hash://sha256/abc", {}, { valid: true }]]);
   assertEquals(r3.accepted, false);
 });
 
-Deno.test("schema validation runs after connection routing", async () => {
+Deno.test("program runs after connection routing", async () => {
   const client = memClient();
-  let schemaCalledWith: string[] = [];
+  let programCalledWith: string[] = [];
 
-  const schema: Schema = {
-    "mutable://open": async ([uri]) => {
-      schemaCalledWith.push(uri);
-      return { valid: true };
-    },
+  const record: Program = ([uri]) => {
+    programCalledWith.push(uri);
+    return Promise.resolve({ code: "ok" });
   };
 
   const rig = new Rig({
-    connections: [
-      connection(client, { receive: ["mutable://*"] }),
-    ],
-    schema,
+    connections: [connection(client, { receive: ["mutable://*"] })],
+    programs: { "mutable://open": record },
   });
 
-  // Unconnected URI → schema never called
-  schemaCalledWith = [];
+  // Unconnected URI → program never called
+  programCalledWith = [];
   await rig.receive([["hash://sha256/abc", {}, "data"]]);
-  assertEquals(schemaCalledWith.length, 0);
+  assertEquals(programCalledWith.length, 0);
 
-  // Subscribed URI → schema IS called
+  // Subscribed URI → program IS called
   await rig.receive([["mutable://open/x", {}, "data"]]);
-  assertEquals(schemaCalledWith.length, 1);
+  assertEquals(programCalledWith.length, 1);
 });
 
 Deno.test("single client via catch-all connection", async () => {

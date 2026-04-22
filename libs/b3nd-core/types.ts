@@ -188,30 +188,6 @@ export type CodeHandler = (
   read: ReadFn,
 ) => Promise<void>;
 
-// ── Deprecated validation types (transitional) ─────────────────────
-
-/**
- * @deprecated Use ProgramResult instead.
- */
-export interface ValidationResult {
-  valid: boolean;
-  error?: string;
-}
-
-/**
- * @deprecated Use Program instead.
- */
-export type Validator<T = unknown> = (
-  output: Output<T>,
-  upstream: Output | undefined,
-  read: ReadFn,
-) => Promise<ValidationResult>;
-
-/**
- * @deprecated Use Record<string, Program> instead.
- */
-export type Schema = Record<string, Validator>;
-
 /**
  * Result of a receive operation.
  * `error` remains a string for backward compatibility.

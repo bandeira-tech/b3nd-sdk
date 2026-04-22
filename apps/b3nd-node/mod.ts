@@ -1,6 +1,6 @@
 /// <reference lib="deno.ns" />
 import { connection, createClientFromUrl, httpApi, Rig } from "@b3nd/rig";
-import type { Schema } from "@bandeira-tech/b3nd-sdk/types";
+import type { Program } from "@bandeira-tech/b3nd-sdk/types";
 import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
 import { createPostgresExecutor } from "./pg-executor.ts";
 import { createMongoExecutor } from "./mongo-executor.ts";
@@ -11,7 +11,7 @@ import { createS3Executor } from "./s3-executor.ts";
 
 // ── Phase 1: Standard node from env vars ─────────────────────────────
 
-const SCHEMA_MODULE = Deno.env.get("SCHEMA_MODULE");
+const PROGRAMS_MODULE = Deno.env.get("PROGRAMS_MODULE");
 const PORT_VALUE = Deno.env.get("PORT");
 const CORS_ORIGIN = Deno.env.get("CORS_ORIGIN");
 const BACKEND_URL = Deno.env.get("BACKEND_URL");
@@ -25,23 +25,18 @@ if (!Number.isFinite(PORT)) {
   throw new Error("PORT env var must be a valid number");
 }
 
-// Schema: load from module if provided, otherwise use open schema (accept all)
-let schema: Schema;
-if (SCHEMA_MODULE) {
-  const imported = await import(SCHEMA_MODULE);
-  schema = imported.default as Schema;
-  if (!schema || typeof schema !== "object") {
-    throw new Error("SCHEMA_MODULE must export default Schema object");
+// Programs: load from module if provided, otherwise run open (no validation).
+// A programs module exports `{ default: Record<string, Program> }` where each
+// key is a URI prefix and each value classifies messages by protocol code.
+let programs: Record<string, Program> | undefined;
+if (PROGRAMS_MODULE) {
+  const imported = await import(PROGRAMS_MODULE);
+  programs = imported.default as Record<string, Program>;
+  if (!programs || typeof programs !== "object") {
+    throw new Error(
+      "PROGRAMS_MODULE must export default Record<string, Program>",
+    );
   }
-} else {
-  // Open schema: accepts all URI protocols. Deploy with SCHEMA_MODULE for
-  // production validation (e.g. a custom protocol schema module).
-  schema = new Proxy({} as Schema, {
-    get(_target, prop: string | symbol) {
-      if (typeof prop === "string") return async () => ({ valid: true });
-      return undefined;
-    },
-  });
 }
 
 // Parse BACKEND_URL into individual backend specs
@@ -71,11 +66,11 @@ const client = backends.length === 1
   ? backends[0]
   : flood(backends.map((b, i) => peer(b, { id: `local-${i}` })));
 
-// ── The Rig: schema validation, events, hooks ──
+// ── The Rig: programs classify messages, events observe, hooks audit ──
 
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
-  schema,
+  ...(programs ? { programs } : {}),
   on: {
     "receive:error": [(e) => {
       console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);
@@ -128,20 +123,12 @@ if (OPERATOR_KEY) {
   );
   const { Identity } = await import("@b3nd/rig");
   const {
-    buildClientsFromSpec,
     createConfigWatcher,
     createHeartbeatWriter,
     createMetricsCollector,
-    createModuleWatcher,
-    createPeerClients,
     createUpdateChecker,
     loadConfig,
-    loadSchemaModule,
   } = await import("@b3nd/managed-node");
-  const { createValidatedClient, msgSchema } = await import(
-    "@bandeira-tech/b3nd-sdk"
-  );
-
   // Derive node identity from PEM
   const privateKey = await pemToCryptoKey(
     NODE_PRIVATE_KEY_PEM,
@@ -213,62 +200,10 @@ if (OPERATOR_KEY) {
     );
   }
 
-  let activeSchema = schema;
-  if (currentConfig?.schemaModuleUrl) {
-    try {
-      activeSchema = await loadSchemaModule(currentConfig.schemaModuleUrl);
-      console.log(
-        `[managed] Schema loaded from ${currentConfig.schemaModuleUrl}`,
-      );
-    } catch (err) {
-      console.error(
-        `[managed] Failed to load schema module: ${(err as Error).message}`,
-      );
-    }
-  }
-
-  async function buildManagedClient(
-    config: import("@b3nd/managed-node/types").ManagedNodeConfig,
-    schemaToUse: Schema,
-  ) {
-    const localClients = await buildClientsFromSpec(
-      config.backends,
-      schemaToUse,
-      // deno-lint-ignore no-explicit-any
-      {
-        postgres: createPostgresExecutor,
-        mongo: createMongoExecutor,
-        sqlite: createSqliteExecutor,
-        fs: createFsExecutor,
-        ipfs: createIpfsExecutor,
-        s3: createS3Executor,
-      } as any,
-    );
-    const { pushPeers, pullPeers } = createPeerClients(config.peers ?? []);
-    // Wrap each local client as an unadorned peer so it composes with
-    // the already-Peer-shaped push/pull lists. Writes fan to every
-    // local + push-peer client; reads try local first, then fall
-    // through to pull peers.
-    const localPeers = localClients.map((c, i) => peer(c, { id: `local-${i}` }));
-    return createValidatedClient({
-      write: flood([...localPeers, ...pushPeers]),
-      read: flood([...localPeers, ...pullPeers]),
-      validate: msgSchema(schemaToUse),
-    });
-  }
-
-  if (currentConfig) {
-    try {
-      const _newClient = await buildManagedClient(currentConfig, activeSchema);
-      console.log(`[managed] Backends ready from config`);
-    } catch (err) {
-      console.error(
-        `[managed] Failed to build backends from config: ${
-          (err as Error).message
-        }`,
-      );
-    }
-  }
+  // A managed rebuild of the serving rig from the config's backends +
+  // peers lives in a future PR — until then Phase 2 only drives the
+  // heartbeat / metrics / config watcher side-channels using the Phase 1
+  // rig as its client. Drop any prior `buildManagedClient` scaffolding.
 
   const metrics = createMetricsCollector({
     metricsClient: configClient,
@@ -296,18 +231,6 @@ if (OPERATOR_KEY) {
       : undefined,
   });
 
-  const moduleWatcher = createModuleWatcher({
-    currentUrl: currentConfig?.schemaModuleUrl,
-    intervalMs: 60_000,
-    async onModuleChange(newSchema, url) {
-      console.log(`[managed] Schema module changed: ${url}`);
-      activeSchema = newSchema;
-    },
-    onError(err) {
-      console.error(`[managed] Schema module error:`, err.message);
-    },
-  });
-
   const configWatcher = createConfigWatcher({
     configClient,
     operatorPubKeyHex: OPERATOR_KEY,
@@ -318,7 +241,6 @@ if (OPERATOR_KEY) {
     ) {
       console.log(`[managed] Config change detected, applying...`);
       try {
-        moduleWatcher.setUrl(newConfig.schemaModuleUrl);
         currentConfig = newConfig;
         console.log(`[managed] Config applied: "${newConfig.name}"`);
       } catch (err) {
@@ -348,7 +270,6 @@ if (OPERATOR_KEY) {
 
   heartbeat.start();
   if (currentConfig?.monitoring.metricsEnabled) metrics.start();
-  moduleWatcher.start();
   configWatcher.start();
   updateChecker.start();
 
