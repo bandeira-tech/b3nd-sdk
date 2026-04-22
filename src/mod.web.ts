@@ -21,8 +21,6 @@ export type {
   ListResult,
   Message,
   NodeProtocolInterface,
-  NodeProtocolReadInterface,
-  NodeProtocolWriteInterface,
   Output,
   ReadFn,
   ReadMultiResult,
@@ -80,7 +78,6 @@ export type {
   ConnectionPatterns,
 } from "../libs/b3nd-rig/connection.ts";
 export type {
-  HandlerOptions,
   RigConfig,
   RigInfo,
   WatchAllOptions,
@@ -151,19 +148,9 @@ export {
 
 // ── Message layer ──
 
-export {
-  combineValidators,
-  createOutputValidator,
-  extractProgram,
-  isMessageData,
-  message,
-  send,
-} from "../libs/b3nd-msg/data/mod.ts";
+export { message, send } from "../libs/b3nd-msg/data/mod.ts";
 export type {
   MessageData,
-  MessageValidationContext,
-  ProgramSchema,
-  ProgramValidator,
   SendResult,
   StateMessage,
 } from "../libs/b3nd-msg/data/mod.ts";

@@ -43,7 +43,6 @@ export type {
   ApiResponse,
   AuthSession,
   ChangePasswordResponse,
-  GoogleAuthSession,
   GoogleLoginResponse,
   GoogleSignupResponse,
   HealthResponse,

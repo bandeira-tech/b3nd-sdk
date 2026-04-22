@@ -254,11 +254,3 @@ export interface WatchAllSnapshot<T = unknown> {
   /** URIs whose data changed since the last snapshot. */
   changed: string[];
 }
-
-/**
- * @deprecated Use `HttpApiOptions` from `./http.ts` instead.
- */
-export interface HandlerOptions {
-  /** Extra metadata to include in status response. */
-  statusMeta?: Record<string, unknown>;
-}

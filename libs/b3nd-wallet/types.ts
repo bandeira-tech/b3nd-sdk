@@ -342,12 +342,6 @@ export interface ServerKeysResponse extends ApiResponse {
 }
 
 /**
- * Google OAuth session
- * @deprecated Use AuthSession directly - Google profile fields are now optional on AuthSession
- */
-export type GoogleAuthSession = AuthSession;
-
-/**
  * Google signup response
  */
 export interface GoogleSignupResponse extends ApiResponse {

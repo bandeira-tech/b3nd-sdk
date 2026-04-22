@@ -19,15 +19,21 @@
  * connection.start();
  * ```
  *
- * @example Embedded in a custom node
+ * @example Embedded in a Rig — route inbox writes to the handler via
+ * a program + handler pair that delegates to the processor.
  * ```typescript
- * import { when, parallel } from "b3nd-compose";
+ * import { Rig, connection } from "@bandeira-tech/b3nd-sdk";
  *
  * const processor = respondTo(myHandler, { identity, client: storageClient });
- * const node = createValidatedClient({
- *   write: parallel(storageClient, when(isAuthRequest, processor)),
- *   read: storageClient,
- *   validate: msgSchema(schema),
+ *
+ * const rig = new Rig({
+ *   connections: [connection(storageClient, { receive: ["*"], read: ["*"] })],
+ *   programs: {
+ *     "mutable://inbox": async () => ({ code: "inbox-request" }),
+ *   },
+ *   handlers: {
+ *     "inbox-request": (msg, _broadcast, _read) => processor(msg),
+ *   },
  * });
  * ```
  */
