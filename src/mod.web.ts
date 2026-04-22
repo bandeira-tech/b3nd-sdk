@@ -82,14 +82,16 @@ export type {
   WatchAllSnapshot,
   WatchOptions,
 } from "../libs/b3nd-rig/types.ts";
-export type { BackendFactoryOptions } from "../libs/b3nd-rig/backend-factory.ts";
+export type {
+  BackendFactoryOptions,
+  BackendResolver,
+} from "../libs/b3nd-rig/backend-factory.ts";
 export {
   createClientFromUrl,
   createClientResolver,
   createStoreFromUrl,
   createStoreResolver,
   getSupportedProtocols,
-  SUPPORTED_PROTOCOLS,
 } from "../libs/b3nd-rig/backend-factory.ts";
 
 // ── Content addressing (hash) ──

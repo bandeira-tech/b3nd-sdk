@@ -34,12 +34,8 @@ export type { ExportedIdentity } from "./identity.ts";
 export { AuthenticatedRig } from "./authenticated-rig.ts";
 export { Rig } from "./rig.ts";
 export type {
-  ElasticsearchExecutorFactory,
-  MongoExecutorFactory as MongoExecutor,
-  PostgresExecutorFactory as PostgresExecutor,
   RigConfig,
   RigInfo,
-  S3ExecutorFactory as S3Executor,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,
@@ -95,6 +91,9 @@ export {
   createStoreFromUrl,
   createStoreResolver,
   getSupportedProtocols,
-  SUPPORTED_PROTOCOLS,
 } from "./backend-factory.ts";
-export type { BackendFactoryOptions, StoreClientConstructor } from "./backend-factory.ts";
+export type {
+  BackendFactoryOptions,
+  BackendResolver,
+  StoreClientConstructor,
+} from "./backend-factory.ts";

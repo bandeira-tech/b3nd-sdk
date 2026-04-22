@@ -115,16 +115,12 @@ export {
   getSupportedProtocols,
   Identity,
   Rig,
-  SUPPORTED_PROTOCOLS,
 } from "../libs/b3nd-rig/mod.ts";
 export type {
-  ElasticsearchExecutorFactory,
+  BackendResolver,
   ExportedIdentity,
-  MongoExecutor,
-  PostgresExecutor,
   RigConfig,
   RigInfo,
-  S3Executor as S3ExecutorFactory,
   StoreClientConstructor,
   WatchAllOptions,
   WatchAllSnapshot,

@@ -9,84 +9,107 @@
  * createStoreFromUrl is the primitive — it maps a URL to a Store.
  * createClientFromUrl wraps that Store with a client class.
  *
- * Protocol → Store mapping:
+ * Built-in protocols (always available, no registration needed):
  *   memory://             → MemoryStore
- *   postgresql://         → PostgresStore (requires executor)
- *   mongodb://            → MongoStore (requires executor)
- *   sqlite://             → SqliteStore (requires executor)
- *   file://               → FsStore (requires executor)
- *   ipfs://               → IpfsStore (requires executor)
- *   s3://                 → S3Store (requires executor)
- *   elasticsearch://      → ElasticsearchStore (requires executor)
- *
- * Transport protocols (no Store — return clients directly):
  *   https:// | http://    → HttpClient
  *   wss:// | ws://        → WebSocketClient
  *   console://            → ConsoleClient (write-only sink, no storage)
+ *
+ * External backends are registered via BackendResolver[]:
+ *   postgresql://, mongodb://, sqlite://, file://, etc.
  */
 
 import type { NodeProtocolInterface, Store } from "../b3nd-core/types.ts";
-import type {
-  ElasticsearchExecutorFactory,
-  FsExecutorFactory,
-  IpfsExecutorFactory,
-  MongoExecutorFactory,
-  PostgresExecutorFactory,
-  S3ExecutorFactory,
-  SqliteExecutorFactory,
-} from "./types.ts";
 import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { WebSocketClient } from "../b3nd-client-ws/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import { ConsoleClient } from "../b3nd-client-console/client.ts";
 import { SimpleClient } from "../b3nd-core/simple-client.ts";
 
-/** All supported backend URL protocols. */
-export const SUPPORTED_PROTOCOLS = [
+/**
+ * A user-provided backend resolver — maps URL protocols to Stores.
+ *
+ * Register one per backend type. The factory loops over resolvers
+ * and uses the first whose `protocols` list matches the URL.
+ *
+ * @example
+ * ```typescript
+ * import { PostgresStore } from "@bandeira-tech/b3nd-stores/postgres";
+ *
+ * const postgres = (): BackendResolver => ({
+ *   protocols: ["postgresql:", "postgres:"],
+ *   resolve: async (url) => {
+ *     const executor = await createPgExecutor(url);
+ *     return new PostgresStore("b3nd", executor);
+ *   },
+ * });
+ * ```
+ */
+export interface BackendResolver {
+  /** URL protocols this resolver handles (e.g. `["postgresql:", "postgres:"]`). */
+  protocols: string[];
+  /** Create a Store from the given URL string. */
+  resolve: (url: string) => Promise<Store> | Store;
+}
+
+/** Built-in transport protocols (no Store — return clients directly). */
+const TRANSPORT_PROTOCOLS = new Set([
+  "https:",
+  "http:",
+  "wss:",
+  "ws:",
+  "console:",
+]);
+
+/** Built-in storage protocols (always available). */
+const BUILTIN_STORAGE_PROTOCOLS = ["memory://"];
+
+/** Built-in transport protocol prefixes. */
+const BUILTIN_TRANSPORT_PROTOCOLS = [
   "https://",
   "http://",
   "wss://",
   "ws://",
-  "memory://",
-  "postgresql://",
-  "mongodb://",
-  "mongodb+srv://",
-  "sqlite://",
-  "file://",
-  "ipfs://",
-  "s3://",
-  "elasticsearch://",
   "console://",
-] as const;
-
-/** Returns the list of supported backend URL protocols. */
-export function getSupportedProtocols(): readonly string[] {
-  return SUPPORTED_PROTOCOLS;
-}
+];
 
 export interface BackendFactoryOptions {
-  executors?: {
-    postgres?: PostgresExecutorFactory;
-    mongo?: MongoExecutorFactory;
-    sqlite?: SqliteExecutorFactory;
-    fs?: FsExecutorFactory;
-    ipfs?: IpfsExecutorFactory;
-    s3?: S3ExecutorFactory;
-    elasticsearch?: ElasticsearchExecutorFactory;
-  };
+  backends?: BackendResolver[];
 }
 
 /** Constructor type for clients that wrap a Store. */
-export type StoreClientConstructor = new (store: Store) => NodeProtocolInterface;
+export type StoreClientConstructor = new (
+  store: Store,
+) => NodeProtocolInterface;
+
+/**
+ * Returns the list of supported backend URL protocols, derived dynamically
+ * from built-in protocols plus any registered backends.
+ */
+export function getSupportedProtocols(
+  backends: BackendResolver[] = [],
+): readonly string[] {
+  const protocols = [
+    ...BUILTIN_TRANSPORT_PROTOCOLS,
+    ...BUILTIN_STORAGE_PROTOCOLS,
+  ];
+  for (const b of backends) {
+    for (const p of b.protocols) {
+      const prefix = p.endsWith(":") ? p + "//" : p;
+      if (!protocols.includes(prefix)) {
+        protocols.push(prefix);
+      }
+    }
+  }
+  return protocols;
+}
 
 // ── Storage protocols (URL → Store) ─────────────────────────────────
-
-const TRANSPORT_PROTOCOLS = new Set(["https:", "http:", "wss:", "ws:", "console:"]);
 
 /**
  * Create a Store from a URL string.
  *
- * Works for storage protocols only (memory, postgresql, mongodb, etc.).
+ * Works for storage protocols only (memory + registered backends).
  * Transport protocols (http, ws) throw — use createClientFromUrl instead.
  */
 export async function createStoreFromUrl(
@@ -103,125 +126,24 @@ export async function createStoreFromUrl(
     );
   }
 
-  switch (protocol) {
-    case "memory:":
-      return new MemoryStore();
-
-    case "postgresql:":
-    case "postgres:": {
-      if (!options.executors?.postgres) {
-        throw new Error(
-          `PostgreSQL URL requires an executor factory. ` +
-            `Pass executors.postgres to createStoreFromUrl().`,
-        );
-      }
-      const { PostgresStore } = await import(
-        "@bandeira-tech/b3nd-stores/postgres"
-      );
-      const executor = await options.executors.postgres(url);
-      return new PostgresStore("b3nd", executor);
-    }
-
-    case "mongodb:":
-    case "mongodb+srv:": {
-      if (!options.executors?.mongo) {
-        throw new Error(
-          `MongoDB URL requires an executor factory. ` +
-            `Pass executors.mongo to createStoreFromUrl().`,
-        );
-      }
-      const dbName = parsed.pathname.replace(/^\//, "") || "b3nd";
-      const collectionName = "b3nd_data";
-      const { MongoStore } = await import("@bandeira-tech/b3nd-stores/mongo");
-      const executor = await options.executors.mongo(
-        url,
-        dbName,
-        collectionName,
-      );
-      return new MongoStore(collectionName, executor);
-    }
-
-    case "sqlite:": {
-      if (!options.executors?.sqlite) {
-        throw new Error(
-          `SQLite URL requires an executor factory. ` +
-            `Pass executors.sqlite to createStoreFromUrl().`,
-        );
-      }
-      const path = parsed.pathname === "/:memory:"
-        ? ":memory:"
-        : parsed.pathname;
-      const { SqliteStore } = await import("@bandeira-tech/b3nd-stores/sqlite");
-      const executor = options.executors.sqlite(path);
-      return new SqliteStore("b3nd", executor);
-    }
-
-    case "file:": {
-      if (!options.executors?.fs) {
-        throw new Error(
-          `File URL requires an executor factory. ` +
-            `Pass executors.fs to createStoreFromUrl().`,
-        );
-      }
-      const rootDir = parsed.pathname;
-      const { FsStore } = await import("@bandeira-tech/b3nd-stores/fs");
-      const executor = options.executors.fs(rootDir);
-      return new FsStore(rootDir, executor);
-    }
-
-    case "ipfs:": {
-      if (!options.executors?.ipfs) {
-        throw new Error(
-          `IPFS URL requires an executor factory. ` +
-            `Pass executors.ipfs to createStoreFromUrl().`,
-        );
-      }
-      const apiUrl = `http://${parsed.hostname}${
-        parsed.port ? ":" + parsed.port : ":5001"
-      }${parsed.pathname}`;
-      const { IpfsStore } = await import("@bandeira-tech/b3nd-stores/ipfs");
-      const executor = options.executors.ipfs(apiUrl);
-      return new IpfsStore(executor);
-    }
-
-    case "s3:": {
-      if (!options.executors?.s3) {
-        throw new Error(
-          `S3 URL requires an executor factory. ` +
-            `Pass executors.s3 to createStoreFromUrl().`,
-        );
-      }
-      const bucket = parsed.hostname;
-      const prefix = parsed.pathname.length > 1
-        ? parsed.pathname.substring(1)
-        : "";
-      const { S3Store } = await import("@bandeira-tech/b3nd-stores/s3");
-      const executor = options.executors.s3(bucket, prefix);
-      return new S3Store(bucket, executor, prefix);
-    }
-
-    case "elasticsearch:": {
-      if (!options.executors?.elasticsearch) {
-        throw new Error(
-          `Elasticsearch URL requires an executor factory. ` +
-            `Pass executors.elasticsearch to createStoreFromUrl().`,
-        );
-      }
-      const { ElasticsearchStore } = await import(
-        "@bandeira-tech/b3nd-stores/elasticsearch"
-      );
-      const executor = options.executors.elasticsearch(
-        `http://${parsed.hostname}${parsed.port ? ":" + parsed.port : ":9200"}`,
-      );
-      return new ElasticsearchStore("b3nd", executor);
-    }
-
-    default:
-      throw new Error(
-        `Unsupported backend URL protocol: "${protocol}". ` +
-          `Supported: ${SUPPORTED_PROTOCOLS.join(", ")}`,
-      );
+  // Built-in: memory
+  if (protocol === "memory:") {
+    return new MemoryStore();
   }
+
+  // Check registered backends
+  const backends = options.backends ?? [];
+  for (const backend of backends) {
+    if (backend.protocols.includes(protocol)) {
+      return await backend.resolve(url);
+    }
+  }
+
+  const supported = getSupportedProtocols(backends);
+  throw new Error(
+    `Unsupported backend URL protocol: "${protocol}". ` +
+      `Supported: ${supported.join(", ")}`,
+  );
 }
 
 // ── Client from URL ─────────────────────────────────────────────────
@@ -295,37 +217,29 @@ export async function createClientFromUrl(
 // ── Resolvers (configure once, resolve many) ───────────────────────
 
 /**
- * Create a store resolver — bind executor factories once, resolve URLs later.
+ * Create a store resolver — bind backends once, resolve URLs later.
  *
- * This is the primary pattern for runtime URL → Store mapping.
- * Configure your executor factories once (from env, config, DI container),
- * then use the returned function to resolve any number of URLs.
- *
- * Only handles storage protocols (memory, postgresql, mongodb, etc.).
+ * Only handles storage protocols (memory + registered backends).
  * Transport URLs (http, ws) will throw — those produce clients directly,
  * not Stores.
  *
  * @example
  * ```typescript
- * const resolveStore = createStoreResolver({
- *   postgres: (url) => createPgExecutor(url),
- *   mongo: (url, db, coll) => createMongoExecutor(url, db, coll),
- * });
+ * const resolveStore = createStoreResolver([postgresBackend()]);
  *
- * // Map env-var URLs to stores
  * const urls = process.env.BACKEND_URLS!.split(",");
  * const stores = await Promise.all(urls.map(resolveStore));
  * ```
  */
 export function createStoreResolver(
-  executors: BackendFactoryOptions["executors"] = {},
+  backends: BackendResolver[] = [],
 ): (url: string) => Promise<Store> {
-  const options: BackendFactoryOptions = { executors };
+  const options: BackendFactoryOptions = { backends };
   return (url: string) => createStoreFromUrl(url, options);
 }
 
 /**
- * Create a client resolver — bind a client class and executor factories once,
+ * Create a client resolver — bind a client class and backends once,
  * resolve URLs later.
  *
  * For storage protocols: creates a Store and wraps it with the given client class.
@@ -336,19 +250,18 @@ export function createStoreResolver(
  * ```typescript
  * import { MessageDataClient } from "@bandeira-tech/b3nd-sdk";
  *
- * const resolveClient = createClientResolver(MessageDataClient, {
- *   postgres: (url) => createPgExecutor(url),
- * });
+ * const resolveClient = createClientResolver(MessageDataClient, [
+ *   postgresBackend(),
+ * ]);
  *
- * // Map env-var URLs to clients
  * const urls = process.env.BACKEND_URLS!.split(",");
  * const clients = await Promise.all(urls.map(resolveClient));
  * ```
  */
 export function createClientResolver(
   ClientClass: StoreClientConstructor = SimpleClient,
-  executors: BackendFactoryOptions["executors"] = {},
+  backends: BackendResolver[] = [],
 ): (url: string) => Promise<NodeProtocolInterface> {
-  const options: BackendFactoryOptions = { executors };
+  const options: BackendFactoryOptions = { backends };
   return (url: string) => createClientFromUrl(url, ClientClass, options);
 }

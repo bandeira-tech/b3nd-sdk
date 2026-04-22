@@ -15,16 +15,7 @@
   "imports": {
     "@std/assert": "jsr:@std/assert@^1.0.15",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
-    "canonicalize": "npm:canonicalize@2.0.0",
-    "@bandeira-tech/b3nd-stores/postgres": "../b3nd-stores/postgres/mod.ts",
-    "@bandeira-tech/b3nd-stores/mongo": "../b3nd-stores/mongo/mod.ts",
-    "@bandeira-tech/b3nd-stores/sqlite": "../b3nd-stores/sqlite/mod.ts",
-    "@bandeira-tech/b3nd-stores/fs": "../b3nd-stores/fs/mod.ts",
-    "@bandeira-tech/b3nd-stores/ipfs": "../b3nd-stores/ipfs/mod.ts",
-    "@bandeira-tech/b3nd-stores/s3": "../b3nd-stores/s3/mod.ts",
-    "@bandeira-tech/b3nd-stores/elasticsearch": "../b3nd-stores/elasticsearch/mod.ts",
-    "@bandeira-tech/b3nd-stores/localstorage": "../b3nd-stores/localstorage/mod.ts",
-    "@bandeira-tech/b3nd-stores/indexeddb": "../b3nd-stores/indexeddb/mod.ts"
+    "canonicalize": "npm:canonicalize@2.0.0"
   },
   "tasks": {
     "check": "deno check src/mod.ts",
