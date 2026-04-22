@@ -46,8 +46,6 @@ export type {
   ListOptions,
   ListResult,
   NodeProtocolInterface,
-  NodeProtocolReadInterface,
-  NodeProtocolWriteInterface,
   Output,
   ReadFn,
   ReadMultiResult,
@@ -117,29 +115,10 @@ export type { FunctionalClientConfig } from "../libs/b3nd-core/functional-client
 export { ObserveEmitter } from "../libs/b3nd-core/observe-emitter.ts";
 export type { ObserveListener } from "../libs/b3nd-core/observe-emitter.ts";
 
-// Message layer (new names)
-export { createMessageNode } from "../libs/b3nd-msg/node-mod.ts";
-export type {
-  MessageNode,
-  MessageNodeConfig,
-  MessageValidator,
-  SubmitResult,
-} from "../libs/b3nd-msg/node-mod.ts";
-
-// Message data convention (Level 2)
-export {
-  combineValidators,
-  createOutputValidator,
-  extractProgram,
-  isMessageData,
-  message,
-  send,
-} from "../libs/b3nd-msg/data/mod.ts";
+// Message data convention (inputs / outputs)
+export { message, send } from "../libs/b3nd-msg/data/mod.ts";
 export type {
   MessageData,
-  MessageValidationContext,
-  ProgramSchema,
-  ProgramValidator,
   SendResult,
   StateMessage,
 } from "../libs/b3nd-msg/data/mod.ts";
@@ -158,7 +137,6 @@ export {
 export type {
   ElasticsearchExecutorFactory,
   ExportedIdentity,
-  HandlerOptions,
   MongoExecutor,
   PostgresExecutor,
   RigConfig,
@@ -171,4 +149,4 @@ export type {
 } from "../libs/b3nd-rig/mod.ts";
 
 // HTTP API — standalone function for serving a rig over HTTP
-export { createRigHandler, httpApi } from "../libs/b3nd-rig/http.ts";
+export { httpApi } from "../libs/b3nd-rig/http.ts";

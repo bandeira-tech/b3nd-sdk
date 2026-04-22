@@ -42,9 +42,6 @@ export interface HttpApiOptions {
   statusMeta?: Record<string, unknown>;
 }
 
-// Keep the old name as an alias for backwards compat
-export type RigHandlerOptions = HttpApiOptions;
-
 // ── Binary deserialization ──
 
 /** Unwrap base64-encoded binary marker objects back to Uint8Array. */
@@ -365,7 +362,3 @@ export function httpApi(
   };
 }
 
-// ── Backwards compatibility ──
-
-/** @deprecated Use `httpApi` instead. */
-export const createRigHandler = httpApi;

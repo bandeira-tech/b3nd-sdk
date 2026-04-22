@@ -35,7 +35,6 @@ export { AuthenticatedRig } from "./authenticated-rig.ts";
 export { Rig } from "./rig.ts";
 export type {
   ElasticsearchExecutorFactory,
-  HandlerOptions,
   MongoExecutorFactory as MongoExecutor,
   PostgresExecutorFactory as PostgresExecutor,
   RigConfig,
@@ -79,8 +78,8 @@ export { connection } from "./connection.ts";
 export type { Connection, ConnectionPatterns } from "./connection.ts";
 
 // HTTP API — standalone function for serving a rig over HTTP
-export { createRigHandler, httpApi } from "./http.ts";
-export type { HttpApiOptions, RigHandlerOptions } from "./http.ts";
+export { httpApi } from "./http.ts";
+export type { HttpApiOptions } from "./http.ts";
 
 // Backend factory
 export {

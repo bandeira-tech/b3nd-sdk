@@ -364,13 +364,6 @@ export interface Store {
   capabilities?(): StoreCapabilities;
 }
 
-// ── Deprecated interfaces (transitional) ──
-
-/** @deprecated Use NodeProtocolInterface directly */
-export type NodeProtocolWriteInterface = NodeProtocolInterface;
-/** @deprecated Use NodeProtocolInterface directly */
-export type NodeProtocolReadInterface = NodeProtocolInterface;
-
 /** Operations that can be filtered by `accepts()`. */
 export type ClientOperation = "receive" | "read" | "observe";
 
