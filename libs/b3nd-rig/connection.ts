@@ -23,9 +23,11 @@
  * const node = connection(httpClient, {
  *   receive: ["mutable://*", "immutable://*", "hash://*"],
  *   read:    ["mutable://*", "immutable://*", "hash://*"],
- *   list:    ["mutable://*"],
- *   delete:  ["mutable://*"],
+ *   observe: ["mutable://*"],
  * });
+ *
+ * // List reads piggyback on `read` — a trailing-slash URI is
+ * // matched against `read` patterns with the slash stripped.
  *
  * // Write-only mirror
  * const mirror = connection(pgClient, {
