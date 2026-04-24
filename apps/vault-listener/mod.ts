@@ -100,7 +100,7 @@ rig.on("receive:error", (e) => {
 rig.on("read:error", (e) => {
   console.error(`[rig] read failed: ${e.uri ?? "unknown"} — ${e.error}`);
 });
-const health = await rig.health();
+const health = await rig.status();
 console.log(`Backend node: ${BACKEND_URL} (${health.status})`);
 
 // --- Compose: handler + respondTo + connect ---
