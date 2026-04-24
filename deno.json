@@ -73,6 +73,7 @@
     "libs/b3nd-wallet",
     "libs/b3nd-managed-node",
     "libs/b3nd-rig",
+    "apps/ad-agency",
     "apps/b3nd-cli",
     "apps/b3nd-node",
     "apps/sdk-inspector",

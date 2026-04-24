@@ -1,0 +1,15 @@
+{
+  "tasks": {
+    "intake": "deno run -A 01-client-intake.ts",
+    "campaign": "deno run -A 02-campaign-publish.ts",
+    "approvals": "deno run -A 03-creative-approvals.ts",
+    "all": "deno run -A 01-client-intake.ts && deno run -A 02-campaign-publish.ts && deno run -A 03-creative-approvals.ts"
+  },
+  "imports": {
+    "@b3nd/rig": "../../libs/b3nd-rig/mod.ts",
+    "@bandeira-tech/b3nd-sdk": "../../src/mod.ts",
+    "@bandeira-tech/b3nd-sdk/hash": "../../libs/b3nd-hash/mod.ts",
+    "@bandeira-tech/b3nd-sdk/encrypt": "../../libs/b3nd-encrypt/mod.ts",
+    "@bandeira-tech/b3nd-sdk/types": "../../libs/b3nd-core/types.ts"
+  }
+}
