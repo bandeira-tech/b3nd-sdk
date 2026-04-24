@@ -82,32 +82,32 @@ deno run -A apps/b3nd-node/mod.ts
 This starts a permissive node (accepts any URI pattern) backed by in-memory
 storage. Useful for development and testing.
 
-### With a Schema
+### With a Programs Module
 
-To enforce validation rules from a protocol schema:
+To enforce classification rules from a protocol's programs:
 
 ```bash
 PORT=9942 \
 CORS_ORIGIN=* \
 BACKEND_URL=memory:// \
-SCHEMA_MODULE=./my-schema.ts \
+PROGRAMS_MODULE=./my-programs.ts \
 deno run -A apps/b3nd-node/mod.ts
 ```
 
-The schema module must export a default `Schema` object:
+The module must export a default `Record<string, Program>`:
 
 ```typescript
-// my-schema.ts
-import type { Schema } from "@bandeira-tech/b3nd-sdk";
+// my-programs.ts
+import type { Program } from "@bandeira-tech/b3nd-sdk";
 
-const schema: Schema = {
-  "mutable://open": async () => ({ valid: true }),
-  "mutable://accounts": async ({ uri, value }) => {
-    // your validation logic
-    return { valid: true };
+const programs: Record<string, Program> = {
+  "mutable://open": async () => ({ code: "open:accepted" }),
+  "mutable://accounts": async ([_uri, , _data]) => {
+    // your classification logic
+    return { code: "account:accepted" };
   },
 };
-export default schema;
+export default programs;
 ```
 
 ### Verify

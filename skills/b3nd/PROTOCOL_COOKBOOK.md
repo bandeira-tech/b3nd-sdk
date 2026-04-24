@@ -168,68 +168,90 @@ asymmetry (programs don't fire on `send()`), see
 
 ## Running Your Protocol's Node
 
-> **Note on API surface.** The sections below still reference the older
-> `Schema` / `Validator` / `createServerNode` / `msgSchema` API. Those
-> helpers are gone in the current SDK — the Rig is the single entry
-> point, and `programs:` + `handlers:` replace the old `schema:` key.
-> The patterns shown (schema module, multi-backend composition, node
-> setup) are still conceptually correct; port the function shapes per
-> the "What Changed: Schema → Programs" section of
-> [FRAMEWORK.md](./FRAMEWORK.md#what-changed-schema--programs).
+A node is a Rig plus a transport. The Rig owns the `programs` table,
+the `handlers`, and the connections to storage; `httpApi(rig)` exposes
+it as a standalone `(Request) => Promise<Response>` handler you can hand
+to any runtime.
 
-After defining your protocol's schema, you need to run a node that validates
-messages against it.
+### Programs Module Pattern
 
-### Schema Module Pattern
-
-Export your schema as a module so it can be imported by the node and by tests:
+Export your protocol's programs (and default handlers) as a module so
+operators can import them into their node, and so tests can exercise the
+same classification that production uses:
 
 ```typescript
-// schema.ts
-import type { Schema } from "@bandeira-tech/b3nd-sdk";
+// programs.ts
+import type { Program } from "@bandeira-tech/b3nd-sdk";
+import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 
-const schema: Schema = {
-  "mutable://open": async ([_uri, value]) => {
-    if (!value) return { valid: false, error: "Value required" };
-    return { valid: true };
+export const programs: Record<string, Program> = {
+  "mutable://open": async ([_uri, , data]) => {
+    if (data === undefined || data === null) {
+      return { code: "open:rejected", error: "Value required" };
+    }
+    return { code: "open:accepted" };
   },
+  "hash://sha256": hashValidator(),
 };
-export default schema;
 ```
 
-### createServerNode
+### Serving the Rig over HTTP
 
 ```typescript
-import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
-import { Hono } from "hono";
-import schema from "./schema.ts";
+import {
+  connection,
+  httpApi,
+  MemoryStore,
+  MessageDataClient,
+  Rig,
+} from "@bandeira-tech/b3nd-sdk";
+import { programs } from "./programs.ts";
 
 const client = new MessageDataClient(new MemoryStore());
-const app = new Hono();
-const frontend = servers.httpServer(app);
-const node = createServerNode({ frontend, client });
-node.listen(43100);
+const rig = new Rig({
+  connections: [connection(client, { receive: ["*"], read: ["*"] })],
+  programs,
+  handlers: {
+    "open:accepted": async (msg, broadcast) => { await broadcast([msg]); },
+  },
+});
+
+Deno.serve({ port: 43100 }, httpApi(rig));
 ```
 
 ### Multi-Backend Composition
 
+Multiple backends compose through multiple `connection()`s on the same
+Rig. Writes broadcast to every connection whose `receive` patterns match;
+reads try connections in declaration order.
+
 ```typescript
-import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
+import {
+  connection,
+  MemoryStore,
+  MessageDataClient,
+  Rig,
+} from "@bandeira-tech/b3nd-sdk";
+import { PostgresStore } from "@bandeira-tech/b3nd-client-postgres";
+import { programs } from "./programs.ts";
 
-const backends = [
-  new MessageDataClient(new MemoryStore()),
-  new PostgresStore({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
-];
-const composed = flood(backends.map((c, i) => peer(c, { id: `local-${i}` })));
+const memory = new MessageDataClient(new MemoryStore());
+const postgres = new MessageDataClient(
+  new PostgresStore({
+    connection: "postgresql://user:pass@localhost:5432/db",
+    tablePrefix: "b3nd",
+    poolSize: 5,
+    connectionTimeout: 10000,
+  }),
+);
 
-const client = createValidatedClient({
-  write: composed,
-  read: composed,
-  validate: msgSchema(schema),
+const rig = new Rig({
+  connections: [
+    connection(memory,   { receive: ["*"], read: ["*"] }),
+    connection(postgres, { receive: ["*"], read: ["*"] }),
+  ],
+  programs,
 });
-
-const frontend = servers.httpServer(app);
-createServerNode({ frontend, client });
 ```
 
 ### PostgreSQL / MongoDB Setup
@@ -239,46 +261,52 @@ createServerNode({ frontend, client });
 const pg = new PostgresStore({
   connection: "postgresql://user:pass@localhost:5432/db",
   tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
-}, executor);
+});
 await pg.initializeSchema();
 
 // MongoDB
 const mongo = new MongoStore({
   connectionString: "mongodb://localhost:27017/mydb",
   collectionName: "b3nd_data",
-}, executor);
+});
 ```
 
 ---
 
 ## Packaging a Protocol SDK
 
-Once your protocol's schema is stable, wrap it into a protocol-specific package
-so app developers don't need to understand B3nd internals.
+Once your protocol's programs are stable, wrap them into a
+protocol-specific package so app developers don't need to understand
+B3nd internals.
 
 **What to export:**
 
-1. **Schema** — the schema table, so node operators can run your protocol
-2. **Pre-configured client factory** — a function that returns an `HttpClient`
-   pointed at your network
-3. **Typed helpers** — functions that build valid messages for your programs
-4. **URI builders** — functions that construct URIs following your conventions
+1. **Programs** — the `Record<string, Program>` table, so node operators
+   can run your protocol.
+2. **Pre-configured client factory** — a function that returns an
+   `HttpClient` pointed at your network.
+3. **Typed helpers** — functions that build well-formed 3-tuple messages
+   for your programs.
+4. **URI builders** — functions that construct URIs following your
+   conventions.
 
 **Example: packaging a minimal protocol SDK:**
 
 ```typescript
 // my-protocol-sdk/mod.ts
-import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { HttpClient, send } from "@bandeira-tech/b3nd-sdk";
+import type { Program } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 
-// 1. Schema export (for node operators)
-export const schema: Schema = {
-  "mutable://open": async () => ({ valid: true }),
+// 1. Programs export (for node operators)
+export const programs: Record<string, Program> = {
+  "mutable://open": async () => ({ code: "open:accepted" }),
   "hash://sha256": hashValidator(),
-  "link://open": async ([_uri, value]) => {
-    if (typeof value !== "string") return { valid: false, error: "Must be string" };
-    return { valid: true };
+  "link://open": async ([_uri, , data]) => {
+    if (typeof data !== "string") {
+      return { code: "link:rejected", error: "Must be string" };
+    }
+    return { code: "link:accepted" };
   },
 };
 
@@ -287,11 +315,9 @@ export function createClient(url = "https://my-protocol-node.example.com") {
   return new HttpClient({ url });
 }
 
-// 3. Typed helpers
-export async function writeNote(client: HttpClient, path: string, content: object) {
-  return send({
-    payload: { inputs: [], outputs: [[`mutable://open/${path}`, content]] },
-  }, client);
+// 3. Typed helpers — produce the 3-tuple apps pass to receive/send.
+export function buildNote(path: string, content: object) {
+  return [`mutable://open/${path}`, {}, content] as const;
 }
 
 // 4. URI builders
@@ -300,7 +326,7 @@ export function noteUri(path: string) {
 }
 ```
 
-A protocol's schema module exports the canonical program schema. The
-`@bandeira-tech/b3nd-web` and `@bandeira-tech/b3nd-sdk` packages provide the
-transport layer. Together they form the protocol SDK that app developers
-consume — without knowing they're using B3nd underneath.
+A protocol's programs module is the canonical contract. The
+`@bandeira-tech/b3nd-web` and `@bandeira-tech/b3nd-sdk` packages provide
+the transport layer. Together they form the protocol SDK that app
+developers consume — without knowing they're using B3nd underneath.

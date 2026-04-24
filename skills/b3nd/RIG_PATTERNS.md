@@ -276,11 +276,10 @@ The `programs` table defines how your application classifies messages by URI
 prefix. It lives on the rig — the application layer — not on clients. Clients
 are pure plumbing that store and retrieve data without opinions.
 
-Programs replaced the older `Schema` / `Validator` API. A `Program` returns
-`{ code, error? }` rather than `{ valid, error }`. The other behavior shift
-worth knowing: **unknown URI prefixes pass through to connections without
-validation**. If you want the old "reject unknown" posture, install an
-explicit rejecter program. See the callout at the bottom of this section.
+A `Program` returns `{ code, error? }`. **Unknown URI prefixes pass
+through to connections without classification.** If you need a
+closed-by-default posture, install an explicit rejecter program. See
+the "Reject unknown prefixes" recipe below.
 
 ```typescript
 import { connection, Rig } from "@bandeira-tech/b3nd-sdk/rig";
@@ -314,22 +313,11 @@ await rig.receive([["unknown://foo", {}, { v: 1 }]]);
 // → { accepted: true } (because the connection accepts "*")
 ```
 
-> **Migration note.** In earlier revisions the Rig accepted a `schema:` key
-> whose validators returned `{ valid, error }` and **rejected unknown prefixes
-> by default**. That API is gone. Today the Rig accepts
-> `programs: Record<string, Program>` and `handlers: Record<string, CodeHandler>`
-> — programs classify, handlers act on codes. The default-open posture for
-> unknown URIs is the deliberate new behavior; install an explicit rejecter
-> program (see the "Reject unknown prefixes" recipe below) to restore the
-> old guard.
-
----
-
 ### Reject unknown prefixes
 
-If you need the "schema is law" posture, install a rejecter at every prefix
-you want closed. Programs match by longest prefix, so you can wildcard a
-whole scheme and still allow narrower programs to take over.
+Install a rejecter at every prefix you want closed. Programs match by
+longest prefix, so you can wildcard a whole scheme and still allow
+narrower programs to take over.
 
 ```typescript
 import type { Program } from "@bandeira-tech/b3nd-sdk";
@@ -367,10 +355,6 @@ pipeline only fires on `rig.receive()`. `rig.send()` (and the `session.send()`
 it underlies) takes a pre-built envelope, runs the `beforeSend` hook, and
 dispatches the envelope **directly** to connections — it never calls the
 program registry.
-
-This surprises people porting from the older `msgSchema()` helper, which
-wrapped the *client* and therefore caught both paths. In today's SDK the
-Rig only guards receives.
 
 Practical consequences:
 
@@ -1669,8 +1653,8 @@ await session.send({
 Identity                   Rig
 (external)          ┌──────────────────────────────────────┐
    │                │                                      │
-   │  .rig(rig)     │  Schema     Hooks      Events        │
-   └───────►        │  (validate) (guard)    (notify)      │
+   │  .rig(rig)     │  Programs   Hooks      Events        │
+   └───────►        │  (classify) (guard)    (notify)      │
 AuthenticatedRig    │                                      │
 (sign, encrypt)     │         ┌────────────────┐           │
    │                │         │  Core Operation │           │
@@ -1692,6 +1676,6 @@ AuthenticatedRig    │                                      │
 The rig is pure orchestration — identity-free. Identity is the security
 principal: it signs and encrypts externally, then dispatches pre-signed messages
 through the rig. `identity.rig(rig)` creates an `AuthenticatedRig` session.
-Schema validates. Hooks guard. Clients are pure plumbing. Events notify.
+Programs classify. Hooks guard. Clients are pure plumbing. Events notify.
 Observers react. A compromised rig can dispatch but cannot forge signatures —
 the security boundary is the identity, not the rig.
