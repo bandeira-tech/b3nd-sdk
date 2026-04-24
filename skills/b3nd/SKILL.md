@@ -9,7 +9,7 @@ description: |
 
   FAQ.md — Design rationale, trade-offs, architectural decisions, troubleshooting. Read when asking "why does B3nd do X?"
 
-  PROTOCOL_COOKBOOK.md — Protocol recipes: packaging a protocol SDK, running nodes with schema modules, multi-backend composition. Read for protocol deployment patterns.
+  PROTOCOL_COOKBOOK.md — Protocol recipes: the programs+handlers+broadcast composition point (with a worked fan-out example), packaging a protocol SDK, running nodes with schema modules, multi-backend composition. Read for protocol deployment patterns and for the classifier/handler/broadcast idiom.
 
   DESIGN_EXCHANGE.md — Exchange patterns & trust models: serverless, non-custodial, pubkey access control, managed operator, three-party consensus, party interaction diagrams, crypto guarantees. Read for trust model design.
 
@@ -77,17 +77,51 @@ postmasters — they deliver the mail but don't read it.
 
 ## Core Concepts
 
-**Messages are tuples.** Every state change is a `[uri, values, data]` tuple.
-URIs address where data goes. Values carry conserved quantities. Data is the
-payload. This is the universal primitive.
+**Messages are tuples.** Every state change is a `[uri, values, data]` tuple
+— always three positions, never two. The middle slot (`values`) carries
+conserved quantities (UTXO-style `{ fire: 100 }`, `{ gas: 50 }`, etc.) and
+is `{}` for pure data writes. URIs address where data goes; data is the
+payload. This is the universal primitive. See
+[DESIGN_PRIMITIVE.md](./DESIGN_PRIMITIVE.md#values-and-conservation) for
+what the values slot is for.
 
 **Programs classify messages.** A program is a function that receives a message
-and returns a result. Programs are protocol-defined — the framework dispatches
-to them based on URI prefix. Programs are pure classifiers with no side effects.
+and returns a classification `{ code, error? }`. Programs are protocol-defined
+— the framework dispatches to them by longest-prefix URI match. Programs are
+pure classifiers with no side effects.
 
-**Schemas map URIs to programs.** A schema is a `Record<string, Program>` — a
-lookup table from URI prefixes to validation functions. The framework matches
-each incoming message's URI against the schema to find the right program.
+**Programs map URIs to classifiers.** The `programs:` table on a Rig is a
+`Record<string, Program>` — a lookup from URI prefixes to classifier
+functions. The framework matches each incoming message's URI against the
+table to find the right program.
+
+## What Changed From the Schema Era
+
+If you are reading older documentation, blog posts, or apps that reference
+b3nd's `Schema` / `Validator` API (`{ valid, error }` return, `schema:`
+key on the Rig, `msgSchema()` helper), three things have changed in the
+current SDK and it is worth knowing all three before you wire a protocol:
+
+1. **Classification replaces validation.** Programs return
+   `{ code, error? }`. The framework has no built-in notion of "valid" —
+   rejections are just programs that set `error`. Codes map to
+   `handlers:`, so a protocol can distinguish "valid", "valid but not
+   confirmed", "needs attestation", etc. and an operator can override
+   handlers without forking the classifiers.
+2. **Unknown URI prefixes pass through by default.** The old Schema
+   rejected URIs with no matching program. Today the Rig dispatches
+   unmatched URIs straight to connections without classification. If you
+   need the old closed-by-default posture, install an explicit rejecter
+   program — see the "Reject unknown prefixes" recipe in
+   [RIG_PATTERNS.md](./RIG_PATTERNS.md#reject-unknown-prefixes).
+3. **Programs fire on receive, not on send.** `rig.send()` /
+   `session.send()` dispatches the envelope directly to connections
+   after the `beforeSend` hook; it never runs the program registry.
+   If you need program-level enforcement on authenticated writes, route
+   them through `rig.receive()` with a signed payload in `data`, use
+   `beforeSend` hooks, or rely on transport-side authorization. See
+   [FRAMEWORK.md](./FRAMEWORK.md#programs-validate-receives-not-sends)
+   for the full rationale and a worked example.
 
 **Envelopes group related writes.** An envelope bundles inputs (URIs consumed)
 and outputs (new data) into a single atomic-intent unit. Content-addressed

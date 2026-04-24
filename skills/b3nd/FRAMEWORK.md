@@ -38,43 +38,52 @@ a post office archives letters is the postmaster's decision, not the system's.
 
 ### The Message Primitive
 
-All state changes flow through a single operation. A message is a tuple:
+All state changes flow through a single operation. A message is a 3-tuple:
 
 ```typescript
-type Message<D = unknown> = [uri: string, data: D];
+type Output<D = unknown> = [uri: string, values: Record<string, number>, data: D];
+type Message<D = unknown> = Output<D>;
 ```
 
-URIs address where data goes. Data is whatever you're sending. That's it.
+- **uri** addresses where the data goes.
+- **values** carries conserved quantities (UTXO-style "fire", "gas", …).
+  `{}` means "no conserved quantities" — it is **always present**, never optional.
+  See [DESIGN_PRIMITIVE.md](./DESIGN_PRIMITIVE.md#values-and-conservation) for
+  what the slot is for.
+- **data** is the payload.
+
+Every example in this document uses the 3-tuple shape. A write with no
+conserved quantities looks like `["mutable://open/x", {}, data]`. Older
+examples in the wild that pass `[uri, data]` are out of date — the middle
+slot is mandatory.
 
 ### The Envelope Shape
 
-Messages that carry multiple outputs use the envelope structure:
+Messages that reference other state bundle inputs + outputs into a single
+`MessageData` payload:
 
 ```typescript
-interface MessageData<V = unknown> {
+interface MessageData {
   auth?: Array<{ pubkey: string; signature: string }>;
-  payload: {
-    inputs: string[];                    // references to existing state
-    outputs: Array<[string, V]>;        // [uri, value] pairs to write
-  };
+  inputs: string[];     // URIs this message references or consumes
+  outputs: Output[];    // [uri, values, data] tuples this message produces
 }
 ```
 
-An envelope is itself a message — `[uri, { auth?, payload: { inputs, outputs } }]`.
-`auth` is optional — programs decide whether they need it. `payload` always
-contains `{ inputs, outputs }`. Envelopes can reference other envelopes. This
-recursive structure is the foundation for protocol design: content → validation →
-confirmation are all just envelopes referencing envelopes.
+`MessageData` is itself the `data` slot of a 3-tuple message — the complete
+envelope-on-the-wire is:
 
 ```
-[envelope_uri, {
-  auth: [{ pubkey, signature }],
-  payload: { inputs: [...], outputs: [[uri, value], ...] }
-}]
+[envelope_uri, {}, { auth?, inputs, outputs }]
 ```
 
-Every layer — user request, validator attestation, confirmer finalization — uses
-this same shape. The framework doesn't distinguish between them.
+`auth` is optional — programs decide whether they need it. `inputs`/`outputs`
+are flat (no `payload:` nesting). Envelopes can reference other envelopes by
+hash URI — that recursive structure is the foundation for protocol design:
+content → validation → confirmation are all just envelopes referencing envelopes.
+
+Every layer — user request, validator attestation, confirmer finalization —
+uses this same shape. The framework doesn't distinguish between them.
 
 ### How It Works
 
@@ -151,9 +160,12 @@ validation.
 **What happens with envelopes (MessageData):**
 
 When a `receive()` call contains a `MessageData` envelope, the client
-automatically unpacks it. Each output in `payload.outputs` becomes a separate
-`receive()` call to the node. The envelope itself is sent to its
-content-addressed hash URI as an audit trail.
+automatically unpacks it. Each output in `outputs` is written to the
+client's own underlying Store — these writes do **not** re-enter the Rig
+for cross-connection routing. The envelope itself is stored at its
+content-addressed hash URI as an audit trail. See
+[DESIGN_PRIMITIVE.md](./DESIGN_PRIMITIVE.md#envelopes-and-the-rig) for
+what this means for multi-backend fan-out.
 
 This is handled by the client, not the framework. The `msgSchema()` validator
 validates the envelope AND each output before the client sends anything.
@@ -178,29 +190,124 @@ content-addressing. How a protocol organizes programs is a protocol design
 choice. Some protocols use a few broad programs and organize domain concepts
 as paths. Others create domain-specific programs. The framework is agnostic.
 
-The **schema** is a mapping from program keys to validators:
+The **programs** table maps program keys to `Program` classifiers. A `Program`
+returns a protocol-defined `code`, not a binary `{ valid, error }`:
 
 ```typescript
-type Output<T = unknown> = [uri: string, data: T];
+type Output<T = unknown> = [uri: string, values: Record<string, number>, data: T];
 
-type Validator<T = unknown> = (
+type ProgramResult = {
+  code: string;     // protocol-defined classification, e.g. "proto:valid"
+  error?: string;   // human-readable reason (for rejections)
+};
+
+type Program<T = unknown> = (
   output: Output<T>,
   upstream: Output | undefined,
   read: ReadFn,
-) => Promise<ValidationResult>;
+) => Promise<ProgramResult>;
 
-type Schema = Record<string, Validator>;
-
-// Example: a schema with two programs
-const schema: Schema = {
-  "mutable://open": async ([uri, , data]) => ({ valid: !!data }),
-  "test://data": async () => ({ valid: true }),
+// Example: a programs table with two entries
+const programs: Record<string, Program> = {
+  "mutable://open": async ([, , data]) => ({
+    code: data ? "ok" : "rejected",
+    error: data ? undefined : "empty data",
+  }),
+  "test://data": async () => ({ code: "ok" }),
 };
 ```
 
-When a message arrives, the framework extracts `scheme://hostname` from the URI,
-looks up the validation function, and calls it. If no program matches, the
-message is rejected. Programs decide everything: mutability, authentication,
+When a message arrives via `rig.receive()`, the rig finds the program whose
+key is the longest prefix of the URI (`mutable://accounts/alice/profile`
+matches `mutable://accounts`). It runs the program, then dispatches to the
+handler registered for the returned `code`. See the `handlers` table in
+[DESIGN_PRIMITIVE.md](./DESIGN_PRIMITIVE.md#protocol-packages) for how codes
+are wired to operational behavior.
+
+### What Changed: Schema → Programs
+
+Earlier revisions of b3nd used a `Schema` type with `Validator` functions
+returning `{ valid: boolean, error?: string }`, installed on the Rig via a
+`schema:` config key. That API has been replaced by `programs:` + `handlers:`,
+with two material semantic changes:
+
+1. **Classification replaces validation.** A `Program` returns
+   `{ code, error? }`. The framework no longer has a built-in notion of
+   "valid" vs "invalid"; rejections are just programs that return a `code`
+   with an `error` set. Any non-error code is accepted, and each code can
+   be wired to a different handler. This is strictly more expressive than
+   the old boolean — a message can be "valid but not yet confirmed", for
+   example, and each state can be handled differently.
+
+2. **Unknown prefixes pass through by default.** The old `Schema` rejected
+   any URI that didn't match a registered program. `programs:` now
+   **dispatches directly to connections** when no program matches — i.e.
+   unknown URIs are written without validation. If you want the old
+   "rejection by default" posture, register an explicit rejecter:
+
+   ```typescript
+   const rejectUnknown: Program = (msg) => Promise.resolve({
+     code: "rejected",
+     error: `rejected by program: ${msg[0]}`,
+   });
+
+   const rig = new Rig({
+     connections: [...],
+     programs: {
+       // Your real programs here...
+       "mutable://accounts": accountsProgram,
+       // Any prefix you want closed, install an explicit rejecter for it.
+       // Programs match by longest prefix, so this only catches URIs that
+       // don't match a more specific program above.
+       "mutable://": rejectUnknown,
+     },
+   });
+   ```
+
+   This is the pattern used in the rig test suite (`libs/b3nd-rig/rig.test.ts`,
+   look for the `rejectUnknown` fixture) and in `libs/b3nd-client-memory/mod.ts`
+   (`createTestPrograms`).
+
+   This is a real security-posture change. The framework trades "schema is
+   law" for "protocols must explicitly install a rejecter". If you are
+   porting a Schema-era protocol, the migration is: register your old
+   validators as programs, add a rejecter at any prefix you want closed.
+
+3. **Programs only run on `rig.receive()`, not on `rig.send()`.** See the
+   "Programs validate receives, not sends" subsection below — this is the
+   single biggest gotcha when porting from the old Schema API, because the
+   old `msgSchema()` helper ran on the *client* and therefore caught both
+   paths.
+
+### Programs validate receives, not sends
+
+The program pipeline (`_runProgram` in `libs/b3nd-rig/rig.ts`) is invoked
+only from `rig.receive()`. `rig.send()` takes a pre-built `MessageData`
+envelope, runs the `beforeSend` hook, and dispatches **directly to
+connections** — it never classifies the envelope or its outputs.
+
+This surprises people migrating from the old `msgSchema()` helper, which
+wrapped the *client* and therefore caught both read and write paths. The
+new Rig pipeline only guards receives.
+
+If you need validation on authenticated writes, choose one of:
+
+- **Route writes through `receive()` with a signed payload in `data`.** The
+  identity signs a nested payload, the top-level URI's program verifies the
+  signature and the outputs before any storage happens. This is the idiom
+  the rig tests use for signed-write enforcement.
+- **Use a `beforeSend` hook** to throw on unauthorized envelopes. Hooks run
+  on `rig.send()` as well as on `session.send()`.
+- **Accept that trust is established transport-side** — e.g. by requiring
+  HTTPS + authenticated transport before the envelope ever reaches the rig.
+
+A worked example of the "receive + signed data" pattern lives in
+`apps/ad-agency/03-creative-approvals.ts` on the exploration branch.
+
+When a message arrives via `receive()`, the framework extracts
+`scheme://hostname` from the URI, looks up the program, and calls it. If no
+program matches, the message is dispatched to connections without
+validation. Programs decide everything: mutability, authentication,
 content-addressing, access patterns.
 
 ### NodeProtocolInterface
@@ -256,21 +363,19 @@ const results = await client.read([
 ### The send() and message() API
 
 `send()` batches multiple writes into a content-addressed envelope. It computes
-a SHA256 hash of the payload (via RFC 8785 canonical JSON), sends through the
-client, and returns the result:
+a SHA256 hash of the `MessageData` (via RFC 8785 canonical JSON), sends
+through the client, and returns the result:
 
 ```typescript
 import { send } from "@bandeira-tech/b3nd-sdk";
 // or: import { send } from "@bandeira-tech/b3nd-web";
 
 const result = await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      ["mutable://open/app/config", { theme: "dark" }],
-      ["mutable://open/app/status", { active: true }],
-    ],
-  },
+  inputs: [],
+  outputs: [
+    ["mutable://open/app/config", {}, { theme: "dark" }],
+    ["mutable://open/app/status", {}, { active: true }],
+  ],
 }, client);
 // result.uri = "hash://sha256/{hex}" — the envelope's content-addressed URI
 // result.accepted = true
@@ -278,31 +383,34 @@ const result = await send({
 // With auth:
 const authResult = await send({
   auth: [{ pubkey, signature }],
-  payload: {
-    inputs: [],
-    outputs: [["mutable://accounts/{pubkey}/profile", signedData]],
-  },
+  inputs: [],
+  outputs: [["mutable://accounts/{pubkey}/profile", {}, signedData]],
 }, client);
 ```
 
-- `msgSchema(schema)` validates the envelope AND each output against its
-  program's schema
-- Each client's `receive()` detects MessageData and dispatches outputs individually
-- The envelope is sent to its hash URI as an audit trail
+- `MessageData` is flat `{ auth?, inputs, outputs }` — there is no `payload`
+  nesting.
+- Each `MessageDataClient.receive()` detects the `{ inputs, outputs }`
+  shape and decomposes it into the underlying Store — inputs get deleted,
+  outputs get written to the same Store. Note that **outputs are NOT
+  re-routed through the Rig** — if you want cross-connection fan-out
+  based on output URI patterns, call `rig.receive([msg, msg, msg])` with
+  one tuple per destination. See the "Envelopes and the Rig" note in
+  [DESIGN_PRIMITIVE.md](./DESIGN_PRIMITIVE.md#envelopes-and-the-rig).
+- The envelope is stored at its hash URI as an audit trail.
 
 The lower-level `message()` function builds the tuple without sending:
 
 ```typescript
 import { message } from "@bandeira-tech/b3nd-sdk";
 
-const [uri, , data] = await message({
-  payload: {
-    inputs: [],
-    outputs: [["mutable://open/config", {}, { theme: "dark" }]],
-  },
+const [uri, values, data] = await message({
+  inputs: [],
+  outputs: [["mutable://open/config", {}, { theme: "dark" }]],
 });
-// uri = "hash://sha256/{computed-hash}"
-// data = { inputs: [], outputs: [...] }
+// uri    = "hash://sha256/{computed-hash}"
+// values = {}
+// data   = { inputs: [], outputs: [...] }
 ```
 
 ### Auth Primitives
@@ -566,7 +674,7 @@ mechanism is essential for protocol design.
 1. **Plain message** `[uri, values, data]` — extracts the program from `uri`, looks up
    the validator in the schema table, calls it with `upstream = undefined`.
 
-2. **Envelope message** `[uri, { auth?, payload: { inputs, outputs } }]` — does
+2. **Envelope message** `[uri, {}, { auth?, inputs, outputs }]` — does
    three things in sequence:
    - Validates the envelope URI against its program validator (with `upstream = undefined`)
    - Enforces content-hash integrity for any `hash://` output URIs
@@ -591,7 +699,7 @@ function msgSchema(programSchema) {
     if (!envelopeResult.valid) return envelopeResult;
 
     // 2-3. Validate each inner output — envelope becomes upstream
-    for (const inner of data.payload.outputs) {
+    for (const inner of data.outputs) {
       const [outputUri] = inner;
       // Content-hash check (structural, automatic for hash:// URIs)
       // Then dispatch to the output's program validator
@@ -609,7 +717,7 @@ function msgSchema(programSchema) {
 ```
 
 **Key insight:** The envelope's program validator sees the *entire* envelope
-as its `output` (i.e., `[envelopeUri, { auth, payload }]`). Each inner
+as its `output` (i.e., `[envelopeUri, {}, { auth, inputs, outputs }]`). Each inner
 output's program validator receives the inner `[uri, value]` as `output`
 and the full envelope as `upstream`. This means envelope-level concerns
 (signature verification, input references, fee checks) belong in the
@@ -631,7 +739,7 @@ semantics implement them via `read()`:
 ```typescript
 // Protocol-defined: check that all inputs exist and are unconsumed
 const envelopeValidator: Validator = async ([uri, , data], upstream, read) => {
-  for (const inputUri of data.payload.inputs) {
+  for (const inputUri of data.inputs) {
     const existing = await read(inputUri);
     if (!existing.success) {
       return { valid: false, error: `Input not found: ${inputUri}` };
@@ -691,20 +799,22 @@ import { isMessageData } from "@bandeira-tech/b3nd-sdk";
 
 // Fee validator: inspects sibling outputs via upstream
 const feeValidator: Validator = async ([uri, , data], upstream, read) => {
-  // upstream is the envelope [envelopeUri, { auth, payload: { inputs, outputs } }]
+  // upstream is the envelope [envelopeUri, {}, { auth, inputs, outputs }]
   // For plain writes, upstream is undefined
   if (!upstream) return { valid: false, error: "Fee check requires envelope context" };
 
   const [, envelope] = upstream;
   if (!isMessageData(envelope)) return { valid: false, error: "Invalid envelope" };
 
-  // Example: require a fee output proportional to data size
-  const feeOutput = envelope.payload.outputs.find(([u]) => u.startsWith("fees://"));
+  // Example: require a fee output proportional to data size.
+  // The fee is a conserved quantity in the Output's `values` slot (position 1).
+  const feeOutput = envelope.outputs.find(([u]) => u.startsWith("fees://"));
   if (!feeOutput) return { valid: false, error: "Fee required" };
 
   const dataSize = JSON.stringify(data).length;
   const requiredFee = Math.ceil(dataSize / 100);
-  if ((feeOutput[1] as number) < requiredFee) {
+  const fee = feeOutput[1].fire ?? 0; // values: { fire: N }
+  if (fee < requiredFee) {
     return { valid: false, error: `Insufficient fee: need ${requiredFee}` };
   }
   return { valid: true };
@@ -719,16 +829,19 @@ output's program validator and can inspect `upstream` when needed:
 ```typescript
 const schema: Schema = {
   // Envelope validator: checks signatures, input existence
-  "hash://sha256": async ([uri, , data], upstream, read) => {
+  "hash://sha256": async ([, , data], _upstream, read) => {
     if (!isMessageData(data)) return { valid: true }; // plain hash: OK
-    // Check signatures, verify input existence, enforce conservation laws
+    // Enforce conservation on the `fire` quantity (Output values slot).
     let inputSum = 0;
-    for (const inputUri of data.payload.inputs) {
-      const input = await read<{ amount: number }>(inputUri);
-      if (input.success && input.record) inputSum += input.record.data.amount;
+    for (const inputUri of data.inputs) {
+      const [input] = await read(inputUri);
+      if (input.success && input.record) {
+        inputSum += input.record.values.fire ?? 0;
+      }
     }
-    const outputSum = data.payload.outputs.reduce(
-      (sum, [, v]) => sum + (v as number), 0,
+    const outputSum = data.outputs.reduce(
+      (sum, [, values]) => sum + (values.fire ?? 0),
+      0,
     );
     if (outputSum > inputSum) {
       return { valid: false, error: "Outputs exceed inputs" };
@@ -766,10 +879,8 @@ const schema: Schema = {
 Deno.test("accepts valid account write", async () => {
   const client = new MessageDataClient(new MemoryStore());
   const result = await send({
-    payload: {
-      inputs: [],
-      outputs: [["mutable://accounts/alice/profile", { name: "Alice" }]],
-    },
+    inputs: [],
+    outputs: [["mutable://accounts/alice/profile", {}, { name: "Alice" }]],
   }, client);
   assertEquals(result.accepted, true);
 });
@@ -777,10 +888,8 @@ Deno.test("accepts valid account write", async () => {
 Deno.test("rejects invalid account write", async () => {
   const client = new MessageDataClient(new MemoryStore());
   const result = await send({
-    payload: {
-      inputs: [],
-      outputs: [["mutable://accounts/alice/profile", null]],
-    },
+    inputs: [],
+    outputs: [["mutable://accounts/alice/profile", {}, null]],
   }, client);
   assertEquals(result.accepted, false);
   assertEquals(result.error, "mutable://accounts: Value must be an object");
@@ -816,27 +925,24 @@ enables a natural consensus architecture:
 
 ```
 Layer: User request
-[hash://sha256/{content}, {
+[hash://sha256/{content}, {}, {
   auth: [{ user, sig }],
-  payload: { inputs: [], outputs: [[uri, value], ...] }
+  inputs: [],
+  outputs: [[uri, {}, value], ...]
 }]
 
 Layer: Validation (validator endorses the request)
-[hash://sha256/{validated}, {
+[hash://sha256/{validated}, {}, {
   auth: [{ validator, sig }],
-  payload: {
-    inputs: ["hash://sha256/{content}"],
-    outputs: [["link://accounts/{validator}/validations/{content_hash}", ...]]
-  }
+  inputs: ["hash://sha256/{content}"],
+  outputs: [["link://accounts/{validator}/validations/{content_hash}", {}, ...]]
 }]
 
 Layer: Confirmation (confirmer finalizes)
-[hash://sha256/{confirmed}, {
+[hash://sha256/{confirmed}, {}, {
   auth: [{ confirmer, sig }],
-  payload: {
-    inputs: ["hash://sha256/{validated}"],
-    outputs: [["link://accounts/{confirmer}/confirmed/{content_hash}", ...]]
-  }
+  inputs: ["hash://sha256/{validated}"],
+  outputs: [["link://accounts/{confirmer}/confirmed/{content_hash}", {}, ...]]
 }]
 ```
 
@@ -937,14 +1043,12 @@ const hash = await computeSha256(post);
 const hashUri = generateHashUri(hash);
 
 await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      [hashUri, post],                                    // immutable content
-      ["link://posts/latest", hashUri],                   // mutable pointer
-      ["mutable://profiles/alice", { name: "Alice" }],    // profile update
-    ],
-  },
+  inputs: [],
+  outputs: [
+    [hashUri, {}, post],                                    // immutable content
+    ["link://posts/latest", {}, hashUri],                   // mutable pointer
+    ["mutable://profiles/alice", {}, { name: "Alice" }],    // profile update
+  ],
 }, client);
 
 // 2. Read the latest post via the link
@@ -965,13 +1069,11 @@ const hash = await computeSha256(content);
 const hashUri = `hash://sha256/${hash}`;
 
 await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      [hashUri, content],                        // immutable content
-      ["link://open/posts/latest", hashUri],      // mutable pointer
-    ],
-  },
+  inputs: [],
+  outputs: [
+    [hashUri, {}, content],                         // immutable content
+    ["link://open/posts/latest", {}, hashUri],       // mutable pointer
+  ],
 }, client);
 ```
 
@@ -1003,15 +1105,13 @@ mutable state write (fast path). The schema enforces both:
 ```typescript
 // Validator writes to both paths in one envelope
 await send({
-  payload: {
-    inputs: ["hash://sha256/{user_request}"],
-    outputs: [
-      // Proof path: immutable validation record
-      ["link://accounts/{validator}/validations/{hash}", validationAttestation],
-      // Fast path: update the user's mutable balance
-      ["mutable://accounts/{pubkey}/balance", { amount: newBalance }],
-    ],
-  },
+  inputs: ["hash://sha256/{user_request}"],
+  outputs: [
+    // Proof path: immutable validation record
+    ["link://accounts/{validator}/validations/{hash}", {}, validationAttestation],
+    // Fast path: update the user's mutable balance
+    ["mutable://accounts/{pubkey}/balance", {}, { amount: newBalance }],
+  ],
 }, client);
 ```
 
@@ -1087,6 +1187,20 @@ protocols define checkpoint intervals and what constitutes a valid checkpoint.
 These examples show progressively more complex protocols, each demonstrating a
 different B3nd design pattern. Each includes the schema, a node setup snippet,
 and a usage example showing what an app consuming the protocol does.
+
+> **Note on API surface.** The examples in this section use the earlier
+> `Schema` / `Validator` shape (return `{ valid, error }`) and the
+> `msgSchema()` / `createValidatedClient()` / `createServerNode()`
+> helpers. Those helpers are gone in the current SDK — the Rig is the
+> single entry point now (`programs: { ... }`, `handlers: { ... }`,
+> handlers dispatched by code rather than a boolean). The **patterns**
+> below (program keyed by URI prefix, cross-program reads, envelope-
+> level vs per-output rules) are still exactly right; the function
+> shapes have migrated. See the "What Changed: Schema → Programs"
+> section earlier in this document for the translation. If you are
+> following these examples against today's SDK, expect to adapt each
+> validator to a `Program` returning `{ code, error? }` and to install
+> them on a `Rig` instead of calling `createServerNode`.
 
 ### Simple Open Protocol
 
@@ -1178,10 +1292,8 @@ const signed = await encrypt.createAuthenticatedMessageWithHex(
   { name: "Alice" }, keys.publicKeyHex, keys.privateKeyHex,
 );
 await send({
-  payload: {
-    inputs: [],
-    outputs: [[`mutable://accounts/${keys.publicKeyHex}/profile`, signed]],
-  },
+  inputs: [],
+  outputs: [[`mutable://accounts/${keys.publicKeyHex}/profile`, {}, signed]],
 }, client);
 ```
 
@@ -1222,13 +1334,11 @@ const hash = await computeSha256(article);
 const hashUri = generateHashUri(hash);
 
 await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      [hashUri, article],                          // immutable content
-      ["link://open/articles/latest", hashUri],     // mutable pointer
-    ],
-  },
+  inputs: [],
+  outputs: [
+    [hashUri, {}, article],                           // immutable content
+    ["link://open/articles/latest", {}, hashUri],      // mutable pointer
+  ],
 }, client);
 
 // Later: update the pointer to new content without losing the old
@@ -1237,13 +1347,11 @@ const newHash = await computeSha256(updated);
 const newHashUri = generateHashUri(newHash);
 
 await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      [newHashUri, updated],
-      ["link://open/articles/latest", newHashUri],  // pointer now points to v2
-    ],
-  },
+  inputs: [],
+  outputs: [
+    [newHashUri, {}, updated],
+    ["link://open/articles/latest", {}, newHashUri],  // pointer now points to v2
+  ],
 }, client);
 
 // Old version is still readable at its hash URI
@@ -1254,13 +1362,11 @@ an input, creating a tamper-evident chain:
 
 ```typescript
 await send({
-  payload: {
-    inputs: [previousHashUri],  // reference to previous version
-    outputs: [
-      [newHashUri, newContent],
-      ["link://open/chain/head", newHashUri],
-    ],
-  },
+  inputs: [previousHashUri],  // reference to previous version
+  outputs: [
+    [newHashUri, {}, newContent],
+    ["link://open/chain/head", {}, newHashUri],
+  ],
 }, client);
 ```
 
@@ -1282,7 +1388,7 @@ const schema: Schema = {
     if (upstream) {
       const [, envelope] = upstream;
       if (isMessageData(envelope)) {
-        const feeOutput = envelope.payload.outputs.find(([u]) => u.startsWith("fees://"));
+        const feeOutput = envelope.outputs.find(([u]) => u.startsWith("fees://"));
         if (!feeOutput) return { valid: false, error: "Fee required" };
 
         const dataSize = JSON.stringify(data).length;
@@ -1304,13 +1410,11 @@ const schema: Schema = {
 
 ```typescript
 await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      ["immutable://open/post/123", { title: "Hello", body: "World..." }],
-      ["fees://pool", 1],  // fee covers data size
-    ],
-  },
+  inputs: [],
+  outputs: [
+    ["immutable://open/post/123", {}, { title: "Hello", body: "World..." }],
+    ["fees://pool", { fire: 1 }, null],  // fee carried as a conserved quantity
+  ],
 }, client);
 ```
 
@@ -1323,24 +1427,27 @@ the conservation law. Per-output validators check individual amounts.
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
 import { isMessageData } from "@bandeira-tech/b3nd-sdk";
 
-const nonNegative: Validator<number> = async ([uri, , data]) => {
-  if (data < 0) return { valid: false, error: "Negative amount" };
+const nonNegative: Validator = async ([, values]) => {
+  if ((values.fire ?? 0) < 0) return { valid: false, error: "Negative amount" };
   return { valid: true };
 };
 
 const schema: Schema = {
   // Envelope validator: enforce conservation law
-  "hash://sha256": async ([uri, , data], upstream, read) => {
+  "hash://sha256": async ([, , data], _upstream, read) => {
     if (!isMessageData(data)) return { valid: true }; // plain hash write
-    // Sum inputs (read existing state)
+    // Sum input fire values (read existing state)
     let inputSum = 0;
-    for (const inputUri of data.payload.inputs) {
-      const input = await read<{ amount: number }>(inputUri);
-      if (input.success && input.record) inputSum += input.record.data.amount;
+    for (const inputUri of data.inputs) {
+      const [input] = await read(inputUri);
+      if (input.success && input.record) {
+        inputSum += input.record.values.fire ?? 0;
+      }
     }
-    // Sum outputs
-    const outputSum = data.payload.outputs.reduce(
-      (sum, [, value]) => sum + (value as number), 0,
+    // Sum output fire values — note the slot is position 1 (values), not 2 (data)
+    const outputSum = data.outputs.reduce(
+      (sum, [, values]) => sum + (values.fire ?? 0),
+      0,
     );
     // Conservation: outputs cannot exceed inputs
     if (outputSum > inputSum) {
@@ -1361,21 +1468,17 @@ const schema: Schema = {
 // Pre-condition: utxo://alice/1 has { amount: 100 }
 
 await send({
-  payload: {
-    inputs: ["utxo://alice/1"],        // consume Alice's 100
-    outputs: [
-      ["utxo://bob/1", 50],            // Bob gets 50
-      ["utxo://alice/2", 50],           // Alice gets change
-    ],
-  },
+  inputs: ["utxo://alice/1"],        // consume Alice's 100
+  outputs: [
+    ["utxo://bob/1", { fire: 50 }, null],    // Bob gets 50
+    ["utxo://alice/2", { fire: 50 }, null],  // Alice gets change
+  ],
 }, client);
 
 // Invalid: trying to create money (100 > 50 input)
 await send({
-  payload: {
-    inputs: ["utxo://alice/2"],        // only 50 available
-    outputs: [["utxo://bob/2", 100]],  // trying to send 100 — rejected
-  },
+  inputs: ["utxo://alice/2"],                 // only 50 available
+  outputs: [["utxo://bob/2", { fire: 100 }, null]],  // trying to send 100 — rejected
 }, client);
 // → { accepted: false, error: "Outputs exceed inputs" }
 ```
@@ -1418,13 +1521,11 @@ const hash1 = await computeSha256(entry1);
 const uri1 = generateHashUri(hash1);
 
 await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      [uri1, entry1],
-      ["link://open/chain/head", uri1],
-    ],
-  },
+  inputs: [],
+  outputs: [
+    [uri1, {}, entry1],
+    ["link://open/chain/head", {}, uri1],
+  ],
 }, client);
 
 // Second entry references the first
@@ -1433,13 +1534,11 @@ const hash2 = await computeSha256(entry2);
 const uri2 = generateHashUri(hash2);
 
 await send({
-  payload: {
-    inputs: [uri1],  // reference previous entry
-    outputs: [
-      [uri2, entry2],
-      ["link://open/chain/head", uri2],  // advance the head
-    ],
-  },
+  inputs: [uri1],  // reference previous entry
+  outputs: [
+    [uri2, {}, entry2],
+    ["link://open/chain/head", {}, uri2],  // advance the head
+  ],
 }, client);
 
 // Walk the chain backward from the head
@@ -1519,33 +1618,27 @@ const signed = await encrypt.createAuthenticatedMessageWithHex(
 
 const userResult = await send({
   auth: [{ pubkey: userKeys.publicKeyHex, signature: "..." }],
-  payload: {
-    inputs: [],
-    outputs: [[`mutable://accounts/${userKeys.publicKeyHex}/posts/1`, signed]],
-  },
+  inputs: [],
+  outputs: [[`mutable://accounts/${userKeys.publicKeyHex}/posts/1`, {}, signed]],
 }, client);
 // userResult.uri = "hash://sha256/{content_hash}"
 
 // 2. Validator endorses the user's envelope
 const validatorResult = await send({
   auth: [{ pubkey: "validator_pubkey_1", signature: "..." }],
-  payload: {
-    inputs: [userResult.uri],  // reference the user's envelope
-    outputs: [
-      [`link://accounts/validator_pubkey_1/validations/${userResult.uri}`, userResult.uri],
-    ],
-  },
+  inputs: [userResult.uri],  // reference the user's envelope
+  outputs: [
+    [`link://accounts/validator_pubkey_1/validations/${userResult.uri}`, {}, userResult.uri],
+  ],
 }, client);
 
 // 3. Confirmer finalizes
 await send({
   auth: [{ pubkey: "confirmer_pubkey_1", signature: "..." }],
-  payload: {
-    inputs: [validatorResult.uri],  // reference the validation envelope
-    outputs: [
-      [`link://accounts/confirmer_pubkey_1/confirmed/${userResult.uri}`, validatorResult.uri],
-    ],
-  },
+  inputs: [validatorResult.uri],  // reference the validation envelope
+  outputs: [
+    [`link://accounts/confirmer_pubkey_1/confirmed/${userResult.uri}`, {}, validatorResult.uri],
+  ],
 }, client);
 
 // Verify: is the user's post confirmed?
@@ -1677,7 +1770,8 @@ export function createClient(url = "https://my-protocol-node.example.com") {
 // 3. Typed helpers
 export async function writeNote(client: HttpClient, path: string, content: object) {
   return send({
-    payload: { inputs: [], outputs: [[`mutable://open/${path}`, content]] },
+    inputs: [],
+    outputs: [[`mutable://open/${path}`, {}, content]],
   }, client);
 }
 
@@ -1736,12 +1830,12 @@ and testing for app developers.
 | **Scheme**               | URI scheme component (e.g., `mutable`, `hash`, `link`)             |
 | **Program**              | `scheme://hostname` pair — the unit of validation dispatch         |
 | **Resource**             | Data addressed by a URI path within a program                         |
-| **Envelope**             | Message with `{ auth?, payload: { inputs, outputs } }` structure   |
+| **Envelope**             | Message with `{ auth?, inputs, outputs }` structure   |
 | **Protocol**             | System built on B3nd — defines programs and rules                  |
 | **DePIN**                | Decentralized Physical Infrastructure Network                      |
 
 Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
-"Envelope" for `{ auth?, payload: { inputs, outputs } }` messages.
+"Envelope" for `{ auth?, inputs, outputs }` messages.
 
 ---
 

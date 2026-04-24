@@ -40,13 +40,33 @@ interpret inputs — programs and operators do.
 
 ### Values and Conservation
 
-Values are `Record<string, number>` — multi-asset by default. A balance output
-might carry `{ fire: 100 }`. A multi-asset output might carry
-`{ fire: 50, usd: 200 }`. A pure data output carries `{}`.
+The `values` slot is for **conserved quantities** — the UTXO-style "fire",
+"gas", "credit" amounts that a protocol wants to sum and compare across
+inputs and outputs. It is `Record<string, number>`, multi-asset by default.
+A balance output might carry `{ fire: 100 }`. A multi-asset output might
+carry `{ fire: 50, usd: 200 }`. **A pure data output carries `{}`** — that
+empty object is the correct, literal value for "no conserved quantities",
+and it is always present, never optional.
+
+Rule of thumb for protocol authors:
+
+- If the protocol needs to sum, compare, or deplete a quantity across
+  inputs and outputs, put it in `values`.
+- If the protocol just stores opaque bytes or JSON, put it in `data` and
+  leave `values` as `{}`.
+- Fees, balances, capacities, gas, burn amounts — `values`.
+- Profile bodies, post contents, encrypted blobs, signed AuthenticatedMessages
+  — `data`.
 
 Conservation (sum of input values >= sum of output values per key) is a
 **program-level** concern, not a framework guarantee. The framework stores
-values faithfully. Programs check conservation during classification.
+values faithfully. Programs check conservation during classification — for
+a worked example see the UTXO / Conservation section in
+[FRAMEWORK.md](./FRAMEWORK.md#utxo--conservation-protocol).
+
+Most writes in most protocols will carry `{}` in this slot. That's fine
+and expected. The slot exists so that protocols that *do* need
+conservation don't have to invent their own parallel addressing scheme.
 
 ---
 
@@ -354,6 +374,41 @@ are deleted.
 
 One sentence: **receive always decomposes one level; to store without
 decomposing, make the message an output of another message.**
+
+### Envelopes and the Rig
+
+Decomposition is a **client-local** operation. `MessageDataClient` reads
+the `{ inputs, outputs }` shape of `data` and, for each output, calls
+`this.store.write([...])` directly — *not* `this.rig.receive([...])`. The
+decomposed outputs therefore land in the same Store that holds the
+envelope; they do **not** re-enter the Rig's connection router.
+
+This matters when a single envelope has outputs at URIs that should live
+in *different* connections. Example: you publish an envelope whose outputs
+include `mutable://campaigns/foo/current` (should go to the primary store)
+and `publish://meta/ads/foo` (should go to a separate "meta ads" client).
+If you `session.send()` the envelope, the Rig matches the envelope's URI
+(`hash://…`) against `receive` patterns, picks one connection, and
+dispatches the whole envelope there. That connection's
+`MessageDataClient` writes both outputs into its own Store. The
+`publish://meta/…` output never reaches the meta connection.
+
+If you want cross-connection fan-out based on per-output URI patterns,
+call `rig.receive([msg, msg, msg])` with one tuple per destination. The
+Rig's connection dispatch matches each message independently and can
+broadcast each one to whichever client(s) accept its URI.
+
+Rule of thumb:
+
+| Intent                                              | Use                                        |
+| --------------------------------------------------- | ------------------------------------------ |
+| Atomic-intent envelope, all outputs in one backend  | `session.send()` / `rig.send()`            |
+| Per-output routing across multiple Rig connections  | `rig.receive([msg1, msg2, …])`             |
+| Atomic-intent envelope + fan-out to a peer Rig      | envelope `send()` + handler that forwards  |
+
+The last row is the escape hatch for "atomic intent *and* cross-backend
+fan-out": a receive-side handler can read the envelope's outputs and
+re-dispatch them through the Rig (or a peer Rig) explicitly.
 
 ### Valid vs Confirmed
 
