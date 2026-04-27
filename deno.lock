@@ -1477,6 +1477,7 @@
       },
       "apps/b3nd-node": {
         "dependencies": [
+          "jsr:@bandeira-tech/b3nd-stores@0.1",
           "jsr:@std/encoding@^1.0.10",
           "npm:hono@*"
         ]
