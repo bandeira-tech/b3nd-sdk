@@ -54,7 +54,13 @@ class Rig {
           this._emit(`${direction}:error`, outs[i], programResults[i].error);
           continue;
         }
-        await this.handle(outs[i], programResults[i]);
+        // handle returns Output[] — what the handler wants emitted.
+        const emissions = await this.handle(outs[i], programResults[i]);
+        // Rig broadcasts those through connection routing (no programs).
+        await this._broadcast(emissions);
+        // Then reactions fire on each emission's URI; their returns
+        // flow back through rig.send (full pipeline).
+        await this._react(emissions);
         results.push({ accepted: true });
         this._emit(`${direction}:success`, outs[i]);
       } catch (e) {
@@ -65,6 +71,13 @@ class Rig {
     await this._afterHooks(direction, outs, results);
     return results;
   }
+
+  // Internal — see chapter 6.
+  private async _broadcast(outs: Output[]): Promise<void> { /* connection routing */ }
+
+  // Internal — see chapter 7. Each matching reaction returns Output[];
+  // those go through this.send(reactionEmissions) for full classification.
+  private async _react(outs: Output[]): Promise<void> { /* match patterns; rig.send returns */ }
 }
 ```
 

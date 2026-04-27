@@ -141,21 +141,20 @@ The `messageDataHandler` from chapter 8 emits the constituent tuples of
 an envelope:
 
 ```ts
-const messageDataHandler: CodeHandler = async (out, broadcast) => {
+const messageDataHandler: CodeHandler = async (out) => {
   const [, payload] = out as Output<MessageData>;
   const inputDeletions: Output[] = payload.inputs.map(
-    (uri) => [uri, null]
+    (uri) => [uri, null] as Output,
   );
-  await broadcast([out, ...payload.outputs, ...inputDeletions]);
+  return [out, ...payload.outputs, ...inputDeletions];
 };
 ```
 
 The `inputs` field of a `MessageData` envelope says "these URIs are
 consumed by this intent." Consumption means deletion. The handler
-expresses that as an `[inputUri, null]` tuple in the broadcast. The
-broadcast dispatches each tuple through connection routing. Each
-client's `DataStoreClient` (or alternative) interprets the null
-appropriately.
+expresses that as `[inputUri, null]` tuples in its return list. The
+Rig dispatches each through connection routing. Each client's
+`DataStoreClient` (or alternative) interprets the null appropriately.
 
 The behavior is the same as today's `MessageDataClient` does it — the
 inputs get deleted, the outputs get written. The difference is that the
