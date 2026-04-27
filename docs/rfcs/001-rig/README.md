@@ -61,7 +61,7 @@ mixed-plaintext encrypted reads.
 ### Part III — Handlers and Fan-out
 - [05. A handler is an interpretation](./05-handlers.md)
 - [06. Broadcast — the only fan-out](./06-broadcast.md)
-- [07. Re-entry, when a handler needs another pass](./07-re-entry.md)
+- [07. Reactions — productive observation](./07-reactions.md)
 
 ### Part IV — Conventions Live in Protocols
 - [08. Decomposition is the protocol's job](./08-decomposition.md)
