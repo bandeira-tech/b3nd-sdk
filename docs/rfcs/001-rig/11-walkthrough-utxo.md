@@ -10,16 +10,22 @@ The point of the walkthrough is not the ledger. It's to show every
 chapter's idea participating in one concrete flow: `Output<T>`
 primitives, payload-agnostic Rig, `process` / `handle`, send/receive
 direction, handler-as-interpreter, broadcast as fan-out, MessageData as
-SDK canon, deletion-as-data, auth in the protocol.
+SDK canon, deletion-as-data, auth in the protocol — and how a protocol
+that needs conserved quantities expresses them inside `payload`,
+without the framework needing to know about quantities at all.
 
 ## Setup — the protocol
 
 URIs:
 
-- `utxo://{txhash}/{n}` — a single UTXO output. Payload `{ owner, amount }`.
-  Values `{ coin: amount }`.
+- `utxo://{txhash}/{n}` — a single UTXO output.
+  Payload `{ owner, values: { coin } }`.
 - `hash://sha256/{hex}` — content-addressed envelope (the transaction).
   Payload is `MessageData`.
+
+Note where the conserved quantity lives: inside the payload, at
+`payload.values.coin`. The framework doesn't see it; only the protocol's
+program does.
 
 Programs:
 
@@ -29,17 +35,21 @@ import {
   verifyAuthInPayload,        // SDK canon
 } from "@b3nd/sdk/canon";
 
+type UtxoPayload = { owner: string; values: { coin: number } };
+
 const utxoProgram: Program = async (out, _upstream, read) => {
-  const [, , payload] = out;
+  const [, payload] = out;
   if (payload === null) return { code: "tombstone" };  // deletion of consumed UTXO
   if (typeof payload !== "object") {
     return { code: "rejected", error: "utxo payload must be an object" };
   }
-  if (typeof (payload as any).owner !== "string") {
+  const u = payload as UtxoPayload;
+  if (typeof u.owner !== "string") {
     return { code: "rejected", error: "utxo missing owner" };
   }
-  if (typeof (payload as any).amount !== "number" || (payload as any).amount < 0) {
-    return { code: "rejected", error: "utxo amount must be a non-negative number" };
+  const coin = u.values?.coin;
+  if (typeof coin !== "number" || coin < 0) {
+    return { code: "rejected", error: "utxo coin must be a non-negative number" };
   }
   return { code: "valid-utxo" };
 };
@@ -49,19 +59,21 @@ const txProgram: Program = async (out, upstream, read) => {
   const base = await messageDataProgram(out, upstream, read);
   if (base.code !== "msgdata:valid") return base;
 
-  const [, , payload] = out as Output<MessageData>;
+  const [, payload] = out as Output<MessageData>;
 
-  // Conservation: sum of input values.coin must equal sum of output values.coin
+  // Conservation: sum of inputs' payload.values.coin must equal sum of
+  // outputs' payload.values.coin. The protocol reads quantities out of
+  // the payload — the framework has no concept of quantities.
   let inputSum = 0;
   for (const inputUri of payload.inputs) {
-    const r = await read(inputUri);
+    const r = await read<UtxoPayload>(inputUri);
     if (!r.success) {
       return { code: "rejected", error: `input not found: ${inputUri}` };
     }
-    inputSum += (r.record.values?.coin ?? 0);
+    inputSum += (r.record.data.values?.coin ?? 0);
   }
   const outputSum = payload.outputs.reduce(
-    (s, [, vals]) => s + (vals.coin ?? 0),
+    (s, [, outPayload]) => s + ((outPayload as UtxoPayload).values?.coin ?? 0),
     0,
   );
   if (inputSum !== outputSum) {
@@ -70,7 +82,7 @@ const txProgram: Program = async (out, upstream, read) => {
 
   // Auth: every input's owner must have signed the envelope.
   for (const inputUri of payload.inputs) {
-    const r = await read<{ owner: string }>(inputUri);
+    const r = await read<UtxoPayload>(inputUri);
     const owner = r.record!.data.owner;
     if (!await verifyAuthInPayload(out, { pubkey: owner })) {
       return { code: "rejected", error: `missing/invalid signature for ${owner}` };
@@ -93,7 +105,7 @@ const rig = new Rig({
   },
   handlers: {
     "tx:valid": messageDataHandler,   // SDK canon: broadcasts envelope + outputs + null-payload deletions for inputs
-    "valid-utxo": defaultPersistHandler,  // optional explicit; if omitted, default dispatch persists
+    // No handler for "valid-utxo" — default dispatch persists.
   },
   connections: [
     connection(new DataStoreClient(new MemoryStore()), {
@@ -118,8 +130,8 @@ const aliceAuthRig = new AuthenticatedRig(aliceIdentity, rig);
 const result = await aliceAuthRig.send({
   inputs: ["utxo://abc.../0"],
   outputs: [
-    ["utxo://def.../0", { coin: 70 }, { owner: bobPubkey,   amount: 70 }],
-    ["utxo://def.../1", { coin: 30 }, { owner: alicePubkey, amount: 30 }],
+    ["utxo://def.../0", { owner: bobPubkey,   values: { coin: 70 } }],
+    ["utxo://def.../1", { owner: alicePubkey, values: { coin: 30 } }],
   ],
 });
 ```
@@ -138,8 +150,9 @@ configured), then calls `_pipeline(outs, "send")`.
 
 1. Calls `messageDataProgram` to validate envelope shape — passes.
 2. Reads `utxo://abc.../0` from connections. Finds it. Sums
-   `inputSum = 100`.
-3. Sums output values: `outputSum = 70 + 30 = 100`. Conservation holds.
+   `payload.values.coin` over inputs: `inputSum = 100`.
+3. Sums `payload.values.coin` over outputs: `outputSum = 70 + 30 = 100`.
+   Conservation holds.
 4. Verifies the envelope's `payload.auth` against Alice's pubkey (the
    owner of the consumed input). Signature checks out.
 5. Returns `{ code: "tx:valid" }`.
@@ -150,8 +163,8 @@ configured), then calls `_pipeline(outs, "send")`.
 ```
 inputs:  ["utxo://abc.../0"]
 outputs: [
-  ["utxo://def.../0", { coin: 70 }, { owner: bobPubkey,   amount: 70 }],
-  ["utxo://def.../1", { coin: 30 }, { owner: alicePubkey, amount: 30 }],
+  ["utxo://def.../0", { owner: bobPubkey,   values: { coin: 70 } }],
+  ["utxo://def.../1", { owner: alicePubkey, values: { coin: 30 } }],
 ]
 ```
 
@@ -160,12 +173,12 @@ It builds the broadcast list:
 ```ts
 [
   // The envelope itself, for audit trail
-  ["hash://sha256/{computed}", {}, { inputs, outputs, auth }],
+  ["hash://sha256/{computed}", { inputs, outputs, auth }],
   // Each new UTXO
-  ["utxo://def.../0", { coin: 70 }, { owner: bobPubkey,   amount: 70 }],
-  ["utxo://def.../1", { coin: 30 }, { owner: alicePubkey, amount: 30 }],
+  ["utxo://def.../0", { owner: bobPubkey,   values: { coin: 70 } }],
+  ["utxo://def.../1", { owner: alicePubkey, values: { coin: 30 } }],
   // Each consumed input as a deletion
-  ["utxo://abc.../0", {}, null],
+  ["utxo://abc.../0", null],
 ]
 ```
 
@@ -239,6 +252,9 @@ record. The reaction-driven UI matches storage.
 The framework didn't:
 
 - Know that the protocol was a UTXO ledger.
+- Know that `coin` was a conserved quantity (the framework has no
+  concept of conservation — quantities live entirely inside the
+  payload, where only the protocol's programs read them).
 - Know that `MessageData` was the envelope shape.
 - Know that `payload.auth` was where signatures live.
 - Know that `null` meant deletion (the `DataStoreClient` knew, the
@@ -258,6 +274,9 @@ opt-in), `verifyAuthInPayload` (SDK canon helper), `DataStoreClient`
   SDK canon.
 - Conservation, auth, deletion, audit trail, reactive UI all work
   through a single pipeline pass on a single envelope.
+- Conserved quantities don't need a framework-level slot; embedding
+  them in the payload at a protocol-defined key works just as well and
+  keeps the framework smaller.
 - The framework's surface is small enough that you could review the
   Rig's own code and feel confident nothing was happening behind your
   back.
