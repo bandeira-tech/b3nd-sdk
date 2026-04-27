@@ -843,7 +843,7 @@ Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async ()
   const envelope = await rig.readOrThrow<{
     auth: Array<{ pubkey: string; signature: string }>;
     inputs: string[];
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
     hash: string;
   }>(result.uri);
 
@@ -894,12 +894,12 @@ Deno.test("AuthenticatedRig.send - different identities produce different signat
   const e1 = await rig.readOrThrow<{
     auth: Array<{ pubkey: string; signature: string }>;
     inputs: string[];
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
   }>(r1.uri);
   const e2 = await rig.readOrThrow<{
     auth: Array<{ pubkey: string; signature: string }>;
     inputs: string[];
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
   }>(r2.uri);
 
   assertEquals(e1.auth[0].pubkey, alice.pubkey);
@@ -1003,7 +1003,7 @@ Deno.test("AuthenticatedRig.send - multiple outputs in single envelope", async (
 
   // The envelope at the hash URI should have all 3 outputs
   const envelope = await rig.readOrThrow<{
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
   }>(result.uri);
   assertEquals(envelope.outputs.length, 3);
 });
@@ -1659,7 +1659,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - envelope is signed and verifiable", 
   const envelope = await rig.readOrThrow<{
     auth: Array<{ pubkey: string; signature: string }>;
     inputs: string[];
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
   }>(result.uri);
 
   // Verify the signature

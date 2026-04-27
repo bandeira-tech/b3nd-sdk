@@ -251,13 +251,13 @@ const factories: TestClientFactories = {
     class ValidationFailingMockWebSocket extends MockWebSocket {
       protected override generateResponse(request: any): any {
         if (request.type === "receive") {
-          const batch = request.payload as [string, Record<string, number>, unknown][];
+          const batch = request.payload as [string, unknown][];
           const results: { accepted: boolean; error?: string }[] = [];
 
-          for (const [, , data] of batch) {
+          for (const [, data] of batch) {
             // Check output data for name field (handles both envelope and direct)
-            const msgData = data as { outputs?: [string, Record<string, number>, unknown][] } | null;
-            const outputData = msgData?.outputs?.[0]?.[2] as Record<string, unknown> | undefined;
+            const msgData = data as { outputs?: [string, unknown][] } | null;
+            const outputData = msgData?.outputs?.[0]?.[1] as Record<string, unknown> | undefined;
             const directData = data as Record<string, unknown> | null;
 
             if (outputData?.name || directData?.name) {
