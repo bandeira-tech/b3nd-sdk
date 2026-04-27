@@ -168,7 +168,7 @@ outputs: [
 ]
 ```
 
-It builds the broadcast list:
+It returns the constituent emissions:
 
 ```ts
 [
@@ -182,7 +182,7 @@ It builds the broadcast list:
 ]
 ```
 
-It calls `broadcast(thatList)`.
+The Rig takes that array and broadcasts each tuple.
 
 **Broadcast.** Each tuple is dispatched through connection routing. The
 `MemoryStore`-backed `DataStoreClient` is the only connection; it
@@ -195,41 +195,58 @@ accepts everything. For each tuple:
 
 Wait — what about the new UTXO tuples? They have URIs starting with
 `utxo://`, and the Rig has a program registered there (`utxoProgram`).
-Does `broadcast` re-run programs?
+Does broadcast re-run programs?
 
-No — and this is the key point of chapter 6. `broadcast` skips
+No — and this is the key point of chapter 6. Broadcast skips
 classification. The `messageDataHandler` already classified each
 constituent in the protocol's eyes by deciding to emit them. The new
 UTXO tuples land in storage without re-running `utxoProgram`.
 
-If we *wanted* `utxoProgram` to re-run on each output (for paranoia,
-defense-in-depth, or to support arbitrary protocols downstream), the
-handler would call `rig.receive(decomposed)` instead of `broadcast`
-(chapter 7 — re-entry). For this protocol, the conservation and auth
-checks in `txProgram` already cover everything, so plain `broadcast` is
-right.
+If we *wanted* `utxoProgram` to re-run on each output (for
+defense-in-depth, or because some emissions are governed by programs
+the handler doesn't trust), the protocol would shape those emissions
+as reactions instead of handler returns — reactions go through
+`rig.send`, which runs programs (chapter 7). For this protocol, the
+conservation and auth checks in `txProgram` already cover everything,
+so plain handler emissions are right.
 
 **React.** Reactions fire on each broadcast tuple's URI. Suppose the
-host application registered:
+host application registered a reaction that maintains a per-owner
+balance index:
 
 ```ts
-rig.reaction("utxo://:txhash/:n", (uri, data, params) => {
-  if (data === null) {
-    removeFromUtxoSet(params.txhash, params.n);
-  } else {
-    addToUtxoSet(params.txhash, params.n, data);
-  }
-});
+const indexBalance: Reaction = async (out, read) => {
+  const [uri, payload] = out;
+  // Pull the owner from the URI's stored payload (or, on deletion,
+  // from a previous read); recompute their total.
+  const owner = payload === null
+    ? await ownerOfDeletedUtxo(uri, read)
+    : (payload as UtxoPayload).owner;
+  const total = await sumBalanceFor(owner, read);
+  return [[`index://balances/${owner}`, { coin: total }]];
+};
+
+rig.reaction("utxo://:txhash/:n", indexBalance);
 ```
 
-This reaction fires three times for our transaction — twice for the new
-outputs (added), once for the deleted input (removed). The host UI sees
-the UTXO set update without polling.
+This reaction fires three times for our transaction — twice for the
+new outputs and once for the deleted input. Each call returns an
+`Output` for the affected owner's balance index URI. The Rig sends
+those through `rig.send`; programs registered on `index://balances`
+classify them, an indexer's handler persists them, and any UI
+subscribed to balance updates sees the change.
+
+(The reaction could also imperatively update an in-memory cache and
+return `[]`. That works but leaks side effects outside the routing
+engine; the index-via-URI shape keeps everything visible on the wire.
+Chapter 7 covers the trade.)
 
 **Events.** `send:success` fires once for the original `rig.send`
-caller's tuple (the envelope). `broadcast` does not fire `send:*`
+caller's tuple (the envelope). Broadcast does not fire `send:*`
 events for the constituent tuples — those are consequences of the
-original send, not new sends. (Chapter 6.)
+original send, not new sends (chapter 6). Reactions, however, *do*
+fire `send:*` events when their emissions land — those are first-class
+new sends to the indexer URIs (chapter 7).
 
 **Hooks.** `afterSend` fires (none configured).
 
