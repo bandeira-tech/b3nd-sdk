@@ -42,7 +42,7 @@
  * // Rig routes to the right connections automatically
  * const rig = new Rig({
  *   connections: [node, mirror, cache],
- *   schema: mySchema,
+ *   programs: myPrograms,
  * });
  * ```
  */

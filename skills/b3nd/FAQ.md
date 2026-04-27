@@ -121,27 +121,38 @@ deno test --allow-all libs/ --ignore=libs/b3nd-client-localstorage
 
 ### How do I run my own B3nd network?
 
-Define a custom schema and start a server:
+Define your programs table and serve a Rig over HTTP:
 
 ```typescript
-import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
-import { Hono } from "hono";
+import {
+  connection,
+  httpApi,
+  MemoryStore,
+  MessageDataClient,
+  Rig,
+} from "@bandeira-tech/b3nd-sdk";
+import type { Program } from "@bandeira-tech/b3nd-sdk";
 
-const schema: Schema = {
-  "mutable://my-company": async ([_uri, _value]) => ({ valid: true }),
-  "custom://audit": async ([_uri, _value], _upstream, _read) => {
-    return { valid: true };
-  },
+const programs: Record<string, Program> = {
+  "mutable://my-company": async () => ({ code: "company:accepted" }),
+  "custom://audit":       async () => ({ code: "audit:accepted" }),
 };
 
 const client = new MessageDataClient(new MemoryStore());
-const app = new Hono();
-const frontend = servers.httpServer(app);
-createServerNode({ frontend, client }).listen(43100);
+const rig = new Rig({
+  connections: [connection(client, { receive: ["*"], read: ["*"] })],
+  programs,
+  handlers: {
+    "company:accepted": async (msg, broadcast) => { await broadcast([msg]); },
+    "audit:accepted":   async (msg, broadcast) => { await broadcast([msg]); },
+  },
+});
+
+Deno.serve({ port: 43100 }, httpApi(rig));
 ```
 
-The schema defines your network's programs. Replace `MemoryStore` with
-`PostgresStore` or `MongoStore` for persistent storage.
+The `programs` table defines your network's classifiers. Replace
+`MemoryStore` with `PostgresStore` or `MongoStore` for persistent storage.
 
 ### How do I organize domain concepts in URI paths?
 

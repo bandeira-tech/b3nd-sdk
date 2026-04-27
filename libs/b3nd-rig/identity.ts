@@ -45,6 +45,17 @@ export interface ExportedIdentity {
  *
  * It can be created with full private keys (for signing/decrypting)
  * or as a public-only identity (for addressing/encrypting to others).
+ *
+ * **Both keypairs are always present for full identities.** `Identity.generate()`
+ * and `Identity.fromSeed()` produce both an Ed25519 signing keypair AND an
+ * X25519 encryption keypair — `pubkey` and `encryptionPubkey` are both
+ * populated, and `canSign` / `canEncrypt` are both `true`.
+ *
+ * The only way to obtain an Identity with an empty `encryptionPubkey` is to
+ * construct it via `Identity.publicOnly({ signing })` without the optional
+ * `encryption` key, or via `Identity.fromExport()` on an ExportedIdentity
+ * whose `encryptionPublicKeyHex` was an empty string. In those cases
+ * `canEncrypt` is `false` and `encrypt()` / `decrypt()` will reject.
  */
 export class Identity {
   /** Ed25519 public key hex — the user's address on the network. */
