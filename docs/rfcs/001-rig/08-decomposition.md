@@ -39,7 +39,7 @@ export const messageDataProgram: Program = async (out) => {
 export const messageDataHandler: CodeHandler = async (out, broadcast) => {
   const [, , payload] = out as Output<MessageData>;
   const inputDeletions: Output[] = payload.inputs.map(
-    (uri) => [uri, {}, null]
+    (uri) => [uri, null]
   );
   await broadcast([out, ...payload.outputs, ...inputDeletions]);
 };
@@ -153,7 +153,7 @@ about envelopes. We unfuse them.
 
 ## What's coming next
 
-Deletion as data — what `[uri, values, null]` means on the wire, why
+Deletion as data — what `[uri, null]` means on the wire, why
 `DataStoreClient` is the canonical translator, and what happens to
 clients that aren't storage backends when they see a null-payload tuple
 go by.

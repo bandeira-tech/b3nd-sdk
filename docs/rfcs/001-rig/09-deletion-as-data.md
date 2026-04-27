@@ -3,10 +3,10 @@
 A tuple with `null` in the payload position means "delete this URI."
 
 ```ts
-[uri, values, null]
+[uri, null]
 ```
 
-That's the whole convention. Three positions in the tuple, the third is
+That's the whole convention. Two positions in the tuple, the second is
 `null`, the meaning is "remove the data at this URI." On the wire it
 looks like any other tuple. In the pipeline it flows like any other
 tuple. The only difference is what each downstream client does with it.
@@ -19,20 +19,21 @@ state already is.
 
 ## Why null instead of a flag
 
-We considered two alternatives: a `tombstone: true` field on the tuple
-shape, and a separate `[uri, values]` 2-tuple distinct from the 3-tuple
-write shape. Both add framework-level machinery that null doesn't.
+We considered two alternatives: a `tombstone: true` field on a wrapper
+shape, and a separate dedicated tuple type distinct from `Output` for
+deletions. Both add framework-level machinery that null doesn't.
 
-A `tombstone` flag would mean expanding the wire primitive to a 4-tuple
-or to a tagged union. Either choice forces every reader and writer in
-the system to know about the new shape — programs, handlers, clients,
-stores, observers, replication. The cost is everywhere; the benefit is
-mild semantic clarity.
+A `tombstone` flag would mean expanding the wire primitive into a tagged
+union. That choice forces every reader and writer in the system to know
+about the new shape — programs, handlers, clients, stores, observers,
+replication. The cost is everywhere; the benefit is mild semantic
+clarity.
 
-A separate 2-tuple would mean the pipeline has to handle two distinct
-shapes — Output for writes, Tombstone for deletes — and every primitive
-that operates on Output has to be checked for whether it should also
-operate on Tombstone. Same story: cost everywhere, benefit modest.
+A separate dedicated type would mean the pipeline has to handle two
+distinct shapes — Output for writes, Tombstone for deletes — and every
+primitive that operates on Output has to be checked for whether it
+should also operate on Tombstone. Same story: cost everywhere, benefit
+modest.
 
 Null is cheap because it's already in the type system. `Output<T = unknown>`
 permits `null` for free. Programs that don't care about deletion ignore
@@ -53,11 +54,11 @@ class DataStoreClient implements NodeProtocolInterface {
   async receive(outs: Output[]): Promise<ReceiveResult[]> {
     const results: ReceiveResult[] = [];
     for (const out of outs) {
-      const [uri, values, payload] = out;
+      const [uri, payload] = out;
       if (payload === null) {
         await this.store.delete([uri]);
       } else {
-        await this.store.write([{ uri, values, data: payload }]);
+        await this.store.write([{ uri, data: payload }]);
       }
       results.push({ accepted: true });
     }
@@ -107,16 +108,16 @@ This is a strict gain over today: front-ends currently have no way to
 observe deletions because deletions never reach them as events.
 
 **Console / debug clients.** A console-logging client prints the tuple
-as-is. `[uri, values, null]` shows up in the log alongside writes,
-visibly representing the deletion intent.
+as-is. `[uri, null]` shows up in the log alongside writes, visibly
+representing the deletion intent.
 
 ## What reactions do for null tuples
 
 Reactions fire on writes — by which we mean "successful broadcasts of a
 tuple", not "non-null payloads". A reaction registered against
-`mutable://app/users/:id` fires for *both* `[uri, {}, profile]` writes
-and `[uri, {}, null]` deletions. The reaction handler receives the
-payload as the second argument and can branch on whether it's null:
+`mutable://app/users/:id` fires for *both* `[uri, profile]` writes and
+`[uri, null]` deletions. The reaction handler receives the payload as
+the second argument and can branch on whether it's null:
 
 ```ts
 rig.reaction("mutable://app/users/:id", (uri, data, params) => {
@@ -141,9 +142,9 @@ an envelope:
 
 ```ts
 const messageDataHandler: CodeHandler = async (out, broadcast) => {
-  const [, , payload] = out as Output<MessageData>;
+  const [, payload] = out as Output<MessageData>;
   const inputDeletions: Output[] = payload.inputs.map(
-    (uri) => [uri, {}, null]
+    (uri) => [uri, null]
   );
   await broadcast([out, ...payload.outputs, ...inputDeletions]);
 };
@@ -151,7 +152,7 @@ const messageDataHandler: CodeHandler = async (out, broadcast) => {
 
 The `inputs` field of a `MessageData` envelope says "these URIs are
 consumed by this intent." Consumption means deletion. The handler
-expresses that as an `[inputUri, {}, null]` tuple in the broadcast. The
+expresses that as an `[inputUri, null]` tuple in the broadcast. The
 broadcast dispatches each tuple through connection routing. Each
 client's `DataStoreClient` (or alternative) interprets the null
 appropriately.
@@ -177,7 +178,7 @@ and frequently want to express deletion.
 
 ## What changed in this chapter
 
-- `[uri, values, null]` is the wire convention for "delete this URI."
+- `[uri, null]` is the wire convention for "delete this URI."
 - `DataStoreClient` is the canonical Store adapter that translates null
   payloads into `store.delete()` calls. Stores themselves are
   unchanged.
@@ -186,8 +187,7 @@ and frequently want to express deletion.
 - Reactions fire for null-payload tuples with `data === null` so
   observers can act on deletions.
 - The `MessageDataClient` decomposition behavior moves to broadcasting
-  `[inputUri, {}, null]` tuples — same outcome, visible in the data
-  stream.
+  `[inputUri, null]` tuples — same outcome, visible in the data stream.
 - Literal-null payloads are reserved by the convention. Protocols that
   want to store absence use a sentinel value.
 
