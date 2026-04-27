@@ -30,18 +30,18 @@ export interface MessageData {
 }
 
 export const messageDataProgram: Program = async (out) => {
-  const [, , payload] = out;
+  const [, payload] = out;
   if (!isMessageData(payload)) return { code: "not-msgdata" };
   // optional protocol-level checks: signature shape, etc.
   return { code: "msgdata:valid" };
 };
 
-export const messageDataHandler: CodeHandler = async (out, broadcast) => {
-  const [, , payload] = out as Output<MessageData>;
+export const messageDataHandler: CodeHandler = async (out) => {
+  const [, payload] = out as Output<MessageData>;
   const inputDeletions: Output[] = payload.inputs.map(
-    (uri) => [uri, null]
+    (uri) => [uri, null] as Output,
   );
-  await broadcast([out, ...payload.outputs, ...inputDeletions]);
+  return [out, ...payload.outputs, ...inputDeletions];
 };
 ```
 
@@ -70,14 +70,17 @@ The pipeline runs:
 1. `process` calls `messageDataProgram` (because the envelope's URI is
    `hash://sha256/...`). It returns `{ code: "msgdata:valid" }`.
 2. `handle` calls `messageDataHandler`. The handler reads
-   `payload.inputs` and `payload.outputs`, builds the constituent
-   broadcast — the envelope itself, each output, each input as a
-   null-payload deletion tuple — and calls `broadcast(allOfThem)`.
-3. `broadcast` dispatches each tuple through connection routing.
-   Storage clients persist the writes. The `DataStoreClient` (chapter 9)
-   sees the null-payload tuples and translates them to `store.delete`.
-   Other clients react per their role.
-4. Reactions fire for each emitted URI that matches a registered pattern.
+   `payload.inputs` and `payload.outputs` and **returns** the
+   constituent emissions — the envelope itself, each output, each
+   input as a null-payload deletion tuple.
+3. The Rig dispatches each returned tuple through connection routing
+   (broadcast). Storage clients persist the writes. The
+   `DataStoreClient` (chapter 9) sees the null-payload tuples and
+   translates them to `store.delete`. Other clients react per their
+   role.
+4. Reactions fire for each emitted URI that matches a registered
+   pattern. Reaction-emitted tuples flow back through `rig.send`
+   (chapter 7).
 
 End to end, the framework didn't need to know about `MessageData`.
 The protocol's handler did the unpacking; the framework did the routing.
@@ -90,17 +93,19 @@ batch of intents wrapped in an outer batch. Today this works because
 `MessageDataClient` recurses internally. After the move, it works the
 same way, but explicitly:
 
-The outer envelope's handler broadcasts the inner envelope tuple as one
-of its outputs. Connection routing dispatches that inner envelope to the
-clients that accept its URI. If one of those "clients" is the same Rig
-re-entered (unusual, but allowed), the inner envelope flows through the
-pipeline — `messageDataProgram` classifies it again, `messageDataHandler`
-unpacks it again. N levels deep, same shape every level.
+The outer envelope's handler returns the inner envelope tuple as one of
+its emissions. The Rig dispatches that inner envelope to the clients
+that accept its URI. If a client downstream is itself a Rig (a
+Rig-as-client composition), the inner envelope re-enters that
+downstream pipeline naturally — `messageDataProgram` classifies it,
+`messageDataHandler` unpacks it. N levels deep, same shape every level.
 
-If the protocol wants the inner envelope re-classified by the same Rig
-even when its URI didn't route back through dispatch, the outer handler
-uses re-entry (chapter 7) instead of plain broadcast. Either path works;
-the protocol picks based on intent.
+Within a single Rig, handler emissions skip classification (chapter 6).
+If a protocol wants the inner envelope to be re-classified by the same
+Rig that's processing the outer one — for defense-in-depth or because
+the inner envelope is governed by different programs — the protocol
+expresses that as a reaction instead of a handler emission. Reactions
+flow through `rig.send`, which runs programs.
 
 ## Why this is better than a framework-blessed `MessageDataClient`
 
@@ -119,10 +124,10 @@ does nothing. The handler does the unpacking, in plain code that lives
 in a protocol package. You read the handler to know what happens.
 
 **Testability.** A protocol-supplied handler is a single function that
-takes an `Output` and a `broadcast` and returns nothing. It's directly
-unit-testable without standing up a Rig. Today the equivalent test
-needs the whole `MessageDataClient` + `Store` machinery to observe
-side-effects.
+takes an `Output` and returns `Output[]`. It's directly unit-testable
+without standing up a Rig — call it, assert on what it returned. Today
+the equivalent test needs the whole `MessageDataClient` + `Store`
+machinery to observe side-effects.
 
 ## What `MessageDataClient` becomes
 
@@ -143,10 +148,12 @@ about envelopes. We unfuse them.
   opt-in.
 - The framework no longer recognizes `MessageData`. Decomposition lives
   entirely in the protocol-supplied handler.
-- The handler unpacks the envelope and `broadcast`s the constituents:
-  the envelope itself, the outputs, the inputs as null-payload deletions.
-- N-level nesting falls out of the connection-routing dispatch (or
-  re-entry, when needed).
+- The handler unpacks the envelope and returns the constituent
+  emissions: the envelope itself, the outputs, the inputs as
+  null-payload deletions. The Rig dispatches each through connection
+  routing.
+- N-level nesting falls out naturally from connection routing (or
+  through reactions when re-classification is wanted).
 - `MessageDataClient` retires; the storage-adapter half of its old job
   becomes `DataStoreClient` (chapter 9); the envelope half becomes
   `messageDataHandler`.
