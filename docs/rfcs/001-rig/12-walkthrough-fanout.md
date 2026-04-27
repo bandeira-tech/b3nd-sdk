@@ -24,7 +24,7 @@ const primary = new DataStoreClient(new MemoryStore());
 
 const metaChannel = new FunctionalClient({
   receive: async (outs) => {
-    for (const [uri, , payload] of outs) {
+    for (const [uri, payload] of outs) {
       console.log("[meta] publish ticket", uri, payload);
       await postToMetaAds(payload);
     }
@@ -34,7 +34,7 @@ const metaChannel = new FunctionalClient({
 
 const googleChannel = new FunctionalClient({
   receive: async (outs) => {
-    for (const [uri, , payload] of outs) {
+    for (const [uri, payload] of outs) {
       console.log("[google] publish ticket", uri, payload);
       await postToGoogleAds(payload);
     }
@@ -114,9 +114,9 @@ agency identity. `rig.send([envelope])` is invoked.
 **Process.** `messageDataProgram` runs against the envelope's URI. Shape
 checks pass. Returns `{ code: "msgdata:valid" }`.
 
-**Handle.** `messageDataHandler` runs. It builds the broadcast list —
-the envelope itself plus the four declared outputs (no inputs to delete
-in this case):
+**Handle.** `messageDataHandler` runs. It returns the constituent
+emissions — the envelope itself plus the four declared outputs (no
+inputs to delete in this case):
 
 ```ts
 [
@@ -128,7 +128,8 @@ in this case):
 ]
 ```
 
-It calls `broadcast(thatList)`.
+The Rig takes that list and broadcasts each tuple through connection
+routing.
 
 **Broadcast — and this is the chapter's main point.** Each tuple is
 matched against connection patterns:
@@ -155,9 +156,25 @@ declaratively, in the Rig configuration.
 
 **React.** A reaction registered on
 `mutable://agency/campaigns/:client/current` fires for the pointer
-update — the agency's internal dashboard sees the new campaign go live
-in real time. No reactions registered on `publish://*` (those are
-write-and-forget into external systems), so nothing else fires.
+update. Suppose the dashboard tracks the agency's current campaign
+roster and emits an entry for any newly-live campaign:
+
+```ts
+const addToRoster: Reaction = async (out, _read) => {
+  const [, campaignHash] = out;
+  if (campaignHash === null) return [];
+  return [[`dashboard://roster/${Date.now()}`, { campaignHash }]];
+};
+
+rig.reaction("mutable://agency/campaigns/:client/current", addToRoster);
+```
+
+That returned `Output` flows through `rig.send` (chapter 7 — reactions
+are productive observation). A connection registered for
+`dashboard://*` belongs to the dashboard's WebSocket-fan-out client;
+the new roster entry shows up in the agency's UI in real time. No
+reactions registered on `publish://*` (those tickets are
+write-and-forget into external ad systems), so nothing else chains.
 
 **Events + hooks.** `send:success` fires once for the agency's original
 send — the host application sees one confirmed action, not four. Any
