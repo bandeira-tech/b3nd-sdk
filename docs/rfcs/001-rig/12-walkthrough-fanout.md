@@ -94,10 +94,10 @@ const ticketGoogle = { ...ticketMeta, channel: "google" };
 await agencySession.send({
   inputs: [],
   outputs: [
-    [campaignUri,                                                {}, campaignBody],
-    ["mutable://agency/campaigns/rosies-bakery/current",         {}, campaignUri],
-    [`publish://meta/rosies-bakery/${Date.now()}`,                {}, ticketMeta],
-    [`publish://google/rosies-bakery/${Date.now() + 1}`,          {}, ticketGoogle],
+    [campaignUri,                                          campaignBody],
+    ["mutable://agency/campaigns/rosies-bakery/current",   campaignUri],
+    [`publish://meta/rosies-bakery/${Date.now()}`,         ticketMeta],
+    [`publish://google/rosies-bakery/${Date.now() + 1}`,   ticketGoogle],
   ],
 });
 ```
@@ -120,11 +120,11 @@ in this case):
 
 ```ts
 [
-  ["hash://sha256/{envelope-hash}",                                     {}, { inputs:[], outputs:[…], auth:[…] }],
-  [campaignUri,                                                         {}, campaignBody],
-  ["mutable://agency/campaigns/rosies-bakery/current",                  {}, campaignUri],
-  [`publish://meta/rosies-bakery/${ts}`,                                 {}, ticketMeta],
-  [`publish://google/rosies-bakery/${ts+1}`,                             {}, ticketGoogle],
+  ["hash://sha256/{envelope-hash}",                       { inputs:[], outputs:[…], auth:[…] }],
+  [campaignUri,                                           campaignBody],
+  ["mutable://agency/campaigns/rosies-bakery/current",    campaignUri],
+  [`publish://meta/rosies-bakery/${ts}`,                  ticketMeta],
+  [`publish://google/rosies-bakery/${ts+1}`,              ticketGoogle],
 ]
 ```
 
