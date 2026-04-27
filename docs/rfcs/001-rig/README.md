@@ -91,9 +91,9 @@ independent operational items. The implementation order:
 
 ## What's deliberately out of scope
 
-- The `values` slot stays. We considered and rejected the rename to
-  `quantities`. It is a real protocol concern, the docstring will spell out
-  UTXO-style conservation in plain English, and that closes the issue.
+- A `values` (or `quantities`) slot in the wire primitive. The framework
+  primitive is `[uri, payload]` only. Protocols that need conserved
+  quantities encode them inside `payload` — see Chapter 1.
 - Codemods for the breaking changes in Part I–IV. Pre-1.0; sed-level
   rewrites are fine.
 - A registry of canon SDK handlers beyond what we ship for `MessageData`.
