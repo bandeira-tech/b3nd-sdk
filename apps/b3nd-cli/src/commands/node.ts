@@ -133,7 +133,7 @@ export async function nodeConfigPush(
 
   try {
     const rig = await getRig(logger);
-    const [result] = await rig.receive([[uri, {}, signedMessage]]);
+    const [result] = await rig.receive([[uri, signedMessage]]);
 
     if (result.accepted) {
       console.log(`Config pushed successfully`);

@@ -217,7 +217,7 @@ Deno.test("phase1: permissive schema accepts any URI", async () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(["mutable://anything/goes/here", {}, {
+      body: JSON.stringify(["mutable://anything/goes/here", {
         hello: "world",
       }]),
     });
@@ -245,7 +245,7 @@ Deno.test("phase1: receive and read round-trip", async () => {
     const writeRes = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([uri, {}, data]),
+      body: JSON.stringify([uri, data]),
     });
     assertEquals((await writeRes.json()).accepted, true);
 
@@ -276,7 +276,7 @@ Deno.test("phase1: list returns items after write", async () => {
       const res = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([`mutable://test/items/${id}`, {}, { id }]),
+        body: JSON.stringify([`mutable://test/items/${id}`, { id }]),
       });
       await res.body?.cancel();
     }
@@ -361,7 +361,7 @@ Deno.test("phase2: config not available, node boots with Phase 1 backends", asyn
     const writeRes = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(["mutable://test/graceful", {}, { ok: true }]),
+      body: JSON.stringify(["mutable://test/graceful", { ok: true }]),
     });
     assertEquals((await writeRes.json()).accepted, true);
   } finally {
@@ -408,7 +408,7 @@ Deno.test("phase2: signed config round-trip through HTTP API", async () => {
     const writeRes = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([configUri, {}, signedConfig]),
+      body: JSON.stringify([configUri, signedConfig]),
     });
     const writeBody = await writeRes.json();
     assertEquals(
@@ -468,7 +468,7 @@ Deno.test("phase2: loadConfig succeeds against a node storing signed config", as
     const pushRes = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([configUri, {}, signedConfig]),
+      body: JSON.stringify([configUri, signedConfig]),
     });
     await pushRes.body?.cancel();
 
@@ -535,7 +535,7 @@ Deno.test("phase2: self-hosting — managed node loads config from its own backe
   const writeRes = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify([configUri, {}, signedConfig]),
+    body: JSON.stringify([configUri, signedConfig]),
   });
   assertEquals((await writeRes.json()).accepted, true);
   await killNode(seedNode);
@@ -567,7 +567,7 @@ Deno.test("phase2: self-hosting — managed node loads config from its own backe
     const pushRes = await fetch(`http://127.0.0.1:${port}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([configUri, {}, signedConfig]),
+      body: JSON.stringify([configUri, signedConfig]),
     });
     assertEquals((await pushRes.json()).accepted, true);
 
