@@ -139,13 +139,13 @@ export function respondTo<TReq = unknown, TRes = unknown>(
     identity: Identity;
     client: NodeProtocolInterface;
   },
-): (msg: [string, Record<string, number>, unknown]) => Promise<{ success: boolean; error?: string }> {
+): (msg: [string, unknown]) => Promise<{ success: boolean; error?: string }> {
   const { identity, client } = config;
 
   return async (
-    msg: [string, Record<string, number>, unknown],
+    msg: [string, unknown],
   ): Promise<{ success: boolean; error?: string }> => {
-    const [uri, , raw] = msg;
+    const [uri, raw] = msg;
 
     // 1. Extract encrypted payload (handle signed or unsigned)
     let encryptedPayload: EncryptedPayload;
@@ -214,7 +214,7 @@ export function respondTo<TReq = unknown, TRes = unknown>(
     );
 
     // 7. Write to replyTo
-    await client.receive([[decrypted.replyTo, {}, signedResponse]]);
+    await client.receive([[decrypted.replyTo, signedResponse]]);
 
     return { success: true };
   };
@@ -246,7 +246,7 @@ export function connect(
   config: {
     prefix: string;
     processor: (
-      msg: [string, Record<string, number>, unknown],
+      msg: [string, unknown],
     ) => Promise<{ success: boolean; error?: string }>;
     pollIntervalMs?: number;
     onError?: (error: Error, uri: string) => void;
@@ -271,7 +271,7 @@ export function connect(
       if (!readResult?.success || !readResult.record) continue;
 
       try {
-        const result = await processor([itemUri, {}, readResult.record.data]);
+        const result = await processor([itemUri, readResult.record.data]);
         if (result.success) {
           processed.add(itemUri);
           count++;
@@ -345,9 +345,9 @@ export async function writeRequest<T>(params: {
       signingKeyPair.publicKeyHex,
       signingKeyPair.privateKeyHex,
     );
-    await client.receive([[inboxUri, {}, signed]]);
+    await client.receive([[inboxUri, signed]]);
   } else {
-    await client.receive([[inboxUri, {}, encrypted]]);
+    await client.receive([[inboxUri, encrypted]]);
   }
 }
 
