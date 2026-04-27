@@ -48,9 +48,9 @@ export function pathVector(peers: Peer[]): NodeProtocolInterface {
  * `auth` array — non-authenticated messages flow freely.
  */
 function signerChain(msg: Message): string[] {
-  const [, , data] = msg;
-  if (!data || typeof data !== "object") return [];
-  const auth = (data as { auth?: unknown }).auth;
+  const [, payload] = msg;
+  if (!payload || typeof payload !== "object") return [];
+  const auth = (payload as { auth?: unknown }).auth;
   if (!Array.isArray(auth)) return [];
   const keys: string[] = [];
   for (const entry of auth) {

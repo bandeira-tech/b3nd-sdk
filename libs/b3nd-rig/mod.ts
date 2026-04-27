@@ -20,7 +20,7 @@
  * const session = id.rig(rig);
  * await session.send({
  *   inputs: [],
- *   outputs: [["mutable://app/key", {}, { hello: "world" }]],
+ *   outputs: [["mutable://app/key", { hello: "world" }]],
  * });
  *
  * // Read (no identity needed)

@@ -293,7 +293,7 @@ export class Identity {
    * const alice = await Identity.fromSeed("alice-secret");
    *
    * const session = alice.rig(rig);
-   * await session.send({ inputs: [], outputs: [["mutable://app/x", {}, data]] });
+   * await session.send({ inputs: [], outputs: [["mutable://app/x", data]] });
    * await session.sendEncrypted({ ... }, bob.encryptionPubkey);
    * const secret = await session.readEncrypted<T>(uri);
    * ```

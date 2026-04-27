@@ -295,7 +295,7 @@ export async function send(args: string[], verbose = false): Promise<void> {
         logger?.info("Sending encrypted envelope (session.sendEncrypted)");
         const result = await session.sendEncrypted({
           inputs: [],
-          outputs: [[uri, {}, data]],
+          outputs: [[uri, data]],
         });
         console.log(`✓ Send successful (signed + encrypted)`);
         console.log(`  Hash: ${result.uri}`);
@@ -306,7 +306,7 @@ export async function send(args: string[], verbose = false): Promise<void> {
         logger?.info("Sending signed envelope (session.send)");
         const result = await session.send({
           inputs: [],
-          outputs: [[uri, {}, data]],
+          outputs: [[uri, data]],
         });
         console.log(`✓ Send successful (signed)`);
         console.log(`  Hash: ${result.uri}`);
@@ -316,7 +316,7 @@ export async function send(args: string[], verbose = false): Promise<void> {
     } else {
       // No identity — raw message for open URIs
       logger?.info("Sending raw message (rig.receive, no identity)");
-      const results = await rig.receive([[uri, {}, data]]);
+      const results = await rig.receive([[uri, data]]);
       if (results[0].accepted) {
         console.log(`✓ Send successful (unsigned)`);
         console.log(`  URI: ${uri}`);
@@ -423,7 +423,7 @@ export async function read(uri: string, verbose = false): Promise<void> {
         }
       }
 
-      console.log(`  Values: ${JSON.stringify(result.record.values)}`);
+      // Conserved quantities, if any, live inside the payload (data).
     } else if (result && !result.success) {
       throw new Error(result.error || "Read failed");
     } else {
@@ -769,7 +769,7 @@ export async function upload(
           );
 
           // Send to content-addressed storage
-          const [result] = await rig.receive([[hashUri, {}, fileData]]);
+          const [result] = await rig.receive([[hashUri, fileData]]);
 
           if (result.accepted) {
             hashMap.set(relativePath, hashUri);
@@ -812,7 +812,7 @@ export async function upload(
       const hashUri = `hash://sha256/${hash}`;
       logger?.info(`${fileName} -> ${hashUri} (${fileData.length} bytes)`);
 
-      const [result] = await rig.receive([[hashUri, {}, fileData]]);
+      const [result] = await rig.receive([[hashUri, fileData]]);
 
       if (result.accepted) {
         hashMap.set(fileName, hashUri);
@@ -1123,7 +1123,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
         const hash = await computeSha256(fileData);
         const hashUri = `hash://sha256/${hash}`;
 
-        const [result] = await rig.receive([[hashUri, {}, fileData]]);
+        const [result] = await rig.receive([[hashUri, fileData]]);
 
         if (result.accepted) {
           hashMap.set(relativePath, hashUri);
@@ -1164,7 +1164,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
 
       const result = await session.send({
         inputs: [],
-        outputs: [[linkUri, {}, hashUri]],
+        outputs: [[linkUri, hashUri]],
       });
 
       if (result.accepted) {
@@ -1184,7 +1184,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
 
     const pointerResult = await session.send({
       inputs: [],
-      outputs: [[resolvedTarget, {}, versionBase]],
+      outputs: [[resolvedTarget, versionBase]],
     });
 
     if (!pointerResult.accepted) {

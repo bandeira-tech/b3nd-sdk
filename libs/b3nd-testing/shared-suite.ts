@@ -4,17 +4,19 @@
  * Tests that any implementation of NodeProtocolInterface behaves
  * correctly as **mechanical storage**.
  *
- * Message primitive: [uri, values, data] where:
+ * Message primitive: [uri, payload] where:
  * - uri: string — identity/address
- * - values: Record<string, number> — conserved quantities ({} for none)
- * - data: { inputs: string[], outputs: Output[] } — always structured
+ * - payload: protocol-defined; for envelope-shaped payloads
+ *   `{ inputs: string[], outputs: Output[] }`.
  *
  * receive() takes Message[] (batch, each independently processed).
- * read() returns record with { values, data }.
+ * read() returns record with { data }.
  *
  * Clients are mechanical: delete inputs, write outputs. No validation,
  * no conservation checks — the rig handles classification via programs.
- * Conservation and program logic are **rig-level** concerns.
+ * Conservation and program logic are **rig-level** concerns. UTXO-style
+ * conserved quantities live inside the payload at protocol-defined keys
+ * (e.g. `payload.values.fire`).
  *
  * Each client test file imports and runs this suite with factory functions
  * that create fresh client instances for each test.
@@ -31,14 +33,13 @@ let _seq = 0;
 
 /** Build a Message wrapping outputs into an envelope. No inputs. */
 function msg(
-  outputs: [string, Record<string, number>, unknown][],
+  outputs: [string, unknown][],
   inputs: string[] = [],
 ): [
   string,
-  Record<string, number>,
-  { inputs: string[]; outputs: [string, Record<string, number>, unknown][] },
+  { inputs: string[]; outputs: [string, unknown][] },
 ] {
-  return [`envelope://test/${++_seq}`, {}, { inputs, outputs }];
+  return [`envelope://test/${++_seq}`, { inputs, outputs }];
 }
 
 /**
@@ -82,7 +83,7 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://users/alice/profile", {}, {
+        msg([["store://users/alice/profile", {
           name: "Alice",
           email: "alice@example.com",
         }]]),
@@ -98,7 +99,6 @@ export function runSharedSuite(
         name: "Alice",
         email: "alice@example.com",
       });
-      assertEquals(readResults[0].record?.values, {});
     },
   });
 
@@ -125,7 +125,7 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://users/scalar-string/data", {}, "hello world"]]),
+        msg([["store://users/scalar-string/data", "hello world"]]),
       ]);
       assertEquals(results[0].accepted, true);
 
@@ -147,7 +147,7 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://users/scalar-number/data", {}, 42]]),
+        msg([["store://users/scalar-number/data", 42]]),
       ]);
       assertEquals(results[0].accepted, true);
 
@@ -169,7 +169,7 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://users/scalar-bool/data", {}, true]]),
+        msg([["store://users/scalar-bool/data", true]]),
       ]);
       assertEquals(results[0].accepted, true);
 
@@ -191,7 +191,7 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://users/scalar-null/data", {}, null]]),
+        msg([["store://users/scalar-null/data", null]]),
       ]);
       assertEquals(results[0].accepted, true);
 
@@ -213,7 +213,7 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://users/scalar-empty/data", {}, ""]]),
+        msg([["store://users/scalar-empty/data", ""]]),
       ]);
       assertEquals(results[0].accepted, true);
 
@@ -235,7 +235,7 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://users/scalar-zero/data", {}, 0]]),
+        msg([["store://users/scalar-zero/data", 0]]),
       ]);
       assertEquals(results[0].accepted, true);
 
@@ -250,7 +250,9 @@ export function runSharedSuite(
     },
   });
 
-  // ── Values on outputs ──────────────────────────────────────────────
+  // ── Conserved quantities live inside the payload ───────────────────
+  // Per RFC 001, the wire primitive has no `values` slot. UTXO-style
+  // protocols put conserved quantities at `payload.values`.
 
   Deno.test({
     name: `${suiteName} - receive and read output with single asset value`,
@@ -259,15 +261,14 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://balance/alice/utxo-1", { fire: 100 }, null]]),
+        msg([["store://balance/alice/utxo-1", { values: { fire: 100 } }]]),
       ]);
       assertEquals(results[0].accepted, true);
 
       const readResults = await client.read("store://balance/alice/utxo-1");
       assertEquals(readResults.length, 1);
       assertEquals(readResults[0].success, true);
-      assertEquals(readResults[0].record?.values, { fire: 100 });
-      assertEquals(readResults[0].record?.data, null);
+      assertEquals(readResults[0].record?.data, { values: { fire: 100 } });
     },
   });
 
@@ -278,7 +279,8 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://balance/alice/utxo-2", { fire: 50, usd: 200 }, {
+        msg([["store://balance/alice/utxo-2", {
+          values: { fire: 50, usd: 200 },
           memo: "deposit",
         }]]),
       ]);
@@ -287,8 +289,10 @@ export function runSharedSuite(
       const readResults = await client.read("store://balance/alice/utxo-2");
       assertEquals(readResults.length, 1);
       assertEquals(readResults[0].success, true);
-      assertEquals(readResults[0].record?.values, { fire: 50, usd: 200 });
-      assertEquals(readResults[0].record?.data, { memo: "deposit" });
+      assertEquals(readResults[0].record?.data, {
+        values: { fire: 50, usd: 200 },
+        memo: "deposit",
+      });
     },
   });
 
@@ -301,9 +305,9 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       const results = await client.receive([
-        msg([["store://users/batch-a/profile", {}, { name: "Alice" }]]),
-        msg([["store://users/batch-b/profile", {}, { name: "Bob" }]]),
-        msg([["store://users/batch-c/profile", {}, { name: "Charlie" }]]),
+        msg([["store://users/batch-a/profile", { name: "Alice" }]]),
+        msg([["store://users/batch-b/profile", { name: "Bob" }]]),
+        msg([["store://users/batch-c/profile", { name: "Charlie" }]]),
       ]);
 
       assertEquals(results.length, 3);
@@ -334,9 +338,9 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       await client.receive([
-        msg([["store://users/multi-a/profile", {}, { v: 1 }]]),
-        msg([["store://users/multi-b/profile", {}, { v: 2 }]]),
-        msg([["store://users/multi-c/profile", {}, { v: 3 }]]),
+        msg([["store://users/multi-a/profile", { v: 1 }]]),
+        msg([["store://users/multi-b/profile", { v: 2 }]]),
+        msg([["store://users/multi-c/profile", { v: 3 }]]),
       ]);
 
       const results = await client.read([
@@ -368,7 +372,7 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       await client.receive([
-        msg([["store://users/partial-a/profile", {}, { ok: true }]]),
+        msg([["store://users/partial-a/profile", { ok: true }]]),
       ]);
 
       const results = await client.read([
@@ -390,9 +394,9 @@ export function runSharedSuite(
 
       const prefix = `store://users/list-test-${Date.now()}`;
       await client.receive([
-        msg([[`${prefix}/alice/profile`, {}, { name: "Alice" }]]),
-        msg([[`${prefix}/bob/profile`, {}, { name: "Bob" }]]),
-        msg([[`${prefix}/charlie/profile`, {}, { name: "Charlie" }]]),
+        msg([[`${prefix}/alice/profile`, { name: "Alice" }]]),
+        msg([[`${prefix}/bob/profile`, { name: "Bob" }]]),
+        msg([[`${prefix}/charlie/profile`, { name: "Charlie" }]]),
       ]);
 
       const results = await client.read(`${prefix}/`);
@@ -458,7 +462,7 @@ export function runSharedSuite(
         ]);
 
         const results = await client.receive([
-          msg([["store://files/test-image.png", {}, binaryData]]),
+          msg([["store://files/test-image.png", binaryData]]),
         ]);
 
         assertEquals(
@@ -513,7 +517,7 @@ export function runSharedSuite(
         }
 
         const results = await client.receive([
-          msg([["store://files/large-file.bin", {}, binaryData]]),
+          msg([["store://files/large-file.bin", binaryData]]),
         ]);
 
         assertEquals(
@@ -560,7 +564,7 @@ export function runSharedSuite(
       const client = await Promise.resolve(factories.happy());
 
       await client.receive([
-        msg([["store://users/overwrite/profile", {}, {
+        msg([["store://users/overwrite/profile", {
           name: "Alice",
           version: 1,
         }]]),
@@ -568,7 +572,7 @@ export function runSharedSuite(
 
       // Write again to the same URI — second write wins
       await client.receive([
-        msg([["store://users/overwrite/profile", {}, {
+        msg([["store://users/overwrite/profile", {
           name: "Alice Updated",
           version: 2,
         }]]),
@@ -585,25 +589,28 @@ export function runSharedSuite(
   });
 
   Deno.test({
-    name: `${suiteName} - overwrite preserves new values`,
+    name: `${suiteName} - overwrite preserves new payload`,
     ...noSanitize,
     fn: async () => {
       const client = await Promise.resolve(factories.happy());
 
       await client.receive([
-        msg([["store://balance/overwrite/utxo", { fire: 100 }, null]]),
+        msg([["store://balance/overwrite/utxo", { values: { fire: 100 } }]]),
       ]);
 
       await client.receive([
-        msg([["store://balance/overwrite/utxo", { fire: 75, usd: 25 }, {
+        msg([["store://balance/overwrite/utxo", {
+          values: { fire: 75, usd: 25 },
           memo: "updated",
         }]]),
       ]);
 
       const readResults = await client.read("store://balance/overwrite/utxo");
       assertEquals(readResults[0].success, true);
-      assertEquals(readResults[0].record?.values, { fire: 75, usd: 25 });
-      assertEquals(readResults[0].record?.data, { memo: "updated" });
+      assertEquals(readResults[0].record?.data, {
+        values: { fire: 75, usd: 25 },
+        memo: "updated",
+      });
     },
   });
 
@@ -621,7 +628,7 @@ export function runSharedSuite(
         const client = await Promise.resolve(factories.validationError!());
 
         const results = await client.receive([
-          msg([["store://users/invalid/data", {}, { invalid: true }]]),
+          msg([["store://users/invalid/data", { invalid: true }]]),
         ]);
 
         assertEquals(results[0].accepted, false);
@@ -638,7 +645,7 @@ export function runSharedSuite(
         const client = await Promise.resolve(factories.connectionError!());
 
         const results = await client.receive([
-          msg([["store://users/test/data", {}, { value: 123 }]]),
+          msg([["store://users/test/data", { value: 123 }]]),
         ]);
 
         assertEquals(results[0].accepted, false);

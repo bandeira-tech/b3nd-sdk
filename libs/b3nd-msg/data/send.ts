@@ -11,7 +11,7 @@
  * const result = await send({
  *   inputs: [],
  *   outputs: [
- *     ["mutable://open/config", {}, { theme: "dark" }],
+ *     ["mutable://open/config", { theme: "dark" }],
  *   ],
  * }, client);
  *

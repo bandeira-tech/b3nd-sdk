@@ -62,7 +62,7 @@ Deno.test("flood.receive fans out to every peer", async () => {
   const b = mem();
   const npi = flood([peer(a, { id: "A" }), peer(b, { id: "B" })]);
 
-  const results = await npi.receive([["mutable://shared/x", {}, "hello"]]);
+  const results = await npi.receive([["mutable://shared/x", "hello"]]);
   assertEquals(results, [{ accepted: true }]);
 
   const ra = await a.read("mutable://shared/x");
@@ -86,7 +86,7 @@ Deno.test("flood.receive propagates transport errors", async () => {
   };
   const npi = flood([peer(broken, { id: "X" })]);
   await assertRejects(
-    () => npi.receive([["mutable://x", {}, 1]]),
+    () => npi.receive([["mutable://x", 1]]),
     Error,
     "peer offline",
   );
@@ -97,7 +97,7 @@ Deno.test("flood.receive propagates transport errors", async () => {
 Deno.test("flood.read tries peers in order and returns the first hit", async () => {
   const a = mem();
   const b = mem();
-  await b.receive([["mutable://only/on/b", {}, "B-has-it"]]);
+  await b.receive([["mutable://only/on/b", "B-has-it"]]);
   const npi = flood([peer(a, { id: "A" }), peer(b, { id: "B" })]);
 
   const results = await npi.read("mutable://only/on/b");
@@ -113,7 +113,7 @@ Deno.test("flood.read falls through failing peers", async () => {
     status: () => Promise.resolve({ status: "unhealthy" } as StatusResult),
   };
   const good = mem();
-  await good.receive([["mutable://z", {}, "ok"]]);
+  await good.receive([["mutable://z", "ok"]]);
   const npi = flood([peer(broken, { id: "X" }), peer(good, { id: "Y" })]);
 
   const results = await npi.read("mutable://z");
@@ -143,8 +143,8 @@ Deno.test("flood.observe merges writes from every peer", async () => {
   })();
 
   await new Promise((r) => setTimeout(r, 10));
-  await a.receive([["mutable://shared/a-write", {}, 1]]);
-  await b.receive([["mutable://shared/b-write", {}, 2]]);
+  await a.receive([["mutable://shared/a-write", 1]]);
+  await b.receive([["mutable://shared/b-write", 2]]);
 
   await done;
   seen.sort();

@@ -16,9 +16,9 @@ import type { Message, Output } from "../../b3nd-core/types.ts";
  * const data: MessageData = {
  *   inputs: ["utxo://alice/1", "utxo://alice/2"],
  *   outputs: [
- *     ["utxo://bob/99", { fire: 50 }, null],
- *     ["utxo://alice/3", { fire: 30 }, null],
- *     ["fees://pool", { fire: 1 }, null],
+ *     ["utxo://bob/99", { values: { fire: 50 } }],
+ *     ["utxo://alice/3", { values: { fire: 30 } }],
+ *     ["fees://pool", { values: { fire: 1 } }],
  *   ],
  * };
  * ```
@@ -33,7 +33,7 @@ export interface MessageData {
   /** URIs consumed or referenced by this message. */
   inputs: string[];
 
-  /** Outputs produced — each is `[uri, values, data]`. */
+  /** Outputs produced — each is `[uri, payload]`. */
   outputs: Output[];
 }
 

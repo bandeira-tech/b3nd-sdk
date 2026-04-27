@@ -604,7 +604,7 @@ export class TestState {
       const response = await fetch(`${this.b3ndUrl}/api/v1/receive`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([uri, {}, data]),
+        body: JSON.stringify([uri, data]),
       });
 
       if (!response.ok) {

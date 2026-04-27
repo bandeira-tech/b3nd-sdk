@@ -110,7 +110,7 @@ export class HttpClient implements NodeProtocolInterface {
   /**
    * Receive a batch of messages (unified interface)
    * POSTs to /api/v1/receive endpoint
-   * @param msgs - Array of Message tuples [uri, values, data]
+   * @param msgs - Array of Message tuples [uri, payload]
    * @returns ReceiveResult[] — one result per message
    */
   async receive(msgs: Message[]): Promise<ReceiveResult[]> {
@@ -138,7 +138,7 @@ export class HttpClient implements NodeProtocolInterface {
 
     try {
       const serializedBatch = JSON.stringify(
-        validMsgs.map(([uri, values, data]) => [uri, values, serializeMsgData(data)]),
+        validMsgs.map(([uri, payload]) => [uri, serializeMsgData(payload)]),
       );
 
       const response = await this.request("/api/v1/receive", {
@@ -280,7 +280,7 @@ export class HttpClient implements NodeProtocolInterface {
         const data = new Uint8Array(buffer) as unknown as T;
         return {
           success: true,
-          record: { values: {}, data },
+          record: { data },
         };
       }
 
@@ -346,7 +346,7 @@ export class HttpClient implements NodeProtocolInterface {
       yield {
         success: true,
         uri: event.uri,
-        record: { data: event.data as T, values: {} },
+        record: { data: event.data as T },
       } as ReadResult<T>;
     }
   }

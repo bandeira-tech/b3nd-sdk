@@ -49,7 +49,7 @@ import type { Connection } from "./connection.ts";
  * const rig = new Rig({
  *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
  * });
- * const results = await rig.receive([["mutable://open/app/x", {}, data]]);
+ * const results = await rig.receive([["mutable://open/app/x", data]]);
  * const result = await rig.readData("mutable://open/app/x");
  * ```
  *
@@ -57,7 +57,7 @@ import type { Connection } from "./connection.ts";
  * ```typescript
  * const id = await Identity.fromSeed("my-secret");
  * const session = id.rig(rig);
- * await session.send({ inputs: [], outputs: [["mutable://app/key", {}, data]] });
+ * await session.send({ inputs: [], outputs: [["mutable://app/key", data]] });
  * ```
  *
  * @example With programs, hooks, events, and reactions
@@ -153,12 +153,12 @@ export class Rig {
    * @example Pre-signed via AuthenticatedRig
    * ```typescript
    * const session = identity.rig(rig);
-   * await session.send({ inputs: [], outputs: [["mutable://app/x", {}, data]] });
+   * await session.send({ inputs: [], outputs: [["mutable://app/x", data]] });
    * ```
    *
    * @example Manual signing
    * ```typescript
-   * const outputs = [["mutable://app/x", {}, data]];
+   * const outputs = [["mutable://app/x", data]];
    * const auth = [await identity.sign({ inputs: [], outputs })];
    * await rig.send({ auth, inputs: [], outputs });
    * ```
@@ -197,8 +197,8 @@ export class Rig {
         result,
         ts: Date.now(),
       });
-      for (const [outputUri, , outputData] of messageData.outputs) {
-        this._reactors.match(outputUri, outputData);
+      for (const [outputUri, outputPayload] of messageData.outputs) {
+        this._reactors.match(outputUri, outputPayload);
       }
     } else {
       this._events.emit("send:error", {
@@ -226,7 +226,7 @@ export class Rig {
    * @example
    * ```typescript
    * const results = await rig.receive([
-   *   ["mutable://open/external", {}, { source: "webhook" }],
+   *   ["mutable://open/external", { source: "webhook" }],
    * ]);
    * console.log(results[0].accepted); // true
    * ```
@@ -240,14 +240,14 @@ export class Rig {
   }
 
   private async _receiveOne(msg: Message): Promise<ReceiveResult> {
-    const [uri, values, data] = msg;
+    const [uri, payload] = msg;
 
     // Before-hook — throw to reject
-    const ctx: ReceiveCtx = { uri, data };
+    const ctx: ReceiveCtx = { uri, data: payload };
     const recvCtx = await runBefore(this._hooks.beforeReceive, ctx);
     const finalUri = recvCtx.uri;
     const finalData = recvCtx.data;
-    const finalMsg: Message = [finalUri, values, finalData];
+    const finalMsg: Message = [finalUri, finalData];
 
     // Read helper — single-URI convenience wrapping dispatch.read
     const readFn = async <T = unknown>(u: string) => {
@@ -763,8 +763,8 @@ export class Rig {
    * ```typescript
    * const session = identity.rig(rig);
    * const results = await session.sendMany([
-   *   { inputs: [], outputs: [["mutable://app/counter", {}, { value: 1 }]] },
-   *   { inputs: [], outputs: [["mutable://app/log/1", {}, { event: "init" }]] },
+   *   { inputs: [], outputs: [["mutable://app/counter", { value: 1 }]] },
+   *   { inputs: [], outputs: [["mutable://app/log/1", { event: "init" }]] },
    * ]);
    * ```
    */

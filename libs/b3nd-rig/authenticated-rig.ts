@@ -11,7 +11,7 @@
  * const alice = await Identity.fromSeed("alice-secret");
  *
  * const session = alice.rig(rig);
- * await session.send({ inputs: [], outputs: [["mutable://app/x", {}, data]] });
+ * await session.send({ inputs: [], outputs: [["mutable://app/x", data]] });
  * ```
  */
 
@@ -50,7 +50,7 @@ export class AuthenticatedRig {
    * ```typescript
    * await session.send({
    *   inputs: [],
-   *   outputs: [["mutable://accounts/" + id.pubkey + "/app/x", {}, data]],
+   *   outputs: [["mutable://accounts/" + id.pubkey + "/app/x", data]],
    * });
    * ```
    */
@@ -73,7 +73,7 @@ export class AuthenticatedRig {
    * // Self-encrypt
    * await session.sendEncrypted({
    *   inputs: [],
-   *   outputs: [["mutable://secrets/x", {}, { apiKey: "sk-abc" }]],
+   *   outputs: [["mutable://secrets/x", { apiKey: "sk-abc" }]],
    * });
    *
    * // Encrypt to another party
@@ -93,10 +93,10 @@ export class AuthenticatedRig {
     const recipient = recipientEncPubkeyHex || this.identity.encryptionPubkey;
 
     const encryptedOutputs: Output[] = await Promise.all(
-      data.outputs.map(async ([uri, values, value]) => {
+      data.outputs.map(async ([uri, value]) => {
         const plaintext = new TextEncoder().encode(JSON.stringify(value));
         const encrypted = await this.identity.encrypt(plaintext, recipient);
-        return [uri, values, encrypted] as Output;
+        return [uri, encrypted] as Output;
       }),
     );
 

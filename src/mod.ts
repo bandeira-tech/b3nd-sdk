@@ -12,7 +12,7 @@
  * const client = new MessageDataClient(new MemoryStore());
  *
  * // Receive a message (the unified interface for all state changes)
- * await client.receive([["mutable://users/alice", {}, { name: "Alice", age: 30 }]]);
+ * await client.receive([["mutable://users/alice", { name: "Alice", age: 30 }]]);
  *
  * // Read data
  * const results = await client.read("mutable://users/alice");
@@ -30,7 +30,7 @@
  * const client = new HttpClient({ url: "https://api.example.com" });
  *
  * // Same NodeProtocolInterface as Store-backed clients
- * await client.receive([["mutable://data/key", {}, { value: 123 }]]);
+ * await client.receive([["mutable://data/key", { value: 123 }]]);
  * const result = await client.read("mutable://data/key");
  * ```
  */

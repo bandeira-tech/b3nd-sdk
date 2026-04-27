@@ -60,7 +60,7 @@ Deno.test("tellAndRead.outbound() with no announce behaves like flood", async ()
   const sync = tellAndRead({});
   const npi = sync.outbound([a.peer, b.peer]);
 
-  await npi.receive([["mutable://x/1", {}, "hello"]]);
+  await npi.receive([["mutable://x/1", "hello"]]);
   assertEquals(a.received.length, 1);
   assertEquals(b.received.length, 1);
   assertEquals(a.received[0][0], "mutable://x/1");
@@ -70,36 +70,36 @@ Deno.test("tellAndRead.outbound() rewrites per-message announcements", async () 
   const a = recordingPeer("A");
   const sync = tellAndRead({
     announce: (msgs) =>
-      msgs.map(([uri]) => [`inv://${uri}`, {}, { have: uri }] as Message),
+      msgs.map(([uri]) => [`inv://${uri}`, { have: uri }] as Message),
   });
   const npi = sync.outbound([a.peer]);
 
   await npi.receive([
-    ["hash://sha256/abc", {}, { big: "payload" }],
+    ["hash://sha256/abc", { big: "payload" }],
   ]);
   assertEquals(a.received.length, 1);
   assertEquals(a.received[0][0], "inv://hash://sha256/abc");
-  assertEquals(a.received[0][2], { have: "hash://sha256/abc" });
+  assertEquals(a.received[0][1], { have: "hash://sha256/abc" });
 });
 
 Deno.test("tellAndRead.outbound() supports compound announcements", async () => {
   const a = recordingPeer("A");
   const sync = tellAndRead({
     announce: (msgs) => [
-      [`inv://batch`, {}, { have: msgs.map((m) => m[0]) }] as Message,
+      [`inv://batch`, { have: msgs.map((m) => m[0]) }] as Message,
     ],
   });
   const npi = sync.outbound([a.peer]);
 
   await npi.receive([
-    ["hash://a", {}, 1],
-    ["hash://b", {}, 2],
-    ["hash://c", {}, 3],
+    ["hash://a", 1],
+    ["hash://b", 2],
+    ["hash://c", 3],
   ]);
   // Three outbound messages compressed into one announcement.
   assertEquals(a.received.length, 1);
   assertEquals(a.received[0][0], "inv://batch");
-  assertEquals((a.received[0][2] as { have: string[] }).have, [
+  assertEquals((a.received[0][1] as { have: string[] }).have, [
     "hash://a",
     "hash://b",
     "hash://c",
@@ -113,14 +113,14 @@ Deno.test("tellAndRead.outbound() supports per-peer asymmetry (full to trusted, 
     announce: (msgs, p) =>
       p.id.startsWith("trusted-")
         ? msgs
-        : msgs.map(([uri]) => [`inv://${uri}`, {}, { have: uri }] as Message),
+        : msgs.map(([uri]) => [`inv://${uri}`, { have: uri }] as Message),
   });
   const npi = sync.outbound([trusted.peer, untrusted.peer]);
 
-  await npi.receive([["hash://x", {}, { big: "payload" }]]);
+  await npi.receive([["hash://x", { big: "payload" }]]);
 
   assertEquals(trusted.received[0][0], "hash://x");
-  assertEquals(trusted.received[0][2], { big: "payload" });
+  assertEquals(trusted.received[0][1], { big: "payload" });
   assertEquals(untrusted.received[0][0], "inv://hash://x");
 });
 
@@ -132,7 +132,7 @@ Deno.test("tellAndRead.outbound() skips a peer when transform returns []", async
   });
   const npi = sync.outbound([a.peer, b.peer]);
 
-  await npi.receive([["mutable://x/1", {}, 1]]);
+  await npi.receive([["mutable://x/1", 1]]);
   assertEquals(a.received.length, 1);
   assertEquals(b.received.length, 0);
 });
@@ -150,7 +150,7 @@ Deno.test("tellAndRead.inbound: null onAnnounce passes through", async () => {
       {
         success: true,
         uri: "mutable://x/1",
-        record: { values: {}, data: "bare" },
+        record: { data: "bare" },
       },
       source,
       ctx,
@@ -161,7 +161,7 @@ Deno.test("tellAndRead.inbound: null onAnnounce passes through", async () => {
 
 Deno.test("tellAndRead.inbound: onAnnounce pulls the URI and yields fetched content", async () => {
   const storeA = mem();
-  await storeA.receive([["hash://x", {}, { big: "fetched" }]]);
+  await storeA.receive([["hash://x", { big: "fetched" }]]);
 
   const sync = tellAndRead({
     onAnnounce: (ev) => {
@@ -181,7 +181,7 @@ Deno.test("tellAndRead.inbound: onAnnounce pulls the URI and yields fetched cont
       {
         success: true,
         uri: "inv://anything",
-        record: { values: {}, data: { have: "hash://x" } },
+        record: { data: { have: "hash://x" } },
       },
       source,
       ctx,
@@ -209,7 +209,7 @@ Deno.test("tellAndRead.inbound: empty URI list consumes the announcement silentl
       {
         success: true,
         uri: "inv://anything",
-        record: { values: {}, data: { have: "hash://x" } },
+        record: { data: { have: "hash://x" } },
       },
       source,
       ctx,
@@ -221,8 +221,8 @@ Deno.test("tellAndRead.inbound: empty URI list consumes the announcement silentl
 Deno.test("tellAndRead.inbound: multi-URI announcement fans out pulls", async () => {
   const storeA = mem();
   await storeA.receive([
-    ["hash://a", {}, "A-data"],
-    ["hash://b", {}, "B-data"],
+    ["hash://a", "A-data"],
+    ["hash://b", "B-data"],
   ]);
 
   const sync = tellAndRead({
@@ -243,7 +243,7 @@ Deno.test("tellAndRead.inbound: multi-URI announcement fans out pulls", async ()
       {
         success: true,
         uri: "inv://batch",
-        record: { values: {}, data: { have: ["hash://a", "hash://b"] } },
+        record: { data: { have: ["hash://a", "hash://b"] } },
       },
       source,
       ctx,
@@ -271,7 +271,7 @@ Deno.test("tellAndRead.inbound: read miss on announcement yields nothing", async
       {
         success: true,
         uri: "inv://x",
-        record: { values: {}, data: { have: "hash://x" } },
+        record: { data: { have: "hash://x" } },
       },
       source,
       ctx,
@@ -293,12 +293,12 @@ Deno.test("tellAndRead round-trip: A announces hash content, B pulls on demand",
   const storeA = mem();
 
   // Seed A with the full content — the data plane lives on A's store.
-  await storeA.receive([["hash://big", {}, { bytes: "the full payload" }]]);
+  await storeA.receive([["hash://big", { bytes: "the full payload" }]]);
 
   const sync = tellAndRead({
     // Outbound: every hash:// payload becomes an announcement.
     announce: (msgs) =>
-      msgs.map(([uri]) => [`inv://${uri}`, {}, { have: uri }] as Message),
+      msgs.map(([uri]) => [`inv://${uri}`, { have: uri }] as Message),
     // Inbound: announcements trigger a read of the announced URI.
     onAnnounce: (ev) => {
       if (ev.uri?.startsWith("inv://")) {
@@ -320,7 +320,7 @@ Deno.test("tellAndRead round-trip: A announces hash content, B pulls on demand",
     // A announces the content it holds. (In a real setup this would be
     // A's rig using `connection(sync.outbound(peersOfA), patterns)`;
     // here we publish the announcement directly for test focus.)
-    await storeA.receive([["inv://hash://big", {}, { have: "hash://big" }]]);
+    await storeA.receive([["inv://hash://big", { have: "hash://big" }]]);
 
     // Poll until B's local store has the pulled content.
     await until(async () => {

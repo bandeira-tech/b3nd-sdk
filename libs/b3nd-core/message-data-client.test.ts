@@ -20,16 +20,18 @@ Deno.test({
 
     // Seed an input that will be consumed
     await store.write([
-      { uri: "mutable://tokens/1", values: { fire: 100 }, data: null },
+      { uri: "mutable://tokens/1", data: { values: { fire: 100 } } },
     ]);
 
-    // Send envelope that consumes input and produces outputs
+    // Send envelope that consumes input and produces outputs.
+    // Conserved quantities now live inside each output's payload at
+    // a protocol-defined key (e.g. payload.values).
     const results = await client.receive([
-      ["hash://sha256/abc123", {}, {
+      ["hash://sha256/abc123", {
         inputs: ["mutable://tokens/1"],
         outputs: [
-          ["mutable://tokens/2", { fire: 60 }, null],
-          ["mutable://tokens/3", { fire: 40 }, null],
+          ["mutable://tokens/2", { values: { fire: 60 } }],
+          ["mutable://tokens/3", { values: { fire: 40 } }],
         ],
       }],
     ]);
@@ -44,11 +46,11 @@ Deno.test({
     // Outputs were written
     const out2 = await store.read(["mutable://tokens/2"]);
     assertEquals(out2[0].success, true);
-    assertEquals(out2[0].record?.values, { fire: 60 });
+    assertEquals(out2[0].record?.data, { values: { fire: 60 } });
 
     const out3 = await store.read(["mutable://tokens/3"]);
     assertEquals(out3[0].success, true);
-    assertEquals(out3[0].record?.values, { fire: 40 });
+    assertEquals(out3[0].record?.data, { values: { fire: 40 } });
 
     // Envelope itself was persisted
     const envelope = await store.read(["hash://sha256/abc123"]);
@@ -64,7 +66,7 @@ Deno.test({
 
     // Data that doesn't have { inputs, outputs } shape
     await client.receive([
-      ["mutable://app/config", {}, { theme: "dark" }],
+      ["mutable://app/config", { theme: "dark" }],
     ]);
 
     const result = await store.read(["mutable://app/config"]);
@@ -80,10 +82,10 @@ Deno.test({
     const client = new MessageDataClient(store);
 
     await client.receive([
-      ["hash://sha256/def456", {}, {
+      ["hash://sha256/def456", {
         inputs: [],
         outputs: [
-          ["mutable://open/config", {}, { dark: true }],
+          ["mutable://open/config", { dark: true }],
         ],
       }],
     ]);
@@ -103,13 +105,13 @@ Deno.test({
     const client = new MessageDataClient(store);
 
     const results = await client.receive([
-      ["hash://sha256/msg1", {}, {
+      ["hash://sha256/msg1", {
         inputs: [],
-        outputs: [["mutable://app/a", {}, "A"]],
+        outputs: [["mutable://app/a", "A"]],
       }],
-      ["hash://sha256/msg2", {}, {
+      ["hash://sha256/msg2", {
         inputs: [],
-        outputs: [["mutable://app/b", {}, "B"]],
+        outputs: [["mutable://app/b", "B"]],
       }],
     ]);
 
@@ -131,7 +133,7 @@ Deno.test({
     const client = new MessageDataClient(store);
 
     await store.write([
-      { uri: "mutable://app/x", values: {}, data: "hello" },
+      { uri: "mutable://app/x", data: "hello" },
     ]);
 
     // String form
@@ -165,9 +167,9 @@ Deno.test({
 
     // Send an envelope that writes to mutable://app/x
     await client.receive([
-      ["hash://sha256/test", {}, {
+      ["hash://sha256/test", {
         inputs: [],
-        outputs: [["mutable://app/x", {}, "observed!"]],
+        outputs: [["mutable://app/x", "observed!"]],
       }],
     ]);
 
@@ -185,7 +187,7 @@ Deno.test({
 
     // Seed an input that will be consumed
     await store.write([
-      { uri: "mutable://tokens/1", values: { fire: 100 }, data: "live" },
+      { uri: "mutable://tokens/1", data: { values: { fire: 100 }, label: "live" } },
     ]);
 
     const observed: { uri?: string; data: unknown }[] = [];
@@ -197,49 +199,50 @@ Deno.test({
     })();
 
     await client.receive([
-      ["hash://sha256/burn", {}, {
+      ["hash://sha256/burn", {
         inputs: ["mutable://tokens/1"],
-        outputs: [["mutable://tokens/2", { fire: 100 }, "reborn"]],
+        outputs: [["mutable://tokens/2", { values: { fire: 100 }, label: "reborn" }]],
       }],
     ]);
 
     await done;
     assertEquals(observed, [
       { uri: "mutable://tokens/1", data: null }, // delete
-      { uri: "mutable://tokens/2", data: "reborn" }, // output write
+      { uri: "mutable://tokens/2", data: { values: { fire: 100 }, label: "reborn" } }, // output write
     ]);
   },
 });
 
 Deno.test({
-  name: "MessageDataClient - observe forwards values from outputs",
+  name: "MessageDataClient - observe forwards payloads from outputs",
   fn: async () => {
     const store = new MemoryStore();
     const client = new MessageDataClient(store);
     const ac = new AbortController();
 
-    const seen: { uri?: string; values?: Record<string, number> }[] = [];
+    const seen: { uri?: string; data: unknown }[] = [];
     const done = (async () => {
       for await (const r of client.observe("mutable://tokens/*", ac.signal)) {
-        seen.push({ uri: r.uri, values: r.record?.values });
+        seen.push({ uri: r.uri, data: r.record?.data });
         if (seen.length >= 2) ac.abort();
       }
     })();
 
+    // Conserved quantities live inside the payload at a protocol-defined key.
     await client.receive([
-      ["hash://sha256/split", {}, {
+      ["hash://sha256/split", {
         inputs: [],
         outputs: [
-          ["mutable://tokens/a", { fire: 60 }, null],
-          ["mutable://tokens/b", { fire: 40 }, null],
+          ["mutable://tokens/a", { values: { fire: 60 } }],
+          ["mutable://tokens/b", { values: { fire: 40 } }],
         ],
       }],
     ]);
 
     await done;
     assertEquals(seen, [
-      { uri: "mutable://tokens/a", values: { fire: 60 } },
-      { uri: "mutable://tokens/b", values: { fire: 40 } },
+      { uri: "mutable://tokens/a", data: { values: { fire: 60 } } },
+      { uri: "mutable://tokens/b", data: { values: { fire: 40 } } },
     ]);
   },
 });
@@ -260,7 +263,7 @@ Deno.test({
     })();
 
     await client.receive([
-      ["hash://sha256/env1", {}, { theme: "dark" }],
+      ["hash://sha256/env1", { theme: "dark" }],
     ]);
 
     await done;
@@ -290,7 +293,7 @@ Deno.test({
     const client = new MessageDataClient(store);
 
     // deno-lint-ignore no-explicit-any
-    const results = await client.receive([[null as any, {}, {}]]);
+    const results = await client.receive([[null as any, {}]]);
     assertEquals(results[0].accepted, false);
     assertEquals(results[0].error, "Message URI is required");
   },
@@ -303,7 +306,7 @@ Deno.test({
     const client = new MessageDataClient(store);
 
     await client.receive([
-      ["mutable://app/empty", {}, null],
+      ["mutable://app/empty", null],
     ]);
 
     const result = await store.read(["mutable://app/empty"]);

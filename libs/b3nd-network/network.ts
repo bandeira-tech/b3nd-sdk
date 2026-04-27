@@ -160,7 +160,7 @@ async function forward(
   peerId: string,
 ): Promise<void> {
   if (!ev.uri || !ev.record) return;
-  const msg: Message = [ev.uri, ev.record.values, ev.record.data];
+  const msg: Message = [ev.uri, ev.record.data];
   try {
     await target.receive([msg]);
   } catch (err) {

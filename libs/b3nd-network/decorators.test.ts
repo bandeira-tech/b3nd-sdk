@@ -27,7 +27,7 @@ Deno.test("bestEffort swallows receive() errors and reports accepted", async () 
   });
   const wrapped = bestEffort(inner);
 
-  const r = await wrapped.receive([["mutable://x/1", {}, 1]]);
+  const r = await wrapped.receive([["mutable://x/1", 1]]);
   assertEquals(r, [{ accepted: true }]);
 });
 
@@ -41,7 +41,7 @@ Deno.test("bestEffort passes through successful receive unchanged", async () => 
   });
   const wrapped = bestEffort(inner);
 
-  await wrapped.receive([["mutable://x/1", {}, "payload"]]);
+  await wrapped.receive([["mutable://x/1", "payload"]]);
   assertEquals(calls.length, 1);
 });
 
@@ -50,7 +50,7 @@ Deno.test("bestEffort passes through read unchanged", async () => {
     read: <T,>() =>
       Promise.resolve([{
         success: true,
-        record: { values: {}, data: "hit" as T },
+        record: { data: "hit" as T },
       }] as ReadResult<T>[]),
   });
   const wrapped = bestEffort(inner);
@@ -67,7 +67,7 @@ Deno.test("bestEffort passes through observe unchanged (not a silent no-op)", as
       yield {
         success: true,
         uri: "mutable://x/1",
-        record: { values: {}, data: 1 as T },
+        record: { data: 1 as T },
       } as ReadResult<T>;
     },
     status: () => Promise.resolve({ status: "healthy" as const }),
