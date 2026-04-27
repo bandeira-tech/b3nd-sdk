@@ -21,8 +21,9 @@ put a `signature` field inside the payload object alongside the data.
 Different shape, different program.
 
 A protocol that uses capability tokens instead of signatures might put a
-`capabilityToken` field somewhere — payload, values, header — and verify
-it against an issuer registry.
+`capabilityToken` field somewhere — inside the payload, in a header
+field of the payload, or encoded in the URI — and verify it against an
+issuer registry.
 
 A protocol that uses no authentication might omit auth entirely and rely
 on transport-level trust (the connection itself authenticates the peer).
@@ -44,28 +45,30 @@ export const verifyAuthInPayload = async (
   out: Output,
   expected: { pubkey: string },
 ): Promise<boolean> => {
-  const payload = out[2] as { auth?: Signature[] };
-  if (!payload?.auth?.length) return false;
-  return verifySignatures(payload.auth, payload, expected);
+  const [, payload] = out;
+  const env = payload as { auth?: Signature[] };
+  if (!env?.auth?.length) return false;
+  return verifySignatures(env.auth, env, expected);
 };
 
 export const verifyAuthFromUriPubkey = async (
   out: Output,
 ): Promise<boolean> => {
-  const [uri, , payload] = out;
+  const [uri, payload] = out;
   const pubkey = uri.split("/")[3]; // mutable://accounts/{pubkey}/...
   const sig = (payload as { signature?: string })?.signature;
   if (!pubkey || !sig) return false;
   return verifySignature(sig, payload, pubkey);
 };
 
-export const verifyAuthInValues = async (
+export const verifyAuthByCapabilityToken = async (
   out: Output,
+  registry: TokenRegistry,
 ): Promise<boolean> => {
-  const [, values, payload] = out;
-  const sig = (values as Record<string, unknown>).signature;
-  if (typeof sig !== "string") return false;
-  return verifySignature(sig, payload, /* recover pubkey somehow */ "");
+  const [, payload] = out;
+  const token = (payload as { capability?: string })?.capability;
+  if (!token) return false;
+  return registry.isValid(token);
 };
 ```
 
@@ -155,8 +158,8 @@ the location of the policy is no longer ambiguous.
 ## What changed in this chapter
 
 - The framework has no `auth` field and verifies nothing.
-- Auth lives in the URL, the values, or the payload — wherever the
-  protocol prescribes.
+- Auth lives in the URL or in the payload — wherever the protocol
+  prescribes.
 - The SDK ships canon recognizer helpers (`verifyAuthInPayload`,
   `verifyAuthFromUriPubkey`, etc.). Programs compose the helper that
   matches their convention.
