@@ -125,7 +125,7 @@ const rig = new Rig({
   // no handlers registered for "ok"
 });
 
-await rig.receive([["mutable://open/notes/1", {}, { text: "hi" }]]);
+await rig.receive([["mutable://open/notes/1", { text: "hi" }]]);
 // → process classifies as "ok"
 // → no handler for "ok" → default dispatch
 // → reaches storage clients via connection routing
