@@ -21,10 +21,9 @@ connection. URIs are how the framework decides where a tuple goes. The Rig
 matches on string prefixes; it doesn't care what URI scheme means in your
 protocol.
 
-**The 3-tuple shape**, because that's the wire primitive. The Rig knows that
-each tuple has a URI, a `values` map, and a `payload`. It pulls the URI for
-routing, hands the `values` to programs untouched, and passes `payload` along
-without inspecting it.
+**The 2-tuple shape**, because that's the wire primitive. The Rig knows that
+each tuple has a URI and a `payload`. It pulls the URI for routing and
+passes `payload` along without inspecting it.
 
 **The pipeline**, because tuples don't go straight to clients. They flow
 through `process` (classify) and `handle` (dispatch the result), with
@@ -56,15 +55,21 @@ the work.
 
 **It doesn't know about authentication.** There is no `auth` field at the
 framework level. A signature, when present, lives somewhere the protocol
-chose: in the URL, in `values`, or in `payload`. Programs registered for
-URI prefixes that need auth check it. The Rig itself never verifies
-anything.
+chose — typically inside `payload` at a key the protocol prescribes, or
+encoded in the URI itself. Programs registered for URI prefixes that need
+auth check it. The Rig itself never verifies anything.
+
+**It doesn't know about conserved quantities.** A protocol that needs UTXO
+balances or gas amounts encodes them inside `payload`. The Rig has no slot
+reserved for them. The framework was never going to enforce conservation
+anyway; carving out a position in the tuple just signposted intent the
+framework couldn't honor.
 
 **It doesn't know about deletion.** When a tuple's `payload` is `null`,
 that's a wire-level convention the SDK's storage adapters recognise (more on
-this in Chapter 9). The Rig treats `[uri, values, null]` like any other
-tuple — routes it, classifies it, hands it to a handler. Whether `null`
-means "delete this" or "store a literal null value" is downstream's choice.
+this in Chapter 9). The Rig treats `[uri, null]` like any other tuple —
+routes it, classifies it, hands it to a handler. Whether `null` means
+"delete this" or "store a literal null value" is downstream's choice.
 
 **It doesn't know about identity.** `Identity` and `AuthenticatedRig` exist
 in the SDK; they sign and encrypt; they produce tuples and call the Rig. But
