@@ -35,13 +35,13 @@ export interface MockServerConfig {
   mode: "happy" | "connectionError" | "validationError";
 
   /** In-memory storage for happy path */
-  storage?: Map<string, { values: Record<string, number>; data: unknown }>;
+  storage?: Map<string, { data: unknown }>;
 }
 
 export class MockHttpServer {
   private server?: Deno.HttpServer;
   private config: MockServerConfig;
-  private storage: Map<string, { values: Record<string, number>; data: unknown }>;
+  private storage: Map<string, { data: unknown }>;
 
   constructor(config: MockServerConfig) {
     this.config = config;
@@ -131,7 +131,7 @@ export class MockHttpServer {
       );
     }
 
-    // Parse batch of messages: Message[] = [uri, values, data][]
+    // Parse batch of messages: Message[] = [uri, payload][]
     const msgs: unknown = await req.json();
 
     if (!msgs || !Array.isArray(msgs)) {
@@ -144,22 +144,22 @@ export class MockHttpServer {
     const results: { accepted: boolean; error?: string }[] = [];
 
     for (const msg of msgs) {
-      if (!Array.isArray(msg) || msg.length < 3) {
-        results.push({ accepted: false, error: "Invalid message: expected [uri, values, data]" });
+      if (!Array.isArray(msg) || msg.length < 2) {
+        results.push({ accepted: false, error: "Invalid message: expected [uri, payload]" });
         continue;
       }
 
-      const [msgUri, msgValues, msgData] = msg;
+      const [msgUri, msgPayload] = msg;
 
       // Detect envelope format: { inputs: [...], outputs: [...] }
-      const isEnvelope = msgData != null &&
-        typeof msgData === "object" &&
-        !Array.isArray(msgData) &&
-        Array.isArray((msgData as Record<string, unknown>).inputs) &&
-        Array.isArray((msgData as Record<string, unknown>).outputs);
+      const isEnvelope = msgPayload != null &&
+        typeof msgPayload === "object" &&
+        !Array.isArray(msgPayload) &&
+        Array.isArray((msgPayload as Record<string, unknown>).inputs) &&
+        Array.isArray((msgPayload as Record<string, unknown>).outputs);
 
       if (isEnvelope) {
-        const { inputs, outputs } = msgData as { inputs: string[]; outputs: unknown[][] };
+        const { inputs, outputs } = msgPayload as { inputs: string[]; outputs: unknown[][] };
 
         // Delete inputs
         for (const inputUri of inputs) {
@@ -168,20 +168,18 @@ export class MockHttpServer {
 
         // Write outputs
         for (const output of outputs) {
-          if (Array.isArray(output) && output.length >= 3) {
-            const [outUri, outValues, outData] = output;
-            const data = deserializeMsgData(outData);
+          if (Array.isArray(output) && output.length >= 2) {
+            const [outUri, outPayload] = output;
+            const data = deserializeMsgData(outPayload);
             this.storage.set(outUri as string, {
-              values: (outValues as Record<string, number>) || {},
               data,
             });
           }
         }
       } else {
-        // Direct write — store data at the message URI
-        const data = deserializeMsgData(msgData);
+        // Direct write — store payload at the message URI
+        const data = deserializeMsgData(msgPayload);
         this.storage.set(msgUri as string, {
-          values: (msgValues as Record<string, number>) || {},
           data,
         });
       }
@@ -311,7 +309,7 @@ export async function createMockServers(): Promise<{
   validationError: MockHttpServer;
   cleanup: () => Promise<void>;
 }> {
-  const sharedStorage = new Map<string, { values: Record<string, number>; data: unknown }>();
+  const sharedStorage = new Map<string, { data: unknown }>();
 
   const happy = new MockHttpServer({
     port: 8765,

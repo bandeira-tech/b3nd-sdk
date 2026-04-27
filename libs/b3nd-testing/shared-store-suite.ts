@@ -62,7 +62,7 @@ export function runSharedStoreSuite(
       const store = await Promise.resolve(config.create());
 
       const results = await store.write([
-        { uri: "store://app/config", values: {}, data: { theme: "dark" } },
+        { uri: "store://app/config", data: { theme: "dark" } },
       ]);
 
       assertEquals(results.length, 1);
@@ -77,9 +77,9 @@ export function runSharedStoreSuite(
       const store = await Promise.resolve(config.create());
 
       const results = await store.write([
-        { uri: "store://app/a", values: {}, data: "A" },
-        { uri: "store://app/b", values: { fire: 10 }, data: "B" },
-        { uri: "store://app/c", values: {}, data: "C" },
+        { uri: "store://app/a", data: "A" },
+        { uri: "store://app/b", data: { values: { fire: 10 }, label: "B" } },
+        { uri: "store://app/c", data: "C" },
       ]);
 
       assertEquals(results.length, 3);
@@ -99,7 +99,6 @@ export function runSharedStoreSuite(
         await store.write([
           {
             uri: "store://app/config",
-            values: {},
             data: { theme: "dark" },
           },
         ]);
@@ -108,7 +107,6 @@ export function runSharedStoreSuite(
         assertEquals(results.length, 1);
         assertEquals(results[0].success, true);
         assertEquals(results[0].record?.data, { theme: "dark" });
-        assertEquals(results[0].record?.values, {});
       },
     });
 
@@ -119,9 +117,9 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://app/a", values: {}, data: "A" },
-          { uri: "store://app/b", values: { fire: 10 }, data: "B" },
-          { uri: "store://app/c", values: {}, data: "C" },
+          { uri: "store://app/a", data: "A" },
+          { uri: "store://app/b", data: { values: { fire: 10 }, label: "B" } },
+          { uri: "store://app/c", data: "C" },
         ]);
 
         const results = await store.read([
@@ -131,8 +129,10 @@ export function runSharedStoreSuite(
         ]);
         assertEquals(results.length, 3);
         assertEquals(results[0].record?.data, "A");
-        assertEquals(results[1].record?.data, "B");
-        assertEquals(results[1].record?.values, { fire: 10 });
+        assertEquals(results[1].record?.data, {
+          values: { fire: 10 },
+          label: "B",
+        });
         assertEquals(results[2].record?.data, "C");
       },
     });
@@ -144,10 +144,10 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://app/x", values: {}, data: "old" },
+          { uri: "store://app/x", data: "old" },
         ]);
         await store.write([
-          { uri: "store://app/x", values: {}, data: "new" },
+          { uri: "store://app/x", data: "new" },
         ]);
 
         const results = await store.read(["store://app/x"]);
@@ -155,10 +155,12 @@ export function runSharedStoreSuite(
       },
     });
 
-    // ── Values preservation ─────────────────────────────────────────
+    // ── Conserved quantities live inside the payload ───────────────
+    // Per RFC 001: the wire (and store) primitive has no values slot;
+    // protocols put conserved quantities at a payload-defined key.
 
     Deno.test({
-      name: `${suiteName} - preserves values on write/read`,
+      name: `${suiteName} - preserves payload-embedded values on write/read`,
       ...noSanitize,
       fn: async () => {
         const store = await Promise.resolve(config.create());
@@ -166,36 +168,41 @@ export function runSharedStoreSuite(
         await store.write([
           {
             uri: "store://app/token",
-            values: { fire: 100, water: 50 },
-            data: null,
+            data: { values: { fire: 100, water: 50 } },
           },
         ]);
 
         const results = await store.read(["store://app/token"]);
-        assertEquals(results[0].record?.values, { fire: 100, water: 50 });
+        assertEquals(results[0].record?.data, {
+          values: { fire: 100, water: 50 },
+        });
       },
     });
 
     Deno.test({
-      name: `${suiteName} - overwrite preserves new values`,
+      name: `${suiteName} - overwrite preserves new payload`,
       ...noSanitize,
       fn: async () => {
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://app/v", values: { fire: 100 }, data: null },
+          { uri: "store://app/v", data: { values: { fire: 100 } } },
         ]);
         await store.write([
           {
             uri: "store://app/v",
-            values: { fire: 75, usd: 25 },
-            data: { memo: "updated" },
+            data: {
+              values: { fire: 75, usd: 25 },
+              memo: "updated",
+            },
           },
         ]);
 
         const results = await store.read(["store://app/v"]);
-        assertEquals(results[0].record?.values, { fire: 75, usd: 25 });
-        assertEquals(results[0].record?.data, { memo: "updated" });
+        assertEquals(results[0].record?.data, {
+          values: { fire: 75, usd: 25 },
+          memo: "updated",
+        });
       },
     });
 
@@ -208,7 +215,7 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://scalar/str", values: {}, data: "hello world" },
+          { uri: "store://scalar/str", data: "hello world" },
         ]);
 
         const results = await store.read(["store://scalar/str"]);
@@ -224,7 +231,7 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://scalar/num", values: {}, data: 42 },
+          { uri: "store://scalar/num", data: 42 },
         ]);
 
         const results = await store.read(["store://scalar/num"]);
@@ -240,7 +247,7 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://scalar/bool", values: {}, data: true },
+          { uri: "store://scalar/bool", data: true },
         ]);
 
         const results = await store.read(["store://scalar/bool"]);
@@ -256,7 +263,7 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://scalar/null", values: {}, data: null },
+          { uri: "store://scalar/null", data: null },
         ]);
 
         const results = await store.read(["store://scalar/null"]);
@@ -272,7 +279,7 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://scalar/empty", values: {}, data: "" },
+          { uri: "store://scalar/empty", data: "" },
         ]);
 
         const results = await store.read(["store://scalar/empty"]);
@@ -288,7 +295,7 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://scalar/zero", values: {}, data: 0 },
+          { uri: "store://scalar/zero", data: 0 },
         ]);
 
         const results = await store.read(["store://scalar/zero"]);
@@ -318,7 +325,7 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://app/exists", values: {}, data: { ok: true } },
+          { uri: "store://app/exists", data: { ok: true } },
         ]);
 
         const results = await store.read([
@@ -360,12 +367,10 @@ export function runSharedStoreSuite(
         await store.write([
           {
             uri: "store://users/alice",
-            values: {},
             data: { name: "Alice" },
           },
           {
             uri: "store://users/bob",
-            values: {},
             data: { name: "Bob" },
           },
         ]);
@@ -390,7 +395,7 @@ export function runSharedStoreSuite(
       const store = await Promise.resolve(config.create());
 
       await store.write([
-        { uri: "store://app/x", values: {}, data: "hello" },
+        { uri: "store://app/x", data: "hello" },
       ]);
 
       const deleteResults = await store.delete(["store://app/x"]);
@@ -407,7 +412,7 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://app/x", values: {}, data: "hello" },
+          { uri: "store://app/x", data: "hello" },
         ]);
 
         await store.delete(["store://app/x"]);
@@ -438,9 +443,9 @@ export function runSharedStoreSuite(
         const store = await Promise.resolve(config.create());
 
         await store.write([
-          { uri: "store://app/a", values: {}, data: "A" },
-          { uri: "store://app/b", values: {}, data: "B" },
-          { uri: "store://app/c", values: {}, data: "C" },
+          { uri: "store://app/a", data: "A" },
+          { uri: "store://app/b", data: "B" },
+          { uri: "store://app/c", data: "C" },
         ]);
 
         await store.delete(["store://app/a", "store://app/c"]);

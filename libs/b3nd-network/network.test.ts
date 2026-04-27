@@ -86,7 +86,7 @@ Deno.test("peer() applies decorators in order", () => {
       });
 
   const p = peer(mem(), { via: [deco("outer"), deco("inner")] });
-  p.client.receive([["mutable://x/1", {}, "v"]]);
+  p.client.receive([["mutable://x/1", "v"]]);
   assertEquals(calls, ["inner", "outer"]);
 });
 
@@ -124,10 +124,10 @@ Deno.test("network() forwards events from a single peer into target.receive", as
   const { target, calls } = capturingTarget();
   const unbind = network(target, [peer(a, { id: "A" })]);
   try {
-    await a.receive([["mutable://x/1", {}, "hello"]]);
+    await a.receive([["mutable://x/1", "hello"]]);
     await until(() => calls.length >= 1);
     assertEquals(calls[0][0], "mutable://x/1");
-    assertEquals(calls[0][2], "hello");
+    assertEquals(calls[0][1], "hello");
   } finally {
     await unbind();
   }
@@ -139,8 +139,8 @@ Deno.test("network() forwards from every peer in parallel", async () => {
   const { target, calls } = capturingTarget();
   const unbind = network(target, [peer(a, { id: "A" }), peer(b, { id: "B" })]);
   try {
-    await a.receive([["mutable://x/a", {}, 1]]);
-    await b.receive([["mutable://x/b", {}, 2]]);
+    await a.receive([["mutable://x/a", 1]]);
+    await b.receive([["mutable://x/b", 2]]);
     await until(() => calls.length >= 2);
     const uris = calls.map((c) => c[0]).sort();
     assertEquals(uris, ["mutable://x/a", "mutable://x/b"]);
@@ -170,8 +170,8 @@ Deno.test("network() tags events with the source peer", async () => {
     [policy],
   );
   try {
-    await a.receive([["mutable://x/1", {}, 1]]);
-    await b.receive([["mutable://x/2", {}, 2]]);
+    await a.receive([["mutable://x/1", 1]]);
+    await b.receive([["mutable://x/2", 2]]);
     await until(() => calls.length >= 2);
     seen.sort((x, y) => x.uri.localeCompare(y.uri));
     assertEquals(seen, [
@@ -199,7 +199,7 @@ Deno.test("network() chains multiple policies left-to-right on each event", asyn
   const { target, calls } = capturingTarget();
   const unbind = network(target, [peer(a, { id: "A" })], [uppercase, wrap]);
   try {
-    await a.receive([["mutable://hello", {}, 1]]);
+    await a.receive([["mutable://hello", 1]]);
     await until(() => calls.length >= 1);
     assertEquals(calls[0][0], "w(MUTABLE://HELLO)");
   } finally {
@@ -218,7 +218,7 @@ Deno.test("network() respects a policy that yields nothing (control-plane consum
   const { target, calls } = capturingTarget();
   const unbind = network(target, [peer(a, { id: "A" })], [policy]);
   try {
-    await a.receive([["mutable://noise/1", {}, "drop me"]]);
+    await a.receive([["mutable://noise/1", "drop me"]]);
     await new Promise((r) => setTimeout(r, 30));
     assertEquals(calls.length, 0);
   } finally {
@@ -234,7 +234,7 @@ Deno.test("network() forwards transformed events to target", async () => {
         yield {
           success: true,
           uri: `wrapped://${ev.uri}`,
-          record: { values: {}, data: { wrapped: ev.record?.data } },
+          record: { data: { wrapped: ev.record?.data } },
         };
       }
     },
@@ -242,10 +242,10 @@ Deno.test("network() forwards transformed events to target", async () => {
   const { target, calls } = capturingTarget();
   const unbind = network(target, [peer(a, { id: "A" })], [policy]);
   try {
-    await a.receive([["mutable://raw/1", {}, 42]]);
+    await a.receive([["mutable://raw/1", 42]]);
     await until(() => calls.length >= 1);
     assertEquals(calls[0][0], "wrapped://mutable://raw/1");
-    assertEquals(calls[0][2], { wrapped: 42 });
+    assertEquals(calls[0][1], { wrapped: 42 });
   } finally {
     await unbind();
   }
@@ -253,7 +253,7 @@ Deno.test("network() forwards transformed events to target", async () => {
 
 Deno.test("network() exposes source.client.read for side-pulls", async () => {
   const a = mem();
-  await a.receive([["data://full/payload", {}, { big: "content" }]]);
+  await a.receive([["data://full/payload", { big: "content" }]]);
 
   const policy: Policy = {
     async *receive(ev, source) {
@@ -270,10 +270,10 @@ Deno.test("network() exposes source.client.read for side-pulls", async () => {
   const { target, calls } = capturingTarget();
   const unbind = network(target, [peer(a, { id: "A" })], [policy]);
   try {
-    await a.receive([["inv://1", {}, { have: "data://full/payload" }]]);
+    await a.receive([["inv://1", { have: "data://full/payload" }]]);
     await until(() => calls.some((c) => c[0] === "data://full/payload"));
     const hit = calls.find((c) => c[0] === "data://full/payload");
-    assertEquals(hit?.[2], { big: "content" });
+    assertEquals(hit?.[1], { big: "content" });
   } finally {
     await unbind();
   }
@@ -284,7 +284,7 @@ Deno.test("network() exposes source.client.read for side-pulls", async () => {
 Deno.test("policies carry their own data dependencies via closure", async () => {
   const a = mem();
   const localStore = mem();
-  await localStore.receive([["mutable://known", {}, "yes"]]);
+  await localStore.receive([["mutable://known", "yes"]]);
 
   const policyWithStore = (store: typeof localStore): Policy => ({
     async *receive(ev) {
@@ -293,7 +293,7 @@ Deno.test("policies carry their own data dependencies via closure", async () => 
         yield {
           success: true,
           uri: `wrapped://${ev.uri}`,
-          record: { values: {}, data: existing[0].record?.data },
+          record: { data: existing[0].record?.data },
         };
       }
     },
@@ -306,10 +306,10 @@ Deno.test("policies carry their own data dependencies via closure", async () => 
     [policyWithStore(localStore)],
   );
   try {
-    await a.receive([["trigger://1", {}, 0]]);
+    await a.receive([["trigger://1", 0]]);
     await until(() => calls.length >= 1);
     assertEquals(calls[0][0], "wrapped://trigger://1");
-    assertEquals(calls[0][2], "yes");
+    assertEquals(calls[0][1], "yes");
   } finally {
     await unbind();
   }
@@ -327,8 +327,8 @@ Deno.test("network() honors a narrowed observe pattern", async () => {
     { pattern: "mutable://keep/:id" },
   );
   try {
-    await a.receive([["mutable://keep/1", {}, "match"]]);
-    await a.receive([["mutable://drop/1", {}, "skip"]]);
+    await a.receive([["mutable://keep/1", "match"]]);
+    await a.receive([["mutable://drop/1", "skip"]]);
     await until(() => calls.length >= 1);
     await new Promise((r) => setTimeout(r, 20));
     assertEquals(calls.length, 1);
@@ -362,8 +362,8 @@ Deno.test("network() catches target.receive errors without stalling", async () =
     { onError: (err) => errors.push(err) },
   );
   try {
-    await a.receive([["mutable://x/1", {}, 1]]);
-    await a.receive([["mutable://x/2", {}, 2]]);
+    await a.receive([["mutable://x/1", 1]]);
+    await a.receive([["mutable://x/2", 2]]);
     await until(() => count >= 2);
     assertEquals(errors.length, 1);
     assertEquals(errors[0].message, "flaky");
@@ -407,12 +407,12 @@ Deno.test("unbind() stops forwarding and awaits peer loops", async () => {
   const a = mem();
   const { target, calls } = capturingTarget();
   const unbind = network(target, [peer(a, { id: "A" })]);
-  await a.receive([["mutable://pre/1", {}, 1]]);
+  await a.receive([["mutable://pre/1", 1]]);
   await until(() => calls.length >= 1);
 
   await unbind();
 
-  await a.receive([["mutable://post/1", {}, 2]]);
+  await a.receive([["mutable://post/1", 2]]);
   await new Promise((r) => setTimeout(r, 30));
   assertEquals(calls.length, 1);
 });
@@ -442,7 +442,7 @@ Deno.test("network() against a real Rig fires reactions on peer-originated write
 
   const unbind = network(rig, [peer(a, { id: "A" })]);
   try {
-    await a.receive([["mutable://chat/42", {}, "hello"]]);
+    await a.receive([["mutable://chat/42", "hello"]]);
     await until(() => reactionCalls.length >= 1);
     assertEquals(reactionCalls[0], { uri: "mutable://chat/42", id: "42" });
   } finally {
@@ -459,7 +459,7 @@ Deno.test("network() persists bridged writes through the rig pipeline", async ()
 
   const unbind = network(rig, [peer(a, { id: "A" })]);
   try {
-    await a.receive([["mutable://k/1", {}, { v: 1 }]]);
+    await a.receive([["mutable://k/1", { v: 1 }]]);
     await until(async () => {
       const r = await rig.read("mutable://k/1");
       return r[0]?.success === true;

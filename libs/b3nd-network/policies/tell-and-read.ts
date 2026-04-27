@@ -40,7 +40,7 @@
  * const sync = tellAndRead({
  *   announce: (msgs) => msgs.map(([uri, vals, data]) =>
  *     uri.startsWith("hash://")
- *       ? [`net://inv/${uri}`, {}, { have: uri }]
+ *       ? [`net://inv/${uri}`, { have: uri }]
  *       : [uri, vals, data]
  *   ),
  *   onAnnounce: (ev) => {

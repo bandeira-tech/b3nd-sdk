@@ -5,8 +5,8 @@
  * This suite tests that any implementation of Node & ReadInterface
  * behaves correctly as mechanical storage.
  *
- * Message primitive: [uri, values, data] where data is always
- * { inputs: string[], outputs: Output[] }.
+ * Message primitive: [uri, payload]. For envelope-shaped payloads the
+ * payload is `{ inputs: string[], outputs: Output[] }`.
  *
  * receive() takes Message[] — batch of independent messages.
  * Clients are mechanical: delete inputs, write outputs.
@@ -24,10 +24,10 @@ let _seq = 0;
 
 /** Build a Message wrapping outputs into an envelope. */
 function msg(
-  outputs: [string, Record<string, number>, unknown][],
+  outputs: [string, unknown][],
   inputs: string[] = [],
-): [string, Record<string, number>, { inputs: string[]; outputs: [string, Record<string, number>, unknown][] }] {
-  return [`envelope://test/node-${++_seq}`, {}, { inputs, outputs }];
+): [string, { inputs: string[]; outputs: [string, unknown][] }] {
+  return [`envelope://test/node-${++_seq}`, { inputs, outputs }];
 }
 
 /**
@@ -59,7 +59,7 @@ export function runNodeSuite(
       const node = await Promise.resolve(factory.happy());
 
       const results = await node.receive([
-        msg([["store://users/alice/profile", {}, {
+        msg([["store://users/alice/profile", {
           name: "Alice",
           email: "alice@example.com",
         }]]),
@@ -76,7 +76,6 @@ export function runNodeSuite(
         name: "Alice",
         email: "alice@example.com",
       });
-      assertEquals(readResults[0].record?.values, {});
     },
   });
 
@@ -87,8 +86,8 @@ export function runNodeSuite(
       const node = await Promise.resolve(factory.happy());
 
       const results = await node.receive([
-        msg([["store://users/alice/profile", {}, { name: "Alice" }]]),
-        msg([["store://users/bob/profile", {}, { name: "Bob" }]]),
+        msg([["store://users/alice/profile", { name: "Alice" }]]),
+        msg([["store://users/bob/profile", { name: "Bob" }]]),
       ]);
 
       assertEquals(results.length, 2);
@@ -116,12 +115,15 @@ export function runNodeSuite(
 
       // Write initial data
       await node.receive([
-        msg([["store://users/alice/profile", {}, { name: "Alice", version: 1 }]]),
+        msg([["store://users/alice/profile", { name: "Alice", version: 1 }]]),
       ]);
 
       // Overwrite with new data (second write to same URI wins)
       await node.receive([
-        msg([["store://users/alice/profile", {}, { name: "Alice Updated", version: 2 }]]),
+        msg([["store://users/alice/profile", {
+          name: "Alice Updated",
+          version: 2,
+        }]]),
       ]);
 
       // Verify data was updated
@@ -142,7 +144,7 @@ export function runNodeSuite(
       const node = await Promise.resolve(factory.happy());
 
       const results = await node.receive([
-        msg([["store://users/test/null", {}, null]]),
+        msg([["store://users/test/null", null]]),
       ]);
 
       assertEquals(typeof results[0].accepted, "boolean");
@@ -157,9 +159,9 @@ export function runNodeSuite(
 
       const prefix = `store://users/node-list-${Date.now()}`;
       await node.receive([
-        msg([[`${prefix}/alice/profile`, {}, { name: "Alice" }]]),
-        msg([[`${prefix}/bob/profile`, {}, { name: "Bob" }]]),
-        msg([[`${prefix}/charlie/profile`, {}, { name: "Charlie" }]]),
+        msg([[`${prefix}/alice/profile`, { name: "Alice" }]]),
+        msg([[`${prefix}/bob/profile`, { name: "Bob" }]]),
+        msg([[`${prefix}/charlie/profile`, { name: "Charlie" }]]),
       ]);
 
       const results = await node.read(`${prefix}/`);
@@ -185,8 +187,8 @@ export function runNodeSuite(
       const node = await Promise.resolve(factory.happy());
 
       await node.receive([
-        msg([["store://users/alice/profile", {}, { name: "Alice" }]]),
-        msg([["store://users/bob/profile", {}, { name: "Bob" }]]),
+        msg([["store://users/alice/profile", { name: "Alice" }]]),
+        msg([["store://users/bob/profile", { name: "Bob" }]]),
       ]);
 
       const results = await node.read([
@@ -222,7 +224,7 @@ export function runNodeSuite(
         const node = await Promise.resolve(factory.validationError!());
 
         const results = await node.receive([
-          msg([["store://users/invalid/data", {}, { invalid: true }]]),
+          msg([["store://users/invalid/data", { invalid: true }]]),
         ]);
 
         assertEquals(results[0].accepted, false);

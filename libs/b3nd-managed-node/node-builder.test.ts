@@ -10,7 +10,6 @@ Deno.test("node-builder: memory backend returns a working client", async () => {
 
   const [result] = await clients[0].receive([[
     "mutable://accounts/abc/nodes/n1/config",
-    {},
     { hello: "world" },
   ]]);
   assertEquals(result.accepted, true);

@@ -17,7 +17,7 @@ Deno.test("loadConfig: happy path returns config and timestamp", async () => {
 
   const client = createPermissiveClient();
   const uri = nodeConfigUri(keypair.publicKeyHex, config.nodeId);
-  await client.receive([[uri, {}, signed]]);
+  await client.receive([[uri, signed]]);
 
   const loaded = await loadConfig(client, keypair.publicKeyHex, config.nodeId);
   assertEquals(loaded.config.nodeId, config.nodeId);
@@ -45,7 +45,7 @@ Deno.test("loadConfig: throws when data is not an AuthenticatedMessage", async (
   const uri = nodeConfigUri(keypair.publicKeyHex, config.nodeId);
 
   // Store raw config without auth envelope
-  await client.receive([[uri, {}, config]]);
+  await client.receive([[uri, config]]);
 
   await assertRejects(
     () => loadConfig(client, keypair.publicKeyHex, config.nodeId),
@@ -69,7 +69,7 @@ Deno.test("loadConfig: throws when signed by wrong key", async () => {
 
   const client = createPermissiveClient();
   const uri = nodeConfigUri(operatorKeypair.publicKeyHex, config.nodeId);
-  await client.receive([[uri, {}, signed]]);
+  await client.receive([[uri, signed]]);
 
   await assertRejects(
     () => loadConfig(client, operatorKeypair.publicKeyHex, config.nodeId),
@@ -91,7 +91,7 @@ Deno.test("loadConfig: throws when signature is corrupted", async () => {
 
   const client = createPermissiveClient();
   const uri = nodeConfigUri(keypair.publicKeyHex, config.nodeId);
-  await client.receive([[uri, {}, signed]]);
+  await client.receive([[uri, signed]]);
 
   await assertRejects(
     () => loadConfig(client, keypair.publicKeyHex, config.nodeId),
@@ -118,7 +118,7 @@ Deno.test("loadConfig: accepts config with multiple signers including operator",
 
   const client = createPermissiveClient();
   const uri = nodeConfigUri(operatorKeypair.publicKeyHex, config.nodeId);
-  await client.receive([[uri, {}, signed]]);
+  await client.receive([[uri, signed]]);
 
   const loaded = await loadConfig(
     client,
