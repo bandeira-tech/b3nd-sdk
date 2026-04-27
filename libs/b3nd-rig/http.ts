@@ -9,7 +9,7 @@
  *
  * Routes:
  *   GET  /api/v1/status            → rig.status()
- *   POST /api/v1/receive           → rig.receive([[uri, values, data]])
+ *   POST /api/v1/receive           → rig.receive([[uri, payload]])
  *   GET  /api/v1/read/:uri         → rig.read(uri)
  *   GET  /api/v1/observe/:pattern   → SSE stream from rig events
  *
@@ -206,24 +206,23 @@ export function httpApi(
           400,
         );
       }
-      if (!Array.isArray(msg) || msg.length !== 3) {
+      if (!Array.isArray(msg) || msg.length !== 2) {
         return json(
-          { accepted: false, error: "Expected [uri, values, data]" },
+          { accepted: false, error: "Expected [uri, payload]" },
           400,
         );
       }
-      const [uri, values, rawData] = msg as [unknown, unknown, unknown];
+      const [uri, rawPayload] = msg as [unknown, unknown];
       if (!uri || typeof uri !== "string") {
         return json(
           { accepted: false, error: "URI is required" },
           400,
         );
       }
-      const data = deserializeBinary(rawData);
+      const payload = deserializeBinary(rawPayload);
       // Pass the message through as-is. Whether to decompose envelopes is
       // a client concern (MessageDataClient yes, SimpleClient no).
-      const vals = values as Record<string, number>;
-      const results = await rig.receive([[uri, vals, data]]);
+      const results = await rig.receive([[uri, payload]]);
       return json(results[0], results[0].accepted ? 200 : 400);
     }
 
