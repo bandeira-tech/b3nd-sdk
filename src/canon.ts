@@ -15,10 +15,7 @@ export {
   messageDataHandler,
   messageDataProgram,
 } from "../libs/b3nd-msg/data/mod.ts";
-export type {
-  MessageData,
-  StateMessage,
-} from "../libs/b3nd-msg/data/mod.ts";
+export type { MessageData, StateMessage } from "../libs/b3nd-msg/data/mod.ts";
 
 // ── Content addressing (b3nd-hash) ──
 
@@ -75,7 +72,10 @@ export { deriveObfuscatedPath } from "../libs/b3nd-encrypt/utils.ts";
 
 // ── Wallet ──
 
-export { generateSessionKeypair, WalletClient } from "../libs/b3nd-wallet/mod.ts";
+export {
+  generateSessionKeypair,
+  WalletClient,
+} from "../libs/b3nd-wallet/mod.ts";
 export type {
   ApiResponse,
   AuthSession,

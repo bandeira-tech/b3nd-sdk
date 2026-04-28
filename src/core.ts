@@ -109,7 +109,11 @@ export type {
 export { resolveHooks, runAfter, runBefore } from "../libs/b3nd-rig/hooks.ts";
 
 // Events
-export type { EventHandler, RigEvent, RigEventName } from "../libs/b3nd-rig/events.ts";
+export type {
+  EventHandler,
+  RigEvent,
+  RigEventName,
+} from "../libs/b3nd-rig/events.ts";
 export { RigEventEmitter } from "../libs/b3nd-rig/events.ts";
 
 // Reactions
@@ -118,7 +122,10 @@ export { matchPattern, ReactionRegistry } from "../libs/b3nd-rig/reactions.ts";
 
 // Connection
 export { connection } from "../libs/b3nd-rig/connection.ts";
-export type { Connection, ConnectionPatterns } from "../libs/b3nd-rig/connection.ts";
+export type {
+  Connection,
+  ConnectionPatterns,
+} from "../libs/b3nd-rig/connection.ts";
 
 // HTTP API
 export { httpApi } from "../libs/b3nd-rig/http.ts";

@@ -12,8 +12,8 @@
 
 import type {
   CodeHandler,
-  Output,
   NodeProtocolInterface,
+  Output,
   Program,
   ProgramResult,
   ReadResult,
@@ -229,9 +229,7 @@ export class Rig {
     for (const out of outs) {
       const program = this._findProgram(out[0]);
       results.push(
-        program
-          ? await program(out, undefined, readFn)
-          : { code: "ok" },
+        program ? await program(out, undefined, readFn) : { code: "ok" },
       );
     }
     return results;
@@ -974,7 +972,6 @@ export class Rig {
       });
     }
   }
-
 }
 
 // ── Init helpers ──
@@ -1006,9 +1003,7 @@ function createConnectionDispatch(
         }
         // Broadcast to all matching connections
         const writeResults = await Promise.all(
-          matching.map((s) =>
-            s.client.receive([msg]).then((r) => r[0])
-          ),
+          matching.map((s) => s.client.receive([msg]).then((r) => r[0])),
         );
         const failed = writeResults.find((r) => !r.accepted);
         results.push(failed ?? writeResults[0]);

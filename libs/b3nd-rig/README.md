@@ -12,7 +12,10 @@ import { message } from "@bandeira-tech/b3nd-sdk/msg";
 const id = await Identity.fromSeed("my-secret");
 const rig = new Rig({
   connections: [
-    connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new DataStoreClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
 });
 
@@ -194,7 +197,10 @@ URI-pattern reactions that fire on successful writes (send or receive).
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new DataStoreClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
   reactions: {
     "mutable://app/users/:id": async (out, _read, { id }) => {
@@ -310,7 +316,11 @@ loadConfig(rig, operatorKey, nodeId);
 // Send multiple signed envelopes in sequence
 for (const env of envelopes) {
   const auth = [await id.sign({ inputs: env.inputs, outputs: env.outputs })];
-  const envelope = await message({ auth, inputs: env.inputs, outputs: env.outputs });
+  const envelope = await message({
+    auth,
+    inputs: env.inputs,
+    outputs: env.outputs,
+  });
   await rig.send([envelope, ...env.outputs]);
 }
 ```

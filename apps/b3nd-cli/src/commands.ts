@@ -1,5 +1,11 @@
 import { getConfigPath, loadConfig, updateConfig } from "./config.ts";
-import { closeRig, getIdentity, getRig, signAndSend, signEncryptAndSend } from "./client.ts";
+import {
+  closeRig,
+  getIdentity,
+  getRig,
+  signAndSend,
+  signEncryptAndSend,
+} from "./client.ts";
 import { createLogger, Logger } from "./logger.ts";
 import { dirname, parse } from "@std/path";
 import { ensureDir } from "@std/fs";

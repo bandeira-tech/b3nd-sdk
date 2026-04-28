@@ -99,7 +99,9 @@ async function readEncrypted<T = unknown>(
   uri: string,
 ): Promise<T | null> {
   if (!identity.canEncrypt) {
-    throw new Error("readEncrypted: identity has no encryption/decryption keys.");
+    throw new Error(
+      "readEncrypted: identity has no encryption/decryption keys.",
+    );
   }
   const results = await rig.read(uri);
   const result = results[0];
@@ -1581,7 +1583,9 @@ Deno.test("signEncryptAndSend - encrypt to self and read back", async () => {
 
   // The encrypted data should be readable via readEncrypted
   const secrets = await readEncrypted<{ apiKey: string }>(
-    id, rig, "mutable://open/enc-send/secrets",
+    id,
+    rig,
+    "mutable://open/enc-send/secrets",
   );
   assertEquals(secrets, { apiKey: "sk-test-123" });
 });
@@ -1632,10 +1636,14 @@ Deno.test("signEncryptAndSend - multiple encrypted outputs", async () => {
   assertEquals(result.accepted, true);
 
   const a = await readEncrypted<{ v: number }>(
-    id, rig, "mutable://open/enc-batch/a",
+    id,
+    rig,
+    "mutable://open/enc-batch/a",
   );
   const b = await readEncrypted<{ v: number }>(
-    id, rig, "mutable://open/enc-batch/b",
+    id,
+    rig,
+    "mutable://open/enc-batch/b",
   );
   assertEquals(a, { v: 1 });
   assertEquals(b, { v: 2 });
@@ -1658,7 +1666,9 @@ Deno.test("signEncryptAndSend - encrypt to another party", async () => {
 
   // Receiver can decrypt
   const msg = await readEncrypted<{ text: string }>(
-    receiver, rig, "mutable://open/enc-cross/msg",
+    receiver,
+    rig,
+    "mutable://open/enc-cross/msg",
   );
   assertEquals(msg, { text: "for receiver" });
 
@@ -2247,10 +2257,18 @@ Deno.test("signAndSend many - sends multiple envelopes", async () => {
   });
 
   const results = [];
-  for (const env of [
-    { inputs: [] as string[], outputs: [["mutable://open/wamulti/a", { n: 1 }]] as Output[] },
-    { inputs: [] as string[], outputs: [["mutable://open/wamulti/b", { n: 2 }]] as Output[] },
-  ]) {
+  for (
+    const env of [
+      {
+        inputs: [] as string[],
+        outputs: [["mutable://open/wamulti/a", { n: 1 }]] as Output[],
+      },
+      {
+        inputs: [] as string[],
+        outputs: [["mutable://open/wamulti/b", { n: 2 }]] as Output[],
+      },
+    ]
+  ) {
     results.push(await signAndSend(id, rig, env));
   }
 
@@ -2274,10 +2292,18 @@ Deno.test("signAndSend many - each envelope gets its own hash", async () => {
   });
 
   const results = [];
-  for (const env of [
-    { inputs: [] as string[], outputs: [["mutable://open/wahash/x", "one"]] as Output[] },
-    { inputs: [] as string[], outputs: [["mutable://open/wahash/y", "two"]] as Output[] },
-  ]) {
+  for (
+    const env of [
+      {
+        inputs: [] as string[],
+        outputs: [["mutable://open/wahash/x", "one"]] as Output[],
+      },
+      {
+        inputs: [] as string[],
+        outputs: [["mutable://open/wahash/y", "two"]] as Output[],
+      },
+    ]
+  ) {
     results.push(await signAndSend(id, rig, env));
   }
 

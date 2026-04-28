@@ -1,9 +1,4 @@
-import {
-  connection,
-  createClientFromUrl,
-  Identity,
-  Rig,
-} from "@b3nd/rig";
+import { connection, createClientFromUrl, Identity, Rig } from "@b3nd/rig";
 import type { Output, ReceiveResult } from "@b3nd/rig";
 import { message } from "../../../libs/b3nd-msg/data/message.ts";
 import type { EncryptedPayload } from "@b3nd/sdk/encrypt";
