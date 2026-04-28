@@ -13,13 +13,19 @@
  * Pure module — no Rig dependency, testable in isolation.
  */
 
-import type { MessageData } from "../b3nd-msg/data/types.ts";
+import type { Output } from "../b3nd-core/types.ts";
 
 // ── Per-operation context types ──
 
-/** Context for a send hook. Receives the pre-built MessageData. */
+/**
+ * Context for a send hook.
+ *
+ * `message` is the input tuple the host application is putting on the
+ * wire. Send hooks fire per-tuple; before-hooks may rewrite the tuple
+ * by returning `{ ctx: { message: newTuple } }`.
+ */
 export interface SendCtx {
-  message: MessageData;
+  message: Output;
 }
 
 /** Context for a receive hook. */
