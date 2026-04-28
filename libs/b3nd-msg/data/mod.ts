@@ -23,3 +23,8 @@
 export type { MessageData, StateMessage } from "./types.ts";
 export { message } from "./message.ts";
 export { send, type SendResult } from "./send.ts";
+export {
+  isMessageData,
+  messageDataHandler,
+  messageDataProgram,
+} from "./canon.ts";
