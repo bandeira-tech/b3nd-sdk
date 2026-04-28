@@ -448,7 +448,7 @@ are not just code organization tools. They express trust decisions.
 // Only process if the URI matches the expected pattern
 when(
   (msg) => msg[0].startsWith("mutable://accounts/"),
-  signatureValidator,
+  verifySignature,
 );
 ```
 
@@ -482,7 +482,7 @@ signature.
 ```typescript
 pipeline(
   rateLimiter, // trust: not too fast
-  schemaValidator, // trust: well-formed
+  shapeValidator, // trust: well-formed
   authChecker, // trust: authorized
   businessLogic, // trust: valid operation
 );

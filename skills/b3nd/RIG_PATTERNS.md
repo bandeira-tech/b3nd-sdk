@@ -58,7 +58,7 @@ const session = id.rig(rig);
 
 await session.send({
   inputs: [],
-  outputs: [["mutable://accounts/" + id.pubkey + "/app/profile", {
+  outputs: [["mutable://accounts/" + id.pubkey + "/app/profile", {}, {
     name: "Alice",
   }]],
 });
@@ -123,7 +123,7 @@ const client = await createClientFromUrl("postgresql://localhost:5432/mydb", {
 
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
-  schema: appSchema,
+  programs: appPrograms,
 });
 ```
 
@@ -139,7 +139,7 @@ The rig always takes explicit connections. You build the client, wrap it in
 const client = new HttpClient({ url: "https://node.example.com" });
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
-  schema: mySchema,
+  programs: myPrograms,
 });
 ```
 
@@ -257,8 +257,8 @@ const session = id.rig(rig);
 await session.send({
   inputs: ["mutable://accounts/" + id.pubkey + "/app/balance"],
   outputs: [
-    ["mutable://accounts/" + id.pubkey + "/app/balance", { amount: 100 }],
-    ["mutable://accounts/" + id.pubkey + "/app/tx/001", {
+    ["mutable://accounts/" + id.pubkey + "/app/balance", {}, { amount: 100 }],
+    ["mutable://accounts/" + id.pubkey + "/app/tx/001", {}, {
       type: "deposit",
       amount: 100,
     }],
@@ -268,74 +268,179 @@ await session.send({
 
 ---
 
-## Schema — Application-Level Validation
+## Programs — Application-Level Classification
 
-### Schema is a rig concern
+### Programs are a rig concern
 
-The schema defines which URI programs your application accepts. It lives on the
-rig — the application layer — not on clients. Clients are pure plumbing that
-store and retrieve data without opinions.
+The `programs` table defines how your application classifies messages by URI
+prefix. It lives on the rig — the application layer — not on clients. Clients
+are pure plumbing that store and retrieve data without opinions.
+
+A `Program` returns `{ code, error? }`. **Unknown URI prefixes pass
+through to connections without classification.** If you need a
+closed-by-default posture, install an explicit rejecter program. See
+the "Reject unknown prefixes" recipe below.
 
 ```typescript
-import { Rig } from "@b3nd/rig";
-import { MemoryStore } from "@b3nd/client-memory";
+import { connection, Rig } from "@bandeira-tech/b3nd-sdk/rig";
+import { MemoryStore } from "@bandeira-tech/b3nd-sdk";
 import { MessageDataClient } from "@bandeira-tech/b3nd-sdk";
+import type { Program } from "@bandeira-tech/b3nd-sdk";
 
-const schema = {
-  "mutable://open": async () => ({ valid: true }),
-  "mutable://accounts": async ([_uri, data]) => {
-    if (!data.amount) return { valid: false, error: "missing amount" };
-    return { valid: true };
+const programs: Record<string, Program> = {
+  "mutable://open": async () => ({ code: "ok" }),
+  "mutable://accounts": async ([, , data]) => {
+    if (!(data as { amount?: number }).amount) {
+      return { code: "rejected", error: "missing amount" };
+    }
+    return { code: "ok" };
   },
 };
 
-// Schema on the rig — client has no schema
+// Programs on the rig — client has no opinions
 const client = new MessageDataClient(new MemoryStore());
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
-  schema,
+  programs,
 });
 
-// Succeeds — mutable://open is in the schema
+// Succeeds — mutable://open has a program that returns "ok"
 await rig.receive([["mutable://open/app/hello", {}, { msg: "hi" }]]);
 
-// Rejected — unknown://foo is not in the schema
+// Currently PASSES — unknown://foo has no program, so the rig
+// dispatches directly to connections without validation.
 await rig.receive([["unknown://foo", {}, { v: 1 }]]);
-// → error: no validator for program "unknown://foo"
+// → { accepted: true } (because the connection accepts "*")
+```
+
+### Reject unknown prefixes
+
+Install a rejecter at every prefix you want closed. Programs match by
+longest prefix, so you can wildcard a whole scheme and still allow
+narrower programs to take over.
+
+```typescript
+import type { Program } from "@bandeira-tech/b3nd-sdk";
+
+const rejectUnknown: Program = (msg) => Promise.resolve({
+  code: "rejected",
+  error: `rejected by program: ${msg[0]}`,
+});
+
+const rig = new Rig({
+  connections: [connection(client, { receive: ["*"], read: ["*"] })],
+  programs: {
+    // Real programs:
+    "mutable://accounts": accountsProgram,
+    "mutable://open":     openProgram,
+    // Catch-all at each scheme you want closed.
+    // Longest-prefix wins, so accounts/ and open/ above still route.
+    "mutable://":   rejectUnknown,
+    "immutable://": rejectUnknown,
+    "hash://":      rejectUnknown,
+  },
+});
+```
+
+The same pattern is used by `createTestPrograms` in
+`libs/b3nd-client-memory/mod.ts` and by the `rejectUnknown` fixture in
+`libs/b3nd-rig/rig.test.ts` (search for it).
+
+---
+
+### Programs run on receive, not on send
+
+**This is the single most important gotcha about programs.** The program
+pipeline only fires on `rig.receive()`. `rig.send()` (and the `session.send()`
+it underlies) takes a pre-built envelope, runs the `beforeSend` hook, and
+dispatches the envelope **directly** to connections — it never calls the
+program registry.
+
+Practical consequences:
+
+- **Trust-list checks on authenticated writes do NOT fire** if you do
+  `session.send()` and expect the output URIs' programs to reject unknown
+  signers. The envelope is signed, dispatched to connections, stored.
+- **Content-hash checks** (hash URIs must match their contents) are **not**
+  enforced by the Rig on send. `send()` computes the hash itself, so the
+  envelope URI is always valid, but inner outputs with `hash://` URIs that
+  don't match their data will be stored as-is.
+
+If you need receive-style enforcement on authenticated writes, pick one of:
+
+1. **Receive with a signed payload in `data`.** The identity signs a nested
+   payload as part of `data`, and the top-level URI's program verifies the
+   signature and any outputs before any storage happens. This is the idiom
+   the rig tests use for signed-write enforcement, and the exploration
+   report's Prototype 3 (`apps/ad-agency/03-creative-approvals.ts`) is a
+   worked example.
+2. **Use a `beforeSend` hook** to throw on unauthorized envelopes. Hooks
+   run on both `rig.send()` and `session.send()`.
+3. **Trust the transport.** Accept that authorization is established
+   before the envelope reaches the rig (e.g. mTLS at the ingress).
+
+```typescript
+// Example: enforce trust-list via receive + signed payload in data.
+const program: Program = async ([, , data], _upstream) => {
+  const signed = data as { pubkey: string; signature: string; payload: unknown };
+  if (!trusted.has(signed.pubkey)) {
+    return { code: "rejected", error: "not a trusted signer" };
+  }
+  const ok = await verify(signed.pubkey, signed.signature, signed.payload);
+  return ok
+    ? { code: "ok" }
+    : { code: "rejected", error: "signature failed" };
+};
+
+const rig = new Rig({
+  connections: [connection(client, { receive: ["*"], read: ["*"] })],
+  programs: { "link://agency/approvals": program },
+});
+
+// Caller signs, then ingests via receive() — program fires.
+const body = { step: "director-approval", hash: "hash://sha256/…" };
+const auth = await identity.sign(body);
+await rig.receive([[
+  "link://agency/approvals/director/" + identity.pubkey,
+  {},
+  { ...auth, payload: body },
+]]);
 ```
 
 ---
 
-### Schema with connections
+### Programs with connections
 
-Pass `schema` alongside `connections` — the rig validates, the client stores.
+Pass `programs` alongside `connections` — the rig classifies, the client stores.
 
 ```typescript
 const client = new MessageDataClient(new MemoryStore());
 
-// No schema validation
+// No classification — direct dispatch
 const simple = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
 });
 
-// With schema validation
+// With classification
 const validated = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
-  schema: mySchema,
+  programs: myPrograms,
 });
 ```
 
 ---
 
-### Schema + hooks = defense in depth
+### Programs + hooks = defense in depth
 
-Schema validates URI programs. Hooks validate data shapes. Together they form a
-layered security model.
+Programs classify by URI prefix. Hooks validate data shapes. Together they form
+a layered security model. Note that both run only on `rig.receive()`; neither
+fires on `rig.send()` / `session.send()` (hooks fire via `beforeSend`, but
+programs do not).
 
 ```typescript
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
-  schema: appSchema,
+  programs: appPrograms,  // classifies by URI prefix; reject with { code, error }
   hooks: {
     beforeReceive: (ctx) => {
       const data = ctx.data as Record<string, unknown>;
@@ -346,10 +451,12 @@ const rig = new Rig({
   },
 });
 
-// Must pass BOTH schema (known URI program) AND hook (valid shape)
+// Must pass BOTH the program (prefix classification) AND the hook (shape check).
 await rig.receive([["mutable://open/app/post", {}, { title: "Hello" }]]); // ok
 await rig.receive([["mutable://open/app/post", {}, { oops: true }]]); // hook rejects
-await rig.receive([["unknown://app/post", {}, { title: "Hello" }]]); // schema rejects
+// Unknown prefixes now pass through by default — install a rejecter program
+// if you need the old "schema rejects" behavior. See "Reject unknown prefixes".
+await rig.receive([["unknown://app/post", {}, { title: "Hello" }]]);
 ```
 
 ---
@@ -373,7 +480,7 @@ const session = id.rig(rig);
 await session.sendEncrypted({
   inputs: [],
   outputs: [
-    ["mutable://accounts/" + id.pubkey + "/secrets", { apiKey: "sk-abc123" }],
+    ["mutable://accounts/" + id.pubkey + "/secrets", {}, { apiKey: "sk-abc123" }],
   ],
 });
 
@@ -405,7 +512,7 @@ await aliceSession.sendEncrypted(
   {
     inputs: [],
     outputs: [
-      ["mutable://inbox/" + bob.pubkey + "/msg/001", { text: "Hello Bob" }],
+      ["mutable://inbox/" + bob.pubkey + "/msg/001", {}, { text: "Hello Bob" }],
     ],
   },
   bob.encryptionPubkey,
@@ -830,9 +937,20 @@ const [localResult] = await rig.read("local://cache/session");
 
 ### How routing works
 
-- **Writes** (receive/send): broadcast to **all** accepting clients
-- **Reads** (read): try clients in order, return **first match**
-- **No accepting client**: returns an error result (does not throw)
+- **Writes** (receive/send): broadcast to **all** accepting clients in
+  parallel. The Rig returns the **first failed** result it sees
+  (`createConnectionDispatch` in `libs/b3nd-rig/rig.ts`); per-connection
+  success/failure detail is not exposed — see the caveat under "Multiple
+  write targets" below.
+- **Single-URI reads** (e.g. `rig.read("mutable://.../x")`): try connections
+  in declaration order, return the **first connection that has data**.
+- **List reads** (trailing slash, e.g. `rig.read("mutable://.../")`):
+  return the result from the **first connection that accepts** the pattern.
+  The Rig does NOT federate list reads across backends — a trailing-slash
+  read is served entirely by the first matching connection, even if other
+  connections could contribute items. If you need union semantics across
+  backends, read each connection directly and merge in your app.
+- **No accepting client**: returns an error result (does not throw).
 
 ```typescript
 // A write to mutable:// hits the remote client.
@@ -863,12 +981,31 @@ const rig = new Rig({
   ],
 });
 
-// This write goes to both primary and replica
+// This write goes to both primary and replica (in parallel).
 await rig.receive([["mutable://open/app/data", {}, { v: 1 }]]);
 
-// Reads come from primary (first client with read acceptance)
+// Reads come from primary (first client with read acceptance).
 const [result] = await rig.read("mutable://open/app/data");
 ```
+
+> **Error-collapse caveat.** When a write fans out to multiple accepting
+> connections, the Rig returns only a single `ReceiveResult` per input
+> message: if all connections accepted, you get a success; if **any**
+> connection failed, you get the first failure and the per-replica detail
+> is discarded. A write accepted by the primary and rejected by the
+> mirror is indistinguishable from a total failure at this layer. For
+> 1.0 operators who need per-replica visibility, wire each client
+> individually in your application layer (or listen on `receive:error`
+> events and cross-reference with per-client health via `rig.status()`).
+>
+> The decomposition-decides-fan-out caveat from the "Envelopes and the
+> Rig" section in
+> [DESIGN_PRIMITIVE.md](./DESIGN_PRIMITIVE.md#envelopes-and-the-rig) also
+> applies: `session.send()` of an envelope fans out the envelope URI to
+> matching connections, but the envelope's inner outputs are decomposed
+> *inside* whichever `MessageDataClient` owns each connection — they do
+> not re-enter the Rig. For per-output cross-connection routing, use
+> `rig.receive([msg, …])` with one tuple per output URI.
 
 ---
 
@@ -907,7 +1044,7 @@ const rig = new Rig({
       read: ["mutable://*", "immutable://*", "hash://*"],
     }),
   ],
-  schema: appSchema,
+  programs: appPrograms,
 });
 ```
 
@@ -1016,7 +1153,7 @@ const client = await createClientFromUrl("postgresql://localhost:5432/mydb", {
 
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
-  schema: appSchema,
+  programs: appPrograms,
 });
 
 const api = httpApi(rig);
@@ -1049,7 +1186,7 @@ fire.
 ```typescript
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
-  schema: appSchema,
+  programs: appPrograms,
   hooks: {
     beforeReceive: validatePayload,
   },
@@ -1141,8 +1278,8 @@ const bob = await Identity.fromSeed("bob-secret");
 const aliceSession = alice.rig(rig);
 const bobSession = bob.rig(rig);
 
-await aliceSession.send({ inputs: [], outputs: [[aliceUri, data]] });
-await bobSession.send({ inputs: [], outputs: [[bobUri, data]] });
+await aliceSession.send({ inputs: [], outputs: [[aliceUri, {}, data]] });
+await bobSession.send({ inputs: [], outputs: [[bobUri, {}, data]] });
 ```
 
 ---
@@ -1166,7 +1303,7 @@ if (identity?.canSign) {
 
 if (identity?.canEncrypt) {
   const session = identity.rig(rig);
-  await session.sendEncrypted({ inputs: [], outputs: [[uri, secret]] });
+  await session.sendEncrypted({ inputs: [], outputs: [[uri, {}, secret]] });
 }
 ```
 
@@ -1197,7 +1334,7 @@ const client = await createClientFromUrl("postgresql://localhost:5432/app", {
 
 const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
-  schema: appSchema,
+  programs: appPrograms,
   on: {
     "*:success": [(e) => console.log(`[${e.op}] ${e.uri}`)],
     "*:error": [(e) => console.error(`[${e.op}] ${e.uri}: ${e.error}`)],
@@ -1258,7 +1395,7 @@ const fs = await createClientFromUrl("file:///var/data/blobs", {
 });
 
 const rig = new Rig({
-  schema: appSchema,
+  programs: appPrograms,
   connections: [
     connection(pg, {
       receive: ["mutable://*"],
@@ -1341,7 +1478,7 @@ switch (command) {
     console.log(await rig.read(args.uri));
     break;
   case "write":
-    await rig.receive([args.uri, JSON.parse(args.data)]);
+    await rig.receive([[args.uri, {}, JSON.parse(args.data)]]);
     break;
   case "list":
     console.log(await rig.read(args.uri + "/")); // trailing slash = list
@@ -1376,13 +1513,14 @@ await rig.receive([["mutable://open/app/x", {}, { v: 1 }]]);
 const session = id.rig(rig);
 await session.send({
   inputs: [],
-  outputs: [["mutable://open/app/x", { v: 2 }]],
+  outputs: [["mutable://open/app/x", {}, { v: 2 }]],
 });
 
 // Manual signing — build MessageData yourself
-const payload = { inputs: [], outputs: [["mutable://open/app/x", { v: 3 }]] };
-const auth = [await id.sign(payload)];
-await rig.send({ auth, payload });
+const inputs: string[] = [];
+const outputs = [["mutable://open/app/x", {}, { v: 3 }]] as const;
+const auth = [await id.sign({ inputs, outputs })];
+await rig.send({ auth, inputs, outputs });
 ```
 
 ---
@@ -1503,7 +1641,7 @@ await rig.receive([["mutable://open/app/x", {}, data]]);
 const session = id.rig(rig);
 await session.send({
   inputs: [],
-  outputs: [["mutable://accounts/" + id.pubkey + "/app/x", data]],
+  outputs: [["mutable://accounts/" + id.pubkey + "/app/x", {}, data]],
 });
 ```
 
@@ -1515,8 +1653,8 @@ await session.send({
 Identity                   Rig
 (external)          ┌──────────────────────────────────────┐
    │                │                                      │
-   │  .rig(rig)     │  Schema     Hooks      Events        │
-   └───────►        │  (validate) (guard)    (notify)      │
+   │  .rig(rig)     │  Programs   Hooks      Events        │
+   └───────►        │  (classify) (guard)    (notify)      │
 AuthenticatedRig    │                                      │
 (sign, encrypt)     │         ┌────────────────┐           │
    │                │         │  Core Operation │           │
@@ -1538,6 +1676,6 @@ AuthenticatedRig    │                                      │
 The rig is pure orchestration — identity-free. Identity is the security
 principal: it signs and encrypts externally, then dispatches pre-signed messages
 through the rig. `identity.rig(rig)` creates an `AuthenticatedRig` session.
-Schema validates. Hooks guard. Clients are pure plumbing. Events notify.
+Programs classify. Hooks guard. Clients are pure plumbing. Events notify.
 Observers react. A compromised rig can dispatch but cannot forge signatures —
 the security boundary is the identity, not the rig.

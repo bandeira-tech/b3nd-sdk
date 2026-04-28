@@ -150,6 +150,13 @@ export class Rig {
    * The rig does NOT sign — pass a pre-signed MessageData (use
    * `identity.rig(rig).send()` or `identity.sign()` for signing).
    *
+   * **Programs do NOT fire on send.** `send()` runs the `beforeSend` hook
+   * and dispatches directly to connections — the `programs` registry is only
+   * consulted on `receive()`. If you need program-level enforcement on an
+   * authenticated write (trust-list, signature verification on output URIs,
+   * cross-output checks), route the write through `receive()` with a signed
+   * payload in `data`, or use `beforeSend` to reject unauthorized envelopes.
+   *
    * @example Pre-signed via AuthenticatedRig
    * ```typescript
    * const session = identity.rig(rig);
@@ -219,9 +226,22 @@ export class Rig {
    * ReceiveResult per input message.
    *
    * When `programs` is configured, the rig looks up the program for the
-   * message URI, classifies it, and routes to the handler for the
-   * returned code. Handlers dispatch via `broadcast` (direct to clients,
-   * bypasses programs).
+   * message URI (longest-prefix match), classifies it, and routes to the
+   * handler for the returned code. Handlers dispatch via `broadcast`
+   * (direct to clients, bypasses programs). **URIs that don't match any
+   * registered program are dispatched directly to connections without
+   * classification** — install an explicit rejecter program if you need
+   * closed-by-default behavior.
+   *
+   * **Error collapse on broadcast.** When a message's URI matches
+   * multiple connections (replication), all are written in parallel and
+   * the rig returns the **first failed** result it sees; if every
+   * connection accepted, it returns the first success. Per-connection
+   * success/failure detail is not exposed through the return value. A
+   * write accepted by the primary and rejected by the mirror is
+   * indistinguishable from total failure at this layer — listen on
+   * `receive:error` events and cross-reference with `rig.status()` if
+   * you need per-replica visibility.
    *
    * @example
    * ```typescript
@@ -369,6 +389,16 @@ export class Rig {
    * - Single URI: returns array with one result
    * - Multiple URIs: returns array with one result per URI
    * - Trailing slash: lists all items under path
+   *
+   * **Read layering.** On a single-URI read, connections are tried in
+   * declaration order and the first one that returns a successful result
+   * wins — this is the expected cache→primary layering.
+   *
+   * **No federation on list reads.** A trailing-slash URI is served
+   * entirely by the first connection that accepts its pattern. The Rig
+   * does NOT merge list results across connections. If two backends both
+   * hold items under the same prefix and you need the union, read each
+   * backend directly and merge in application code.
    */
   async read<T = unknown>(uris: string | string[]): Promise<ReadResult<T>[]> {
     const uriList = Array.isArray(uris) ? uris : [uris];

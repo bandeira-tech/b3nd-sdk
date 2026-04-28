@@ -85,14 +85,27 @@ The simplest deployment. The handler runs in the same process as the node.
 ```
 
 ```typescript
+import {
+  connection,
+  httpApi,
+  MemoryStore,
+  MessageDataClient,
+  Rig,
+} from "@bandeira-tech/b3nd-sdk";
+import { respondTo } from "@bandeira-tech/b3nd-sdk/listener";
+
 const client = new MessageDataClient(new MemoryStore());
-const processor = respondTo(handler, { identity, client });
-const conn = connect(client, { prefix: INBOX, processor });
+const rig = new Rig({
+  connections: [connection(client, { receive: ["*"], read: ["*"] })],
+  programs,
+});
+
+// Handler runs in the same process, reacting to writes under INBOX.
+const processor = respondTo(handler, { identity, client: rig });
+const conn = connect(rig, { prefix: INBOX, processor });
 conn.start();
 
-const app = new Hono();
-const frontend = servers.httpServer(app);
-createServerNode({ frontend, client });
+Deno.serve({ port: 9942 }, httpApi(rig));
 ```
 
 **Best for:** Development, prototypes, single-purpose services.
