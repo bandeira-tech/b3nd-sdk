@@ -55,10 +55,12 @@ import { OperationHandleImpl } from "./operation-handle.ts";
  *
  * @example Authenticated send
  * ```typescript
+ * // With messageDataHandler registered, the rig decomposes the
+ * // envelope into outputs + null-payload deletions for inputs.
  * const id = await Identity.fromSeed("my-secret");
  * const auth = [await id.sign({ inputs: [], outputs })];
  * const envelope = await message({ auth, inputs: [], outputs });
- * await rig.send([envelope, ...outputs]);
+ * await rig.send([envelope]);
  * ```
  *
  * @example With programs, hooks, events, and reactions

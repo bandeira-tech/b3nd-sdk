@@ -34,8 +34,14 @@ import type { EncryptedPayload } from "../b3nd-encrypt/mod.ts";
 import { httpApi } from "./http.ts";
 
 /**
- * Helper: sign + message + rig.send with pre-decomposition.
- * Replaces the old AuthenticatedRig.send() pattern in tests.
+ * Helper: sign + message + rig.send.
+ *
+ * Sends just the envelope — when `messageDataHandler` is registered
+ * (see `messageDataCanon` above), the rig dispatches the constituent
+ * emissions (envelope + outputs + null-payload deletions for inputs)
+ * via the handler. Sending `[envelope, ...outputs]` instead would
+ * dispatch each output twice — once via the handler's decomposition
+ * and once via default-dispatch on the direct input.
  */
 async function signAndSend<V = unknown>(
   identity: Identity,
@@ -50,15 +56,7 @@ async function signAndSend<V = unknown>(
     inputs: data.inputs,
     outputs: data.outputs as Output[],
   });
-  const inputDeletions: Output[] = data.inputs.map(
-    (uri) => [uri, null] as Output,
-  );
-  const batch: Output[] = [
-    envelope,
-    ...(data.outputs as Output[]),
-    ...inputDeletions,
-  ];
-  const results = await rig.send(batch);
+  const results = await rig.send([envelope]);
   return { ...results[0], uri: envelope[0] };
 }
 
@@ -567,6 +565,7 @@ Deno.test("signAndSend - signs and sends via identity + rig", async () => {
   const id = await Identity.generate();
   const _route34 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route34],
       read: [_route34],
@@ -592,6 +591,7 @@ Deno.test("signAndSend - multiple identities on same rig", async () => {
   const bob = await Identity.generate();
   const _route35 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route35],
       read: [_route35],
@@ -717,6 +717,7 @@ Deno.test("Rig - signAndSend round-trip", async () => {
   const id = await Identity.generate();
   const _route43 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route43],
       read: [_route43],
@@ -947,6 +948,7 @@ Deno.test("signAndSend - creates verifiable signed envelope", async () => {
   const id = await Identity.generate();
   const _route54 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route54],
       read: [_route54],
@@ -995,6 +997,7 @@ Deno.test("signAndSend - different identities produce different signatures", asy
   const bob = await Identity.generate();
   const _route55 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route55],
       read: [_route55],
@@ -1113,6 +1116,7 @@ Deno.test("signAndSend - multiple outputs in single envelope", async () => {
   const id = await Identity.generate();
   const _route60 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route60],
       read: [_route60],
@@ -1622,11 +1626,14 @@ Deno.test("Rig - programs allow signed send via signAndSend", async () => {
       receive: [_route81],
       read: [_route81],
     },
+    // messageDataCanon last so its `hash://sha256: messageDataProgram`
+    // wins — without it the envelope wouldn't decompose and the inner
+    // output wouldn't land.
     programs: {
       ...createTestPrograms(),
-      // deno-lint-ignore require-await
-      "hash://sha256": async () => ({ code: "ok" }),
+      ...messageDataCanon.programs,
     },
+    handlers: { ...messageDataCanon.handlers },
   });
 
   const result = await signAndSend(id, rig, {
@@ -1678,6 +1685,7 @@ Deno.test("signEncryptAndSend - encrypt to self and read back", async () => {
   const id = await Identity.generate();
   const _route84 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route84],
       read: [_route84],
@@ -1706,6 +1714,7 @@ Deno.test("signEncryptAndSend - stored data is actually encrypted (not plaintext
   const id = await Identity.generate();
   const _route85 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route85],
       read: [_route85],
@@ -1736,6 +1745,7 @@ Deno.test("signEncryptAndSend - multiple encrypted outputs", async () => {
   const id = await Identity.generate();
   const _route86 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route86],
       read: [_route86],
@@ -1770,6 +1780,7 @@ Deno.test("signEncryptAndSend - encrypt to another party", async () => {
   const receiver = await Identity.generate();
   const _route87 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route87],
       read: [_route87],
@@ -1804,6 +1815,7 @@ Deno.test("signEncryptAndSend - throws for public-only identity", async () => {
   const id = Identity.publicOnly({ signing: "ab".repeat(32) });
   const _route88 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route88],
       read: [_route88],
@@ -1824,6 +1836,7 @@ Deno.test("signEncryptAndSend - envelope is signed and verifiable", async () => 
   const id = await Identity.generate();
   const _route89 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route89],
       read: [_route89],
@@ -2388,6 +2401,7 @@ Deno.test("signAndSend many - sends multiple envelopes", async () => {
   const id = await Identity.generate();
   const _route97 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route97],
       read: [_route97],
@@ -2425,6 +2439,7 @@ Deno.test("signAndSend many - each envelope gets its own hash", async () => {
   const id = await Identity.generate();
   const _route98 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route98],
       read: [_route98],
@@ -2552,6 +2567,7 @@ Deno.test("Rig hooks - beforeSend throw rejects send", async () => {
   const id = await Identity.generate();
   const _route103 = connection(memClient(), ["*"]);
   const rig = new Rig({
+    ...messageDataCanon,
     routes: {
       receive: [_route103],
       read: [_route103],

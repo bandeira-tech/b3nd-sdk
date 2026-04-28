@@ -7,7 +7,11 @@ The universal harness for b3nd. One import, convention over configuration.
 ```typescript
 import { connection, DataStoreClient, Identity, Rig } from "@b3nd/rig";
 import { MemoryStore } from "@b3nd/client-memory";
-import { message } from "@bandeira-tech/b3nd-sdk/msg";
+import {
+  message,
+  messageDataHandler,
+  messageDataProgram,
+} from "@bandeira-tech/b3nd-sdk/msg";
 
 const id = await Identity.fromSeed("my-secret");
 
@@ -18,13 +22,17 @@ const rig = new Rig({
     read:    [local],
     observe: [local],
   },
+  // Canon: program classifies hash:// envelopes; handler decomposes
+  // them into envelope + outputs + null-payload deletions for inputs.
+  programs: { "hash://sha256": messageDataProgram },
+  handlers: { "msgdata:valid": messageDataHandler },
 });
 
-// Identity signs, rig delivers
+// Identity signs; the canon decomposes; the rig dispatches.
 const outputs = [["mutable://myapp/config", { theme: "dark" }]];
 const auth = [await id.sign({ inputs: [], outputs })];
 const envelope = await message({ auth, inputs: [], outputs });
-await rig.send([envelope, ...outputs]);
+await rig.send([envelope]); // handler emits the inner outputs
 
 const data = await rig.readData("mutable://myapp/config");
 ```
@@ -38,13 +46,17 @@ The rig has two core actions. Everything else is observation.
   from an external source
 
 ```typescript
-// Send a signed envelope (use Identity.sign() + message() to build it)
+// Send a signed envelope. With messageDataHandler registered, the
+// rig decomposes the envelope into its outputs + null-payload
+// deletions for inputs. Without it, send the constituent tuples
+// flattened (`rig.send([envelope, ...outputs])`) instead — sending
+// both with the canon installed double-dispatches the inner outputs.
 const auth = [await id.sign({ inputs: [], outputs })];
 const envelope = await message({ auth, inputs: [], outputs });
-await rig.send([envelope, ...outputs]);
+await rig.send([envelope]);
 
 // Receive a raw message from an external source
-await rig.receive([["mutable://open/external", {}, { source: "webhook" }]]);
+await rig.receive([["mutable://open/external", { source: "webhook" }]]);
 ```
 
 ## Observation
@@ -70,7 +82,7 @@ const encrypted = await id.encrypt(plaintext, recipientPubkey);
 const outputs = [[uri, encrypted]];
 const auth = [await id.sign({ inputs: [], outputs })];
 const envelope = await message({ auth, inputs: [], outputs });
-await rig.send([envelope, ...outputs]);
+await rig.send([envelope]); // canon decomposes; outputs land encrypted
 
 // Read and decrypt
 const results = await rig.read(uri);
@@ -333,6 +345,6 @@ for (const env of envelopes) {
     inputs: env.inputs,
     outputs: env.outputs,
   });
-  await rig.send([envelope, ...env.outputs]);
+  await rig.send([envelope]); // requires messageDataHandler registered
 }
 ```
