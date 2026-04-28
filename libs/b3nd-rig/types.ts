@@ -59,8 +59,11 @@ export interface RigConfig {
    *     "msg://app": appMsgProgram,
    *   },
    *   handlers: {
-   *     "app:valid": async (msg, broadcast) => { ... },
-   *     "app:confirmed": async (msg, broadcast, read) => { ... },
+   *     "app:valid":     async (out) => [out],
+   *     "app:confirmed": async (out, _result, read) => {
+   *       // ...inspect state via read; return what to dispatch
+   *       return [out];
+   *     },
    *   },
    * });
    * ```
@@ -124,8 +127,8 @@ export interface RigConfig {
    * const rig = new Rig({
    *   connections: [...],
    *   reactions: {
-   *     "mutable://app/users/:id": (uri, data, { id }) => {
-   *       console.log(`User ${id} updated`);
+   *     "mutable://app/users/:id": async (out, _read, { id }) => {
+   *       return [[`notify://email/${id}`, { kind: "user-updated" }]];
    *     },
    *   },
    * });

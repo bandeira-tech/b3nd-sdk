@@ -220,8 +220,10 @@ export function httpApi(
         );
       }
       const payload = deserializeBinary(rawPayload);
-      // Pass the message through as-is. Whether to decompose envelopes is
-      // a client concern (MessageDataClient yes, SimpleClient no).
+      // Pass the message through as-is. Decomposition is a protocol
+      // concern (install messageDataProgram + messageDataHandler on the
+      // Rig if you want envelope semantics); SimpleClient/DataStoreClient
+      // never decompose on their own.
       const results = await rig.receive([[uri, payload]]);
       return json(results[0], results[0].accepted ? 200 : 400);
     }

@@ -672,11 +672,18 @@ export class Rig {
    * Fires on successful `send()` or `receive()` when the written URI
    * matches the pattern. Fire-and-forget — errors are caught and logged.
    *
+   * Reactions return `Output[]` — those tuples flow back through
+   * `rig.send` (full pipeline). See chapter 7 of RFC 001 for the
+   * productive-observation model.
+   *
    * @example
    * ```typescript
-   * const unsub = rig.reaction("mutable://app/users/:id", (uri, data, { id }) => {
-   *   console.log(`User ${id} updated:`, data);
-   * });
+   * const unsub = rig.reaction(
+   *   "mutable://app/users/:id",
+   *   async (out, _read, { id }) => {
+   *     return [[`notify://email/${id}`, { kind: "user-updated" }]];
+   *   },
+   * );
    *
    * // Later:
    * unsub();

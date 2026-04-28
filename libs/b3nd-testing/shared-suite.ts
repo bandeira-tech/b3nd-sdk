@@ -614,9 +614,10 @@ export function runSharedSuite(
     },
   });
 
-  // NOTE: Input consumption and output fan-out tests have been moved to
-  // message-data-client.test.ts — envelope decomposition is a MessageDataClient
-  // concern, not a generic NodeProtocolInterface behavior.
+  // NOTE: Envelope decomposition (input consumption, output fan-out) is a
+  // protocol concern handled by `messageDataProgram` + `messageDataHandler`
+  // installed on a Rig — not a generic NodeProtocolInterface behavior. The
+  // shared suite stays focused on the wire-level contract.
 
   // ── Error handling ─────────────────────────────────────────────────
 

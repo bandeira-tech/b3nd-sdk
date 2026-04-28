@@ -2,14 +2,14 @@
  * Node builder for managed nodes.
  *
  * Constructs NodeProtocolInterface clients from BackendSpec arrays,
- * using Store + MessageDataClient (envelope-aware protocol wrapper).
+ * using Store + DataStoreClient (null-aware Store adapter).
  */
 
 import {
   HttpClient,
   type NodeProtocolInterface,
 } from "@bandeira-tech/b3nd-sdk";
-import { MessageDataClient } from "../b3nd-rig/mod.ts";
+import { DataStoreClient } from "../b3nd-rig/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import type { BackendResolver } from "../b3nd-rig/backend-factory.ts";
 import type { BackendSpec } from "./types.ts";
@@ -29,7 +29,7 @@ export async function buildClientsFromSpec(
   for (const spec of specs) {
     // Built-in: memory
     if (spec.type === "memory") {
-      clients.push(new MessageDataClient(new MemoryStore()));
+      clients.push(new DataStoreClient(new MemoryStore()));
       continue;
     }
 
@@ -46,7 +46,7 @@ export async function buildClientsFromSpec(
 
     if (resolver) {
       const store = await resolver.resolve(spec.url);
-      clients.push(new MessageDataClient(store));
+      clients.push(new DataStoreClient(store));
       continue;
     }
 
