@@ -2,10 +2,12 @@
  * @module
  * Universal B3nd persistence SDK for all platforms.
  *
- * Provides URI-based data addressing with multiple backend support,
- * encryption, and schema validation.
+ * Re-exports everything from core (framework foundation) and
+ * canon (protocol-building toolkit). For selective imports, use
+ * the subpath exports: `./core`, `./canon`, `./msg`, `./hash`,
+ * `./auth`, `./encrypt`, `./wallet`, `./network`, `./listener`.
  *
- * @example Basic usage with Store + protocol client
+ * @example Basic usage
  * ```typescript
  * import { MemoryStore, DataStoreClient } from "@bandeira-tech/b3nd-sdk";
  *
@@ -17,130 +19,23 @@
  * // Read data
  * const results = await client.read("mutable://users/alice");
  * console.log(results[0]?.record?.data); // { name: "Alice", age: 30 }
- *
- * // Delete (null payload)
- * await client.receive([["mutable://users/alice", null]]);
- *
- * // List items (trailing slash)
- * const list = await client.read("mutable://users/");
  * ```
  *
- * @example Using HttpClient with a remote backend
+ * @example Authenticated send
  * ```typescript
- * import { HttpClient } from "@bandeira-tech/b3nd-sdk";
+ * import { Identity, Rig, connection, message } from "@bandeira-tech/b3nd-sdk";
  *
- * const client = new HttpClient({ url: "https://api.example.com" });
+ * const id = await Identity.fromSeed("my-secret");
+ * const rig = new Rig({
+ *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
+ * });
  *
- * // Same NodeProtocolInterface as Store-backed clients
- * await client.receive([["mutable://data/key", { value: 123 }]]);
- * const result = await client.read("mutable://data/key");
+ * const outputs = [["mutable://app/key", { hello: "world" }]];
+ * const auth = [await id.sign({ inputs: [], outputs })];
+ * const envelope = await message({ auth, inputs: [], outputs });
+ * await rig.send([envelope, ...outputs]);
  * ```
  */
 
-// Core types
-export type {
-  B3ndError,
-  ClientError,
-  DeleteResult,
-  HealthStatus,
-  HttpClientConfig,
-  ListItem,
-  ListOptions,
-  ListResult,
-  NodeProtocolInterface,
-  Output,
-  ReadFn,
-  ReadMultiResult,
-  ReadMultiResultItem,
-  ReadResult,
-  ReceiveResult,
-  StatusResult,
-  Store,
-  StoreCapabilities,
-  StoreEntry,
-  StoreWriteResult,
-  WebSocketClientConfig,
-  WebSocketRequest,
-  WebSocketResponse,
-  WriteResult,
-} from "../libs/b3nd-core/types.ts";
-export { ErrorCode, Errors } from "../libs/b3nd-core/types.ts";
-
-// Binary encoding utilities (used by storage backends for JSON round-tripping)
-export {
-  decodeBinaryFromJson,
-  encodeBinaryForJson,
-  isBinary,
-  isEncodedBinary,
-} from "../libs/b3nd-core/binary.ts";
-
-// Store implementations (core — ships with SDK)
-export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
-
-// Protocol clients (Store → NodeProtocolInterface)
-export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
-export { DataStoreClient } from "../libs/b3nd-core/data-store-client.ts";
-
-// Transport clients (direct NodeProtocolInterface, no Store)
-export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
-export { WebSocketClient } from "../libs/b3nd-client-ws/mod.ts";
-export { ConsoleClient } from "../libs/b3nd-client-console/client.ts";
-
-// Crypto utilities
-export { pemToCryptoKey } from "../libs/b3nd-encrypt/mod.ts";
-export { deriveObfuscatedPath } from "../libs/b3nd-encrypt/utils.ts";
-
-// FunctionalClient (new primary pattern)
-export { FunctionalClient } from "../libs/b3nd-core/functional-client.ts";
-export type { FunctionalClientConfig } from "../libs/b3nd-core/functional-client.ts";
-
-// ObserveEmitter — client-side observe primitive
-export { ObserveEmitter } from "../libs/b3nd-core/observe-emitter.ts";
-export type { ObserveListener } from "../libs/b3nd-core/observe-emitter.ts";
-
-// Message data convention (inputs / outputs) + canon program/handler
-export {
-  isMessageData,
-  message,
-  messageDataHandler,
-  messageDataProgram,
-  send,
-} from "../libs/b3nd-msg/data/mod.ts";
-export type {
-  MessageData,
-  SendResult,
-  StateMessage,
-} from "../libs/b3nd-msg/data/mod.ts";
-
-// Rig — the universal harness
-export {
-  createClientFromUrl,
-  createClientResolver,
-  createStoreFromUrl,
-  createStoreResolver,
-  getSupportedProtocols,
-  Identity,
-  Rig,
-} from "../libs/b3nd-rig/mod.ts";
-export type {
-  BackendResolver,
-  ExportedIdentity,
-  HandleEmitEvent,
-  OperationEventHandler,
-  OperationEventMap,
-  OperationEventName,
-  OperationHandle,
-  ProcessDoneEvent,
-  RigConfig,
-  RigInfo,
-  RouteErrorEvent,
-  RouteSuccessEvent,
-  SettledEvent,
-  StoreClientConstructor,
-  WatchAllOptions,
-  WatchAllSnapshot,
-  WatchOptions,
-} from "../libs/b3nd-rig/mod.ts";
-
-// HTTP API — standalone function for serving a rig over HTTP
-export { httpApi } from "../libs/b3nd-rig/http.ts";
+export * from "./core.ts";
+export * from "./canon.ts";

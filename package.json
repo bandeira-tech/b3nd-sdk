@@ -11,6 +11,18 @@
       "import": "./dist/src/mod.web.js",
       "types": "./dist/src/mod.web.d.ts"
     },
+    "./core": {
+      "import": "./dist/src/core.js",
+      "types": "./dist/src/core.d.ts"
+    },
+    "./canon": {
+      "import": "./dist/src/canon.js",
+      "types": "./dist/src/canon.d.ts"
+    },
+    "./msg": {
+      "import": "./dist/msg/mod.js",
+      "types": "./dist/msg/mod.d.ts"
+    },
     "./auth": {
       "import": "./dist/auth/mod.js",
       "types": "./dist/auth/mod.d.ts"
@@ -46,6 +58,10 @@
     "./network": {
       "import": "./dist/network/mod.js",
       "types": "./dist/network/mod.d.ts"
+    },
+    "./listener": {
+      "import": "./dist/listener/mod.js",
+      "types": "./dist/listener/mod.d.ts"
     }
   },
   "files": [

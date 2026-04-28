@@ -3,15 +3,15 @@ import { Identity } from "./identity.ts";
 import { getSupportedProtocols } from "./backend-factory.ts";
 import type { BackendResolver } from "./backend-factory.ts";
 import { Rig } from "./rig.ts";
-import { AuthenticatedRig } from "./authenticated-rig.ts";
 import { createTestPrograms } from "../b3nd-client-memory/mod.ts";
-import type { Program } from "../b3nd-core/types.ts";
+import type { Output, Program } from "../b3nd-core/types.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import { DataStoreClient } from "../b3nd-core/data-store-client.ts";
 import {
   messageDataHandler,
   messageDataProgram,
 } from "../b3nd-msg/data/canon.ts";
+import { message } from "../b3nd-msg/data/message.ts";
 import { connection } from "./connection.ts";
 
 /** Shorthand: null-aware Store adapter backed by an in-memory store. */
@@ -20,7 +20,7 @@ function memClient() {
 }
 
 /**
- * Canon for tests that exercise AuthenticatedRig.send / sendEncrypted /
+ * Canon for tests that exercise signed send / encrypted send /
  * sendMany — the canonical MessageData program + handler that decompose
  * envelope tuples into their constituent emissions. Without this
  * installed, envelopes land at the hash URI but inner outputs do not
@@ -30,7 +30,97 @@ const messageDataCanon = {
   programs: { "hash://sha256": messageDataProgram },
   handlers: { "msgdata:valid": messageDataHandler },
 };
+import type { EncryptedPayload } from "../b3nd-encrypt/mod.ts";
 import { httpApi } from "./http.ts";
+
+/**
+ * Helper: sign + message + rig.send with pre-decomposition.
+ * Replaces the old AuthenticatedRig.send() pattern in tests.
+ */
+async function signAndSend<V = unknown>(
+  identity: Identity,
+  rig: Rig,
+  data: { inputs: string[]; outputs: Output<V>[] },
+): Promise<{ accepted: boolean; uri: string; error?: string }> {
+  const auth = [
+    await identity.sign({ inputs: data.inputs, outputs: data.outputs }),
+  ];
+  const envelope = await message({
+    auth,
+    inputs: data.inputs,
+    outputs: data.outputs as Output[],
+  });
+  const inputDeletions: Output[] = data.inputs.map(
+    (uri) => [uri, null] as Output,
+  );
+  const batch: Output[] = [
+    envelope,
+    ...(data.outputs as Output[]),
+    ...inputDeletions,
+  ];
+  const results = await rig.send(batch);
+  return { ...results[0], uri: envelope[0] };
+}
+
+/**
+ * Helper: sign + encrypt + message + rig.send.
+ * Replaces the old AuthenticatedRig.sendEncrypted() pattern in tests.
+ */
+async function signEncryptAndSend<V = unknown>(
+  identity: Identity,
+  rig: Rig,
+  data: { inputs: string[]; outputs: Output<V>[] },
+  recipientEncPubkeyHex?: string,
+): Promise<{ accepted: boolean; uri: string; error?: string }> {
+  if (!identity.canEncrypt) {
+    throw new Error("signEncryptAndSend: identity has no encryption keys.");
+  }
+  const recipient = recipientEncPubkeyHex || identity.encryptionPubkey;
+  const encryptedOutputs: Output[] = await Promise.all(
+    data.outputs.map(async ([uri, value]) => {
+      const plaintext = new TextEncoder().encode(JSON.stringify(value));
+      const encrypted = await identity.encrypt(plaintext, recipient);
+      return [uri, encrypted] as Output;
+    }),
+  );
+  return signAndSend(identity, rig, {
+    inputs: data.inputs,
+    outputs: encryptedOutputs,
+  });
+}
+
+/**
+ * Helper: read encrypted data and decrypt it.
+ * Replaces the old AuthenticatedRig.readEncrypted() pattern in tests.
+ */
+async function readEncrypted<T = unknown>(
+  identity: Identity,
+  rig: Rig,
+  uri: string,
+): Promise<T | null> {
+  if (!identity.canEncrypt) {
+    throw new Error(
+      "readEncrypted: identity has no encryption/decryption keys.",
+    );
+  }
+  const results = await rig.read(uri);
+  const result = results[0];
+  if (!result?.success || !result.record) return null;
+
+  const payload = result.record.data;
+  if (
+    !payload || typeof payload !== "object" ||
+    !("data" in (payload as Record<string, unknown>)) ||
+    !("nonce" in (payload as Record<string, unknown>))
+  ) {
+    throw new Error(
+      `readEncrypted: data at ${uri} is not an EncryptedPayload`,
+    );
+  }
+
+  const decrypted = await identity.decrypt(payload as EncryptedPayload);
+  return JSON.parse(new TextDecoder().decode(decrypted)) as T;
+}
 
 // ── Identity tests ──
 
@@ -439,16 +529,10 @@ Deno.test("Rig -with pre-built client", async () => {
   assertEquals(health.status, "healthy");
 });
 
-Deno.test("AuthenticatedRig - identity.rig(rig) creates session", async () => {
+Deno.test("Identity + Rig - identity can sign for a rig", async () => {
   const id = await Identity.generate();
-  const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-  });
-  const session = id.rig(rig);
-  assertEquals(session.pubkey, id.pubkey);
-  assertEquals(session instanceof AuthenticatedRig, true);
+  assertEquals(id.canSign, true);
+  assertEquals(typeof id.pubkey, "string");
 });
 
 // Rig.init no longer exists — "rejects no client" test removed
@@ -471,16 +555,15 @@ Deno.test("Rig.receive - receives a message", async () => {
   assertEquals(read.record?.data, { hello: "world" });
 });
 
-Deno.test("AuthenticatedRig.send - signs and sends via session", async () => {
+Deno.test("signAndSend - signs and sends via identity + rig", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const result = await session.send({
+  const result = await signAndSend(id, rig, {
     inputs: [],
     outputs: [["mutable://open/item", { value: 42 }]],
   });
@@ -494,7 +577,7 @@ Deno.test("AuthenticatedRig.send - signs and sends via session", async () => {
   assertEquals(read.record?.data, { value: 42 });
 });
 
-Deno.test("AuthenticatedRig - multiple identities on same rig", async () => {
+Deno.test("signAndSend - multiple identities on same rig", async () => {
   const alice = await Identity.generate();
   const bob = await Identity.generate();
   const rig = new Rig({
@@ -503,18 +586,14 @@ Deno.test("AuthenticatedRig - multiple identities on same rig", async () => {
     ],
   });
 
-  const aliceSession = alice.rig(rig);
-  const bobSession = bob.rig(rig);
-
-  assertEquals(aliceSession.pubkey, alice.pubkey);
-  assertEquals(bobSession.pubkey, bob.pubkey);
+  assertEquals(alice.pubkey !== bob.pubkey, true);
 
   // Both can write through the same rig
-  await aliceSession.send({
+  await signAndSend(alice, rig, {
     inputs: [],
     outputs: [["mutable://open/alice-data", { from: "alice" }]],
   });
-  await bobSession.send({
+  await signAndSend(bob, rig, {
     inputs: [],
     outputs: [["mutable://open/bob-data", { from: "bob" }]],
   });
@@ -610,16 +689,15 @@ Deno.test("Rig -quick connect to memory backend", async () => {
   assertEquals(health.status, "healthy");
 });
 
-Deno.test("Rig -session.send round-trip", async () => {
+Deno.test("Rig - signAndSend round-trip", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const result = await session.send({
+  const result = await signAndSend(id, rig, {
     inputs: [],
     outputs: [["mutable://open/connect-test", { v: 1 }]],
   });
@@ -639,42 +717,24 @@ Deno.test("Rig -receive and read round-trip", async () => {
   assertEquals(read.record?.data, "world");
 });
 
-// ── AuthenticatedRig.canSign / canEncrypt tests ──
+// ── Identity.canSign / canEncrypt tests ──
 
-Deno.test("AuthenticatedRig.canSign - true for full identity", async () => {
+Deno.test("Identity.canSign - true for full identity", async () => {
   const id = await Identity.generate();
-  const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-  });
-  const session = id.rig(rig);
-  assertEquals(session.canSign, true);
+  assertEquals(id.canSign, true);
 });
 
-Deno.test("AuthenticatedRig.canSign - false for public-only identity", async () => {
+Deno.test("Identity.canSign - false for public-only identity", () => {
   const publicId = Identity.publicOnly({ signing: "ab".repeat(32) });
-  const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-  });
-  const session = publicId.rig(rig);
-  assertEquals(session.canSign, false);
+  assertEquals(publicId.canSign, false);
 });
 
-Deno.test("AuthenticatedRig.canEncrypt - true for full identity", async () => {
+Deno.test("Identity.canEncrypt - true for full identity", async () => {
   const id = await Identity.generate();
-  const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-  });
-  const session = id.rig(rig);
-  assertEquals(session.canEncrypt, true);
+  assertEquals(id.canEncrypt, true);
 });
 
-Deno.test("AuthenticatedRig.canEncrypt - false for public-only identity", () => {
+Deno.test("Identity.canEncrypt - false for public-only identity", () => {
   const publicId = Identity.publicOnly({ signing: "ab".repeat(32) });
   assertEquals(publicId.canEncrypt, false);
 });
@@ -837,16 +897,15 @@ Deno.test("Rig.readOrThrow - throws for missing URI", async () => {
 
 // ── Rig.send integration tests (with Identity and signature verification) ──
 
-Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async () => {
+Deno.test("signAndSend - creates verifiable signed envelope", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const result = await session.send({
+  const result = await signAndSend(id, rig, {
     inputs: [],
     outputs: [["mutable://open/signed-test", { msg: "hello" }]],
   });
@@ -883,7 +942,7 @@ Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async ()
   assertEquals(data, { msg: "hello" });
 });
 
-Deno.test("AuthenticatedRig.send - different identities produce different signatures", async () => {
+Deno.test("signAndSend - different identities produce different signatures", async () => {
   const alice = await Identity.generate();
   const bob = await Identity.generate();
   const rig = new Rig({
@@ -892,12 +951,12 @@ Deno.test("AuthenticatedRig.send - different identities produce different signat
     ],
   });
 
-  const r1 = await alice.rig(rig).send({
+  const r1 = await signAndSend(alice, rig, {
     inputs: [],
     outputs: [["mutable://open/alice-write", 1]],
   });
 
-  const r2 = await bob.rig(rig).send({
+  const r2 = await signAndSend(bob, rig, {
     inputs: [],
     outputs: [["mutable://open/bob-write", 2]],
   });
@@ -992,16 +1051,15 @@ Deno.test("Rig.read - multi-URI all missing returns all failures", async () => {
   assertEquals(results.filter((r) => r.success).length, 0);
 });
 
-Deno.test("AuthenticatedRig.send - multiple outputs in single envelope", async () => {
+Deno.test("signAndSend - multiple outputs in single envelope", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const result = await session.send({
+  const result = await signAndSend(id, rig, {
     inputs: [],
     outputs: [
       ["mutable://open/batch/a", { v: 1 }],
@@ -1094,69 +1152,53 @@ Deno.test("Rig.read - trailing-slash returns empty for empty prefix", async () =
 
 // rig.readAll with delete, readAll with pagination, deleteAll — all removed (delete no longer exists)
 
-Deno.test("AuthenticatedRig.readEncrypted - returns null for missing URI", async () => {
+Deno.test("readEncrypted - returns null for missing URI", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const result = await session.readEncrypted("mutable://open/enc/missing");
+  const result = await readEncrypted(id, rig, "mutable://open/enc/missing");
   assertEquals(result, null);
 });
 
-Deno.test("AuthenticatedRig.readEncrypted - throws for non-encrypted data", async () => {
+Deno.test("readEncrypted - throws for non-encrypted data", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
   // Write plain (unencrypted) data
   await rig.receive([["mutable://open/enc/plain", { not: "encrypted" }]]);
 
   // readEncrypted should throw since data isn't an EncryptedPayload
   await assertRejects(
-    () => session.readEncrypted("mutable://open/enc/plain"),
+    () => readEncrypted(id, rig, "mutable://open/enc/plain"),
     Error,
     "not an EncryptedPayload",
   );
 });
 
-Deno.test("AuthenticatedRig.readEncryptedMany - returns empty array for empty input", async () => {
+Deno.test("readEncrypted many - returns null for missing URIs", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
-
-  const results = await session.readEncryptedMany([]);
-  assertEquals(results, []);
-});
-
-Deno.test("AuthenticatedRig.readEncryptedMany - returns null for missing URIs", async () => {
-  const id = await Identity.generate();
-  const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-  });
-  const session = id.rig(rig);
 
   // Encrypt and receive one entry directly
   const plaintext = new TextEncoder().encode(JSON.stringify("hello"));
   const encrypted = await id.encrypt(plaintext, id.encryptionPubkey);
   await rig.receive([["mutable://open/enc-batch/exists", encrypted]]);
 
-  const results = await session.readEncryptedMany<string>([
-    "mutable://open/enc-batch/exists",
-    "mutable://open/enc-batch/missing",
+  const results = await Promise.all([
+    readEncrypted<string>(id, rig, "mutable://open/enc-batch/exists"),
+    readEncrypted<string>(id, rig, "mutable://open/enc-batch/missing"),
   ]);
   assertEquals(results.length, 2);
   assertEquals(results[0], "hello");
@@ -1470,7 +1512,7 @@ Deno.test("Rig - multi-connection dispatch with programs rejects via rejecter", 
   assertEquals(result.accepted, false);
 });
 
-Deno.test("Rig - programs allow signed send via session", async () => {
+Deno.test("Rig - programs allow signed send via signAndSend", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
@@ -1480,9 +1522,8 @@ Deno.test("Rig - programs allow signed send via session", async () => {
       "hash://sha256": async () => ({ code: "ok" }),
     },
   });
-  const session = id.rig(rig);
 
-  const result = await session.send({
+  const result = await signAndSend(id, rig, {
     inputs: [],
     outputs: [["mutable://accounts/test", { name: "Alice" }]],
   });
@@ -1521,18 +1562,17 @@ Deno.test("Rig.count - returns 0 for empty prefix", async () => {
 // rig.delete() no longer exists — Rig.count after delete test removed
 // rig.count() no longer takes pagination options — test removed
 
-// ── AuthenticatedRig.sendEncrypted() tests ──
+// ── signEncryptAndSend() tests ──
 
-Deno.test("AuthenticatedRig.sendEncrypted - encrypt to self and read back", async () => {
+Deno.test("signEncryptAndSend - encrypt to self and read back", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const result = await session.sendEncrypted({
+  const result = await signEncryptAndSend(id, rig, {
     inputs: [],
     outputs: [["mutable://open/enc-send/secrets", {
       apiKey: "sk-test-123",
@@ -1542,22 +1582,23 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to self and read back", asyn
   assertEquals(result.uri.startsWith("hash://sha256/"), true);
 
   // The encrypted data should be readable via readEncrypted
-  const secrets = await session.readEncrypted<{ apiKey: string }>(
+  const secrets = await readEncrypted<{ apiKey: string }>(
+    id,
+    rig,
     "mutable://open/enc-send/secrets",
   );
   assertEquals(secrets, { apiKey: "sk-test-123" });
 });
 
-Deno.test("AuthenticatedRig.sendEncrypted - stored data is actually encrypted (not plaintext)", async () => {
+Deno.test("signEncryptAndSend - stored data is actually encrypted (not plaintext)", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  await session.sendEncrypted({
+  await signEncryptAndSend(id, rig, {
     inputs: [],
     outputs: [["mutable://open/enc-send/check", {
       secret: "plaintext-value",
@@ -1577,16 +1618,15 @@ Deno.test("AuthenticatedRig.sendEncrypted - stored data is actually encrypted (n
   assertEquals("secret" in payload, false);
 });
 
-Deno.test("AuthenticatedRig.sendEncrypted - multiple encrypted outputs", async () => {
+Deno.test("signEncryptAndSend - multiple encrypted outputs", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const result = await session.sendEncrypted({
+  const result = await signEncryptAndSend(id, rig, {
     inputs: [],
     outputs: [
       ["mutable://open/enc-batch/a", { v: 1 }],
@@ -1595,17 +1635,21 @@ Deno.test("AuthenticatedRig.sendEncrypted - multiple encrypted outputs", async (
   });
   assertEquals(result.accepted, true);
 
-  const a = await session.readEncrypted<{ v: number }>(
+  const a = await readEncrypted<{ v: number }>(
+    id,
+    rig,
     "mutable://open/enc-batch/a",
   );
-  const b = await session.readEncrypted<{ v: number }>(
+  const b = await readEncrypted<{ v: number }>(
+    id,
+    rig,
     "mutable://open/enc-batch/b",
   );
   assertEquals(a, { v: 1 });
   assertEquals(b, { v: 2 });
 });
 
-Deno.test("AuthenticatedRig.sendEncrypted - encrypt to another party", async () => {
+Deno.test("signEncryptAndSend - encrypt to another party", async () => {
   const sender = await Identity.generate();
   const receiver = await Identity.generate();
   const rig = new Rig({
@@ -1614,24 +1658,23 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to another party", async () 
     ],
   });
 
-  const senderSession = sender.rig(rig);
-  const receiverSession = receiver.rig(rig);
-
   // Encrypt to receiver
-  await senderSession.sendEncrypted({
+  await signEncryptAndSend(sender, rig, {
     inputs: [],
     outputs: [["mutable://open/enc-cross/msg", { text: "for receiver" }]],
   }, receiver.encryptionPubkey);
 
   // Receiver can decrypt
-  const msg = await receiverSession.readEncrypted<{ text: string }>(
+  const msg = await readEncrypted<{ text: string }>(
+    receiver,
+    rig,
     "mutable://open/enc-cross/msg",
   );
   assertEquals(msg, { text: "for receiver" });
 
   // Sender should NOT be able to decrypt (encrypted to receiver's key)
   try {
-    await senderSession.readEncrypted("mutable://open/enc-cross/msg");
+    await readEncrypted(sender, rig, "mutable://open/enc-cross/msg");
     // If it didn't throw, that's unexpected
     assertEquals("should have thrown", "did not throw");
   } catch {
@@ -1639,17 +1682,16 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to another party", async () 
   }
 });
 
-Deno.test("AuthenticatedRig.sendEncrypted - throws for public-only identity", async () => {
+Deno.test("signEncryptAndSend - throws for public-only identity", async () => {
   const id = Identity.publicOnly({ signing: "ab".repeat(32) });
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
   await assertRejects(
     () =>
-      session.sendEncrypted({
+      signEncryptAndSend(id, rig, {
         inputs: [],
         outputs: [["mutable://open/x", 1]],
       }),
@@ -1658,16 +1700,15 @@ Deno.test("AuthenticatedRig.sendEncrypted - throws for public-only identity", as
   );
 });
 
-Deno.test("AuthenticatedRig.sendEncrypted - envelope is signed and verifiable", async () => {
+Deno.test("signEncryptAndSend - envelope is signed and verifiable", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const result = await session.sendEncrypted({
+  const result = await signEncryptAndSend(id, rig, {
     inputs: [],
     outputs: [["mutable://open/enc-verify/x", { secret: true }]],
   });
@@ -2205,21 +2246,31 @@ Deno.test({
   },
 });
 
-// ── AuthenticatedRig.sendMany() tests ──
+// ── signAndSend many tests ──
 
-Deno.test("AuthenticatedRig.sendMany - sends multiple envelopes", async () => {
+Deno.test("signAndSend many - sends multiple envelopes", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const results = await session.sendMany([
-    { inputs: [], outputs: [["mutable://open/wamulti/a", { n: 1 }]] },
-    { inputs: [], outputs: [["mutable://open/wamulti/b", { n: 2 }]] },
-  ]);
+  const results = [];
+  for (
+    const env of [
+      {
+        inputs: [] as string[],
+        outputs: [["mutable://open/wamulti/a", { n: 1 }]] as Output[],
+      },
+      {
+        inputs: [] as string[],
+        outputs: [["mutable://open/wamulti/b", { n: 2 }]] as Output[],
+      },
+    ]
+  ) {
+    results.push(await signAndSend(id, rig, env));
+  }
 
   assertEquals(results.length, 2);
   assertEquals(results[0].accepted, true);
@@ -2232,32 +2283,29 @@ Deno.test("AuthenticatedRig.sendMany - sends multiple envelopes", async () => {
   assertEquals(b?.n, 2);
 });
 
-Deno.test("AuthenticatedRig.sendMany - returns empty array for empty input", async () => {
+Deno.test("signAndSend many - each envelope gets its own hash", async () => {
   const id = await Identity.generate();
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const session = id.rig(rig);
 
-  const results = await session.sendMany([]);
-  assertEquals(results, []);
-});
-
-Deno.test("AuthenticatedRig.sendMany - each envelope gets its own hash", async () => {
-  const id = await Identity.generate();
-  const rig = new Rig({
-    connections: [
-      connection(memClient(), { receive: ["*"], read: ["*"] }),
-    ],
-  });
-  const session = id.rig(rig);
-
-  const results = await session.sendMany([
-    { inputs: [], outputs: [["mutable://open/wahash/x", "one"]] },
-    { inputs: [], outputs: [["mutable://open/wahash/y", "two"]] },
-  ]);
+  const results = [];
+  for (
+    const env of [
+      {
+        inputs: [] as string[],
+        outputs: [["mutable://open/wahash/x", "one"]] as Output[],
+      },
+      {
+        inputs: [] as string[],
+        outputs: [["mutable://open/wahash/y", "two"]] as Output[],
+      },
+    ]
+  ) {
+    results.push(await signAndSend(id, rig, env));
+  }
 
   // Each result should have a unique hash URI
   assertNotEquals(results[0].uri, results[1].uri);
@@ -2364,11 +2412,10 @@ Deno.test("Rig hooks - beforeSend throw rejects send", async () => {
       },
     },
   });
-  const session = id.rig(rig);
 
   await assertRejects(
     () =>
-      session.send({
+      signAndSend(id, rig, {
         inputs: [],
         outputs: [["mutable://open/x", { v: 1 }]],
       }),

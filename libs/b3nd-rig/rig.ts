@@ -12,8 +12,8 @@
 
 import type {
   CodeHandler,
-  Output,
   NodeProtocolInterface,
+  Output,
   Program,
   ProgramResult,
   ReadResult,
@@ -41,8 +41,8 @@ import { OperationHandleImpl } from "./operation-handle.ts";
  * Rig — pure orchestration for b3nd.
  *
  * The rig is identity-free — it routes, validates, and dispatches.
- * For authenticated operations, use `identity.rig(rig)` to create
- * an AuthenticatedRig session.
+ * For authenticated operations, use `Identity.sign()` + `message()` +
+ * `rig.send()` directly.
  *
  * @example Unsigned operations
  * ```typescript
@@ -53,11 +53,12 @@ import { OperationHandleImpl } from "./operation-handle.ts";
  * const result = await rig.readData("mutable://open/app/x");
  * ```
  *
- * @example Authenticated session
+ * @example Authenticated send
  * ```typescript
  * const id = await Identity.fromSeed("my-secret");
- * const session = id.rig(rig);
- * await session.send({ inputs: [], outputs: [["mutable://app/key", data]] });
+ * const auth = [await id.sign({ inputs: [], outputs })];
+ * const envelope = await message({ auth, inputs: [], outputs });
+ * await rig.send([envelope, ...outputs]);
  * ```
  *
  * @example With programs, hooks, events, and reactions
@@ -157,8 +158,10 @@ export class Rig {
    * arrive as events. Wait for `op.settled` for read-after-write
    * guarantees across replicas.
    *
-   * Use `send()` when the host is the origin of the content. Use
-   * `receive()` when content arrives from elsewhere.
+   * Use this when the host is the origin of the content (a button
+   * click, a worker emitting state, a signed envelope from
+   * `Identity.sign()` + `message()`). Use `receive()` when content arrives from
+   * elsewhere (a peer, a webhook, an upstream sync).
    *
    * @example
    * ```typescript
@@ -226,9 +229,7 @@ export class Rig {
     for (const out of outs) {
       const program = this._findProgram(out[0]);
       results.push(
-        program
-          ? await program(out, undefined, readFn)
-          : { code: "ok" },
+        program ? await program(out, undefined, readFn) : { code: "ok" },
       );
     }
     return results;
@@ -971,7 +972,6 @@ export class Rig {
       });
     }
   }
-
 }
 
 // ── Init helpers ──
@@ -1003,9 +1003,7 @@ function createConnectionDispatch(
         }
         // Broadcast to all matching connections
         const writeResults = await Promise.all(
-          matching.map((s) =>
-            s.client.receive([msg]).then((r) => r[0])
-          ),
+          matching.map((s) => s.client.receive([msg]).then((r) => r[0])),
         );
         const failed = writeResults.find((r) => !r.accepted);
         results.push(failed ?? writeResults[0]);

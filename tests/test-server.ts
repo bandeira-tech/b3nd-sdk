@@ -23,7 +23,7 @@ import {
 // Inputs land at their URIs; no validation gates them.
 //
 // MessageData canon is installed for the hash:// envelope path so E2E
-// tests using `send()` / `AuthenticatedRig.send()` get their inner
+// tests using signed send patterns get their inner
 // outputs decomposed and persisted automatically.
 const rig = new Rig({
   connections: [

@@ -33,7 +33,12 @@ export default schema;
 ### createServerNode
 
 ```typescript
-import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import {
+  createServerNode,
+  MemoryStore,
+  MessageDataClient,
+  servers,
+} from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 import schema from "./schema.ts";
 
@@ -51,7 +56,12 @@ import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
 
 const backends = [
   new MessageDataClient(new MemoryStore()),
-  new PostgresStore({ connection, tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000 }),
+  new PostgresStore({
+    connection,
+    tablePrefix: "b3nd",
+    poolSize: 5,
+    connectionTimeout: 10000,
+  }),
 ];
 const composed = flood(backends.map((c, i) => peer(c, { id: `local-${i}` })));
 
@@ -71,7 +81,9 @@ createServerNode({ frontend, client });
 // Postgres
 const pg = new PostgresStore({
   connection: "postgresql://user:pass@localhost:5432/db",
-  tablePrefix: "b3nd", poolSize: 5, connectionTimeout: 10000,
+  tablePrefix: "b3nd",
+  poolSize: 5,
+  connectionTimeout: 10000,
 }, executor);
 await pg.initializeSchema();
 
@@ -102,7 +114,7 @@ so app developers don't need to understand B3nd internals.
 ```typescript
 // my-protocol-sdk/mod.ts
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { HttpClient, send } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient, message } from "@bandeira-tech/b3nd-sdk";
 import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 
 // 1. Schema export (for node operators)
@@ -110,7 +122,9 @@ export const schema: Schema = {
   "mutable://open": async () => ({ valid: true }),
   "hash://sha256": hashValidator(),
   "link://open": async ([_uri, value]) => {
-    if (typeof value !== "string") return { valid: false, error: "Must be string" };
+    if (typeof value !== "string") {
+      return { valid: false, error: "Must be string" };
+    }
     return { valid: true };
   },
 };
@@ -121,10 +135,17 @@ export function createClient(url = "https://my-protocol-node.example.com") {
 }
 
 // 3. Typed helpers
-export async function writeNote(client: HttpClient, path: string, content: object) {
-  return send({
-    payload: { inputs: [], outputs: [[`mutable://open/${path}`, content]] },
-  }, client);
+export async function writeNote(
+  client: HttpClient,
+  path: string,
+  content: object,
+) {
+  const envelope = await message({
+    inputs: [],
+    outputs: [[`mutable://open/${path}`, content]],
+  });
+  const results = await client.receive([envelope]);
+  return { uri: envelope[0], ...results[0] };
 }
 
 // 4. URI builders
@@ -135,5 +156,5 @@ export function noteUri(path: string) {
 
 A protocol's schema module exports the canonical program schema. The
 `@bandeira-tech/b3nd-web` and `@bandeira-tech/b3nd-sdk` packages provide the
-transport layer. Together they form the protocol SDK that app developers
-consume — without knowing they're using B3nd underneath.
+transport layer. Together they form the protocol SDK that app developers consume
+— without knowing they're using B3nd underneath.

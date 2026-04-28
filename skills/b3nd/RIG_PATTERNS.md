@@ -32,7 +32,10 @@ Tests, prototypes, offline-first apps — no network needed.
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
 });
 
@@ -365,7 +368,10 @@ automatically.
 const id = await Identity.generate();
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
 });
 const session = id.rig(rig);
@@ -395,7 +401,10 @@ const bob = await Identity.generate();
 
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
 });
 const aliceSession = alice.rig(rig);
@@ -568,7 +577,10 @@ const prodRig = new Rig({
 });
 const testRig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
   hooks: testHooks,
 });
@@ -642,7 +654,10 @@ Unlike hooks, events can be registered and removed dynamically.
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
 });
 
@@ -741,7 +756,10 @@ await rig.receive([["mutable://open/app/config", {}, { theme: "dark" }]]);
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
 });
 
@@ -1097,7 +1115,10 @@ A rig can be a client inside another rig's routing table.
 ```typescript
 const innerRig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
   hooks: { beforeReceive: validateInner },
 });
@@ -1302,7 +1323,10 @@ Deno.test("app write and read round-trip", async () => {
 
   const rig = new Rig({
     connections: [
-      connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+      connection(new MessageDataClient(new MemoryStore()), {
+        receive: ["*"],
+        read: ["*"],
+      }),
     ],
   });
   rig.on("receive:success", (e) => {
@@ -1365,7 +1389,10 @@ for unsigned writes.
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new MessageDataClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
 });
 
@@ -1491,9 +1518,9 @@ const listed = await rig.read("mutable://open/app/profiles/");
 
 ### receive vs send
 
-`receive()` is the node's ingest — takes `[uri, values, data]` tuples, no signature.
-`session.send()` is the identity's outbound — signs and wraps outputs in a
-content-addressed envelope.
+`receive()` is the node's ingest — takes `[uri, values, data]` tuples, no
+signature. `session.send()` is the identity's outbound — signs and wraps outputs
+in a content-addressed envelope.
 
 ```typescript
 // receive: direct write, no identity needed
@@ -1515,13 +1542,13 @@ await session.send({
 Identity                   Rig
 (external)          ┌──────────────────────────────────────┐
    │                │                                      │
-   │  .rig(rig)     │  Schema     Hooks      Events        │
-   └───────►        │  (validate) (guard)    (notify)      │
-AuthenticatedRig    │                                      │
-(sign, encrypt)     │         ┌────────────────┐           │
-   │                │         │  Core Operation │           │
-   │  .send()       │         └───────┬────────┘           │
-   └───────►        │                 │                    │
+   │  .sign()       │  Schema     Hooks      Events        │
+   │  message()     │  (validate) (guard)    (notify)      │
+   └───────►        │                                      │
+rig.send([          │         ┌────────────────┐           │
+  envelope,         │         │  Core Operation │           │
+  ...outputs        │         └───────┬────────┘           │
+])                  │                 │                    │
                     │           ┌─────┴─────┐              │
                     │           │  Observe   │              │
                     │           │ (patterns) │              │
@@ -1537,7 +1564,7 @@ AuthenticatedRig    │                                      │
 
 The rig is pure orchestration — identity-free. Identity is the security
 principal: it signs and encrypts externally, then dispatches pre-signed messages
-through the rig. `identity.rig(rig)` creates an `AuthenticatedRig` session.
-Schema validates. Hooks guard. Clients are pure plumbing. Events notify.
-Observers react. A compromised rig can dispatch but cannot forge signatures —
-the security boundary is the identity, not the rig.
+through the rig via `Identity.sign()` + `message()` + `rig.send()`. Schema
+validates. Hooks guard. Clients are pure plumbing. Events notify. Observers
+react. A compromised rig can dispatch but cannot forge signatures — the security
+boundary is the identity, not the rig.
