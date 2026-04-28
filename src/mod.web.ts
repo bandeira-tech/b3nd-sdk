@@ -45,7 +45,7 @@ export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
 // ── Protocol clients (Store → NodeProtocolInterface) ──
 
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
-export { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
+export { DataStoreClient } from "../libs/b3nd-core/data-store-client.ts";
 
 // ── Transport clients (direct NodeProtocolInterface, no Store) ──
 
@@ -148,7 +148,13 @@ export {
 
 // ── Message layer ──
 
-export { message, send } from "../libs/b3nd-msg/data/mod.ts";
+export {
+  isMessageData,
+  message,
+  messageDataHandler,
+  messageDataProgram,
+  send,
+} from "../libs/b3nd-msg/data/mod.ts";
 export type {
   MessageData,
   SendResult,
