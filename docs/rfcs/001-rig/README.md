@@ -24,6 +24,7 @@ each piece can be reviewed independently.
 | `DataStoreClient` (Store ↔ wire convention) | `libs/b3nd-core/data-store-client.ts` |
 | `messageDataProgram` + `messageDataHandler` (canon) | `libs/b3nd-msg/data/canon.ts` |
 | `OperationHandle` + per-route events | `libs/b3nd-rig/operation-handle.ts` |
+| `routes: { receive, read, observe }` (per-op connection lists) | `libs/b3nd-rig/types.ts`, `libs/b3nd-rig/connection.ts` |
 | Multi-source replicas: `flood(peers)` | `libs/b3nd-network/policies/flood.ts` |
 | `ProtocolInterfaceNode` (PIN) | `libs/b3nd-core/types.ts` |
 

@@ -47,7 +47,7 @@ registers the handler against the `"msgdata:valid"` code:
 const rig = new Rig({
   programs:  { "hash://sha256": messageDataProgram },
   handlers:  { "msgdata:valid": messageDataHandler },
-  connections: [...],
+  routes:    { ... },
 });
 ```
 

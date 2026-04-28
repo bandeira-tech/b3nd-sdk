@@ -42,6 +42,10 @@ const googleChannel = new FunctionalClient({
   },
 });
 
+const primaryConn = connection(primary,       ["mutable://*", "hash://*"]);
+const metaConn    = connection(metaChannel,   ["publish://meta/*"]);
+const googleConn  = connection(googleChannel, ["publish://google/*"]);
+
 const rig = new Rig({
   programs: {
     "hash://sha256":               messageDataProgram,
@@ -52,14 +56,10 @@ const rig = new Rig({
   handlers: {
     "msgdata:valid": messageDataHandler,
   },
-  connections: [
-    connection(primary, {
-      receive: ["mutable://*", "hash://*"],
-      read:    ["mutable://*", "hash://*"],
-    }),
-    connection(metaChannel, { receive: ["publish://meta/*"] }),
-    connection(googleChannel, { receive: ["publish://google/*"] }),
-  ],
+  routes: {
+    receive: [primaryConn, metaConn, googleConn],
+    read:    [primaryConn],
+  },
 });
 ```
 

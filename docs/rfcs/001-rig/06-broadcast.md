@@ -15,8 +15,7 @@ return into actual connection-level dispatches.
 
 For each tuple a handler returned:
 
-1. Match the URI against every registered connection's `receive`
-   patterns.
+1. Match the URI against every connection in `routes.receive`.
 2. For every connection that accepts, dispatch the tuple to that
    connection's client.
 3. Emit a `route:success` or `route:error` event on the operation
@@ -121,17 +120,18 @@ the result as accepted (the handler ran, it just chose not to emit)
 and moves on. This is the "classify, then drop" shape — rare, usually
 expressible as a program rejection instead, but allowed.
 
-## Broadcast and connection routing — the hand-off
+## Broadcast and routes — the hand-off
 
-Connection-pattern routing is the single point of fan-out control.
-The Rig is configured with a list of connections; each connection has
-patterns for `receive` (and optionally `read`, `observe`); each
-pattern is matched against the URI of every tuple the Rig is
-dispatching. The match decides where the tuple goes.
+`routes.receive` is the single point of fan-out control. The Rig is
+configured with three per-op route arrays — `receive`, `read`,
+`observe`. Each connection in a route is `(client, patterns: string[])`;
+the patterns are matched against URIs to decide which clients
+participate. Broadcast traverses `routes.receive` for handler
+emissions; `routes.read` and `routes.observe` are consulted for the
+matching ops.
 
-Broadcast is the mechanism that hands off to this engine. A handler
-benefits from this without having to think about it. It says "emit
-these URIs," and the URIs carry the routing decision with them.
+A handler benefits from this without having to think about it. It says
+"emit these URIs," and the URIs carry the routing decision with them.
 
 ## What's coming next
 

@@ -38,10 +38,12 @@ the tuple privileges any one shape over any other.
 
 ## What `uri` is for
 
-URIs name. They also route. A connection accepts an operation on a
-URI by matching the URI against a pattern (`mutable://*`,
-`publish://meta/*`, `hash://sha256/*`). That's the framework's whole
-routing story. Connection patterns are the single filtering primitive.
+URIs name. They also route. A connection — `(client, patterns)` — is
+bound into one or more route arrays (`routes.receive`, `routes.read`,
+`routes.observe`); the Rig matches each tuple's URI against the
+patterns on the relevant route to decide which clients participate.
+Patterns are simple strings — `mutable://*`, `publish://meta/*`,
+`hash://sha256/*`. That's the framework's whole routing story.
 
 URIs also let programs key on prefixes. A program registered at
 `mutable://accounts` runs against any tuple whose URI starts with that

@@ -24,10 +24,13 @@ const peers = [
   peer("mirror-west", mirrorClient2),
 ];
 
+const replicaSet = connection(flood(peers), ["mutable://*"]);
+
 const rig = new Rig({
-  connections: [
-    connection(flood(peers), { receive: ["mutable://*"], read: ["mutable://*"] }),
-  ],
+  routes: {
+    receive: [replicaSet],
+    read:    [replicaSet],
+  },
 });
 ```
 

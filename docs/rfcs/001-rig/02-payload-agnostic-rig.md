@@ -11,11 +11,12 @@ postal service without trusting the postmaster to interpret its messages.
 
 Three things.
 
-**URIs**, because the Rig has to route. A connection declares it accepts
-`receive` on `mutable://*` and the Rig dispatches matching tuples to that
-connection. URIs are how the framework decides where a tuple goes. The Rig
-matches on string prefixes; it doesn't care what URI scheme means in your
-protocol.
+**URIs**, because the Rig has to route. A connection bound into
+`routes.receive` (or `routes.read`, `routes.observe`) declares it
+accepts `mutable://*` and the Rig dispatches matching tuples to that
+connection on that op. URIs are how the framework decides where a
+tuple goes. The Rig matches on string prefixes; it doesn't care what
+URI scheme means in your protocol.
 
 **The 2-tuple shape**, because that's the wire primitive. The Rig knows
 that each tuple has a URI and a `payload`. It pulls the URI for routing

@@ -114,12 +114,15 @@ events include `connectionId` so subscribers can correlate per-replica
 outcomes.
 
 ```ts
+const primaryConn = connection(primary,  patterns, { id: "primary" });
+const eastMirror  = connection(mirror,   patterns, { id: "mirror-east" });
+const otherMirror = connection(mirror2,  patterns); // gets conn-2 by default
+
 const rig = new Rig({
-  connections: [
-    connection(primary,  patterns, { id: "primary" }),
-    connection(mirror,   patterns, { id: "mirror-east" }),
-    connection(mirror2,  patterns), // gets conn-2 by default
-  ],
+  routes: {
+    receive: [primaryConn, eastMirror, otherMirror],
+    read:    [primaryConn],
+  },
 });
 ```
 

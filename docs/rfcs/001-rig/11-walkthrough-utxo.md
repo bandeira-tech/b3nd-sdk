@@ -104,6 +104,8 @@ import {
   messageDataHandler,
 } from "@bandeira-tech/b3nd-sdk";
 
+const local = connection(new DataStoreClient(new MemoryStore()), ["*"]);
+
 const rig = new Rig({
   programs: {
     "utxo://": utxoProgram,
@@ -113,11 +115,7 @@ const rig = new Rig({
     "tx:valid": messageDataHandler, // SDK canon: returns envelope + outputs + null-payload deletions for inputs
     // No handler for "valid-utxo" — default dispatch persists.
   },
-  connections: [
-    connection(new DataStoreClient(new MemoryStore()), {
-      receive: ["*"], read: ["*"],
-    }),
-  ],
+  routes: { receive: [local], read: [local], observe: [local] },
 });
 ```
 
