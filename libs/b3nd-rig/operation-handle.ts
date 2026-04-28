@@ -97,10 +97,15 @@ export interface OperationEventMap {
   "settled": SettledEvent;
 }
 
-/** Generic event handler. */
+/**
+ * Generic event handler. Return value is ignored, but accepting any
+ * type lets handler bodies use expression-style arrow functions —
+ * `op.on("route:success", e => log.push(e.emission[0]))` — without
+ * TS yelling about the return type.
+ */
 export type OperationEventHandler<E extends OperationEventName> = (
   event: OperationEventMap[E],
-) => void | Promise<void>;
+) => unknown;
 
 // ── OperationHandle ──────────────────────────────────────────────────
 
@@ -199,9 +204,11 @@ export class OperationHandleImpl implements OperationHandle {
     event: E,
     payload: OperationEventMap[E],
   ): void {
-    if (event === "settled") {
-      this._resolveSettled(payload as SettledEvent);
-    }
+    // Schedule handler microtasks BEFORE resolving the settled promise.
+    // Microtask order is FIFO, so handlers' microtasks run before any
+    // `await op.settled` continuation. This matters for tests/callers
+    // that subscribe to `settled` and inspect state right after
+    // awaiting `op.settled`.
     for (const entry of this._listeners) {
       if (entry.event !== event) continue;
       Promise.resolve()
@@ -211,6 +218,9 @@ export class OperationHandleImpl implements OperationHandle {
         .catch((err) => {
           console.warn(`[rig] operation listener error on "${event}":`, err);
         });
+    }
+    if (event === "settled") {
+      this._resolveSettled(payload as SettledEvent);
     }
   }
 

@@ -83,6 +83,17 @@ export type {
   WatchOptions,
 } from "../libs/b3nd-rig/types.ts";
 export type {
+  HandleEmitEvent,
+  OperationEventHandler,
+  OperationEventMap,
+  OperationEventName,
+  OperationHandle,
+  ProcessDoneEvent,
+  RouteErrorEvent,
+  RouteSuccessEvent,
+  SettledEvent,
+} from "../libs/b3nd-rig/operation-handle.ts";
+export type {
   BackendFactoryOptions,
   BackendResolver,
 } from "../libs/b3nd-rig/backend-factory.ts";
