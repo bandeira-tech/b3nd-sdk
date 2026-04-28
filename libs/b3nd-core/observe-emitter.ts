@@ -1,7 +1,7 @@
 /**
  * @module
  * ObserveEmitter — the shared listener + async-iterator machinery used by
- * clients (SimpleClient, MessageDataClient) to expose `observe()`.
+ * clients (SimpleClient, DataStoreClient) to expose `observe()`.
  *
  * Observe is a client concern. Clients orchestrate writes and deletes —
  * they know when state changes. Stores are mechanical and should not

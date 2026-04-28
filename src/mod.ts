@@ -7,20 +7,22 @@
  *
  * @example Basic usage with Store + protocol client
  * ```typescript
- * import { MemoryStore, MessageDataClient } from "@bandeira-tech/b3nd-sdk";
+ * import { MemoryStore, DataStoreClient } from "@bandeira-tech/b3nd-sdk";
  *
- * const client = new MessageDataClient(new MemoryStore());
+ * const client = new DataStoreClient(new MemoryStore());
  *
- * // Receive a message (the unified interface for all state changes)
+ * // Write
  * await client.receive([["mutable://users/alice", { name: "Alice", age: 30 }]]);
  *
  * // Read data
  * const results = await client.read("mutable://users/alice");
  * console.log(results[0]?.record?.data); // { name: "Alice", age: 30 }
  *
+ * // Delete (null payload)
+ * await client.receive([["mutable://users/alice", null]]);
+ *
  * // List items (trailing slash)
  * const list = await client.read("mutable://users/");
- * console.log(list.map(r => r.uri)); // ["mutable://users/alice"]
  * ```
  *
  * @example Using HttpClient with a remote backend
@@ -77,7 +79,7 @@ export { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
 
 // Protocol clients (Store → NodeProtocolInterface)
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
-export { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
+export { DataStoreClient } from "../libs/b3nd-core/data-store-client.ts";
 
 // Transport clients (direct NodeProtocolInterface, no Store)
 export { HttpClient } from "../libs/b3nd-client-http/mod.ts";
@@ -96,8 +98,14 @@ export type { FunctionalClientConfig } from "../libs/b3nd-core/functional-client
 export { ObserveEmitter } from "../libs/b3nd-core/observe-emitter.ts";
 export type { ObserveListener } from "../libs/b3nd-core/observe-emitter.ts";
 
-// Message data convention (inputs / outputs)
-export { message, send } from "../libs/b3nd-msg/data/mod.ts";
+// Message data convention (inputs / outputs) + canon program/handler
+export {
+  isMessageData,
+  message,
+  messageDataHandler,
+  messageDataProgram,
+  send,
+} from "../libs/b3nd-msg/data/mod.ts";
 export type {
   MessageData,
   SendResult,

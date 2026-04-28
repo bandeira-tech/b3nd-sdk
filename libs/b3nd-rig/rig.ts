@@ -12,16 +12,14 @@
 
 import type {
   CodeHandler,
-  Message,
+  Output,
   NodeProtocolInterface,
   Program,
+  ProgramResult,
   ReadResult,
   ReceiveResult,
   StatusResult,
 } from "../b3nd-core/types.ts";
-import type { MessageData } from "../b3nd-msg/data/types.ts";
-import type { SendResult } from "../b3nd-msg/data/send.ts";
-import { send } from "../b3nd-msg/data/send.ts";
 import type {
   RigConfig,
   RigInfo,
@@ -63,7 +61,7 @@ import type { Connection } from "./connection.ts";
  * @example With programs, hooks, events, and reactions
  * ```typescript
  * const rig = new Rig({
- *   connections: [connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
+ *   connections: [connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
  *   programs,
  *   handlers,
  *   hooks: {
@@ -74,8 +72,8 @@ import type { Connection } from "./connection.ts";
  *     "send:success": [audit],
  *   },
  *   reactions: {
- *     "mutable://app/users/:id": (uri, data, { id }) => {
- *       console.log(`User ${id} updated`);
+ *     "mutable://app/users/:id": async (out, _read, { id }) => {
+ *       return [[`notify://email/${id}`, { kind: "user-updated" }]];
  *     },
  *   },
  * });
@@ -144,84 +142,37 @@ export class Rig {
   // ── Core actions ──
 
   /**
-   * Send a pre-built MessageData envelope to the network.
+   * Send tuples — the host application acting as the origin.
    *
-   * Content-addresses the message to `hash://sha256/{hex}` and dispatches it.
-   * The rig does NOT sign — pass a pre-signed MessageData (use
-   * `identity.rig(rig).send()` or `identity.sign()` for signing).
+   * Runs the pipeline (process → handle → broadcast → react) for each
+   * tuple, firing `beforeSend`/`afterSend` hooks and `send:*` events.
+   * The pipeline body is identical to `receive()`; the difference is
+   * purely observational — direction signals which subscribers care.
    *
-   * @example Pre-signed via AuthenticatedRig
+   * Use this when the host is the origin of the content (a button
+   * click, a worker emitting state, a signed envelope from
+   * `AuthenticatedRig`). Use `receive()` when content arrives from
+   * elsewhere (a peer, a webhook, an upstream sync).
+   *
+   * Returns one `ReceiveResult` per input tuple.
+   *
+   * @example
    * ```typescript
-   * const session = identity.rig(rig);
-   * await session.send({ inputs: [], outputs: [["mutable://app/x", data]] });
-   * ```
-   *
-   * @example Manual signing
-   * ```typescript
-   * const outputs = [["mutable://app/x", data]];
-   * const auth = [await identity.sign({ inputs: [], outputs })];
-   * await rig.send({ auth, inputs: [], outputs });
+   * await rig.send([["mutable://app/state", { value: 42 }]]);
    * ```
    */
-  async send(
-    data: MessageData,
-  ): Promise<SendResult> {
-    // Before-hook — throw to reject
-    const ctx: SendCtx = {
-      message: data,
-    };
-    const sendCtx = await runBefore(this._hooks.beforeSend, ctx);
-    const messageData = sendCtx.message;
-
-    let result: SendResult;
-    try {
-      result = await send(messageData, this._dispatch);
-    } catch (err) {
-      this._events.emit("send:error", {
-        op: "send",
-        error: err instanceof Error ? err.message : String(err),
-        ts: Date.now(),
-      });
-      throw err;
-    }
-
-    // After-hook — observe only
-    await runAfter(this._hooks.afterSend, sendCtx, result);
-
-    // Events + react
-    if (result.accepted) {
-      this._events.emit("send:success", {
-        op: "send",
-        uri: result.uri,
-        data: messageData,
-        result,
-        ts: Date.now(),
-      });
-      for (const [outputUri, outputPayload] of messageData.outputs) {
-        this._reactors.match(outputUri, outputPayload);
-      }
-    } else {
-      this._events.emit("send:error", {
-        op: "send",
-        error: result.error,
-        ts: Date.now(),
-      });
-    }
-
-    return result;
+  async send(outs: Output[]): Promise<ReceiveResult[]> {
+    return this._pipeline(outs, "send");
   }
 
   /**
-   * Receive external messages into the rig.
+   * Receive tuples — the host application accepting state from elsewhere.
    *
-   * Batch receive — processes each message through hooks and (if
-   * configured) programs, then dispatches to connections. Returns one
-   * ReceiveResult per input message.
+   * Runs the same pipeline as `send()` but fires `beforeReceive`/
+   * `afterReceive` hooks and `receive:*` events. Use this when content
+   * arrives from elsewhere (a peer, a webhook, an upstream sync).
    *
-   * When `programs` is configured, the rig looks up the program for the
-   * message URI, classifies it, and routes to the handler for the
-   * returned code. Handlers dispatch via `broadcast` (direct to clients,
-   * bypasses programs).
+   * Returns one `ReceiveResult` per input tuple.
    *
    * @example
    * ```typescript
@@ -231,118 +182,242 @@ export class Rig {
    * console.log(results[0].accepted); // true
    * ```
    */
-  async receive(msgs: Message[]): Promise<ReceiveResult[]> {
-    const results: ReceiveResult[] = [];
-    for (const msg of msgs) {
-      results.push(await this._receiveOne(msg));
+  async receive(outs: Output[]): Promise<ReceiveResult[]> {
+    return this._pipeline(outs, "receive");
+  }
+
+  /**
+   * Classify a batch of tuples — runs registered programs.
+   *
+   * For each output, finds the program with the longest matching URI
+   * prefix and invokes it. Tuples whose URI matches no registered
+   * program get a default `{ code: "ok" }` classification (so the
+   * default-dispatch path persists them as-is).
+   *
+   * Pure: returns one `ProgramResult` per input tuple. No side effects.
+   */
+  async process(outs: Output[]): Promise<ProgramResult[]> {
+    const readFn = this._readFn();
+    const results: ProgramResult[] = [];
+    for (const out of outs) {
+      const program = this._findProgram(out[0]);
+      results.push(
+        program
+          ? await program(out, undefined, readFn)
+          : { code: "ok" },
+      );
     }
     return results;
   }
 
-  private async _receiveOne(msg: Message): Promise<ReceiveResult> {
-    const [uri, payload] = msg;
+  /**
+   * Run the handler for a classified tuple — returns the emissions.
+   *
+   * If no handler is registered for the result's code, the input tuple
+   * is returned as-is (default-persist). Handlers themselves return the
+   * `Output[]` they want the Rig to dispatch; this method surfaces that
+   * return for callers that want to compose the pipeline manually.
+   *
+   * Pure: no dispatch happens here. Use `send()` / `receive()` for the
+   * full pipeline including dispatch and reactions.
+   */
+  async handle(out: Output, result: ProgramResult): Promise<Output[]> {
+    const handler = this._handlers?.[result.code];
+    if (!handler) return [out];
+    return await handler(out, result, this._readFn());
+  }
 
-    // Before-hook — throw to reject
-    const ctx: ReceiveCtx = { uri, data: payload };
-    const recvCtx = await runBefore(this._hooks.beforeReceive, ctx);
-    const finalUri = recvCtx.uri;
-    const finalData = recvCtx.data;
-    const finalMsg: Message = [finalUri, finalData];
+  /**
+   * The pipeline body shared by `send()` and `receive()`.
+   *
+   * For each input tuple:
+   *   1. Run before-hook for `direction`.
+   *   2. Process (classify) → `ProgramResult`.
+   *   3. If error → record reject, emit `${direction}:error`, continue.
+   *   4. Handle → handler-emitted `Output[]`.
+   *   5. Broadcast emissions through connection routing (no programs).
+   *   6. If broadcast failed → record reject, emit `${direction}:error`.
+   *   7. Otherwise record accept, emit `${direction}:success`, fire reactions.
+   *   8. Run after-hook for `direction`.
+   *
+   * Reactions emitted from step 7 flow back through `this.send(...)` —
+   * full pipeline, programs run, more reactions can fire. Loops are
+   * usage error.
+   */
+  private async _pipeline(
+    outs: Output[],
+    direction: "send" | "receive",
+  ): Promise<ReceiveResult[]> {
+    const beforeHook = direction === "send"
+      ? this._hooks.beforeSend
+      : this._hooks.beforeReceive;
+    const afterHook = direction === "send"
+      ? this._hooks.afterSend
+      : this._hooks.afterReceive;
 
-    // Read helper — single-URI convenience wrapping dispatch.read
-    const readFn = async <T = unknown>(u: string) => {
+    // Before-hook per tuple — throw to reject. Hooks may rewrite the
+    // (uri, data) for receive; send hooks see the message envelope.
+    const finalOuts: Output[] = [];
+    for (const out of outs) {
+      const [uri, payload] = out;
+      if (direction === "receive") {
+        const ctx: ReceiveCtx = { uri, data: payload };
+        const recvCtx = await runBefore(this._hooks.beforeReceive, ctx);
+        finalOuts.push([recvCtx.uri, recvCtx.data] as Output);
+      } else {
+        const ctx: SendCtx = { message: out };
+        const sendCtx = await runBefore(this._hooks.beforeSend, ctx);
+        finalOuts.push(sendCtx.message as Output);
+      }
+    }
+    void beforeHook; // hooks dispatched per direction above
+
+    const results: ReceiveResult[] = [];
+    const allReactionEmissions: Output[] = [];
+
+    // Classify the whole batch first, then handle/dispatch per tuple.
+    const programResults = await this.process(finalOuts);
+
+    for (let i = 0; i < finalOuts.length; i++) {
+      const out = finalOuts[i];
+      const programResult = programResults[i];
+      const [uri, payload] = out;
+
+      try {
+        if (programResult.error) {
+          const result: ReceiveResult = {
+            accepted: false,
+            error: programResult.error,
+          };
+          results.push(result);
+          this._events.emit(`${direction}:error`, {
+            op: direction,
+            uri,
+            error: programResult.error,
+            ts: Date.now(),
+          });
+          if (direction === "receive") {
+            await runAfter(
+              this._hooks.afterReceive,
+              { uri, data: payload },
+              result,
+            );
+          } else {
+            await runAfter(
+              this._hooks.afterSend,
+              { message: out },
+              result,
+            );
+          }
+          continue;
+        }
+
+        const emissions = await this.handle(out, programResult);
+        const broadcastResults = await this._broadcast(emissions);
+        const failed = broadcastResults.find((r) => !r.accepted);
+
+        if (failed) {
+          results.push(failed);
+          this._events.emit(`${direction}:error`, {
+            op: direction,
+            uri,
+            error: failed.error,
+            ts: Date.now(),
+          });
+        } else {
+          const result: ReceiveResult = { accepted: true };
+          results.push(result);
+          this._events.emit(`${direction}:success`, {
+            op: direction,
+            uri,
+            data: payload,
+            result,
+            ts: Date.now(),
+          });
+          // Schedule reactions for each successful emission.
+          allReactionEmissions.push(
+            ...(await this._reactionEmissions(emissions)),
+          );
+        }
+
+        if (direction === "receive") {
+          await runAfter(
+            this._hooks.afterReceive,
+            { uri, data: payload },
+            results[results.length - 1],
+          );
+        } else {
+          await runAfter(
+            this._hooks.afterSend,
+            { message: out },
+            results[results.length - 1],
+          );
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        results.push({ accepted: false, error: message });
+        this._events.emit(`${direction}:error`, {
+          op: direction,
+          uri,
+          error: message,
+          ts: Date.now(),
+        });
+      }
+    }
+
+    // Feed reaction-emitted tuples back through send (full pipeline).
+    if (allReactionEmissions.length > 0) {
+      // Fire-and-forget: reactions don't block the original send/receive.
+      void this.send(allReactionEmissions).catch((err) => {
+        console.warn("[rig] reaction-emitted send error:", err);
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Dispatch a batch of tuples through connection routing.
+   *
+   * Skips programs and reactions — the handler that produced these
+   * tuples is the canonical interpreter. Returns one `ReceiveResult`
+   * per dispatched tuple, aggregated across matching connections.
+   */
+  private async _broadcast(outs: Output[]): Promise<ReceiveResult[]> {
+    if (outs.length === 0) return [];
+    return await this._dispatch.receive(outs);
+  }
+
+  /**
+   * For each successfully dispatched tuple, run matching reactions
+   * and collect their `Output[]` returns. The Rig feeds the collected
+   * tuples through `send()` afterward.
+   */
+  private async _reactionEmissions(outs: Output[]): Promise<Output[]> {
+    if (this._reactors.size === 0) return [];
+    const readFn = this._readFn();
+    const collected: Output[] = [];
+    for (const out of outs) {
+      const matches = this._reactors.matches(out[0]);
+      for (const { handler, params } of matches) {
+        try {
+          const emitted = await handler(out, readFn, params);
+          collected.push(...emitted);
+        } catch (err) {
+          console.warn("[rig] reaction handler error:", err);
+        }
+      }
+    }
+    return collected;
+  }
+
+  /** Internal read helper bound to the dispatch read interface. */
+  private _readFn(): <T = unknown>(u: string) => Promise<ReadResult<T>> {
+    return async <T = unknown>(u: string) => {
       const results = await this._dispatch.read<T>(u);
       return results[0] ??
         { success: false, error: "No results" } as ReadResult<T>;
     };
-
-    let result: ReceiveResult;
-    try {
-      if (this._programs) {
-        // Program pipeline — classify, then route to handler.
-        result = await this._runProgram(finalMsg, readFn);
-      } else {
-        // No programs — direct dispatch.
-        const dispatchResults = await this._dispatch.receive([finalMsg]);
-        result = dispatchResults[0];
-      }
-    } catch (err) {
-      this._events.emit("receive:error", {
-        op: "receive",
-        uri: finalUri,
-        error: err instanceof Error ? err.message : String(err),
-        ts: Date.now(),
-      });
-      throw err;
-    }
-
-    // After-hook — observe only
-    await runAfter(this._hooks.afterReceive, recvCtx, result);
-
-    // Events + reactions
-    if (result.accepted) {
-      this._events.emit("receive:success", {
-        op: "receive",
-        uri: finalUri,
-        data: finalData,
-        result,
-        ts: Date.now(),
-      });
-      this._reactors.match(finalUri, finalData);
-    } else {
-      this._events.emit("receive:error", {
-        op: "receive",
-        uri: finalUri,
-        error: result.error,
-        ts: Date.now(),
-      });
-    }
-
-    return result;
-  }
-
-  /**
-   * Run the program pipeline for a single message.
-   *
-   * 1. Find the program matching the message URI (longest prefix).
-   * 2. Classify → ProgramResult { code, error? }.
-   * 3. If error → reject.
-   * 4. Look up handler for the code → run with broadcast + read.
-   * 5. If no handler → dispatch directly to connections.
-   */
-  private async _runProgram(
-    msg: Message,
-    readFn: <T = unknown>(u: string) => Promise<ReadResult<T>>,
-  ): Promise<ReceiveResult> {
-    const [uri] = msg;
-    const program = this._findProgram(uri);
-
-    if (!program) {
-      // No matching program — dispatch directly
-      const results = await this._dispatch.receive([msg]);
-      return results[0];
-    }
-
-    // Classify
-    const classification = await program(msg, undefined, readFn);
-
-    if (classification.error) {
-      return { accepted: false, error: classification.error };
-    }
-
-    // Look up handler for the returned code
-    const handler = this._handlers?.[classification.code];
-
-    if (handler) {
-      // Handler manages dispatch via broadcast (direct to clients)
-      const broadcastFn = (msgs: Message[]) => this._dispatch.receive(msgs);
-      await handler(msg, broadcastFn, readFn);
-      return { accepted: true };
-    }
-
-    // No handler for this code — dispatch directly
-    const results = await this._dispatch.receive([msg]);
-    return results[0];
   }
 
   /**
@@ -597,11 +672,18 @@ export class Rig {
    * Fires on successful `send()` or `receive()` when the written URI
    * matches the pattern. Fire-and-forget — errors are caught and logged.
    *
+   * Reactions return `Output[]` — those tuples flow back through
+   * `rig.send` (full pipeline). See chapter 7 of RFC 001 for the
+   * productive-observation model.
+   *
    * @example
    * ```typescript
-   * const unsub = rig.reaction("mutable://app/users/:id", (uri, data, { id }) => {
-   *   console.log(`User ${id} updated:`, data);
-   * });
+   * const unsub = rig.reaction(
+   *   "mutable://app/users/:id",
+   *   async (out, _read, { id }) => {
+   *     return [[`notify://email/${id}`, { kind: "user-updated" }]];
+   *   },
+   * );
    *
    * // Later:
    * unsub();
@@ -753,31 +835,6 @@ export class Rig {
     }
   }
 
-  /**
-   * Send multiple pre-built MessageData envelopes in sequence.
-   *
-   * Each entry becomes its own content-hashed envelope. Use
-   * `session.sendMany()` (on AuthenticatedRig) for the signed convenience.
-   *
-   * @example
-   * ```typescript
-   * const session = identity.rig(rig);
-   * const results = await session.sendMany([
-   *   { inputs: [], outputs: [["mutable://app/counter", { value: 1 }]] },
-   *   { inputs: [], outputs: [["mutable://app/log/1", { event: "init" }]] },
-   * ]);
-   * ```
-   */
-  async sendMany(
-    envelopes: MessageData[],
-  ): Promise<SendResult[]> {
-    if (envelopes.length === 0) return [];
-    const results: SendResult[] = [];
-    for (const envelope of envelopes) {
-      results.push(await this.send(envelope));
-    }
-    return results;
-  }
 }
 
 // ── Init helpers ──
@@ -795,7 +852,7 @@ function createConnectionDispatch(
   connections: Connection[],
 ): NodeProtocolInterface {
   return {
-    async receive(msgs: Message[]): Promise<ReceiveResult[]> {
+    async receive(msgs: Output[]): Promise<ReceiveResult[]> {
       const results: ReceiveResult[] = [];
       for (const msg of msgs) {
         const [uri] = msg;

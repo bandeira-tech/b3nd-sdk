@@ -248,9 +248,9 @@ export function createStoreResolver(
  *
  * @example
  * ```typescript
- * import { MessageDataClient } from "@bandeira-tech/b3nd-sdk";
+ * import { DataStoreClient } from "@bandeira-tech/b3nd-sdk";
  *
- * const resolveClient = createClientResolver(MessageDataClient, [
+ * const resolveClient = createClientResolver(DataStoreClient, [
  *   postgresBackend(),
  * ]);
  *

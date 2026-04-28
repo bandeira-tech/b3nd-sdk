@@ -54,7 +54,7 @@ export type {
   StatusResult,
   Store,
 } from "../b3nd-core/types.ts";
-export { MessageDataClient } from "../b3nd-core/message-data-client.ts";
+export { DataStoreClient } from "../b3nd-core/data-store-client.ts";
 
 // Hooks (immutable after init — throw to reject, observe to audit)
 export type {

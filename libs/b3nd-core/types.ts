@@ -178,17 +178,26 @@ export type Program<T = unknown> = (
 
 /**
  * Code handler — what to do when a program returns a specific code.
- * Handlers get broadcast (direct to clients, bypasses programs) and read.
  *
- * - `message`   — the classified message
- * - `broadcast` — direct dispatch to clients (trusted, no re-validation)
- * - `read`      — storage lookup (confirmed state)
+ * Handlers are pure transforms: they take the classified output and
+ * return the `Output[]` they want the Rig to dispatch. The Rig owns
+ * the wire — handlers never call broadcast directly.
+ *
+ * Common shapes:
+ * - persist:     `return [out]`            (the simple "write this" case)
+ * - decompose:   `return [envelope, ...payload.outputs, ...deletions]`
+ * - conditional: `return existing.success ? [] : [out]`
+ * - refuse:      `return []`
+ *
+ * - `out`    — the classified output `[uri, payload]`
+ * - `result` — the `ProgramResult` that produced this code
+ * - `read`   — storage lookup (confirmed state)
  */
 export type CodeHandler = (
-  message: Message,
-  broadcast: ReceiveFn,
+  out: Output,
+  result: ProgramResult,
   read: ReadFn,
-) => Promise<void>;
+) => Promise<Output[]>;
 
 /**
  * Result of a receive operation.
@@ -316,7 +325,7 @@ export interface StoreCapabilities {
  * `NodeProtocolInterface.observe` is implemented by clients via
  * `ObserveEmitter`, not by stores.
  *
- * Protocol clients (SimpleClient, MessageDataClient) wrap a Store
+ * Protocol clients (SimpleClient, DataStoreClient) wrap a Store
  * with protocol semantics to produce a NodeProtocolInterface.
  *
  * @example

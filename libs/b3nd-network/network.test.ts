@@ -434,8 +434,10 @@ Deno.test("network() against a real Rig fires reactions on peer-originated write
   const rig = new Rig({
     connections: [connection(local, { receive: ["*"], read: ["*"] })],
     reactions: {
-      "mutable://chat/:id": (uri, _data, params) => {
-        reactionCalls.push({ uri, id: params.id });
+      // deno-lint-ignore require-await
+      "mutable://chat/:id": async (out, _read, params) => {
+        reactionCalls.push({ uri: out[0], id: params.id });
+        return [];
       },
     },
   });

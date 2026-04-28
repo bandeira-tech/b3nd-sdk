@@ -5,13 +5,13 @@ The universal harness for b3nd. One import, convention over configuration.
 ## Quick Start
 
 ```typescript
-import { connection, MessageDataClient, Identity, Rig } from "@b3nd/rig";
+import { connection, DataStoreClient, Identity, Rig } from "@b3nd/rig";
 import { MemoryStore } from "@b3nd/client-memory";
 
 const id = await Identity.fromSeed("my-secret");
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
 });
 const session = id.rig(rig);
@@ -188,14 +188,16 @@ URI-pattern reactions that fire on successful writes (send or receive).
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
   reactions: {
-    "mutable://app/users/:id": (uri, data, { id }) => {
-      console.log(`User ${id} updated`);
+    "mutable://app/users/:id": async (out, _read, { id }) => {
+      // Reactions return Output[] — those tuples flow through rig.send.
+      return [[`notify://email/${id}`, { kind: "user-updated" }]];
     },
-    "hash://sha256/*": (uri, data) => {
-      console.log("New content stored");
+    "hash://sha256/*": async (out) => {
+      console.log("new content stored at", out[0]);
+      return [];
     },
   },
 });
@@ -203,8 +205,8 @@ const rig = new Rig({
 // Runtime registration
 const unsub = rig.reaction(
   "mutable://app/posts/:slug",
-  (uri, data, { slug }) => {
-    rebuildIndex(slug);
+  async (out, _read, { slug }) => {
+    return [[`index://posts/${slug}/rebuild`, { ts: Date.now() }]];
   },
 );
 unsub(); // remove
@@ -252,7 +254,7 @@ await rig.status(); // StatusResult { status, schema }
 ```typescript
 // Minimal
 const rig = new Rig({
-  connections: [connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
+  connections: [connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
 });
 
 // Full config

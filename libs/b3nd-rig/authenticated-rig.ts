@@ -2,10 +2,14 @@
  * @module
  * AuthenticatedRig — identity-driven wrapper around a Rig.
  *
- * Created via `identity.rig(rig)`. The identity is the security principal;
- * the rig is pure orchestration. Signing and encryption never touch the rig.
+ * @deprecated Provisional. Signing and encryption are application
+ * concerns that bind to a protocol's auth conventions; baking them
+ * into a framework helper saddles users with type assumptions and
+ * limits how they configure their own setup. Slated for retirement —
+ * use `Identity` directly with `message()` and `rig.send()` in
+ * application code.
  *
- * @example
+ * @example (still works for now)
  * ```typescript
  * const rig = new Rig({ connections: [connection(client, { receive: ["*"], read: ["*"] })] });
  * const alice = await Identity.fromSeed("alice-secret");
@@ -17,6 +21,7 @@
 
 import type { Output } from "../b3nd-core/types.ts";
 import type { EncryptedPayload } from "../b3nd-encrypt/mod.ts";
+import { message } from "../b3nd-msg/data/message.ts";
 import type { SendResult } from "../b3nd-msg/data/send.ts";
 import type { Identity } from "./identity.ts";
 import type { Rig } from "./rig.ts";
@@ -24,8 +29,13 @@ import type { Rig } from "./rig.ts";
 /**
  * An authenticated view of a rig — identity drives, rig delivers.
  *
- * All signing and encryption happens here, never in the rig.
- * The rig only sees pre-signed MessageData.
+ * @deprecated See module-level note. Going away in a future release.
+ *
+ * Builds a content-addressed, signed `MessageData` envelope and calls
+ * `rig.send([envelope])`. **Decomposition of the envelope's outputs
+ * does not happen here** — install `messageDataProgram` and
+ * `messageDataHandler` (canon, opt-in) on the Rig if you want the
+ * inner outputs persisted.
  */
 export class AuthenticatedRig {
   /** The identity backing this session. */
@@ -57,8 +67,31 @@ export class AuthenticatedRig {
   async send<V = unknown>(
     data: { inputs: string[]; outputs: Output<V>[] },
   ): Promise<SendResult> {
-    const auth = [await this.identity.sign({ inputs: data.inputs, outputs: data.outputs })];
-    return this.rig.send({ auth, inputs: data.inputs, outputs: data.outputs });
+    const auth = [
+      await this.identity.sign({ inputs: data.inputs, outputs: data.outputs }),
+    ];
+    const envelope = await message({
+      auth,
+      inputs: data.inputs,
+      outputs: data.outputs,
+    });
+    // Provisional: AuthenticatedRig pre-decomposes the envelope so
+    // tests/apps don't need canon program/handler installed on the
+    // Rig. The retirement plan replaces this with pure envelope-only
+    // send + protocol-installed canon. Effects: envelope tuple +
+    // each output + null-payload deletion per consumed input.
+    const inputDeletions: Output[] = data.inputs.map(
+      (uri) => [uri, null] as Output,
+    );
+    const batch: Output[] = [
+      envelope,
+      ...(data.outputs as Output[]),
+      ...inputDeletions,
+    ];
+    const results = await this.rig.send(batch);
+    // The envelope is the first result — that's what the caller cares
+    // about (it carries the hash URI of the signed intent).
+    return { ...results[0], uri: envelope[0] };
   }
 
   /**
@@ -115,9 +148,12 @@ export class AuthenticatedRig {
     envelopes: { inputs: string[]; outputs: Output<V>[] }[],
   ): Promise<SendResult[]> {
     if (envelopes.length === 0) return [];
+    // Process each envelope sequentially via send() so each one carries
+    // its own pre-decomposed batch (envelope + outputs + deletions).
+    // Going through send() also keeps results parallel to inputs.
     const results: SendResult[] = [];
-    for (const envelope of envelopes) {
-      results.push(await this.send(envelope));
+    for (const env of envelopes) {
+      results.push(await this.send(env));
     }
     return results;
   }
