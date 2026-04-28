@@ -34,6 +34,17 @@ export type { ExportedIdentity } from "./identity.ts";
 export { AuthenticatedRig } from "./authenticated-rig.ts";
 export { Rig } from "./rig.ts";
 export type {
+  HandleEmitEvent,
+  OperationEventHandler,
+  OperationEventMap,
+  OperationEventName,
+  OperationHandle,
+  ProcessDoneEvent,
+  RouteErrorEvent,
+  RouteSuccessEvent,
+  SettledEvent,
+} from "./operation-handle.ts";
+export type {
   RigConfig,
   RigInfo,
   WatchAllOptions,

@@ -229,8 +229,13 @@ export interface NodeProtocolInterface {
    * Each message is [uri, payload]. Clients interpret the payload per their
    * role (storage clients persist, audit clients append, forwarders forward).
    * Returns one ReceiveResult per message.
+   *
+   * The return type is `PromiseLike` (not `Promise`) so implementations
+   * can return richer await-targets — e.g., the Rig returns an
+   * `OperationHandle` that's awaitable AND exposes per-route events.
+   * Plain `Promise<ReceiveResult[]>` still satisfies the contract.
    */
-  receive(msgs: Message[]): Promise<ReceiveResult[]>;
+  receive(msgs: Message[]): PromiseLike<ReceiveResult[]>;
 
   /**
    * Read data from one or more URIs.

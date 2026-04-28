@@ -34,6 +34,8 @@ import { RigEventEmitter } from "./events.ts";
 import type { ReactionHandler } from "./reactions.ts";
 import { ReactionRegistry } from "./reactions.ts";
 import type { Connection } from "./connection.ts";
+import type { OperationHandle } from "./operation-handle.ts";
+import { OperationHandleImpl } from "./operation-handle.ts";
 
 /**
  * Rig — pure orchestration for b3nd.
@@ -144,46 +146,68 @@ export class Rig {
   /**
    * Send tuples — the host application acting as the origin.
    *
-   * Runs the pipeline (process → handle → broadcast → react) for each
-   * tuple, firing `beforeSend`/`afterSend` hooks and `send:*` events.
-   * The pipeline body is identical to `receive()`; the difference is
-   * purely observational — direction signals which subscribers care.
+   * Returns an `OperationHandle` that:
+   *   - Awaits to `ReceiveResult[]` once the pipeline (process →
+   *     handle) finishes. Pipeline-stage ack only — broadcast may
+   *     still be in flight.
+   *   - Fires per-stage events (`process:done`, `handle:emit`,
+   *     `route:success`/`route:error`, `settled`) scoped to this call.
    *
-   * Use this when the host is the origin of the content (a button
-   * click, a worker emitting state, a signed envelope from
-   * `AuthenticatedRig`). Use `receive()` when content arrives from
-   * elsewhere (a peer, a webhook, an upstream sync).
+   * Dispatch to connections runs in the background; per-route outcomes
+   * arrive as events. Wait for `op.settled` for read-after-write
+   * guarantees across replicas.
    *
-   * Returns one `ReceiveResult` per input tuple.
+   * Use `send()` when the host is the origin of the content. Use
+   * `receive()` when content arrives from elsewhere.
    *
    * @example
    * ```typescript
-   * await rig.send([["mutable://app/state", { value: 42 }]]);
+   * const op = rig.send([["mutable://app/state", { value: 42 }]]);
+   * op.on("route:error", (e) => retry(e.emission));
+   * const [result] = await op;             // pipeline ack
+   * await op.settled;                       // routes fully settled
    * ```
    */
-  async send(outs: Output[]): Promise<ReceiveResult[]> {
+  send(outs: Output[]): OperationHandle {
     return this._pipeline(outs, "send");
   }
 
   /**
    * Receive tuples — the host application accepting state from elsewhere.
    *
-   * Runs the same pipeline as `send()` but fires `beforeReceive`/
-   * `afterReceive` hooks and `receive:*` events. Use this when content
-   * arrives from elsewhere (a peer, a webhook, an upstream sync).
-   *
-   * Returns one `ReceiveResult` per input tuple.
+   * Same shape as `send()` but fires `beforeReceive`/`afterReceive`
+   * hooks and `receive:*` global events. Returns an `OperationHandle`
+   * with the same scoped per-stage events.
    *
    * @example
    * ```typescript
-   * const results = await rig.receive([
+   * const [result] = await rig.receive([
    *   ["mutable://open/external", { source: "webhook" }],
    * ]);
-   * console.log(results[0].accepted); // true
    * ```
    */
-  async receive(outs: Output[]): Promise<ReceiveResult[]> {
+  receive(outs: Output[]): OperationHandle {
     return this._pipeline(outs, "receive");
+  }
+
+  /**
+   * Same as `receive()` but throws if any input tuple is rejected at
+   * the pipeline stage. Convenience for callers that don't want to
+   * inspect `accepted`.
+   */
+  async receiveOrThrow(outs: Output[]): Promise<ReceiveResult[]> {
+    const results = await this.receive(outs);
+    const failed = results.find((r) => !r.accepted);
+    if (failed) throw new Error(failed.error ?? "rig.receive: rejected");
+    return results;
+  }
+
+  /** Same as `send()` but throws on any pipeline-stage rejection. */
+  async sendOrThrow(outs: Output[]): Promise<ReceiveResult[]> {
+    const results = await this.send(outs);
+    const failed = results.find((r) => !r.accepted);
+    if (failed) throw new Error(failed.error ?? "rig.send: rejected");
+    return results;
   }
 
   /**
@@ -230,72 +254,152 @@ export class Rig {
   /**
    * The pipeline body shared by `send()` and `receive()`.
    *
-   * For each input tuple:
-   *   1. Run before-hook for `direction`.
-   *   2. Process (classify) → `ProgramResult`.
-   *   3. If error → record reject, emit `${direction}:error`, continue.
-   *   4. Handle → handler-emitted `Output[]`.
-   *   5. Broadcast emissions through connection routing (no programs).
-   *   6. If broadcast failed → record reject, emit `${direction}:error`.
-   *   7. Otherwise record accept, emit `${direction}:success`, fire reactions.
-   *   8. Run after-hook for `direction`.
+   * Returns an `OperationHandle` synchronously. The pipeline runs
+   * asynchronously inside; awaiting the handle resolves to the
+   * pipeline-stage `ReceiveResult[]` (process + handle outcome only).
+   * Per-route dispatch runs in the background; route outcomes arrive
+   * as events on the handle. `op.settled` resolves once every route
+   * has answered.
    *
-   * Reactions emitted from step 7 flow back through `this.send(...)` —
-   * full pipeline, programs run, more reactions can fire. Loops are
-   * usage error.
+   * Reactions fire after each emission's routes settle — once per
+   * emission, only if at least one route accepted. Their emissions
+   * spawn a fresh `rig.send(...)` operation, independent of this one.
    */
-  private async _pipeline(
+  private _pipeline(
     outs: Output[],
     direction: "send" | "receive",
-  ): Promise<ReceiveResult[]> {
-    const beforeHook = direction === "send"
-      ? this._hooks.beforeSend
-      : this._hooks.beforeReceive;
-    const afterHook = direction === "send"
-      ? this._hooks.afterSend
-      : this._hooks.afterReceive;
+  ): OperationHandle {
+    const handle = new OperationHandleImpl();
 
-    // Before-hook per tuple — throw to reject. Hooks may rewrite the
-    // (uri, data) for receive; send hooks see the message envelope.
-    const finalOuts: Output[] = [];
-    for (const out of outs) {
-      const [uri, payload] = out;
-      if (direction === "receive") {
-        const ctx: ReceiveCtx = { uri, data: payload };
-        const recvCtx = await runBefore(this._hooks.beforeReceive, ctx);
-        finalOuts.push([recvCtx.uri, recvCtx.data] as Output);
-      } else {
-        const ctx: SendCtx = { message: out };
-        const sendCtx = await runBefore(this._hooks.beforeSend, ctx);
-        finalOuts.push(sendCtx.message as Output);
+    // Run the pipeline asynchronously. The handle is returned now;
+    // pipeline-ack and route events fire as work completes.
+    void this._runPipeline(outs, direction, handle);
+
+    return handle;
+  }
+
+  /** Internal: pipeline body driven against an OperationHandleImpl. */
+  private async _runPipeline(
+    outs: Output[],
+    direction: "send" | "receive",
+    handle: OperationHandleImpl,
+  ): Promise<void> {
+    try {
+      // Before-hook per tuple — throw to reject.
+      const finalOuts: Output[] = [];
+      for (const out of outs) {
+        const [uri, payload] = out;
+        if (direction === "receive") {
+          const ctx: ReceiveCtx = { uri, data: payload };
+          const recvCtx = await runBefore(this._hooks.beforeReceive, ctx);
+          finalOuts.push([recvCtx.uri, recvCtx.data] as Output);
+        } else {
+          const ctx: SendCtx = { message: out };
+          const sendCtx = await runBefore(this._hooks.beforeSend, ctx);
+          finalOuts.push(sendCtx.message as Output);
+        }
       }
-    }
-    void beforeHook; // hooks dispatched per direction above
 
-    const results: ReceiveResult[] = [];
-    const allReactionEmissions: Output[] = [];
+      const results: ReceiveResult[] = [];
+      const broadcastPromises: Promise<void>[] = [];
 
-    // Classify the whole batch first, then handle/dispatch per tuple.
-    const programResults = await this.process(finalOuts);
+      // Classify the whole batch first, then handle/dispatch per tuple.
+      const programResults = await this.process(finalOuts);
 
-    for (let i = 0; i < finalOuts.length; i++) {
-      const out = finalOuts[i];
-      const programResult = programResults[i];
-      const [uri, payload] = out;
+      for (let i = 0; i < finalOuts.length; i++) {
+        const out = finalOuts[i];
+        const programResult = programResults[i];
+        const [uri, payload] = out;
 
-      try {
-        if (programResult.error) {
-          const result: ReceiveResult = {
-            accepted: false,
-            error: programResult.error,
-          };
+        // Per-stage event on the handle — observers see classification.
+        handle._emit("process:done", { input: out, result: programResult });
+
+        try {
+          // Structural pre-check: if no connection accepts this URI for
+          // receive, the rig has no topology to dispatch through. This
+          // is detectable synchronously from the connection patterns —
+          // reject at pipeline level rather than waiting on async route
+          // events. Per-emission route failures (a connection accepting
+          // a pattern but rejecting a specific write) are still surfaced
+          // as `route:error` events from `_dispatchRouteAware`.
+          const hasRoute = this._connections.some((c) =>
+            c.accepts("receive", uri)
+          );
+          if (!hasRoute) {
+            const error = `No connection accepts receive for ${uri}`;
+            const result: ReceiveResult = { accepted: false, error };
+            results.push(result);
+            this._events.emit(`${direction}:error`, {
+              op: direction,
+              uri,
+              error,
+              ts: Date.now(),
+            });
+            if (direction === "receive") {
+              await runAfter(
+                this._hooks.afterReceive,
+                { uri, data: payload },
+                result,
+              );
+            } else {
+              await runAfter(
+                this._hooks.afterSend,
+                { message: out },
+                result,
+              );
+            }
+            continue;
+          }
+
+          if (programResult.error) {
+            const result: ReceiveResult = {
+              accepted: false,
+              error: programResult.error,
+            };
+            results.push(result);
+            this._events.emit(`${direction}:error`, {
+              op: direction,
+              uri,
+              error: programResult.error,
+              ts: Date.now(),
+            });
+            if (direction === "receive") {
+              await runAfter(
+                this._hooks.afterReceive,
+                { uri, data: payload },
+                result,
+              );
+            } else {
+              await runAfter(
+                this._hooks.afterSend,
+                { message: out },
+                result,
+              );
+            }
+            continue;
+          }
+
+          const emissions = await this.handle(out, programResult);
+          handle._emit("handle:emit", {
+            input: out,
+            classification: programResult,
+            emissions,
+          });
+
+          // Pipeline accepted — record success now, dispatch in background.
+          const result: ReceiveResult = { accepted: true };
           results.push(result);
-          this._events.emit(`${direction}:error`, {
+          this._events.emit(`${direction}:success`, {
             op: direction,
             uri,
-            error: programResult.error,
+            data: payload,
+            result,
             ts: Date.now(),
           });
+
+          // Schedule per-route dispatch — fire-and-forget for the pipeline.
+          broadcastPromises.push(this._dispatchRouteAware(emissions, handle));
+
           if (direction === "receive") {
             await runAfter(
               this._hooks.afterReceive,
@@ -309,106 +413,139 @@ export class Rig {
               result,
             );
           }
-          continue;
-        }
-
-        const emissions = await this.handle(out, programResult);
-        const broadcastResults = await this._broadcast(emissions);
-        const failed = broadcastResults.find((r) => !r.accepted);
-
-        if (failed) {
-          results.push(failed);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          results.push({ accepted: false, error: message });
           this._events.emit(`${direction}:error`, {
             op: direction,
             uri,
-            error: failed.error,
+            error: message,
             ts: Date.now(),
           });
-        } else {
-          const result: ReceiveResult = { accepted: true };
-          results.push(result);
-          this._events.emit(`${direction}:success`, {
-            op: direction,
-            uri,
-            data: payload,
-            result,
-            ts: Date.now(),
-          });
-          // Schedule reactions for each successful emission.
-          allReactionEmissions.push(
-            ...(await this._reactionEmissions(emissions)),
-          );
         }
+      }
 
-        if (direction === "receive") {
-          await runAfter(
-            this._hooks.afterReceive,
-            { uri, data: payload },
-            results[results.length - 1],
-          );
-        } else {
-          await runAfter(
-            this._hooks.afterSend,
-            { message: out },
-            results[results.length - 1],
-          );
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        results.push({ accepted: false, error: message });
-        this._events.emit(`${direction}:error`, {
-          op: direction,
-          uri,
-          error: message,
-          ts: Date.now(),
+      // Resolve pipeline-ack. Caller's `await op` returns now.
+      handle._pipelineDone(results);
+
+      // Wait for all routes to settle (and their reactions to fire),
+      // then emit the `settled` event.
+      await Promise.all(broadcastPromises);
+      handle._emit("settled", { results });
+    } catch (err) {
+      handle._pipelineError(err);
+    }
+  }
+
+  /**
+   * Per-emission, per-connection dispatch with route events.
+   *
+   * For each emission: find every connection whose `receive` patterns
+   * accept the URI, dispatch the emission to each independently, emit
+   * `route:success` / `route:error` per (emission, connection). Once
+   * all routes for an emission settle, fire reactions if any route
+   * accepted. Reactions' returned tuples spawn a fresh `rig.send`
+   * operation (independent of this one).
+   */
+  private async _dispatchRouteAware(
+    emissions: Output[],
+    handle: OperationHandleImpl,
+  ): Promise<void> {
+    if (emissions.length === 0) return;
+    const reactionPromises: Promise<void>[] = [];
+
+    for (const emission of emissions) {
+      const [uri] = emission;
+      const matching = this._connections.filter((c) =>
+        c.accepts("receive", uri)
+      );
+
+      if (matching.length === 0) {
+        handle._emit("route:error", {
+          emission,
+          connectionId: "",
+          error: `No connection accepts receive for ${uri}`,
         });
+        continue;
+      }
+
+      const perConnection: PromiseLike<boolean>[] = matching.map((conn) =>
+        conn.client.receive([emission]).then(
+          (results) => {
+            const r = results[0];
+            if (r.accepted) {
+              handle._emit("route:success", {
+                emission,
+                connectionId: conn.id,
+              });
+            } else {
+              handle._emit("route:error", {
+                emission,
+                connectionId: conn.id,
+                error: r.error,
+                errorDetail: r.errorDetail,
+              });
+            }
+            return r.accepted;
+          },
+          (err) => {
+            const message = err instanceof Error ? err.message : String(err);
+            handle._emit("route:error", {
+              emission,
+              connectionId: conn.id,
+              error: message,
+            });
+            return false;
+          },
+        )
+      );
+
+      // Once all routes for this emission settle, fire reactions
+      // (only if at least one route accepted).
+      reactionPromises.push(
+        Promise.all(perConnection).then((flags) =>
+          this._fireReactionsForEmission(emission, flags.some((a) => a))
+        ),
+      );
+    }
+
+    await Promise.all(reactionPromises);
+  }
+
+  /**
+   * Fire reactions for a successfully-dispatched emission. Reaction
+   * returns are dispatched through a fresh `rig.send(...)` — that
+   * spawned operation has its own OperationHandle and is unrelated
+   * to the one that triggered it. Loops are usage error.
+   */
+  private async _fireReactionsForEmission(
+    emission: Output,
+    anyAccepted: boolean,
+  ): Promise<void> {
+    if (!anyAccepted || this._reactors.size === 0) return;
+    const readFn = this._readFn();
+    const matches = this._reactors.matches(emission[0]);
+    if (matches.length === 0) return;
+
+    const collected: Output[] = [];
+    for (const { handler, params } of matches) {
+      try {
+        const emitted = await handler(emission, readFn, params);
+        collected.push(...emitted);
+      } catch (err) {
+        console.warn("[rig] reaction handler error:", err);
       }
     }
 
-    // Feed reaction-emitted tuples back through send (full pipeline).
-    if (allReactionEmissions.length > 0) {
-      // Fire-and-forget: reactions don't block the original send/receive.
-      void this.send(allReactionEmissions).catch((err) => {
+    if (collected.length > 0) {
+      // Spawn a fresh send operation — fire-and-forget at this level.
+      // The spawned op has its own handle for any caller that wants it.
+      const spawn = this.send(collected);
+      // Swallow rejections: reactions are observers, not blockers.
+      Promise.resolve(spawn).catch((err) => {
         console.warn("[rig] reaction-emitted send error:", err);
       });
     }
-
-    return results;
-  }
-
-  /**
-   * Dispatch a batch of tuples through connection routing.
-   *
-   * Skips programs and reactions — the handler that produced these
-   * tuples is the canonical interpreter. Returns one `ReceiveResult`
-   * per dispatched tuple, aggregated across matching connections.
-   */
-  private async _broadcast(outs: Output[]): Promise<ReceiveResult[]> {
-    if (outs.length === 0) return [];
-    return await this._dispatch.receive(outs);
-  }
-
-  /**
-   * For each successfully dispatched tuple, run matching reactions
-   * and collect their `Output[]` returns. The Rig feeds the collected
-   * tuples through `send()` afterward.
-   */
-  private async _reactionEmissions(outs: Output[]): Promise<Output[]> {
-    if (this._reactors.size === 0) return [];
-    const readFn = this._readFn();
-    const collected: Output[] = [];
-    for (const out of outs) {
-      const matches = this._reactors.matches(out[0]);
-      for (const { handler, params } of matches) {
-        try {
-          const emitted = await handler(out, readFn, params);
-          collected.push(...emitted);
-        } catch (err) {
-          console.warn("[rig] reaction handler error:", err);
-        }
-      }
-    }
-    return collected;
   }
 
   /** Internal read helper bound to the dispatch read interface. */
