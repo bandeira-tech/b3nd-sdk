@@ -1,14 +1,14 @@
 # RFC 001 — The Rig
 
-**Status:** Proposal · pre-1.0 (RC1)
+**Status:** RC1 · partially shipped, partially proposed
 **Author:** SDK maintainers
 **Format:** A short design book, in the spirit of `docs/book/`. Each chapter is
 small, self-contained, and can evolve on its own.
 
 ---
 
-This RFC proposes the shape of the Rig at 1.0. It comes out of an exploration
-round that surfaced a handful of surprising behaviors in the current code —
+This RFC describes the shape of the Rig at 1.0. It comes out of an exploration
+round that surfaced a handful of surprising behaviors in the original code —
 programs not firing on `send()`, envelope decomposition leaking out of the
 framework, identity handling baked into core, a `values` slot nobody could
 explain. Rather than patching each in isolation, we found a single
@@ -16,12 +16,25 @@ architectural move that resolves most of them: **make the Rig payload-agnostic,
 push payload conventions up to the SDK and protocols, treat deletion as data,
 and let `send`/`receive` be observability flavors of the same pipeline**.
 
-This document is that move, written out chapter by chapter so each idea has
-room to breathe and so the proposal can be reviewed, amended, and ratified one
-piece at a time.
+The book is written chapter by chapter so each idea has room to breathe and
+each piece can be reviewed, amended, and ratified one piece at a time.
 
-There are no code changes in this RFC. Implementation lands in follow-up PRs
-sequenced at the end.
+## What's shipped, what's still in flight
+
+| Slice | Status | PR |
+|---|---|---|
+| Part I — Primitive (`[uri, payload]`) | **shipped** | [#89](https://github.com/bandeira-tech/b3nd-sdk/pull/89) |
+| Parts II + III + IV — pure pipeline (handlers/reactions return `Output[]`; `MessageDataClient` split into `DataStoreClient` + canon program/handler; deletion-as-data) | **shipped** | [#91](https://github.com/bandeira-tech/b3nd-sdk/pull/91) |
+| Part VI ch. 13 — per-route observability via `OperationHandle` | **shipped** | [#94](https://github.com/bandeira-tech/b3nd-sdk/pull/94) |
+| Part VI ch. 14 — multi-source replicas | **already shipping** as `flood(peers)` in `@bandeira-tech/b3nd-sdk/network` (predates this RFC) |
+| Part VI ch. 15 — `readEncryptedMany` mixed-plaintext | **superseded** — `AuthenticatedRig` is being retired in favor of canon enhancements; encrypted-batch ergonomics live with that work |
+| `AuthenticatedRig` itself | **scheduled for retirement** — replaced by canon enhancements outside this repo. The convenience class stays usable through the transition; identity-as-primitive is the post-retirement story |
+
+If you came here for the design rationale, every chapter still applies — the
+framework's posture didn't change between proposal and shipped code. If you
+came for what's left to do, the answer is small (Ch 14/15 are dissolved; the
+AuthenticatedRig retirement is the only architectural item still moving, and
+it's happening externally).
 
 ## How to read it
 
@@ -44,9 +57,8 @@ about and the SDK ships canon helpers for.
 **Part V — Walkthroughs.** Two end-to-end stories: a UTXO ledger (data) and a
 multi-channel ad fan-out (network). Both use the same primitives.
 
-**Part VI — Operational Loose Ends.** Three smaller items independent of the
-core proposal — per-connection result granularity, list-read federation,
-mixed-plaintext encrypted reads.
+**Part VI — Operational Loose Ends.** Two operational chapters — per-route
+observability (shipped) and multi-source replicas (already shipping pre-RFC).
 
 ## Table of contents
 
@@ -73,31 +85,23 @@ mixed-plaintext encrypted reads.
 - [12. Multi-channel ad fan-out, end to end](./12-walkthrough-fanout.md)
 
 ### Part VI — Operational Loose Ends
-- [13. Per-connection result granularity](./13-per-connection-results.md)
-- [14. List-read federation](./14-list-federation.md)
-- [15. Encrypted batch reads with mixed plaintext](./15-encrypted-batch.md)
-
-## Sequencing for implementation
-
-The chapters above describe a single architectural change plus three
-independent operational items. The implementation order:
-
-1. **Part I + Part II + Part III + Part IV** — land as one cohesive
-   architectural PR. Touches `Rig`, `MessageData`, `MessageDataClient`,
-   `AuthenticatedRig`, the SDK exports, and most existing tests. Breaking.
-2. **Per-connection result granularity** (Ch. 13) — small, independent.
-3. **List-read federation** (Ch. 14) — small, independent.
-4. **Encrypted batch reads** (Ch. 15) — smallest, independent. Polish PR.
+- [13. Per-route observability via OperationHandle](./13-per-connection-results.md)
+- [14. Multi-source replicas — `flood(peers)`](./14-list-federation.md)
 
 ## What's deliberately out of scope
 
 - A `values` (or `quantities`) slot in the wire primitive. The framework
   primitive is `[uri, payload]` only. Protocols that need conserved
   quantities encode them inside `payload` — see Chapter 1.
-- Codemods for the breaking changes in Part I–IV. Pre-1.0; sed-level
-  rewrites are fine.
+- Codemods for the breaking changes that landed in Parts I–IV. Pre-1.0;
+  sed-level rewrites were fine.
 - A registry of canon SDK handlers beyond what we ship for `MessageData`.
   Protocols that want their own decomposition handlers ship them in their
   own packages.
 - Browser/IndexedDB consequences of deletion-as-data. The wire-level
   contract is universal; per-store integration is its own follow-up.
+- `AuthenticatedRig` retirement and what replaces it. Tracked outside this
+  RFC via canon-enhancement work; this book stays focused on the framework
+  shape, not the canon library.
+- Encrypted-batch read ergonomics (the original Ch 15). Goes away with
+  AuthenticatedRig.

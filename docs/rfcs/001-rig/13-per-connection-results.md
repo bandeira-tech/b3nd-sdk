@@ -1,145 +1,186 @@
-# 13. Per-connection result granularity
+# 13. Per-route observability via OperationHandle
 
-Three issues remain that are independent of the unifying architecture
-in Parts I–IV. This is the first.
+**Status: shipped — [PR #94](https://github.com/bandeira-tech/b3nd-sdk/pull/94).**
 
-## The problem
+The original framing for this chapter was "add a `routes` field to
+`ReceiveResult` plus a `broadcastPolicy` knob on `Rig`." We rejected it
+during design and built something cleaner instead: `rig.send` and
+`rig.receive` return an `OperationHandle` that's both **awaitable** and
+a **scoped event emitter**. The `ReceiveResult` shape stays minimal;
+per-route detail flows through events, not through return-shape
+duplication. No policy knob — the rig stops aggregating; callers
+observe events and decide what "accepted across replicas" means in
+their topology.
 
-When a tuple is broadcast to N connections that all accept it, the Rig
-collapses the N per-connection `ReceiveResult`s into one. The current
-collapse rule is "first non-accepted wins; if all accepted, return the
-first":
+## The original problem (still valid)
 
-```ts
-// libs/b3nd-rig/rig.ts (current)
-const writeResults = await Promise.all(
-  matching.map((s) => s.client.receive([msg]).then((r) => r[0])),
-);
-const failed = writeResults.find((r) => !r.accepted);
-results.push(failed ?? writeResults[0]);
-```
+When a tuple was broadcast to N matching connections, the rig collapsed
+the per-connection results into one — first-fail-wins, then accept.
+Operators saw one boolean and couldn't tell whether the primary
+accepted, which mirror went down, or whether the write partially
+landed. Retries, reconciliation, and replica health monitoring became
+guesswork.
 
-That collapse hides information operators need. If primary accepted but
-mirror-1 rejected and mirror-2 accepted, the caller sees one result —
-`{ accepted: false, error: "mirror-1's error" }` — and has no way to
-know that the write *did* land on the primary and on mirror-2. Whether
-to retry, reconcile, or accept the partial state becomes guesswork.
+The fix needed to surface per-route detail without:
 
-The same call collapses information for the inverse case: if primary
-*rejected* and mirror-1 accepted (which can happen if a mirror has
-weaker validation, or if there's a stale primary), the caller sees
-`{ accepted: false }` and might assume the write landed nowhere.
-Reality: it landed on the mirror, possibly in a state that diverges
-from the primary forever.
+- Doubling the paper-trail (events alongside a parallel result shape
+  saying the same thing).
+- Forcing a policy decision into the rig (which one is "accepted"
+  semantically depends on the topology and the protocol).
+- Breaking the `NodeProtocolInterface.receive` contract that other
+  clients implement.
 
-## The proposal
+## What shipped
 
-Two changes, both small. Together they keep the simple case simple and
-make the detailed case detailed.
-
-### Change 1 — keep the per-connection results
-
-`ReceiveResult` gains an optional `perConnection` field. The aggregated
-top-level `accepted` and `error` survive (so existing callers keep
-working at the field-name level), but the per-connection breakdown is
-attached underneath.
+`Rig.send(outs)` and `Rig.receive(outs)` return an `OperationHandle`.
 
 ```ts
-type ReceiveResult = {
-  accepted: boolean;
-  error?: string;
-  perConnection?: Array<{
-    connectionId: string;
-    accepted: boolean;
-    error?: string;
-  }>;
-};
+interface OperationHandle extends PromiseLike<ReceiveResult[]> {
+  on<E extends OperationEventName>(
+    event: E,
+    handler: OperationEventHandler<E>,
+  ): () => void;
+  off<E extends OperationEventName>(
+    event: E,
+    handler: OperationEventHandler<E>,
+  ): void;
+  readonly settled: Promise<SettledEvent>;
+}
+
+type OperationEventName =
+  | "process:done"     // pipeline classification
+  | "handle:emit"      // handler emissions
+  | "route:success"    // per (emission, connection) accept
+  | "route:error"      // per (emission, connection) reject
+  | "settled";         // all routes done
 ```
 
-The Rig populates `perConnection` whenever a tuple was broadcast to more
-than one connection. For single-connection broadcasts, the field is
-omitted (no information lost; the top-level `accepted`/`error` already
-covers it).
+The handle is awaitable so existing `await rig.receive(outs)` callers
+see no contract change, and the `NodeProtocolInterface.receive`
+signature widens from `Promise<ReceiveResult[]>` to
+`PromiseLike<ReceiveResult[]>` — every existing client implementation
+still satisfies it (every Promise is a PromiseLike).
 
-`connectionId` comes from the connection's identifier — proposed: an
-optional `id` field on `connection({ id?, receive, read, observe })`,
-defaulting to a stable hash of the patterns + a sequence number if
-omitted. Operators who care about identifying connections name them;
-operators who don't, see auto-IDs they can still distinguish.
+`ReceiveResult` stays minimal: `{ accepted, error?, errorDetail? }`.
+The `accepted` flag means **the pipeline accepted the input** — process
+classified, handler ran, the rig has a topology to dispatch through.
+It says nothing about whether downstream connections actually wrote.
+That's what events are for.
 
-### Change 2 — explicit broadcast policy
+## How callers use it
 
-A `broadcastPolicy` enum on `RigConfig` (or per-connection, see below)
-that decides how `perConnection` collapses into the top-level
-`accepted`. Three values, all sensible:
+The simple case is unchanged:
 
 ```ts
-type BroadcastPolicy =
-  | "all-or-nothing"   // accepted iff every connection accepted
-  | "best-effort"      // accepted iff any connection accepted
-  | "any-success";     // accepted iff any connection accepted (alias for best-effort, kept for clarity)
+const [r] = await rig.receive([out]);
+if (!r.accepted) throw new Error(r.error);
 ```
 
-Default: `"all-or-nothing"`. This matches the most defensive intuition
-("if you said it succeeded, the write is durable everywhere it could
-be"). The current behavior — first-fail-wins — is approximately
-all-or-nothing already; this just makes the policy explicit.
-
-Operators with replication topologies where partial writes are
-acceptable (a primary plus a best-effort cache mirror) set
-`broadcastPolicy: "best-effort"`. The cache going down doesn't fail the
-write to the primary.
-
-### Optional: per-connection policy
-
-A finer-grained extension would put policy on individual connections,
-treating them as required vs. best-effort:
+For per-route observability:
 
 ```ts
-connection(primary, { receive: ["mutable://*"], required: true });
-connection(mirror,  { receive: ["mutable://*"], required: false });
+const op = rig.receive([out]);
+
+op.on("route:success", (e) => {
+  metrics.write_success.inc({ connection: e.connectionId });
+});
+
+op.on("route:error", (e) => {
+  retryQueue.push({ emission: e.emission, target: e.connectionId });
+});
+
+const results = await op;       // pipeline ack
+await op.settled;                 // wait for all routes (read-after-write)
 ```
 
-The Rig then says "accepted iff every required connection accepted" and
-ignores best-effort failures in the top-level result (still recording
-them in `perConnection`). This is more expressive than the global
-policy but adds shape to the connection API. We propose it as
-optional: ship the global policy first, add per-connection if demand
-appears.
+## How the rig dispatches now
 
-## API impact
+Pipeline is synchronous-ish (process + handle run inline). Broadcast
+is **async by design** — the rig doesn't await connection writes
+before resolving the pipeline-stage Promise. Per-route outcomes arrive
+as events on the handle after `await op` returns. Callers wanting full
+settlement (e.g., for read-after-write across replicas) await
+`op.settled`.
 
-Breaking only in the observable sense. The top-level shape stays the
-same — `accepted: boolean`, `error?: string`. Callers destructuring
-those fields keep working. Callers that want to inspect per-connection
-detail check `result.perConnection`.
+```
+rig.receive(outs)
+  ├─ process(outs)        → ProgramResult[]   ┐
+  ├─ for each output:                          │ (synchronous, inline)
+  │    handle(out, result) → emissions         │
+  │    schedule broadcast(emissions)           │
+  └─ resolve handle pipeline promise          ─┘ ← `await op` returns here
 
-The default policy change ("all-or-nothing" instead of today's
-implicit first-fail-wins) is functionally close to the current behavior;
-the difference shows up when there's a partial success, where the new
-default is louder about it.
+  In the background:
+  ┌─ broadcast each emission to every matching connection
+  │    fire route:success / route:error per (emission, connection)
+  ├─ for each emission, fire reactions if any route accepted
+  └─ when all routes done, fire `settled`     ← `await op.settled`
+```
 
-`connection()` gains an optional `id` param. No existing call breaks;
-auto-IDs cover unnamed connections.
+## Connection IDs
 
-`RigConfig` gains an optional `broadcastPolicy` field. Default
-`"all-or-nothing"`.
+`connection(client, patterns, opts?)` gained an optional third
+argument `{ id?: string }`. Connections without an explicit ID get an
+auto-generated `conn-{N}` based on registration order. Route events
+include `connectionId` so subscribers can correlate per-replica
+outcomes.
+
+```ts
+const rig = new Rig({
+  connections: [
+    connection(primary,  patterns, { id: "primary" }),
+    connection(mirror,   patterns, { id: "mirror-east" }),
+    connection(mirror2,  patterns), // gets conn-2 by default
+  ],
+});
+```
+
+## What we didn't ship
+
+- **No `broadcastPolicy` knob.** The rig stops aggregating; callers
+  observe events. If you want a "first-route-accepts" or
+  "all-routes-must-accept" semantic, you compose it from
+  `route:success`/`route:error` events on your side.
+- **No `routes` field on `ReceiveResult`.** Single paper-trail.
+  Per-route detail is events.
+- **No per-route retry mechanism in the rig.** Retry strategy is
+  endpoint-specific — the client/store knows what's safe to retry on
+  its own transport. App-level retry, when needed, lives in caller
+  code listening to `route:error`.
+
+## What this enabled (consequences worth noting)
+
+- **`receive`/`send` are interchangeable from the rig's perspective.**
+  Both go through the same `_pipeline` body; only hooks and events
+  differ by direction.
+- **Reactions reorganized.** They now fire after each emission's
+  routes settle (only if at least one route accepted), and their
+  returned `Output[]` spawn a fresh `rig.send` operation with its own
+  handle. Reaction loops are user error; the framework doesn't detect
+  them.
+- **`receiveOrThrow` / `sendOrThrow`** ship as helpers for callers
+  who'd rather see exceptions than inspect `accepted`. They throw on
+  pipeline-stage rejection only — route failures still arrive as
+  events, never as thrown errors.
 
 ## What changed in this chapter
 
-- `ReceiveResult` gains an optional `perConnection` array surfacing
-  per-connection outcomes.
-- `RigConfig` gains an optional `broadcastPolicy` enum
-  (`"all-or-nothing" | "best-effort" | "any-success"`), default
-  `"all-or-nothing"`.
-- `connection()` gains an optional `id` parameter for naming
-  connections in the per-connection output.
-- A future per-connection `required` flag is left as an optional
-  follow-up.
+- The chapter retired the "routes field on ReceiveResult" framing and
+  replaced it with the OperationHandle shape that actually shipped.
+- The pipeline stops awaiting broadcast — dispatch is async by design.
+- `ReceiveResult` stays as it was. Per-route observability lives in
+  events. `OperationHandle` is the new return type for
+  `rig.send`/`rig.receive`, and it's a `PromiseLike<ReceiveResult[]>`
+  for backward compatibility.
+- `NodeProtocolInterface.receive` widened to `PromiseLike` so the
+  handle satisfies it.
+- `connection()` got an optional `id` field; route events carry it.
 
-## What's coming next
+## What's next
 
-Chapter 14 — list-read federation. Today a trailing-slash read returns
-results from the first matching connection only, even if other
-connections hold items at the same prefix. We propose making federation
-the default for list reads with an explicit opt-out.
+The remaining operational chapter — **Ch 14 — multi-source replicas**.
+The original "rig adds federate flag" framing was rejected; the
+`flood(peers)` strategy already shipping in
+`@bandeira-tech/b3nd-sdk/network` is the canonical multi-source
+pattern. See Ch 14 for the details. The original Ch 15 (encrypted
+batch reads) is dissolved alongside the AuthenticatedRig retirement.
