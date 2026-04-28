@@ -13,6 +13,7 @@
  *   memory://             → MemoryStore
  *   https:// | http://    → HttpClient
  *   wss:// | ws://        → WebSocketClient
+ *   grpc://               → GrpcClient
  *   console://            → ConsoleClient (write-only sink, no storage)
  *
  * External backends are registered via BackendResolver[]:
@@ -24,6 +25,7 @@ import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { WebSocketClient } from "../b3nd-client-ws/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import { ConsoleClient } from "../b3nd-client-console/client.ts";
+import { GrpcClient } from "../b3nd-client-grpc/mod.ts";
 import { SimpleClient } from "../b3nd-core/simple-client.ts";
 
 /**
@@ -58,6 +60,7 @@ const TRANSPORT_PROTOCOLS = new Set([
   "http:",
   "wss:",
   "ws:",
+  "grpc:",
   "console:",
 ]);
 
@@ -70,6 +73,7 @@ const BUILTIN_TRANSPORT_PROTOCOLS = [
   "http://",
   "wss://",
   "ws://",
+  "grpc://",
   "console://",
 ];
 
@@ -203,6 +207,9 @@ export async function createClientFromUrl(
     case "wss:":
     case "ws:":
       return new WebSocketClient({ url });
+    case "grpc:":
+      // grpc://host:port → http://host:port (Connect protocol over HTTP/2)
+      return new GrpcClient({ url: url.replace(/^grpc:/, "http:") });
     case "console:": {
       const label = parsed.hostname || "b3nd";
       return new ConsoleClient(label);

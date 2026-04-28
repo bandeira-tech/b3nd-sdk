@@ -84,6 +84,10 @@ export type { Connection, ConnectionPatterns } from "./connection.ts";
 export { httpApi } from "./http.ts";
 export type { HttpApiOptions } from "./http.ts";
 
+// Server factory — composable transport layer
+export { createServers } from "./server-factory.ts";
+export type { ServerResolver, TransportServer } from "./server-factory.ts";
+
 // Backend factory
 export {
   createClientFromUrl,

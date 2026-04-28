@@ -1,6 +1,8 @@
 /// <reference lib="deno.ns" />
-import { connection, createClientFromUrl, httpApi, Rig } from "@b3nd/rig";
-import type { BackendResolver } from "@b3nd/rig";
+import { connection, createClientFromUrl, createServers, Rig } from "@b3nd/rig";
+import type { BackendResolver, ServerResolver } from "@b3nd/rig";
+import { httpServer } from "@b3nd/server-http";
+import { grpcServer } from "@b3nd/server-grpc";
 import type { Program } from "@bandeira-tech/b3nd-sdk/types";
 import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
 import { postgresBackend } from "./backends/postgres.ts";
@@ -16,6 +18,7 @@ const PROGRAMS_MODULE = Deno.env.get("PROGRAMS_MODULE");
 const PORT_VALUE = Deno.env.get("PORT");
 const CORS_ORIGIN = Deno.env.get("CORS_ORIGIN");
 const BACKEND_URL = Deno.env.get("BACKEND_URL");
+const GRPC_PORT = Deno.env.get("GRPC_PORT");
 
 if (!BACKEND_URL) throw new Error("BACKEND_URL env var is required");
 if (!CORS_ORIGIN) throw new Error("CORS_ORIGIN env var is required");
@@ -85,21 +88,25 @@ const rig = new Rig({
 
 const backendTypes = backendSpecs.map((s) => s.split("://")[0]);
 
-// httpApi() is a standalone function — the rig stays pure, transport is external.
-const b3ndHandler = httpApi(rig, {
-  statusMeta: { backends: backendTypes },
-});
+// ── Transport servers — composable via ServerResolver ──
+const resolvers: ServerResolver[] = [
+  httpServer({
+    port: PORT,
+    cors: CORS_ORIGIN,
+    statusMeta: { backends: backendTypes },
+  }),
+  ...(GRPC_PORT
+    ? [grpcServer({ port: Number(GRPC_PORT) })]
+    : []),
+];
 
-// CORS and port binding are the app's responsibility.
-const { Hono } = await import("npm:hono");
-const { cors } = await import("npm:hono/cors");
-const app = new Hono();
-if (CORS_ORIGIN) app.use("*", cors({ origin: CORS_ORIGIN }));
-app.all("/api/*", (c: any) => b3ndHandler(c.req.raw));
+const servers = createServers(rig, resolvers);
+await Promise.all(servers.map((s) => s.start()));
 
-Deno.serve({ port: PORT }, app.fetch);
-
-console.log(`B3nd Node :${PORT} (backends=${BACKEND_URL})`);
+for (const s of servers) {
+  console.log(`B3nd Node ${s.transport} ${s.address}`);
+}
+console.log(`backends=${BACKEND_URL}`);
 
 // ── Phase 2: Managed mode (conditional on OPERATOR_KEY) ──────────────
 
