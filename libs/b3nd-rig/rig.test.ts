@@ -853,7 +853,7 @@ Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async ()
   assertEquals(envelope.auth[0].pubkey, id.pubkey);
   assertEquals(typeof envelope.auth[0].signature, "string");
   assertEquals(envelope.outputs[0][0], "mutable://open/signed-test");
-  assertEquals(envelope.outputs[0][2], { msg: "hello" });
+  assertEquals(envelope.outputs[0][1], { msg: "hello" });
 
   // Verify the signature is valid using the identity
   const valid = await id.verify(
