@@ -1,5 +1,5 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
-import { generateSigningKeyPair } from "../b3nd-encrypt/mod.ts";
+import { generateSigningKeyPair } from "@bandeira-tech/b3nd-canon/encrypt";
 import { createMetricsCollector } from "./metrics.ts";
 import { createPermissiveClient } from "./test-helpers.ts";
 

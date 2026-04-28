@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { generateSigningKeyPair } from "../b3nd-encrypt/mod.ts";
+import { generateSigningKeyPair } from "@bandeira-tech/b3nd-canon/encrypt";
 import { createHeartbeatWriter } from "./heartbeat.ts";
 import { createPermissiveClient } from "./test-helpers.ts";
 import { nodeStatusUri } from "./types.ts";

@@ -1,1 +1,1 @@
-export * from "../libs/b3nd-hash/mod.ts";
+export * from "@bandeira-tech/b3nd-canon/hash";

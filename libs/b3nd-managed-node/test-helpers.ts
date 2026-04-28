@@ -2,14 +2,16 @@
  * Shared test helpers for managed node tests.
  */
 
-import type { ProtocolInterfaceNode } from "../b3nd-rig/mod.ts";
-import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { DataStoreClient } from "../b3nd-rig/mod.ts";
+import {
+  DataStoreClient,
+  MemoryStore,
+  type ProtocolInterfaceNode,
+} from "@bandeira-tech/b3nd-core";
 import {
   createAuthenticatedMessage,
   generateSigningKeyPair,
   type KeyPair,
-} from "../b3nd-encrypt/mod.ts";
+} from "@bandeira-tech/b3nd-canon/encrypt";
 import type {
   BackendSpec,
   ManagedNodeConfig,

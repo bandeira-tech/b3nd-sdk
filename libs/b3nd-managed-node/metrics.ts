@@ -129,7 +129,7 @@ export function createMetricsCollector(
       },
       async read<T = unknown>(
         uris: string | string[],
-      ): Promise<import("../b3nd-core/types.ts").ReadResult<T>[]> {
+      ): Promise<import("@bandeira-tech/b3nd-core/types").ReadResult<T>[]> {
         const start = performance.now();
         try {
           const result = await client.read<T>(uris);

@@ -1,11 +1,10 @@
 import { assertEquals } from "@std/assert";
 import { connect, readResponse, respondTo, writeRequest } from "./mod.ts";
-import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { DataStoreClient } from "../b3nd-rig/mod.ts";
+import { DataStoreClient, MemoryStore } from "@bandeira-tech/b3nd-core";
 import {
   generateEncryptionKeyPair,
   generateSigningKeyPair,
-} from "../b3nd-encrypt/mod.ts";
+} from "@bandeira-tech/b3nd-canon/encrypt";
 
 Deno.test("respondTo + connect: request-response round-trip", async () => {
   const client = new DataStoreClient(new MemoryStore());

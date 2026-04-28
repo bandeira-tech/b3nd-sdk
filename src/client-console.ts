@@ -1,1 +1,1 @@
-export * from "../libs/b3nd-client-console/mod.ts";
+export * from "@bandeira-tech/b3nd-core/client-console";
