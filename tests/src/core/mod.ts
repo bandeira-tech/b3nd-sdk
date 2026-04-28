@@ -45,7 +45,7 @@ export class ApiClient {
     value: unknown,
   ): Promise<{
     success: boolean;
-    record?: { values: Record<string, number>; data: unknown };
+    record?: { data: unknown };
     error?: string;
   }> {
     try {
@@ -53,7 +53,7 @@ export class ApiClient {
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([uri, {}, value]),
+        body: JSON.stringify([uri, value]),
       });
 
       if (!response.ok) {
@@ -83,7 +83,7 @@ export class ApiClient {
 
   async read(uri: string): Promise<{
     success: boolean;
-    record?: { values: Record<string, number>; data: unknown };
+    record?: { data: unknown };
     error?: string;
   }> {
     try {

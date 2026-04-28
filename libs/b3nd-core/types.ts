@@ -8,7 +8,7 @@
  */
 export interface WriteResult<T = unknown> {
   success: boolean;
-  record?: { values: Record<string, number>; data: T };
+  record?: { data: T };
   error?: string;
 }
 
@@ -19,7 +19,7 @@ export interface WriteResult<T = unknown> {
 export interface ReadResult<T> {
   success: boolean;
   uri?: string;
-  record?: { values: Record<string, number>; data: T };
+  record?: { data: T };
   error?: string;
   errorDetail?: B3ndError;
 }
@@ -31,7 +31,7 @@ export type ReadMultiResultItem<T = unknown> =
   | {
     uri: string;
     success: true;
-    record: { values: Record<string, number>; data: T };
+    record: { data: T };
   }
   | { uri: string; success: false; error: string };
 
@@ -118,16 +118,18 @@ export interface StatusResult {
 }
 
 /**
- * Output — the universal addressed-content primitive: [uri, values, data]
+ * Output — the universal addressed-content primitive: [uri, payload]
  *
  * - uri: identity/address
- * - values: conserved quantities ({} for none, always present)
- * - data: always { inputs: string[], outputs: Output[] }
+ * - payload: opaque protocol-defined payload (the framework treats this as
+ *   opaque; protocols choose its shape — envelopes, conserved quantities,
+ *   ciphertexts, plain values, etc.)
+ *
+ * A payload of `null` is the wire-level "delete this URI" convention.
  */
 export type Output<T = unknown> = [
   uri: string,
-  values: Record<string, number>,
-  data: T,
+  payload: T,
 ];
 
 /**
@@ -164,7 +166,7 @@ export interface ProgramResult {
  * own programs as a closed package — sub-output classification is handled
  * internally by the protocol, not by calling back into the rig.
  *
- * - `output`   — the [uri, values, data] being classified
+ * - `output`   — the [uri, payload] being classified
  * - `upstream` — the parent output (undefined at top level)
  * - `read`     — storage lookup (only confirmed state)
  */
@@ -215,8 +217,8 @@ export interface NodeProtocolInterface {
   /**
    * Receive a batch of messages — the unified entry point for all state changes.
    *
-   * Each message is [uri, values, data] where data is { inputs, outputs }.
-   * Clients are mechanical: delete inputs, write outputs for each message.
+   * Each message is [uri, payload]. Clients interpret the payload per their
+   * role (storage clients persist, audit clients append, forwarders forward).
    * Returns one ReceiveResult per message.
    */
   receive(msgs: Message[]): Promise<ReceiveResult[]>;
@@ -269,14 +271,13 @@ export interface NodeProtocolInterface {
  * @example
  * ```typescript
  * await store.write([
- *   { uri: "mutable://users/alice", values: {}, data: { name: "Alice" } },
- *   { uri: "mutable://users/bob", values: {}, data: { name: "Bob" } },
+ *   { uri: "mutable://users/alice", data: { name: "Alice" } },
+ *   { uri: "mutable://users/bob", data: { name: "Bob" } },
  * ]);
  * ```
  */
 export interface StoreEntry<T = unknown> {
   uri: string;
-  values: Record<string, number>;
   data: T;
 }
 
@@ -324,7 +325,7 @@ export interface StoreCapabilities {
  *
  * // Write
  * await store.write([
- *   { uri: "mutable://app/config", values: {}, data: { theme: "dark" } },
+ *   { uri: "mutable://app/config", data: { theme: "dark" } },
  * ]);
  *
  * // Read

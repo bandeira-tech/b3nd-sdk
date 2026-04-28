@@ -328,7 +328,7 @@ async function uploadToB3nd(
     const catalogRes = await fetch(`${nodeUrl}/api/v1/receive`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(["mutable://open/rig/api-docs/catalog", {}, catalog]),
+      body: JSON.stringify(["mutable://open/rig/api-docs/catalog", catalog]),
     });
     if (!catalogRes.ok) {
       console.warn(`  Catalog upload failed: ${catalogRes.status}`);
@@ -342,7 +342,7 @@ async function uploadToB3nd(
       const res = await fetch(`${nodeUrl}/api/v1/receive`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([uri, {}, lib]),
+        body: JSON.stringify([uri, lib]),
       });
       if (res.ok) {
         console.log(`  ${lib.key} (${lib.symbols.length} symbols) → ${uri}`);

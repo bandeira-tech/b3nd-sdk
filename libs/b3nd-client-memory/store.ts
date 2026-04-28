@@ -12,7 +12,7 @@
  * const store = new MemoryStore();
  *
  * await store.write([
- *   { uri: "mutable://app/config", values: {}, data: { theme: "dark" } },
+ *   { uri: "mutable://app/config", data: { theme: "dark" } },
  * ]);
  *
  * const results = await store.read(["mutable://app/config"]);
@@ -31,7 +31,7 @@ import type {
 } from "../b3nd-core/types.ts";
 
 type StorageNode<T = unknown> = {
-  value?: { values: Record<string, number>; data: T };
+  value?: { data: T };
   children?: Map<string, StorageNode>;
 };
 
@@ -69,7 +69,6 @@ export class MemoryStore implements Store {
     for (const entry of entries) {
       try {
         this._writeOne(entry.uri, {
-          values: entry.values,
           data: entry.data,
         });
         results.push({ success: true });
@@ -86,7 +85,7 @@ export class MemoryStore implements Store {
 
   private _writeOne(
     uri: string,
-    record: { values: Record<string, number>; data: unknown },
+    record: { data: unknown },
   ): void {
     const { node, parts } = resolveTarget(uri, this.storage);
 
@@ -138,7 +137,7 @@ export class MemoryStore implements Store {
 
     return {
       success: true,
-      record: current.value as { values: Record<string, number>; data: T },
+      record: current.value as { data: T },
     };
   }
 
@@ -161,7 +160,7 @@ export class MemoryStore implements Store {
         results.push({
           success: true,
           uri: currentUri,
-          record: node.value as { values: Record<string, number>; data: T },
+          record: node.value as { data: T },
         });
       }
       if (node.children) {

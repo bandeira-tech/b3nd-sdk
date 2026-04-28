@@ -18,7 +18,7 @@ interface ClientLike {
   read(
     uri: string,
   ): Promise<
-    { success: boolean; record?: { values: Record<string, number>; data: unknown }; error?: string }[]
+    { success: boolean; record?: { data: unknown }; error?: string }[]
   >;
   status(): Promise<{ status: string; schema?: string[] }>;
 }
@@ -89,7 +89,7 @@ export class HttpAdapter implements BackendAdapter {
     };
   }
 
-  async readRecord(path: string): Promise<{ values: Record<string, number>; data: unknown }> {
+  async readRecord(path: string): Promise<{ data: unknown }> {
     // Convert Explorer path to URI
     const uri = this.pathToUri(path);
 

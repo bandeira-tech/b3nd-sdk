@@ -444,7 +444,7 @@ Deno.test("Rig.receive - receives a message", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  const [result] = await rig.receive([["mutable://open/test", {}, {
+  const [result] = await rig.receive([["mutable://open/test", {
     hello: "world",
   }]]);
   assertEquals(result.accepted, true);
@@ -466,7 +466,7 @@ Deno.test("AuthenticatedRig.send - signs and sends via session", async () => {
 
   const result = await session.send({
     inputs: [],
-    outputs: [["mutable://open/item", {}, { value: 42 }]],
+    outputs: [["mutable://open/item", { value: 42 }]],
   });
   assertEquals(result.accepted, true);
   assertEquals(result.uri.startsWith("hash://sha256/"), true);
@@ -496,11 +496,11 @@ Deno.test("AuthenticatedRig - multiple identities on same rig", async () => {
   // Both can write through the same rig
   await aliceSession.send({
     inputs: [],
-    outputs: [["mutable://open/alice-data", {}, { from: "alice" }]],
+    outputs: [["mutable://open/alice-data", { from: "alice" }]],
   });
   await bobSession.send({
     inputs: [],
-    outputs: [["mutable://open/bob-data", {}, { from: "bob" }]],
+    outputs: [["mutable://open/bob-data", { from: "bob" }]],
   });
 
   assertEquals(await rig.readData("mutable://open/alice-data"), {
@@ -515,8 +515,8 @@ Deno.test("Rig.read - trailing-slash lists items", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/a", {}, 1]]);
-  await rig.receive([["mutable://open/b", {}, 2]]);
+  await rig.receive([["mutable://open/a", 1]]);
+  await rig.receive([["mutable://open/b", 2]]);
 
   const results = await rig.read("mutable://open/");
   assertEquals(results.length, 2);
@@ -530,8 +530,8 @@ Deno.test("Rig.read - reads multiple URIs", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/m1", {}, "a"]]);
-  await rig.receive([["mutable://open/m2", {}, "b"]]);
+  await rig.receive([["mutable://open/m1", "a"]]);
+  await rig.receive([["mutable://open/m2", "b"]]);
 
   const results = await rig.read(["mutable://open/m1", "mutable://open/m2"]);
   assertEquals(results.length, 2);
@@ -564,7 +564,7 @@ Deno.test("Rig -multi-client dispatch composes correctly", async () => {
       }),
     ],
   });
-  await rig.receive([["mutable://open/multi", {}, "shared"]]);
+  await rig.receive([["mutable://open/multi", "shared"]]);
 
   const reads = await rig.read("mutable://open/multi");
   const read = reads[0];
@@ -605,7 +605,7 @@ Deno.test("Rig -session.send round-trip", async () => {
 
   const result = await session.send({
     inputs: [],
-    outputs: [["mutable://open/connect-test", {}, { v: 1 }]],
+    outputs: [["mutable://open/connect-test", { v: 1 }]],
   });
   assertEquals(result.accepted, true);
 });
@@ -616,7 +616,7 @@ Deno.test("Rig -receive and read round-trip", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/hello", {}, "world"]]);
+  await rig.receive([["mutable://open/hello", "world"]]);
   const reads = await rig.read("mutable://open/hello");
   const read = reads[0];
   assertEquals(read.success, true);
@@ -671,7 +671,7 @@ Deno.test("Rig.exists - returns true for existing data", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/check", {}, { present: true }]]);
+  await rig.receive([["mutable://open/check", { present: true }]]);
   assertEquals(await rig.exists("mutable://open/check"), true);
 });
 
@@ -694,7 +694,7 @@ Deno.test("Rig.read - handles mix of existing and missing URIs", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/yes", {}, "found"]]);
+  await rig.receive([["mutable://open/yes", "found"]]);
 
   const results = await rig.read([
     "mutable://open/yes",
@@ -724,7 +724,7 @@ Deno.test("createClientFromUrl - creates memory client from URL", async () => {
   assertEquals(health.status, "healthy");
 
   // Write and read back
-  await client.receive([["mutable://open/test", {}, { val: 1 }]]);
+  await client.receive([["mutable://open/test", { val: 1 }]]);
   const reads = await client.read("mutable://open/test");
   const read = reads[0];
   assertEquals(read.success, true);
@@ -748,7 +748,7 @@ Deno.test("Rig.readData - returns data for existing URI", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/profile", {}, {
+  await rig.receive([["mutable://open/profile", {
     name: "Alice",
     age: 30,
   }]]);
@@ -778,13 +778,13 @@ Deno.test("Rig.readData - handles scalar values", async () => {
     ],
   });
 
-  await rig.receive([["mutable://open/num", {}, 42]]);
+  await rig.receive([["mutable://open/num", 42]]);
   assertEquals(await rig.readData<number>("mutable://open/num"), 42);
 
-  await rig.receive([["mutable://open/str", {}, "hello"]]);
+  await rig.receive([["mutable://open/str", "hello"]]);
   assertEquals(await rig.readData<string>("mutable://open/str"), "hello");
 
-  await rig.receive([["mutable://open/bool", {}, true]]);
+  await rig.receive([["mutable://open/bool", true]]);
   assertEquals(await rig.readData<boolean>("mutable://open/bool"), true);
 });
 
@@ -796,7 +796,7 @@ Deno.test("Rig.readOrThrow - returns data for existing URI", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/config", {}, { debug: false }]]);
+  await rig.receive([["mutable://open/config", { debug: false }]]);
 
   const config = await rig.readOrThrow<{ debug: boolean }>(
     "mutable://open/config",
@@ -832,7 +832,7 @@ Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async ()
 
   const result = await session.send({
     inputs: [],
-    outputs: [["mutable://open/signed-test", {}, { msg: "hello" }]],
+    outputs: [["mutable://open/signed-test", { msg: "hello" }]],
   });
 
   assertEquals(result.accepted, true);
@@ -843,7 +843,7 @@ Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async ()
   const envelope = await rig.readOrThrow<{
     auth: Array<{ pubkey: string; signature: string }>;
     inputs: string[];
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
     hash: string;
   }>(result.uri);
 
@@ -853,7 +853,7 @@ Deno.test("AuthenticatedRig.send - creates verifiable signed envelope", async ()
   assertEquals(envelope.auth[0].pubkey, id.pubkey);
   assertEquals(typeof envelope.auth[0].signature, "string");
   assertEquals(envelope.outputs[0][0], "mutable://open/signed-test");
-  assertEquals(envelope.outputs[0][2], { msg: "hello" });
+  assertEquals(envelope.outputs[0][1], { msg: "hello" });
 
   // Verify the signature is valid using the identity
   const valid = await id.verify(
@@ -878,12 +878,12 @@ Deno.test("AuthenticatedRig.send - different identities produce different signat
 
   const r1 = await alice.rig(rig).send({
     inputs: [],
-    outputs: [["mutable://open/alice-write", {}, 1]],
+    outputs: [["mutable://open/alice-write", 1]],
   });
 
   const r2 = await bob.rig(rig).send({
     inputs: [],
-    outputs: [["mutable://open/bob-write", {}, 2]],
+    outputs: [["mutable://open/bob-write", 2]],
   });
 
   // Both succeed
@@ -894,12 +894,12 @@ Deno.test("AuthenticatedRig.send - different identities produce different signat
   const e1 = await rig.readOrThrow<{
     auth: Array<{ pubkey: string; signature: string }>;
     inputs: string[];
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
   }>(r1.uri);
   const e2 = await rig.readOrThrow<{
     auth: Array<{ pubkey: string; signature: string }>;
     inputs: string[];
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
   }>(r2.uri);
 
   assertEquals(e1.auth[0].pubkey, alice.pubkey);
@@ -920,8 +920,8 @@ Deno.test("Rig.read - multi-URI returns data for each", async () => {
     ],
   });
 
-  await rig.receive([["mutable://open/rdm/a", {}, { name: "Alice" }]]);
-  await rig.receive([["mutable://open/rdm/b", {}, { name: "Bob" }]]);
+  await rig.receive([["mutable://open/rdm/a", { name: "Alice" }]]);
+  await rig.receive([["mutable://open/rdm/b", { name: "Bob" }]]);
 
   const results = await rig.read<{ name: string }>([
     "mutable://open/rdm/a",
@@ -940,7 +940,7 @@ Deno.test("Rig.read - multi-URI omits missing URIs", async () => {
     ],
   });
 
-  await rig.receive([["mutable://open/rdm2/exists", {}, { ok: true }]]);
+  await rig.receive([["mutable://open/rdm2/exists", { ok: true }]]);
 
   const results = await rig.read([
     "mutable://open/rdm2/exists",
@@ -988,9 +988,9 @@ Deno.test("AuthenticatedRig.send - multiple outputs in single envelope", async (
   const result = await session.send({
     inputs: [],
     outputs: [
-      ["mutable://open/batch/a", {}, { v: 1 }],
-      ["mutable://open/batch/b", {}, { v: 2 }],
-      ["mutable://open/batch/c", {}, { v: 3 }],
+      ["mutable://open/batch/a", { v: 1 }],
+      ["mutable://open/batch/b", { v: 2 }],
+      ["mutable://open/batch/c", { v: 3 }],
     ],
   });
 
@@ -1003,7 +1003,7 @@ Deno.test("AuthenticatedRig.send - multiple outputs in single envelope", async (
 
   // The envelope at the hash URI should have all 3 outputs
   const envelope = await rig.readOrThrow<{
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
   }>(result.uri);
   assertEquals(envelope.outputs.length, 3);
 });
@@ -1020,9 +1020,9 @@ Deno.test("Rig.read - trailing-slash returns URI strings", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/ld/a", {}, 1]]);
-  await rig.receive([["mutable://open/ld/b", {}, 2]]);
-  await rig.receive([["mutable://open/ld/c", {}, 3]]);
+  await rig.receive([["mutable://open/ld/a", 1]]);
+  await rig.receive([["mutable://open/ld/b", 2]]);
+  await rig.receive([["mutable://open/ld/c", 3]]);
 
   const results = await rig.read("mutable://open/ld/");
   const uris = results.filter((r) => r.success).map((r) => r.uri).filter(
@@ -1052,8 +1052,8 @@ Deno.test("Rig.read - trailing-slash reads all data under a prefix", async () =>
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/ra/alice", {}, { name: "Alice" }]]);
-  await rig.receive([["mutable://open/ra/bob", {}, { name: "Bob" }]]);
+  await rig.receive([["mutable://open/ra/alice", { name: "Alice" }]]);
+  await rig.receive([["mutable://open/ra/bob", { name: "Bob" }]]);
 
   const results = await rig.read<{ name: string }>("mutable://open/ra/");
   const data = new Map(
@@ -1101,7 +1101,7 @@ Deno.test("AuthenticatedRig.readEncrypted - throws for non-encrypted data", asyn
   const session = id.rig(rig);
 
   // Write plain (unencrypted) data
-  await rig.receive([["mutable://open/enc/plain", {}, { not: "encrypted" }]]);
+  await rig.receive([["mutable://open/enc/plain", { not: "encrypted" }]]);
 
   // readEncrypted should throw since data isn't an EncryptedPayload
   await assertRejects(
@@ -1136,7 +1136,7 @@ Deno.test("AuthenticatedRig.readEncryptedMany - returns null for missing URIs", 
   // Encrypt and receive one entry directly
   const plaintext = new TextEncoder().encode(JSON.stringify("hello"));
   const encrypted = await id.encrypt(plaintext, id.encryptionPubkey);
-  await rig.receive([["mutable://open/enc-batch/exists", {}, encrypted]]);
+  await rig.receive([["mutable://open/enc-batch/exists", encrypted]]);
 
   const results = await session.readEncryptedMany<string>([
     "mutable://open/enc-batch/exists",
@@ -1203,9 +1203,9 @@ Deno.test("Rig.read - trailing-slash returns all items under prefix", async () =
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/coll/a", {}, { v: 1 }]]);
-  await rig.receive([["mutable://open/coll/b", {}, { v: 2 }]]);
-  await rig.receive([["mutable://open/coll/c", {}, { v: 3 }]]);
+  await rig.receive([["mutable://open/coll/a", { v: 1 }]]);
+  await rig.receive([["mutable://open/coll/b", { v: 2 }]]);
+  await rig.receive([["mutable://open/coll/c", { v: 3 }]]);
 
   const results = await rig.read<{ v: number }>("mutable://open/coll/");
   assertEquals(results.length, 3);
@@ -1270,9 +1270,9 @@ Deno.test({
 
     // Wait for first poll (null)
     await new Promise((r) => setTimeout(r, 50));
-    await rig.receive([[uri, {}, 42]]);
+    await rig.receive([[uri, 42]]);
     await new Promise((r) => setTimeout(r, 50));
-    await rig.receive([[uri, {}, 99]]);
+    await rig.receive([[uri, 99]]);
     await new Promise((r) => setTimeout(r, 100));
 
     abort.abort();
@@ -1304,7 +1304,7 @@ Deno.test({
         void _;
         count++;
         // Write a different value each time to trigger dedup emission
-        await rig.receive([[uri, {}, count]]);
+        await rig.receive([[uri, count]]);
         if (count >= 2) abort.abort();
       }
     })();
@@ -1325,7 +1325,7 @@ Deno.test({
       ],
     });
     const uri = "mutable://open/watch-dedup";
-    await rig.receive([[uri, {}, "stable"]]);
+    await rig.receive([[uri, "stable"]]);
 
     const values: string[] = [];
     const abort = new AbortController();
@@ -1345,10 +1345,10 @@ Deno.test({
     // Wait for initial poll
     await new Promise((r) => setTimeout(r, 40));
     // Write same value — should NOT emit again
-    await rig.receive([[uri, {}, "stable"]]);
+    await rig.receive([[uri, "stable"]]);
     await new Promise((r) => setTimeout(r, 60));
     // Write different value — SHOULD emit
-    await rig.receive([[uri, {}, "changed"]]);
+    await rig.receive([[uri, "changed"]]);
     await new Promise((r) => setTimeout(r, 60));
 
     abort.abort();
@@ -1384,7 +1384,7 @@ Deno.test("Rig - program accepts valid receive", async () => {
   });
 
   const [accepted] = await rig.receive([
-    ["mutable://open/valid", {}, { ok: true }],
+    ["mutable://open/valid", { ok: true }],
   ]);
   assertEquals(accepted.accepted, true);
 
@@ -1402,7 +1402,7 @@ Deno.test("Rig - program can reject by returning error", async () => {
   });
 
   const [result] = await rig.receive([
-    ["mutable://unknown-domain/x", {}, { bad: true }],
+    ["mutable://unknown-domain/x", { bad: true }],
   ]);
   assertEquals(result.accepted, false);
 });
@@ -1423,7 +1423,7 @@ Deno.test("Rig - multi-connection dispatch with programs accepts valid", async (
   });
 
   const [accepted] = await rig.receive([
-    ["mutable://open/multi-prog", {}, 42],
+    ["mutable://open/multi-prog", 42],
   ]);
   assertEquals(accepted.accepted, true);
 
@@ -1449,7 +1449,7 @@ Deno.test("Rig - multi-connection dispatch with programs rejects via rejecter", 
     },
   });
 
-  const [result] = await rig.receive([["mutable://unknown/x", {}, "nope"]]);
+  const [result] = await rig.receive([["mutable://unknown/x", "nope"]]);
   assertEquals(result.accepted, false);
 });
 
@@ -1467,7 +1467,7 @@ Deno.test("Rig - programs allow signed send via session", async () => {
 
   const result = await session.send({
     inputs: [],
-    outputs: [["mutable://accounts/test", {}, { name: "Alice" }]],
+    outputs: [["mutable://accounts/test", { name: "Alice" }]],
   });
   assertEquals(result.accepted, true);
 
@@ -1483,9 +1483,9 @@ Deno.test("Rig.count - returns count of items under prefix", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
   });
-  await rig.receive([["mutable://open/cnt/a", {}, 1]]);
-  await rig.receive([["mutable://open/cnt/b", {}, 2]]);
-  await rig.receive([["mutable://open/cnt/c", {}, 3]]);
+  await rig.receive([["mutable://open/cnt/a", 1]]);
+  await rig.receive([["mutable://open/cnt/b", 2]]);
+  await rig.receive([["mutable://open/cnt/c", 3]]);
 
   const count = await rig.count("mutable://open/cnt");
   assertEquals(count, 3);
@@ -1517,7 +1517,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to self and read back", asyn
 
   const result = await session.sendEncrypted({
     inputs: [],
-    outputs: [["mutable://open/enc-send/secrets", {}, {
+    outputs: [["mutable://open/enc-send/secrets", {
       apiKey: "sk-test-123",
     }]],
   });
@@ -1542,7 +1542,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - stored data is actually encrypted (n
 
   await session.sendEncrypted({
     inputs: [],
-    outputs: [["mutable://open/enc-send/check", {}, {
+    outputs: [["mutable://open/enc-send/check", {
       secret: "plaintext-value",
     }]],
   });
@@ -1572,8 +1572,8 @@ Deno.test("AuthenticatedRig.sendEncrypted - multiple encrypted outputs", async (
   const result = await session.sendEncrypted({
     inputs: [],
     outputs: [
-      ["mutable://open/enc-batch/a", {}, { v: 1 }],
-      ["mutable://open/enc-batch/b", {}, { v: 2 }],
+      ["mutable://open/enc-batch/a", { v: 1 }],
+      ["mutable://open/enc-batch/b", { v: 2 }],
     ],
   });
   assertEquals(result.accepted, true);
@@ -1603,7 +1603,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - encrypt to another party", async () 
   // Encrypt to receiver
   await senderSession.sendEncrypted({
     inputs: [],
-    outputs: [["mutable://open/enc-cross/msg", {}, { text: "for receiver" }]],
+    outputs: [["mutable://open/enc-cross/msg", { text: "for receiver" }]],
   }, receiver.encryptionPubkey);
 
   // Receiver can decrypt
@@ -1634,7 +1634,7 @@ Deno.test("AuthenticatedRig.sendEncrypted - throws for public-only identity", as
     () =>
       session.sendEncrypted({
         inputs: [],
-        outputs: [["mutable://open/x", {}, 1]],
+        outputs: [["mutable://open/x", 1]],
       }),
     Error,
     "no encryption keys",
@@ -1652,14 +1652,14 @@ Deno.test("AuthenticatedRig.sendEncrypted - envelope is signed and verifiable", 
 
   const result = await session.sendEncrypted({
     inputs: [],
-    outputs: [["mutable://open/enc-verify/x", {}, { secret: true }]],
+    outputs: [["mutable://open/enc-verify/x", { secret: true }]],
   });
 
   // Read the envelope at the hash URI
   const envelope = await rig.readOrThrow<{
     auth: Array<{ pubkey: string; signature: string }>;
     inputs: string[];
-    outputs: Array<[string, Record<string, number>, unknown]>;
+    outputs: Array<[string, unknown]>;
   }>(result.uri);
 
   // Verify the signature
@@ -1707,12 +1707,11 @@ Deno.test("createStoreFromUrl - creates memory store", async () => {
   const store = await createStoreFromUrl("memory://");
 
   await store.write([
-    { uri: "store://test/key", values: { fire: 10 }, data: { val: 1 } },
+    { uri: "store://test/key", data: { values: { fire: 10 }, val: 1 } },
   ]);
   const results = await store.read(["store://test/key"]);
   assertEquals(results[0].success, true);
-  assertEquals(results[0].record?.data, { val: 1 });
-  assertEquals(results[0].record?.values, { fire: 10 });
+  assertEquals(results[0].record?.data, { values: { fire: 10 }, val: 1 });
 });
 
 Deno.test("createStoreFromUrl - rejects console (transport protocol)", async () => {
@@ -1729,7 +1728,7 @@ Deno.test("createClientFromUrl - creates console client", async () => {
   const client = await createClientFromUrl("console://debug");
 
   const results = await client.receive([
-    ["mutable://test/key", {}, "hello"],
+    ["mutable://test/key", "hello"],
   ]);
   assertEquals(results[0].accepted, true);
 
@@ -1808,7 +1807,7 @@ Deno.test("createClientFromUrl - defaults to SimpleClient for storage", async ()
   assertEquals(health.status, "healthy");
 
   // SimpleClient: receive just writes, no envelope decomposition
-  await client.receive([["store://test/key", {}, { val: 1 }]]);
+  await client.receive([["store://test/key", { val: 1 }]]);
   const reads = await client.read("store://test/key");
   assertEquals(reads[0].success, true);
   assertEquals(reads[0].record?.data, { val: 1 });
@@ -1857,7 +1856,7 @@ Deno.test("createClientResolver - resolves memory URL with default SimpleClient"
   assertEquals(health.status, "healthy");
 
   // SimpleClient: receive just writes, no envelope decomposition
-  await client.receive([["store://test/key", {}, { val: 1 }]]);
+  await client.receive([["store://test/key", { val: 1 }]]);
   const reads = await client.read("store://test/key");
   assertEquals(reads[0].success, true);
   assertEquals(reads[0].record?.data, { val: 1 });
@@ -1964,8 +1963,8 @@ Deno.test({
         connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
-    await rig.receive([["mutable://open/wacol/a", {}, { n: 1 }]]);
-    await rig.receive([["mutable://open/wacol/b", {}, { n: 2 }]]);
+    await rig.receive([["mutable://open/wacol/a", { n: 1 }]]);
+    await rig.receive([["mutable://open/wacol/b", { n: 2 }]]);
 
     const abort = new AbortController();
     let snapshots = 0;
@@ -1998,7 +1997,7 @@ Deno.test({
         connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
-    await rig.receive([["mutable://open/wacol/a", {}, { n: 1 }]]);
+    await rig.receive([["mutable://open/wacol/a", { n: 1 }]]);
 
     const abort = new AbortController();
     let snapshots = 0;
@@ -2013,7 +2012,7 @@ Deno.test({
       if (snapshots === 1) {
         assertEquals(snapshot.items.size, 1);
         // Add a new item before next poll
-        await rig.receive([["mutable://open/wacol/b", {}, { n: 2 }]]);
+        await rig.receive([["mutable://open/wacol/b", { n: 2 }]]);
       } else {
         assertEquals(snapshot.items.size, 2);
         assertEquals(snapshot.added, ["mutable://open/wacol/b"]);
@@ -2037,7 +2036,7 @@ Deno.test({
         connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
-    await rig.receive([["mutable://open/wacol/a", {}, { n: 1 }]]);
+    await rig.receive([["mutable://open/wacol/a", { n: 1 }]]);
 
     const abort = new AbortController();
     let snapshots = 0;
@@ -2052,7 +2051,7 @@ Deno.test({
       if (snapshots === 1) {
         assertEquals(snapshot.items.get("mutable://open/wacol/a")?.n, 1);
         // Modify an item before next poll
-        await rig.receive([["mutable://open/wacol/a", {}, { n: 99 }]]);
+        await rig.receive([["mutable://open/wacol/a", { n: 99 }]]);
       } else {
         assertEquals(snapshot.items.get("mutable://open/wacol/a")?.n, 99);
         assertEquals(snapshot.added.length, 0);
@@ -2074,7 +2073,7 @@ Deno.test({
         connection(memClient(), { receive: ["*"], read: ["*"] }),
       ],
     });
-    await rig.receive([["mutable://open/wacol/a", {}, { n: 1 }]]);
+    await rig.receive([["mutable://open/wacol/a", { n: 1 }]]);
 
     const abort = new AbortController();
     let snapshots = 0;
@@ -2155,8 +2154,8 @@ Deno.test({
     })();
 
     // Write two matching values
-    await rig.receive([["mutable://open/wasub/a", {}, { v: 1 }]]);
-    await rig.receive([["mutable://open/wasub/b", {}, { v: 2 }]]);
+    await rig.receive([["mutable://open/wasub/a", { v: 1 }]]);
+    await rig.receive([["mutable://open/wasub/b", { v: 2 }]]);
 
     await done;
 
@@ -2201,8 +2200,8 @@ Deno.test("AuthenticatedRig.sendMany - sends multiple envelopes", async () => {
   const session = id.rig(rig);
 
   const results = await session.sendMany([
-    { inputs: [], outputs: [["mutable://open/wamulti/a", {}, { n: 1 }]] },
-    { inputs: [], outputs: [["mutable://open/wamulti/b", {}, { n: 2 }]] },
+    { inputs: [], outputs: [["mutable://open/wamulti/a", { n: 1 }]] },
+    { inputs: [], outputs: [["mutable://open/wamulti/b", { n: 2 }]] },
   ]);
 
   assertEquals(results.length, 2);
@@ -2239,8 +2238,8 @@ Deno.test("AuthenticatedRig.sendMany - each envelope gets its own hash", async (
   const session = id.rig(rig);
 
   const results = await session.sendMany([
-    { inputs: [], outputs: [["mutable://open/wahash/x", {}, "one"]] },
-    { inputs: [], outputs: [["mutable://open/wahash/y", {}, "two"]] },
+    { inputs: [], outputs: [["mutable://open/wahash/x", "one"]] },
+    { inputs: [], outputs: [["mutable://open/wahash/y", "two"]] },
   ]);
 
   // Each result should have a unique hash URI
@@ -2264,7 +2263,7 @@ Deno.test("Rig hooks - beforeReceive throw rejects receive", async () => {
   });
 
   await assertRejects(
-    () => rig.receive([["mutable://open/test", {}, { x: 1 }]]),
+    () => rig.receive([["mutable://open/test", { x: 1 }]]),
     Error,
     "blocked",
   );
@@ -2288,7 +2287,7 @@ Deno.test("Rig hooks - beforeReceive mutates context", async () => {
     },
   });
 
-  await rig.receive([["mutable://open/test", {}, { x: 1 }]]);
+  await rig.receive([["mutable://open/test", { x: 1 }]]);
   const data = await rig.readData("mutable://open/test");
   assertEquals((data as Record<string, unknown>).injected, true);
 });
@@ -2306,7 +2305,7 @@ Deno.test("Rig hooks - afterRead observes result without modifying", async () =>
     },
   });
 
-  await rig.receive([["mutable://open/test", {}, { x: 1 }]]);
+  await rig.receive([["mutable://open/test", { x: 1 }]]);
   const results = await rig.read("mutable://open/test");
   const result = results[0];
   assertEquals(result.success, true);
@@ -2326,7 +2325,7 @@ Deno.test("Rig hooks - afterRead throw propagates to caller", async () => {
     },
   });
 
-  await rig.receive([["mutable://open/test", {}, { x: 1 }]]);
+  await rig.receive([["mutable://open/test", { x: 1 }]]);
   await assertRejects(
     () => rig.read("mutable://open/test"),
     Error,
@@ -2354,7 +2353,7 @@ Deno.test("Rig hooks - beforeSend throw rejects send", async () => {
     () =>
       session.send({
         inputs: [],
-        outputs: [["mutable://open/x", {}, { v: 1 }]],
+        outputs: [["mutable://open/x", { v: 1 }]],
       }),
     Error,
     "rate limited",
@@ -2376,7 +2375,7 @@ Deno.test("Rig events - fires on receive success", async () => {
     },
   });
 
-  await rig.receive([["mutable://open/test", {}, { x: 1 }]]);
+  await rig.receive([["mutable://open/test", { x: 1 }]]);
   await new Promise((r) => setTimeout(r, 20));
 
   assertEquals(events.length, 1);
@@ -2399,7 +2398,7 @@ Deno.test("Rig events - fires on receive error (program rejection)", async () =>
     },
   });
 
-  await rig.receive([["mutable://invalid-domain/test", {}, { x: 1 }]]);
+  await rig.receive([["mutable://invalid-domain/test", { x: 1 }]]);
   await new Promise((r) => setTimeout(r, 20));
 
   assertEquals(errors.length, 1);
@@ -2418,7 +2417,7 @@ Deno.test("Rig events - wildcard fires for all ops", async () => {
     },
   });
 
-  await rig.receive([["mutable://open/a", {}, { v: 1 }]]);
+  await rig.receive([["mutable://open/a", { v: 1 }]]);
   await rig.read("mutable://open/a");
   await new Promise((r) => setTimeout(r, 20));
 
@@ -2442,7 +2441,7 @@ Deno.test("Rig reaction - fires on receive matching pattern", async () => {
     },
   });
 
-  await rig.receive([["mutable://open/hello", {}, { v: 1 }]]);
+  await rig.receive([["mutable://open/hello", { v: 1 }]]);
   await new Promise((r) => setTimeout(r, 20));
 
   assertEquals(calls.length, 1);
@@ -2468,8 +2467,8 @@ Deno.test("Rig reaction - fires on send for each output", async () => {
   await session.send({
     inputs: [],
     outputs: [
-      ["mutable://open/a", {}, { v: 1 }],
-      ["mutable://open/b", {}, { v: 2 }],
+      ["mutable://open/a", { v: 1 }],
+      ["mutable://open/b", { v: 2 }],
     ],
   });
   await new Promise((r) => setTimeout(r, 20));
@@ -2492,7 +2491,7 @@ Deno.test("Rig reaction - does not fire on read", async () => {
     },
   });
 
-  await rig.receive([["mutable://open/test", {}, { v: 1 }]]);
+  await rig.receive([["mutable://open/test", { v: 1 }]]);
   await new Promise((r) => setTimeout(r, 20));
   called = false; // reset from the receive
 
@@ -2531,13 +2530,13 @@ Deno.test("Rig.on - runtime event handler works", async () => {
     events.push(e);
   });
 
-  await rig.receive([["mutable://open/test", {}, { x: 1 }]]);
+  await rig.receive([["mutable://open/test", { x: 1 }]]);
   await new Promise((r) => setTimeout(r, 20));
   assertEquals(events.length, 1);
 
   unsub();
 
-  await rig.receive([["mutable://open/test2", {}, { x: 2 }]]);
+  await rig.receive([["mutable://open/test2", { x: 2 }]]);
   await new Promise((r) => setTimeout(r, 20));
   assertEquals(events.length, 1); // no new event
 });
@@ -2554,12 +2553,12 @@ Deno.test("Rig.off - removes event handler", async () => {
   };
 
   rig.on("receive:success", handler);
-  await rig.receive([["mutable://open/a", {}, { v: 1 }]]);
+  await rig.receive([["mutable://open/a", { v: 1 }]]);
   await new Promise((r) => setTimeout(r, 20));
   assertEquals(events.length, 1);
 
   rig.off("receive:success", handler);
-  await rig.receive([["mutable://open/b", {}, { v: 2 }]]);
+  await rig.receive([["mutable://open/b", { v: 2 }]]);
   await new Promise((r) => setTimeout(r, 20));
   assertEquals(events.length, 1);
 });
@@ -2576,13 +2575,13 @@ Deno.test("Rig.reaction - runtime react works", async () => {
     calls.push(uri);
   });
 
-  await rig.receive([["mutable://open/hello", {}, { v: 1 }]]);
+  await rig.receive([["mutable://open/hello", { v: 1 }]]);
   await new Promise((r) => setTimeout(r, 20));
   assertEquals(calls.length, 1);
 
   unsub();
 
-  await rig.receive([["mutable://open/world", {}, { v: 2 }]]);
+  await rig.receive([["mutable://open/world", { v: 2 }]]);
   await new Promise((r) => setTimeout(r, 20));
   assertEquals(calls.length, 1); // no new call
 });
@@ -2594,7 +2593,7 @@ Deno.test("Rig connections - per-op routing uses separate backends", async () =>
   const readClient = memClient();
 
   // Write some data to readClient directly
-  await readClient.receive([["mutable://open/cached", {}, { from: "cache" }]]);
+  await readClient.receive([["mutable://open/cached", { from: "cache" }]]);
 
   const rig = new Rig({
     connections: [
@@ -2612,7 +2611,7 @@ Deno.test("Rig connections - per-op routing uses separate backends", async () =>
   assertEquals((data as Record<string, unknown>).from, "cache");
 
   // Receive should go to writeClient
-  await rig.receive([["mutable://open/new", {}, { from: "write" }]]);
+  await rig.receive([["mutable://open/new", { from: "write" }]]);
   const fromWrite = (await writeClient.read("mutable://open/new"))[0];
   assertEquals(fromWrite.success, true);
 
@@ -2635,10 +2634,10 @@ Deno.test("Rig - programs still work with hooks", async () => {
     },
   });
 
-  const [r1] = await rig.receive([["mutable://open/test", {}, { v: 1 }]]);
+  const [r1] = await rig.receive([["mutable://open/test", { v: 1 }]]);
   assertEquals(r1.accepted, true);
 
-  const [r2] = await rig.receive([["mutable://invalid/test", {}, { v: 1 }]]);
+  const [r2] = await rig.receive([["mutable://invalid/test", { v: 1 }]]);
   assertEquals(r2.accepted, false);
 });
 
@@ -2648,8 +2647,8 @@ Deno.test("Rig dispatch - status returns healthy for multi-client", async () => 
   const c1 = memClient();
   const c2 = memClient();
 
-  await c1.receive([["mutable://open/x", {}, "data"]]);
-  await c2.receive([["hash://sha256/abc", {}, "data"]]);
+  await c1.receive([["mutable://open/x", "data"]]);
+  await c2.receive([["hash://sha256/abc", "data"]]);
 
   const rig = new Rig({
     connections: [
@@ -2722,10 +2721,10 @@ Deno.test({
 
       // 4. Write through the server rig (simulating another client)
       await serverRig.receive([
-        ["mutable://open/market/msg1", {}, { type: "ask", price: 42 }],
+        ["mutable://open/market/msg1", { type: "ask", price: 42 }],
       ]);
       await serverRig.receive([
-        ["mutable://open/market/msg2", {}, { type: "bid", price: 40 }],
+        ["mutable://open/market/msg2", { type: "bid", price: 40 }],
       ]);
 
       await done;
