@@ -6,7 +6,9 @@ Pre-push hook blocks on type-check failure. Never leave uncommitted work.
 
 ## Key Commands
 - `make dev` — full env (postgres + node :9942 + rig :5555 + inspector :5556)
-- `make test` / `make test t=<path>` — run tests (`make test-unit` for no-db)
+- `deno task test` — **the command CI runs** (`deno test --allow-all libs/b3nd-*/`). Run this before opening any PR that touches the wire primitive, `libs/b3nd-msg`, `libs/b3nd-core`, or anything cross-cutting.
+- `make test` / `make test t=<path>` — local convenience wrappers (skip postgres/mongo/localstorage libs).
+- `make test-unit` — **fast local subset only** (`b3nd-client-memory`, `b3nd-wallet`, `b3nd-network`, `b3nd-managed-node`). Does NOT verify CI-readiness; CI will still fail on libs this skips. Never use it as your final pre-PR check.
 - `deno check src/mod.ts libs/*/mod.ts` — type-check all entry points
 
 ## Structure
