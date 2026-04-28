@@ -325,7 +325,7 @@ export interface StoreCapabilities {
  * `NodeProtocolInterface.observe` is implemented by clients via
  * `ObserveEmitter`, not by stores.
  *
- * Protocol clients (SimpleClient, MessageDataClient) wrap a Store
+ * Protocol clients (SimpleClient, DataStoreClient) wrap a Store
  * with protocol semantics to produce a NodeProtocolInterface.
  *
  * @example
