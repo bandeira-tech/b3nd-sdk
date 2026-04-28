@@ -1,5 +1,9 @@
 import { assertEquals } from "@std/assert";
 import { matchPattern, ReactionRegistry } from "./reactions.ts";
+import type { Output, ReadFn } from "../b3nd-core/types.ts";
+
+const stubRead: ReadFn = () =>
+  Promise.resolve({ success: false, error: "stub" });
 
 // ── matchPattern ──
 
@@ -58,102 +62,68 @@ Deno.test("matchPattern - empty segments", () => {
 
 // ── ReactionRegistry ──
 
-Deno.test("ReactionRegistry - fires matching handler", async () => {
+Deno.test("ReactionRegistry - matches() returns reactions for matching URI", async () => {
   const registry = new ReactionRegistry();
-  const calls: {
-    uri: string;
-    data: unknown;
-    params: Record<string, string>;
-  }[] = [];
 
-  registry.add("mutable://app/users/:id", (uri, data, params) => {
-    calls.push({ uri, data, params });
+  registry.add("mutable://app/users/:id", (_out, _read, params) => {
+    return Promise.resolve([
+      [`audit://users/${params.id}`, { observed: true }] as Output,
+    ]);
   });
 
-  registry.match("mutable://app/users/alice", { name: "Alice" });
-  await new Promise((r) => setTimeout(r, 10));
+  const matches = registry.matches("mutable://app/users/alice");
+  assertEquals(matches.length, 1);
+  assertEquals(matches[0].params, { id: "alice" });
 
-  assertEquals(calls.length, 1);
-  assertEquals(calls[0].uri, "mutable://app/users/alice");
-  assertEquals(calls[0].data, { name: "Alice" });
-  assertEquals(calls[0].params, { id: "alice" });
+  const result = await matches[0].handler(
+    ["mutable://app/users/alice", { name: "Alice" }],
+    stubRead,
+    matches[0].params,
+  );
+  assertEquals(result, [["audit://users/alice", { observed: true }]]);
 });
 
-Deno.test("ReactionRegistry - no match does not fire", async () => {
+Deno.test("ReactionRegistry - no match returns empty array", () => {
   const registry = new ReactionRegistry();
-  let called = false;
+  registry.add("mutable://app/users/:id", () => Promise.resolve([]));
 
-  registry.add("mutable://app/users/:id", () => {
-    called = true;
-  });
-
-  registry.match("mutable://app/posts/123", {});
-  await new Promise((r) => setTimeout(r, 10));
-
-  assertEquals(called, false);
+  const matches = registry.matches("mutable://app/posts/123");
+  assertEquals(matches.length, 0);
 });
 
-Deno.test("ReactionRegistry - unsubscribe removes handler", async () => {
+Deno.test("ReactionRegistry - unsubscribe removes handler", () => {
   const registry = new ReactionRegistry();
-  let count = 0;
 
-  const unsub = registry.add("mutable://app/config", () => {
-    count++;
-  });
-
-  registry.match("mutable://app/config", {});
-  await new Promise((r) => setTimeout(r, 10));
-  assertEquals(count, 1);
+  const unsub = registry.add(
+    "mutable://app/config",
+    () => Promise.resolve([]),
+  );
+  assertEquals(registry.matches("mutable://app/config").length, 1);
 
   unsub();
-
-  registry.match("mutable://app/config", {});
-  await new Promise((r) => setTimeout(r, 10));
-  assertEquals(count, 1); // no change
+  assertEquals(registry.matches("mutable://app/config").length, 0);
 });
 
-Deno.test("ReactionRegistry - handler errors are swallowed", async () => {
+Deno.test("ReactionRegistry - multiple patterns match same URI", () => {
   const registry = new ReactionRegistry();
-  let secondCalled = false;
+  registry.add("mutable://app/users/:id", () => Promise.resolve([]));
+  registry.add("mutable://app/*", () => Promise.resolve([]));
 
-  registry.add("mutable://app/key", () => {
-    throw new Error("boom");
-  });
-  registry.add("mutable://app/key", () => {
-    secondCalled = true;
-  });
-
-  registry.match("mutable://app/key", {});
-  await new Promise((r) => setTimeout(r, 10));
-
-  assertEquals(secondCalled, true);
-});
-
-Deno.test("ReactionRegistry - multiple patterns match same URI", async () => {
-  const registry = new ReactionRegistry();
-  const calls: string[] = [];
-
-  registry.add("mutable://app/users/:id", () => {
-    calls.push("specific");
-  });
-  registry.add("mutable://app/*", () => {
-    calls.push("wildcard");
-  });
-
-  registry.match("mutable://app/users/alice", {});
-  await new Promise((r) => setTimeout(r, 10));
-
-  assertEquals(calls, ["specific", "wildcard"]);
+  const matches = registry.matches("mutable://app/users/alice");
+  assertEquals(matches.length, 2);
 });
 
 Deno.test("ReactionRegistry - size tracks entries", () => {
   const registry = new ReactionRegistry();
   assertEquals(registry.size, 0);
 
-  const unsub = registry.add("mutable://app/key", () => {});
+  const unsub = registry.add(
+    "mutable://app/key",
+    () => Promise.resolve([]),
+  );
   assertEquals(registry.size, 1);
 
-  registry.add("mutable://app/other", () => {});
+  registry.add("mutable://app/other", () => Promise.resolve([]));
   assertEquals(registry.size, 2);
 
   unsub();
