@@ -16,11 +16,7 @@ import { connection } from "./connection.ts";
 import { DataStoreClient } from "../b3nd-core/data-store-client.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import { FunctionalClient } from "../b3nd-core/functional-client.ts";
-import type {
-  Output,
-  Program,
-  ReceiveResult,
-} from "../b3nd-core/types.ts";
+import type { Output, Program, ReceiveResult } from "../b3nd-core/types.ts";
 
 function memClient() {
   return new DataStoreClient(new MemoryStore());
@@ -116,8 +112,7 @@ Deno.test("OperationHandle - fires route:success per (emission, connection)", as
 
 Deno.test("OperationHandle - fires route:error when a connection rejects", async () => {
   const failing = new FunctionalClient({
-    receive: () =>
-      Promise.resolve([{ accepted: false, error: "disk full" }]),
+    receive: () => Promise.resolve([{ accepted: false, error: "disk full" }]),
   });
   const rig = new Rig({
     connections: [

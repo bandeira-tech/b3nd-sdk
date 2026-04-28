@@ -95,9 +95,7 @@ const resolvers: ServerResolver[] = [
     cors: CORS_ORIGIN,
     statusMeta: { backends: backendTypes },
   }),
-  ...(GRPC_PORT
-    ? [grpcServer({ port: Number(GRPC_PORT) })]
-    : []),
+  ...(GRPC_PORT ? [grpcServer({ port: Number(GRPC_PORT) })] : []),
 ];
 
 const servers = createServers(rig, resolvers);
@@ -184,7 +182,7 @@ if (OPERATOR_KEY) {
   console.log(`[managed] Node ID: ${nodeId} (derived from PEM)`);
   console.log(`[managed] Operator: ${OPERATOR_KEY}`);
 
-  // Rig satisfies NodeProtocolInterface — pass it directly so
+  // Rig satisfies ProtocolInterfaceNode — pass it directly so
   // hooks/events/observe fire for all operations.
   const configClient = rig;
 

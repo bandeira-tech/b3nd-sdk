@@ -14,7 +14,7 @@ behavior into a single object that speaks the universal protocol interface.
 
 ```typescript
 import { connection, Identity, Rig } from "@bandeira-tech/b3nd-sdk/rig";
-import { MessageDataClient, MemoryStore } from "@bandeira-tech/b3nd-sdk";
+import { MemoryStore, MessageDataClient } from "@bandeira-tech/b3nd-sdk";
 
 const rig = new Rig({
   connections: [
@@ -33,9 +33,9 @@ const data = await rig.readData("mutable://open/greeting");
 // → { text: "Hello" }
 ```
 
-That's a working node. No config files, no database — just a rig with a
-memory connection. Swap `MemoryStore` for `PostgresStore` and it's persistent.
-Add a second connection and writes broadcast to both.
+That's a working node. No config files, no database — just a rig with a memory
+connection. Swap `MemoryStore` for `PostgresStore` and it's persistent. Add a
+second connection and writes broadcast to both.
 
 ### Connections — Where Data Lives
 
@@ -67,8 +67,8 @@ const rig = new Rig({
 
 ### Programs — The Rules
 
-Programs are pure functions that classify messages. A protocol defines them;
-the rig dispatches to them by URI prefix.
+Programs are pure functions that classify messages. A protocol defines them; the
+rig dispatches to them by URI prefix.
 
 ```typescript
 const rig = new Rig({
@@ -98,7 +98,9 @@ const session = id.rig(rig);
 // Signed envelope — content-addressed, authenticated
 await session.send({
   inputs: [],
-  outputs: [["mutable://accounts/" + id.pubkey + "/profile", {}, { name: "Alice" }]],
+  outputs: [["mutable://accounts/" + id.pubkey + "/profile", {}, {
+    name: "Alice",
+  }]],
 });
 
 // Encrypted
@@ -165,14 +167,14 @@ Works with Deno.serve, Hono, Express, Cloudflare Workers.
 └─────────────────────────────────────────────┘
 ```
 
-**Protocol designers** use B3nd to define programs and handlers — the rules
-for their network. This is B3nd's primary audience.
+**Protocol designers** use B3nd to define programs and handlers — the rules for
+their network. This is B3nd's primary audience.
 
 **App developers** use a protocol SDK built on B3nd. They call `send()`,
 `read()`, `list()` and don't need to know the framework internals.
 
-**Infrastructure operators** run rigs loaded with a protocol's programs.
-They choose connections (backends), manage replication, handle uptime.
+**Infrastructure operators** run rigs loaded with a protocol's programs. They
+choose connections (backends), manage replication, handle uptime.
 
 ## Packages
 
@@ -183,11 +185,16 @@ They choose connections (backends), manage replication, handle uptime.
 
 ```typescript
 // Deno/Server
-import { Rig, connection, Identity } from "@bandeira-tech/b3nd-sdk/rig";
-import { MessageDataClient, MemoryStore, PostgresStore, HttpClient } from "@bandeira-tech/b3nd-sdk";
+import { connection, Identity, Rig } from "@bandeira-tech/b3nd-sdk/rig";
+import {
+  HttpClient,
+  MemoryStore,
+  MessageDataClient,
+  PostgresStore,
+} from "@bandeira-tech/b3nd-sdk";
 
 // Browser/React
-import { Rig, connection, Identity } from "@bandeira-tech/b3nd-web/rig";
+import { connection, Identity, Rig } from "@bandeira-tech/b3nd-web/rig";
 import { HttpClient, IndexedDBStore } from "@bandeira-tech/b3nd-web";
 ```
 
@@ -214,7 +221,7 @@ import { HttpClient, IndexedDBStore } from "@bandeira-tech/b3nd-web";
 | `WebSocketClient` | Any         | Remote WebSocket node       |
 | `ConsoleClient`   | Any         | Console output (write-only) |
 
-All clients implement `NodeProtocolInterface`. The rig itself also satisfies
+All clients implement `ProtocolInterfaceNode`. The rig itself also satisfies
 this interface — pass it anywhere a client is expected.
 
 ## Running a Node
@@ -222,12 +229,12 @@ this interface — pass it anywhere a client is expected.
 The prebuilt node binary (`apps/b3nd-node/`) configures a rig from environment
 variables:
 
-| Variable        | Description              | Example                            |
-| --------------- | ------------------------ | ---------------------------------- |
-| `BACKEND_URL`   | Comma-separated backends | `memory://`, `postgresql://...`    |
-| `SCHEMA_MODULE` | Path to protocol schema  | `./my-protocol-schema.ts`          |
-| `PORT`          | Listen port              | `9942`                             |
-| `CORS_ORIGIN`   | Allowed origins          | `*`                                |
+| Variable        | Description              | Example                         |
+| --------------- | ------------------------ | ------------------------------- |
+| `BACKEND_URL`   | Comma-separated backends | `memory://`, `postgresql://...` |
+| `SCHEMA_MODULE` | Path to protocol schema  | `./my-protocol-schema.ts`       |
+| `PORT`          | Listen port              | `9942`                          |
+| `CORS_ORIGIN`   | Allowed origins          | `*`                             |
 
 ```bash
 # Memory (no dependencies)

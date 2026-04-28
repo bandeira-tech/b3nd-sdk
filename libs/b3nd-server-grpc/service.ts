@@ -118,9 +118,10 @@ async function handleRead(rig: Rig, req: Request): Promise<Response> {
       const proto = readResultToProto(r);
       // Encode bytes as base64 for JSON transport
       if (proto.record?.data) {
-        (proto.record as unknown as Record<string, unknown>).data = bytesToBase64(
-          proto.record.data,
-        );
+        (proto.record as unknown as Record<string, unknown>).data =
+          bytesToBase64(
+            proto.record.data,
+          );
       }
       return proto;
     }),
@@ -156,9 +157,10 @@ async function handleObserve(rig: Rig, req: Request): Promise<Response> {
           const proto = readResultToProto(result);
           // Encode bytes as base64 for JSON transport
           if (proto.record?.data) {
-            (proto.record as unknown as Record<string, unknown>).data = bytesToBase64(
-              proto.record.data,
-            );
+            (proto.record as unknown as Record<string, unknown>).data =
+              bytesToBase64(
+                proto.record.data,
+              );
           }
           controller.enqueue(encoder.encode(JSON.stringify(proto) + "\n"));
         }

@@ -1,5 +1,5 @@
 /**
- * WebSocketClient - WebSocket implementation of NodeProtocolInterface
+ * WebSocketClient - WebSocket implementation of ProtocolInterfaceNode
  *
  * Connects to B3nd WebSocket servers and forwards operations.
  * Handles reconnection and connection pooling.
@@ -7,7 +7,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -20,7 +20,7 @@ import {
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
 
-export class WebSocketClient implements NodeProtocolInterface {
+export class WebSocketClient implements ProtocolInterfaceNode {
   private config: WebSocketClientConfig;
   private ws: WebSocket | null = null;
   private connected = false;
@@ -253,7 +253,9 @@ export class WebSocketClient implements NodeProtocolInterface {
    */
   async receive(msgs: Message[]): Promise<ReceiveResult[]> {
     try {
-      const encodedMsgs = msgs.map(([uri, payload]) => [uri, encodeBinaryForJson(payload)]);
+      const encodedMsgs = msgs.map((
+        [uri, payload],
+      ) => [uri, encodeBinaryForJson(payload)]);
       const results = await this.sendRequest<ReceiveResult[]>(
         "receive",
         encodedMsgs,

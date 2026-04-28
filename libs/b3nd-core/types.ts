@@ -211,7 +211,7 @@ export interface ReceiveResult {
 }
 
 /**
- * NodeProtocolInterface — the universal interface implemented by all clients.
+ * ProtocolInterfaceNode — the universal interface implemented by all clients.
  *
  * Four primitives:
  * - `receive` — all state changes (writes)
@@ -222,7 +222,7 @@ export interface ReceiveResult {
  * All B3nd clients (Memory, HTTP, WebSocket, Postgres, IndexedDB, etc.)
  * implement this interface, enabling recursive composition and uniform usage.
  */
-export interface NodeProtocolInterface {
+export interface ProtocolInterfaceNode {
   /**
    * Receive a batch of messages — the unified entry point for all state changes.
    *
@@ -327,11 +327,11 @@ export interface StoreCapabilities {
  * The Store knows nothing about protocols, envelopes, or message
  * semantics. It is pure mechanical storage: write entries, read
  * entries, delete entries. Observation is a client concern —
- * `NodeProtocolInterface.observe` is implemented by clients via
+ * `ProtocolInterfaceNode.observe` is implemented by clients via
  * `ObserveEmitter`, not by stores.
  *
  * Protocol clients (SimpleClient, DataStoreClient) wrap a Store
- * with protocol semantics to produce a NodeProtocolInterface.
+ * with protocol semantics to produce a ProtocolInterfaceNode.
  *
  * @example
  * ```typescript

@@ -4,10 +4,7 @@ import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { routeForExplorerPath } from "../../utils";
 import { useActiveBackend } from "../../stores/appStore";
-import type {
-  NavigationNode,
-  PaginatedResponse,
-} from "../../types";
+import type { NavigationNode, PaginatedResponse } from "../../types";
 import {
   Calendar,
   ChevronDown,

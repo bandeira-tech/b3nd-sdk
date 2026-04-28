@@ -2,7 +2,7 @@
  * @module
  * Tests for `pathVector(peers)` — flood with signer-chain loop filter.
  *
- * The full NPI surface (receive/read/observe/status) is shared with
+ * The full PIN surface (receive/read/observe/status) is shared with
  * `flood` and covered by `flood.test.ts`. These tests focus on the
  * filter behavior that's unique to pathVector.
  */
@@ -10,7 +10,7 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import type { Message, NodeProtocolInterface } from "../../b3nd-core/types.ts";
+import type { Message, ProtocolInterfaceNode } from "../../b3nd-core/types.ts";
 import { pathVector } from "./path-vector.ts";
 import { peer } from "../mod.ts";
 import type { Peer } from "../mod.ts";
@@ -24,7 +24,7 @@ function recordingPeer(id: string): {
   received: Message[];
 } {
   const received: Message[] = [];
-  const client: NodeProtocolInterface = {
+  const client: ProtocolInterfaceNode = {
     receive: (msgs) => {
       received.push(...msgs);
       return Promise.resolve(msgs.map(() => ({ accepted: true })));

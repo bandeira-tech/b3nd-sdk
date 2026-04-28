@@ -38,11 +38,7 @@
  * ```
  */
 
-import type {
-  CodeHandler,
-  Output,
-  Program,
-} from "../../b3nd-core/types.ts";
+import type { CodeHandler, Output, Program } from "../../b3nd-core/types.ts";
 import type { MessageData } from "./types.ts";
 
 /** True if the payload looks like a `MessageData` envelope. */

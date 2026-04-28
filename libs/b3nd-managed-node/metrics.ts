@@ -1,13 +1,13 @@
 /**
  * Metrics collector for managed nodes.
  *
- * Wraps a NodeProtocolInterface to collect latency/throughput stats
+ * Wraps a ProtocolInterfaceNode to collect latency/throughput stats
  * and periodically writes signed+encrypted metrics to:
  *   mutable://accounts/{nodeKey}/metrics
  */
 
 import type {
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
 } from "@bandeira-tech/b3nd-sdk";
 import { createSignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
@@ -27,7 +27,7 @@ function percentile(sorted: number[], p: number): number {
 }
 
 export interface MetricsCollectorOptions {
-  metricsClient: NodeProtocolInterface;
+  metricsClient: ProtocolInterfaceNode;
   nodeId: string;
   intervalMs: number;
   signer: { privateKey: CryptoKey; publicKeyHex: string };
@@ -48,7 +48,7 @@ export interface MetricsCollector {
   /** Stop periodic reporting */
   stop(): void;
   /** Wrap a client to auto-collect metrics */
-  wrapClient(client: NodeProtocolInterface): NodeProtocolInterface;
+  wrapClient(client: ProtocolInterfaceNode): ProtocolInterfaceNode;
 }
 
 export function createMetricsCollector(
@@ -112,10 +112,10 @@ export function createMetricsCollector(
     windowStart = Date.now();
   }
 
-  function wrapClient(client: NodeProtocolInterface): NodeProtocolInterface {
+  function wrapClient(client: ProtocolInterfaceNode): ProtocolInterfaceNode {
     return {
       receive: async (
-        ...args: Parameters<NodeProtocolInterface["receive"]>
+        ...args: Parameters<ProtocolInterfaceNode["receive"]>
       ) => {
         const start = performance.now();
         try {

@@ -296,9 +296,9 @@ transport is external. Returns a standard `(Request) => Promise<Response>` with
 all b3nd API routes including SSE subscriptions. Framework-agnostic — plug into
 Deno.serve, Hono, Express, Cloudflare Workers.
 
-## NodeProtocolInterface
+## ProtocolInterfaceNode
 
-The Rig structurally satisfies `NodeProtocolInterface` (4 methods: `receive`,
+The Rig structurally satisfies `ProtocolInterfaceNode` (4 methods: `receive`,
 `read`, `observe`, `status`). Pass it directly to any function that expects a
 client — hooks, events, and reactions fire for every operation.
 

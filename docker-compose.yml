@@ -10,7 +10,6 @@
 
 services:
   # ── Test profile (ephemeral, non-standard ports) ──────────────────────
-
   postgres-test:
     image: postgres:17-alpine
     container_name: b3nd-postgres-test

@@ -1,5 +1,5 @@
 /**
- * DataStoreClient — null-aware NodeProtocolInterface over a Store.
+ * DataStoreClient — null-aware ProtocolInterfaceNode over a Store.
  *
  * Wraps any `Store` and translates the wire convention into Store
  * calls. Knows nothing about envelopes, signatures, or any protocol
@@ -32,7 +32,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -41,7 +41,7 @@ import type {
 import { ObserveEmitter } from "./observe-emitter.ts";
 
 export class DataStoreClient extends ObserveEmitter
-  implements NodeProtocolInterface {
+  implements ProtocolInterfaceNode {
   readonly store: Store;
 
   constructor(store: Store) {

@@ -6,7 +6,9 @@ import type { Rig } from "./rig.ts";
 // Minimal stub rig — createServers only passes it through
 const stubRig = {} as Rig;
 
-function fakeResolver(transport: string): ServerResolver & { created: TransportServer[] } {
+function fakeResolver(
+  transport: string,
+): ServerResolver & { created: TransportServer[] } {
   const created: TransportServer[] = [];
   return {
     transport,
@@ -61,8 +63,12 @@ Deno.test("TransportServer lifecycle", async () => {
       return {
         transport: "test",
         address: "test://0.0.0.0:0",
-        async start() { started = true; },
-        async stop() { stopped = true; },
+        async start() {
+          started = true;
+        },
+        async stop() {
+          stopped = true;
+        },
       };
     },
   };

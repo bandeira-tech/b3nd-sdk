@@ -16,10 +16,7 @@ import { MemoryStore } from "../../b3nd-client-memory/store.ts";
 import { SimpleClient } from "../../b3nd-core/simple-client.ts";
 import { Rig } from "../../b3nd-rig/rig.ts";
 import { connection } from "../../b3nd-rig/connection.ts";
-import type {
-  Message,
-  NodeProtocolInterface,
-} from "../../b3nd-core/types.ts";
+import type { Message, ProtocolInterfaceNode } from "../../b3nd-core/types.ts";
 import { network, peer, tellAndRead } from "../mod.ts";
 import type { Peer } from "../mod.ts";
 
@@ -29,7 +26,7 @@ function mem(): SimpleClient {
 
 function recordingPeer(id: string): { peer: Peer; received: Message[] } {
   const received: Message[] = [];
-  const client: NodeProtocolInterface = {
+  const client: ProtocolInterfaceNode = {
     receive: (msgs) => {
       received.push(...msgs);
       return Promise.resolve(msgs.map(() => ({ accepted: true })));

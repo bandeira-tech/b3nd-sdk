@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package b3nd.v1;
 
-// B3ndService — the four NodeProtocolInterface primitives over gRPC.
+// B3ndService — the four ProtocolInterfaceNode primitives over gRPC.
 //
 // `data` fields use `bytes` (JSON-encoded) to avoid protobuf Struct
 // impedance mismatch. Arbitrary TS types pass through as UTF-8 JSON.

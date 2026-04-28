@@ -20,7 +20,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -38,7 +38,7 @@ function safeStringify(data: unknown): string {
   }
 }
 
-export class ConsoleClient implements NodeProtocolInterface {
+export class ConsoleClient implements ProtocolInterfaceNode {
   private readonly label: string;
   private readonly log: (message: string) => void;
 

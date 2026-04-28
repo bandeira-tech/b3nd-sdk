@@ -1,7 +1,7 @@
 /**
  * FunctionalClient Test Suite
  *
- * Tests for the FunctionalClient class which delegates NPI methods
+ * Tests for the FunctionalClient class which delegates PIN methods
  * to config functions, with sensible defaults for missing methods.
  */
 

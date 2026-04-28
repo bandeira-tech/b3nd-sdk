@@ -54,10 +54,10 @@ export type {
 export type {
   CodeHandler,
   Message,
-  NodeProtocolInterface,
   Output,
   Program,
   ProgramResult,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,

@@ -5,8 +5,8 @@
 
 import type {
   CodeHandler,
-  NodeProtocolInterface,
   Program,
+  ProtocolInterfaceNode,
 } from "../b3nd-core/types.ts";
 import type { HooksConfig } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";

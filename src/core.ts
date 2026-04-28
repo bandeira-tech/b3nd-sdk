@@ -21,10 +21,10 @@ export type {
   ListOptions,
   ListResult,
   Message,
-  NodeProtocolInterface,
   Output,
   Program,
   ProgramResult,
+  ProtocolInterfaceNode,
   ReadFn,
   ReadMultiResult,
   ReadMultiResultItem,
@@ -51,7 +51,7 @@ export {
 
 export { decodeHex, encodeHex } from "../libs/b3nd-core/encoding.ts";
 
-// ── Protocol clients (Store → NodeProtocolInterface) ──
+// ── Protocol clients (Store → ProtocolInterfaceNode) ──
 
 export { SimpleClient } from "../libs/b3nd-core/simple-client.ts";
 export { DataStoreClient } from "../libs/b3nd-core/data-store-client.ts";

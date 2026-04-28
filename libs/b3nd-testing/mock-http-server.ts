@@ -7,7 +7,6 @@
  * - Validation errors (schema validation failures)
  */
 
-
 import { decodeBase64 } from "../b3nd-core/encoding.ts";
 
 /**
@@ -136,7 +135,10 @@ export class MockHttpServer {
 
     if (!msgs || !Array.isArray(msgs)) {
       return Response.json(
-        [{ accepted: false, error: "Invalid message format: expected Message[]" }],
+        [{
+          accepted: false,
+          error: "Invalid message format: expected Message[]",
+        }],
         { status: 400 },
       );
     }
@@ -145,7 +147,10 @@ export class MockHttpServer {
 
     for (const msg of msgs) {
       if (!Array.isArray(msg) || msg.length < 2) {
-        results.push({ accepted: false, error: "Invalid message: expected [uri, payload]" });
+        results.push({
+          accepted: false,
+          error: "Invalid message: expected [uri, payload]",
+        });
         continue;
       }
 
@@ -159,7 +164,10 @@ export class MockHttpServer {
         Array.isArray((msgPayload as Record<string, unknown>).outputs);
 
       if (isEnvelope) {
-        const { inputs, outputs } = msgPayload as { inputs: string[]; outputs: unknown[][] };
+        const { inputs, outputs } = msgPayload as {
+          inputs: string[];
+          outputs: unknown[][];
+        };
 
         // Delete inputs
         for (const inputUri of inputs) {

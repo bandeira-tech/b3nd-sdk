@@ -20,11 +20,11 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 import {
-  generateSigningKeyPair,
-  generateEncryptionKeyPair,
-  exportPrivateKeyPem,
-  IdentityKey,
   type AuthenticatedMessage,
+  exportPrivateKeyPem,
+  generateEncryptionKeyPair,
+  generateSigningKeyPair,
+  IdentityKey,
 } from "../../libs/b3nd-encrypt/mod.ts";
 
 // Backend configuration
@@ -866,7 +866,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           backend?: string;
         };
         const { client, config } = getClient(backendName);
-        const uri = `mutable://accounts/${operatorKeyHex}/nodes/${nodeId}/config`;
+        const uri =
+          `mutable://accounts/${operatorKeyHex}/nodes/${nodeId}/config`;
 
         const identity = await IdentityKey.fromPem(
           operatorKeyPem,
@@ -911,7 +912,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           backend?: string;
         };
         const { client, config } = getClient(backendName);
-        const uri = `mutable://accounts/${operatorKeyHex}/nodes/${nodeId}/config`;
+        const uri =
+          `mutable://accounts/${operatorKeyHex}/nodes/${nodeId}/config`;
         const result = await client.read(uri);
         if (result.success) {
           return {

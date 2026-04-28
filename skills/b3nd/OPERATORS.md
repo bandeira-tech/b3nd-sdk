@@ -122,7 +122,7 @@ curl http://localhost:9942/health
 ## Backends
 
 B3nd nodes support multiple storage backends. Each backend implements the
-`NodeProtocolInterface` — the same interface apps use to talk to nodes.
+`ProtocolInterfaceNode` — the same interface apps use to talk to nodes.
 
 ### Backend Types
 

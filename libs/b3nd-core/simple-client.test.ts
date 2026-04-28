@@ -1,7 +1,7 @@
 /**
  * SimpleClient Tests
  *
- * Tests the bare NodeProtocolInterface wrapper over a Store.
+ * Tests the bare ProtocolInterfaceNode wrapper over a Store.
  */
 
 /// <reference lib="deno.ns" />
@@ -164,7 +164,10 @@ Deno.test({
 
     // Conserved quantities live inside the payload (RFC 001).
     await client.receive([
-      ["mutable://tokens/1", { values: { fire: 75, usd: 25 }, label: "payload" }],
+      ["mutable://tokens/1", {
+        values: { fire: 75, usd: 25 },
+        label: "payload",
+      }],
     ]);
     await done;
 

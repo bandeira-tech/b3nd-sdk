@@ -91,8 +91,7 @@ rules about who can enter.
 In b3nd, the **schema** is the house rules. It defines what kind of messages
 this node accepts.
 
-A B3nd node accepts messages to these
-addresses:
+A B3nd node accepts messages to these addresses:
 
 | Address type                   | Who can write         | Persistence | Use case                        |
 | ------------------------------ | --------------------- | ----------- | ------------------------------- |
@@ -115,14 +114,14 @@ without a valid address.
 
 ## The Three-Layer View
 
-|               | Speech (clerk)                | Paper (post office)       | Digital (b3nd node)        |
-| ------------- | ----------------------------- | ------------------------- | -------------------------- |
+|               | Speech (clerk)                | Paper (post office)       | Digital (b3nd node)              |
+| ------------- | ----------------------------- | ------------------------- | -------------------------------- |
 | **Receives**  | Listens to what you say       | Accepts your letter       | `receive([[uri, values, data]])` |
-| **Files**     | Remembers or writes it down   | Sorts into mailbox        | Stores at the URI          |
-| **Retrieves** | Tells you what was said       | Gives you your mail       | `read(uri)`                |
-| **Lists**     | "Here's what we have on file" | Lists items in a box      | `list(prefix)`             |
-| **Validates** | "You can't speak here, sir"   | "This address is invalid" | Schema rejects the message |
-| **Removes**   | Shreds a document             | Discards expired mail     | `delete(uri)`              |
+| **Files**     | Remembers or writes it down   | Sorts into mailbox        | Stores at the URI                |
+| **Retrieves** | Tells you what was said       | Gives you your mail       | `read(uri)`                      |
+| **Lists**     | "Here's what we have on file" | Lists items in a box      | `list(prefix)`                   |
+| **Validates** | "You can't speak here, sir"   | "This address is invalid" | Schema rejects the message       |
+| **Removes**   | Shreds a document             | Discards expired mail     | `delete(uri)`                    |
 
 The machine is not mysterious. It's a clerk at a counter, following the room's
 rules. The medium changed from air to paper to electromagnetic signals. The role

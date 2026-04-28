@@ -1,13 +1,13 @@
 /**
  * Node builder for managed nodes.
  *
- * Constructs NodeProtocolInterface clients from BackendSpec arrays,
+ * Constructs ProtocolInterfaceNode clients from BackendSpec arrays,
  * using Store + DataStoreClient (null-aware Store adapter).
  */
 
 import {
   HttpClient,
-  type NodeProtocolInterface,
+  type ProtocolInterfaceNode,
 } from "@bandeira-tech/b3nd-sdk";
 import { DataStoreClient } from "../b3nd-rig/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
@@ -23,8 +23,8 @@ import type { BackendSpec } from "./types.ts";
 export async function buildClientsFromSpec(
   specs: BackendSpec[],
   backends: BackendResolver[] = [],
-): Promise<NodeProtocolInterface[]> {
-  const clients: NodeProtocolInterface[] = [];
+): Promise<ProtocolInterfaceNode[]> {
+  const clients: ProtocolInterfaceNode[] = [];
 
   for (const spec of specs) {
     // Built-in: memory

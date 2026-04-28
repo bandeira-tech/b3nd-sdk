@@ -104,7 +104,7 @@ const health = await rig.status();
 console.log(`Backend node: ${BACKEND_URL} (${health.status})`);
 
 // --- Compose: handler + respondTo + connect ---
-// Pass the rig directly — it satisfies NodeProtocolInterface and
+// Pass the rig directly — it satisfies ProtocolInterfaceNode and
 // ensures hooks/events/observe fire for all operations.
 
 const identity = { signingKeyPair, encryptionKeyPair };

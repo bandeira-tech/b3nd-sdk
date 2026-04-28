@@ -1,17 +1,17 @@
 # @bandeira-tech/b3nd-sdk/network
 
-Peer-network primitives for B3nd. Compose `NodeProtocolInterface` clients into
+Peer-network primitives for B3nd. Compose `ProtocolInterfaceNode` clients into
 peer collections that are consumed in one of two ways:
 
 - **`network(target, peers, policies?, opts?)`** — the participant verb. Wires
   peer observe streams into a target's receive pipeline and returns an async
   unbind. Zero or more `Policy`s chain inbound event translations.
 - **Strategy factories** (`flood(peers)`, `pathVector(peers)`, …) — each returns
-  a plain `NodeProtocolInterface` built from the peer list. Use as rig
+  a plain `ProtocolInterfaceNode` built from the peer list. Use as rig
   connections: `connection(flood(peers), patterns)`.
 
 Same peer primitive, two different shapes on the consumer side. The shapes are
-disjoint (a function vs. a `NodeProtocolInterface`), so passing one where the
+disjoint (a function vs. a `ProtocolInterfaceNode`), so passing one where the
 other is expected is a compile error.
 
 ## Install & import
@@ -37,7 +37,7 @@ import {
       │                   │
       ▼                   ▼
 network(target, peers,   flood(peers)          ← strategy factories
-        policies?,        pathVector(peers)     (return NPI)
+        policies?,        pathVector(peers)     (return PIN)
         opts?)
   (participant verb,
    returns unbind)                │
@@ -88,7 +88,7 @@ pathVector(peers); // flood + signer-chain loop filter
 // future: roundRobin, firstAccept, etc.
 ```
 
-Each returns a plain `NodeProtocolInterface`. The outbound policy is baked in;
+Each returns a plain `ProtocolInterfaceNode`. The outbound policy is baked in;
 there's no Policy argument at this layer. If you need a different strategy, use
 (or write) a different factory.
 
@@ -197,7 +197,7 @@ const r = await rig.read("mutable://shared/hello");
 
 Announce small messages on the wire; let consumers pull the full payload via
 `read()` only when they want it. The "pull" leg is the existing
-`NodeProtocolInterface.read` — no new protocol, no new transport, no special
+`ProtocolInterfaceNode.read` — no new protocol, no new transport, no special
 side-channel. URI layout for announcements is the protocol author's call; the
 framework never peeks at a scheme.
 
@@ -280,7 +280,7 @@ layout; policies act on it.
 peer (e.g., pull a full payload after an announcement), it calls
 `ctx.source.client.read(uri)` or `ctx.source.client.receive([msg])`. No special
 side-channel API — everything is addressed content flowing through
-`NodeProtocolInterface`. Works in browsers, serverless, embedded.
+`ProtocolInterfaceNode`. Works in browsers, serverless, embedded.
 
 ## Roadmap
 

@@ -11,7 +11,7 @@
  *
  * Why both shapes:
  *   - Awaitable so existing callers (`await rig.receive(outs)`) and
- *     `NodeProtocolInterface.receive` consumers see no contract change.
+ *     `ProtocolInterfaceNode.receive` consumers see no contract change.
  *   - Observable so callers who care about per-stage detail or per-route
  *     dispatch outcomes can subscribe inline, without correlation IDs
  *     or filtering global rig events.
@@ -212,9 +212,7 @@ export class OperationHandleImpl implements OperationHandle {
     for (const entry of this._listeners) {
       if (entry.event !== event) continue;
       Promise.resolve()
-        .then(() =>
-          (entry.handler as OperationEventHandler<E>)(payload)
-        )
+        .then(() => (entry.handler as OperationEventHandler<E>)(payload))
         .catch((err) => {
           console.warn(`[rig] operation listener error on "${event}":`, err);
         });

@@ -1,20 +1,20 @@
 # Infrastructure & Deployment
 
-A B3nd node is a process that speaks the `NodeProtocolInterface` — it
-can `receive()`, `read()`, and report `status()`. Everything else is a
-deployment choice. This document explores what nodes need to support
-handlers and listeners, how to deploy them, and how to scale.
+A B3nd node is a process that speaks the `ProtocolInterfaceNode` — it can
+`receive()`, `read()`, and report `status()`. Everything else is a deployment
+choice. This document explores what nodes need to support handlers and
+listeners, how to deploy them, and how to scale.
 
 ---
 
 ## Node Requirements for Handler Support
 
-A node that supports handlers must provide the full protocol
-interface. Handlers compose with these operations:
+A node that supports handlers must provide the full protocol interface. Handlers
+compose with these operations:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                  NodeProtocolInterface                    │
+│                  ProtocolInterfaceNode                    │
 │                                                          │
 │  receive(msgs)   ── accept [uri, values, data] messages         │
 │  read(uri)       ── fetch a single record                │
@@ -51,12 +51,12 @@ A handler uses these operations in a specific pattern:
 1. Client writes an encrypted request to the handler's inbox URI
 2. Handler (via `connect()`) calls `read("prefix/")` to discover new inbox items
 3. Handler calls `read(uri)` to fetch each request
-4. Handler processes the request and calls `receive()` to write the
-   encrypted response to the client's outbox
+4. Handler processes the request and calls `receive()` to write the encrypted
+   response to the client's outbox
 5. Client calls `read()` to fetch the response
 
-The node must support `receive()`, `read()`, and `read("prefix/")`.
-A read-only node or a write-only node cannot host handlers.
+The node must support `receive()`, `read()`, and `read("prefix/")`. A read-only
+node or a write-only node cannot host handlers.
 
 ---
 
@@ -98,6 +98,7 @@ createServerNode({ frontend, client });
 **Best for:** Development, prototypes, single-purpose services.
 
 **Characteristics:**
+
 - Zero network hops between handler and storage
 - Single process to monitor
 - Handler failure takes down the node
@@ -136,6 +137,7 @@ conn.start();
 **Best for:** Production deployments, the vault listener pattern.
 
 **Characteristics:**
+
 - Handler restarts don't affect the node
 - Handler can run on different hardware / region
 - Network latency on each poll cycle
@@ -170,6 +172,7 @@ Multiple nodes share the same backend. Listeners connect to any node.
 **Best for:** High availability, load balancing, geographic distribution.
 
 **Characteristics:**
+
 - Any node can accept writes — they all share storage
 - Listener polls through one node but could failover
 - Load balancer distributes client traffic
@@ -177,8 +180,8 @@ Multiple nodes share the same backend. Listeners connect to any node.
 
 ### Peer Replication + Local Handlers
 
-Each node has its own storage and replicates with peers. Handlers run
-locally on each node.
+Each node has its own storage and replicates with peers. Handlers run locally on
+each node.
 
 ```
 ┌──────────────┐            ┌──────────────┐
@@ -198,10 +201,10 @@ locally on each node.
    └─────────┘                 └─────────┘
 ```
 
-**Best for:** Distributed networks, censorship resistance, edge
-deployments.
+**Best for:** Distributed networks, censorship resistance, edge deployments.
 
 **Characteristics:**
+
 - No single point of failure
 - Eventual consistency between nodes
 - Handler logic runs at the edge
@@ -212,9 +215,9 @@ deployments.
 
 ## Inbox / Outbox Convention
 
-Handlers use URI conventions to discover and route messages. These are
-not protocol requirements — they're the pattern that `respondTo()` and
-`connect()` implement.
+Handlers use URI conventions to discover and route messages. These are not
+protocol requirements — they're the pattern that `respondTo()` and `connect()`
+implement.
 
 ### URI Patterns
 
@@ -226,16 +229,16 @@ Outbox (handler → client):
   immutable://inbox/{clientPubkey}/{topic}/{timestamp}
 ```
 
-Both directions use `immutable://inbox` — write-once delivery. The
-handler's pubkey identifies its inbox. The client's pubkey identifies
-its outbox (from the handler's perspective).
+Both directions use `immutable://inbox` — write-once delivery. The handler's
+pubkey identifies its inbox. The client's pubkey identifies its outbox (from the
+handler's perspective).
 
 ### Discovery Pattern
 
 ```typescript
 // Handler discovers new messages by reading with a trailing slash (list)
 const items = await client.read(
-  `immutable://inbox/${handlerPubkey}/`
+  `immutable://inbox/${handlerPubkey}/`,
 );
 
 // Process each message
@@ -247,11 +250,11 @@ for (const item of items.data) {
 
 ### Retention Strategies
 
-| Strategy          | How                                    | When                          |
-| ----------------- | -------------------------------------- | ----------------------------- |
-| TTL-based         | Periodic sweep of old URIs             | When audit trail needed       |
-| Archive           | Copy to `hash://` for permanence       | When responses need history   |
-| Keep all          | Leave inbox items forever              | Development / debugging       |
+| Strategy  | How                              | When                        |
+| --------- | -------------------------------- | --------------------------- |
+| TTL-based | Periodic sweep of old URIs       | When audit trail needed     |
+| Archive   | Copy to `hash://` for permanence | When responses need history |
+| Keep all  | Leave inbox items forever        | Development / debugging     |
 
 ### Topic Namespacing
 
@@ -302,8 +305,8 @@ Simple, resilient, high latency.
 └────────┘                     └──────────┘
 ```
 
-**Push model (future):** Node notifies handler when new items arrive.
-Lower latency, more complex.
+**Push model (future):** Node notifies handler when new items arrive. Lower
+latency, more complex.
 
 ```
 ┌────────┐  subscribe()      ┌──────────┐
@@ -318,8 +321,8 @@ Lower latency, more complex.
 
 ### Backpressure
 
-When a handler can't keep up, the inbox grows. The `read("prefix/")`
-pagination provides natural backpressure:
+When a handler can't keep up, the inbox grows. The `read("prefix/")` pagination
+provides natural backpressure:
 
 ```typescript
 // Process one page at a time
@@ -330,6 +333,7 @@ for (const item of page.data) {
 ```
 
 If the inbox grows beyond a threshold, the handler can:
+
 - Increase poll frequency
 - Process items in parallel (within a page)
 - Alert the operator
@@ -349,9 +353,9 @@ Multiple listener instances can share an inbox if they coordinate:
 └────────────┘                  └──────────┘
 ```
 
-This requires external coordination (lock service, partitioning) to
-prevent duplicate processing. Simpler: run one listener per inbox and
-scale by adding more inboxes (topic sharding).
+This requires external coordination (lock service, partitioning) to prevent
+duplicate processing. Simpler: run one listener per inbox and scale by adding
+more inboxes (topic sharding).
 
 ---
 
@@ -387,15 +391,15 @@ A production node deployment requires:
 
 ### Environment Variables
 
-| Variable           | Purpose                          | Example                         |
-| ------------------ | -------------------------------- | ------------------------------- |
-| `PORT`             | HTTP server port                 | `43100`                         |
-| `CORS_ORIGIN`      | Allowed origins                  | `*` or `https://app.example`    |
-| `BACKEND_URL`      | Storage backend connection       | `postgres://user:pass@host/db`  |
-| `VAULT_SECRET`     | Handler-specific secret          | `(random 256-bit hex)`          |
-| `VAULT_SEED`       | Deterministic identity seed      | `(random 256-bit hex)`          |
-| `POLL_INTERVAL_MS` | Listener poll frequency          | `5000`                          |
-| `BACKEND_URL`      | Remote node URL (for listeners)  | `https://your-node.example.com` |
+| Variable           | Purpose                         | Example                         |
+| ------------------ | ------------------------------- | ------------------------------- |
+| `PORT`             | HTTP server port                | `43100`                         |
+| `CORS_ORIGIN`      | Allowed origins                 | `*` or `https://app.example`    |
+| `BACKEND_URL`      | Storage backend connection      | `postgres://user:pass@host/db`  |
+| `VAULT_SECRET`     | Handler-specific secret         | `(random 256-bit hex)`          |
+| `VAULT_SEED`       | Deterministic identity seed     | `(random 256-bit hex)`          |
+| `POLL_INTERVAL_MS` | Listener poll frequency         | `5000`                          |
+| `BACKEND_URL`      | Remote node URL (for listeners) | `https://your-node.example.com` |
 
 ### Health Checks
 
@@ -409,21 +413,21 @@ The `/api/v1/status` endpoint returns:
 }
 ```
 
-For listeners, health is measured by poll success rate. A listener that
-fails to `read("prefix/")` for N consecutive cycles should alert.
+For listeners, health is measured by poll success rate. A listener that fails to
+`read("prefix/")` for N consecutive cycles should alert.
 
 ### Graceful Shutdown
 
 ```typescript
 // Node: stop accepting new connections, drain in-flight requests
 process.on("SIGTERM", async () => {
-  await node.close();        // stop HTTP server
+  await node.close(); // stop HTTP server
 });
 
 // Listener: finish current poll cycle, then stop
 const stop = connection.start();
 process.on("SIGTERM", () => {
-  stop();                    // stop polling loop
+  stop(); // stop polling loop
 });
 ```
 
@@ -446,8 +450,8 @@ listener_process_errors     ← handler failures
 
 ## The Vault as Reference Architecture
 
-The `apps/vault-listener/` is the canonical example of a deployed handler.
-It demonstrates every pattern in this document.
+The `apps/vault-listener/` is the canonical example of a deployed handler. It
+demonstrates every pattern in this document.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -473,15 +477,15 @@ It demonstrates every pattern in this document.
 
 ### What it demonstrates
 
-| Pattern               | Implementation                                        |
-| --------------------- | ----------------------------------------------------- |
-| Remote listener       | `HttpClient` to remote node, `connect()` for polling  |
-| Encrypted boundary    | `respondTo()` wraps handler in encrypt/decrypt         |
-| Deterministic identity| `VAULT_SEED` env var → same keypair on restart        |
-| Stateless handler     | `vault.ts` is a pure function, no database needed     |
-| Inbox convention      | `immutable://inbox/{vaultPubkey}/...`                 |
-| Outbox convention     | Writes response to `immutable://inbox/{clientPubkey}/`|
-| Graceful lifecycle    | Signal handling, poll loop stop                       |
+| Pattern                | Implementation                                         |
+| ---------------------- | ------------------------------------------------------ |
+| Remote listener        | `HttpClient` to remote node, `connect()` for polling   |
+| Encrypted boundary     | `respondTo()` wraps handler in encrypt/decrypt         |
+| Deterministic identity | `VAULT_SEED` env var → same keypair on restart         |
+| Stateless handler      | `vault.ts` is a pure function, no database needed      |
+| Inbox convention       | `immutable://inbox/{vaultPubkey}/...`                  |
+| Outbox convention      | Writes response to `immutable://inbox/{clientPubkey}/` |
+| Graceful lifecycle     | Signal handling, poll loop stop                        |
 
 ### Deploying Your Own Handler
 

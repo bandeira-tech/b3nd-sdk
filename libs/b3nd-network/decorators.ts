@@ -1,10 +1,10 @@
 /**
  * @module
  * Peer decorators — middleware that wraps a client while preserving the
- * `NodeProtocolInterface` shape. Applied via `peer(client, { via: [decorator] })`.
+ * `ProtocolInterfaceNode` shape. Applied via `peer(client, { via: [decorator] })`.
  */
 
-import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+import type { ProtocolInterfaceNode } from "../b3nd-core/types.ts";
 import type { PeerDecorator } from "./types.ts";
 
 /**
@@ -20,8 +20,8 @@ import type { PeerDecorator } from "./types.ts";
  * ```
  */
 export const bestEffort: PeerDecorator = (
-  client: NodeProtocolInterface,
-): NodeProtocolInterface => ({
+  client: ProtocolInterfaceNode,
+): ProtocolInterfaceNode => ({
   async receive(msgs) {
     try {
       return await client.receive(msgs);

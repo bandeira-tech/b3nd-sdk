@@ -16,7 +16,7 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+import type { ProtocolInterfaceNode } from "../b3nd-core/types.ts";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -35,12 +35,12 @@ function msg(
  */
 export interface NodeTestFactory {
   /** Factory for working node (happy path tests) */
-  happy: () => NodeProtocolInterface | Promise<NodeProtocolInterface>;
+  happy: () => ProtocolInterfaceNode | Promise<ProtocolInterfaceNode>;
 
   /** Factory for node that rejects validation */
   validationError?: () =>
-    | NodeProtocolInterface
-    | Promise<NodeProtocolInterface>;
+    | ProtocolInterfaceNode
+    | Promise<ProtocolInterfaceNode>;
 }
 
 /**

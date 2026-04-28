@@ -49,7 +49,7 @@
 
 import type {
   ClientOperation,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
 } from "../b3nd-core/types.ts";
 import { matchPattern } from "./reactions.ts";
 
@@ -79,7 +79,7 @@ export interface Connection {
   readonly id: string;
 
   /** The underlying client. */
-  readonly client: NodeProtocolInterface;
+  readonly client: ProtocolInterfaceNode;
 
   /**
    * The raw patterns — serializable for wire protocols.
@@ -129,7 +129,7 @@ function matchesAny(compiled: CompiledPattern[], uri: string): boolean {
 let _autoIdCounter = 0;
 
 export function connection(
-  client: NodeProtocolInterface,
+  client: ProtocolInterfaceNode,
   patterns: ConnectionPatterns,
   options?: ConnectionOptions,
 ): Connection {
