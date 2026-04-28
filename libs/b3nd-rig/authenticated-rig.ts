@@ -75,8 +75,23 @@ export class AuthenticatedRig {
       inputs: data.inputs,
       outputs: data.outputs,
     });
-    const [result] = await this.rig.send([envelope]);
-    return { ...result, uri: envelope[0] };
+    // Provisional: AuthenticatedRig pre-decomposes the envelope so
+    // tests/apps don't need canon program/handler installed on the
+    // Rig. The retirement plan replaces this with pure envelope-only
+    // send + protocol-installed canon. Effects: envelope tuple +
+    // each output + null-payload deletion per consumed input.
+    const inputDeletions: Output[] = data.inputs.map(
+      (uri) => [uri, null] as Output,
+    );
+    const batch: Output[] = [
+      envelope,
+      ...(data.outputs as Output[]),
+      ...inputDeletions,
+    ];
+    const results = await this.rig.send(batch);
+    // The envelope is the first result — that's what the caller cares
+    // about (it carries the hash URI of the signed intent).
+    return { ...results[0], uri: envelope[0] };
   }
 
   /**
@@ -133,20 +148,14 @@ export class AuthenticatedRig {
     envelopes: { inputs: string[]; outputs: Output<V>[] }[],
   ): Promise<SendResult[]> {
     if (envelopes.length === 0) return [];
-    const built: Output[] = await Promise.all(
-      envelopes.map(async (env) => {
-        const auth = [
-          await this.identity.sign({ inputs: env.inputs, outputs: env.outputs }),
-        ];
-        return await message({
-          auth,
-          inputs: env.inputs,
-          outputs: env.outputs,
-        });
-      }),
-    );
-    const results = await this.rig.send(built);
-    return results.map((r, i) => ({ ...r, uri: built[i][0] }));
+    // Process each envelope sequentially via send() so each one carries
+    // its own pre-decomposed batch (envelope + outputs + deletions).
+    // Going through send() also keeps results parallel to inputs.
+    const results: SendResult[] = [];
+    for (const env of envelopes) {
+      results.push(await this.send(env));
+    }
+    return results;
   }
 
   // ── Authenticated reads ──

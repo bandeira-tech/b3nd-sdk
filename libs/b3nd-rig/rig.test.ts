@@ -7,13 +7,29 @@ import { AuthenticatedRig } from "./authenticated-rig.ts";
 import { createTestPrograms } from "../b3nd-client-memory/mod.ts";
 import type { Program } from "../b3nd-core/types.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { MessageDataClient } from "../b3nd-core/message-data-client.ts";
+import { DataStoreClient } from "../b3nd-core/data-store-client.ts";
+import {
+  messageDataHandler,
+  messageDataProgram,
+} from "../b3nd-msg/data/canon.ts";
 import { connection } from "./connection.ts";
 
-/** Shorthand: envelope-aware client backed by an in-memory store. */
+/** Shorthand: null-aware Store adapter backed by an in-memory store. */
 function memClient() {
-  return new MessageDataClient(new MemoryStore());
+  return new DataStoreClient(new MemoryStore());
 }
+
+/**
+ * Canon for tests that exercise AuthenticatedRig.send / sendEncrypted /
+ * sendMany — the canonical MessageData program + handler that decompose
+ * envelope tuples into their constituent emissions. Without this
+ * installed, envelopes land at the hash URI but inner outputs do not
+ * get persisted.
+ */
+const messageDataCanon = {
+  programs: { "hash://sha256": messageDataProgram },
+  handlers: { "msgdata:valid": messageDataHandler },
+};
 import { httpApi } from "./http.ts";
 
 // ── Identity tests ──
@@ -1162,7 +1178,8 @@ Deno.test("Rig.info - returns behavior info", async () => {
       "receive:success": [() => {}],
     },
     reactions: {
-      "mutable://open/:key": () => {},
+      // deno-lint-ignore require-await
+      "mutable://open/:key": async () => [],
     },
   });
 
@@ -1777,23 +1794,23 @@ Deno.test("createStoreFromUrl - rejects unknown protocol", async () => {
 
 Deno.test("createClientFromUrl - accepts client class arg", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
-  const { MessageDataClient } = await import(
-    "../b3nd-core/message-data-client.ts"
+  const { DataStoreClient } = await import(
+    "../b3nd-core/data-store-client.ts"
   );
 
-  const client = await createClientFromUrl("memory://", MessageDataClient);
+  const client = await createClientFromUrl("memory://", DataStoreClient);
   const health = await client.status();
   assertEquals(health.status, "healthy");
 });
 
 Deno.test("createClientFromUrl - client class in options", async () => {
   const { createClientFromUrl } = await import("./backend-factory.ts");
-  const { MessageDataClient } = await import(
-    "../b3nd-core/message-data-client.ts"
+  const { DataStoreClient } = await import(
+    "../b3nd-core/data-store-client.ts"
   );
 
   const client = await createClientFromUrl("memory://", {
-    client: MessageDataClient,
+    client: DataStoreClient,
   });
   const health = await client.status();
   assertEquals(health.status, "healthy");
@@ -1862,13 +1879,13 @@ Deno.test("createClientResolver - resolves memory URL with default SimpleClient"
   assertEquals(reads[0].record?.data, { val: 1 });
 });
 
-Deno.test("createClientResolver - resolves with MessageDataClient", async () => {
+Deno.test("createClientResolver - resolves with DataStoreClient", async () => {
   const { createClientResolver } = await import("./backend-factory.ts");
-  const { MessageDataClient } = await import(
-    "../b3nd-core/message-data-client.ts"
+  const { DataStoreClient } = await import(
+    "../b3nd-core/data-store-client.ts"
   );
 
-  const resolveClient = createClientResolver(MessageDataClient);
+  const resolveClient = createClientResolver(DataStoreClient);
   const client = await resolveClient("memory://");
   const health = await client.status();
   assertEquals(health.status, "healthy");
@@ -2435,8 +2452,10 @@ Deno.test("Rig reaction - fires on receive matching pattern", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     reactions: {
-      "mutable://open/:key": (uri, _data, params) => {
-        calls.push({ uri, params });
+      // deno-lint-ignore require-await
+      "mutable://open/:key": async (out, _read, params) => {
+        calls.push({ uri: out[0], params });
+        return [];
       },
     },
   });
@@ -2449,28 +2468,27 @@ Deno.test("Rig reaction - fires on receive matching pattern", async () => {
   assertEquals(calls[0].params, { key: "hello" });
 });
 
-Deno.test("Rig reaction - fires on send for each output", async () => {
-  const id = await Identity.generate();
+Deno.test("Rig reaction - fires on send for each tuple", async () => {
   const uris: string[] = [];
   const rig = new Rig({
     connections: [
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     reactions: {
-      "mutable://open/:key": (uri) => {
-        uris.push(uri);
+      // deno-lint-ignore require-await
+      "mutable://open/:key": async (out) => {
+        uris.push(out[0]);
+        return [];
       },
     },
   });
-  const session = id.rig(rig);
 
-  await session.send({
-    inputs: [],
-    outputs: [
-      ["mutable://open/a", { v: 1 }],
-      ["mutable://open/b", { v: 2 }],
-    ],
-  });
+  // rig.send takes Output[] directly — each tuple goes through the
+  // pipeline and fires matching reactions.
+  await rig.send([
+    ["mutable://open/a", { v: 1 }],
+    ["mutable://open/b", { v: 2 }],
+  ]);
   await new Promise((r) => setTimeout(r, 20));
 
   assertEquals(uris.length, 2);
@@ -2485,8 +2503,10 @@ Deno.test("Rig reaction - does not fire on read", async () => {
       connection(memClient(), { receive: ["*"], read: ["*"] }),
     ],
     reactions: {
-      "mutable://open/:key": () => {
+      // deno-lint-ignore require-await
+      "mutable://open/:key": async () => {
         called = true;
+        return [];
       },
     },
   });
@@ -2571,8 +2591,10 @@ Deno.test("Rig.reaction - runtime react works", async () => {
   });
   const calls: string[] = [];
 
-  const unsub = rig.reaction("mutable://open/:key", (uri) => {
-    calls.push(uri);
+  // deno-lint-ignore require-await
+  const unsub = rig.reaction("mutable://open/:key", async (out) => {
+    calls.push(out[0]);
+    return [];
   });
 
   await rig.receive([["mutable://open/hello", { v: 1 }]]);
