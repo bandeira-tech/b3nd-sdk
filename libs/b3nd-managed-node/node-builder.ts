@@ -6,12 +6,12 @@
  */
 
 import {
+  type BackendResolver,
+  DataStoreClient,
   HttpClient,
+  MemoryStore,
   type ProtocolInterfaceNode,
-} from "@bandeira-tech/b3nd-sdk";
-import { DataStoreClient } from "../b3nd-rig/mod.ts";
-import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import type { BackendResolver } from "../b3nd-rig/backend-factory.ts";
+} from "@bandeira-tech/b3nd-core";
 import type { BackendSpec } from "./types.ts";
 
 /**

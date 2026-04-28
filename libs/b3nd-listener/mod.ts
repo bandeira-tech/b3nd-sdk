@@ -38,7 +38,7 @@
  * ```
  */
 
-import type { ProtocolInterfaceNode, ReadResult } from "../b3nd-rig/mod.ts";
+import type { ProtocolInterfaceNode, ReadResult } from "@bandeira-tech/b3nd-core";
 import {
   createAuthenticatedMessageWithHex,
   decrypt,
@@ -47,7 +47,7 @@ import {
   type EncryptionKeyPair,
   type KeyPair,
   verify,
-} from "../b3nd-encrypt/mod.ts";
+} from "@bandeira-tech/b3nd-canon/encrypt";
 
 // ── Types ────────────────────────────────────────────────────────────
 

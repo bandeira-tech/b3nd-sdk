@@ -1,1 +1,1 @@
-export * from "../libs/b3nd-core/types.ts";
+export * from "@bandeira-tech/b3nd-core/types";

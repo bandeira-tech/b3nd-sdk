@@ -37,5 +37,5 @@
  * ```
  */
 
-export * from "./core.ts";
-export * from "./canon.ts";
+export * from "@bandeira-tech/b3nd-core";
+export * from "@bandeira-tech/b3nd-canon";

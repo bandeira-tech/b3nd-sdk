@@ -1,1 +1,1 @@
-export * from "../libs/b3nd-auth/mod.ts";
+export * from "@bandeira-tech/b3nd-canon/auth";

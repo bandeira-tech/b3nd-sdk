@@ -1,1 +1,1 @@
-export * from "../libs/b3nd-wallet/mod.ts";
+export * from "@bandeira-tech/b3nd-canon/wallet";

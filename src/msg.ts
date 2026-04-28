@@ -1,1 +1,1 @@
-export * from "../libs/b3nd-msg/data/mod.ts";
+export * from "@bandeira-tech/b3nd-canon/msg";

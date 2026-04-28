@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import {
   createAuthenticatedMessage,
   generateSigningKeyPair,
-} from "../b3nd-encrypt/mod.ts";
+} from "@bandeira-tech/b3nd-canon/encrypt";
 import { createConfigWatcher } from "./config-watcher.ts";
 import {
   createPermissiveClient,

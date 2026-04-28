@@ -1500,45 +1500,6 @@
           "jsr:@std/assert@1"
         ]
       },
-      "libs/b3nd-auth": {
-        "dependencies": [
-          "jsr:@std/assert@1",
-          "jsr:@std/crypto@1",
-          "jsr:@std/encoding@1"
-        ]
-      },
-      "libs/b3nd-client-console": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/b3nd-client-http": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/b3nd-client-memory": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/b3nd-client-ws": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/b3nd-core": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15",
-          "jsr:@std/encoding@^1.0.10"
-        ]
-      },
-      "libs/b3nd-encrypt": {
-        "dependencies": [
-          "jsr:@std/assert@1",
-          "jsr:@std/encoding@1"
-        ]
-      },
       "libs/b3nd-listener": {
         "dependencies": [
           "jsr:@std/assert@1",
@@ -1547,28 +1508,7 @@
       },
       "libs/b3nd-managed-node": {
         "dependencies": [
-          "jsr:@bandeira-tech/b3nd-sdk@~0.9.4",
           "jsr:@std/assert@1"
-        ]
-      },
-      "libs/b3nd-msg": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/b3nd-network": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/b3nd-testing": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
-        ]
-      },
-      "libs/b3nd-wallet": {
-        "dependencies": [
-          "jsr:@std/assert@^1.0.15"
         ]
       },
       "tests": {
