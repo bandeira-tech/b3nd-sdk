@@ -2,17 +2,18 @@
 
 This chapter walks one transaction through the whole pipeline. The
 protocol is a small UTXO ledger — accounts hold balances of a single
-asset called `coin`, transactions consume input UTXOs and produce output
-UTXOs, balances must conserve, and only the input owner can spend an
-input.
+asset called `coin`, transactions consume input UTXOs and produce
+output UTXOs, balances must conserve, and only the input owner can
+spend an input.
 
 The point of the walkthrough is not the ledger. It's to show every
 chapter's idea participating in one concrete flow: `Output<T>`
 primitives, payload-agnostic Rig, `process` / `handle`, send/receive
-direction, handler-as-interpreter, broadcast as fan-out, MessageData as
-SDK canon, deletion-as-data, auth in the protocol — and how a protocol
-that needs conserved quantities expresses them inside `payload`,
-without the framework needing to know about quantities at all.
+direction, handler-as-interpreter, broadcast as fan-out, MessageData
+as SDK canon, deletion-as-data, auth in the protocol — and how a
+protocol that needs conserved quantities expresses them inside
+`payload`, without the framework needing to know about quantities at
+all.
 
 ## Setup — the protocol
 
@@ -24,8 +25,8 @@ URIs:
   Payload is `MessageData`.
 
 Note where the conserved quantity lives: inside the payload, at
-`payload.values.coin`. The framework doesn't see it; only the protocol's
-program does.
+`payload.values.coin`. The framework doesn't see it; only the
+protocol's program does.
 
 Programs:
 
@@ -33,11 +34,11 @@ Programs:
 import {
   messageDataProgram,         // SDK canon
   verifyAuthInPayload,        // SDK canon
-} from "@b3nd/sdk/canon";
+} from "@bandeira-tech/b3nd-sdk";
 
 type UtxoPayload = { owner: string; values: { coin: number } };
 
-const utxoProgram: Program = async (out, _upstream, read) => {
+const utxoProgram: Program = async (out) => {
   const [, payload] = out;
   if (payload === null) return { code: "tombstone" };  // deletion of consumed UTXO
   if (typeof payload !== "object") {
@@ -55,7 +56,6 @@ const utxoProgram: Program = async (out, _upstream, read) => {
 };
 
 const txProgram: Program = async (out, upstream, read) => {
-  // Reuses the SDK MessageData program first to do envelope-shape checks.
   const base = await messageDataProgram(out, upstream, read);
   if (base.code !== "msgdata:valid") return base;
 
@@ -96,7 +96,13 @@ const txProgram: Program = async (out, upstream, read) => {
 Handlers:
 
 ```ts
-import { messageDataHandler } from "@b3nd/sdk/canon";
+import {
+  Rig,
+  connection,
+  DataStoreClient,
+  MemoryStore,
+  messageDataHandler,
+} from "@bandeira-tech/b3nd-sdk";
 
 const rig = new Rig({
   programs: {
@@ -104,7 +110,7 @@ const rig = new Rig({
     "hash://sha256": txProgram,
   },
   handlers: {
-    "tx:valid": messageDataHandler,   // SDK canon: broadcasts envelope + outputs + null-payload deletions for inputs
+    "tx:valid": messageDataHandler, // SDK canon: returns envelope + outputs + null-payload deletions for inputs
     // No handler for "valid-utxo" — default dispatch persists.
   },
   connections: [
@@ -119,31 +125,36 @@ That's the whole protocol installation.
 
 ## The transaction
 
-Alice has UTXO `utxo://abc.../0` worth 100 coin. She wants to pay Bob 70
-coin and keep 30 as change.
-
-She constructs the intent and signs it via `AuthenticatedRig`:
+Alice has UTXO `utxo://abc.../0` worth 100 coin. She wants to pay Bob
+70 coin and keep 30 as change. She constructs the intent and signs
+it:
 
 ```ts
-const aliceAuthRig = new AuthenticatedRig(aliceIdentity, rig);
+import { Identity, message } from "@bandeira-tech/b3nd-sdk";
 
-const result = await aliceAuthRig.send({
-  inputs: ["utxo://abc.../0"],
-  outputs: [
-    ["utxo://def.../0", { owner: bobPubkey,   values: { coin: 70 } }],
-    ["utxo://def.../1", { owner: alicePubkey, values: { coin: 30 } }],
-  ],
-});
+const aliceIdentity = await Identity.fromSeed(aliceSeed);
+
+const inputs = ["utxo://abc.../0"];
+const outputs: Output[] = [
+  ["utxo://def.../0", { owner: bobPubkey,   values: { coin: 70 } }],
+  ["utxo://def.../1", { owner: alicePubkey, values: { coin: 30 } }],
+];
+
+const auth = [await aliceIdentity.sign({ inputs, outputs })];
+const envelope = await message({ auth, inputs, outputs });
+
+const op = rig.send([envelope]);
+const [result] = await op;       // pipeline ack
+await op.settled;                 // every route reported
 ```
 
-`AuthenticatedRig` signs the intent with Alice's identity, builds the
-envelope tuple — content-addressed at `hash://sha256/{computed}` — and
-calls `rig.send([envelope])`.
+`message(...)` builds the envelope tuple — content-addressed at
+`hash://sha256/{computed}`. `rig.send([envelope])` runs the pipeline.
 
 ## What the pipeline does
 
 **Direction wrapper.** `rig.send` runs `beforeSend` hooks (none
-configured), then calls `_pipeline(outs, "send")`.
+configured), then enters `_pipeline(outs, "send")`.
 
 **Process.** The Rig finds `txProgram` for the envelope's URI prefix
 (`hash://sha256`). The program runs:
@@ -151,10 +162,10 @@ configured), then calls `_pipeline(outs, "send")`.
 1. Calls `messageDataProgram` to validate envelope shape — passes.
 2. Reads `utxo://abc.../0` from connections. Finds it. Sums
    `payload.values.coin` over inputs: `inputSum = 100`.
-3. Sums `payload.values.coin` over outputs: `outputSum = 70 + 30 = 100`.
-   Conservation holds.
-4. Verifies the envelope's `payload.auth` against Alice's pubkey (the
-   owner of the consumed input). Signature checks out.
+3. Sums `payload.values.coin` over outputs:
+   `outputSum = 70 + 30 = 100`. Conservation holds.
+4. Verifies the envelope's `payload.auth` against Alice's pubkey
+   (the owner of the consumed input). Signature checks out.
 5. Returns `{ code: "tx:valid" }`.
 
 **Handle.** The Rig dispatches to the `"tx:valid"` handler, which is
@@ -184,29 +195,26 @@ It returns the constituent emissions:
 
 The Rig takes that array and broadcasts each tuple.
 
-**Broadcast.** Each tuple is dispatched through connection routing. The
-`MemoryStore`-backed `DataStoreClient` is the only connection; it
-accepts everything. For each tuple:
+**Broadcast.** Each tuple is dispatched through connection routing.
+The `MemoryStore`-backed `DataStoreClient` is the only connection;
+it accepts everything. For each tuple:
 
 - The envelope tuple is written at its hash URI. Audit trail in place.
 - The two new UTXO tuples are written at their URIs.
 - The null-payload tuple at `utxo://abc.../0` is *deleted* by
   `DataStoreClient` (because it sees `payload === null`).
 
-Wait — what about the new UTXO tuples? They have URIs starting with
-`utxo://`, and the Rig has a program registered there (`utxoProgram`).
-Does broadcast re-run programs?
+The new UTXO tuples have URIs starting with `utxo://`, and the Rig
+has a program registered there (`utxoProgram`). Broadcast does *not*
+re-run programs (Ch 6). The `messageDataHandler` already classified
+each constituent in the protocol's eyes by deciding to emit them.
+The new UTXO tuples land in storage without re-running `utxoProgram`.
 
-No — and this is the key point of chapter 6. Broadcast skips
-classification. The `messageDataHandler` already classified each
-constituent in the protocol's eyes by deciding to emit them. The new
-UTXO tuples land in storage without re-running `utxoProgram`.
-
-If we *wanted* `utxoProgram` to re-run on each output (for
+If we wanted `utxoProgram` to re-run on each output (for
 defense-in-depth, or because some emissions are governed by programs
 the handler doesn't trust), the protocol would shape those emissions
 as reactions instead of handler returns — reactions go through
-`rig.send`, which runs programs (chapter 7). For this protocol, the
+`rig.send`, which runs programs (Ch 7). For this protocol, the
 conservation and auth checks in `txProgram` already cover everything,
 so plain handler emissions are right.
 
@@ -217,8 +225,6 @@ balance index:
 ```ts
 const indexBalance: Reaction = async (out, read) => {
   const [uri, payload] = out;
-  // Pull the owner from the URI's stored payload (or, on deletion,
-  // from a previous read); recompute their total.
   const owner = payload === null
     ? await ownerOfDeletedUtxo(uri, read)
     : (payload as UtxoPayload).owner;
@@ -236,23 +242,18 @@ those through `rig.send`; programs registered on `index://balances`
 classify them, an indexer's handler persists them, and any UI
 subscribed to balance updates sees the change.
 
-(The reaction could also imperatively update an in-memory cache and
-return `[]`. That works but leaks side effects outside the routing
-engine; the index-via-URI shape keeps everything visible on the wire.
-Chapter 7 covers the trade.)
-
-**Events.** `send:success` fires once for the original `rig.send`
-caller's tuple (the envelope). Broadcast does not fire `send:*`
-events for the constituent tuples — those are consequences of the
-original send, not new sends (chapter 6). Reactions, however, *do*
-fire `send:*` events when their emissions land — those are first-class
-new sends to the indexer URIs (chapter 7).
+**Events and per-route observability.** `send:success` fires once
+for the original `rig.send` caller's tuple (the envelope). Per-route
+detail flows through the operation handle's events — `route:success`
+or `route:error` per `(emission, connection)` pair — for callers
+that want to see exactly which connections accepted each broadcast
+emission (Ch 13).
 
 **Hooks.** `afterSend` fires (none configured).
 
 ## What ended up in storage
 
-After the call returns, the store contains:
+After `await op.settled` resolves, the store contains:
 
 - `hash://sha256/{computed}` → the envelope (audit record)
 - `utxo://def.../0` → Bob's new UTXO of 70 coin
@@ -262,7 +263,7 @@ After the call returns, the store contains:
 translated by `DataStoreClient` to a `store.delete()` call.
 
 The data is consistent. The conservation is provable from the audit
-record. The reaction-driven UI matches storage.
+record. The reaction-driven index matches storage.
 
 ## What didn't happen at the framework level
 
@@ -281,19 +282,19 @@ The framework didn't:
 - Decompose a single envelope.
 
 Every protocol-specific behavior happened in protocol-supplied code —
-`utxoProgram`, `txProgram`, `messageDataHandler` (SDK canon, but
-opt-in), `verifyAuthInPayload` (SDK canon helper), `DataStoreClient`
-(SDK canon adapter). The framework ran the pipeline and routed by URI.
+`utxoProgram`, `txProgram`, `messageDataHandler` (SDK canon),
+`verifyAuthInPayload` (SDK canon helper), `DataStoreClient` (SDK
+canon adapter). The framework ran the pipeline and routed by URI.
 
 ## What this demonstrates
 
 - A protocol can be installed in maybe 50 lines of code on top of the
   SDK canon.
-- Conservation, auth, deletion, audit trail, reactive UI all work
+- Conservation, auth, deletion, audit trail, reactive index all work
   through a single pipeline pass on a single envelope.
 - Conserved quantities don't need a framework-level slot; embedding
-  them in the payload at a protocol-defined key works just as well and
-  keeps the framework smaller.
+  them in the payload at a protocol-defined key works just as well
+  and keeps the framework smaller.
 - The framework's surface is small enough that you could review the
   Rig's own code and feel confident nothing was happening behind your
   back.

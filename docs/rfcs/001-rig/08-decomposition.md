@@ -4,24 +4,18 @@ A tuple's payload often encodes more state than the tuple itself.
 
 The canonical example is `MessageData`: a payload of the form
 `{ inputs: string[], outputs: Output[], auth?: Signature[] }` that says
-"persist these outputs and consume these inputs as a single intent." One
-tuple on the wire; many tuples worth of effect when interpreted.
+"persist these outputs and consume these inputs as a single intent."
+One tuple on the wire; many tuples worth of effect when interpreted.
 
-Today the framework recognizes this shape and decomposes it inside
-`MessageDataClient`. The proposal moves that knowledge out of the
-framework and into a protocol-supplied handler. The mechanism it uses —
-broadcast — is the same one any handler has. Decomposition stops being
-special.
+Decomposition is a protocol act. The Rig does not split anything. The
+SDK ships `MessageData`'s decomposition as opt-in canon — a typed
+payload shape, a program, and a handler — and protocols register the
+pieces they want.
 
-## What `MessageData` looks like, after the move
-
-`MessageData` survives. It's a useful protocol convention with a long
-track record. The SDK ships it as canon — a typed payload shape, a
-program that classifies tuples carrying it, and a handler that knows how
-to decompose it. Three parts, all opt-in:
+## What `MessageData` looks like
 
 ```ts
-// libs/.../message-data.ts (SDK canon)
+// libs/b3nd-msg/data/canon.ts (SDK canon)
 
 export interface MessageData {
   inputs: string[];
@@ -31,9 +25,8 @@ export interface MessageData {
 
 export const messageDataProgram: Program = async (out) => {
   const [, payload] = out;
-  if (!isMessageData(payload)) return { code: "not-msgdata" };
-  // optional protocol-level checks: signature shape, etc.
-  return { code: "msgdata:valid" };
+  if (isMessageData(payload)) return { code: "msgdata:valid" };
+  return { code: "ok" }; // default-dispatch for non-envelopes
 };
 
 export const messageDataHandler: CodeHandler = async (out) => {
@@ -45,10 +38,10 @@ export const messageDataHandler: CodeHandler = async (out) => {
 };
 ```
 
-A protocol that wants `MessageData` semantics installs both — registers
-the program against the URI prefix it uses for envelopes (often
-`hash://sha256` for content-addressed envelopes) and registers the
-handler against the `"msgdata:valid"` code:
+A protocol that wants `MessageData` semantics installs both —
+registers the program against the URI prefix it uses for envelopes
+(typically `hash://sha256` for content-addressed envelopes) and
+registers the handler against the `"msgdata:valid"` code:
 
 ```ts
 const rig = new Rig({
@@ -58,109 +51,86 @@ const rig = new Rig({
 });
 ```
 
-That's the whole wire-up. The framework knows nothing about envelopes;
-the SDK provides the canon; the protocol opts in.
+That's the whole wire-up. The framework knows nothing about
+envelopes; the SDK provides the canon; the protocol opts in.
 
 ## How a decomposition flows
 
-A user calls `authRig.send({ inputs, outputs })`. `AuthenticatedRig`
-builds the canonical envelope tuple, signs it, calls `rig.send([envelope])`.
+A caller signs an intent with `Identity.sign`, builds the canonical
+envelope tuple with `message(...)`, and calls `rig.send([envelope])`.
 The pipeline runs:
 
-1. `process` calls `messageDataProgram` (because the envelope's URI is
-   `hash://sha256/...`). It returns `{ code: "msgdata:valid" }`.
+1. `process` calls `messageDataProgram` (because the envelope's URI
+   is `hash://sha256/...`). Returns `{ code: "msgdata:valid" }`.
 2. `handle` calls `messageDataHandler`. The handler reads
    `payload.inputs` and `payload.outputs` and **returns** the
    constituent emissions — the envelope itself, each output, each
    input as a null-payload deletion tuple.
 3. The Rig dispatches each returned tuple through connection routing
    (broadcast). Storage clients persist the writes. The
-   `DataStoreClient` (chapter 9) sees the null-payload tuples and
+   `DataStoreClient` (Ch 9) sees the null-payload tuples and
    translates them to `store.delete`. Other clients react per their
    role.
 4. Reactions fire for each emitted URI that matches a registered
-   pattern. Reaction-emitted tuples flow back through `rig.send`
-   (chapter 7).
+   pattern. Reaction-emitted tuples flow back through `rig.send` (Ch
+   7).
 
 End to end, the framework didn't need to know about `MessageData`.
-The protocol's handler did the unpacking; the framework did the routing.
+The protocol's handler did the unpacking; the framework did the
+routing.
 
-## What about nested envelopes?
+## Nested envelopes
 
 A `MessageData` envelope can have outputs that are themselves
-`MessageData` envelopes — a transaction containing sub-transactions, a
-batch of intents wrapped in an outer batch. Today this works because
-`MessageDataClient` recurses internally. After the move, it works the
-same way, but explicitly:
+`MessageData` envelopes — a transaction containing sub-transactions,
+a batch of intents wrapped in an outer batch. The outer envelope's
+handler returns the inner envelope tuple as one of its emissions.
+The Rig dispatches that inner envelope to the clients that accept
+its URI. If a client downstream is itself a Rig (a Rig-as-client
+composition), the inner envelope re-enters that downstream pipeline
+naturally — `messageDataProgram` classifies it,
+`messageDataHandler` unpacks it. N levels deep, same shape every
+level.
 
-The outer envelope's handler returns the inner envelope tuple as one of
-its emissions. The Rig dispatches that inner envelope to the clients
-that accept its URI. If a client downstream is itself a Rig (a
-Rig-as-client composition), the inner envelope re-enters that
-downstream pipeline naturally — `messageDataProgram` classifies it,
-`messageDataHandler` unpacks it. N levels deep, same shape every level.
+Within a single Rig, handler emissions skip classification (Ch 6).
+If a protocol wants the inner envelope to be re-classified by the
+same Rig that's processing the outer one — for defense-in-depth or
+because the inner envelope is governed by different programs — the
+protocol expresses that as a reaction instead of a handler emission.
+Reactions flow through `rig.send`, which runs programs.
 
-Within a single Rig, handler emissions skip classification (chapter 6).
-If a protocol wants the inner envelope to be re-classified by the same
-Rig that's processing the outer one — for defense-in-depth or because
-the inner envelope is governed by different programs — the protocol
-expresses that as a reaction instead of a handler emission. Reactions
-flow through `rig.send`, which runs programs.
-
-## Why this is better than a framework-blessed `MessageDataClient`
+## Why protocol-supplied instead of framework-blessed
 
 Three reasons.
 
-**Composability.** Today, a Rig that wants `MessageData` semantics for
-some URIs and *different* envelope semantics (a different schema, a
-different decomposition) for others has nowhere to put the alternative
-— `MessageDataClient` is built into the receive path, and it's
-all-or-nothing. After the move, both protocols install their own
-handlers; they coexist trivially.
+**Composability.** A Rig that wants `MessageData` semantics for some
+URIs and *different* envelope semantics (a different schema, a
+different decomposition) for others can do both — install
+`messageDataHandler` for the `MessageData` codes and a different
+handler for the alternative protocol's codes. Nothing in the
+framework is shared between them.
 
 **Inspectability.** A reader of the framework can no longer wonder
 "what does the framework do with my envelope?" because the framework
-does nothing. The handler does the unpacking, in plain code that lives
-in a protocol package. You read the handler to know what happens.
+does nothing. The handler does the unpacking, in plain code that
+lives in `libs/b3nd-msg/data/canon.ts`.
 
-**Testability.** A protocol-supplied handler is a single function that
-takes an `Output` and returns `Output[]`. It's directly unit-testable
-without standing up a Rig — call it, assert on what it returned. Today
-the equivalent test needs the whole `MessageDataClient` + `Store`
-machinery to observe side-effects.
+**Testability.** `messageDataHandler` is a single function that
+takes an `Output` and returns `Output[]`. It's directly
+unit-testable without standing up a Rig — call it, assert on what it
+returned.
 
-## What `MessageDataClient` becomes
+## `DataStoreClient`
 
-`MessageDataClient` as a name retires. The decomposition logic moves to
-`messageDataHandler` (SDK canon, opt-in). The "wrap a Store with the
-NodeProtocolInterface" function that `MessageDataClient` also did —
-that's a separate, generic concern, and it becomes `DataStoreClient`,
-which is the topic of the next chapter.
-
-The split is honest: the old `MessageDataClient` was doing two things
-poorly fused — translating wire tuples to Store calls *and* knowing
-about envelopes. We unfuse them.
-
-## What changed in this chapter
-
-- `MessageData` survives as SDK canon: a typed payload shape, a
-  classifier program, and a decomposition handler. Three pieces, all
-  opt-in.
-- The framework no longer recognizes `MessageData`. Decomposition lives
-  entirely in the protocol-supplied handler.
-- The handler unpacks the envelope and returns the constituent
-  emissions: the envelope itself, the outputs, the inputs as
-  null-payload deletions. The Rig dispatches each through connection
-  routing.
-- N-level nesting falls out naturally from connection routing (or
-  through reactions when re-classification is wanted).
-- `MessageDataClient` retires; the storage-adapter half of its old job
-  becomes `DataStoreClient` (chapter 9); the envelope half becomes
-  `messageDataHandler`.
+The "wrap a Store with the `ProtocolInterfaceNode`" function lives
+separately as `DataStoreClient` (Ch 9). The split is honest:
+translating wire tuples to Store calls is a generic concern;
+knowing about envelopes is `MessageData`-specific. The two live in
+different files.
 
 ## What's coming next
 
 Deletion as data — what `[uri, null]` means on the wire, why
 `DataStoreClient` is the canonical translator, and what happens to
-clients that aren't storage backends when they see a null-payload tuple
-go by.
+clients that aren't storage backends when they see a null-payload
+tuple go by.

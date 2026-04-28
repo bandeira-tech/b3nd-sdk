@@ -74,6 +74,10 @@ and call out to their respective ad APIs.
 The agency's app constructs an envelope describing the publish:
 
 ```ts
+import { Identity, message, computeSha256 } from "@bandeira-tech/b3nd-sdk";
+
+const agencyIdentity = await Identity.fromSeed(agencySeed);
+
 const campaignBody = {
   client:    "rosies-bakery",
   headline:  "Now at Rosie's: Crackling Gluten-Free Sourdough",
@@ -91,15 +95,20 @@ const ticketMeta = {
 };
 const ticketGoogle = { ...ticketMeta, channel: "google" };
 
-await agencySession.send({
-  inputs: [],
-  outputs: [
-    [campaignUri,                                          campaignBody],
-    ["mutable://agency/campaigns/rosies-bakery/current",   campaignUri],
-    [`publish://meta/rosies-bakery/${Date.now()}`,         ticketMeta],
-    [`publish://google/rosies-bakery/${Date.now() + 1}`,   ticketGoogle],
-  ],
-});
+const inputs: string[] = [];
+const outputs: Output[] = [
+  [campaignUri,                                          campaignBody],
+  ["mutable://agency/campaigns/rosies-bakery/current",   campaignUri],
+  [`publish://meta/rosies-bakery/${Date.now()}`,         ticketMeta],
+  [`publish://google/rosies-bakery/${Date.now() + 1}`,   ticketGoogle],
+];
+
+const auth = [await agencyIdentity.sign({ inputs, outputs })];
+const envelope = await message({ auth, inputs, outputs });
+
+const op = rig.send([envelope]);
+await op;             // pipeline ack
+await op.settled;     // every channel reported
 ```
 
 One call, four constituent outputs, three URI namespaces. The intent is
@@ -107,12 +116,12 @@ One call, four constituent outputs, three URI namespaces. The intent is
 
 ## What the pipeline does
 
-**Direction wrapper.** `agencySession.send(intent)` builds the envelope
-tuple. Its URI is `hash://sha256/{envelope-hash}`. It's signed by the
-agency identity. `rig.send([envelope])` is invoked.
+**Direction wrapper.** `rig.send([envelope])` enters the pipeline.
+The envelope URI is `hash://sha256/{envelope-hash}`. It carries the
+agency identity's signature in `payload.auth`.
 
-**Process.** `messageDataProgram` runs against the envelope's URI. Shape
-checks pass. Returns `{ code: "msgdata:valid" }`.
+**Process.** `messageDataProgram` runs against the envelope's URI.
+Shape checks pass. Returns `{ code: "msgdata:valid" }`.
 
 **Handle.** `messageDataHandler` runs. It returns the constituent
 emissions — the envelope itself plus the four declared outputs (no
@@ -176,10 +185,13 @@ the new roster entry shows up in the agency's UI in real time. No
 reactions registered on `publish://*` (those tickets are
 write-and-forget into external ad systems), so nothing else chains.
 
-**Events + hooks.** `send:success` fires once for the agency's original
-send — the host application sees one confirmed action, not four. Any
-`afterSend` hook (e.g., for invoicing, telemetry) sees the same single
-event with the envelope tuple.
+**Events and per-route observability.** `send:success` fires once
+for the agency's original send — the host application sees one
+confirmed direction-level action, not four. Per-channel detail
+(which channel accepted, which rejected, with what error) flows
+through the operation handle's `route:success` / `route:error`
+events (Ch 13). Any `afterSend` hook (e.g., for invoicing, telemetry)
+sees the same single direction-level event with the envelope tuple.
 
 ## What the channels see
 
@@ -196,18 +208,17 @@ TikTok. No code changes elsewhere.
 
 ## What this is meant to demonstrate
 
-**Connection routing replaces protocol-specific fan-out code.** Today,
-fanning a single envelope out to multiple channels would require either
-writing a custom `MessageDataClient`-equivalent that routes outputs
-manually, or wiring a separate side-effect mechanism (queue,
-event-bus). After the proposal, the connection-pattern routing already
-has fan-out built in. You just declare which client accepts which URI
-prefix and you're done.
+**Connection routing is the fan-out mechanism.** Fanning a single
+envelope out to multiple channels needs no protocol-specific glue.
+The connection-pattern routing already has fan-out built in: declare
+which client accepts which URI prefix and the routing engine takes
+care of the rest.
 
 **The same pipeline serves storage and network use cases.** The
-walkthrough in chapter 11 wrote four tuples to a Store. This walkthrough
+walkthrough in chapter 11 wrote tuples to a Store. This walkthrough
 wrote some to a Store and some to outbound HTTP clients. The pipeline
-didn't change. The handler didn't change. The connection wiring did.
+is the same. The handler is the same. Only the connection wiring
+differs.
 
 **The framework is invisible to domain concepts.** The Rig has no idea
 this is an ad agency, no idea what a "campaign" is, no idea what a
@@ -229,15 +240,16 @@ The framework didn't:
 - Run programs on the constituent outputs (broadcast skipped them, by
   design — the handler is the canonical interpreter).
 - Fire `send:*` events for the constituent broadcasts (only the
-  original send's event fired).
+  original send's direction-level event fired; per-emission detail is
+  on the operation handle).
 
 Every fan-out decision was made by the connection patterns, configured
 once at Rig construction.
 
 ## What's coming next
 
-Part VI — the three operational items independent of the unifying
-architecture. Chapter 13 is per-connection result granularity: today
-the Rig collapses N per-connection results into one, hiding partial
-failures. We propose a small change that keeps the simple case simple
-and surfaces the detail when callers ask for it.
+Part VI — the operational chapters. Chapter 13 covers per-route
+observability via `OperationHandle`: how callers see each
+emission-and-connection outcome instead of one collapsed boolean.
+Chapter 14 covers multi-source replicas via `flood(peers)`: how a
+single connection can fan to many peers without changing the Rig.
