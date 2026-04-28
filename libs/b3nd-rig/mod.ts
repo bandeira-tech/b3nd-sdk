@@ -9,19 +9,18 @@
  * @example
  * ```typescript
  * import { Rig, Identity, connection, createClientFromUrl } from "@b3nd/rig";
+ * import { message } from "@bandeira-tech/b3nd-sdk/msg";
  *
  * const client = await createClientFromUrl("https://node.b3nd.net");
  * const rig = new Rig({
  *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
  * });
  *
+ * // Identity signs, rig delivers
  * const id = await Identity.fromSeed("my-secret");
- * // Identity drives, rig delivers
- * const session = id.rig(rig);
- * await session.send({
- *   inputs: [],
- *   outputs: [["mutable://app/key", { hello: "world" }]],
- * });
+ * const auth = [await id.sign({ inputs: [], outputs: [["mutable://app/key", { hello: "world" }]] })];
+ * const envelope = await message({ auth, inputs: [], outputs: [["mutable://app/key", { hello: "world" }]] });
+ * await rig.send([envelope]);
  *
  * // Read (no identity needed)
  * const results = await rig.read("mutable://app/key");
@@ -31,7 +30,6 @@
 // Core
 export { Identity } from "./identity.ts";
 export type { ExportedIdentity } from "./identity.ts";
-export { AuthenticatedRig } from "./authenticated-rig.ts";
 export { Rig } from "./rig.ts";
 export type {
   HandleEmitEvent,

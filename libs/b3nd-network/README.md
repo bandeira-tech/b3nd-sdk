@@ -138,7 +138,7 @@ chain, so a message signed by A is never re-broadcast to A. The
 inbound `network(rig, peers)` feeds peer writes into the rig's receive
 pipeline.
 
-Use with `AuthenticatedRig` so outbound messages carry a signer chain.
+Sign outbound messages with `Identity.sign()` + `message()` so they carry a signer chain.
 Unsigned content in a bidirectional mesh will loop — the outbound path
 cannot know the origin without the chain on the wire. For unsigned
 content, use a DAG topology (push-only on one side) or add a rig-level
@@ -263,7 +263,7 @@ const rig = new Rig({
 });
 const unbind = network(rig, peers);
 
-// Use AuthenticatedRig.send so outbound messages carry a signer chain.
+// Sign outbound messages so they carry a signer chain.
 // When A signs a message and it reaches B, pathVector on B's outbound
 // connection drops the re-broadcast to A because A is already in the
 // chain. Arbitrary longer cycles are also cut as the chain grows per

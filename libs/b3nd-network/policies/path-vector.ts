@@ -10,7 +10,7 @@
  *
  * Handles arbitrary-length cycles (A → B → C → A) without any state,
  * because the chain grows with every relay that re-signs. Works "for
- * free" when messages flow through `AuthenticatedRig.send`.
+ * free" when messages are signed with `Identity.sign()` + `message()`.
  *
  * ## Peer id convention
  *
@@ -27,7 +27,7 @@
  * ## Scope
  *
  * pathVector only *reads* the chain. It does not add the local
- * identity's signature on relay — that's `AuthenticatedRig`'s job.
+ * identity's signature on relay — that's the application's responsibility.
  */
 
 import type { Message, NodeProtocolInterface } from "../../b3nd-core/types.ts";

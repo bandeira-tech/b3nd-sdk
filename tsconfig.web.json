@@ -15,13 +15,21 @@
   },
   "include": [
     "src/mod.web.ts",
+    "src/core.ts",
+    "src/canon.ts",
     "./libs/b3nd-core/**/*.ts",
+    "./libs/b3nd-rig/**/*.ts",
+    "./libs/b3nd-auth/**/*.ts",
+    "./libs/b3nd-msg/**/*.ts",
+    "./libs/b3nd-network/**/*.ts",
     "./libs/b3nd-wallet/**/*.ts",
     "./libs/b3nd-encrypt/**/*.ts",
     "./libs/b3nd-client-http/**/*.ts",
     "./libs/b3nd-client-localstorage/**/*.ts",
     "./libs/b3nd-client-ws/**/*.ts",
     "./libs/b3nd-client-memory/**/*.ts",
-    "./libs/b3nd-hash/**/*.ts"
+    "./libs/b3nd-client-console/**/*.ts",
+    "./libs/b3nd-hash/**/*.ts",
+    "./libs/b3nd-listener/**/*.ts"
   ]
 }

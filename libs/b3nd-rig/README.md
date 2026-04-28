@@ -7,6 +7,7 @@ The universal harness for b3nd. One import, convention over configuration.
 ```typescript
 import { connection, DataStoreClient, Identity, Rig } from "@b3nd/rig";
 import { MemoryStore } from "@b3nd/client-memory";
+import { message } from "@bandeira-tech/b3nd-sdk/msg";
 
 const id = await Identity.fromSeed("my-secret");
 const rig = new Rig({
@@ -14,12 +15,12 @@ const rig = new Rig({
     connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
   ],
 });
-const session = id.rig(rig);
 
-await session.send({
-  inputs: [],
-  outputs: [["mutable://myapp/config", { theme: "dark" }]],
-});
+// Identity signs, rig delivers
+const outputs = [["mutable://myapp/config", { theme: "dark" }]];
+const auth = [await id.sign({ inputs: [], outputs })];
+const envelope = await message({ auth, inputs: [], outputs });
+await rig.send([envelope, ...outputs]);
 
 const data = await rig.readData("mutable://myapp/config");
 ```
@@ -28,14 +29,15 @@ const data = await rig.readData("mutable://myapp/config");
 
 The rig has two core actions. Everything else is observation.
 
-- **`send()`** — outward: builds a signed envelope, content-addresses it, sends
-  to network (via AuthenticatedRig)
+- **`send()`** — outward: dispatches a batch of outputs to the network
 - **`receive()`** — inward: accepts a batch of `[uri, values, data]` messages
   from an external source
 
 ```typescript
-// Send a signed envelope (auto-signs with identity, content-addressed)
-await session.send({ inputs: [], outputs: [["mutable://app/key", {}, value]] });
+// Send a signed envelope (use Identity.sign() + message() to build it)
+const auth = [await id.sign({ inputs: [], outputs })];
+const envelope = await message({ auth, inputs: [], outputs });
+await rig.send([envelope, ...outputs]);
 
 // Receive a raw message from an external source
 await rig.receive([["mutable://open/external", {}, { source: "webhook" }]]);
@@ -58,15 +60,19 @@ await rig.exists(uri); // boolean
 ## Encrypted Operations
 
 ```typescript
-// Send with encrypted outputs (encrypt to self or a recipient)
-await session.sendEncrypted({ inputs: [], outputs: [[uri, secret]] });
-await session.sendEncrypted(
-  { inputs: [], outputs: [[uri, secret]] },
-  recipientPubkey,
-);
+// Encrypt outputs, then sign and send
+const plaintext = new TextEncoder().encode(JSON.stringify(secret));
+const encrypted = await id.encrypt(plaintext, recipientPubkey);
+const outputs = [[uri, encrypted]];
+const auth = [await id.sign({ inputs: [], outputs })];
+const envelope = await message({ auth, inputs: [], outputs });
+await rig.send([envelope, ...outputs]);
 
 // Read and decrypt
-const secret = await session.readEncrypted<T>(uri);
+const results = await rig.read(uri);
+const payload = results[0]?.record?.data;
+const decrypted = await id.decrypt(payload);
+const secret = JSON.parse(new TextDecoder().decode(decrypted));
 ```
 
 ## Reactive
@@ -301,9 +307,10 @@ loadConfig(rig, operatorKey, nodeId);
 ## Batch Operations
 
 ```typescript
-// Send multiple envelopes in sequence
-const results = await session.sendMany([
-  { inputs: [], outputs: [["mutable://app/a", 1]] },
-  { inputs: [], outputs: [["mutable://app/b", 2]] },
-]);
+// Send multiple signed envelopes in sequence
+for (const env of envelopes) {
+  const auth = [await id.sign({ inputs: env.inputs, outputs: env.outputs })];
+  const envelope = await message({ auth, inputs: env.inputs, outputs: env.outputs });
+  await rig.send([envelope, ...env.outputs]);
+}
 ```

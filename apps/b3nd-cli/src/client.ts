@@ -1,10 +1,12 @@
 import {
-  AuthenticatedRig,
   connection,
   createClientFromUrl,
   Identity,
   Rig,
 } from "@b3nd/rig";
+import type { Output, ReceiveResult } from "@b3nd/rig";
+import { message } from "../../../libs/b3nd-msg/data/message.ts";
+import type { EncryptedPayload } from "@b3nd/sdk/encrypt";
 import { loadConfig } from "./config.ts";
 import { loadAccountKey, loadEncryptionKey } from "./keys.ts";
 import { Logger } from "./logger.ts";
@@ -12,11 +14,17 @@ import { Logger } from "./logger.ts";
 let cachedRig: Rig | null = null;
 let cachedIdentity: Identity | null = null;
 
+/** Result of a signed send — envelope URI plus receive result. */
+export interface SignAndSendResult extends ReceiveResult {
+  uri: string;
+}
+
 /**
  * Initialize and get a Rig instance from the CLI config.
  *
  * The rig is identity-free — pure orchestration. Use `getIdentity()`
- * or `getSession()` for authenticated operations.
+ * for authenticated operations, and `signAndSend()` / `signEncryptAndSend()`
+ * helpers for signed writes.
  */
 export async function getRig(
   logger?: Logger,
@@ -104,13 +112,67 @@ export function getIdentity(): Identity | null {
 }
 
 /**
- * Get an authenticated session (identity + rig).
+ * Sign and send a message envelope through the rig.
  *
- * Returns null if no identity is loaded. Requires getRig() to have been called first.
+ * Uses Identity.sign() + message() + rig.send() — the direct pattern
+ * that replaces the deprecated AuthenticatedRig.send().
  */
-export function getSession(): AuthenticatedRig | null {
-  if (!cachedRig || !cachedIdentity) return null;
-  return cachedIdentity.rig(cachedRig);
+export async function signAndSend<V = unknown>(
+  identity: Identity,
+  rig: Rig,
+  data: { inputs: string[]; outputs: Output<V>[] },
+): Promise<SignAndSendResult> {
+  const auth = [
+    await identity.sign({ inputs: data.inputs, outputs: data.outputs }),
+  ];
+  const envelope = await message({
+    auth,
+    inputs: data.inputs,
+    outputs: data.outputs as Output[],
+  });
+
+  // Pre-decompose: envelope + outputs + input deletions
+  const inputDeletions: Output[] = data.inputs.map(
+    (uri) => [uri, null] as Output,
+  );
+  const batch: Output[] = [
+    envelope,
+    ...(data.outputs as Output[]),
+    ...inputDeletions,
+  ];
+  const results = await rig.send(batch);
+  return { ...results[0], uri: envelope[0] };
+}
+
+/**
+ * Sign, encrypt, and send a message envelope through the rig.
+ *
+ * Replaces the deprecated AuthenticatedRig.sendEncrypted().
+ */
+export async function signEncryptAndSend<V = unknown>(
+  identity: Identity,
+  rig: Rig,
+  data: { inputs: string[]; outputs: Output<V>[] },
+  recipientEncPubkeyHex?: string,
+): Promise<SignAndSendResult> {
+  if (!identity.canEncrypt) {
+    throw new Error("signEncryptAndSend: identity has no encryption keys.");
+  }
+
+  const recipient = recipientEncPubkeyHex || identity.encryptionPubkey;
+
+  const encryptedOutputs: Output[] = await Promise.all(
+    data.outputs.map(async ([uri, value]) => {
+      const plaintext = new TextEncoder().encode(JSON.stringify(value));
+      const encrypted = await identity.encrypt(plaintext, recipient);
+      return [uri, encrypted] as Output;
+    }),
+  );
+
+  return signAndSend(identity, rig, {
+    inputs: data.inputs,
+    outputs: encryptedOutputs,
+  });
 }
 
 /**

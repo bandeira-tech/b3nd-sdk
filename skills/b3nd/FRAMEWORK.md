@@ -260,29 +260,26 @@ a SHA256 hash of the payload (via RFC 8785 canonical JSON), sends through the
 client, and returns the result:
 
 ```typescript
-import { send } from "@bandeira-tech/b3nd-sdk";
-// or: import { send } from "@bandeira-tech/b3nd-web";
+import { message } from "@bandeira-tech/b3nd-sdk/msg";
 
-const result = await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      ["mutable://open/app/config", { theme: "dark" }],
-      ["mutable://open/app/status", { active: true }],
-    ],
-  },
-}, client);
-// result.uri = "hash://sha256/{hex}" — the envelope's content-addressed URI
-// result.accepted = true
+const envelope = await message({
+  inputs: [],
+  outputs: [
+    ["mutable://open/app/config", { theme: "dark" }],
+    ["mutable://open/app/status", { active: true }],
+  ],
+});
+const results = await client.receive([envelope]);
+// envelope[0] = "hash://sha256/{hex}" — the envelope's content-addressed URI
+// results[0].accepted = true
 
 // With auth:
-const authResult = await send({
+const authEnvelope = await message({
   auth: [{ pubkey, signature }],
-  payload: {
-    inputs: [],
-    outputs: [["mutable://accounts/{pubkey}/profile", signedData]],
-  },
-}, client);
+  inputs: [],
+  outputs: [["mutable://accounts/{pubkey}/profile", signedData]],
+});
+await client.receive([authEnvelope]);
 ```
 
 - `msgSchema(schema)` validates the envelope AND each output against its
@@ -751,7 +748,7 @@ rejection path (invalid messages rejected with the right error):
 
 ```typescript
 import { assertEquals } from "@std/assert";
-import { MessageDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
+import { MessageDataClient, MemoryStore, message } from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
   "mutable://accounts": async ([uri, , data]) => {
@@ -765,24 +762,22 @@ const schema: Schema = {
 
 Deno.test("accepts valid account write", async () => {
   const client = new MessageDataClient(new MemoryStore());
-  const result = await send({
-    payload: {
-      inputs: [],
-      outputs: [["mutable://accounts/alice/profile", { name: "Alice" }]],
-    },
-  }, client);
-  assertEquals(result.accepted, true);
+  const envelope = await message({
+    inputs: [],
+    outputs: [["mutable://accounts/alice/profile", { name: "Alice" }]],
+  });
+  const results = await client.receive([envelope]);
+  assertEquals(results[0].accepted, true);
 });
 
 Deno.test("rejects invalid account write", async () => {
   const client = new MessageDataClient(new MemoryStore());
-  const result = await send({
-    payload: {
-      inputs: [],
-      outputs: [["mutable://accounts/alice/profile", null]],
-    },
-  }, client);
-  assertEquals(result.accepted, false);
+  const envelope = await message({
+    inputs: [],
+    outputs: [["mutable://accounts/alice/profile", null]],
+  });
+  const results = await client.receive([envelope]);
+  assertEquals(results[0].accepted, false);
   assertEquals(result.error, "mutable://accounts: Value must be an object");
 });
 
@@ -926,7 +921,7 @@ const publishingProtocol: Schema = {
 **How it's used:**
 
 ```typescript
-import { MessageDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
+import { MessageDataClient, MemoryStore, message } from "@bandeira-tech/b3nd-sdk";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";
 
 const client = new MessageDataClient(new MemoryStore());
@@ -936,16 +931,15 @@ const post = { title: "Hello World", body: "First post on B3nd" };
 const hash = await computeSha256(post);
 const hashUri = generateHashUri(hash);
 
-await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      [hashUri, post],                                    // immutable content
-      ["link://posts/latest", hashUri],                   // mutable pointer
-      ["mutable://profiles/alice", { name: "Alice" }],    // profile update
-    ],
-  },
-}, client);
+const envelope = await message({
+  inputs: [],
+  outputs: [
+    [hashUri, post],                                    // immutable content
+    ["link://posts/latest", hashUri],                   // mutable pointer
+    ["mutable://profiles/alice", { name: "Alice" }],    // profile update
+  ],
+});
+await client.receive([envelope]);
 
 // 2. Read the latest post via the link
 const [link] = await client.read<string>("link://posts/latest");
@@ -1656,7 +1650,7 @@ protocol becomes usable.
 ```typescript
 // my-protocol-sdk/mod.ts
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { HttpClient, send } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient, message } from "@bandeira-tech/b3nd-sdk";
 import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 
 // 1. Schema export (for node operators)
@@ -1676,9 +1670,11 @@ export function createClient(url = "https://my-protocol-node.example.com") {
 
 // 3. Typed helpers
 export async function writeNote(client: HttpClient, path: string, content: object) {
-  return send({
-    payload: { inputs: [], outputs: [[`mutable://open/${path}`, content]] },
-  }, client);
+  const envelope = await message({
+    inputs: [], outputs: [[`mutable://open/${path}`, content]],
+  });
+  const results = await client.receive([envelope]);
+  return { uri: envelope[0], ...results[0] };
 }
 
 // 4. URI builders

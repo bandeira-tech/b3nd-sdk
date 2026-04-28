@@ -102,7 +102,7 @@ so app developers don't need to understand B3nd internals.
 ```typescript
 // my-protocol-sdk/mod.ts
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { HttpClient, send } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient, message } from "@bandeira-tech/b3nd-sdk";
 import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 
 // 1. Schema export (for node operators)
@@ -122,9 +122,11 @@ export function createClient(url = "https://my-protocol-node.example.com") {
 
 // 3. Typed helpers
 export async function writeNote(client: HttpClient, path: string, content: object) {
-  return send({
-    payload: { inputs: [], outputs: [[`mutable://open/${path}`, content]] },
-  }, client);
+  const envelope = await message({
+    inputs: [], outputs: [[`mutable://open/${path}`, content]],
+  });
+  const results = await client.receive([envelope]);
+  return { uri: envelope[0], ...results[0] };
 }
 
 // 4. URI builders

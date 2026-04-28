@@ -3,6 +3,9 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: {
     "src/mod.web": "src/mod.web.ts",
+    "src/core": "src/core.ts",
+    "src/canon": "src/canon.ts",
+    "msg/mod": "./libs/b3nd-msg/data/mod.ts",
     "auth/mod": "./libs/b3nd-auth/mod.ts",
     "wallet/mod": "./libs/b3nd-wallet/mod.ts",
     "encrypt/mod": "./libs/b3nd-encrypt/mod.ts",
@@ -12,6 +15,7 @@ export default defineConfig({
     "clients/memory/mod": "./libs/b3nd-client-memory/mod.ts",
     "clients/console/mod": "./libs/b3nd-client-console/mod.ts",
     "network/mod": "./libs/b3nd-network/mod.ts",
+    "listener/mod": "./libs/b3nd-listener/mod.ts",
   },
   dts: true,
   format: ["esm"],

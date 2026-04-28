@@ -1515,13 +1515,13 @@ await session.send({
 Identity                   Rig
 (external)          ┌──────────────────────────────────────┐
    │                │                                      │
-   │  .rig(rig)     │  Schema     Hooks      Events        │
-   └───────►        │  (validate) (guard)    (notify)      │
-AuthenticatedRig    │                                      │
-(sign, encrypt)     │         ┌────────────────┐           │
-   │                │         │  Core Operation │           │
-   │  .send()       │         └───────┬────────┘           │
-   └───────►        │                 │                    │
+   │  .sign()       │  Schema     Hooks      Events        │
+   │  message()     │  (validate) (guard)    (notify)      │
+   └───────►        │                                      │
+rig.send([          │         ┌────────────────┐           │
+  envelope,         │         │  Core Operation │           │
+  ...outputs        │         └───────┬────────┘           │
+])                  │                 │                    │
                     │           ┌─────┴─────┐              │
                     │           │  Observe   │              │
                     │           │ (patterns) │              │
@@ -1537,7 +1537,7 @@ AuthenticatedRig    │                                      │
 
 The rig is pure orchestration — identity-free. Identity is the security
 principal: it signs and encrypts externally, then dispatches pre-signed messages
-through the rig. `identity.rig(rig)` creates an `AuthenticatedRig` session.
+through the rig via `Identity.sign()` + `message()` + `rig.send()`.
 Schema validates. Hooks guard. Clients are pure plumbing. Events notify.
 Observers react. A compromised rig can dispatch but cannot forge signatures —
 the security boundary is the identity, not the rig.

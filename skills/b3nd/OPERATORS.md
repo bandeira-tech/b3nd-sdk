@@ -368,7 +368,7 @@ interface ManagedNodeConfig {
 ### Signing and Publishing a Config
 
 ```typescript
-import { HttpClient, send } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
 
 const configClient = new HttpClient({ url: "http://config-server:9900" });
