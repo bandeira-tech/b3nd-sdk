@@ -33,7 +33,6 @@ Deno.test("Receive — write and read back via gRPC handler", async () => {
   // Write
   const receiveResp = await makeRequest(handler, "Receive", {
     uri: "mutable://test/hello",
-    valuesJson: "{}",
     data: btoa(new TextEncoder().encode(JSON.stringify({ msg: "world" })).reduce(
       (s, b) => s + String.fromCharCode(b), "")),
     dataIsBinary: false,
@@ -68,7 +67,6 @@ Deno.test("Receive — missing URI returns error", async () => {
 
   const resp = await makeRequest(handler, "Receive", {
     uri: "",
-    valuesJson: "{}",
     data: "",
     dataIsBinary: false,
   });

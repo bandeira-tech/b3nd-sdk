@@ -38,7 +38,7 @@ Deno.test("GrpcClient round-trip: receive + read", async () => {
 
     // Write
     const results = await client.receive([
-      ["mutable://test/grpc-roundtrip", {}, { value: 42 }],
+      ["mutable://test/grpc-roundtrip", { value: 42 }],
     ]);
     assertEquals(results.length, 1);
     assertEquals(results[0].accepted, true);
@@ -74,10 +74,10 @@ Deno.test("GrpcClient batch read", async () => {
 
     // Write two items
     await client.receive([
-      ["mutable://test/batch/a", {}, { id: "a" }],
+      ["mutable://test/batch/a", { id: "a" }],
     ]);
     await client.receive([
-      ["mutable://test/batch/b", {}, { id: "b" }],
+      ["mutable://test/batch/b", { id: "b" }],
     ]);
 
     // Batch read

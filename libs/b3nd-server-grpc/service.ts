@@ -13,7 +13,6 @@
 
 import type { Rig } from "../b3nd-rig/rig.ts";
 import {
-  messageToReceiveRequest,
   readResultToProto,
   receiveRequestToMessage,
   receiveResultToResponse,

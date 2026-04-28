@@ -25,14 +25,12 @@ service B3ndService {
 // ── Messages ────────────────────────────────────────────────────────
 
 message ReceiveRequest {
-  // The message: [uri, values, data] encoded as fields.
+  // The message URI.
   string uri = 1;
-  // Values as JSON string (preserves Record<string, number>).
-  string values_json = 2;
-  // Data as JSON-encoded bytes. Binary payloads are raw bytes.
-  bytes data = 3;
+  // Payload as JSON-encoded bytes. Binary payloads are raw bytes.
+  bytes data = 2;
   // True if `data` is raw binary (not JSON-encoded).
-  bool data_is_binary = 4;
+  bool data_is_binary = 3;
 }
 
 message ReceiveResponse {
@@ -58,12 +56,10 @@ message ReadResultProto {
 }
 
 message RecordProto {
-  // Values as JSON string.
-  string values_json = 1;
   // Data as JSON-encoded bytes.
-  bytes data = 2;
+  bytes data = 1;
   // True if `data` is raw binary (not JSON-encoded).
-  bool data_is_binary = 3;
+  bool data_is_binary = 2;
 }
 
 message ObserveRequest {

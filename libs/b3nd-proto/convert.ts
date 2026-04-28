@@ -39,20 +39,14 @@ function decodeData(data: Uint8Array, isBinary: boolean): unknown {
 // ── Message → ReceiveRequest ────────────────────────────────────────
 
 export function messageToReceiveRequest(msg: Message): ReceiveRequest {
-  const [uri, values, rawData] = msg;
-  const { data, dataIsBinary } = encodeData(rawData);
-  return {
-    uri,
-    valuesJson: JSON.stringify(values),
-    data,
-    dataIsBinary,
-  };
+  const [uri, payload] = msg;
+  const { data, dataIsBinary } = encodeData(payload);
+  return { uri, data, dataIsBinary };
 }
 
 export function receiveRequestToMessage(req: ReceiveRequest): Message {
-  const values = JSON.parse(req.valuesJson || "{}") as Record<string, number>;
-  const data = decodeData(req.data, req.dataIsBinary);
-  return [req.uri, values, data];
+  const payload = decodeData(req.data, req.dataIsBinary);
+  return [req.uri, payload];
 }
 
 // ── ReceiveResult ↔ ReceiveResponse ─────────────────────────────────
@@ -71,11 +65,7 @@ export function readResultToProto<T>(r: ReadResult<T>): ReadResultProto {
   let record: RecordProto | undefined;
   if (r.success && r.record) {
     const { data, dataIsBinary } = encodeData(r.record.data);
-    record = {
-      valuesJson: JSON.stringify(r.record.values),
-      data,
-      dataIsBinary,
-    };
+    record = { data, dataIsBinary };
   }
   return {
     success: r.success,
@@ -94,10 +84,7 @@ export function readResultFromProto<T = unknown>(p: ReadResultProto): ReadResult
     };
   }
   const record = p.record
-    ? {
-        values: JSON.parse(p.record.valuesJson || "{}") as Record<string, number>,
-        data: decodeData(p.record.data, p.record.dataIsBinary) as T,
-      }
+    ? { data: decodeData(p.record.data, p.record.dataIsBinary) as T }
     : undefined;
   return {
     success: true,

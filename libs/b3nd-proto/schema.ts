@@ -13,7 +13,6 @@
 
 export interface ReceiveRequest {
   uri: string;
-  valuesJson: string;
   data: Uint8Array;
   dataIsBinary: boolean;
 }
@@ -39,7 +38,6 @@ export interface ReadResultProto {
 }
 
 export interface RecordProto {
-  valuesJson: string;
   data: Uint8Array;
   dataIsBinary: boolean;
 }
