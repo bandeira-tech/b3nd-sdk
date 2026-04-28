@@ -1,5 +1,5 @@
 /**
- * HttpClient - HTTP implementation of NodeProtocolInterface
+ * HttpClient - HTTP implementation of ProtocolInterfaceNode
  *
  * Connects to B3nd HTTP API servers and forwards operations.
  * No schema validation - validation happens server-side.
@@ -8,7 +8,7 @@
 import type {
   HttpClientConfig,
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -42,7 +42,7 @@ function serializeMsgData(data: unknown): unknown {
   return data;
 }
 
-export class HttpClient implements NodeProtocolInterface {
+export class HttpClient implements ProtocolInterfaceNode {
   private baseUrl: string;
   private headers: Record<string, string>;
   private timeout: number;
@@ -150,7 +150,9 @@ export class HttpClient implements NodeProtocolInterface {
 
       if (!response.ok) {
         // Server returned an error — apply to all valid messages
-        const errorMsg = (serverResults as unknown as { error?: string }).error || response.statusText;
+        const errorMsg =
+          (serverResults as unknown as { error?: string }).error ||
+          response.statusText;
         for (const idx of validIndices) {
           results[idx] = { accepted: false, error: errorMsg };
         }

@@ -33,8 +33,12 @@ Deno.test("Receive — write and read back via gRPC handler", async () => {
   // Write
   const receiveResp = await makeRequest(handler, "Receive", {
     uri: "mutable://test/hello",
-    data: btoa(new TextEncoder().encode(JSON.stringify({ msg: "world" })).reduce(
-      (s, b) => s + String.fromCharCode(b), "")),
+    data: btoa(
+      new TextEncoder().encode(JSON.stringify({ msg: "world" })).reduce(
+        (s, b) => s + String.fromCharCode(b),
+        "",
+      ),
+    ),
     dataIsBinary: false,
   });
   assertEquals(receiveResp.status, 200);

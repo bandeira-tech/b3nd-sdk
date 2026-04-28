@@ -161,7 +161,10 @@ Deno.test({
       0x01,
     ]);
 
-    const result = await client.receive([["files://images/photo.jpg", jpegData]]);
+    const result = await client.receive([[
+      "files://images/photo.jpg",
+      jpegData,
+    ]]);
     assertEquals(result[0].accepted, true, "JPEG write should succeed");
 
     const readResults = await client.read<Uint8Array>(
@@ -201,7 +204,10 @@ Deno.test({
       0x60, // Type section
     ]);
 
-    const result = await client.receive([["files://modules/app.wasm", wasmData]]);
+    const result = await client.receive([[
+      "files://modules/app.wasm",
+      wasmData,
+    ]]);
     assertEquals(result[0].accepted, true, "WASM write should succeed");
 
     const readResults = await client.read<Uint8Array>(
@@ -241,7 +247,10 @@ Deno.test({
       0x00, // Length
     ]);
 
-    const result = await client.receive([["files://fonts/app.woff2", fontData]]);
+    const result = await client.receive([[
+      "files://fonts/app.woff2",
+      fontData,
+    ]]);
     assertEquals(result[0].accepted, true, "Font write should succeed");
 
     const readResults = await client.read<Uint8Array>(
@@ -307,7 +316,11 @@ Deno.test({
     const result = await client.receive([
       ["files://large/verybig.bin", veryLargeData],
     ]);
-    assertEquals(result[0].accepted, true, "Very large file write should succeed");
+    assertEquals(
+      result[0].accepted,
+      true,
+      "Very large file write should succeed",
+    );
 
     const readResults = await client.read<Uint8Array>(
       "files://large/verybig.bin",
@@ -341,7 +354,10 @@ Deno.test({
 
     const emptyData = new Uint8Array(0);
 
-    const result = await client.receive([["files://empty/zero.bin", emptyData]]);
+    const result = await client.receive([[
+      "files://empty/zero.bin",
+      emptyData,
+    ]]);
     assertEquals(result[0].accepted, true, "Empty binary write should succeed");
 
     const readResults = await client.read<Uint8Array>("files://empty/zero.bin");

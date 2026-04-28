@@ -91,7 +91,9 @@ class MockWebSocket {
         const results: { accepted: boolean; error?: string }[] = [];
 
         for (const [uri, msgPayload] of batch) {
-          const envelope = msgPayload as { inputs?: unknown; outputs?: unknown } | null;
+          const envelope = msgPayload as
+            | { inputs?: unknown; outputs?: unknown }
+            | null;
           const isEnvelope = envelope != null &&
             typeof envelope === "object" &&
             Array.isArray(envelope.inputs) &&
@@ -101,7 +103,12 @@ class MockWebSocket {
             for (const inputUri of envelope!.inputs as string[]) {
               this.storage.delete(inputUri);
             }
-            for (const [outUri, outPayload] of envelope!.outputs as [string, unknown][]) {
+            for (
+              const [outUri, outPayload] of envelope!.outputs as [
+                string,
+                unknown,
+              ][]
+            ) {
               this.storage.set(outUri, { data: outPayload });
             }
           } else {
@@ -257,7 +264,9 @@ const factories: TestClientFactories = {
           for (const [, data] of batch) {
             // Check output data for name field (handles both envelope and direct)
             const msgData = data as { outputs?: [string, unknown][] } | null;
-            const outputData = msgData?.outputs?.[0]?.[1] as Record<string, unknown> | undefined;
+            const outputData = msgData?.outputs?.[0]?.[1] as
+              | Record<string, unknown>
+              | undefined;
             const directData = data as Record<string, unknown> | null;
 
             if (outputData?.name || directData?.name) {
@@ -309,7 +318,9 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // First operation should work
-    const result = await client.receive([["users://test/data", { value: 123 }]]);
+    const result = await client.receive([["users://test/data", {
+      value: 123,
+    }]]);
     assertEquals(result[0].accepted, true);
 
     mock.restore();
@@ -336,7 +347,9 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work normally
-    const result1 = await client.receive([["users://test/data", { value: 123 }]]);
+    const result1 = await client.receive([["users://test/data", {
+      value: 123,
+    }]]);
     assertEquals(result1[0].accepted, true);
 
     mock.restore();
@@ -362,7 +375,9 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work with auth
-    const result = await client.receive([["users://test/data", { value: 123 }]]);
+    const result = await client.receive([["users://test/data", {
+      value: 123,
+    }]]);
     assertEquals(result[0].accepted, true);
 
     mock.restore();
@@ -385,7 +400,9 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work with custom timeout
-    const result = await client.receive([["users://test/data", { value: 123 }]]);
+    const result = await client.receive([["users://test/data", {
+      value: 123,
+    }]]);
     assertEquals(result[0].accepted, true);
 
     mock.restore();

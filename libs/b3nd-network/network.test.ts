@@ -16,7 +16,7 @@ import { Rig } from "../b3nd-rig/rig.ts";
 import { connection } from "../b3nd-rig/connection.ts";
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
 } from "../b3nd-core/types.ts";
 import { network, peer } from "./mod.ts";
@@ -32,7 +32,7 @@ function mem(): SimpleClient {
  */
 function capturingTarget() {
   const calls: Message[] = [];
-  const target: NodeProtocolInterface = {
+  const target: ProtocolInterfaceNode = {
     receive: (msgs) => {
       calls.push(...msgs);
       return Promise.resolve(msgs.map(() => ({ accepted: true })));
@@ -73,17 +73,18 @@ Deno.test("peer() honors explicit id", () => {
 
 Deno.test("peer() applies decorators in order", () => {
   const calls: string[] = [];
-  const deco =
-    (name: string) => (client: NodeProtocolInterface): NodeProtocolInterface =>
-      ({
-        receive: (msgs) => {
-          calls.push(name);
-          return client.receive(msgs);
-        },
-        read: (u) => client.read(u),
-        observe: (p, s) => client.observe(p, s),
-        status: () => client.status(),
-      });
+  const deco = (name: string) =>
+  (
+    client: ProtocolInterfaceNode,
+  ): ProtocolInterfaceNode => ({
+    receive: (msgs) => {
+      calls.push(name);
+      return client.receive(msgs);
+    },
+    read: (u) => client.read(u),
+    observe: (p, s) => client.observe(p, s),
+    status: () => client.status(),
+  });
 
   const p = peer(mem(), { via: [deco("outer"), deco("inner")] });
   p.client.receive([["mutable://x/1", "v"]]);
@@ -344,7 +345,7 @@ Deno.test("network() catches target.receive errors without stalling", async () =
   const a = mem();
   let count = 0;
   const errors: Error[] = [];
-  const target: NodeProtocolInterface = {
+  const target: ProtocolInterfaceNode = {
     receive: () => {
       count++;
       if (count === 1) throw new Error("flaky");
@@ -374,7 +375,7 @@ Deno.test("network() catches target.receive errors without stalling", async () =
 
 Deno.test("network() surfaces peer observe errors via onError", async () => {
   const errors: Error[] = [];
-  const badPeer: NodeProtocolInterface = {
+  const badPeer: ProtocolInterfaceNode = {
     receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
     read: () => Promise.resolve([]),
     observe: async function* () {

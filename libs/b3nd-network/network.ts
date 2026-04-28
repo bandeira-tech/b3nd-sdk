@@ -19,22 +19,17 @@
  * await unbind();
  * ```
  *
- * `network()` is not a `NodeProtocolInterface`. Passing a peer list to
+ * `network()` is not a `ProtocolInterfaceNode`. Passing a peer list to
  * a strategy factory (`flood(peers)`, `pathVector(peers)`) is how you
  * build the remote-client shape for `connection()`.
  */
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
 } from "../b3nd-core/types.ts";
-import type {
-  InboundCtx,
-  NetworkOptions,
-  Peer,
-  Policy,
-} from "./types.ts";
+import type { InboundCtx, NetworkOptions, Peer, Policy } from "./types.ts";
 
 /**
  * Wire peers into a target's `receive` pipeline.
@@ -44,7 +39,7 @@ import type {
  * Idempotent — calling twice is a no-op.
  */
 export function network(
-  target: Pick<NodeProtocolInterface, "receive">,
+  target: Pick<ProtocolInterfaceNode, "receive">,
   peers: Peer[],
   policies: Policy[] = [],
   opts: NetworkOptions = {},
@@ -102,7 +97,7 @@ async function runPeer(
   peer: Peer,
   policies: Policy[],
   originId: string,
-  target: Pick<NodeProtocolInterface, "receive">,
+  target: Pick<ProtocolInterfaceNode, "receive">,
   pattern: string,
   signal: AbortSignal,
   onError: (err: Error, ctx: { peerId?: string }) => void,
@@ -154,7 +149,7 @@ async function* foldReceive(
 
 /** Forward one event into the target's `receive`. Swallows errors via `onError`. */
 async function forward(
-  target: Pick<NodeProtocolInterface, "receive">,
+  target: Pick<ProtocolInterfaceNode, "receive">,
   ev: ReadResult<unknown>,
   onError: (err: Error, ctx: { peerId?: string }) => void,
   peerId: string,

@@ -1,7 +1,7 @@
 /**
- * Shared Test Suite for NodeProtocolInterface
+ * Shared Test Suite for ProtocolInterfaceNode
  *
- * Tests that any implementation of NodeProtocolInterface behaves
+ * Tests that any implementation of ProtocolInterfaceNode behaves
  * correctly as **mechanical storage**.
  *
  * Message primitive: [uri, payload] where:
@@ -25,7 +25,7 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+import type { ProtocolInterfaceNode } from "../b3nd-core/types.ts";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -47,17 +47,17 @@ function msg(
  */
 export interface TestClientFactories {
   /** Factory for working client (happy path tests) */
-  happy: () => NodeProtocolInterface | Promise<NodeProtocolInterface>;
+  happy: () => ProtocolInterfaceNode | Promise<ProtocolInterfaceNode>;
 
   /** Factory for client that simulates connection/network errors */
   connectionError?: () =>
-    | NodeProtocolInterface
-    | Promise<NodeProtocolInterface>;
+    | ProtocolInterfaceNode
+    | Promise<ProtocolInterfaceNode>;
 
   /** Factory for client that simulates validation errors */
   validationError?: () =>
-    | NodeProtocolInterface
-    | Promise<NodeProtocolInterface>;
+    | ProtocolInterfaceNode
+    | Promise<ProtocolInterfaceNode>;
 
   /** Whether the client supports binary (Uint8Array) data. Defaults to true. */
   supportsBinary?: boolean;
@@ -71,7 +71,7 @@ export function runSharedSuite(
   factories: TestClientFactories,
 ) {
   // Disable sanitizers — clients like Postgres open TCP connections that
-  // outlive individual tests (no cleanup() in NodeProtocolInterface).
+  // outlive individual tests (no cleanup() in ProtocolInterfaceNode).
   const noSanitize = { sanitizeOps: false, sanitizeResources: false };
 
   // ── Basic receive/read ─────────────────────────────────────────────
@@ -616,7 +616,7 @@ export function runSharedSuite(
 
   // NOTE: Envelope decomposition (input consumption, output fan-out) is a
   // protocol concern handled by `messageDataProgram` + `messageDataHandler`
-  // installed on a Rig — not a generic NodeProtocolInterface behavior. The
+  // installed on a Rig — not a generic ProtocolInterfaceNode behavior. The
   // shared suite stays focused on the wire-level contract.
 
   // ── Error handling ─────────────────────────────────────────────────

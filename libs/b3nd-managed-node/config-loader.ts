@@ -8,7 +8,7 @@
  * encrypts to the node's X25519 key. The node decrypts and verifies.
  */
 
-import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import type { ProtocolInterfaceNode } from "@bandeira-tech/b3nd-sdk";
 import { verify } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type {
   EncryptedPayload,
@@ -35,7 +35,7 @@ export interface ConfigLoaderOptions {
  * - AuthenticatedMessage (payload is plaintext) — verifies only (legacy / tests)
  */
 export async function loadConfig(
-  configClient: NodeProtocolInterface,
+  configClient: ProtocolInterfaceNode,
   operatorPubKeyHex: string,
   nodeId: string,
   options?: ConfigLoaderOptions,

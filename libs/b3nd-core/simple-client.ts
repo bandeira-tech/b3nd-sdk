@@ -1,5 +1,5 @@
 /**
- * SimpleClient — bare NodeProtocolInterface over a Store.
+ * SimpleClient — bare ProtocolInterfaceNode over a Store.
  *
  * No protocol awareness. receive() writes the message at its URI.
  * No envelope decomposition, no input deletion, no output fan-out.
@@ -37,7 +37,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -46,7 +46,7 @@ import type {
 import { ObserveEmitter } from "./observe-emitter.ts";
 
 export class SimpleClient extends ObserveEmitter
-  implements NodeProtocolInterface {
+  implements ProtocolInterfaceNode {
   readonly store: Store;
 
   constructor(store: Store) {

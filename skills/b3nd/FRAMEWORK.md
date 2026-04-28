@@ -203,12 +203,12 @@ looks up the validation function, and calls it. If no program matches, the
 message is rejected. Programs decide everything: mutability, authentication,
 content-addressing, access patterns.
 
-### NodeProtocolInterface
+### ProtocolInterfaceNode
 
 All clients implement:
 
 ```typescript
-interface NodeProtocolInterface {
+interface ProtocolInterfaceNode {
   receive<D>(msg: Message<D>): Promise<ReceiveResult>;
   read<T>(uri: string | string[]): Promise<ReadResult<T>[]>;
   status(): Promise<StatusResult>;
@@ -467,7 +467,7 @@ schema table. They don't couple to either side.
 
 The SDK provides storage backends (MemoryStore, PostgresStore, MongoStore, etc.)
 wrapped by protocol clients (MessageDataClient, SimpleClient) as ready-made
-NodeProtocolInterface implementations. But these are tools for node operators,
+ProtocolInterfaceNode implementations. But these are tools for node operators,
 not framework guarantees. A node using MemoryStore loses everything on restart.
 A node using PostgresStore retains everything. Both are valid B3nd nodes — the
 framework doesn't distinguish between them.
@@ -492,14 +492,14 @@ messages.
 | `LocalStorageStore` | NPM     | Browser offline cache     |
 | `IndexedDBStore`    | NPM     | Browser IndexedDB storage |
 
-**Protocol clients** — wrap a Store into a NodeProtocolInterface:
+**Protocol clients** — wrap a Store into a ProtocolInterfaceNode:
 
 | Client              | Package | Use                                   |
 | ------------------- | ------- | ------------------------------------- |
 | `MessageDataClient` | Both    | Envelope-aware (wraps any Store)      |
 | `SimpleClient`      | Both    | Bare storage access (wraps any Store) |
 
-**Transport clients** — direct NodeProtocolInterface, no Store:
+**Transport clients** — direct ProtocolInterfaceNode, no Store:
 
 | Client            | Package | Use                       |
 | ----------------- | ------- | ------------------------- |
@@ -1882,7 +1882,7 @@ source code with line numbers.
 ### Protocol Clients
 
 - `libs/b3nd-core/` — MessageDataClient, SimpleClient (wrap Store →
-  NodeProtocolInterface)
+  ProtocolInterfaceNode)
 
 ### Transport Clients
 

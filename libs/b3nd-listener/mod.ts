@@ -38,7 +38,7 @@
  * ```
  */
 
-import type { NodeProtocolInterface, ReadResult } from "../b3nd-rig/mod.ts";
+import type { ProtocolInterfaceNode, ReadResult } from "../b3nd-rig/mod.ts";
 import {
   createAuthenticatedMessageWithHex,
   decrypt,
@@ -137,7 +137,7 @@ export function respondTo<TReq = unknown, TRes = unknown>(
   handler: Handler<TReq, TRes>,
   config: {
     identity: Identity;
-    client: NodeProtocolInterface;
+    client: ProtocolInterfaceNode;
   },
 ): (msg: [string, unknown]) => Promise<{ success: boolean; error?: string }> {
   const { identity, client } = config;
@@ -242,7 +242,7 @@ export function respondTo<TReq = unknown, TRes = unknown>(
  * ```
  */
 export function connect(
-  client: NodeProtocolInterface,
+  client: ProtocolInterfaceNode,
   config: {
     prefix: string;
     processor: (
@@ -310,7 +310,7 @@ export function connect(
  * This is what a client calls to send a request.
  */
 export async function writeRequest<T>(params: {
-  client: NodeProtocolInterface;
+  client: ProtocolInterfaceNode;
   listenerEncryptionPublicKeyHex: string;
   inboxUri: string;
   data: T;
@@ -356,7 +356,7 @@ export async function writeRequest<T>(params: {
  * This is what a client calls after sending a request.
  */
 export async function readResponse<T>(params: {
-  client: NodeProtocolInterface;
+  client: ProtocolInterfaceNode;
   responseUri: string;
   clientEncryptionPrivateKey: CryptoKey;
   listenerPublicKeyHex?: string;

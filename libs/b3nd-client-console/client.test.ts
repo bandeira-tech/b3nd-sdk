@@ -53,7 +53,11 @@ Deno.test("ConsoleClient - read returns error per URI (string input)", async () 
 Deno.test("ConsoleClient - read returns error per URI (array input)", async () => {
   const client = new ConsoleClient("test");
 
-  const results = await client.read(["mutable://a", "mutable://b", "mutable://c"]);
+  const results = await client.read([
+    "mutable://a",
+    "mutable://b",
+    "mutable://c",
+  ]);
 
   assertEquals(results.length, 3);
   assertEquals(results.every((r) => r.success === false), true);

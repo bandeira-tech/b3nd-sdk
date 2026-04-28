@@ -1,6 +1,6 @@
 /**
  * @module
- * gRPC client — NodeProtocolInterface over the Connect protocol.
+ * gRPC client — ProtocolInterfaceNode over the Connect protocol.
  *
  * Mirrors HttpClient but speaks to `B3ndService` RPC endpoints
  * instead of REST. Uses JSON over HTTP/2 (Connect protocol).
@@ -14,7 +14,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -40,7 +40,7 @@ export interface GrpcClientConfig {
 
 const SERVICE_PREFIX = "/b3nd.v1.B3ndService/";
 
-export class GrpcClient implements NodeProtocolInterface {
+export class GrpcClient implements ProtocolInterfaceNode {
   private baseUrl: string;
   private timeout: number;
 
@@ -91,7 +91,9 @@ export class GrpcClient implements NodeProtocolInterface {
       // Encode Uint8Array data as base64 for JSON transport
       const body = {
         ...req,
-        data: req.data instanceof Uint8Array ? bytesToBase64(req.data) : req.data,
+        data: req.data instanceof Uint8Array
+          ? bytesToBase64(req.data)
+          : req.data,
       };
       const response = await this.rpc<ReceiveResponse>("Receive", body);
       results.push(receiveResponseToResult(response));

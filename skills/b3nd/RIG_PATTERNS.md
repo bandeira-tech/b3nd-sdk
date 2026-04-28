@@ -1087,7 +1087,7 @@ Deno.serve({ port: 9942 }, httpApi(rig));
 
 ## The Rig as a Client
 
-The rig satisfies `NodeProtocolInterface`. Anything that accepts a client also
+The rig satisfies `ProtocolInterfaceNode`. Anything that accepts a client also
 accepts a rig.
 
 ### Pass the rig where a client is expected
@@ -1097,8 +1097,8 @@ const rig = new Rig({
   connections: [connection(client, { receive: ["*"], read: ["*"] })],
 });
 
-// Any function that takes NodeProtocolInterface works
-function processData(node: NodeProtocolInterface) {
+// Any function that takes ProtocolInterfaceNode works
+function processData(node: ProtocolInterfaceNode) {
   return node.read("mutable://open/app/data");
 }
 

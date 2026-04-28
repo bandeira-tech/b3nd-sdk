@@ -11,11 +11,7 @@
  */
 
 import { HttpClient } from "@bandeira-tech/b3nd-sdk";
-import {
-  bestEffort,
-  peer,
-  type Peer,
-} from "@bandeira-tech/b3nd-sdk/network";
+import { bestEffort, type Peer, peer } from "@bandeira-tech/b3nd-sdk/network";
 import type { PeerSpec } from "./types.ts";
 
 /**

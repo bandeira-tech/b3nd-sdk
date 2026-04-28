@@ -7,7 +7,12 @@
  * - Uint8Array data → raw bytes (flagged with `dataIsBinary`)
  */
 
-import type { Message, ReadResult, ReceiveResult, StatusResult } from "../b3nd-core/types.ts";
+import type {
+  Message,
+  ReadResult,
+  ReceiveResult,
+  StatusResult,
+} from "../b3nd-core/types.ts";
 import type {
   ReadResultProto,
   ReceiveRequest,
@@ -22,7 +27,9 @@ const decoder = new TextDecoder();
 // ── Encode (TS → Proto) ────────────────────────────────────────────
 
 /** Encode arbitrary data to proto bytes + binary flag. */
-function encodeData(data: unknown): { data: Uint8Array; dataIsBinary: boolean } {
+function encodeData(
+  data: unknown,
+): { data: Uint8Array; dataIsBinary: boolean } {
   if (data instanceof Uint8Array) {
     return { data, dataIsBinary: true };
   }
@@ -75,7 +82,9 @@ export function readResultToProto<T>(r: ReadResult<T>): ReadResultProto {
   };
 }
 
-export function readResultFromProto<T = unknown>(p: ReadResultProto): ReadResult<T> {
+export function readResultFromProto<T = unknown>(
+  p: ReadResultProto,
+): ReadResult<T> {
   if (!p.success) {
     return {
       success: false,

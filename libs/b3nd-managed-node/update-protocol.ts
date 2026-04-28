@@ -5,7 +5,7 @@
  *   mutable://accounts/{operatorPubKeyHex}/nodes/{nodeId}/update
  */
 
-import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import type { ProtocolInterfaceNode } from "@bandeira-tech/b3nd-sdk";
 import { verify } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { EncryptedPayload } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { ModuleUpdate } from "./types.ts";
@@ -17,7 +17,7 @@ export interface UpdateCheckResult {
 }
 
 export interface UpdateCheckerOptions {
-  client: NodeProtocolInterface;
+  client: ProtocolInterfaceNode;
   operatorPubKeyHex: string;
   nodeId: string;
   intervalMs: number;

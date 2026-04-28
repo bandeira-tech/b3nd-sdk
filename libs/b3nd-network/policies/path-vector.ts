@@ -30,12 +30,12 @@
  * identity's signature on relay — that's the application's responsibility.
  */
 
-import type { Message, NodeProtocolInterface } from "../../b3nd-core/types.ts";
+import type { Message, ProtocolInterfaceNode } from "../../b3nd-core/types.ts";
 import type { Peer } from "../types.ts";
 import { validatePeers } from "../network.ts";
 import { floodImpl } from "./flood.ts";
 
-export function pathVector(peers: Peer[]): NodeProtocolInterface {
+export function pathVector(peers: Peer[]): ProtocolInterfaceNode {
   const { originId, peers: frozenPeers } = validatePeers(peers);
   return floodImpl(
     originId,

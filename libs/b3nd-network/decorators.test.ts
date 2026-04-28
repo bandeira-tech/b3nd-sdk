@@ -6,10 +6,12 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
+import type { ProtocolInterfaceNode, ReadResult } from "../b3nd-core/types.ts";
 import { bestEffort } from "./decorators.ts";
 
-function stub(overrides: Partial<NodeProtocolInterface> = {}): NodeProtocolInterface {
+function stub(
+  overrides: Partial<ProtocolInterfaceNode> = {},
+): ProtocolInterfaceNode {
   return {
     receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
     read: () => Promise.resolve([]),
@@ -47,7 +49,7 @@ Deno.test("bestEffort passes through successful receive unchanged", async () => 
 
 Deno.test("bestEffort passes through read unchanged", async () => {
   const inner = stub({
-    read: <T,>() =>
+    read: <T>() =>
       Promise.resolve([{
         success: true,
         record: { data: "hit" as T },
@@ -60,7 +62,7 @@ Deno.test("bestEffort passes through read unchanged", async () => {
 
 Deno.test("bestEffort passes through observe unchanged (not a silent no-op)", async () => {
   // The old bestEffortClient swallowed observe — this test pins the fix.
-  const inner: NodeProtocolInterface = {
+  const inner: ProtocolInterfaceNode = {
     receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
     read: () => Promise.resolve([]),
     async *observe<T = unknown>() {

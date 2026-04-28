@@ -30,7 +30,7 @@ export type ObserveListener = (
  *
  * Subclasses call `_emit(uri, data)` on successful writes and
  * `_emitDeletes(uris)` on successful deletes. `observe(pattern, signal)`
- * is a plug-and-play `NodeProtocolInterface.observe` implementation.
+ * is a plug-and-play `ProtocolInterfaceNode.observe` implementation.
  */
 export class ObserveEmitter {
   protected _listeners: Set<ObserveListener> = new Set<ObserveListener>();

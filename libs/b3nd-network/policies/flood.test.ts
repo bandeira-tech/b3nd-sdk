@@ -1,6 +1,6 @@
 /**
  * @module
- * Tests for `flood(peers)` — the baseline remote-client NPI factory.
+ * Tests for `flood(peers)` — the baseline remote-client PIN factory.
  *
  * Covers the four-method surface (receive, read, observe, status) plus
  * the peer-list validation it inherits from `validatePeers`.
@@ -12,7 +12,7 @@ import { assertEquals, assertRejects } from "jsr:@std/assert";
 import { MemoryStore } from "../../b3nd-client-memory/store.ts";
 import { SimpleClient } from "../../b3nd-core/simple-client.ts";
 import type {
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   StatusResult,
 } from "../../b3nd-core/types.ts";
@@ -47,7 +47,7 @@ Deno.test("flood rejects duplicate peer ids", () => {
 
 // ── shape ───────────────────────────────────────────────────────────
 
-Deno.test("flood returns a plain NodeProtocolInterface", () => {
+Deno.test("flood returns a plain ProtocolInterfaceNode", () => {
   const npi = flood([peer(mem(), { id: "A" })]);
   assertEquals(typeof npi.receive, "function");
   assertEquals(typeof npi.read, "function");
@@ -72,9 +72,9 @@ Deno.test("flood.receive fans out to every peer", async () => {
 });
 
 Deno.test("flood.receive propagates transport errors", async () => {
-  const broken: NodeProtocolInterface = {
+  const broken: ProtocolInterfaceNode = {
     receive: () => Promise.reject(new Error("peer offline")),
-    read: <T,>(u: string | string[]) =>
+    read: <T>(u: string | string[]) =>
       Promise.resolve(
         (Array.isArray(u) ? u : [u]).map(() => ({
           success: false,
@@ -106,7 +106,7 @@ Deno.test("flood.read tries peers in order and returns the first hit", async () 
 });
 
 Deno.test("flood.read falls through failing peers", async () => {
-  const broken: NodeProtocolInterface = {
+  const broken: ProtocolInterfaceNode = {
     receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
     read: () => Promise.reject(new Error("broken")),
     observe: async function* () {},
@@ -180,9 +180,9 @@ Deno.test("flood.status reports healthy when all peers are healthy", async () =>
 });
 
 Deno.test("flood.status reports degraded when a peer is unhealthy", async () => {
-  const sick: NodeProtocolInterface = {
+  const sick: ProtocolInterfaceNode = {
     receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
-    read: <T,>(u: string | string[]) =>
+    read: <T>(u: string | string[]) =>
       Promise.resolve(
         (Array.isArray(u) ? u : [u]).map(() => ({
           success: false,
@@ -199,9 +199,9 @@ Deno.test("flood.status reports degraded when a peer is unhealthy", async () => 
 });
 
 Deno.test("flood.status reports unhealthy when every peer is unhealthy", async () => {
-  const sick = (): NodeProtocolInterface => ({
+  const sick = (): ProtocolInterfaceNode => ({
     receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
-    read: <T,>(u: string | string[]) =>
+    read: <T>(u: string | string[]) =>
       Promise.resolve(
         (Array.isArray(u) ? u : [u]).map(() => ({
           success: false,

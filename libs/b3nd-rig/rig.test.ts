@@ -617,7 +617,7 @@ Deno.test("Rig.read - trailing-slash lists items", async () => {
   assertEquals(results.length, 2);
 });
 
-// rig.delete() no longer exists — removed from NodeProtocolInterface
+// rig.delete() no longer exists — removed from ProtocolInterfaceNode
 
 Deno.test("Rig.read - reads multiple URIs", async () => {
   const rig = new Rig({

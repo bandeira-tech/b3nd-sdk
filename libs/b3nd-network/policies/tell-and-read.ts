@@ -33,7 +33,7 @@
  * ## Shape
  *
  * `tellAndRead()` returns a pair: an outbound strategy factory
- * (`outbound(peers)` → `NodeProtocolInterface`) and an inbound Policy.
+ * (`outbound(peers)` → `ProtocolInterfaceNode`) and an inbound Policy.
  * Use them on their respective sides:
  *
  * ```ts
@@ -80,7 +80,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
 } from "../../b3nd-core/types.ts";
 import type { Peer, Policy } from "../types.ts";
@@ -115,8 +115,8 @@ export interface TellAndReadOptions {
 }
 
 export interface TellAndReadBundle {
-  /** Strategy factory — build the outbound NPI for `connection()`. */
-  outbound: (peers: Peer[]) => NodeProtocolInterface;
+  /** Strategy factory — build the outbound PIN for `connection()`. */
+  outbound: (peers: Peer[]) => ProtocolInterfaceNode;
   /** Participant-side Policy — pass to `network(rig, peers, [bundle.inbound])`. */
   inbound: Policy;
 }

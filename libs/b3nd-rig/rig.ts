@@ -12,10 +12,10 @@
 
 import type {
   CodeHandler,
-  NodeProtocolInterface,
   Output,
   Program,
   ProgramResult,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -85,7 +85,7 @@ import { OperationHandleImpl } from "./operation-handle.ts";
 export class Rig {
   // ── Internal state ──
   private readonly _connections: Connection[];
-  private readonly _dispatch: NodeProtocolInterface;
+  private readonly _dispatch: ProtocolInterfaceNode;
   private readonly _programs: Record<string, Program> | null;
   private readonly _handlers: Record<string, CodeHandler> | null;
   private readonly _hooks: RigHooks;
@@ -129,10 +129,10 @@ export class Rig {
   /**
    * Raw composite client — bypasses hooks, events, and react.
    *
-   * Prefer passing the Rig itself (it satisfies `NodeProtocolInterface`).
+   * Prefer passing the Rig itself (it satisfies `ProtocolInterfaceNode`).
    * This getter exists for third-party code that requires a plain object.
    */
-  get client(): NodeProtocolInterface {
+  get client(): ProtocolInterfaceNode {
     const d = this._dispatch;
     return {
       receive: (msgs) => d.receive(msgs),
@@ -987,7 +987,7 @@ export class Rig {
  */
 function createConnectionDispatch(
   connections: Connection[],
-): NodeProtocolInterface {
+): ProtocolInterfaceNode {
   return {
     async receive(msgs: Output[]): Promise<ReceiveResult[]> {
       const results: ReceiveResult[] = [];
@@ -1066,8 +1066,8 @@ function createConnectionDispatch(
     },
 
     async status(): Promise<StatusResult> {
-      const seen = new Set<NodeProtocolInterface>();
-      const unique: NodeProtocolInterface[] = [];
+      const seen = new Set<ProtocolInterfaceNode>();
+      const unique: ProtocolInterfaceNode[] = [];
       for (const s of connections) {
         if (!seen.has(s.client)) {
           seen.add(s.client);
@@ -1091,7 +1091,7 @@ function createConnectionDispatch(
 }
 
 // ── Compile-time assertion ──
-// Rig structurally satisfies NodeProtocolInterface, so it can be
+// Rig structurally satisfies ProtocolInterfaceNode, so it can be
 // passed directly to any function that expects a client.
 // deno-lint-ignore no-unused-vars
-const _rigIsClient: NodeProtocolInterface = null! as Rig;
+const _rigIsClient: ProtocolInterfaceNode = null! as Rig;

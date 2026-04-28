@@ -4,7 +4,7 @@
  * and pinning an explicit id.
  */
 
-import type { NodeProtocolInterface } from "../b3nd-core/types.ts";
+import type { ProtocolInterfaceNode } from "../b3nd-core/types.ts";
 import type { Peer, PeerDecorator } from "./types.ts";
 
 /**
@@ -23,11 +23,11 @@ import type { Peer, PeerDecorator } from "./types.ts";
  * ```
  */
 export function peer(
-  client: NodeProtocolInterface,
+  client: ProtocolInterfaceNode,
   opts: { id?: string; via?: PeerDecorator[] } = {},
 ): Peer {
   const id = opts.id ?? `peer-${crypto.randomUUID()}`;
-  const decorated = (opts.via ?? []).reduce<NodeProtocolInterface>(
+  const decorated = (opts.via ?? []).reduce<ProtocolInterfaceNode>(
     (c, decorator) => decorator(c),
     client,
   );

@@ -362,4 +362,3 @@ export function httpApi(
     return new Response("Not Found", { status: 404 });
   };
 }
-

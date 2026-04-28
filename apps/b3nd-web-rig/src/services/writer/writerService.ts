@@ -23,7 +23,7 @@ type AppsClient = any;
 
 /**
  * Minimal backend client interface — satisfied by both Rig (preferred —
- * fires hooks/events/observe) and raw NodeProtocolInterface / HttpClient.
+ * fires hooks/events/observe) and raw ProtocolInterfaceNode / HttpClient.
  */
 export interface BackendClient {
   receive(
