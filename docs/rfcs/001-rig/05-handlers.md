@@ -110,9 +110,7 @@ The handler returns `Output[]`. The Rig:
 4. After successful dispatch, fires reactions on each emitted tuple's
    URI. (Chapter 7 covers what reactions do with their returns.)
 
-Chapter 6 covers the dispatch step in detail. The short version:
-broadcast is what the Rig calls when handing off a handler's emissions
-to connection routing.
+Chapter 6 covers the dispatch step in detail.
 
 ## What happens when there's no handler
 
@@ -138,8 +136,7 @@ await rig.receive([["mutable://open/notes/1", { text: "hi" }]]);
 
 A protocol that wants different handling for `"ok"` registers a
 handler that returns whatever it wants; otherwise the framework's
-behavior is to dispatch the tuple as-is. Same result a trivial
-passthrough handler would produce, less code.
+behavior is to dispatch the tuple as-is.
 
 ## What a handler is *not*
 
@@ -163,21 +160,6 @@ A handler is not a place to call external APIs imperatively. If a
 handler wants an HTTP call to happen, it returns an `Output` to a URI
 that an outbound-HTTP client claims, and the call happens through
 routing. Side effects move to the boundary; the handler stays pure.
-
-## What changed in this chapter
-
-- Handlers are protocol-defined interpretations of program codes.
-- A handler receives the tuple, the program result, and a `read`
-  function. It returns `Output[]` — what to dispatch.
-- The Rig dispatches handler returns via broadcast (connection
-  routing, no re-classification).
-- Common handler shapes: persist (`return [out]`), decompose
-  (`return [envelope, ...outputs, ...deletions]`), conditional
-  (`return existing.success ? [] : [out]`), refuse (`return []`).
-- No handler for a code → Rig dispatches the input tuple directly
-  (persist via connection routing).
-- Handlers don't validate, don't mutate, don't fire reactions/events
-  themselves, and don't call external APIs imperatively.
 
 ## What's coming next
 

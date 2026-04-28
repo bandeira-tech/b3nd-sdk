@@ -9,10 +9,7 @@ handler → Output[] → Rig.broadcast(outs) → connection routing → clients
 
 Broadcast is internal — handlers don't call it, app code doesn't call
 it directly. It's the Rig's mechanism for translating a handler's
-return into actual connection-level dispatches. Naming it matters
-because the same word covered the imperative API in earlier proposals;
-here it's the orchestration step the Rig performs after `handle`
-returns.
+return into actual connection-level dispatches.
 
 ## What broadcast does
 
@@ -22,14 +19,14 @@ For each tuple a handler returned:
    patterns.
 2. For every connection that accepts, dispatch the tuple to that
    connection's client.
-3. Aggregate the per-connection results into a single `ReceiveResult`
-   per tuple.
-4. Schedule reactions whose URI patterns match the tuple's URI.
+3. Emit a `route:success` or `route:error` event on the operation
+   handle for each `(emission, connection)` pair (Ch 13).
+4. Schedule reactions whose URI patterns match the tuple's URI, once
+   at least one route accepted.
 
-That's it. The same dispatch engine that handles top-level direct
-writes to the Rig runs here. There's no second routing engine for
-handler emissions; it's the same one, called by the Rig as part of
-finishing a `handle` step.
+The same dispatch engine that handles top-level direct writes runs
+here. There's no second routing engine for handler emissions; it's
+the same one, called by the Rig as part of finishing a `handle` step.
 
 ## Why broadcast skips classification
 
@@ -41,17 +38,16 @@ duplicate work the handler already did, or — worse — re-classify a
 tuple in a state that has changed since the handler decided to emit
 it.
 
-So broadcast doesn't run programs. It runs the routing matcher and the
-client dispatch. Programs are entered through `process`, exited by the
-time `handle` runs, and stay exited for everything `handle` produces.
+So broadcast doesn't run programs. It runs the routing matcher and
+the client dispatch. Programs are entered through `process`, exited
+by the time `handle` runs, and stay exited for everything `handle`
+produces.
 
 If a protocol genuinely wants its handler emissions classified — for
 defense-in-depth, or because a handler emits tuples claimed by
-*other* programs the handler doesn't trust — the host application
-calls `rig.receive` or `rig.send` from outside the handler with those
-tuples. That's a fresh top-level call, not a handler-internal escape
-hatch. (Reactions are the framework's blessed shape for "I want my
-emissions to flow through programs"; see chapter 7.)
+*other* programs the handler doesn't trust — the right shape is to
+make those emissions reactions instead of handler outputs. Reactions
+flow through `rig.send`, which runs programs (Ch 7).
 
 ## Why broadcast is direction-free
 
@@ -59,37 +55,42 @@ A handler runs *inside* a `send` or a `receive`. The direction was
 established by the caller; the handler doesn't get to relabel it.
 Broadcast emits the handler's tuples without a new direction.
 
-What this means observationally: subscribers to `send:success` see one
-event for the original send (the tuple the host put into the
-pipeline), not one for every emission the handler produced. A handler
-that decomposes one envelope into ten output tuples doesn't fire ten
-`send:success` events; it fires one for the original envelope and the
-ten emissions are dispatched as part of completing that send.
+Observationally: subscribers to `send:success` see one event for the
+original send (the tuple the host put into the pipeline), not one for
+every emission the handler produced. A handler that decomposes one
+envelope into ten output tuples doesn't fire ten `send:success`
+events; it fires one for the original envelope and the ten emissions
+are dispatched as part of completing that send.
 
-If a host genuinely wants observable per-tuple events for handler
-emissions, the right shape is to make those emissions reactions
-instead — reactions go through full `rig.send` and do fire `send:*`
-events for each. (Chapter 7 again.)
+If a host wants observable per-tuple events for handler emissions, the
+right shape is to make those emissions reactions instead — reactions
+go through full `rig.send` and do fire `send:*` events for each.
 
-## Per-connection results
+## Per-route events on the operation handle
 
-Each connection that accepted a broadcast tuple returns its own
-result. The aggregation rule — what counts as accepted when N
-connections accepted and M rejected — is covered in chapter 13. For
-now: broadcast returns aggregated per-tuple results, with the
-per-connection breakdown attached when more than one connection was
-involved.
+Each connection that accepts a broadcast tuple becomes a route. The
+operation handle fires:
+
+- `route:success` — `{ emission, connectionId, result }` once the
+  connection's client returned a successful `ReceiveResult`.
+- `route:error` — `{ emission, connectionId, error }` if the
+  connection's client returned `accepted: false` or threw.
+
+`connectionId` is either the explicit `id` passed to `connection(...,
+opts)` or an auto-generated `conn-{N}`. When the underlying client
+fans across peers (`flood(peers)`, Ch 14), the peer name flows
+through as the connection ID at that level.
+
+Aggregation across routes — what counts as "accepted" when N routes
+accepted and M rejected — is **not** the Rig's job. The Rig stays
+neutral; callers compose the policy they want from `route:*` events.
 
 ## What broadcast doesn't fire
 
-- **No `send:*` or `receive:*` events** for the broadcast tuples. Only
-  the original direction call's events fire, once, for the triggering
-  tuple.
-- **No re-classification.** Broadcast bypasses `process`. If
-  classification is wanted, the handler made the wrong choice — it
-  should have returned its emissions through a path that re-enters
-  the pipeline, which today means making them reactions, not handler
-  outputs.
+- **No `send:*` or `receive:*` events** for the broadcast tuples.
+  Only the original direction call's events fire, once, for the
+  triggering tuple.
+- **No re-classification.** Broadcast bypasses `process`.
 - **No new hook firings.** `beforeReceive`/`afterReceive` etc. fire
   only at the direction-call boundary, not for each broadcast.
 
@@ -109,8 +110,8 @@ not about how the change was triggered.
 Reaction handling happens after the broadcast finishes. The Rig
 collects matching reactions, runs them with the broadcast tuple as
 input, takes their `Output[]` returns, and feeds them through
-`rig.send` as a new pipeline pass. Chapter 7 walks through the
-reaction layer in full.
+`rig.send` as a new pipeline pass with its own operation handle.
+Chapter 7 walks through the reaction layer in full.
 
 ## When a handler's return is empty
 
@@ -128,30 +129,13 @@ patterns for `receive` (and optionally `read`, `observe`); each
 pattern is matched against the URI of every tuple the Rig is
 dispatching. The match decides where the tuple goes.
 
-Broadcast is the mechanism that hands off to this engine. It's how
-"the handler said to emit this URI" becomes "this URI lands at
-whichever connections accept it." A handler benefits from this without
-having to think about it. It says "emit these URIs," and the URIs
-carry the routing decision with them.
-
-## What changed in this chapter
-
-- Broadcast is the Rig's internal step that takes a handler's
-  returned `Output[]` and dispatches each tuple through connection
-  routing.
-- It's not in the handler signature. Handlers don't have a broadcast
-  function to call; they return data and the Rig broadcasts.
-- Broadcast skips classification (handlers are canonical) and skips
-  direction events (the original direction event fired once at the
-  top of the call).
-- Broadcast does fire reactions on dispatched tuples, because
-  reactions observe writes.
-- A handler returning `[]` is a no-op broadcast; the call still
-  completes successfully.
+Broadcast is the mechanism that hands off to this engine. A handler
+benefits from this without having to think about it. It says "emit
+these URIs," and the URIs carry the routing decision with them.
 
 ## What's coming next
 
 Reactions — productive observation. What it means for a reaction
 handler to return `Output[]`, why those go through `rig.send` (full
-pipeline) instead of broadcast (skip programs), and how to think about
-the chain of reactions firing reactions firing reactions.
+pipeline) instead of broadcast (skip programs), and how to think
+about the chain of reactions firing reactions firing reactions.
