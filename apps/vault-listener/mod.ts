@@ -91,8 +91,13 @@ if (verifiers.size === 0) {
 // --- Client ---
 
 const backendClient = await createClientFromUrl(BACKEND_URL);
+const backend = rigConnection(backendClient, ["*"]);
 const rig = new Rig({
-  connections: [rigConnection(backendClient, { receive: ["*"], read: ["*"] })],
+  routes: {
+    receive: [backend],
+    read: [backend],
+    observe: [backend],
+  },
 });
 rig.on("receive:error", (e) => {
   console.error(`[rig] receive failed: ${e.uri ?? "unknown"} — ${e.error}`);

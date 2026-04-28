@@ -25,13 +25,9 @@
  *   messageDataHandler,
  * } from "@bandeira-tech/b3nd-sdk";
  *
+ * const local = connection(new DataStoreClient(new MemoryStore()), ["*"]);
  * const rig = new Rig({
- *   connections: [
- *     connection(
- *       new DataStoreClient(new MemoryStore()),
- *       { receive: ["*"], read: ["*"] },
- *     ),
- *   ],
+ *   routes: { receive: [local], read: [local], observe: [local] },
  *   programs: { "hash://sha256": messageDataProgram },
  *   handlers: { "msgdata:valid": messageDataHandler },
  * });

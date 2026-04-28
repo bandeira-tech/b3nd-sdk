@@ -78,6 +78,7 @@ export { Rig } from "../libs/b3nd-rig/rig.ts";
 export type {
   RigConfig,
   RigInfo,
+  RigRoutes,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,
@@ -124,7 +125,7 @@ export { matchPattern, ReactionRegistry } from "../libs/b3nd-rig/reactions.ts";
 export { connection } from "../libs/b3nd-rig/connection.ts";
 export type {
   Connection,
-  ConnectionPatterns,
+  ConnectionOptions,
 } from "../libs/b3nd-rig/connection.ts";
 
 // HTTP API

@@ -12,8 +12,9 @@
  * import { message } from "@bandeira-tech/b3nd-sdk/msg";
  *
  * const client = await createClientFromUrl("https://node.b3nd.net");
+ * const node = connection(client, ["*"]);
  * const rig = new Rig({
- *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
+ *   routes: { receive: [node], read: [node], observe: [node] },
  * });
  *
  * // Identity signs, rig delivers
@@ -45,6 +46,7 @@ export type {
 export type {
   RigConfig,
   RigInfo,
+  RigRoutes,
   WatchAllOptions,
   WatchAllSnapshot,
   WatchOptions,
@@ -87,7 +89,7 @@ export { matchPattern, ReactionRegistry } from "./reactions.ts";
 
 // Connections — the single filtering primitive
 export { connection } from "./connection.ts";
-export type { Connection, ConnectionPatterns } from "./connection.ts";
+export type { Connection, ConnectionOptions } from "./connection.ts";
 
 // HTTP API — standalone function for serving a rig over HTTP
 export { httpApi } from "./http.ts";

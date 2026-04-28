@@ -73,8 +73,12 @@ const client = backends.length === 1
 
 // ── The Rig: programs classify messages, events observe, hooks audit ──
 
+const _route130 = connection(client, ["*"]);
 const rig = new Rig({
-  connections: [connection(client, { receive: ["*"], read: ["*"] })],
+  routes: {
+    receive: [_route130],
+    read: [_route130],
+  },
   ...(programs ? { programs } : {}),
   on: {
     "receive:error": [(e) => {

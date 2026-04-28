@@ -46,11 +46,11 @@ import { OperationHandleImpl } from "./operation-handle.ts";
  *
  * @example Unsigned operations
  * ```typescript
+ * const local = connection(client, ["*"]);
  * const rig = new Rig({
- *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
+ *   routes: { receive: [local], read: [local], observe: [local] },
  * });
  * const results = await rig.receive([["mutable://open/app/x", data]]);
- * const result = await rig.readData("mutable://open/app/x");
  * ```
  *
  * @example Authenticated send
@@ -63,8 +63,9 @@ import { OperationHandleImpl } from "./operation-handle.ts";
  *
  * @example With programs, hooks, events, and reactions
  * ```typescript
+ * const local = connection(new DataStoreClient(new MemoryStore()), ["*"]);
  * const rig = new Rig({
- *   connections: [connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
+ *   routes: { receive: [local], read: [local], observe: [local] },
  *   programs,
  *   handlers,
  *   hooks: {
@@ -84,7 +85,9 @@ import { OperationHandleImpl } from "./operation-handle.ts";
  */
 export class Rig {
   // ── Internal state ──
-  private readonly _connections: Connection[];
+  private readonly _receiveRoutes: readonly Connection[];
+  private readonly _readRoutes: readonly Connection[];
+  private readonly _observeRoutes: readonly Connection[];
   private readonly _dispatch: ProtocolInterfaceNode;
   private readonly _programs: Record<string, Program> | null;
   private readonly _handlers: Record<string, CodeHandler> | null;
@@ -93,14 +96,27 @@ export class Rig {
   private readonly _reactors: ReactionRegistry;
 
   constructor(config: RigConfig) {
-    if (!config.connections || config.connections.length === 0) {
+    const routes = config.routes;
+    const receive = routes?.receive ?? [];
+    const read = routes?.read ?? [];
+    const observe = routes?.observe ?? [];
+
+    if (
+      receive.length === 0 && read.length === 0 && observe.length === 0
+    ) {
       throw new Error(
-        "Rig: `connections` array is required and must not be empty.",
+        "Rig: `routes` must declare at least one of `receive`, `read`, or `observe`.",
       );
     }
 
-    this._connections = config.connections;
-    this._dispatch = createConnectionDispatch(config.connections);
+    this._receiveRoutes = Object.freeze([...receive]);
+    this._readRoutes = Object.freeze([...read]);
+    this._observeRoutes = Object.freeze([...observe]);
+    this._dispatch = createRouteDispatch({
+      receive: this._receiveRoutes,
+      read: this._readRoutes,
+      observe: this._observeRoutes,
+    });
     this._programs = config.programs ?? null;
     this._handlers = config.handlers ?? null;
     this._hooks = resolveHooks(config.hooks);
@@ -323,9 +339,7 @@ export class Rig {
           // events. Per-emission route failures (a connection accepting
           // a pattern but rejecting a specific write) are still surfaced
           // as `route:error` events from `_dispatchRouteAware`.
-          const hasRoute = this._connections.some((c) =>
-            c.accepts("receive", uri)
-          );
+          const hasRoute = this._receiveRoutes.some((c) => c.accepts(uri));
           if (!hasRoute) {
             const error = `No connection accepts receive for ${uri}`;
             const result: ReceiveResult = { accepted: false, error };
@@ -457,9 +471,7 @@ export class Rig {
 
     for (const emission of emissions) {
       const [uri] = emission;
-      const matching = this._connections.filter((c) =>
-        c.accepts("receive", uri)
-      );
+      const matching = this._receiveRoutes.filter((c) => c.accepts(uri));
 
       if (matching.length === 0) {
         handle._emit("route:error", {
@@ -719,14 +731,14 @@ export class Rig {
       .filter((s) => !s.startsWith(":") && s !== "*")
       .join("/");
 
-    // Find the first connection that accepts observe for this prefix
-    for (const conn of this._connections) {
-      if (conn.accepts("observe", matchUri)) {
+    // Find the first observe-route that accepts this prefix
+    for (const conn of this._observeRoutes) {
+      if (conn.accepts(matchUri)) {
         yield* conn.client.observe<T>(pattern, signal);
         return;
       }
     }
-    // No connection accepts observe — empty stream
+    // No observe route accepts — empty stream
   }
 
   // ── Inspection ──
@@ -977,31 +989,38 @@ export class Rig {
 // ── Init helpers ──
 
 /**
- * Build dispatch from connections.
+ * Build dispatch from per-op route arrays.
  *
- * Each operation is routed through connections:
- * - Writes (receive): broadcast to ALL matching connections.
- * - Reads (read): first-match in declaration order.
- * - Observe: first-match in declaration order (client handles transport).
- * - Status: aggregate across unique clients.
+ * Each operation flows through its dedicated route list:
+ * - `receive`: broadcast to ALL matching connections in the receive route.
+ * - `read`: first-match in declaration order; list reads (trailing slash)
+ *   gather across every matching connection.
+ * - `observe`: first-match in declaration order (client handles transport).
+ * - `status`: aggregate across unique clients seen on any route.
  */
-function createConnectionDispatch(
-  connections: Connection[],
+function createRouteDispatch(
+  routes: {
+    receive: readonly Connection[];
+    read: readonly Connection[];
+    observe: readonly Connection[];
+  },
 ): ProtocolInterfaceNode {
+  const { receive, read, observe } = routes;
+
   return {
     async receive(msgs: Output[]): Promise<ReceiveResult[]> {
       const results: ReceiveResult[] = [];
       for (const msg of msgs) {
         const [uri] = msg;
-        const matching = connections.filter((s) => s.accepts("receive", uri));
+        const matching = receive.filter((s) => s.accepts(uri));
         if (matching.length === 0) {
           results.push({
             accepted: false,
-            error: `No connection accepts receive for ${uri}`,
+            error: `No receive route accepts ${uri}`,
           });
           continue;
         }
-        // Broadcast to all matching connections
+        // Broadcast to every matching receive-route connection
         const writeResults = await Promise.all(
           matching.map((s) => s.client.receive([msg]).then((r) => r[0])),
         );
@@ -1019,17 +1038,33 @@ function createConnectionDispatch(
         // Strip trailing slash for pattern matching (read patterns cover both)
         const isList = uri.endsWith("/");
         const matchUri = isList ? uri.slice(0, -1) : uri;
-        let found = false;
-        for (const s of connections) {
-          if (!s.accepts("read", matchUri)) continue;
-          const results = await s.client.read<T>(uri);
-          // For list (trailing-slash) reads, an empty array is a valid result
-          // meaning "prefix exists but has no items" — don't fall through to error.
-          if (isList) {
-            allResults.push(...results);
-            found = true;
-            break;
+
+        if (isList) {
+          // List reads: gather across every matching read-route connection.
+          const merged: ReadResult<T>[] = [];
+          let any = false;
+          for (const s of read) {
+            if (!s.accepts(matchUri)) continue;
+            any = true;
+            const part = await s.client.read<T>(uri);
+            merged.push(...part);
           }
+          if (!any) {
+            allResults.push({
+              success: false,
+              error: `No read route accepts ${uri}`,
+            });
+          } else {
+            allResults.push(...merged);
+          }
+          continue;
+        }
+
+        // Point reads: first connection with a successful hit wins.
+        let found = false;
+        for (const s of read) {
+          if (!s.accepts(matchUri)) continue;
+          const results = await s.client.read<T>(uri);
           if (results.length > 0 && results.some((r) => r.success)) {
             allResults.push(...results);
             found = true;
@@ -1039,7 +1074,7 @@ function createConnectionDispatch(
         if (!found) {
           allResults.push({
             success: false,
-            error: `No connection has data for ${uri}`,
+            error: `No read route has data for ${uri}`,
           });
         }
       }
@@ -1057,8 +1092,8 @@ function createConnectionDispatch(
         .filter((s) => !s.startsWith(":") && s !== "*")
         .join("/");
 
-      for (const conn of connections) {
-        if (conn.accepts("observe", matchUri)) {
+      for (const conn of observe) {
+        if (conn.accepts(matchUri)) {
           yield* conn.client.observe<T>(pattern, signal);
           return;
         }
@@ -1068,10 +1103,12 @@ function createConnectionDispatch(
     async status(): Promise<StatusResult> {
       const seen = new Set<ProtocolInterfaceNode>();
       const unique: ProtocolInterfaceNode[] = [];
-      for (const s of connections) {
-        if (!seen.has(s.client)) {
-          seen.add(s.client);
-          unique.push(s.client);
+      for (const list of [receive, read, observe]) {
+        for (const s of list) {
+          if (!seen.has(s.client)) {
+            seen.add(s.client);
+            unique.push(s.client);
+          }
         }
       }
       const results = await Promise.all(unique.map((c) => c.status()));
