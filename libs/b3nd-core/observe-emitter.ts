@@ -1,7 +1,7 @@
 /**
  * @module
  * ObserveEmitter — the shared listener + async-iterator machinery used by
- * clients (SimpleClient, MessageDataClient) to expose `observe()`.
+ * clients (SimpleClient, DataStoreClient) to expose `observe()`.
  *
  * Observe is a client concern. Clients orchestrate writes and deletes —
  * they know when state changes. Stores are mechanical and should not
@@ -22,7 +22,6 @@ import type { ReadResult } from "./types.ts";
 export type ObserveListener = (
   uri: string,
   data: unknown,
-  values: Record<string, number>,
 ) => void;
 
 /**
@@ -31,42 +30,37 @@ export type ObserveListener = (
  *
  * Subclasses call `_emit(uri, data)` on successful writes and
  * `_emitDeletes(uris)` on successful deletes. `observe(pattern, signal)`
- * is a plug-and-play `NodeProtocolInterface.observe` implementation.
+ * is a plug-and-play `ProtocolInterfaceNode.observe` implementation.
  */
 export class ObserveEmitter {
   protected _listeners: Set<ObserveListener> = new Set<ObserveListener>();
 
   /**
    * Notify all listeners of a URI change.
-   *
-   * `values` is the conserved-quantities record that was written alongside
-   * `data`. For deletes, callers should pass `{}` (there are no values
-   * associated with a removal).
    */
   protected _emit(
     uri: string,
     data: unknown,
-    values: Record<string, number> = {},
   ): void {
     for (const listener of this._listeners) {
       try {
-        listener(uri, data, values);
+        listener(uri, data);
       } catch {
         // Listener errors must never break the emitter.
       }
     }
   }
 
-  /** Notify all listeners that each URI was deleted (data = null, no values). */
+  /** Notify all listeners that each URI was deleted (data = null). */
   protected _emitDeletes(uris: readonly string[]): void {
-    for (const uri of uris) this._emit(uri, null, {});
+    for (const uri of uris) this._emit(uri, null);
   }
 
   /**
    * Async iterator yielding `ReadResult` for each URI change matching
    * the pattern. Runs until `signal` aborts.
    *
-   * Deletes surface as `{ success: true, uri, record: { data: null, values: {} } }`.
+   * Deletes surface as `{ success: true, uri, record: { data: null } }`.
    *
    * The listener stays registered for the lifetime of the iteration;
    * events fired while the consumer is processing a yielded value are
@@ -81,12 +75,12 @@ export class ObserveEmitter {
     const queue: ReadResult<T>[] = [];
     let wake: (() => void) | null = null;
 
-    const listener: ObserveListener = (uri, data, values) => {
+    const listener: ObserveListener = (uri, data) => {
       if (matchPattern(segments, uri) !== null) {
         queue.push({
           success: true,
           uri,
-          record: { data: data as T, values },
+          record: { data: data as T },
         });
         const w = wake;
         if (w) {

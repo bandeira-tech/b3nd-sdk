@@ -187,5 +187,4 @@ jobs:
           deno-version: v2.x
 
       - name: Run type check
-        run: deno check src/mod.ts
-
+        run: deno check src/mod.ts apps/*/mod.ts libs/b3nd-*/mod.ts

@@ -86,26 +86,33 @@ class MockWebSocket {
   protected generateResponse(request: any): any {
     const responses = {
       receive: () => {
-        // Handle receive batch: payload is [[uri, values, data], ...]
-        const batch = request.payload as [string, Record<string, number>, unknown][];
+        // Handle receive batch: payload is [[uri, payload], ...]
+        const batch = request.payload as [string, unknown][];
         const results: { accepted: boolean; error?: string }[] = [];
 
-        for (const [uri, values, data] of batch) {
-          const msgData = data as { inputs?: unknown; outputs?: unknown } | null;
-          const isEnvelope = msgData != null &&
-            typeof msgData === "object" &&
-            Array.isArray(msgData.inputs) &&
-            Array.isArray(msgData.outputs);
+        for (const [uri, msgPayload] of batch) {
+          const envelope = msgPayload as
+            | { inputs?: unknown; outputs?: unknown }
+            | null;
+          const isEnvelope = envelope != null &&
+            typeof envelope === "object" &&
+            Array.isArray(envelope.inputs) &&
+            Array.isArray(envelope.outputs);
 
           if (isEnvelope) {
-            for (const inputUri of msgData!.inputs as string[]) {
+            for (const inputUri of envelope!.inputs as string[]) {
               this.storage.delete(inputUri);
             }
-            for (const [outUri, outValues, outData] of msgData!.outputs as [string, Record<string, number>, unknown][]) {
-              this.storage.set(outUri, { data: outData, values: outValues || {} });
+            for (
+              const [outUri, outPayload] of envelope!.outputs as [
+                string,
+                unknown,
+              ][]
+            ) {
+              this.storage.set(outUri, { data: outPayload });
             }
           } else {
-            this.storage.set(uri, { data, values: values || {} });
+            this.storage.set(uri, { data: msgPayload });
           }
 
           results.push({ accepted: true });
@@ -130,7 +137,7 @@ class MockWebSocket {
                 allResults.push({
                   success: true,
                   uri: storedUri,
-                  record: { values: stored.values, data: stored.data },
+                  record: { data: stored.data },
                 });
               }
             }
@@ -140,7 +147,7 @@ class MockWebSocket {
               allResults.push({
                 success: true,
                 uri,
-                record: { values: stored.values, data: stored.data },
+                record: { data: stored.data },
               });
             } else {
               allResults.push({ success: false, uri, error: "Not found" });
@@ -251,13 +258,15 @@ const factories: TestClientFactories = {
     class ValidationFailingMockWebSocket extends MockWebSocket {
       protected override generateResponse(request: any): any {
         if (request.type === "receive") {
-          const batch = request.payload as [string, Record<string, number>, unknown][];
+          const batch = request.payload as [string, unknown][];
           const results: { accepted: boolean; error?: string }[] = [];
 
-          for (const [, , data] of batch) {
+          for (const [, data] of batch) {
             // Check output data for name field (handles both envelope and direct)
-            const msgData = data as { outputs?: [string, Record<string, number>, unknown][] } | null;
-            const outputData = msgData?.outputs?.[0]?.[2] as Record<string, unknown> | undefined;
+            const msgData = data as { outputs?: [string, unknown][] } | null;
+            const outputData = msgData?.outputs?.[0]?.[1] as
+              | Record<string, unknown>
+              | undefined;
             const directData = data as Record<string, unknown> | null;
 
             if (outputData?.name || directData?.name) {
@@ -309,7 +318,9 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // First operation should work
-    const result = await client.receive([["users://test/data", {}, { value: 123 }]]);
+    const result = await client.receive([["users://test/data", {
+      value: 123,
+    }]]);
     assertEquals(result[0].accepted, true);
 
     mock.restore();
@@ -336,7 +347,9 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work normally
-    const result1 = await client.receive([["users://test/data", {}, { value: 123 }]]);
+    const result1 = await client.receive([["users://test/data", {
+      value: 123,
+    }]]);
     assertEquals(result1[0].accepted, true);
 
     mock.restore();
@@ -362,7 +375,9 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work with auth
-    const result = await client.receive([["users://test/data", {}, { value: 123 }]]);
+    const result = await client.receive([["users://test/data", {
+      value: 123,
+    }]]);
     assertEquals(result[0].accepted, true);
 
     mock.restore();
@@ -385,7 +400,9 @@ Deno.test({
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // Should work with custom timeout
-    const result = await client.receive([["users://test/data", {}, { value: 123 }]]);
+    const result = await client.receive([["users://test/data", {
+      value: 123,
+    }]]);
     assertEquals(result[0].accepted, true);
 
     mock.restore();

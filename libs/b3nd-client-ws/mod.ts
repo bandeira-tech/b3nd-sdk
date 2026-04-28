@@ -1,5 +1,5 @@
 /**
- * WebSocketClient - WebSocket implementation of NodeProtocolInterface
+ * WebSocketClient - WebSocket implementation of ProtocolInterfaceNode
  *
  * Connects to B3nd WebSocket servers and forwards operations.
  * Handles reconnection and connection pooling.
@@ -7,7 +7,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -20,7 +20,7 @@ import {
   encodeBinaryForJson,
 } from "../b3nd-core/binary.ts";
 
-export class WebSocketClient implements NodeProtocolInterface {
+export class WebSocketClient implements ProtocolInterfaceNode {
   private config: WebSocketClientConfig;
   private ws: WebSocket | null = null;
   private connected = false;
@@ -248,12 +248,14 @@ export class WebSocketClient implements NodeProtocolInterface {
   /**
    * Receive a batch of messages (unified interface)
    * Sends "receive" message type with encoded batch payload
-   * @param msgs - Array of Message tuples [uri, values, data]
+   * @param msgs - Array of Message tuples [uri, payload]
    * @returns ReceiveResult[] — one result per message
    */
   async receive(msgs: Message[]): Promise<ReceiveResult[]> {
     try {
-      const encodedMsgs = msgs.map(([uri, values, data]) => [uri, values, encodeBinaryForJson(data)]);
+      const encodedMsgs = msgs.map((
+        [uri, payload],
+      ) => [uri, encodeBinaryForJson(payload)]);
       const results = await this.sendRequest<ReceiveResult[]>(
         "receive",
         encodedMsgs,
@@ -293,7 +295,7 @@ export class WebSocketClient implements NodeProtocolInterface {
       const items = Array.isArray(result) ? result : [result];
       const item = items[0];
       if (item && item.success && item.record) {
-        // Server returns { values, data } — decode binary from data, keep values
+        // Server returns { data } — decode binary from data
         item.record.data = decodeBinaryFromJson(item.record.data) as T;
       }
       return item || { success: false, error: "No result returned" };
@@ -313,7 +315,7 @@ export class WebSocketClient implements NodeProtocolInterface {
       const items = Array.isArray(results) ? results : [results];
       for (const item of items) {
         if (item.success && item.record) {
-          // Server returns { values, data } — decode binary from data, keep values
+          // Server returns { data } — decode binary from data
           item.record.data = decodeBinaryFromJson(item.record.data) as T;
         }
       }

@@ -11,40 +11,29 @@
 
 import { connection, httpApi, Rig } from "../libs/b3nd-rig/mod.ts";
 import { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
-import { MessageDataClient } from "../libs/b3nd-core/message-data-client.ts";
-import type { Schema } from "../libs/b3nd-core/types.ts";
+import { DataStoreClient } from "../libs/b3nd-core/data-store-client.ts";
+import {
+  messageDataHandler,
+  messageDataProgram,
+} from "../libs/b3nd-msg/data/canon.ts";
 
-// Create a permissive schema that allows any program key
-// The schema needs exact matches on "program key" format: protocol://domain
-const baseSchema: Schema = {
-  "test://write-test": async () => ({ valid: true }),
-  "test://read-test": async () => ({ valid: true }),
-  "test://list-test": async () => ({ valid: true }),
-  "test://auth-test": async () => ({ valid: true }),
-  "test://encrypt-test": async () => ({ valid: true }),
-  "test://signed-encrypted-test": async () => ({ valid: true }),
-  "notes://alicedoe": async () => ({ valid: true }),
-  "users://alicedoe": async () => ({ valid: true }),
-  "example://demo": async () => ({ valid: true }),
-};
-
-// Proxy that allows any program key (permissive test schema)
-const testSchema = new Proxy(baseSchema, {
-  get(target, prop: string | symbol) {
-    if (typeof prop === "string") {
-      if (prop in target) return target[prop as keyof Schema];
-      return async () => ({ valid: true });
-    }
-    return undefined;
-  },
-}) as Schema;
-
-// Create rig with in-memory backend + schema validation
+// Permissive test rig: no per-prefix programs, so every receive runs
+// process() (returns the default `{ code: "ok" }`), then handle()
+// (default-dispatch returns the input tuple as-is), then broadcast.
+// Inputs land at their URIs; no validation gates them.
+//
+// MessageData canon is installed for the hash:// envelope path so E2E
+// tests using signed send patterns get their inner
+// outputs decomposed and persisted automatically.
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(
+      new DataStoreClient(new MemoryStore()),
+      { receive: ["*"], read: ["*"] },
+    ),
   ],
-  schema: testSchema,
+  programs: { "hash://sha256": messageDataProgram },
+  handlers: { "msgdata:valid": messageDataHandler },
 });
 
 // httpApi() is a standalone function — the rig stays pure

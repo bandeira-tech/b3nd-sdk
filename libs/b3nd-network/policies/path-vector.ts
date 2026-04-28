@@ -10,7 +10,7 @@
  *
  * Handles arbitrary-length cycles (A → B → C → A) without any state,
  * because the chain grows with every relay that re-signs. Works "for
- * free" when messages flow through `AuthenticatedRig.send`.
+ * free" when messages are signed with `Identity.sign()` + `message()`.
  *
  * ## Peer id convention
  *
@@ -27,18 +27,20 @@
  * ## Scope
  *
  * pathVector only *reads* the chain. It does not add the local
- * identity's signature on relay — that's `AuthenticatedRig`'s job.
+ * identity's signature on relay — that's the application's responsibility.
  */
 
-import type { Message, NodeProtocolInterface } from "../../b3nd-core/types.ts";
+import type { Message, ProtocolInterfaceNode } from "../../b3nd-core/types.ts";
 import type { Peer } from "../types.ts";
 import { validatePeers } from "../network.ts";
 import { floodImpl } from "./flood.ts";
 
-export function pathVector(peers: Peer[]): NodeProtocolInterface {
+export function pathVector(peers: Peer[]): ProtocolInterfaceNode {
   const { originId, peers: frozenPeers } = validatePeers(peers);
-  return floodImpl(originId, frozenPeers, (msgs, peer) =>
-    msgs.filter((m) => !signerChain(m).includes(peer.id))
+  return floodImpl(
+    originId,
+    frozenPeers,
+    (msgs, peer) => msgs.filter((m) => !signerChain(m).includes(peer.id)),
   );
 }
 
@@ -48,9 +50,9 @@ export function pathVector(peers: Peer[]): NodeProtocolInterface {
  * `auth` array — non-authenticated messages flow freely.
  */
 function signerChain(msg: Message): string[] {
-  const [, , data] = msg;
-  if (!data || typeof data !== "object") return [];
-  const auth = (data as { auth?: unknown }).auth;
+  const [, payload] = msg;
+  if (!payload || typeof payload !== "object") return [];
+  const auth = (payload as { auth?: unknown }).auth;
   if (!Array.isArray(auth)) return [];
   const keys: string[] = [];
   for (const entry of auth) {

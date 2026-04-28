@@ -203,7 +203,6 @@ export class WriteListReadTest {
       data,
       "Read data should match written data",
     );
-    assertExists(readResult.record.values, "Record should have values");
     this.printVerificationLinks("Read", uri);
   }
 

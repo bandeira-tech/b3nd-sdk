@@ -36,17 +36,17 @@ Or interactively from within Claude Code:
 
 Tools for interacting with B3nd backends directly from Claude:
 
-| Tool                   | Description                                                |
-| ---------------------- | ---------------------------------------------------------- |
-| `b3nd_receive`         | Receive message `[uri, values, data]` (primary write)      |
-| `b3nd_read`            | Read data from URI                                         |
-| `b3nd_list`            | List items matching URI prefix (flat, full URIs)           |
-| `b3nd_delete`          | Delete data                                                |
-| `b3nd_health`          | Health check                                               |
-| `b3nd_schema`          | Get available protocols                                    |
-| `b3nd_backends_list`   | List configured backends                                   |
-| `b3nd_backends_switch` | Switch active backend                                      |
-| `b3nd_backends_add`    | Add new backend                                            |
+| Tool                   | Description                                           |
+| ---------------------- | ----------------------------------------------------- |
+| `b3nd_receive`         | Receive message `[uri, values, data]` (primary write) |
+| `b3nd_read`            | Read data from URI                                    |
+| `b3nd_list`            | List items matching URI prefix (flat, full URIs)      |
+| `b3nd_delete`          | Delete data                                           |
+| `b3nd_health`          | Health check                                          |
+| `b3nd_schema`          | Get available protocols                               |
+| `b3nd_backends_list`   | List configured backends                              |
+| `b3nd_backends_switch` | Switch active backend                                 |
+| `b3nd_backends_add`    | Add new backend                                       |
 
 ## Configuration
 

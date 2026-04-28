@@ -1,5 +1,11 @@
 import { getConfigPath, loadConfig, updateConfig } from "./config.ts";
-import { closeRig, getIdentity, getRig, getSession } from "./client.ts";
+import {
+  closeRig,
+  getIdentity,
+  getRig,
+  signAndSend,
+  signEncryptAndSend,
+} from "./client.ts";
 import { createLogger, Logger } from "./logger.ts";
 import { dirname, parse } from "@std/path";
 import { ensureDir } from "@std/fs";
@@ -223,12 +229,11 @@ export async function confEncrypt(keyPath: string): Promise<void> {
 /**
  * Handle `bnd send` command — send data to the network via the rig.
  *
- * - With identity + encryption: session.sendEncrypted() (signs + encrypts)
- * - With identity: session.send() (signs, content-addressed envelope)
+ * - With identity + encryption: signEncryptAndSend() (signs + encrypts)
+ * - With identity: signAndSend() (signs, content-addressed envelope)
  * - Without identity: rig.receive() (raw message, for open URIs)
  *
- * The rig handles signing, encryption, and envelope construction.
- * The CLI just parses input and delegates.
+ * The rig handles dispatch. The CLI parses input and delegates.
  */
 export async function send(args: string[], verbose = false): Promise<void> {
   const logger = createLogger(verbose);
@@ -273,7 +278,6 @@ export async function send(args: string[], verbose = false): Promise<void> {
     const config = await loadConfig();
     const rig = await getRig(logger);
     const identity = getIdentity();
-    const session = getSession();
 
     // Handle :key placeholder in URI
     if (uri.includes(":key")) {
@@ -289,13 +293,13 @@ export async function send(args: string[], verbose = false): Promise<void> {
     }
 
     // Delegate based on capabilities
-    if (session && identity?.canSign) {
+    if (identity?.canSign) {
       if (config.encrypt && identity.canEncrypt) {
         // Signed + encrypted envelope
-        logger?.info("Sending encrypted envelope (session.sendEncrypted)");
-        const result = await session.sendEncrypted({
+        logger?.info("Sending encrypted envelope (signEncryptAndSend)");
+        const result = await signEncryptAndSend(identity, rig, {
           inputs: [],
-          outputs: [[uri, {}, data]],
+          outputs: [[uri, data]],
         });
         console.log(`✓ Send successful (signed + encrypted)`);
         console.log(`  Hash: ${result.uri}`);
@@ -303,10 +307,10 @@ export async function send(args: string[], verbose = false): Promise<void> {
         console.log(`  Value: ${JSON.stringify(data)}`);
       } else {
         // Signed envelope
-        logger?.info("Sending signed envelope (session.send)");
-        const result = await session.send({
+        logger?.info("Sending signed envelope (signAndSend)");
+        const result = await signAndSend(identity, rig, {
           inputs: [],
-          outputs: [[uri, {}, data]],
+          outputs: [[uri, data]],
         });
         console.log(`✓ Send successful (signed)`);
         console.log(`  Hash: ${result.uri}`);
@@ -316,7 +320,7 @@ export async function send(args: string[], verbose = false): Promise<void> {
     } else {
       // No identity — raw message for open URIs
       logger?.info("Sending raw message (rig.receive, no identity)");
-      const results = await rig.receive([[uri, {}, data]]);
+      const results = await rig.receive([[uri, data]]);
       if (results[0].accepted) {
         console.log(`✓ Send successful (unsigned)`);
         console.log(`  URI: ${uri}`);
@@ -423,7 +427,7 @@ export async function read(uri: string, verbose = false): Promise<void> {
         }
       }
 
-      console.log(`  Values: ${JSON.stringify(result.record.values)}`);
+      // Conserved quantities, if any, live inside the payload (data).
     } else if (result && !result.success) {
       throw new Error(result.error || "Read failed");
     } else {
@@ -769,7 +773,7 @@ export async function upload(
           );
 
           // Send to content-addressed storage
-          const [result] = await rig.receive([[hashUri, {}, fileData]]);
+          const [result] = await rig.receive([[hashUri, fileData]]);
 
           if (result.accepted) {
             hashMap.set(relativePath, hashUri);
@@ -812,7 +816,7 @@ export async function upload(
       const hashUri = `hash://sha256/${hash}`;
       logger?.info(`${fileName} -> ${hashUri} (${fileData.length} bytes)`);
 
-      const [result] = await rig.receive([[hashUri, {}, fileData]]);
+      const [result] = await rig.receive([[hashUri, fileData]]);
 
       if (result.accepted) {
         hashMap.set(fileName, hashUri);
@@ -1066,9 +1070,8 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
   try {
     const rig = await getRig(logger);
     const identity = getIdentity();
-    const session = getSession();
 
-    if (!identity?.canSign || !session) {
+    if (!identity?.canSign) {
       throw new Error(
         "Deploy requires an identity for signing. Run: bnd account create",
       );
@@ -1123,7 +1126,7 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
         const hash = await computeSha256(fileData);
         const hashUri = `hash://sha256/${hash}`;
 
-        const [result] = await rig.receive([[hashUri, {}, fileData]]);
+        const [result] = await rig.receive([[hashUri, fileData]]);
 
         if (result.accepted) {
           hashMap.set(relativePath, hashUri);
@@ -1162,9 +1165,9 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     for (const [relativePath, hashUri] of hashMap) {
       const linkUri = `${versionBase}${relativePath}`;
 
-      const result = await session.send({
+      const result = await signAndSend(identity, rig, {
         inputs: [],
-        outputs: [[linkUri, {}, hashUri]],
+        outputs: [[linkUri, hashUri]],
       });
 
       if (result.accepted) {
@@ -1182,9 +1185,9 @@ export async function deploy(args: string[], verbose = false): Promise<void> {
     // Phase 3: Update mutable pointer via session.send()
     console.log("Phase 3: Updating pointer...");
 
-    const pointerResult = await session.send({
+    const pointerResult = await signAndSend(identity, rig, {
       inputs: [],
-      outputs: [[resolvedTarget, {}, versionBase]],
+      outputs: [[resolvedTarget, versionBase]],
     });
 
     if (!pointerResult.accepted) {

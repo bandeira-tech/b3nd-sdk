@@ -10,7 +10,7 @@ import type {
  * Media-level adapter that translates between Explorer UI paths
  * and b3nd URIs. Delegates all network operations to the provided client.
  *
- * The client can be a Rig's `.client` (NodeProtocolInterface), an HttpClient,
+ * The client can be a Rig's `.client` (ProtocolInterfaceNode), an HttpClient,
  * or any object with `list`, `read`, `getSchema`, and `health` methods.
  */
 
@@ -18,7 +18,7 @@ interface ClientLike {
   read(
     uri: string,
   ): Promise<
-    { success: boolean; record?: { values: Record<string, number>; data: unknown }; error?: string }[]
+    { success: boolean; record?: { data: unknown }; error?: string }[]
   >;
   status(): Promise<{ status: string; schema?: string[] }>;
 }
@@ -89,7 +89,7 @@ export class HttpAdapter implements BackendAdapter {
     };
   }
 
-  async readRecord(path: string): Promise<{ values: Record<string, number>; data: unknown }> {
+  async readRecord(path: string): Promise<{ data: unknown }> {
     // Convert Explorer path to URI
     const uri = this.pathToUri(path);
 

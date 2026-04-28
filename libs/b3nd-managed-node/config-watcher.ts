@@ -5,12 +5,12 @@
  * when the config changes (detected via record timestamp).
  */
 
-import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import type { ProtocolInterfaceNode } from "@bandeira-tech/b3nd-sdk";
 import { loadConfig } from "./config-loader.ts";
 import type { ManagedNodeConfig } from "./types.ts";
 
 export interface ConfigWatcherOptions {
-  configClient: NodeProtocolInterface;
+  configClient: ProtocolInterfaceNode;
   operatorPubKeyHex: string;
   nodeId: string;
   intervalMs: number;

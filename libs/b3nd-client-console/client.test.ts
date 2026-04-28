@@ -15,7 +15,7 @@ Deno.test("ConsoleClient - receive logs messages and returns accepted", async ()
   const client = new ConsoleClient("debug", (msg: string) => logs.push(msg));
 
   const results = await client.receive([
-    ["mutable://app/config", { fire: 10 }, { theme: "dark" }],
+    ["mutable://app/config", { values: { fire: 10 }, theme: "dark" }],
   ]);
 
   assertEquals(results.length, 1);
@@ -30,9 +30,9 @@ Deno.test("ConsoleClient - receive handles multiple messages", async () => {
   const client = new ConsoleClient("test", (msg: string) => logs.push(msg));
 
   const results = await client.receive([
-    ["mutable://a", {}, "data-a"],
-    ["mutable://b", {}, "data-b"],
-    ["mutable://c", {}, "data-c"],
+    ["mutable://a", "data-a"],
+    ["mutable://b", "data-b"],
+    ["mutable://c", "data-c"],
   ]);
 
   assertEquals(results.length, 3);
@@ -53,7 +53,11 @@ Deno.test("ConsoleClient - read returns error per URI (string input)", async () 
 Deno.test("ConsoleClient - read returns error per URI (array input)", async () => {
   const client = new ConsoleClient("test");
 
-  const results = await client.read(["mutable://a", "mutable://b", "mutable://c"]);
+  const results = await client.read([
+    "mutable://a",
+    "mutable://b",
+    "mutable://c",
+  ]);
 
   assertEquals(results.length, 3);
   assertEquals(results.every((r) => r.success === false), true);
@@ -87,7 +91,7 @@ Deno.test("ConsoleClient - handles unserializable data gracefully", async () => 
   circular.self = circular;
 
   const results = await client.receive([
-    ["mutable://test", {}, circular],
+    ["mutable://test", circular],
   ]);
 
   assertEquals(results.length, 1);
@@ -99,7 +103,7 @@ Deno.test("ConsoleClient - default label is 'b3nd'", async () => {
   const logs: string[] = [];
   const client = new ConsoleClient(undefined, (msg: string) => logs.push(msg));
 
-  await client.receive([["mutable://x", {}, null]]);
+  await client.receive([["mutable://x", null]]);
 
   assertEquals(logs[0].includes("[b3nd]"), true);
 });

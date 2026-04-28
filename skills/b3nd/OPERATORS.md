@@ -1,12 +1,12 @@
 # B3nd Node Operations
 
-You run the infrastructure. The protocol (schema) comes from someone else —
-a protocol designer who defined validation rules using the B3nd framework.
-Your job is uptime, backends, replication, and monitoring.
+You run the infrastructure. The protocol (schema) comes from someone else — a
+protocol designer who defined validation rules using the B3nd framework. Your
+job is uptime, backends, replication, and monitoring.
 
 This document covers everything an infrastructure operator needs: standalone
-nodes, managed mode, backend configuration, peer replication, monitoring,
-Docker deployment, and multi-node networks.
+nodes, managed mode, backend configuration, peer replication, monitoring, Docker
+deployment, and multi-node networks.
 
 **Designing a protocol?** See [FRAMEWORK.md](./FRAMEWORK.md).
 
@@ -47,9 +47,9 @@ Phase 1 always runs — it gives you a working node from environment variables
 alone. Phase 2 activates when `CONFIG_URL` is set and adds self-configuration,
 monitoring, schema hot-reload, software update checks, and peer replication.
 
-If Phase 2's config is unavailable at startup, the node runs on Phase 1
-backends and retries via the config watcher. This graceful degradation means
-nodes boot even when the config server is down.
+If Phase 2's config is unavailable at startup, the node runs on Phase 1 backends
+and retries via the config watcher. This graceful degradation means nodes boot
+even when the config server is down.
 
 ### Management URI Scheme
 
@@ -122,16 +122,16 @@ curl http://localhost:9942/health
 ## Backends
 
 B3nd nodes support multiple storage backends. Each backend implements the
-`NodeProtocolInterface` — the same interface apps use to talk to nodes.
+`ProtocolInterfaceNode` — the same interface apps use to talk to nodes.
 
 ### Backend Types
 
-| Type         | URL Scheme        | Use Case                     |
-| ------------ | ----------------- | ---------------------------- |
-| Memory       | `memory://`       | Development, testing         |
-| PostgreSQL   | `postgresql://`   | Production persistent storage|
-| MongoDB      | `mongodb://`      | Production document storage  |
-| HTTP         | `http://` `https://` | Peer/upstream forwarding  |
+| Type       | URL Scheme           | Use Case                      |
+| ---------- | -------------------- | ----------------------------- |
+| Memory     | `memory://`          | Development, testing          |
+| PostgreSQL | `postgresql://`      | Production persistent storage |
+| MongoDB    | `mongodb://`         | Production document storage   |
+| HTTP       | `http://` `https://` | Peer/upstream forwarding      |
 
 ### Single Backend
 
@@ -153,8 +153,8 @@ Multiple backends are composed via **`flood(peers)`** from
 `@bandeira-tech/b3nd-sdk/network`. A `flood`:
 
 - **Writes** fan out to every peer in parallel. Transport-level failures
-  propagate; wrap individual peers with the `bestEffort` decorator if you
-  want per-peer failures to be non-fatal.
+  propagate; wrap individual peers with the `bestEffort` decorator if you want
+  per-peer failures to be non-fatal.
 - **Reads** try peers in order and return the first successful result —
   fall-through via `first-match`.
 
@@ -173,8 +173,8 @@ Local backends are ordered before peer backends on reads.
 
 ## Managed Mode
 
-Managed mode turns a standalone node into a self-configuring node that loads
-its configuration from the B3nd network itself.
+Managed mode turns a standalone node into a self-configuring node that loads its
+configuration from the B3nd network itself.
 
 ### Activation
 
@@ -193,18 +193,18 @@ deno run -A apps/b3nd-node/mod.ts
 
 ### Required Environment Variables
 
-| Variable | Description |
-| -------- | ----------- |
-| `CONFIG_URL` | URL of the config server (B3nd node holding configs) |
-| `OPERATOR_KEY` | Operator's Ed25519 public key hex (signs configs) |
-| `NODE_ID` | This node's Ed25519 public key hex (identity) |
-| `NODE_PRIVATE_KEY_PEM` | This node's Ed25519 private key in PEM format |
+| Variable               | Description                                          |
+| ---------------------- | ---------------------------------------------------- |
+| `CONFIG_URL`           | URL of the config server (B3nd node holding configs) |
+| `OPERATOR_KEY`         | Operator's Ed25519 public key hex (signs configs)    |
+| `NODE_ID`              | This node's Ed25519 public key hex (identity)        |
+| `NODE_PRIVATE_KEY_PEM` | This node's Ed25519 private key in PEM format        |
 
 ### Optional Environment Variables
 
-| Variable | Description |
-| -------- | ----------- |
-| `NODE_ENCRYPTION_PRIVATE_KEY_HEX` | X25519 private key hex for encrypted config/metrics |
+| Variable                             | Description                                                    |
+| ------------------------------------ | -------------------------------------------------------------- |
+| `NODE_ENCRYPTION_PRIVATE_KEY_HEX`    | X25519 private key hex for encrypted config/metrics            |
 | `OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX` | Operator's X25519 public key hex for encrypting status/metrics |
 
 ### What Managed Mode Provides
@@ -221,8 +221,8 @@ deno run -A apps/b3nd-node/mod.ts
 
 ### Graceful Degradation
 
-If config is unavailable at startup, the node logs a warning and runs on
-Phase 1 backends. The config watcher retries periodically. When config becomes
+If config is unavailable at startup, the node logs a warning and runs on Phase 1
+backends. The config watcher retries periodically. When config becomes
 available, backends are hot-swapped automatically.
 
 ---
@@ -260,42 +260,43 @@ console.log("Encryption private key (hex):", encKeys.privateKeyHex);
 
 ### What Goes Where
 
-| Key | Who holds it | Used for |
-| --- | ------------ | -------- |
-| Operator signing private key | Operator | Signing configs and updates |
-| Operator signing public key | All nodes (`OPERATOR_KEY`) | Verifying config signatures |
+| Key                            | Who holds it                                     | Used for                              |
+| ------------------------------ | ------------------------------------------------ | ------------------------------------- |
+| Operator signing private key   | Operator                                         | Signing configs and updates           |
+| Operator signing public key    | All nodes (`OPERATOR_KEY`)                       | Verifying config signatures           |
 | Operator encryption public key | All nodes (`OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX`) | Encrypting status/metrics to operator |
-| Node signing private key | Each node (`NODE_PRIVATE_KEY_PEM`) | Signing heartbeats and metrics |
-| Node signing public key | Config server (`NODE_ID`) | Node identity, URI paths |
-| Node encryption private key | Each node (`NODE_ENCRYPTION_PRIVATE_KEY_HEX`) | Decrypting config from operator |
-| Node encryption public key | Config server (in `NetworkNodeEntry`) | Operator encrypts config to node |
+| Node signing private key       | Each node (`NODE_PRIVATE_KEY_PEM`)               | Signing heartbeats and metrics        |
+| Node signing public key        | Config server (`NODE_ID`)                        | Node identity, URI paths              |
+| Node encryption private key    | Each node (`NODE_ENCRYPTION_PRIVATE_KEY_HEX`)    | Decrypting config from operator       |
+| Node encryption public key     | Config server (in `NetworkNodeEntry`)            | Operator encrypts config to node      |
 
 ---
 
 ## Management Interfaces
 
 Node management is available through three interfaces: the CLI, MCP tools
-(Claude plugin), and the web rig. All three use the same URIs and signing
-model — choose whichever fits your workflow.
+(Claude plugin), and the web rig. All three use the same URIs and signing model
+— choose whichever fits your workflow.
 
 ### MCP Tools
 
 The Claude plugin exposes node management as MCP tools. These work with the
 active backend configured via `B3ND_BACKENDS`.
 
-| Tool                       | Parameters                                      | Description                                       |
-| -------------------------- | ----------------------------------------------- | ------------------------------------------------- |
-| `b3nd_keygen`              | _(none)_                                        | Generate Ed25519 signing + X25519 encryption keys |
-| `b3nd_sign`                | `privateKeyPem`, `publicKeyHex`, `payload`      | Sign any payload, returns `AuthenticatedMessage`  |
-| `b3nd_node_config_push`    | `operatorKeyPem`, `operatorKeyHex`, `nodeId`, `config` | Sign config + write to `mutable://accounts/{operatorKey}/nodes/{nodeId}/config` |
-| `b3nd_node_config_get`     | `operatorKeyHex`, `nodeId`                      | Read config from the correct URI                  |
-| `b3nd_node_status`         | `nodeKeyHex`                                    | Read status from `mutable://accounts/{nodeKey}/status` |
+| Tool                    | Parameters                                             | Description                                                                     |
+| ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `b3nd_keygen`           | _(none)_                                               | Generate Ed25519 signing + X25519 encryption keys                               |
+| `b3nd_sign`             | `privateKeyPem`, `publicKeyHex`, `payload`             | Sign any payload, returns `AuthenticatedMessage`                                |
+| `b3nd_node_config_push` | `operatorKeyPem`, `operatorKeyHex`, `nodeId`, `config` | Sign config + write to `mutable://accounts/{operatorKey}/nodes/{nodeId}/config` |
+| `b3nd_node_config_get`  | `operatorKeyHex`, `nodeId`                             | Read config from the correct URI                                                |
+| `b3nd_node_status`      | `nodeKeyHex`                                           | Read status from `mutable://accounts/{nodeKey}/status`                          |
 
 **Typical workflow with MCP tools:**
 
 1. `b3nd_keygen` — generate operator keys (once) and node keys (per node)
 2. `b3nd_node_config_push` — sign and publish a `ManagedNodeConfig`
-3. `b3nd_node_status` — check that the node picked up the config and is reporting
+3. `b3nd_node_status` — check that the node picked up the config and is
+   reporting
 4. `b3nd_node_config_get` — verify the config that was written
 
 The `b3nd_sign` tool is general-purpose — it works for any write that needs
@@ -317,8 +318,8 @@ backend.
 **Pushing config:**
 
 - Edit config via the form or JSON editor
-- Click **Push Config** — the rig signs the config with the active account's
-  key and writes to `mutable://accounts/{operatorKey}/nodes/{nodeId}/config`
+- Click **Push Config** — the rig signs the config with the active account's key
+  and writes to `mutable://accounts/{operatorKey}/nodes/{nodeId}/config`
 - Requires an active `ManagedKeyAccount` (not an application-user account)
 
 **Setup tab:**
@@ -337,8 +338,8 @@ backend.
 
 ## Writing Node Configs
 
-Configs are `ManagedNodeConfig` objects signed by the operator and stored at
-the config URI.
+Configs are `ManagedNodeConfig` objects signed by the operator and stored at the
+config URI.
 
 ### ManagedNodeConfig Structure
 
@@ -351,10 +352,10 @@ interface ManagedNodeConfig {
     port: number;
     corsOrigin: string;
   };
-  backends: BackendSpec[];           // { type, url, options? }
-  schemaModuleUrl?: string;          // URL to dynamically load schema from
+  backends: BackendSpec[]; // { type, url, options? }
+  schemaModuleUrl?: string; // URL to dynamically load schema from
   schemaInline?: Record<string, SchemaRule>;
-  peers?: PeerSpec[];                // { url, direction }
+  peers?: PeerSpec[]; // { url, direction }
   monitoring: {
     heartbeatIntervalMs: number;
     configPollIntervalMs: number;
@@ -368,7 +369,7 @@ interface ManagedNodeConfig {
 ### Signing and Publishing a Config
 
 ```typescript
-import { HttpClient, send } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient } from "@bandeira-tech/b3nd-sdk";
 import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
 
 const configClient = new HttpClient({ url: "http://config-server:9900" });
@@ -404,7 +405,8 @@ const signed = await encrypt.createAuthenticatedMessageWithHex(
 );
 
 // Publish to config URI
-const uri = `mutable://accounts/${operatorPubKeyHex}/nodes/${config.nodeId}/config`;
+const uri =
+  `mutable://accounts/${operatorPubKeyHex}/nodes/${config.nodeId}/config`;
 await configClient.receive([uri, signed]);
 ```
 
@@ -423,6 +425,7 @@ mutable://accounts/{nodeKey}/status
 ```
 
 The status includes:
+
 - Node identity and name
 - Status: `"online"`, `"degraded"`, or `"offline"`
 - Last heartbeat timestamp
@@ -439,14 +442,14 @@ operator's X25519 key.
 
 When `monitoring.metricsEnabled` is `true`, the node collects:
 
-| Metric | Description |
-| ------ | ----------- |
-| `writeLatencyP50` | Median write latency (ms) |
-| `writeLatencyP99` | 99th percentile write latency (ms) |
-| `readLatencyP50` | Median read latency (ms) |
-| `readLatencyP99` | 99th percentile read latency (ms) |
-| `opsPerSecond` | Operations per second (reads + writes) |
-| `errorRate` | Fraction of operations that failed (0.0-1.0) |
+| Metric            | Description                                  |
+| ----------------- | -------------------------------------------- |
+| `writeLatencyP50` | Median write latency (ms)                    |
+| `writeLatencyP99` | 99th percentile write latency (ms)           |
+| `readLatencyP50`  | Median read latency (ms)                     |
+| `readLatencyP99`  | 99th percentile read latency (ms)            |
+| `opsPerSecond`    | Operations per second (reads + writes)       |
+| `errorRate`       | Fraction of operations that failed (0.0-1.0) |
 
 Metrics are written to:
 
@@ -498,27 +501,27 @@ This allows deploying schema changes without restarting nodes.
 
 ### What Triggers a Rebuild
 
-| Change | Effect |
-| ------ | ------ |
-| Config timestamp changes | Full client rebuild (backends + peers + schema) |
-| `schemaModuleUrl` changes | Schema reload + client rebuild |
-| `backends[]` changes | New backend clients created |
-| `peers[]` changes | New peer push/pull clients wired |
+| Change                    | Effect                                          |
+| ------------------------- | ----------------------------------------------- |
+| Config timestamp changes  | Full client rebuild (backends + peers + schema) |
+| `schemaModuleUrl` changes | Schema reload + client rebuild                  |
+| `backends[]` changes      | New backend clients created                     |
+| `peers[]` changes         | New peer push/pull clients wired                |
 
 ---
 
 ## Software Updates
 
-The update protocol allows operators to publish software update manifests
-that nodes detect automatically.
+The update protocol allows operators to publish software update manifests that
+nodes detect automatically.
 
 ### Update Manifest
 
 ```typescript
 interface ModuleUpdate {
   version: string;
-  moduleUrl: string;      // URL to the new module
-  checksum: string;       // SHA256 of the module
+  moduleUrl: string; // URL to the new module
+  checksum: string; // SHA256 of the module
   releaseNotes?: string;
 }
 ```
@@ -576,24 +579,25 @@ interface PeerSpec {
 
 ### Directions
 
-| Direction | Writes | Reads |
-| --------- | ------ | ----- |
-| `push` | Best-effort broadcast to peer | No |
-| `pull` | No | Fallback read from peer |
-| `bidirectional` | Best-effort broadcast | Fallback read |
+| Direction       | Writes                        | Reads                   |
+| --------------- | ----------------------------- | ----------------------- |
+| `push`          | Best-effort broadcast to peer | No                      |
+| `pull`          | No                            | Fallback read from peer |
+| `bidirectional` | Best-effort broadcast         | Fallback read           |
 
 ### How It Works
 
-**Push**: A local write fans to push peers via `flood([...localPeers, ...pushPeers])`.
-Push peers come pre-wrapped in the `bestEffort` decorator, so a downed peer is
-logged and ignored rather than blocking the write.
+**Push**: A local write fans to push peers via
+`flood([...localPeers, ...pushPeers])`. Push peers come pre-wrapped in the
+`bestEffort` decorator, so a downed peer is logged and ignored rather than
+blocking the write.
 
 **Pull**: Reads use `flood([...localPeers, ...pullPeers])`. `flood.read` tries
 peers in order and returns the first success, so local backends are consulted
 before pull peers — read fallback without requiring full data replication.
 
-**Bidirectional**: Both push and pull. The peer receives writes and serves as
-a read fallback.
+**Bidirectional**: Both push and pull. The peer receives writes and serves as a
+read fallback.
 
 ### Configuration
 
@@ -616,6 +620,7 @@ Local read  → flood([local peers, pull peers])
 ```
 
 Local backends always come first. Peer failures are isolated:
+
 - Push failures are swallowed (logged as warnings)
 - Pull failures cause fallthrough to the next backend
 
@@ -661,6 +666,7 @@ Deno.writeTextFileSync("docker-compose.yml", yaml);
 ```
 
 The generated compose file includes:
+
 - A **config-server** node (memory-backed) for storing configs
 - **Database services** (Postgres, MongoDB) as needed by node configs
 - One **managed-node** container per node in the manifest
@@ -690,8 +696,8 @@ const network = await startLocalNetwork(manifest, {
 await network.stop();
 ```
 
-The local runner expects databases to already be running locally. It spawns
-Deno processes for each node with the appropriate environment variables.
+The local runner expects databases to already be running locally. It spawns Deno
+processes for each node with the appropriate environment variables.
 
 ### Config Server as Coordination Point
 
@@ -703,8 +709,8 @@ In a multi-node network, the config server is the coordination point:
 4. Nodes load their config, hot-swap backends, wire peers
 5. Config changes propagate automatically via config watchers
 
-The config server itself is a simple B3nd node — it can run with `memory://`
-for dev or `postgresql://` for production persistence.
+The config server itself is a simple B3nd node — it can run with `memory://` for
+dev or `postgresql://` for production persistence.
 
 ---
 
@@ -755,6 +761,7 @@ docker run -d \
 ### Docker Compose Profiles
 
 **Dev (persistent)**:
+
 ```yaml
 services:
   node:
@@ -777,6 +784,7 @@ volumes:
 ```
 
 **Test (ephemeral)**:
+
 ```yaml
 services:
   node:
@@ -792,23 +800,23 @@ services:
 
 ### Phase 1 (Always Required)
 
-| Variable | Required | Description |
-| -------- | -------- | ----------- |
-| `PORT` | Yes | HTTP server port |
-| `BACKEND_URL` | Yes | Backend URL(s), comma-separated |
-| `CORS_ORIGIN` | Yes | CORS allowed origin (`*` for any) |
-| `SCHEMA_MODULE` | No | Path/URL to schema module (default: accept all) |
+| Variable        | Required | Description                                     |
+| --------------- | -------- | ----------------------------------------------- |
+| `PORT`          | Yes      | HTTP server port                                |
+| `BACKEND_URL`   | Yes      | Backend URL(s), comma-separated                 |
+| `CORS_ORIGIN`   | Yes      | CORS allowed origin (`*` for any)               |
+| `SCHEMA_MODULE` | No       | Path/URL to schema module (default: accept all) |
 
 ### Phase 2 (Managed Mode)
 
-| Variable | Required | Description |
-| -------- | -------- | ----------- |
-| `CONFIG_URL` | Activates Phase 2 | URL of config server |
-| `OPERATOR_KEY` | Yes (if Phase 2) | Operator's Ed25519 public key hex |
-| `NODE_ID` | Yes (if Phase 2) | Node's Ed25519 public key hex |
-| `NODE_PRIVATE_KEY_PEM` | Yes (if Phase 2) | Node's Ed25519 private key PEM |
-| `NODE_ENCRYPTION_PRIVATE_KEY_HEX` | No | Node's X25519 private key hex (for encrypted config) |
-| `OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX` | No | Operator's X25519 public key hex (for encrypted status/metrics) |
+| Variable                             | Required          | Description                                                     |
+| ------------------------------------ | ----------------- | --------------------------------------------------------------- |
+| `CONFIG_URL`                         | Activates Phase 2 | URL of config server                                            |
+| `OPERATOR_KEY`                       | Yes (if Phase 2)  | Operator's Ed25519 public key hex                               |
+| `NODE_ID`                            | Yes (if Phase 2)  | Node's Ed25519 public key hex                                   |
+| `NODE_PRIVATE_KEY_PEM`               | Yes (if Phase 2)  | Node's Ed25519 private key PEM                                  |
+| `NODE_ENCRYPTION_PRIVATE_KEY_HEX`    | No                | Node's X25519 private key hex (for encrypted config)            |
+| `OPERATOR_ENCRYPTION_PUBLIC_KEY_HEX` | No                | Operator's X25519 public key hex (for encrypted status/metrics) |
 
 ### Backend URL Examples
 

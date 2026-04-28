@@ -38,7 +38,7 @@
  * ```
  */
 
-import type { NodeProtocolInterface, ReadResult } from "../b3nd-rig/mod.ts";
+import type { ProtocolInterfaceNode, ReadResult } from "../b3nd-rig/mod.ts";
 import {
   createAuthenticatedMessageWithHex,
   decrypt,
@@ -137,15 +137,15 @@ export function respondTo<TReq = unknown, TRes = unknown>(
   handler: Handler<TReq, TRes>,
   config: {
     identity: Identity;
-    client: NodeProtocolInterface;
+    client: ProtocolInterfaceNode;
   },
-): (msg: [string, Record<string, number>, unknown]) => Promise<{ success: boolean; error?: string }> {
+): (msg: [string, unknown]) => Promise<{ success: boolean; error?: string }> {
   const { identity, client } = config;
 
   return async (
-    msg: [string, Record<string, number>, unknown],
+    msg: [string, unknown],
   ): Promise<{ success: boolean; error?: string }> => {
-    const [uri, , raw] = msg;
+    const [uri, raw] = msg;
 
     // 1. Extract encrypted payload (handle signed or unsigned)
     let encryptedPayload: EncryptedPayload;
@@ -214,7 +214,7 @@ export function respondTo<TReq = unknown, TRes = unknown>(
     );
 
     // 7. Write to replyTo
-    await client.receive([[decrypted.replyTo, {}, signedResponse]]);
+    await client.receive([[decrypted.replyTo, signedResponse]]);
 
     return { success: true };
   };
@@ -242,11 +242,11 @@ export function respondTo<TReq = unknown, TRes = unknown>(
  * ```
  */
 export function connect(
-  client: NodeProtocolInterface,
+  client: ProtocolInterfaceNode,
   config: {
     prefix: string;
     processor: (
-      msg: [string, Record<string, number>, unknown],
+      msg: [string, unknown],
     ) => Promise<{ success: boolean; error?: string }>;
     pollIntervalMs?: number;
     onError?: (error: Error, uri: string) => void;
@@ -271,7 +271,7 @@ export function connect(
       if (!readResult?.success || !readResult.record) continue;
 
       try {
-        const result = await processor([itemUri, {}, readResult.record.data]);
+        const result = await processor([itemUri, readResult.record.data]);
         if (result.success) {
           processed.add(itemUri);
           count++;
@@ -310,7 +310,7 @@ export function connect(
  * This is what a client calls to send a request.
  */
 export async function writeRequest<T>(params: {
-  client: NodeProtocolInterface;
+  client: ProtocolInterfaceNode;
   listenerEncryptionPublicKeyHex: string;
   inboxUri: string;
   data: T;
@@ -345,9 +345,9 @@ export async function writeRequest<T>(params: {
       signingKeyPair.publicKeyHex,
       signingKeyPair.privateKeyHex,
     );
-    await client.receive([[inboxUri, {}, signed]]);
+    await client.receive([[inboxUri, signed]]);
   } else {
-    await client.receive([[inboxUri, {}, encrypted]]);
+    await client.receive([[inboxUri, encrypted]]);
   }
 }
 
@@ -356,7 +356,7 @@ export async function writeRequest<T>(params: {
  * This is what a client calls after sending a request.
  */
 export async function readResponse<T>(params: {
-  client: NodeProtocolInterface;
+  client: ProtocolInterfaceNode;
   responseUri: string;
   clientEncryptionPrivateKey: CryptoKey;
   listenerPublicKeyHex?: string;

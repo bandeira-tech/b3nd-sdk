@@ -8,7 +8,7 @@
  */
 export interface WriteResult<T = unknown> {
   success: boolean;
-  record?: { values: Record<string, number>; data: T };
+  record?: { data: T };
   error?: string;
 }
 
@@ -19,7 +19,7 @@ export interface WriteResult<T = unknown> {
 export interface ReadResult<T> {
   success: boolean;
   uri?: string;
-  record?: { values: Record<string, number>; data: T };
+  record?: { data: T };
   error?: string;
   errorDetail?: B3ndError;
 }
@@ -31,7 +31,7 @@ export type ReadMultiResultItem<T = unknown> =
   | {
     uri: string;
     success: true;
-    record: { values: Record<string, number>; data: T };
+    record: { data: T };
   }
   | { uri: string; success: false; error: string };
 
@@ -118,16 +118,18 @@ export interface StatusResult {
 }
 
 /**
- * Output — the universal addressed-content primitive: [uri, values, data]
+ * Output — the universal addressed-content primitive: [uri, payload]
  *
  * - uri: identity/address
- * - values: conserved quantities ({} for none, always present)
- * - data: always { inputs: string[], outputs: Output[] }
+ * - payload: opaque protocol-defined payload (the framework treats this as
+ *   opaque; protocols choose its shape — envelopes, conserved quantities,
+ *   ciphertexts, plain values, etc.)
+ *
+ * A payload of `null` is the wire-level "delete this URI" convention.
  */
 export type Output<T = unknown> = [
   uri: string,
-  values: Record<string, number>,
-  data: T,
+  payload: T,
 ];
 
 /**
@@ -164,7 +166,7 @@ export interface ProgramResult {
  * own programs as a closed package — sub-output classification is handled
  * internally by the protocol, not by calling back into the rig.
  *
- * - `output`   — the [uri, values, data] being classified
+ * - `output`   — the [uri, payload] being classified
  * - `upstream` — the parent output (undefined at top level)
  * - `read`     — storage lookup (only confirmed state)
  */
@@ -176,17 +178,26 @@ export type Program<T = unknown> = (
 
 /**
  * Code handler — what to do when a program returns a specific code.
- * Handlers get broadcast (direct to clients, bypasses programs) and read.
  *
- * - `message`   — the classified message
- * - `broadcast` — direct dispatch to clients (trusted, no re-validation)
- * - `read`      — storage lookup (confirmed state)
+ * Handlers are pure transforms: they take the classified output and
+ * return the `Output[]` they want the Rig to dispatch. The Rig owns
+ * the wire — handlers never call broadcast directly.
+ *
+ * Common shapes:
+ * - persist:     `return [out]`            (the simple "write this" case)
+ * - decompose:   `return [envelope, ...payload.outputs, ...deletions]`
+ * - conditional: `return existing.success ? [] : [out]`
+ * - refuse:      `return []`
+ *
+ * - `out`    — the classified output `[uri, payload]`
+ * - `result` — the `ProgramResult` that produced this code
+ * - `read`   — storage lookup (confirmed state)
  */
 export type CodeHandler = (
-  message: Message,
-  broadcast: ReceiveFn,
+  out: Output,
+  result: ProgramResult,
   read: ReadFn,
-) => Promise<void>;
+) => Promise<Output[]>;
 
 /**
  * Result of a receive operation.
@@ -200,7 +211,7 @@ export interface ReceiveResult {
 }
 
 /**
- * NodeProtocolInterface — the universal interface implemented by all clients.
+ * ProtocolInterfaceNode — the universal interface implemented by all clients.
  *
  * Four primitives:
  * - `receive` — all state changes (writes)
@@ -211,15 +222,20 @@ export interface ReceiveResult {
  * All B3nd clients (Memory, HTTP, WebSocket, Postgres, IndexedDB, etc.)
  * implement this interface, enabling recursive composition and uniform usage.
  */
-export interface NodeProtocolInterface {
+export interface ProtocolInterfaceNode {
   /**
    * Receive a batch of messages — the unified entry point for all state changes.
    *
-   * Each message is [uri, values, data] where data is { inputs, outputs }.
-   * Clients are mechanical: delete inputs, write outputs for each message.
+   * Each message is [uri, payload]. Clients interpret the payload per their
+   * role (storage clients persist, audit clients append, forwarders forward).
    * Returns one ReceiveResult per message.
+   *
+   * The return type is `PromiseLike` (not `Promise`) so implementations
+   * can return richer await-targets — e.g., the Rig returns an
+   * `OperationHandle` that's awaitable AND exposes per-route events.
+   * Plain `Promise<ReceiveResult[]>` still satisfies the contract.
    */
-  receive(msgs: Message[]): Promise<ReceiveResult[]>;
+  receive(msgs: Message[]): PromiseLike<ReceiveResult[]>;
 
   /**
    * Read data from one or more URIs.
@@ -269,14 +285,13 @@ export interface NodeProtocolInterface {
  * @example
  * ```typescript
  * await store.write([
- *   { uri: "mutable://users/alice", values: {}, data: { name: "Alice" } },
- *   { uri: "mutable://users/bob", values: {}, data: { name: "Bob" } },
+ *   { uri: "mutable://users/alice", data: { name: "Alice" } },
+ *   { uri: "mutable://users/bob", data: { name: "Bob" } },
  * ]);
  * ```
  */
 export interface StoreEntry<T = unknown> {
   uri: string;
-  values: Record<string, number>;
   data: T;
 }
 
@@ -312,11 +327,11 @@ export interface StoreCapabilities {
  * The Store knows nothing about protocols, envelopes, or message
  * semantics. It is pure mechanical storage: write entries, read
  * entries, delete entries. Observation is a client concern —
- * `NodeProtocolInterface.observe` is implemented by clients via
+ * `ProtocolInterfaceNode.observe` is implemented by clients via
  * `ObserveEmitter`, not by stores.
  *
- * Protocol clients (SimpleClient, MessageDataClient) wrap a Store
- * with protocol semantics to produce a NodeProtocolInterface.
+ * Protocol clients (SimpleClient, DataStoreClient) wrap a Store
+ * with protocol semantics to produce a ProtocolInterfaceNode.
  *
  * @example
  * ```typescript
@@ -324,7 +339,7 @@ export interface StoreCapabilities {
  *
  * // Write
  * await store.write([
- *   { uri: "mutable://app/config", values: {}, data: { theme: "dark" } },
+ *   { uri: "mutable://app/config", data: { theme: "dark" } },
  * ]);
  *
  * // Read

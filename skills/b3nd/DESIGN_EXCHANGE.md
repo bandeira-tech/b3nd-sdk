@@ -15,7 +15,8 @@ Everything in B3nd reduces to a single shape:
 [uri, values, data]
 ```
 
-A **URI** is an address. **Values** are conserved quantities. **Data** is a payload. That's a message.
+A **URI** is an address. **Values** are conserved quantities. **Data** is a
+payload. That's a message.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -49,8 +50,8 @@ What makes this powerful:
 - **Signing as identity** — An Ed25519 signature proves authorship. No
   passwords, no sessions, no server-side state.
 
-The exchange is always the same operation: `receive([[uri, values, data]])`. The trust
-model changes what goes into the URI and what wraps the data.
+The exchange is always the same operation: `receive([[uri, values, data]])`. The
+trust model changes what goes into the URI and what wraps the data.
 
 ---
 
@@ -540,6 +541,6 @@ encryption, or access control. It just processes requests and returns responses.
 | Managed operator      | Varies          | Varies            | Varies               |
 | Three-party consensus | Client          | Yes               | No                   |
 
-The exchange primitive stays the same: `[uri, values, data]`. What changes is what wraps
-the data and who can unwrap it. The compose layer lets you express these
-decisions as code — testable, composable, portable.
+The exchange primitive stays the same: `[uri, values, data]`. What changes is
+what wraps the data and who can unwrap it. The compose layer lets you express
+these decisions as code — testable, composable, portable.

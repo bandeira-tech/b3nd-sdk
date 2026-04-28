@@ -4,7 +4,7 @@
  *
  * Two entry points:
  *   createStoreFromUrl(url, options)   → Store
- *   createClientFromUrl(url, options)  → NodeProtocolInterface
+ *   createClientFromUrl(url, options)  → ProtocolInterfaceNode
  *
  * createStoreFromUrl is the primitive — it maps a URL to a Store.
  * createClientFromUrl wraps that Store with a client class.
@@ -13,17 +13,19 @@
  *   memory://             → MemoryStore
  *   https:// | http://    → HttpClient
  *   wss:// | ws://        → WebSocketClient
+ *   grpc://               → GrpcClient
  *   console://            → ConsoleClient (write-only sink, no storage)
  *
  * External backends are registered via BackendResolver[]:
  *   postgresql://, mongodb://, sqlite://, file://, etc.
  */
 
-import type { NodeProtocolInterface, Store } from "../b3nd-core/types.ts";
+import type { ProtocolInterfaceNode, Store } from "../b3nd-core/types.ts";
 import { HttpClient } from "../b3nd-client-http/mod.ts";
 import { WebSocketClient } from "../b3nd-client-ws/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
 import { ConsoleClient } from "../b3nd-client-console/client.ts";
+import { GrpcClient } from "../b3nd-client-grpc/mod.ts";
 import { SimpleClient } from "../b3nd-core/simple-client.ts";
 
 /**
@@ -58,6 +60,7 @@ const TRANSPORT_PROTOCOLS = new Set([
   "http:",
   "wss:",
   "ws:",
+  "grpc:",
   "console:",
 ]);
 
@@ -70,6 +73,7 @@ const BUILTIN_TRANSPORT_PROTOCOLS = [
   "http://",
   "wss://",
   "ws://",
+  "grpc://",
   "console://",
 ];
 
@@ -80,7 +84,7 @@ export interface BackendFactoryOptions {
 /** Constructor type for clients that wrap a Store. */
 export type StoreClientConstructor = new (
   store: Store,
-) => NodeProtocolInterface;
+) => ProtocolInterfaceNode;
 
 /**
  * Returns the list of supported backend URL protocols, derived dynamically
@@ -149,7 +153,7 @@ export async function createStoreFromUrl(
 // ── Client from URL ─────────────────────────────────────────────────
 
 /**
- * Create a NodeProtocolInterface client from a URL string.
+ * Create a ProtocolInterfaceNode client from a URL string.
  *
  * For storage protocols: creates a Store, wraps with the given client class
  * (defaults to SimpleClient).
@@ -160,23 +164,23 @@ export async function createStoreFromUrl(
 export async function createClientFromUrl(
   url: string,
   options?: BackendFactoryOptions & { client?: StoreClientConstructor },
-): Promise<NodeProtocolInterface>;
+): Promise<ProtocolInterfaceNode>;
 /**
- * Create a NodeProtocolInterface client from a URL string with a specific
+ * Create a ProtocolInterfaceNode client from a URL string with a specific
  * client class.
  */
 export async function createClientFromUrl(
   url: string,
   Client: StoreClientConstructor,
   options?: BackendFactoryOptions,
-): Promise<NodeProtocolInterface>;
+): Promise<ProtocolInterfaceNode>;
 export async function createClientFromUrl(
   url: string,
   clientOrOptions?:
     | StoreClientConstructor
     | (BackendFactoryOptions & { client?: StoreClientConstructor }),
   maybeOptions?: BackendFactoryOptions,
-): Promise<NodeProtocolInterface> {
+): Promise<ProtocolInterfaceNode> {
   let ClientClass: StoreClientConstructor;
   let options: BackendFactoryOptions;
 
@@ -203,6 +207,9 @@ export async function createClientFromUrl(
     case "wss:":
     case "ws:":
       return new WebSocketClient({ url });
+    case "grpc:":
+      // grpc://host:port → http://host:port (Connect protocol over HTTP/2)
+      return new GrpcClient({ url: url.replace(/^grpc:/, "http:") });
     case "console:": {
       const label = parsed.hostname || "b3nd";
       return new ConsoleClient(label);
@@ -248,9 +255,9 @@ export function createStoreResolver(
  *
  * @example
  * ```typescript
- * import { MessageDataClient } from "@bandeira-tech/b3nd-sdk";
+ * import { DataStoreClient } from "@bandeira-tech/b3nd-sdk";
  *
- * const resolveClient = createClientResolver(MessageDataClient, [
+ * const resolveClient = createClientResolver(DataStoreClient, [
  *   postgresBackend(),
  * ]);
  *
@@ -261,7 +268,7 @@ export function createStoreResolver(
 export function createClientResolver(
   ClientClass: StoreClientConstructor = SimpleClient,
   backends: BackendResolver[] = [],
-): (url: string) => Promise<NodeProtocolInterface> {
+): (url: string) => Promise<ProtocolInterfaceNode> {
   const options: BackendFactoryOptions = { backends };
   return (url: string) => createClientFromUrl(url, ClientClass, options);
 }

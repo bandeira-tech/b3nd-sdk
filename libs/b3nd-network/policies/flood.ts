@@ -2,7 +2,7 @@
  * @module
  * `flood(peers)` — the baseline remote-client strategy.
  *
- * Returns a `NodeProtocolInterface` that:
+ * Returns a `ProtocolInterfaceNode` that:
  * - **receive**: fans every write out to every peer in parallel
  * - **read**: tries peers in order and returns the first successful hit
  * - **observe**: merges every peer's observe stream into one iterator
@@ -37,7 +37,7 @@
  *   returns a hit the result is a `not-found` per input URI.
  * - `observe` silently drops a peer whose stream throws (the merged
  *   stream keeps flowing from the remaining peers). This is
- *   intentional — `flood` is a one-shot NPI with no `onError` hook.
+ *   intentional — `flood` is a one-shot PIN with no `onError` hook.
  *   For observability over the inbound side, use `network()`, which
  *   accepts an `onError` callback and reports per-peer failures.
  * - `status` aggregates; individual unhealthy peers degrade the
@@ -46,7 +46,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -55,10 +55,10 @@ import type { Peer } from "../types.ts";
 import { validatePeers } from "../network.ts";
 
 /**
- * Build a flood NPI from peers. Peers must have unique ids and the list
+ * Build a flood PIN from peers. Peers must have unique ids and the list
  * must be non-empty.
  */
-export function flood(peers: Peer[]): NodeProtocolInterface {
+export function flood(peers: Peer[]): ProtocolInterfaceNode {
   const { originId, peers: frozenPeers } = validatePeers(peers);
   return floodImpl(originId, frozenPeers, identityTransform);
 }
@@ -78,7 +78,7 @@ export function floodImpl(
   originId: string,
   peers: readonly Peer[],
   transform: (msgs: Message[], peer: Peer) => Message[],
-): NodeProtocolInterface {
+): ProtocolInterfaceNode {
   return {
     // ── receive ──────────────────────────────────────────────────────
 

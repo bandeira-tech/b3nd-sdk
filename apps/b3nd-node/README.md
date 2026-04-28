@@ -39,13 +39,13 @@ Set these required environment variables (or use a `.env` file):
 
 ## Supported backends
 
-| Protocol      | Store            | Notes                                     |
-| ------------- | ---------------- | ----------------------------------------- |
-| `memory://`   | MemoryStore      | In-memory, no persistence across restarts |
-| `postgres://` | PostgresStore    | JSONB storage, table prefix `b3nd`        |
-| `mongodb://`  | MongoStore       | Collection `b3nd_data`, DB from URL path  |
-| `sqlite://`   | SqliteStore      | WAL mode, file or `:memory:`              |
-| `file://`     | FilesystemStore  | One JSON file per record, recursive dirs  |
+| Protocol      | Store           | Notes                                     |
+| ------------- | --------------- | ----------------------------------------- |
+| `memory://`   | MemoryStore     | In-memory, no persistence across restarts |
+| `postgres://` | PostgresStore   | JSONB storage, table prefix `b3nd`        |
+| `mongodb://`  | MongoStore      | Collection `b3nd_data`, DB from URL path  |
+| `sqlite://`   | SqliteStore     | WAL mode, file or `:memory:`              |
+| `file://`     | FilesystemStore | One JSON file per record, recursive dirs  |
 
 ## Quick start
 

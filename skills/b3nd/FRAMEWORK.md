@@ -11,11 +11,11 @@ use it.
 
 ## Three Layers of Abstraction
 
-| Layer | What | Who | Relies on |
-|-------|------|-----|-----------|
-| **1. Framework** | B3nd — addressed data, schema dispatch, auth primitives, SDK | B3nd developers | Nothing — this is the foundation |
-| **2. Protocol** | Program schemas, consensus, fees, URI conventions | Protocol developers | B3nd SDK |
-| **3. App** | e.g., social network — UX, auth flows, data display | App developers | B3nd SDK + protocol SDK/endpoints |
+| Layer            | What                                                         | Who                 | Relies on                         |
+| ---------------- | ------------------------------------------------------------ | ------------------- | --------------------------------- |
+| **1. Framework** | B3nd — addressed data, schema dispatch, auth primitives, SDK | B3nd developers     | Nothing — this is the foundation  |
+| **2. Protocol**  | Program schemas, consensus, fees, URI conventions            | Protocol developers | B3nd SDK                          |
+| **3. App**       | e.g., social network — UX, auth flows, data display          | App developers      | B3nd SDK + protocol SDK/endpoints |
 
 The SDK is Layer 1's product. It provides tools to everyone above. Protocol
 developers reach into it for primitives. App developers reach into it for
@@ -33,8 +33,8 @@ validation, cryptographic integrity, and unidirectional message flow.
 
 Think of it as a postal system. Letters (data) go into addressed envelopes
 (messages). Post offices (nodes) validate and deliver them. The postal system
-doesn't read your mail — and it doesn't promise to keep a copy either. Whether
-a post office archives letters is the postmaster's decision, not the system's.
+doesn't read your mail — and it doesn't promise to keep a copy either. Whether a
+post office archives letters is the postmaster's decision, not the system's.
 
 ### The Message Primitive
 
@@ -54,17 +54,18 @@ Messages that carry multiple outputs use the envelope structure:
 interface MessageData<V = unknown> {
   auth?: Array<{ pubkey: string; signature: string }>;
   payload: {
-    inputs: string[];                    // references to existing state
-    outputs: Array<[string, V]>;        // [uri, value] pairs to write
+    inputs: string[]; // references to existing state
+    outputs: Array<[string, V]>; // [uri, value] pairs to write
   };
 }
 ```
 
-An envelope is itself a message — `[uri, { auth?, payload: { inputs, outputs } }]`.
-`auth` is optional — programs decide whether they need it. `payload` always
-contains `{ inputs, outputs }`. Envelopes can reference other envelopes. This
-recursive structure is the foundation for protocol design: content → validation →
-confirmation are all just envelopes referencing envelopes.
+An envelope is itself a message —
+`[uri, { auth?, payload: { inputs, outputs } }]`. `auth` is optional — programs
+decide whether they need it. `payload` always contains `{ inputs, outputs }`.
+Envelopes can reference other envelopes. This recursive structure is the
+foundation for protocol design: content → validation → confirmation are all just
+envelopes referencing envelopes.
 
 ```
 [envelope_uri, {
@@ -78,8 +79,8 @@ this same shape. The framework doesn't distinguish between them.
 
 ### How It Works
 
-B3nd is small. The entire framework is a validation dispatch loop. Here's
-what happens when a message arrives at a node:
+B3nd is small. The entire framework is a validation dispatch loop. Here's what
+happens when a message arrives at a node:
 
 ```
 message arrives: [uri, values, data]
@@ -108,11 +109,10 @@ message arrives: [uri, values, data]
               return accepted
 ```
 
-That's it. There is no queue, no consensus engine, no message manager
-inside the framework. A node receives a message, dispatches to a validator,
-and accepts or rejects. Everything else — consensus, fees, multi-step
-workflows — is built by protocols on top of this loop using the same message
-primitive.
+That's it. There is no queue, no consensus engine, no message manager inside the
+framework. A node receives a message, dispatches to a validator, and accepts or
+rejects. Everything else — consensus, fees, multi-step workflows — is built by
+protocols on top of this loop using the same message primitive.
 
 **What the validator sees:**
 
@@ -120,7 +120,7 @@ primitive.
 async function myValidator(
   output: [string, Record<string, number>, unknown], // [uri, values, data]
   upstream: [string, Record<string, number>, unknown] | undefined, // parent envelope, or undefined for plain writes
-  read: (uri: string) => Promise<ReadResult>,  // read existing state (any URI)
+  read: (uri: string) => Promise<ReadResult>, // read existing state (any URI)
 ) {
   const [uri, values, data] = output;
   // Your logic here. Read other URIs, check signatures,
@@ -132,16 +132,16 @@ async function myValidator(
 
 Validators can read any URI available on the node — not just URIs in their own
 program. This means a validator for `mutable://accounts` can read from
-`hash://sha256` to verify content integrity, or from `link://accounts` to
-check authorization chains. Cross-program reads are how protocols compose
-behavior without coupling programs together.
+`hash://sha256` to verify content integrity, or from `link://accounts` to check
+authorization chains. Cross-program reads are how protocols compose behavior
+without coupling programs together.
 
 **What this means for protocol developers:**
 
-The entire protocol is a schema table — a mapping from program keys to
-validator functions. There is no other extension point. You don't register
-middleware, subscribe to events, or override framework methods. You write
-validators, and the framework calls them.
+The entire protocol is a schema table — a mapping from program keys to validator
+functions. There is no other extension point. You don't register middleware,
+subscribe to events, or override framework methods. You write validators, and
+the framework calls them.
 
 This constraint is deliberate. It means every protocol can be fully understood
 by reading its schema table. Every program's behavior is defined in one place.
@@ -156,8 +156,8 @@ automatically unpacks it. Each output in `payload.outputs` becomes a separate
 content-addressed hash URI as an audit trail.
 
 This is handled by the client, not the framework. The `msgSchema()` validator
-validates the envelope AND each output before the client sends anything.
-If any output fails validation, the entire envelope is rejected.
+validates the envelope AND each output before the client sends anything. If any
+output fails validation, the entire envelope is rejected.
 
 ### Programs and Schema Dispatch
 
@@ -175,8 +175,8 @@ URI: mutable://accounts/alice/profile
 
 Programs provide behavioral guarantees — mutability, authentication,
 content-addressing. How a protocol organizes programs is a protocol design
-choice. Some protocols use a few broad programs and organize domain concepts
-as paths. Others create domain-specific programs. The framework is agnostic.
+choice. Some protocols use a few broad programs and organize domain concepts as
+paths. Others create domain-specific programs. The framework is agnostic.
 
 The **schema** is a mapping from program keys to validators:
 
@@ -203,12 +203,12 @@ looks up the validation function, and calls it. If no program matches, the
 message is rejected. Programs decide everything: mutability, authentication,
 content-addressing, access patterns.
 
-### NodeProtocolInterface
+### ProtocolInterfaceNode
 
 All clients implement:
 
 ```typescript
-interface NodeProtocolInterface {
+interface ProtocolInterfaceNode {
   receive<D>(msg: Message<D>): Promise<ReceiveResult>;
   read<T>(uri: string | string[]): Promise<ReadResult<T>[]>;
   status(): Promise<StatusResult>;
@@ -219,9 +219,9 @@ interface NodeProtocolInterface {
 through it. This is the unidirectional flow: messages go in, state comes out.
 
 `read()` accepts a single URI string or an array of URI strings and always
-returns `ReadResult[]`. A trailing slash on the URI acts as a list/prefix
-query — `client.read("mutable://open/my-app/")` returns all children under
-that prefix.
+returns `ReadResult[]`. A trailing slash on the URI acts as a list/prefix query
+— `client.read("mutable://open/my-app/")` returns all children under that
+prefix.
 
 `status()` returns node health information and the available schema (program
 keys).
@@ -260,34 +260,32 @@ a SHA256 hash of the payload (via RFC 8785 canonical JSON), sends through the
 client, and returns the result:
 
 ```typescript
-import { send } from "@bandeira-tech/b3nd-sdk";
-// or: import { send } from "@bandeira-tech/b3nd-web";
+import { message } from "@bandeira-tech/b3nd-sdk/msg";
 
-const result = await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      ["mutable://open/app/config", { theme: "dark" }],
-      ["mutable://open/app/status", { active: true }],
-    ],
-  },
-}, client);
-// result.uri = "hash://sha256/{hex}" — the envelope's content-addressed URI
-// result.accepted = true
+const envelope = await message({
+  inputs: [],
+  outputs: [
+    ["mutable://open/app/config", { theme: "dark" }],
+    ["mutable://open/app/status", { active: true }],
+  ],
+});
+const results = await client.receive([envelope]);
+// envelope[0] = "hash://sha256/{hex}" — the envelope's content-addressed URI
+// results[0].accepted = true
 
 // With auth:
-const authResult = await send({
+const authEnvelope = await message({
   auth: [{ pubkey, signature }],
-  payload: {
-    inputs: [],
-    outputs: [["mutable://accounts/{pubkey}/profile", signedData]],
-  },
-}, client);
+  inputs: [],
+  outputs: [["mutable://accounts/{pubkey}/profile", signedData]],
+});
+await client.receive([authEnvelope]);
 ```
 
 - `msgSchema(schema)` validates the envelope AND each output against its
   program's schema
-- Each client's `receive()` detects MessageData and dispatches outputs individually
+- Each client's `receive()` detects MessageData and dispatches outputs
+  individually
 - The envelope is sent to its hash URI as an audit trail
 
 The lower-level `message()` function builds the tuple without sending:
@@ -320,7 +318,9 @@ const encryptionKeys = await encrypt.generateEncryptionKeyPair();
 
 // Sign data (Ed25519)
 const signed = await encrypt.createAuthenticatedMessageWithHex(
-  payload, signingKeys.publicKeyHex, signingKeys.privateKeyHex,
+  payload,
+  signingKeys.publicKeyHex,
+  signingKeys.privateKeyHex,
 );
 
 // Verify signature
@@ -344,8 +344,12 @@ framework requirements.
 #### Content-Addressing (hash utilities)
 
 ```typescript
-import { computeSha256, generateHashUri, hashValidator, verifyHashContent }
-  from "@bandeira-tech/b3nd-sdk/hash";
+import {
+  computeSha256,
+  generateHashUri,
+  hashValidator,
+  verifyHashContent,
+} from "@bandeira-tech/b3nd-sdk/hash";
 // or from "@bandeira-tech/b3nd-web/hash" in browser
 
 const data = { title: "Hello", content: "World" };
@@ -360,7 +364,9 @@ const hashUri = generateHashUri(hash); // "hash://sha256/{hash}"
 
 ```typescript
 import {
-  createValidatedClient, msgSchema, FunctionalClient,
+  createValidatedClient,
+  FunctionalClient,
+  msgSchema,
 } from "@bandeira-tech/b3nd-sdk";
 import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
 
@@ -405,7 +411,8 @@ signals a list query).
 These are architectural commitments B3nd makes:
 
 1. **Unidirectional flow.** Messages go in, state comes out. No callbacks, no
-   subscriptions at the protocol level. Nodes receive, validate, accept or reject.
+   subscriptions at the protocol level. Nodes receive, validate, accept or
+   reject.
 
 2. **No liveness guarantees.** B3nd is fire-and-forget. The framework makes no
    promises about delivery, timing, or retry. If you mail a letter, the postal
@@ -458,54 +465,54 @@ retention policies. They don't know or care what apps are sending.
 Protocol developers define the validation rules that sit between them — the
 schema table. They don't couple to either side.
 
-The SDK provides storage backends (MemoryStore, PostgresStore,
-MongoStore, etc.) wrapped by protocol clients (MessageDataClient, SimpleClient)
-as ready-made NodeProtocolInterface implementations. But these are tools for
-node operators, not framework guarantees. A node using MemoryStore loses
-everything on restart. A node using PostgresStore retains everything. Both are
-valid B3nd nodes — the framework doesn't distinguish between them.
+The SDK provides storage backends (MemoryStore, PostgresStore, MongoStore, etc.)
+wrapped by protocol clients (MessageDataClient, SimpleClient) as ready-made
+ProtocolInterfaceNode implementations. But these are tools for node operators,
+not framework guarantees. A node using MemoryStore loses everything on restart.
+A node using PostgresStore retains everything. Both are valid B3nd nodes — the
+framework doesn't distinguish between them.
 
 This is what makes B3nd a universal backend layer. Like HTTPS standardizes
 transport without dictating what servers do with requests, B3nd standardizes
-resource addressing and validation without dictating what nodes do with
-accepted messages.
+resource addressing and validation without dictating what nodes do with accepted
+messages.
 
 ### Available Stores, Protocol Clients & Transport Clients
 
 **Stores** — pure mechanical storage (no protocol awareness):
 
-| Store                | Package    | Use                        |
-| -------------------- | ---------- | -------------------------- |
-| `MemoryStore`        | Both       | Testing, in-process        |
-| `PostgresStore`      | JSR        | PostgreSQL storage         |
-| `MongoStore`         | JSR        | MongoDB storage            |
-| `SqliteStore`        | JSR        | SQLite storage             |
-| `S3Store`            | JSR        | S3-compatible storage      |
-| `FsStore`            | JSR        | Filesystem storage         |
-| `LocalStorageStore`  | NPM        | Browser offline cache      |
-| `IndexedDBStore`     | NPM        | Browser IndexedDB storage  |
+| Store               | Package | Use                       |
+| ------------------- | ------- | ------------------------- |
+| `MemoryStore`       | Both    | Testing, in-process       |
+| `PostgresStore`     | JSR     | PostgreSQL storage        |
+| `MongoStore`        | JSR     | MongoDB storage           |
+| `SqliteStore`       | JSR     | SQLite storage            |
+| `S3Store`           | JSR     | S3-compatible storage     |
+| `FsStore`           | JSR     | Filesystem storage        |
+| `LocalStorageStore` | NPM     | Browser offline cache     |
+| `IndexedDBStore`    | NPM     | Browser IndexedDB storage |
 
-**Protocol clients** — wrap a Store into a NodeProtocolInterface:
+**Protocol clients** — wrap a Store into a ProtocolInterfaceNode:
 
-| Client               | Package    | Use                                  |
-| -------------------- | ---------- | ------------------------------------ |
-| `MessageDataClient`  | Both       | Envelope-aware (wraps any Store)     |
-| `SimpleClient`       | Both       | Bare storage access (wraps any Store)|
+| Client              | Package | Use                                   |
+| ------------------- | ------- | ------------------------------------- |
+| `MessageDataClient` | Both    | Envelope-aware (wraps any Store)      |
+| `SimpleClient`      | Both    | Bare storage access (wraps any Store) |
 
-**Transport clients** — direct NodeProtocolInterface, no Store:
+**Transport clients** — direct ProtocolInterfaceNode, no Store:
 
-| Client               | Package    | Use                        |
-| -------------------- | ---------- | -------------------------- |
-| `HttpClient`         | Both       | Connect to any HTTP node   |
-| `WebSocketClient`    | Both       | Real-time node connection  |
-| `ConsoleClient`      | Both       | Debugging / logging        |
+| Client            | Package | Use                       |
+| ----------------- | ------- | ------------------------- |
+| `HttpClient`      | Both    | Connect to any HTTP node  |
+| `WebSocketClient` | Both    | Real-time node connection |
+| `ConsoleClient`   | Both    | Debugging / logging       |
 
 ### Packages
 
-| Package                          | Registry | Use Case       |
-| -------------------------------- | -------- | -------------- |
-| `@bandeira-tech/b3nd-sdk`        | JSR      | Deno, servers  |
-| `@bandeira-tech/b3nd-web`        | NPM      | Browser, React |
+| Package                   | Registry | Use Case       |
+| ------------------------- | -------- | -------------- |
+| `@bandeira-tech/b3nd-sdk` | JSR      | Deno, servers  |
+| `@bandeira-tech/b3nd-web` | NPM      | Browser, React |
 
 Subpath imports:
 
@@ -521,16 +528,16 @@ import { computeSha256 } from "@bandeira-tech/b3nd-web/hash";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 ```
 
-| Feature            | b3nd-sdk (JSR) | b3nd-web (NPM) |
-| ------------------ | -------------- | --------------- |
-| PostgresStore      | Yes            | No              |
-| MongoStore         | Yes            | No              |
-| SqliteStore        | Yes            | No              |
-| S3Store            | Yes            | No              |
-| FsStore            | Yes            | No              |
-| LocalStorageStore  | No             | Yes             |
-| IndexedDBStore     | No             | Yes             |
-| Server primitives  | Full           | Limited         |
+| Feature           | b3nd-sdk (JSR) | b3nd-web (NPM) |
+| ----------------- | -------------- | -------------- |
+| PostgresStore     | Yes            | No             |
+| MongoStore        | Yes            | No             |
+| SqliteStore       | Yes            | No             |
+| S3Store           | Yes            | No             |
+| FsStore           | Yes            | No             |
+| LocalStorageStore | No             | Yes            |
+| IndexedDBStore    | No             | Yes            |
+| Server primitives | Full           | Limited        |
 
 ---
 
@@ -541,8 +548,8 @@ message exchange patterns. B3nd provides the transport and validation. Protocols
 provide the rules.
 
 This section covers the mechanics, patterns, and open problems of protocol
-design. It starts with how the framework dispatches validation, then builds
-up to cross-program composition, worked examples, and design tradeoffs.
+design. It starts with how the framework dispatches validation, then builds up
+to cross-program composition, worked examples, and design tradeoffs.
 
 ### What a Protocol Defines
 
@@ -563,12 +570,14 @@ mechanism is essential for protocol design.
 
 `msgSchema(schema)` handles two cases:
 
-1. **Plain message** `[uri, values, data]` — extracts the program from `uri`, looks up
-   the validator in the schema table, calls it with `upstream = undefined`.
+1. **Plain message** `[uri, values, data]` — extracts the program from `uri`,
+   looks up the validator in the schema table, calls it with
+   `upstream = undefined`.
 
 2. **Envelope message** `[uri, { auth?, payload: { inputs, outputs } }]` — does
    three things in sequence:
-   - Validates the envelope URI against its program validator (with `upstream = undefined`)
+   - Validates the envelope URI against its program validator (with
+     `upstream = undefined`)
    - Enforces content-hash integrity for any `hash://` output URIs
    - Validates each inner output, passing the envelope as `upstream`
 
@@ -587,7 +596,11 @@ function msgSchema(programSchema) {
     }
 
     // 1. Validate the envelope itself
-    const envelopeResult = await programSchema[extractProgram(uri)](output, upstream, read);
+    const envelopeResult = await programSchema[extractProgram(uri)](
+      output,
+      upstream,
+      read,
+    );
     if (!envelopeResult.valid) return envelopeResult;
 
     // 2-3. Validate each inner output — envelope becomes upstream
@@ -596,8 +609,8 @@ function msgSchema(programSchema) {
       // Content-hash check (structural, automatic for hash:// URIs)
       // Then dispatch to the output's program validator
       const result = await programSchema[extractProgram(outputUri)](
-        inner,   // the inner output being validated
-        output,  // the envelope is upstream
+        inner, // the inner output being validated
+        output, // the envelope is upstream
         read,
       );
       if (!result.valid) return result;
@@ -608,14 +621,14 @@ function msgSchema(programSchema) {
 }
 ```
 
-**Key insight:** The envelope's program validator sees the *entire* envelope
-as its `output` (i.e., `[envelopeUri, { auth, payload }]`). Each inner
-output's program validator receives the inner `[uri, value]` as `output`
-and the full envelope as `upstream`. This means envelope-level concerns
-(signature verification, input references, fee checks) belong in the
-envelope's program validator, while per-resource concerns (data format,
-ownership) belong in each output's program validator. Inner validators
-can inspect their `upstream` to access auth, inputs, and sibling outputs.
+**Key insight:** The envelope's program validator sees the _entire_ envelope as
+its `output` (i.e., `[envelopeUri, { auth, payload }]`). Each inner output's
+program validator receives the inner `[uri, value]` as `output` and the full
+envelope as `upstream`. This means envelope-level concerns (signature
+verification, input references, fee checks) belong in the envelope's program
+validator, while per-resource concerns (data format, ownership) belong in each
+output's program validator. Inner validators can inspect their `upstream` to
+access auth, inputs, and sibling outputs.
 
 ### Input Semantics
 
@@ -659,7 +672,7 @@ const schema: Schema = {
     return { valid: true };
   },
 
-  "hash://sha256": hashValidator(),  // built-in: verifies data matches hash
+  "hash://sha256": hashValidator(), // built-in: verifies data matches hash
 
   "mutable://accounts": async ([uri, , data], upstream, read) => {
     // Check that the writer owns this account by reading their auth link
@@ -673,7 +686,7 @@ const schema: Schema = {
 };
 ```
 
-Cross-program reads are the *only* composition mechanism. Programs don't import
+Cross-program reads are the _only_ composition mechanism. Programs don't import
 each other, subscribe to events, or share state directly. A validator in program
 A reads from program B's URI space during validation. This keeps programs
 independent — you can understand each program by reading its validator, and you
@@ -681,25 +694,31 @@ can see its dependencies by looking at which URIs it reads.
 
 ### Accessing Envelope Context via `upstream`
 
-For protocols with envelope-based message flows, inner output validators
-receive the envelope as `upstream`. This gives them access to auth, inputs,
-and sibling outputs — without any special types or wrappers:
+For protocols with envelope-based message flows, inner output validators receive
+the envelope as `upstream`. This gives them access to auth, inputs, and sibling
+outputs — without any special types or wrappers:
 
 ```typescript
-import type { Validator, Schema } from "@bandeira-tech/b3nd-sdk";
+import type { Schema, Validator } from "@bandeira-tech/b3nd-sdk";
 import { isMessageData } from "@bandeira-tech/b3nd-sdk";
 
 // Fee validator: inspects sibling outputs via upstream
 const feeValidator: Validator = async ([uri, , data], upstream, read) => {
   // upstream is the envelope [envelopeUri, { auth, payload: { inputs, outputs } }]
   // For plain writes, upstream is undefined
-  if (!upstream) return { valid: false, error: "Fee check requires envelope context" };
+  if (!upstream) {
+    return { valid: false, error: "Fee check requires envelope context" };
+  }
 
   const [, envelope] = upstream;
-  if (!isMessageData(envelope)) return { valid: false, error: "Invalid envelope" };
+  if (!isMessageData(envelope)) {
+    return { valid: false, error: "Invalid envelope" };
+  }
 
   // Example: require a fee output proportional to data size
-  const feeOutput = envelope.payload.outputs.find(([u]) => u.startsWith("fees://"));
+  const feeOutput = envelope.payload.outputs.find(([u]) =>
+    u.startsWith("fees://")
+  );
   if (!feeOutput) return { valid: false, error: "Fee required" };
 
   const dataSize = JSON.stringify(data).length;
@@ -711,10 +730,10 @@ const feeValidator: Validator = async ([uri, , data], upstream, read) => {
 };
 ```
 
-Envelope-level concerns (signature verification, input existence,
-conservation laws) belong in the envelope's own program validator.
-Per-output concerns (data format, fee checks, ownership) belong in the
-output's program validator and can inspect `upstream` when needed:
+Envelope-level concerns (signature verification, input existence, conservation
+laws) belong in the envelope's own program validator. Per-output concerns (data
+format, fee checks, ownership) belong in the output's program validator and can
+inspect `upstream` when needed:
 
 ```typescript
 const schema: Schema = {
@@ -728,7 +747,8 @@ const schema: Schema = {
       if (input.success && input.record) inputSum += input.record.data.amount;
     }
     const outputSum = data.payload.outputs.reduce(
-      (sum, [, v]) => sum + (v as number), 0,
+      (sum, [, v]) => sum + (v as number),
+      0,
     );
     if (outputSum > inputSum) {
       return { valid: false, error: "Outputs exceed inputs" };
@@ -751,7 +771,11 @@ rejection path (invalid messages rejected with the right error):
 
 ```typescript
 import { assertEquals } from "@std/assert";
-import { MessageDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
+import {
+  MemoryStore,
+  message,
+  MessageDataClient,
+} from "@bandeira-tech/b3nd-sdk";
 
 const schema: Schema = {
   "mutable://accounts": async ([uri, , data]) => {
@@ -765,24 +789,22 @@ const schema: Schema = {
 
 Deno.test("accepts valid account write", async () => {
   const client = new MessageDataClient(new MemoryStore());
-  const result = await send({
-    payload: {
-      inputs: [],
-      outputs: [["mutable://accounts/alice/profile", { name: "Alice" }]],
-    },
-  }, client);
-  assertEquals(result.accepted, true);
+  const envelope = await message({
+    inputs: [],
+    outputs: [["mutable://accounts/alice/profile", { name: "Alice" }]],
+  });
+  const results = await client.receive([envelope]);
+  assertEquals(results[0].accepted, true);
 });
 
 Deno.test("rejects invalid account write", async () => {
   const client = new MessageDataClient(new MemoryStore());
-  const result = await send({
-    payload: {
-      inputs: [],
-      outputs: [["mutable://accounts/alice/profile", null]],
-    },
-  }, client);
-  assertEquals(result.accepted, false);
+  const envelope = await message({
+    inputs: [],
+    outputs: [["mutable://accounts/alice/profile", null]],
+  });
+  const results = await client.receive([envelope]);
+  assertEquals(results[0].accepted, false);
   assertEquals(result.error, "mutable://accounts: Value must be an object");
 });
 
@@ -803,7 +825,9 @@ Deno.test("validator reads cross-program state", async () => {
   await client.receive([["link://accounts/alice/auth", {}, { active: true }]]);
 
   // Now the balance write should succeed (cross-program read finds the auth)
-  await client.receive([["mutable://balances/alice/balance", {}, { amount: 100 }]]);
+  await client.receive([["mutable://balances/alice/balance", {}, {
+    amount: 100,
+  }]]);
   const [result] = await client.read("mutable://balances/alice/balance");
   assertEquals(result.record?.data, { amount: 100 });
 });
@@ -842,13 +866,14 @@ Layer: Confirmation (confirmer finalizes)
 
 Each layer is just a message that references the previous layer as input and
 produces new outputs. The framework doesn't know about consensus — it just
-processes `[uri, values, data]` messages. Consensus emerges from the program schemas that
-control who can write validation and confirmation links.
+processes `[uri, values, data]` messages. Consensus emerges from the program
+schemas that control who can write validation and confirmation links.
 
 To verify a message was confirmed, a validator reads the inner envelope by its
-hash URI. Since the envelope was content-addressed, `read("hash://sha256/{content}")`
-returns the original user request. The validator can then inspect its auth,
-inputs, and outputs to decide whether to endorse it:
+hash URI. Since the envelope was content-addressed,
+`read("hash://sha256/{content}")` returns the original user request. The
+validator can then inspect its auth, inputs, and outputs to decide whether to
+endorse it:
 
 ```typescript
 // Validator endorsement: read the user's envelope, verify, write a link
@@ -885,9 +910,9 @@ validation. Programs that don't (e.g., public announcements) skip it.
 ### Worked Example: A Minimal Protocol
 
 Here is a complete protocol with three programs that compose via cross-program
-reads. It implements a simple content-publishing workflow: users publish content,
-a validator endorses it, and a mutable "latest" pointer tracks the most recent
-endorsed post.
+reads. It implements a simple content-publishing workflow: users publish
+content, a validator endorses it, and a mutable "latest" pointer tracks the most
+recent endorsed post.
 
 ```typescript
 import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
@@ -926,7 +951,11 @@ const publishingProtocol: Schema = {
 **How it's used:**
 
 ```typescript
-import { MessageDataClient, MemoryStore, send } from "@bandeira-tech/b3nd-sdk";
+import {
+  MemoryStore,
+  message,
+  MessageDataClient,
+} from "@bandeira-tech/b3nd-sdk";
 import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";
 
 const client = new MessageDataClient(new MemoryStore());
@@ -936,16 +965,15 @@ const post = { title: "Hello World", body: "First post on B3nd" };
 const hash = await computeSha256(post);
 const hashUri = generateHashUri(hash);
 
-await send({
-  payload: {
-    inputs: [],
-    outputs: [
-      [hashUri, post],                                    // immutable content
-      ["link://posts/latest", hashUri],                   // mutable pointer
-      ["mutable://profiles/alice", { name: "Alice" }],    // profile update
-    ],
-  },
-}, client);
+const envelope = await message({
+  inputs: [],
+  outputs: [
+    [hashUri, post], // immutable content
+    ["link://posts/latest", hashUri], // mutable pointer
+    ["mutable://profiles/alice", { name: "Alice" }], // profile update
+  ],
+});
+await client.receive([envelope]);
 
 // 2. Read the latest post via the link
 const [link] = await client.read<string>("link://posts/latest");
@@ -968,8 +996,8 @@ await send({
   payload: {
     inputs: [],
     outputs: [
-      [hashUri, content],                        // immutable content
-      ["link://open/posts/latest", hashUri],      // mutable pointer
+      [hashUri, content], // immutable content
+      ["link://open/posts/latest", hashUri], // mutable pointer
     ],
   },
 }, client);
@@ -986,15 +1014,16 @@ consumption (UTXO-style) use links as the consumable layer:
 3. Old state still exists at hash://, but the link now points to new state
 ```
 
-The hash chain provides audit trail. The link provides current state. This is
-a protocol pattern — B3nd just provides links and hashes as tools.
+The hash chain provides audit trail. The link provides current state. This is a
+protocol pattern — B3nd just provides links and hashes as tools.
 
 #### Verification Fast-Path
 
 Walking the full hash chain for every read is expensive. Protocols should
 separate the fast path (current state) from the proof path (audit trail):
 
-- **Fast path:** Read mutable state directly (e.g., `mutable://accounts/{key}/balance`)
+- **Fast path:** Read mutable state directly (e.g.,
+  `mutable://accounts/{key}/balance`)
 - **Proof path:** Walk the hash chain for disputes or verification
 
 Validation outputs should include BOTH: a confirmation link (proof) AND a
@@ -1034,21 +1063,20 @@ component creates a new program with independent validation. Protocols have
 several versioning strategies:
 
 - **Path-based versioning:** Keep the same program, version in the path:
-  `mutable://accounts/v2/{pubkey}/profile`. Validators check the path to
-  apply version-specific rules. This allows a single program to handle
-  migration logic.
+  `mutable://accounts/v2/{pubkey}/profile`. Validators check the path to apply
+  version-specific rules. This allows a single program to handle migration
+  logic.
 
 - **Hostname-based versioning:** New program per version:
   `mutable://accounts-v2/{pubkey}/profile`. Clean separation but requires
   cross-program reads to access old data.
 
-- **Backward-compatible evolution:** Add optional fields, never remove or
-  change the meaning of existing fields. Validators accept both old and new
-  formats. This is the simplest strategy when possible.
+- **Backward-compatible evolution:** Add optional fields, never remove or change
+  the meaning of existing fields. Validators accept both old and new formats.
+  This is the simplest strategy when possible.
 
-Whichever strategy you choose, the schema table makes it explicit — you can
-see every program version in the schema and understand exactly what each
-accepts.
+Whichever strategy you choose, the schema table makes it explicit — you can see
+every program version in the schema and understand exactly what each accepts.
 
 ### Open Problems in Protocol Design
 
@@ -1069,9 +1097,9 @@ derived from the content, a circular reference would require computing a hash
 that references itself, which is computationally infeasible.
 
 **Privacy vs. provenance.** Content encryption solves payload privacy but not
-traffic analysis. The auth chain reveals participant pubkeys, timing, and message
-flow. Ephemeral/derived keys per message reduce linkability. Full metadata
-privacy requires mixing/onion routing outside B3nd's scope.
+traffic analysis. The auth chain reveals participant pubkeys, timing, and
+message flow. Ephemeral/derived keys per message reduce linkability. Full
+metadata privacy requires mixing/onion routing outside B3nd's scope.
 
 **Checkpoint mechanisms.** Confirmation envelopes can reference previous
 confirmations to create checkpoints. A checkpoint envelope's `inputs` list
@@ -1090,8 +1118,8 @@ and a usage example showing what an app consuming the protocol does.
 
 ### Simple Open Protocol
 
-The simplest possible DePIN network: a single program that accepts anything.
-No authentication, no constraints.
+The simplest possible DePIN network: a single program that accepts anything. No
+authentication, no constraints.
 
 ```typescript
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
@@ -1104,7 +1132,12 @@ const schema: Schema = {
 **Node setup:**
 
 ```typescript
-import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import {
+  createServerNode,
+  MemoryStore,
+  MessageDataClient,
+  servers,
+} from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
 const client = new MessageDataClient(new MemoryStore());
@@ -1132,7 +1165,10 @@ from the auth module.
 
 ```typescript
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { authValidation, createPubkeyBasedAccess } from "@bandeira-tech/b3nd-sdk/auth";
+import {
+  authValidation,
+  createPubkeyBasedAccess,
+} from "@bandeira-tech/b3nd-sdk/auth";
 
 const schema: Schema = {
   "mutable://open": async () => ({ valid: true }),
@@ -1152,7 +1188,9 @@ const schema: Schema = {
     const getAccess = createPubkeyBasedAccess();
     const validator = authValidation(getAccess);
     const isValid = await validator({ uri, value: data });
-    if (!isValid) return { valid: false, error: "Signature verification failed" };
+    if (!isValid) {
+      return { valid: false, error: "Signature verification failed" };
+    }
 
     const existing = await read(uri);
     return {
@@ -1163,10 +1201,10 @@ const schema: Schema = {
 };
 ```
 
-**How it works:** `createPubkeyBasedAccess()` extracts the first path segment
-as the owner pubkey — URIs like `mutable://accounts/{pubkey}/profile` grant
-write access only to `{pubkey}`. `authValidation()` verifies that the value
-contains a valid Ed25519 signature from an authorized pubkey.
+**How it works:** `createPubkeyBasedAccess()` extracts the first path segment as
+the owner pubkey — URIs like `mutable://accounts/{pubkey}/profile` grant write
+access only to `{pubkey}`. `authValidation()` verifies that the value contains a
+valid Ed25519 signature from an authorized pubkey.
 
 **App usage:**
 
@@ -1175,7 +1213,9 @@ import * as encrypt from "@bandeira-tech/b3nd-sdk/encrypt";
 
 const keys = await encrypt.generateSigningKeyPair();
 const signed = await encrypt.createAuthenticatedMessageWithHex(
-  { name: "Alice" }, keys.publicKeyHex, keys.privateKeyHex,
+  { name: "Alice" },
+  keys.publicKeyHex,
+  keys.privateKeyHex,
 );
 await send({
   payload: {
@@ -1188,8 +1228,8 @@ await send({
 ### Content-Addressed Protocol
 
 Immutable content stored by hash, with mutable link pointers. Uses
-`hashValidator()` for write-once, hash-verified storage and `link://` for
-named references.
+`hashValidator()` for write-once, hash-verified storage and `link://` for named
+references.
 
 ```typescript
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
@@ -1225,8 +1265,8 @@ await send({
   payload: {
     inputs: [],
     outputs: [
-      [hashUri, article],                          // immutable content
-      ["link://open/articles/latest", hashUri],     // mutable pointer
+      [hashUri, article], // immutable content
+      ["link://open/articles/latest", hashUri], // mutable pointer
     ],
   },
 }, client);
@@ -1241,7 +1281,7 @@ await send({
     inputs: [],
     outputs: [
       [newHashUri, updated],
-      ["link://open/articles/latest", newHashUri],  // pointer now points to v2
+      ["link://open/articles/latest", newHashUri], // pointer now points to v2
     ],
   },
 }, client);
@@ -1255,7 +1295,7 @@ an input, creating a tamper-evident chain:
 ```typescript
 await send({
   payload: {
-    inputs: [previousHashUri],  // reference to previous version
+    inputs: [previousHashUri], // reference to previous version
     outputs: [
       [newHashUri, newContent],
       ["link://open/chain/head", newHashUri],
@@ -1282,13 +1322,18 @@ const schema: Schema = {
     if (upstream) {
       const [, envelope] = upstream;
       if (isMessageData(envelope)) {
-        const feeOutput = envelope.payload.outputs.find(([u]) => u.startsWith("fees://"));
+        const feeOutput = envelope.payload.outputs.find(([u]) =>
+          u.startsWith("fees://")
+        );
         if (!feeOutput) return { valid: false, error: "Fee required" };
 
         const dataSize = JSON.stringify(data).length;
         const requiredFee = Math.ceil(dataSize / 100); // 1 per 100 bytes
         if ((feeOutput[1] as number) < requiredFee) {
-          return { valid: false, error: `Insufficient fee: need ${requiredFee}` };
+          return {
+            valid: false,
+            error: `Insufficient fee: need ${requiredFee}`,
+          };
         }
       }
     }
@@ -1308,7 +1353,7 @@ await send({
     inputs: [],
     outputs: [
       ["immutable://open/post/123", { title: "Hello", body: "World..." }],
-      ["fees://pool", 1],  // fee covers data size
+      ["fees://pool", 1], // fee covers data size
     ],
   },
 }, client);
@@ -1316,8 +1361,8 @@ await send({
 
 ### UTXO / Conservation Protocol
 
-Inputs must cover outputs. The envelope's program validator enforces
-the conservation law. Per-output validators check individual amounts.
+Inputs must cover outputs. The envelope's program validator enforces the
+conservation law. Per-output validators check individual amounts.
 
 ```typescript
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
@@ -1340,7 +1385,8 @@ const schema: Schema = {
     }
     // Sum outputs
     const outputSum = data.payload.outputs.reduce(
-      (sum, [, value]) => sum + (value as number), 0,
+      (sum, [, value]) => sum + (value as number),
+      0,
     );
     // Conservation: outputs cannot exceed inputs
     if (outputSum > inputSum) {
@@ -1362,10 +1408,10 @@ const schema: Schema = {
 
 await send({
   payload: {
-    inputs: ["utxo://alice/1"],        // consume Alice's 100
+    inputs: ["utxo://alice/1"], // consume Alice's 100
     outputs: [
-      ["utxo://bob/1", 50],            // Bob gets 50
-      ["utxo://alice/2", 50],           // Alice gets change
+      ["utxo://bob/1", 50], // Bob gets 50
+      ["utxo://alice/2", 50], // Alice gets change
     ],
   },
 }, client);
@@ -1373,8 +1419,8 @@ await send({
 // Invalid: trying to create money (100 > 50 input)
 await send({
   payload: {
-    inputs: ["utxo://alice/2"],        // only 50 available
-    outputs: [["utxo://bob/2", 100]],  // trying to send 100 — rejected
+    inputs: ["utxo://alice/2"], // only 50 available
+    outputs: [["utxo://bob/2", 100]], // trying to send 100 — rejected
   },
 }, client);
 // → { accepted: false, error: "Outputs exceed inputs" }
@@ -1434,10 +1480,10 @@ const uri2 = generateHashUri(hash2);
 
 await send({
   payload: {
-    inputs: [uri1],  // reference previous entry
+    inputs: [uri1], // reference previous entry
     outputs: [
       [uri2, entry2],
-      ["link://open/chain/head", uri2],  // advance the head
+      ["link://open/chain/head", uri2], // advance the head
     ],
   },
 }, client);
@@ -1465,7 +1511,10 @@ validation links. Ties together auth, hash, and link programs.
 ```typescript
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
 import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
-import { authValidation, createPubkeyBasedAccess } from "@bandeira-tech/b3nd-sdk/auth";
+import {
+  authValidation,
+  createPubkeyBasedAccess,
+} from "@bandeira-tech/b3nd-sdk/auth";
 
 const TRUSTED_VALIDATORS = ["validator_pubkey_1", "validator_pubkey_2"];
 const TRUSTED_CONFIRMERS = ["confirmer_pubkey_1"];
@@ -1485,7 +1534,10 @@ const schema: Schema = {
   "link://accounts": async ([uri, , data], upstream, read) => {
     // Extract writer pubkey from URI path
     const pubkey = uri.split("/")[3]; // link://accounts/{pubkey}/...
-    if (!TRUSTED_VALIDATORS.includes(pubkey) && !TRUSTED_CONFIRMERS.includes(pubkey)) {
+    if (
+      !TRUSTED_VALIDATORS.includes(pubkey) &&
+      !TRUSTED_CONFIRMERS.includes(pubkey)
+    ) {
       return { valid: false, error: "Not a trusted validator or confirmer" };
     }
 
@@ -1514,7 +1566,9 @@ import { computeSha256, generateHashUri } from "@bandeira-tech/b3nd-sdk/hash";
 const userKeys = await encrypt.generateSigningKeyPair();
 const userContent = { title: "My Post", body: "Content here" };
 const signed = await encrypt.createAuthenticatedMessageWithHex(
-  userContent, userKeys.publicKeyHex, userKeys.privateKeyHex,
+  userContent,
+  userKeys.publicKeyHex,
+  userKeys.privateKeyHex,
 );
 
 const userResult = await send({
@@ -1530,9 +1584,12 @@ const userResult = await send({
 const validatorResult = await send({
   auth: [{ pubkey: "validator_pubkey_1", signature: "..." }],
   payload: {
-    inputs: [userResult.uri],  // reference the user's envelope
+    inputs: [userResult.uri], // reference the user's envelope
     outputs: [
-      [`link://accounts/validator_pubkey_1/validations/${userResult.uri}`, userResult.uri],
+      [
+        `link://accounts/validator_pubkey_1/validations/${userResult.uri}`,
+        userResult.uri,
+      ],
     ],
   },
 }, client);
@@ -1541,9 +1598,12 @@ const validatorResult = await send({
 await send({
   auth: [{ pubkey: "confirmer_pubkey_1", signature: "..." }],
   payload: {
-    inputs: [validatorResult.uri],  // reference the validation envelope
+    inputs: [validatorResult.uri], // reference the validation envelope
     outputs: [
-      [`link://accounts/confirmer_pubkey_1/confirmed/${userResult.uri}`, validatorResult.uri],
+      [
+        `link://accounts/confirmer_pubkey_1/confirmed/${userResult.uri}`,
+        validatorResult.uri,
+      ],
     ],
   },
 }, client);
@@ -1562,8 +1622,8 @@ trusted at each layer, and the schema enforces it.
 
 ## Running Your Protocol's Node
 
-> For operational details (backends, managed mode, monitoring, replication),
-> see [OPERATORS.md](./OPERATORS.md). This section covers protocol-specific setup.
+> For operational details (backends, managed mode, monitoring, replication), see
+> [OPERATORS.md](./OPERATORS.md). This section covers protocol-specific setup.
 
 After defining your protocol's schema, you need to run a node that validates
 messages against it. This section covers generic node setup — for
@@ -1589,7 +1649,12 @@ export default schema;
 ### createServerNode
 
 ```typescript
-import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import {
+  createServerNode,
+  MemoryStore,
+  MessageDataClient,
+  servers,
+} from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 import schema from "./schema.ts";
 
@@ -1656,7 +1721,7 @@ protocol becomes usable.
 ```typescript
 // my-protocol-sdk/mod.ts
 import type { Schema } from "@bandeira-tech/b3nd-sdk";
-import { HttpClient, send } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient, message } from "@bandeira-tech/b3nd-sdk";
 import { hashValidator } from "@bandeira-tech/b3nd-sdk/hash";
 
 // 1. Schema export (for node operators)
@@ -1664,7 +1729,9 @@ export const schema: Schema = {
   "mutable://open": async () => ({ valid: true }),
   "hash://sha256": hashValidator(),
   "link://open": async ([uri, , data]) => {
-    if (typeof data !== "string") return { valid: false, error: "Must be string" };
+    if (typeof data !== "string") {
+      return { valid: false, error: "Must be string" };
+    }
     return { valid: true };
   },
 };
@@ -1675,10 +1742,17 @@ export function createClient(url = "https://my-protocol-node.example.com") {
 }
 
 // 3. Typed helpers
-export async function writeNote(client: HttpClient, path: string, content: object) {
-  return send({
-    payload: { inputs: [], outputs: [[`mutable://open/${path}`, content]] },
-  }, client);
+export async function writeNote(
+  client: HttpClient,
+  path: string,
+  content: object,
+) {
+  const envelope = await message({
+    inputs: [],
+    outputs: [[`mutable://open/${path}`, content]],
+  });
+  const results = await client.receive([envelope]);
+  return { uri: envelope[0], ...results[0] };
 }
 
 // 4. URI builders
@@ -1723,22 +1797,22 @@ never imports your schema — that's the node's responsibility.
 - Provide typed helpers in your SDK so apps get autocomplete and compile-time
   checks
 
-For concrete worked examples of apps built on a protocol, see the protocol
-SDK documentation — covering Quick Start, React patterns, state management,
-and testing for app developers.
+For concrete worked examples of apps built on a protocol, see the protocol SDK
+documentation — covering Quick Start, React patterns, state management, and
+testing for app developers.
 
 ---
 
 ## Terminology
 
-| Term                     | Meaning                                                            |
-| ------------------------ | ------------------------------------------------------------------ |
-| **Scheme**               | URI scheme component (e.g., `mutable`, `hash`, `link`)             |
-| **Program**              | `scheme://hostname` pair — the unit of validation dispatch         |
-| **Resource**             | Data addressed by a URI path within a program                         |
-| **Envelope**             | Message with `{ auth?, payload: { inputs, outputs } }` structure   |
-| **Protocol**             | System built on B3nd — defines programs and rules                  |
-| **DePIN**                | Decentralized Physical Infrastructure Network                      |
+| Term         | Meaning                                                          |
+| ------------ | ---------------------------------------------------------------- |
+| **Scheme**   | URI scheme component (e.g., `mutable`, `hash`, `link`)           |
+| **Program**  | `scheme://hostname` pair — the unit of validation dispatch       |
+| **Resource** | Data addressed by a URI path within a program                    |
+| **Envelope** | Message with `{ auth?, payload: { inputs, outputs } }` structure |
+| **Protocol** | System built on B3nd — defines programs and rules                |
+| **DePIN**    | Decentralized Physical Infrastructure Network                    |
 
 Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
 "Envelope" for `{ auth?, payload: { inputs, outputs } }` messages.
@@ -1749,19 +1823,19 @@ Usage: "program" for `scheme://hostname`. "Protocol" for systems built on B3nd
 
 ### MCP Tools (Claude Plugin)
 
-| Tool                       | Description                                       |
-| -------------------------- | ------------------------------------------------- |
-| `b3nd_receive`             | Submit message `[uri, values, data]` (batch)              |
-| `b3nd_read`                | Read data from URI (trailing slash = list)        |
-| `b3nd_status`              | Backend status + available programs               |
-| `b3nd_backends_list`       | List configured backends                          |
-| `b3nd_backends_switch`     | Switch active backend                             |
-| `b3nd_backends_add`        | Add new backend                                   |
-| `b3nd_keygen`              | Generate Ed25519 + X25519 keypair                 |
-| `b3nd_sign`                | Sign payload, returns AuthenticatedMessage        |
-| `b3nd_node_config_push`    | Sign + write node config to correct URI           |
-| `b3nd_node_config_get`     | Read node config from operator/node URI           |
-| `b3nd_node_status`         | Read node status from accounts/{nodeKey}/status   |
+| Tool                    | Description                                     |
+| ----------------------- | ----------------------------------------------- |
+| `b3nd_receive`          | Submit message `[uri, values, data]` (batch)    |
+| `b3nd_read`             | Read data from URI (trailing slash = list)      |
+| `b3nd_status`           | Backend status + available programs             |
+| `b3nd_backends_list`    | List configured backends                        |
+| `b3nd_backends_switch`  | Switch active backend                           |
+| `b3nd_backends_add`     | Add new backend                                 |
+| `b3nd_keygen`           | Generate Ed25519 + X25519 keypair               |
+| `b3nd_sign`             | Sign payload, returns AuthenticatedMessage      |
+| `b3nd_node_config_push` | Sign + write node config to correct URI         |
+| `b3nd_node_config_get`  | Read node config from operator/node URI         |
+| `b3nd_node_status`      | Read node status from accounts/{nodeKey}/status |
 
 Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 
@@ -1789,6 +1863,7 @@ source code with line numbers.
 ## Source Files Reference
 
 ### SDK Core
+
 - `src/mod.ts` — Main Deno exports (facade, re-exports from libs/)
 - `src/mod.web.ts` — Browser exports (NPM build entry)
 - `libs/b3nd-core/types.ts` — Type definitions
@@ -1797,6 +1872,7 @@ source code with line numbers.
 - `libs/b3nd-msg/` — Message system, send(), message()
 
 ### Stores
+
 - `libs/b3nd-client-memory/` — MemoryStore (in-memory storage)
 - `libs/b3nd-client-postgres/` — PostgresStore (PostgreSQL storage)
 - `libs/b3nd-client-mongo/` — MongoStore (MongoDB storage)
@@ -1804,18 +1880,24 @@ source code with line numbers.
 - `libs/b3nd-client-indexeddb/` — IndexedDBStore (browser IndexedDB storage)
 
 ### Protocol Clients
-- `libs/b3nd-core/` — MessageDataClient, SimpleClient (wrap Store → NodeProtocolInterface)
+
+- `libs/b3nd-core/` — MessageDataClient, SimpleClient (wrap Store →
+  ProtocolInterfaceNode)
 
 ### Transport Clients
+
 - `libs/b3nd-client-http/` — HttpClient (HTTP transport)
 - `libs/b3nd-client-ws/` — WebSocketClient (WebSocket transport)
-- `libs/b3nd-network/` — `network()` verb, `flood(peers)`, `pathVector(peers)`, `tellAndRead(...)`, `bestEffort` decorator
+- `libs/b3nd-network/` — `network()` verb, `flood(peers)`, `pathVector(peers)`,
+  `tellAndRead(...)`, `bestEffort` decorator
 
 ### Auth & Encryption
+
 - `libs/b3nd-auth/` — Pubkey-based access control
 - `libs/b3nd-encrypt/` — X25519/Ed25519/AES-GCM encryption
 
 ### Servers & Apps
+
 - `libs/b3nd-servers/` — HTTP + WebSocket server primitives
 - `apps/b3nd-node/` — Multi-backend HTTP node
 - `apps/b3nd-web-rig/` — React/Vite data explorer + dashboard
@@ -1823,5 +1905,6 @@ source code with line numbers.
 - `apps/b3nd-cli/` — bnd CLI tool
 
 ### Testing
+
 - `libs/b3nd-testing/shared-suite.ts` — Client conformance suite
 - `libs/b3nd-testing/node-suite.ts` — Node interface suite

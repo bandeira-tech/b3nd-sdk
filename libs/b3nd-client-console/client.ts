@@ -13,14 +13,14 @@
  *
  * const client = new ConsoleClient("debug");
  *
- * await client.receive([["mutable://app/config", {}, { theme: "dark" }]]);
+ * await client.receive([["mutable://app/config", { theme: "dark" }]]);
  * // Console output: [debug] RECEIVE mutable://app/config data={"theme":"dark"}
  * ```
  */
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -38,7 +38,7 @@ function safeStringify(data: unknown): string {
   }
 }
 
-export class ConsoleClient implements NodeProtocolInterface {
+export class ConsoleClient implements ProtocolInterfaceNode {
   private readonly label: string;
   private readonly log: (message: string) => void;
 
@@ -50,11 +50,10 @@ export class ConsoleClient implements NodeProtocolInterface {
   async receive(msgs: Message[]): Promise<ReceiveResult[]> {
     const results: ReceiveResult[] = [];
 
-    for (const [uri, values, data] of msgs) {
-      const valuesStr = safeStringify(values);
-      const dataStr = safeStringify(data);
+    for (const [uri, payload] of msgs) {
+      const payloadStr = safeStringify(payload);
       this.log(
-        `[${this.label}] RECEIVE ${uri} values=${valuesStr} data=${dataStr}`,
+        `[${this.label}] RECEIVE ${uri} payload=${payloadStr}`,
       );
       results.push({ accepted: true });
     }

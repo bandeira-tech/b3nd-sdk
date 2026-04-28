@@ -6,10 +6,12 @@
 /// <reference lib="deno.ns" />
 
 import { assertEquals } from "jsr:@std/assert";
-import type { NodeProtocolInterface, ReadResult } from "../b3nd-core/types.ts";
+import type { ProtocolInterfaceNode, ReadResult } from "../b3nd-core/types.ts";
 import { bestEffort } from "./decorators.ts";
 
-function stub(overrides: Partial<NodeProtocolInterface> = {}): NodeProtocolInterface {
+function stub(
+  overrides: Partial<ProtocolInterfaceNode> = {},
+): ProtocolInterfaceNode {
   return {
     receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
     read: () => Promise.resolve([]),
@@ -27,7 +29,7 @@ Deno.test("bestEffort swallows receive() errors and reports accepted", async () 
   });
   const wrapped = bestEffort(inner);
 
-  const r = await wrapped.receive([["mutable://x/1", {}, 1]]);
+  const r = await wrapped.receive([["mutable://x/1", 1]]);
   assertEquals(r, [{ accepted: true }]);
 });
 
@@ -41,16 +43,16 @@ Deno.test("bestEffort passes through successful receive unchanged", async () => 
   });
   const wrapped = bestEffort(inner);
 
-  await wrapped.receive([["mutable://x/1", {}, "payload"]]);
+  await wrapped.receive([["mutable://x/1", "payload"]]);
   assertEquals(calls.length, 1);
 });
 
 Deno.test("bestEffort passes through read unchanged", async () => {
   const inner = stub({
-    read: <T,>() =>
+    read: <T>() =>
       Promise.resolve([{
         success: true,
-        record: { values: {}, data: "hit" as T },
+        record: { data: "hit" as T },
       }] as ReadResult<T>[]),
   });
   const wrapped = bestEffort(inner);
@@ -60,14 +62,14 @@ Deno.test("bestEffort passes through read unchanged", async () => {
 
 Deno.test("bestEffort passes through observe unchanged (not a silent no-op)", async () => {
   // The old bestEffortClient swallowed observe — this test pins the fix.
-  const inner: NodeProtocolInterface = {
+  const inner: ProtocolInterfaceNode = {
     receive: (m) => Promise.resolve(m.map(() => ({ accepted: true }))),
     read: () => Promise.resolve([]),
     async *observe<T = unknown>() {
       yield {
         success: true,
         uri: "mutable://x/1",
-        record: { values: {}, data: 1 as T },
+        record: { data: 1 as T },
       } as ReadResult<T>;
     },
     status: () => Promise.resolve({ status: "healthy" as const }),

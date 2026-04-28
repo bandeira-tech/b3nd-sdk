@@ -8,7 +8,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -44,7 +44,7 @@ export interface FunctionalClientConfig {
  * });
  * ```
  */
-export class FunctionalClient implements NodeProtocolInterface {
+export class FunctionalClient implements ProtocolInterfaceNode {
   private config: FunctionalClientConfig;
 
   constructor(config: FunctionalClientConfig) {

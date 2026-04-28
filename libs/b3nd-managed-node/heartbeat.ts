@@ -8,7 +8,7 @@
  * X25519 key so only the operator/dashboard can read it.
  */
 
-import type { NodeProtocolInterface } from "@bandeira-tech/b3nd-sdk";
+import type { ProtocolInterfaceNode } from "@bandeira-tech/b3nd-sdk";
 import {
   createSignedEncryptedMessage,
   encrypt,
@@ -19,7 +19,7 @@ import type { BackendStatus, NodeMetrics, NodeStatus } from "./types.ts";
 import { nodeStatusUri } from "./types.ts";
 
 export interface HeartbeatWriterOptions {
-  statusClient: NodeProtocolInterface;
+  statusClient: ProtocolInterfaceNode;
   nodeId: string;
   name: string;
   port: number;
@@ -79,7 +79,7 @@ export function createHeartbeatWriter(
       }
 
       const uri = nodeStatusUri(opts.signer.publicKeyHex);
-      await opts.statusClient.receive([[uri, {}, message]]);
+      await opts.statusClient.receive([[uri, message]]);
     } catch (error) {
       console.error("[heartbeat] Failed to write status:", error);
     }

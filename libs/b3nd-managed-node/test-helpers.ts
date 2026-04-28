@@ -2,9 +2,9 @@
  * Shared test helpers for managed node tests.
  */
 
-import type { NodeProtocolInterface } from "../b3nd-rig/mod.ts";
+import type { ProtocolInterfaceNode } from "../b3nd-rig/mod.ts";
 import { MemoryStore } from "../b3nd-client-memory/store.ts";
-import { MessageDataClient } from "../b3nd-rig/mod.ts";
+import { DataStoreClient } from "../b3nd-rig/mod.ts";
 import {
   createAuthenticatedMessage,
   generateSigningKeyPair,
@@ -122,6 +122,6 @@ export async function signConfig(config: ManagedNodeConfig): Promise<{
 /**
  * Create an in-memory client that accepts all writes.
  */
-export function createPermissiveClient(): NodeProtocolInterface {
-  return new MessageDataClient(new MemoryStore());
+export function createPermissiveClient(): ProtocolInterfaceNode {
+  return new DataStoreClient(new MemoryStore());
 }

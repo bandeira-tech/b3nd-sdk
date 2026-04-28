@@ -1,5 +1,5 @@
 /**
- * SimpleClient — bare NodeProtocolInterface over a Store.
+ * SimpleClient — bare ProtocolInterfaceNode over a Store.
  *
  * No protocol awareness. receive() writes the message at its URI.
  * No envelope decomposition, no input deletion, no output fan-out.
@@ -21,7 +21,7 @@
  *
  * // Writes the message at "mutable://app/config"
  * await client.receive([
- *   ["mutable://app/config", {}, { theme: "dark" }],
+ *   ["mutable://app/config", { theme: "dark" }],
  * ]);
  *
  * // Reads it back
@@ -37,7 +37,7 @@
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
   ReceiveResult,
   StatusResult,
@@ -46,7 +46,7 @@ import type {
 import { ObserveEmitter } from "./observe-emitter.ts";
 
 export class SimpleClient extends ObserveEmitter
-  implements NodeProtocolInterface {
+  implements ProtocolInterfaceNode {
   readonly store: Store;
 
   constructor(store: Store) {
@@ -55,17 +55,16 @@ export class SimpleClient extends ObserveEmitter
   }
 
   async receive(msgs: Message[]): Promise<ReceiveResult[]> {
-    const entries = msgs.map(([uri, values, data]) => ({
+    const entries = msgs.map(([uri, payload]) => ({
       uri,
-      values: values || {},
-      data,
+      data: payload,
     }));
 
     const writeResults = await this.store.write(entries);
 
     for (let i = 0; i < writeResults.length; i++) {
       if (writeResults[i].success) {
-        this._emit(entries[i].uri, entries[i].data, entries[i].values);
+        this._emit(entries[i].uri, entries[i].data);
       }
     }
 

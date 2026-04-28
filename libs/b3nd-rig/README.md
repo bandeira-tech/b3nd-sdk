@@ -5,21 +5,25 @@ The universal harness for b3nd. One import, convention over configuration.
 ## Quick Start
 
 ```typescript
-import { connection, MessageDataClient, Identity, Rig } from "@b3nd/rig";
+import { connection, DataStoreClient, Identity, Rig } from "@b3nd/rig";
 import { MemoryStore } from "@b3nd/client-memory";
+import { message } from "@bandeira-tech/b3nd-sdk/msg";
 
 const id = await Identity.fromSeed("my-secret");
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new DataStoreClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
 });
-const session = id.rig(rig);
 
-await session.send({
-  inputs: [],
-  outputs: [["mutable://myapp/config", { theme: "dark" }]],
-});
+// Identity signs, rig delivers
+const outputs = [["mutable://myapp/config", { theme: "dark" }]];
+const auth = [await id.sign({ inputs: [], outputs })];
+const envelope = await message({ auth, inputs: [], outputs });
+await rig.send([envelope, ...outputs]);
 
 const data = await rig.readData("mutable://myapp/config");
 ```
@@ -28,14 +32,15 @@ const data = await rig.readData("mutable://myapp/config");
 
 The rig has two core actions. Everything else is observation.
 
-- **`send()`** — outward: builds a signed envelope, content-addresses it, sends
-  to network (via AuthenticatedRig)
+- **`send()`** — outward: dispatches a batch of outputs to the network
 - **`receive()`** — inward: accepts a batch of `[uri, values, data]` messages
   from an external source
 
 ```typescript
-// Send a signed envelope (auto-signs with identity, content-addressed)
-await session.send({ inputs: [], outputs: [["mutable://app/key", {}, value]] });
+// Send a signed envelope (use Identity.sign() + message() to build it)
+const auth = [await id.sign({ inputs: [], outputs })];
+const envelope = await message({ auth, inputs: [], outputs });
+await rig.send([envelope, ...outputs]);
 
 // Receive a raw message from an external source
 await rig.receive([["mutable://open/external", {}, { source: "webhook" }]]);
@@ -58,15 +63,19 @@ await rig.exists(uri); // boolean
 ## Encrypted Operations
 
 ```typescript
-// Send with encrypted outputs (encrypt to self or a recipient)
-await session.sendEncrypted({ inputs: [], outputs: [[uri, secret]] });
-await session.sendEncrypted(
-  { inputs: [], outputs: [[uri, secret]] },
-  recipientPubkey,
-);
+// Encrypt outputs, then sign and send
+const plaintext = new TextEncoder().encode(JSON.stringify(secret));
+const encrypted = await id.encrypt(plaintext, recipientPubkey);
+const outputs = [[uri, encrypted]];
+const auth = [await id.sign({ inputs: [], outputs })];
+const envelope = await message({ auth, inputs: [], outputs });
+await rig.send([envelope, ...outputs]);
 
 // Read and decrypt
-const secret = await session.readEncrypted<T>(uri);
+const results = await rig.read(uri);
+const payload = results[0]?.record?.data;
+const decrypted = await id.decrypt(payload);
+const secret = JSON.parse(new TextDecoder().decode(decrypted));
 ```
 
 ## Reactive
@@ -188,14 +197,19 @@ URI-pattern reactions that fire on successful writes (send or receive).
 ```typescript
 const rig = new Rig({
   connections: [
-    connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] }),
+    connection(new DataStoreClient(new MemoryStore()), {
+      receive: ["*"],
+      read: ["*"],
+    }),
   ],
   reactions: {
-    "mutable://app/users/:id": (uri, data, { id }) => {
-      console.log(`User ${id} updated`);
+    "mutable://app/users/:id": async (out, _read, { id }) => {
+      // Reactions return Output[] — those tuples flow through rig.send.
+      return [[`notify://email/${id}`, { kind: "user-updated" }]];
     },
-    "hash://sha256/*": (uri, data) => {
-      console.log("New content stored");
+    "hash://sha256/*": async (out) => {
+      console.log("new content stored at", out[0]);
+      return [];
     },
   },
 });
@@ -203,8 +217,8 @@ const rig = new Rig({
 // Runtime registration
 const unsub = rig.reaction(
   "mutable://app/posts/:slug",
-  (uri, data, { slug }) => {
-    rebuildIndex(slug);
+  async (out, _read, { slug }) => {
+    return [[`index://posts/${slug}/rebuild`, { ts: Date.now() }]];
   },
 );
 unsub(); // remove
@@ -252,7 +266,7 @@ await rig.status(); // StatusResult { status, schema }
 ```typescript
 // Minimal
 const rig = new Rig({
-  connections: [connection(new MessageDataClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
+  connections: [connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
 });
 
 // Full config
@@ -282,9 +296,9 @@ transport is external. Returns a standard `(Request) => Promise<Response>` with
 all b3nd API routes including SSE subscriptions. Framework-agnostic — plug into
 Deno.serve, Hono, Express, Cloudflare Workers.
 
-## NodeProtocolInterface
+## ProtocolInterfaceNode
 
-The Rig structurally satisfies `NodeProtocolInterface` (4 methods: `receive`,
+The Rig structurally satisfies `ProtocolInterfaceNode` (4 methods: `receive`,
 `read`, `observe`, `status`). Pass it directly to any function that expects a
 client — hooks, events, and reactions fire for every operation.
 
@@ -299,9 +313,14 @@ loadConfig(rig, operatorKey, nodeId);
 ## Batch Operations
 
 ```typescript
-// Send multiple envelopes in sequence
-const results = await session.sendMany([
-  { inputs: [], outputs: [["mutable://app/a", 1]] },
-  { inputs: [], outputs: [["mutable://app/b", 2]] },
-]);
+// Send multiple signed envelopes in sequence
+for (const env of envelopes) {
+  const auth = [await id.sign({ inputs: env.inputs, outputs: env.outputs })];
+  const envelope = await message({
+    auth,
+    inputs: env.inputs,
+    outputs: env.outputs,
+  });
+  await rig.send([envelope, ...env.outputs]);
+}
 ```

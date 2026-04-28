@@ -1,7 +1,7 @@
 /**
  * FunctionalClient Test Suite
  *
- * Tests for the FunctionalClient class which delegates NPI methods
+ * Tests for the FunctionalClient class which delegates PIN methods
  * to config functions, with sensible defaults for missing methods.
  */
 
@@ -15,7 +15,7 @@ import type { Message, ReadResult, ReceiveResult } from "./types.ts";
 
 Deno.test("FunctionalClient - receive defaults to not-implemented", async () => {
   const client = new FunctionalClient({});
-  const result = await client.receive([["mutable://test", {}, { hello: "world" }]]);
+  const result = await client.receive([["mutable://test", { hello: "world" }]]);
   assertEquals(result[0].accepted, false);
   assertEquals(result[0].error, "not implemented");
 });
@@ -47,7 +47,7 @@ Deno.test("FunctionalClient - custom receive is called", async () => {
     },
   });
 
-  const msg: Message = ["mutable://users/alice", {}, { name: "Alice" }];
+  const msg: Message = ["mutable://users/alice", { name: "Alice" }];
   const result = await client.receive([msg]);
   assertEquals(result[0].accepted, true);
   assertEquals(calls.length, 1);
@@ -62,7 +62,7 @@ Deno.test("FunctionalClient - custom read is called", async () => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map(() => ({
         success: true,
-        record: { values: {}, data: { name: "Alice" } as T },
+        record: { data: { name: "Alice" } as T },
       }));
     },
   });
@@ -71,7 +71,6 @@ Deno.test("FunctionalClient - custom read is called", async () => {
   assertEquals(results.length, 1);
   assertEquals(results[0].success, true);
   assertEquals(results[0].record?.data, { name: "Alice" });
-  assertEquals(typeof results[0].record?.values, "object");
 });
 
 Deno.test("FunctionalClient - custom status is called", async () => {
@@ -104,7 +103,7 @@ Deno.test("FunctionalClient - read with multiple URIs", async () => {
       const uriList = Array.isArray(uris) ? uris : [uris];
       return uriList.map((uri) => {
         if (uri in store) {
-          return { success: true, record: { values: {}, data: store[uri] as T } };
+          return { success: true, record: { data: store[uri] as T } };
         }
         return { success: false, error: "not found" };
       });
@@ -134,12 +133,12 @@ Deno.test("FunctionalClient - read with empty array", async () => {
 // ============================================================================
 
 Deno.test("FunctionalClient - works as in-memory store", async () => {
-  const store = new Map<string, { values: Record<string, number>; data: unknown }>();
+  const store = new Map<string, { data: unknown }>();
 
   const client = new FunctionalClient({
     receive: async (msgs) => {
-      for (const [uri, , data] of msgs) {
-        store.set(uri, { values: {}, data });
+      for (const [uri, payload] of msgs) {
+        store.set(uri, { data: payload });
       }
       return msgs.map(() => ({ accepted: true }));
     },
@@ -155,7 +154,7 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
             .map(([k, v]) => ({
               success: true as const,
               uri: k,
-              record: v as { values: Record<string, number>; data: T },
+              record: v as { data: T },
             }));
           return items.length > 0
             ? items[0]
@@ -163,14 +162,14 @@ Deno.test("FunctionalClient - works as in-memory store", async () => {
         }
         const record = store.get(uri);
         if (!record) return { success: false, error: "not found" };
-        return { success: true, record: record as { values: Record<string, number>; data: T } };
+        return { success: true, record: record as { data: T } };
       });
     },
   });
 
   // Write
   const writeResult = await client.receive([
-    ["mutable://users/alice", {}, { name: "Alice" }],
+    ["mutable://users/alice", { name: "Alice" }],
   ]);
   assertEquals(writeResult[0].accepted, true);
 

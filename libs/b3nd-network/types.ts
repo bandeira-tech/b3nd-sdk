@@ -11,17 +11,17 @@
  *
  * - **Strategy factories** (`flood(peers)`, `pathVector(peers)`, …) —
  *   remote-client shape. Each factory returns a
- *   `NodeProtocolInterface` consumed as a rig connection:
+ *   `ProtocolInterfaceNode` consumed as a rig connection:
  *   `connection(flood(peers), patterns)`.
  *
  * `network()` and the strategy factories are entirely different shapes
- * (a verb vs. a NodeProtocolInterface), so they cannot be accidentally
+ * (a verb vs. a ProtocolInterfaceNode), so they cannot be accidentally
  * swapped.
  */
 
 import type {
   Message,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
   ReadResult,
 } from "../b3nd-core/types.ts";
 
@@ -37,17 +37,17 @@ import type {
  */
 export interface Peer {
   readonly id: string;
-  readonly client: NodeProtocolInterface;
+  readonly client: ProtocolInterfaceNode;
 }
 
 /**
  * A PeerDecorator wraps a client with middleware (best-effort, retry,
- * rate-limit, logging, etc.) while preserving the `NodeProtocolInterface`
+ * rate-limit, logging, etc.) while preserving the `ProtocolInterfaceNode`
  * shape. Applied via `peer(client, { via: [decoratorA, decoratorB] })`.
  */
 export type PeerDecorator = (
-  client: NodeProtocolInterface,
-) => NodeProtocolInterface;
+  client: ProtocolInterfaceNode,
+) => ProtocolInterfaceNode;
 
 /**
  * Context passed to `Policy.receive` — inbound path, peer → rig.
@@ -112,7 +112,7 @@ export interface NetworkOptions {
 }
 
 /**
- * A StrategyFactory builds a plain `NodeProtocolInterface` from a peer
+ * A StrategyFactory builds a plain `ProtocolInterfaceNode` from a peer
  * list. Examples: `flood(peers)` (fan-out to all, first-match reads),
  * `pathVector(peers)` (flood with signer-chain loop avoidance).
  *
@@ -123,7 +123,7 @@ export interface NetworkOptions {
  * connection(flood(peers), { receive: ["*"] })
  * ```
  */
-export type StrategyFactory = (peers: Peer[]) => NodeProtocolInterface;
+export type StrategyFactory = (peers: Peer[]) => ProtocolInterfaceNode;
 
 // Re-export Message for policy hook signatures that need it.
 export type { Message };

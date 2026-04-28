@@ -4,12 +4,17 @@
   "description": "Universal persistence SDK with URI-based addressing, encryption, and multi-backend support (PostgreSQL, HTTP, WebSocket, in-memory)",
   "exports": {
     ".": "./src/mod.ts",
+    "./core": "./src/core.ts",
+    "./canon": "./src/canon.ts",
+    "./msg": "./src/msg.ts",
     "./auth": "./src/auth.ts",
     "./types": "./src/types.ts",
     "./hash": "./src/hash.ts",
     "./encrypt": "./src/encrypt.ts",
-    "./client-console": "./src/client-console.ts",
-    "./network": "./src/network.ts"
+    "./wallet": "./src/wallet.ts",
+    "./network": "./src/network.ts",
+    "./listener": "./src/listener.ts",
+    "./client-console": "./src/client-console.ts"
   },
   "nodeModulesDir": "auto",
   "imports": {
@@ -18,7 +23,7 @@
     "canonicalize": "npm:canonicalize@2.0.0"
   },
   "tasks": {
-    "check": "deno check src/mod.ts",
+    "check": "deno check src/mod.ts src/core.ts src/canon.ts src/msg.ts src/wallet.ts src/listener.ts",
     "test": "deno test --allow-all libs/b3nd-*/",
     "publish:jsr": "bash scripts/prepublish.sh && deno publish --allow-dirty; bash scripts/postpublish.sh"
   },
@@ -73,6 +78,10 @@
     "libs/b3nd-wallet",
     "libs/b3nd-managed-node",
     "libs/b3nd-rig",
+    "libs/b3nd-proto",
+    "libs/b3nd-server-http",
+    "libs/b3nd-server-grpc",
+    "libs/b3nd-client-grpc",
     "apps/b3nd-cli",
     "apps/b3nd-node",
     "apps/sdk-inspector",

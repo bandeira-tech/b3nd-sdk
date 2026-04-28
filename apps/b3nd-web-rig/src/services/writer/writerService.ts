@@ -23,16 +23,16 @@ type AppsClient = any;
 
 /**
  * Minimal backend client interface — satisfied by both Rig (preferred —
- * fires hooks/events/observe) and raw NodeProtocolInterface / HttpClient.
+ * fires hooks/events/observe) and raw ProtocolInterfaceNode / HttpClient.
  */
 export interface BackendClient {
   receive(
-    msgs: [string, Record<string, number>, unknown][],
+    msgs: [string, unknown][],
   ): Promise<{ accepted: boolean; error?: string }[]>;
   read(
     uri: string,
   ): Promise<
-    { success: boolean; record?: { values: Record<string, number>; data: any }; error?: string }[]
+    { success: boolean; record?: { data: any }; error?: string }[]
   >;
 }
 
@@ -178,7 +178,7 @@ export const saveAppProfile = async (params: {
   };
   const signedProfile = await identity.signMessage(profile);
   const uri = `mutable://accounts/${identity.pubkey}/app-profile`;
-  const [response] = await backendClient.receive([[uri, {}, signedProfile]]);
+  const [response] = await backendClient.receive([[uri, signedProfile]]);
   return {
     uri,
     response: { success: response.accepted, error: response.error },
@@ -274,7 +274,7 @@ export const createSession = async (params: {
   );
   const inboxUri =
     `immutable://inbox/${identity.pubkey}/sessions/${sessionKeypair.publicKeyHex}`;
-  await backendClient.receive([[inboxUri, {}, signedRequest]]);
+  await backendClient.receive([[inboxUri, signedRequest]]);
 
   // 2. Request app server to approve
   const message = await identity.signMessage(
@@ -392,7 +392,7 @@ export const backendWritePlain = async (params: {
   const targetUri = writeUri.includes(":key")
     ? writeUri.replace(/:key/g, identity.pubkey)
     : writeUri;
-  const [response] = await backendClient.receive([[targetUri, {}, value]]);
+  const [response] = await backendClient.receive([[targetUri, value]]);
   return {
     targetUri,
     response: { success: response.accepted, error: response.error },
@@ -421,7 +421,7 @@ export const backendWriteEnc = async (params: {
   const targetUri = writeUri.includes(":key")
     ? writeUri.replace(/:key/g, identity.pubkey)
     : writeUri;
-  const [response] = await backendClient.receive([[targetUri, {}, value]]);
+  const [response] = await backendClient.receive([[targetUri, value]]);
   return {
     targetUri,
     response: { success: response.accepted, error: response.error },
@@ -504,7 +504,7 @@ export const uploadHash = async (params: {
 
   const hash = await computeSha256(contentData);
   const hashUri = generateHashUri(hash);
-  const [response] = await backendClient.receive([[hashUri, {}, contentData]]);
+  const [response] = await backendClient.receive([[hashUri, contentData]]);
 
   return {
     hashUri,
@@ -543,7 +543,7 @@ export const uploadHashWithLink = async (params: {
 
   const linkUri = `link://accounts/${identity.pubkey}/${linkPath}`;
   const signedLink = await identity.signMessage(hashResult.hashUri);
-  const [linkResponse] = await backendClient.receive([[linkUri, {}, signedLink]]);
+  const [linkResponse] = await backendClient.receive([[linkUri, signedLink]]);
 
   return {
     ...hashResult,

@@ -4,10 +4,7 @@ import type { ReactNode } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { routeForExplorerPath } from "../../utils";
 import { useActiveBackend } from "../../stores/appStore";
-import type {
-  NavigationNode,
-  PaginatedResponse,
-} from "../../types";
+import type { NavigationNode, PaginatedResponse } from "../../types";
 import {
   Calendar,
   ChevronDown,
@@ -27,7 +24,7 @@ interface ContentViewerProps {
 }
 
 export function ContentViewer({ path, buildRoute }: ContentViewerProps) {
-  const [record, setRecord] = useState<{ values: Record<string, number>; data: unknown } | null>(null);
+  const [record, setRecord] = useState<{ data: unknown } | null>(null);
   const [directoryContents, setDirectoryContents] = useState<NavigationNode[]>(
     [],
   );
@@ -167,7 +164,7 @@ function FileViewer({
   onCopy,
   readUrl,
 }: {
-  record: { values: Record<string, number>; data: unknown };
+  record: { data: unknown };
   onCopy: () => Promise<void>;
   readUrl?: string;
 }) {
@@ -314,12 +311,7 @@ function FileViewer({
           )}
         </div>
       </div>
-      {Object.keys(record.values ?? {}).length > 0 && (
-        <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
-          <Calendar className="h-4 w-4" />
-          <span>Values: {JSON.stringify(record.values)}</span>
-        </div>
-      )}
+      {/* Conserved quantities, if any, live inside `record.data` per RFC 001. */}
       <pre className="bg-muted rounded p-4 overflow-auto max-h-96 custom-scrollbar font-mono text-sm">
         <div className="flex items-center space-x-2 mb-2">
           <button

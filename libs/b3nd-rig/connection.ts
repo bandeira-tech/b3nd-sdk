@@ -49,7 +49,7 @@
 
 import type {
   ClientOperation,
-  NodeProtocolInterface,
+  ProtocolInterfaceNode,
 } from "../b3nd-core/types.ts";
 import { matchPattern } from "./reactions.ts";
 
@@ -62,10 +62,24 @@ export interface ConnectionPatterns {
   observe?: string[];
 }
 
+/** Optional configuration for a connection. */
+export interface ConnectionOptions {
+  /**
+   * Stable identifier for this connection. Surfaces in
+   * `route:success`/`route:error` events and lets operators tell
+   * replicas apart in observability data. Auto-generated as
+   * `conn-{N}` (registration order) when omitted.
+   */
+  id?: string;
+}
+
 /** A connection: a client wrapped with routing patterns. */
 export interface Connection {
+  /** Stable identifier (provided or auto-generated). */
+  readonly id: string;
+
   /** The underlying client. */
-  readonly client: NodeProtocolInterface;
+  readonly client: ProtocolInterfaceNode;
 
   /**
    * The raw patterns — serializable for wire protocols.
@@ -111,9 +125,13 @@ function matchesAny(compiled: CompiledPattern[], uri: string): boolean {
  * the remote node may or may not honor the patterns, but the local rig
  * always filters based on them.
  */
+/** Module-level counter for auto-generated connection IDs. */
+let _autoIdCounter = 0;
+
 export function connection(
-  client: NodeProtocolInterface,
+  client: ProtocolInterfaceNode,
   patterns: ConnectionPatterns,
+  options?: ConnectionOptions,
 ): Connection {
   // Pre-compile patterns for fast matching
   const compiled: Partial<Record<ClientOperation, CompiledPattern[]>> = {};
@@ -134,7 +152,10 @@ export function connection(
       : {}),
   });
 
+  const id = options?.id ?? `conn-${_autoIdCounter++}`;
+
   return {
+    id,
     client,
     patterns: frozenPatterns,
 

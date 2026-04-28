@@ -408,8 +408,8 @@ verify the entire chain. Alter any event and the hashes break.
 ```typescript
 import {
   createServerNode,
-  MessageDataClient,
   MemoryStore,
+  MessageDataClient,
   servers,
 } from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
@@ -520,8 +520,12 @@ import { createValidatedClient } from "@bandeira-tech/b3nd-sdk";
 import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
 
 const peers = [
-  peer(new HttpClient({ url: "https://primary.example.com" }), { id: "primary" }),
-  peer(new HttpClient({ url: "https://replica.example.com" }), { id: "replica" }),
+  peer(new HttpClient({ url: "https://primary.example.com" }), {
+    id: "primary",
+  }),
+  peer(new HttpClient({ url: "https://replica.example.com" }), {
+    id: "replica",
+  }),
 ];
 const composed = flood(peers); // broadcast writes, first-match reads
 

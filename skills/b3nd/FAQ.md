@@ -15,10 +15,10 @@ allowing protocols to define the exact guarantees they can actually provide.
 
 ### Why is encryption client-side?
 
-B3nd nodes are untrusted by design. Nodes accept what they receive — they have no
-knowledge of whether content is encrypted or plaintext. Privacy is achieved by
-encrypting before sending and decrypting after reading. The network never needs
-to be trusted with cleartext data.
+B3nd nodes are untrusted by design. Nodes accept what they receive — they have
+no knowledge of whether content is encrypted or plaintext. Privacy is achieved
+by encrypting before sending and decrypting after reading. The network never
+needs to be trusted with cleartext data.
 
 This means a compromised node leaks nothing sensitive. It also means the same
 B3nd node can serve public and private data simultaneously without configuration
@@ -31,9 +31,9 @@ action: signing intent to place outputs at addresses. A user signs intent to
 place a profile. A validator signs intent to place a validity link. A confirmer
 signs intent to place a confirmation link.
 
-This uniformity means the framework handles all messages identically. The program
-schemas determine what signatures are required and who is authorized to write
-where. The framework just dispatches.
+This uniformity means the framework handles all messages identically. The
+program schemas determine what signatures are required and who is authorized to
+write where. The framework just dispatches.
 
 ### Why does the framework not define specific programs?
 
@@ -43,14 +43,15 @@ The B3nd SDK provides tools that make implementing these programs easy
 decision made by the protocol built on B3nd.
 
 Different protocols may use different content-addressing algorithms, different
-authentication models, or entirely different program architectures. The framework
-provides the dispatch mechanism and the toolbox. Protocols assemble the parts.
+authentication models, or entirely different program architectures. The
+framework provides the dispatch mechanism and the toolbox. Protocols assemble
+the parts.
 
 ### Why use envelopes instead of individual messages?
 
-Envelopes group related writes into a single atomic-intent unit. A transfer
-that debits one account and credits another should succeed or fail as a whole —
-not leave one side written and the other missing.
+Envelopes group related writes into a single atomic-intent unit. A transfer that
+debits one account and credits another should succeed or fail as a whole — not
+leave one side written and the other missing.
 
 The envelope is content-addressed (sent to its hash URI), which provides an
 audit trail and replay protection. Individual `receive()` calls remain available
@@ -83,11 +84,16 @@ segments like `/medical/records/blood-test`, derive hex segments from a salt,
 the segment name, and a password:
 
 ```typescript
-async function obfuscatePath(segments: string[], password: string): Promise<string> {
+async function obfuscatePath(
+  segments: string[],
+  password: string,
+): Promise<string> {
   const parts = await Promise.all(
     segments.map(async (seg) => {
       const key = await deriveKeyFromSeed(
-        `${APP_SALT}:${seg}:${password}`, APP_SALT, 100000,
+        `${APP_SALT}:${seg}:${password}`,
+        APP_SALT,
+        100000,
       );
       return key.slice(0, 16);
     }),
@@ -105,10 +111,13 @@ a CJS/ESM interop cast in Deno:
 
 ```typescript
 import _canonicalize from "canonicalize";
-const canonicalize = _canonicalize as unknown as (input: unknown) => string | undefined;
+const canonicalize = _canonicalize as unknown as (
+  input: unknown,
+) => string | undefined;
 ```
 
-The root `deno.json` import map includes `"canonicalize": "npm:canonicalize@2.0.0"`.
+The root `deno.json` import map includes
+`"canonicalize": "npm:canonicalize@2.0.0"`.
 
 ### How do I run tests without LocalStorageStore failures?
 
@@ -124,7 +133,12 @@ deno test --allow-all libs/ --ignore=libs/b3nd-client-localstorage
 Define a custom schema and start a server:
 
 ```typescript
-import { createServerNode, MessageDataClient, MemoryStore, servers } from "@bandeira-tech/b3nd-sdk";
+import {
+  createServerNode,
+  MemoryStore,
+  MessageDataClient,
+  servers,
+} from "@bandeira-tech/b3nd-sdk";
 import { Hono } from "hono";
 
 const schema: Schema = {
@@ -145,8 +159,7 @@ The schema defines your network's programs. Replace `MemoryStore` with
 
 ### How do I organize domain concepts in URI paths?
 
-Use protocol-provided programs and organize domain concepts
-as paths:
+Use protocol-provided programs and organize domain concepts as paths:
 
 ```
 mutable://accounts/{key}/nodes/{id}/config    (node config as a path)

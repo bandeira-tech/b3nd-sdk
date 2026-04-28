@@ -105,8 +105,8 @@ content from an identifiable sender.
 
 ## Forward: The Digital Message
 
-In b3nd, a message is `[uri, values, data]` — address, values, and content.
-The same things that every letter has carried for millennia, plus a slot for
+In b3nd, a message is `[uri, values, data]` — address, values, and content. The
+same things that every letter has carried for millennia, plus a slot for
 conserved quantities.
 
 ```

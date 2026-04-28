@@ -7,7 +7,7 @@
  *   verb. Subscribes peer observe streams, applies Policy chains, and
  *   forwards into the target's receive pipeline.
  * - **Strategy factories** — `flood(peers)`, `pathVector(peers)`, …
- *   Build plain `NodeProtocolInterface` clients from a peer list for
+ *   Build plain `ProtocolInterfaceNode` clients from a peer list for
  *   use as rig connections via `connection(factory(peers), patterns)`.
  *
  * See README for the three deployment modes.
