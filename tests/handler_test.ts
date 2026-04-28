@@ -9,8 +9,12 @@ function memClient() {
 }
 
 Deno.test("httpApi - status endpoint", async () => {
+  const _route126 = connection(memClient(), ["*"]);
   const rig = new Rig({
-    connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
+    routes: {
+      receive: [_route126],
+      read: [_route126],
+    },
     programs: createTestPrograms(),
   });
   const api = httpApi(rig, { statusMeta: { test: true } });
@@ -21,8 +25,12 @@ Deno.test("httpApi - status endpoint", async () => {
 });
 
 Deno.test("httpApi - receive/read/list round-trip", async () => {
+  const _route127 = connection(memClient(), ["*"]);
   const rig = new Rig({
-    connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
+    routes: {
+      receive: [_route127],
+      read: [_route127],
+    },
     programs: createTestPrograms(),
   });
   const api = httpApi(rig);
@@ -51,8 +59,12 @@ Deno.test("httpApi - receive/read/list round-trip", async () => {
 });
 
 Deno.test("httpApi - unknown route returns 404", async () => {
+  const _route128 = connection(memClient(), ["*"]);
   const rig = new Rig({
-    connections: [connection(memClient(), { receive: ["*"], read: ["*"] })],
+    routes: {
+      receive: [_route128],
+      read: [_route128],
+    },
     programs: createTestPrograms(),
   });
   const api = httpApi(rig);

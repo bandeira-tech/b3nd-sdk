@@ -25,13 +25,14 @@ import {
 // MessageData canon is installed for the hash:// envelope path so E2E
 // tests using signed send patterns get their inner
 // outputs decomposed and persisted automatically.
+const local = connection(new DataStoreClient(new MemoryStore()), ["*"]);
+
 const rig = new Rig({
-  connections: [
-    connection(
-      new DataStoreClient(new MemoryStore()),
-      { receive: ["*"], read: ["*"] },
-    ),
-  ],
+  routes: {
+    receive: [local],
+    read: [local],
+    observe: [local],
+  },
   programs: { "hash://sha256": messageDataProgram },
   handlers: { "msgdata:valid": messageDataHandler },
 });

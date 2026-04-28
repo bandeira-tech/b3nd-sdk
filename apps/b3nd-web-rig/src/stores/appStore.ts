@@ -153,8 +153,12 @@ async function createBackendFromUrl(
   isActive: boolean,
 ): Promise<{ backend: BackendConfig; rig: Rig }> {
   const client = await createClientFromUrl(baseUrl);
+  const _route131 = connection(client, ["*"]);
   const rig = new Rig({
-    connections: [connection(client, { receive: ["*"], read: ["*"] })],
+    routes: {
+      receive: [_route131],
+      read: [_route131],
+    },
   });
 
   // Wire rig events → bottom-panel log
@@ -379,10 +383,12 @@ export const useAppStore = create<AppStore>()(
           let rig: Rig | null = null;
           try {
             const newClient = await createClientFromUrl(baseUrl);
+            const _route132 = connection(newClient, ["*"]);
             rig = new Rig({
-              connections: [
-                connection(newClient, { receive: ["*"], read: ["*"] }),
-              ],
+              routes: {
+                receive: [_route132],
+                read: [_route132],
+              },
             });
             // Transfer existing identity to new rig
             if (state.rig?.identity) {

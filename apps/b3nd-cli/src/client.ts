@@ -59,8 +59,12 @@ export async function getRig(
     }
 
     const client = await createClientFromUrl(config.node);
+    const _route129 = connection(client, ["*"]);
     cachedRig = new Rig({
-      connections: [connection(client, { receive: ["*"], read: ["*"] })],
+      routes: {
+        receive: [_route129],
+        read: [_route129],
+      },
     });
 
     // Wire verbose logging through rig events

@@ -10,13 +10,14 @@ import { MemoryStore } from "@b3nd/client-memory";
 import { message } from "@bandeira-tech/b3nd-sdk/msg";
 
 const id = await Identity.fromSeed("my-secret");
+
+const local = connection(new DataStoreClient(new MemoryStore()), ["*"]);
 const rig = new Rig({
-  connections: [
-    connection(new DataStoreClient(new MemoryStore()), {
-      receive: ["*"],
-      read: ["*"],
-    }),
-  ],
+  routes: {
+    receive: [local],
+    read:    [local],
+    observe: [local],
+  },
 });
 
 // Identity signs, rig delivers
@@ -102,42 +103,50 @@ for await (const result of rig.observe<T>("mutable://app/*", abort.signal)) {
 }
 ```
 
-## Connections
+## Routes
 
-Clients declare what URIs they accept per-operation. The rig routes
-automatically.
+A connection is a client + URI pattern list. Connections are bound
+into per-op route arrays — `receive`, `read`, `observe`. Each route
+makes its own decision; the same connection can be referenced from
+multiple routes when it serves them with the same filter.
 
 ```typescript
 import { connection, Rig } from "@b3nd/rig";
 
+// Read-only cache (no receive binding)
+const cache = connection(redisClient, [
+  "mutable://accounts/:key/*",
+  "hash://sha256/*",
+]);
+
+// Primary storage (serves reads, writes, and observes)
+const primary = connection(postgresClient, [
+  "mutable://*", "immutable://*", "hash://*", "link://*",
+]);
+
+// Local-only (never leaves the device)
+const local = connection(memoryClient, ["local://*", "rig://*"]);
+
 const rig = new Rig({
-  connections: [
-    // Read-only cache (tried first for reads)
-    connection(redisClient, {
-      read: ["mutable://accounts/:key/*", "hash://sha256/*"],
-    }),
-
-    // Primary storage (reads + writes)
-    connection(postgresClient, {
-      receive: ["mutable://*", "immutable://*", "hash://*", "link://*"],
-      read: ["mutable://*", "immutable://*", "hash://*", "link://*"],
-    }),
-
-    // Local-only (never leaves the device)
-    connection(memoryClient, {
-      receive: ["local://*", "rig://*"],
-      read: ["local://*", "rig://*"],
-    }),
-  ],
+  routes: {
+    receive: [primary, local],          // broadcast to all matching
+    read:    [cache, primary, local],   // first match wins (cache first)
+    observe: [primary, local],
+  },
 });
 ```
 
-Writes broadcast to all accepting connections. Reads try accepting connections
-in order (first success wins — put cache before primary). Unfiltered clients
-accept everything (backwards compat).
+`receive` broadcasts to every matching connection. `read` tries each
+matching connection in declaration order until one returns a hit (or,
+for trailing-slash list reads, gathers across every match). `observe`
+delegates to the first connection that accepts; the client owns the
+underlying transport.
 
-Patterns use the same Express-style matching as observe: `:param` captures a
-segment, `*` matches the rest.
+When a single client needs different patterns per op, make separate
+`connection(...)` calls — each binds one pattern list.
+
+Patterns use the same Express-style matching as observe: `:param`
+captures a segment, `*` matches the rest.
 
 ## Hooks
 
@@ -147,8 +156,9 @@ Hooks are synchronous pipelines that run inside operations. Frozen after init.
 - **Post-hooks** run after. They observe the result but **cannot modify it**.
 
 ```typescript
+const c = connection(client, ["*"]);
 const rig = new Rig({
-  connections: [connection(client, { receive: ["*"], read: ["*"] })],
+  routes: { receive: [c], read: [c], observe: [c] },
   hooks: {
     beforeReceive: (ctx) => {
       validateSchema(ctx);
@@ -171,8 +181,9 @@ Events are async fire-and-forget handlers that run after operations complete.
 They never block the caller. Handler errors are caught and logged.
 
 ```typescript
+const c = connection(client, ["*"]);
 const rig = new Rig({
-  connections: [connection(client, { receive: ["*"], read: ["*"] })],
+  routes: { receive: [c], read: [c], observe: [c] },
   on: {
     "send:success": [audit, notifyPeers],
     "receive:error": [alertOps],
@@ -195,13 +206,9 @@ Event names: `send:success`, `send:error`, `receive:success`, `receive:error`,
 URI-pattern reactions that fire on successful writes (send or receive).
 
 ```typescript
+const local = connection(new DataStoreClient(new MemoryStore()), ["*"]);
 const rig = new Rig({
-  connections: [
-    connection(new DataStoreClient(new MemoryStore()), {
-      receive: ["*"],
-      read: ["*"],
-    }),
-  ],
+  routes: { receive: [local], read: [local], observe: [local] },
   reactions: {
     "mutable://app/users/:id": async (out, _read, { id }) => {
       // Reactions return Output[] — those tuples flow through rig.send.
@@ -265,20 +272,25 @@ await rig.status(); // StatusResult { status, schema }
 
 ```typescript
 // Minimal
+const local = connection(new DataStoreClient(new MemoryStore()), ["*"]);
 const rig = new Rig({
-  connections: [connection(new DataStoreClient(new MemoryStore()), { receive: ["*"], read: ["*"] })],
+  routes: { receive: [local], read: [local], observe: [local] },
 });
 
 // Full config
+const pg     = connection(postgresClient, ["mutable://*"]);
+const memory = connection(memoryClient,   ["local://*"]);
 const rig = new Rig({
-  connections: [
-    connection(postgresClient, { receive: ["mutable://*"], read: ["mutable://*"] }),
-    connection(memoryClient, { receive: ["local://*"], read: ["local://*"] }),
-  ],
-  schema,                                   // optional validation
+  routes: {
+    receive: [pg, memory],
+    read:    [pg, memory],
+    observe: [pg],
+  },
+  programs,                                 // pure classifiers
+  handlers,                                 // code → Output[] handlers
   hooks: { ... },                           // frozen after init
   on: { ... },                              // event handlers
-  reactions: { ... },                        // URI pattern reactions
+  reactions: { ... },                       // URI pattern reactions
 });
 ```
 

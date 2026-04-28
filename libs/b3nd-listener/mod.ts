@@ -26,8 +26,9 @@
  *
  * const processor = respondTo(myHandler, { identity, client: storageClient });
  *
+ * const store = connection(storageClient, ["*"]);
  * const rig = new Rig({
- *   connections: [connection(storageClient, { receive: ["*"], read: ["*"] })],
+ *   routes: { receive: [store], read: [store], observe: [store] },
  *   programs: {
  *     "mutable://inbox": async () => ({ code: "inbox-request" }),
  *   },

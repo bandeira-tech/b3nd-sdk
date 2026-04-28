@@ -26,8 +26,9 @@
  * import { Identity, Rig, connection, message } from "@bandeira-tech/b3nd-sdk";
  *
  * const id = await Identity.fromSeed("my-secret");
+ * const node = connection(client, ["*"]);
  * const rig = new Rig({
- *   connections: [connection(client, { receive: ["*"], read: ["*"] })],
+ *   routes: { receive: [node], read: [node], observe: [node] },
  * });
  *
  * const outputs = [["mutable://app/key", { hello: "world" }]];
