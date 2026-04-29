@@ -23,18 +23,23 @@
  *
  * @example Authenticated send
  * ```typescript
- * import { Identity, Rig, connection, message } from "@bandeira-tech/b3nd-sdk";
+ * import {
+ *   Identity, Rig, connection, message,
+ *   messageDataHandler, messageDataProgram,
+ * } from "@bandeira-tech/b3nd-sdk";
  *
  * const id = await Identity.fromSeed("my-secret");
  * const node = connection(client, ["*"]);
  * const rig = new Rig({
  *   routes: { receive: [node], read: [node], observe: [node] },
+ *   programs: { "hash://sha256": messageDataProgram },
+ *   handlers: { "msgdata:valid": messageDataHandler },
  * });
  *
  * const outputs = [["mutable://app/key", { hello: "world" }]];
  * const auth = [await id.sign({ inputs: [], outputs })];
  * const envelope = await message({ auth, inputs: [], outputs });
- * await rig.send([envelope, ...outputs]);
+ * await rig.send([envelope]); // canon decomposes; inner outputs land
  * ```
  */
 
