@@ -13,8 +13,8 @@
     "@std/crypto": "jsr:@std/crypto",
     "@std/fs": "jsr:@std/fs",
     "@std/testing": "jsr:@std/testing",
-    "@auth": "../libs/b3nd-auth/mod.ts",
-    "@encrypt": "../libs/b3nd-encrypt/mod.ts",
+    "@auth": "../../b3nd-canon/libs/b3nd-auth/mod.ts",
+    "@encrypt": "../../b3nd-core/libs/b3nd-encrypt/mod.ts",
     "hono": "npm:hono"
   }
 }

@@ -9,13 +9,13 @@
  *   E2E_SERVER_PORT=8080 deno run --allow-net test-server.ts
  */
 
-import { connection, httpApi, Rig } from "../libs/b3nd-rig/mod.ts";
-import { MemoryStore } from "../libs/b3nd-client-memory/store.ts";
-import { DataStoreClient } from "../libs/b3nd-core/data-store-client.ts";
+import { connection, httpApi, Rig } from "../../b3nd-core/libs/b3nd-rig/mod.ts";
+import { MemoryStore } from "../../b3nd-core/libs/b3nd-client-memory/store.ts";
+import { DataStoreClient } from "../../b3nd-core/libs/b3nd-core/data-store-client.ts";
 import {
   messageDataHandler,
   messageDataProgram,
-} from "../libs/b3nd-msg/data/canon.ts";
+} from "../../b3nd-canon/libs/b3nd-msg/data/canon.ts";
 
 // Permissive test rig: no per-prefix programs, so every receive runs
 // process() (returns the default `{ code: "ok" }`), then handle()

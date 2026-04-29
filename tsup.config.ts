@@ -7,7 +7,6 @@ export default defineConfig({
     "src/canon": "src/canon.ts",
     "msg/mod": "src/msg.ts",
     "auth/mod": "src/auth.ts",
-    "wallet/mod": "src/wallet.ts",
     "encrypt/mod": "src/encrypt.ts",
     "hash/mod": "src/hash.ts",
     "network/mod": "src/network.ts",
@@ -18,4 +17,5 @@ export default defineConfig({
   outDir: "dist",
   clean: true,
   tsconfig: "tsconfig.web.json",
+  external: ["@bandeira-tech/b3nd-core", "@bandeira-tech/b3nd-canon"],
 });

@@ -11,7 +11,6 @@
     "./types": "./src/types.ts",
     "./hash": "./src/hash.ts",
     "./encrypt": "./src/encrypt.ts",
-    "./wallet": "./src/wallet.ts",
     "./network": "./src/network.ts",
     "./listener": "./src/listener.ts",
     "./client-console": "./src/client-console.ts"
@@ -29,13 +28,12 @@
     "@bandeira-tech/b3nd-canon/hash": "../b3nd-canon/src/hash.ts",
     "@bandeira-tech/b3nd-canon/auth": "../b3nd-canon/src/auth.ts",
     "@bandeira-tech/b3nd-canon/encrypt": "../b3nd-canon/src/encrypt.ts",
-    "@bandeira-tech/b3nd-canon/wallet": "../b3nd-canon/src/wallet.ts",
     "@std/assert": "jsr:@std/assert@^1.0.15",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
     "canonicalize": "npm:canonicalize@2.0.0"
   },
   "tasks": {
-    "check": "deno check src/mod.ts src/core.ts src/canon.ts src/msg.ts src/wallet.ts src/listener.ts",
+    "check": "deno check src/mod.ts src/core.ts src/canon.ts src/msg.ts src/listener.ts",
     "test": "deno test --allow-all libs/b3nd-*/",
     "publish:jsr": "bash scripts/prepublish.sh && deno publish --allow-dirty; bash scripts/postpublish.sh"
   },

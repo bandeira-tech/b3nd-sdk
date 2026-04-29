@@ -47,10 +47,6 @@
       "import": "./dist/clients/console/mod.js",
       "types": "./dist/clients/console/mod.d.ts"
     },
-    "./wallet": {
-      "import": "./dist/wallet/mod.js",
-      "types": "./dist/wallet/mod.d.ts"
-    },
     "./hash": {
       "import": "./dist/hash/mod.js",
       "types": "./dist/hash/mod.d.ts"
@@ -83,7 +79,6 @@
     "memory",
     "http",
     "websocket",
-    "wallet",
     "authentication",
     "typescript"
   ],
@@ -98,6 +93,8 @@
   },
   "homepage": "https://github.com/bandeira-tech/b3nd-sdk#readme",
   "dependencies": {
+    "@bandeira-tech/b3nd-core": "^0.9.4",
+    "@bandeira-tech/b3nd-canon": "^0.9.4",
     "canonicalize": "^2.0.0",
     "hono": "^4.6.0"
   },

@@ -22,7 +22,6 @@
     "./libs/b3nd-auth/**/*.ts",
     "./libs/b3nd-msg/**/*.ts",
     "./libs/b3nd-network/**/*.ts",
-    "./libs/b3nd-wallet/**/*.ts",
     "./libs/b3nd-encrypt/**/*.ts",
     "./libs/b3nd-client-http/**/*.ts",
     "./libs/b3nd-client-localstorage/**/*.ts",
