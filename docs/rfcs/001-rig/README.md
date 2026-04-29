@@ -29,10 +29,11 @@ The book reads chapter by chapter so each idea has room to breathe.
 
 ## How to read it
 
-Three movements, plus a finale of operational chapters.
+Start with [00 — Overview](./00-overview.md) for the whole shape in
+one chapter. Then drill into whichever movement matters:
 
 **Part I — The Primitive.** The wire shape and the rig's surface.
-Two short chapters; read these first.
+Two short chapters.
 
 **Part II — The Pipeline.** How a tuple becomes an action: process,
 handle, react, with `send` / `receive` as direction-flavored
@@ -53,6 +54,8 @@ different shapes.
 `OperationHandle`, and multi-source replicas via `flood(peers)`.
 
 ## Table of contents
+
+- [00. Overview — the Rig and its pipeline](./00-overview.md)
 
 ### Part I — The Primitive
 - [01. One tuple to rule them all](./01-the-primitive.md)
