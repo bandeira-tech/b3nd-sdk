@@ -27,8 +27,14 @@ import type {
   WatchAllSnapshot,
   WatchOptions,
 } from "./types.ts";
-import type { ReadCtx, ReceiveCtx, RigHooks, SendCtx } from "./hooks.ts";
-import { resolveHooks, runAfter, runBefore } from "./hooks.ts";
+import type {
+  ErrorHookCtx,
+  ReadCtx,
+  ReceiveCtx,
+  RigHooks,
+  SendCtx,
+} from "./hooks.ts";
+import { resolveHooks, runAfter, runBefore, runOnError } from "./hooks.ts";
 import type { EventHandler, RigEventName } from "./events.ts";
 import { RigEventEmitter } from "./events.ts";
 import type { ReactionHandler } from "./reactions.ts";
@@ -320,124 +326,138 @@ export class Rig {
       const results: ReceiveResult[] = [];
       const broadcastPromises: Promise<void>[] = [];
 
-      // Classify the whole batch first, then handle/dispatch per tuple.
-      const programResults = await this.process(finalOuts);
-
       for (let i = 0; i < finalOuts.length; i++) {
         const out = finalOuts[i];
-        const programResult = programResults[i];
         const [uri, payload] = out;
 
-        // Per-stage event on the handle — observers see classification.
-        handle._emit("process:done", { input: out, result: programResult });
-
+        // ── process — classify the tuple, isolated so a thrown
+        // program doesn't fail the whole batch. ──
+        let programResult: ProgramResult;
         try {
-          // Structural pre-check: if no connection accepts this URI for
-          // receive, the rig has no topology to dispatch through. This
-          // is detectable synchronously from the connection patterns —
-          // reject at pipeline level rather than waiting on async route
-          // events. Per-emission route failures (a connection accepting
-          // a pattern but rejecting a specific write) are still surfaced
-          // as `route:error` events from `_dispatchRouteAware`.
-          const hasRoute = this._receiveRoutes.some((c) => c.accepts(uri));
-          if (!hasRoute) {
-            const error = `No connection accepts receive for ${uri}`;
-            const result: ReceiveResult = { accepted: false, error };
-            results.push(result);
-            this._events.emit(`${direction}:error`, {
-              op: direction,
-              uri,
-              error,
-              ts: Date.now(),
-            });
-            if (direction === "receive") {
-              await runAfter(
-                this._hooks.afterReceive,
-                { uri, data: payload },
-                result,
-              );
-            } else {
-              await runAfter(
-                this._hooks.afterSend,
-                { message: out },
-                result,
-              );
-            }
-            continue;
-          }
-
-          if (programResult.error) {
-            const result: ReceiveResult = {
-              accepted: false,
-              error: programResult.error,
-            };
-            results.push(result);
-            this._events.emit(`${direction}:error`, {
-              op: direction,
-              uri,
-              error: programResult.error,
-              ts: Date.now(),
-            });
-            if (direction === "receive") {
-              await runAfter(
-                this._hooks.afterReceive,
-                { uri, data: payload },
-                result,
-              );
-            } else {
-              await runAfter(
-                this._hooks.afterSend,
-                { message: out },
-                result,
-              );
-            }
-            continue;
-          }
-
-          const emissions = await this.handle(out, programResult);
-          handle._emit("handle:emit", {
-            input: out,
-            classification: programResult,
-            emissions,
-          });
-
-          // Pipeline accepted — record success now, dispatch in background.
-          const result: ReceiveResult = { accepted: true };
-          results.push(result);
-          this._events.emit(`${direction}:success`, {
-            op: direction,
-            uri,
-            data: payload,
-            result,
-            ts: Date.now(),
-          });
-
-          // Schedule per-route dispatch — fire-and-forget for the pipeline.
-          broadcastPromises.push(this._dispatchRouteAware(emissions, handle));
-
-          if (direction === "receive") {
-            await runAfter(
-              this._hooks.afterReceive,
-              { uri, data: payload },
-              result,
-            );
-          } else {
-            await runAfter(
-              this._hooks.afterSend,
-              { message: out },
-              result,
-            );
-          }
+          programResult = await this._processOne(out);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          results.push({ accepted: false, error: message });
+          handle._emit("process:error", {
+            input: out,
+            error: message,
+            cause: err,
+          });
+          await runOnError(this._hooks.onError, {
+            phase: "process",
+            input: out,
+            error: message,
+            cause: err,
+          });
+          const result: ReceiveResult = { accepted: false, error: message };
+          results.push(result);
           this._events.emit(`${direction}:error`, {
             op: direction,
             uri,
             error: message,
             ts: Date.now(),
           });
+          await this._runAfterFor(direction, out, payload, result);
+          continue;
         }
+
+        handle._emit("process:done", { input: out, result: programResult });
+
+        // Structural pre-check: if no connection accepts this URI for
+        // receive, the rig has no topology to dispatch through.
+        const hasRoute = this._receiveRoutes.some((c) => c.accepts(uri));
+        if (!hasRoute) {
+          const error = `No connection accepts receive for ${uri}`;
+          handle._emit("process:error", { input: out, error });
+          await runOnError(this._hooks.onError, {
+            phase: "process",
+            input: out,
+            error,
+          });
+          const result: ReceiveResult = { accepted: false, error };
+          results.push(result);
+          this._events.emit(`${direction}:error`, {
+            op: direction,
+            uri,
+            error,
+            ts: Date.now(),
+          });
+          await this._runAfterFor(direction, out, payload, result);
+          continue;
+        }
+
+        if (programResult.error) {
+          const error = programResult.error;
+          handle._emit("process:error", { input: out, error });
+          await runOnError(this._hooks.onError, {
+            phase: "process",
+            input: out,
+            error,
+          });
+          const result: ReceiveResult = { accepted: false, error };
+          results.push(result);
+          this._events.emit(`${direction}:error`, {
+            op: direction,
+            uri,
+            error,
+            ts: Date.now(),
+          });
+          await this._runAfterFor(direction, out, payload, result);
+          continue;
+        }
+
+        // ── handle — run the registered handler. ──
+        let emissions: Output[];
+        try {
+          emissions = await this.handle(out, programResult);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          handle._emit("handle:error", {
+            input: out,
+            classification: programResult,
+            error: message,
+            cause: err,
+          });
+          await runOnError(this._hooks.onError, {
+            phase: "handle",
+            input: out,
+            classification: programResult,
+            error: message,
+            cause: err,
+          });
+          const result: ReceiveResult = { accepted: false, error: message };
+          results.push(result);
+          this._events.emit(`${direction}:error`, {
+            op: direction,
+            uri,
+            error: message,
+            ts: Date.now(),
+          });
+          await this._runAfterFor(direction, out, payload, result);
+          continue;
+        }
+        handle._emit("handle:emit", {
+          input: out,
+          classification: programResult,
+          emissions,
+        });
+
+        // Pipeline accepted — record success now, dispatch in background.
+        const result: ReceiveResult = { accepted: true };
+        results.push(result);
+        this._events.emit(`${direction}:success`, {
+          op: direction,
+          uri,
+          data: payload,
+          result,
+          ts: Date.now(),
+        });
+
+        // Schedule per-route dispatch — fire-and-forget for the pipeline.
+        broadcastPromises.push(
+          this._dispatchRouteAware(emissions, handle, out),
+        );
+
+        await this._runAfterFor(direction, out, payload, result);
       }
 
       // Resolve pipeline-ack. Caller's `await op` returns now.
@@ -453,18 +473,51 @@ export class Rig {
   }
 
   /**
+   * Run process for a single output. Isolated so a thrown program
+   * doesn't fail the whole batch.
+   */
+  private async _processOne(out: Output): Promise<ProgramResult> {
+    const program = this._findProgram(out[0]);
+    if (!program) return { code: "ok" };
+    return await program(out, undefined, this._readFn());
+  }
+
+  /** Run the direction-appropriate after-hook with the standard payload. */
+  private async _runAfterFor(
+    direction: "send" | "receive",
+    out: Output,
+    payload: unknown,
+    result: ReceiveResult,
+  ): Promise<void> {
+    if (direction === "receive") {
+      await runAfter(
+        this._hooks.afterReceive,
+        { uri: out[0], data: payload },
+        result,
+      );
+    } else {
+      await runAfter(this._hooks.afterSend, { message: out }, result);
+    }
+  }
+
+  /**
    * Per-emission, per-connection dispatch with route events.
    *
-   * For each emission: find every connection whose `receive` patterns
-   * accept the URI, dispatch the emission to each independently, emit
+   * For each emission: find every connection in `routes.receive` that
+   * accepts the URI, dispatch the emission to each independently, emit
    * `route:success` / `route:error` per (emission, connection). Once
    * all routes for an emission settle, fire reactions if any route
    * accepted. Reactions' returned tuples spawn a fresh `rig.send`
    * operation (independent of this one).
+   *
+   * `input` is the original tuple that drove this dispatch — passed
+   * through so the `onError` hook can correlate route failures back
+   * to the input that triggered them.
    */
   private async _dispatchRouteAware(
     emissions: Output[],
     handle: OperationHandleImpl,
+    input: Output,
   ): Promise<void> {
     if (emissions.length === 0) return;
     const reactionPromises: Promise<void>[] = [];
@@ -474,39 +527,59 @@ export class Rig {
       const matching = this._receiveRoutes.filter((c) => c.accepts(uri));
 
       if (matching.length === 0) {
-        handle._emit("route:error", {
+        const error = `No connection accepts receive for ${uri}`;
+        handle._emit("route:error", { emission, connectionId: "", error });
+        await runOnError(this._hooks.onError, {
+          phase: "route",
+          input,
           emission,
           connectionId: "",
-          error: `No connection accepts receive for ${uri}`,
+          error,
         });
         continue;
       }
 
       const perConnection: PromiseLike<boolean>[] = matching.map((conn) =>
         conn.client.receive([emission]).then(
-          (results) => {
+          async (results) => {
             const r = results[0];
             if (r.accepted) {
               handle._emit("route:success", {
                 emission,
                 connectionId: conn.id,
               });
-            } else {
-              handle._emit("route:error", {
-                emission,
-                connectionId: conn.id,
-                error: r.error,
-                errorDetail: r.errorDetail,
-              });
+              return true;
             }
-            return r.accepted;
+            handle._emit("route:error", {
+              emission,
+              connectionId: conn.id,
+              error: r.error,
+              errorDetail: r.errorDetail,
+            });
+            await runOnError(this._hooks.onError, {
+              phase: "route",
+              input,
+              emission,
+              connectionId: conn.id,
+              error: r.error ?? "route rejected",
+              errorDetail: r.errorDetail,
+            });
+            return false;
           },
-          (err) => {
+          async (err) => {
             const message = err instanceof Error ? err.message : String(err);
             handle._emit("route:error", {
               emission,
               connectionId: conn.id,
               error: message,
+            });
+            await runOnError(this._hooks.onError, {
+              phase: "route",
+              input,
+              emission,
+              connectionId: conn.id,
+              error: message,
+              cause: err,
             });
             return false;
           },
@@ -517,7 +590,12 @@ export class Rig {
       // (only if at least one route accepted).
       reactionPromises.push(
         Promise.all(perConnection).then((flags) =>
-          this._fireReactionsForEmission(emission, flags.some((a) => a))
+          this._fireReactionsForEmission(
+            emission,
+            flags.some((a) => a),
+            handle,
+            input,
+          )
         ),
       );
     }
@@ -534,6 +612,8 @@ export class Rig {
   private async _fireReactionsForEmission(
     emission: Output,
     anyAccepted: boolean,
+    handle: OperationHandleImpl,
+    input: Output,
   ): Promise<void> {
     if (!anyAccepted || this._reactors.size === 0) return;
     const readFn = this._readFn();
@@ -541,12 +621,26 @@ export class Rig {
     if (matches.length === 0) return;
 
     const collected: Output[] = [];
-    for (const { handler, params } of matches) {
+    for (const { handler, params, pattern } of matches) {
       try {
         const emitted = await handler(emission, readFn, params);
         collected.push(...emitted);
       } catch (err) {
-        console.warn("[rig] reaction handler error:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        handle._emit("reaction:error", {
+          emission,
+          pattern,
+          error: message,
+          cause: err,
+        });
+        await runOnError(this._hooks.onError, {
+          phase: "reaction",
+          input,
+          emission,
+          pattern,
+          error: message,
+          cause: err,
+        });
       }
     }
 

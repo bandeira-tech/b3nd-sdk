@@ -87,11 +87,14 @@ export type {
 // OperationHandle
 export type {
   HandleEmitEvent,
+  HandleErrorEvent,
   OperationEventHandler,
   OperationEventMap,
   OperationEventName,
   OperationHandle,
   ProcessDoneEvent,
+  ProcessErrorEvent,
+  ReactionErrorEvent,
   RouteErrorEvent,
   RouteSuccessEvent,
   SettledEvent,
@@ -101,13 +104,21 @@ export type {
 export type {
   AfterHook,
   BeforeHook,
+  ErrorHookCtx,
+  ErrorPhase,
   HooksConfig,
+  OnErrorHook,
   ReadCtx,
   ReceiveCtx,
   RigHooks,
   SendCtx,
 } from "../libs/b3nd-rig/hooks.ts";
-export { resolveHooks, runAfter, runBefore } from "../libs/b3nd-rig/hooks.ts";
+export {
+  resolveHooks,
+  runAfter,
+  runBefore,
+  runOnError,
+} from "../libs/b3nd-rig/hooks.ts";
 
 // Events
 export type {

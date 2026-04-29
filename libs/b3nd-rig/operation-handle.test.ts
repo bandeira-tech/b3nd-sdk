@@ -314,3 +314,298 @@ Deno.test("connection - auto-generates id when omitted", () => {
   assertEquals(a.id.startsWith("conn-"), true);
   assertEquals(b.id.startsWith("conn-"), true);
 });
+
+// ── process:error event ───────────────────────────────────────────────
+
+Deno.test("OperationHandle - fires process:error when program throws", async () => {
+  const throwingProgram: Program = () => {
+    throw new Error("program crashed");
+  };
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    programs: { "mutable://open": throwingProgram },
+  });
+  const errors: { uri: string; error: string }[] = [];
+  const op = rig.receive([["mutable://open/x", { v: 1 }]]);
+  op.on("process:error", (e) => {
+    errors.push({ uri: e.input[0], error: e.error });
+  });
+  const results = await op;
+  assertEquals(errors.length, 1);
+  assertEquals(errors[0].uri, "mutable://open/x");
+  assertEquals(errors[0].error, "program crashed");
+  assertEquals(results[0].accepted, false);
+});
+
+Deno.test("OperationHandle - fires process:error when program returns error code", async () => {
+  const reject: Program = () =>
+    Promise.resolve({ code: "rejected", error: "policy denied" });
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    programs: { "mutable://open": reject },
+  });
+  const errors: string[] = [];
+  const op = rig.receive([["mutable://open/x", { v: 1 }]]);
+  op.on("process:error", (e) => errors.push(e.error));
+  await op;
+  assertEquals(errors, ["policy denied"]);
+});
+
+Deno.test("OperationHandle - fires process:error when no connection accepts", async () => {
+  const c = connection(memClient(), ["local://*"]);
+  const rig = new Rig({ routes: { receive: [c] } });
+  const errors: string[] = [];
+  const op = rig.receive([["mutable://open/x", { v: 1 }]]);
+  op.on("process:error", (e) => errors.push(e.error));
+  const results = await op;
+  assertEquals(errors.length, 1);
+  assertEquals(errors[0].includes("No connection accepts"), true);
+  assertEquals(results[0].accepted, false);
+});
+
+// ── handle:error event ────────────────────────────────────────────────
+
+Deno.test("OperationHandle - fires handle:error when handler throws", async () => {
+  const okProgram: Program = () => Promise.resolve({ code: "boom" });
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    programs: { "mutable://open": okProgram },
+    handlers: {
+      "boom": () => {
+        throw new Error("handler crashed");
+      },
+    },
+  });
+  const errors: { uri: string; error: string; code: string }[] = [];
+  const op = rig.receive([["mutable://open/x", { v: 1 }]]);
+  op.on("handle:error", (e) => {
+    errors.push({
+      uri: e.input[0],
+      error: e.error,
+      code: e.classification.code,
+    });
+  });
+  const results = await op;
+  assertEquals(errors.length, 1);
+  assertEquals(errors[0].uri, "mutable://open/x");
+  assertEquals(errors[0].code, "boom");
+  assertEquals(errors[0].error, "handler crashed");
+  assertEquals(results[0].accepted, false);
+});
+
+// ── reaction:error event ──────────────────────────────────────────────
+
+Deno.test("OperationHandle - fires reaction:error when reaction throws", async () => {
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    reactions: {
+      "mutable://open/:id": () => {
+        throw new Error("reaction crashed");
+      },
+    },
+  });
+  const errors: { uri: string; pattern: string; error: string }[] = [];
+  const op = rig.receive([["mutable://open/x", { v: 1 }]]);
+  op.on("reaction:error", (e) => {
+    errors.push({
+      uri: e.emission[0],
+      pattern: e.pattern,
+      error: e.error,
+    });
+  });
+  await op;
+  await op.settled;
+  assertEquals(errors.length, 1);
+  assertEquals(errors[0].uri, "mutable://open/x");
+  assertEquals(errors[0].pattern, "mutable://open/:id");
+  assertEquals(errors[0].error, "reaction crashed");
+});
+
+// ── onError hook — observation ───────────────────────────────────────
+
+Deno.test("onError hook - fires for process error (program throw)", async () => {
+  const seen: { phase: string; error: string }[] = [];
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    programs: {
+      "mutable://open": () => {
+        throw new Error("p crashed");
+      },
+    },
+    hooks: {
+      onError: (ctx) => {
+        seen.push({ phase: ctx.phase, error: ctx.error });
+      },
+    },
+  });
+  const op = rig.receive([["mutable://open/x", { v: 1 }]]);
+  await op;
+  assertEquals(seen.length, 1);
+  assertEquals(seen[0].phase, "process");
+  assertEquals(seen[0].error, "p crashed");
+});
+
+Deno.test("onError hook - fires for handle error (handler throw)", async () => {
+  const seen: string[] = [];
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    programs: { "mutable://open": () => Promise.resolve({ code: "go" }) },
+    handlers: {
+      "go": () => {
+        throw new Error("h crashed");
+      },
+    },
+    hooks: {
+      onError: (ctx) => {
+        seen.push(`${ctx.phase}:${ctx.error}`);
+      },
+    },
+  });
+  const op = rig.receive([["mutable://open/x", { v: 1 }]]);
+  await op;
+  assertEquals(seen, ["handle:h crashed"]);
+});
+
+Deno.test("onError hook - fires for route error (connection rejects)", async () => {
+  const failing = new FunctionalClient({
+    receive: () => Promise.resolve([{ accepted: false, error: "disk full" }]),
+  });
+  const c = connection(failing, ["*"], { id: "broken" });
+  const seen: { phase: string; connectionId?: string; error: string }[] = [];
+  const rig = new Rig({
+    routes: { receive: [c] },
+    hooks: {
+      onError: (ctx) => {
+        seen.push({
+          phase: ctx.phase,
+          connectionId: ctx.connectionId,
+          error: ctx.error,
+        });
+      },
+    },
+  });
+  const op = rig.receive([["mutable://open/x", { v: 1 }]]);
+  await op;
+  await op.settled;
+  assertEquals(seen.length, 1);
+  assertEquals(seen[0].phase, "route");
+  assertEquals(seen[0].connectionId, "broken");
+  assertEquals(seen[0].error, "disk full");
+});
+
+Deno.test("onError hook - fires for reaction error", async () => {
+  const seen: { phase: string; pattern?: string; error: string }[] = [];
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    reactions: {
+      "mutable://open/:id": () => {
+        throw new Error("react crashed");
+      },
+    },
+    hooks: {
+      onError: (ctx) => {
+        seen.push({
+          phase: ctx.phase,
+          pattern: ctx.pattern,
+          error: ctx.error,
+        });
+      },
+    },
+  });
+  const op = rig.receive([["mutable://open/x", { v: 1 }]]);
+  await op;
+  await op.settled;
+  assertEquals(seen.length, 1);
+  assertEquals(seen[0].phase, "reaction");
+  assertEquals(seen[0].pattern, "mutable://open/:id");
+  assertEquals(seen[0].error, "react crashed");
+});
+
+// ── onError hook — abort by throwing ─────────────────────────────────
+
+Deno.test("onError hook - throw aborts the operation (process phase)", async () => {
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    programs: {
+      "mutable://open": () => {
+        throw new Error("p crashed");
+      },
+    },
+    hooks: {
+      onError: () => {
+        throw new Error("aborting");
+      },
+    },
+  });
+  await assertRejects(
+    () => Promise.resolve(rig.receive([["mutable://open/x", { v: 1 }]])),
+    Error,
+    "aborting",
+  );
+});
+
+Deno.test("onError hook - throw on first tuple stops batch processing", async () => {
+  // Two tuples, the first triggers a program error. The hook throws,
+  // so the second should never be processed.
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    programs: {
+      "mutable://open/bad": () =>
+        Promise.resolve({ code: "rej", error: "bad input" }),
+      "mutable://open/good": () => Promise.resolve({ code: "ok" }),
+    },
+    hooks: {
+      onError: () => {
+        throw new Error("stop everything");
+      },
+    },
+  });
+  await assertRejects(
+    () =>
+      Promise.resolve(
+        rig.receive([
+          ["mutable://open/bad", {}],
+          ["mutable://open/good", {}],
+        ]),
+      ),
+    Error,
+    "stop everything",
+  );
+});
+
+Deno.test("onError hook - return (no throw) lets pipeline keep going", async () => {
+  // Two tuples, the first triggers a program error. The hook records
+  // it but doesn't throw — the second tuple should still be processed.
+  const seen: string[] = [];
+  const c = connection(memClient(), ["*"]);
+  const rig = new Rig({
+    routes: { receive: [c], read: [c] },
+    programs: {
+      "mutable://open/bad": () =>
+        Promise.resolve({ code: "rej", error: "bad input" }),
+      "mutable://open/good": () => Promise.resolve({ code: "ok" }),
+    },
+    hooks: {
+      onError: (ctx) => {
+        seen.push(ctx.error);
+      },
+    },
+  });
+  const results = await rig.receive([
+    ["mutable://open/bad", {}],
+    ["mutable://open/good", {}],
+  ]);
+  assertEquals(results.length, 2);
+  assertEquals(results[0].accepted, false);
+  assertEquals(results[1].accepted, true);
+  assertEquals(seen, ["bad input"]);
+});

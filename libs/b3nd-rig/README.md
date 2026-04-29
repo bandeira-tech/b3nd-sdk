@@ -154,6 +154,9 @@ Hooks are synchronous pipelines that run inside operations. Frozen after init.
 
 - **Pre-hooks** run before the operation. **Throw** to reject — no silent drops.
 - **Post-hooks** run after. They observe the result but **cannot modify it**.
+- **`onError`** runs in the catch path for every error the rig observes
+  (`process`, `handle`, `route`, `reaction` phases). **Throw** to abort
+  the whole operation; **return** to let normal error handling continue.
 
 ```typescript
 const c = connection(client, ["*"]);
@@ -169,11 +172,35 @@ const rig = new Rig({
     afterRead: (ctx, result) => {
       auditRead(ctx, result);
     },
+    onError: (ctx) => {
+      // ctx.phase is "process" | "handle" | "route" | "reaction"
+      logger.warn(`[${ctx.phase}]`, ctx.input[0], ctx.error);
+      if (ctx.phase === "handle") throw ctx.cause; // fail-fast on handler crashes
+    },
   },
 });
 ```
 
 Hooks are immutable after init. Want different hooks? Create a new rig.
+
+## OperationHandle Events
+
+`rig.send()` and `rig.receive()` return an `OperationHandle` that emits
+per-stage events scoped to that single operation:
+
+- `process:done` / `process:error` — classification result or error
+- `handle:emit` / `handle:error` — handler emissions or thrown handler
+- `route:success` / `route:error` — per `(emission, connection)` outcome
+- `reaction:error` — a registered reaction threw
+- `settled` — every route on this operation has reported
+
+```typescript
+const op = rig.send([msg]);
+op.on("process:error", (e) => log("classification failed:", e.error));
+op.on("route:error", (e) => retry(e.emission, e.connectionId));
+const results = await op;       // pipeline ack
+await op.settled;                // wait for all routes to settle
+```
 
 ## Events
 
