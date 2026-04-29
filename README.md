@@ -7,6 +7,10 @@ rules, and get a running network — the Rig composes everything.
 [JSR](https://jsr.io/@bandeira-tech/b3nd-sdk) |
 [NPM](https://www.npmjs.com/package/@bandeira-tech/b3nd-web)
 
+This repo is the umbrella SDK — `@bandeira-tech/b3nd-sdk` — re-exporting the
+foundation packages with a single import surface. The pieces themselves live
+in their own repos: see [Ecosystem](#ecosystem) below for the full map.
+
 ## The Rig
 
 The Rig is B3nd's top-level abstraction. It wires storage, validation, and
@@ -176,15 +180,36 @@ their network. This is B3nd's primary audience.
 **Infrastructure operators** run rigs loaded with a protocol's programs. They
 choose connections (backends), manage replication, handle uptime.
 
-## Packages
+## Ecosystem
 
-| Package                                                                          | Registry | Use Case       |
-| -------------------------------------------------------------------------------- | -------- | -------------- |
-| [@bandeira-tech/b3nd-sdk](https://jsr.io/@bandeira-tech/b3nd-sdk)                | JSR      | Deno, servers  |
-| [@bandeira-tech/b3nd-web](https://www.npmjs.com/package/@bandeira-tech/b3nd-web) | NPM      | Browser, React |
+B3nd is split across several repos. This SDK is the umbrella — most app and
+protocol developers import only `@bandeira-tech/b3nd-sdk` (or `b3nd-web` in
+the browser). The foundation packages exist as standalone JSR modules so
+integrators with tighter dependency budgets can pull only what they need.
+
+| Package                              | Repo                                                                          | What it provides                                                              |
+| ------------------------------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `@bandeira-tech/b3nd-sdk` (JSR)      | [bandeira-tech/b3nd](https://github.com/bandeira-tech/b3nd) (this repo)       | Umbrella SDK for Deno/servers — re-exports core + canon + ergonomics.         |
+| `@bandeira-tech/b3nd-web` (NPM)      | [bandeira-tech/b3nd](https://github.com/bandeira-tech/b3nd) (this repo)       | Browser-tuned umbrella with `LocalStorageStore`, `IndexedDBStore`, React fit. |
+| `@bandeira-tech/b3nd-core` (JSR)     | [bandeira-tech/b3nd-core](https://github.com/bandeira-tech/b3nd-core)         | Framework foundation: types, encoding, Rig, Identity, network primitives.     |
+| `@bandeira-tech/b3nd-canon` (JSR)    | [bandeira-tech/b3nd-canon](https://github.com/bandeira-tech/b3nd-canon)       | Protocol-building toolkit: message envelopes, hash, auth, encryption.         |
+| `@bandeira-tech/b3nd-server-http`    | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Hono-backed HTTP `ServerResolver` for serving a Rig.                          |
+| `@bandeira-tech/b3nd-grpc`           | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Connect-protocol gRPC client + server + wire schema.                          |
+
+### Which package do I want?
+
+- **Building an app on a B3nd protocol?** Use `@bandeira-tech/b3nd-sdk` (Deno)
+  or `@bandeira-tech/b3nd-web` (browser). One import, everything you need.
+- **Designing a protocol?** Same as apps — the umbrella ships canon (envelopes,
+  hash, auth, encrypt) and core (types, rig, network) under one roof.
+- **Running a node?** Pair the umbrella with one of the server packages
+  (`b3nd-server-http` for REST/Hono, `b3nd-grpc` for Connect/gRPC), or both.
+- **Embedding B3nd in a host with a tight dependency budget?** Skip the
+  umbrella and depend directly on `b3nd-core` (framework foundation) plus
+  whichever transports/canon pieces you actually use.
 
 ```typescript
-// Deno/Server
+// Deno/Server — umbrella
 import { connection, Identity, Rig } from "@bandeira-tech/b3nd-sdk/rig";
 import {
   HttpClient,
@@ -193,9 +218,15 @@ import {
   PostgresStore,
 } from "@bandeira-tech/b3nd-sdk";
 
-// Browser/React
+// Browser/React — umbrella
 import { connection, Identity, Rig } from "@bandeira-tech/b3nd-web/rig";
 import { HttpClient, IndexedDBStore } from "@bandeira-tech/b3nd-web";
+
+// Tight-budget — foundation packages directly
+import { Rig, connection, MemoryStore, SimpleClient } from "@bandeira-tech/b3nd-core";
+import { message, hashValidator } from "@bandeira-tech/b3nd-canon";
+import { httpServer } from "@bandeira-tech/b3nd-server-http";
+import { grpcServer } from "@bandeira-tech/b3nd-grpc/server";
 ```
 
 ## Storage Backends

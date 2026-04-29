@@ -27,6 +27,20 @@ Deno monorepo: `libs/` (SDK modules), `apps/` (deployables), `skills/` (agent
 knowledge). SDK entry: `src/mod.ts` (JSR), `src/mod.web.ts` (NPM). Packages:
 `@bandeira-tech/b3nd-sdk` (JSR), `@bandeira-tech/b3nd-web` (NPM).
 
+This repo is the **umbrella** — it re-exports foundation packages that live in
+their own repos:
+
+- [`bandeira-tech/b3nd-core`](https://github.com/bandeira-tech/b3nd-core) →
+  `@bandeira-tech/b3nd-core` (framework foundation: types, rig, network)
+- [`bandeira-tech/b3nd-canon`](https://github.com/bandeira-tech/b3nd-canon) →
+  `@bandeira-tech/b3nd-canon` (protocol toolkit: msg, hash, auth, encrypt)
+- [`bandeira-tech/b3nd-servers`](https://github.com/bandeira-tech/b3nd-servers)
+  → `@bandeira-tech/b3nd-server-http` and `@bandeira-tech/b3nd-grpc`
+
+When making framework-level changes, the source of truth is in the
+corresponding repo — not in this monorepo's `libs/`. See `README.md` →
+Ecosystem, and `skills/b3nd/SKILL.md` for the broader picture.
+
 ## Code Principles
 
 1. Composition over inheritance —

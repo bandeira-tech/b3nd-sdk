@@ -56,6 +56,27 @@ in order. The protocol doesn't care where data lives.
 the same `ProtocolInterfaceNode`. Swap transports without changing protocol or
 app code.
 
+## Ecosystem (Where the Code Lives)
+
+B3nd is split across repos, each with its own JSR package. This SDK
+(`@bandeira-tech/b3nd-sdk`) is an **umbrella** that re-exports the foundation
+packages so apps and protocols can use one import. When you read code samples
+in the rest of these docs, treat the umbrella import as the canonical path —
+but know that the underlying code lives elsewhere.
+
+| Repo                                                                        | Package                              | Role                                                                  |
+| --------------------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------- |
+| [bandeira-tech/b3nd](https://github.com/bandeira-tech/b3nd) (this)          | `@bandeira-tech/b3nd-sdk` (JSR)      | Umbrella SDK for Deno/servers; ergonomics + apps + cli + node.        |
+| [bandeira-tech/b3nd](https://github.com/bandeira-tech/b3nd) (this)          | `@bandeira-tech/b3nd-web` (NPM)      | Browser umbrella with `LocalStorageStore`, `IndexedDBStore`.          |
+| [bandeira-tech/b3nd-core](https://github.com/bandeira-tech/b3nd-core)       | `@bandeira-tech/b3nd-core`           | Framework foundation: types, encoding, Rig, Identity, network.        |
+| [bandeira-tech/b3nd-canon](https://github.com/bandeira-tech/b3nd-canon)     | `@bandeira-tech/b3nd-canon`          | Protocol toolkit: message envelopes, content addressing, auth, crypto. |
+| [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers) | `@bandeira-tech/b3nd-server-http`    | Hono-backed HTTP `ServerResolver` for serving a Rig.                  |
+| [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers) | `@bandeira-tech/b3nd-grpc`           | Connect-protocol gRPC client + server + wire schema.                  |
+
+**Convergence point.** This SDK repo is where the high-level documentation
+lives — the per-package repos are minimal and link back here for the broader
+picture.
+
 ## The Three Roles
 
 B3nd serves three audiences, each at a different layer of the stack:

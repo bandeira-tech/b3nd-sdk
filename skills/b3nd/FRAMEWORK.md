@@ -509,12 +509,23 @@ messages.
 
 ### Packages
 
-| Package                   | Registry | Use Case       |
-| ------------------------- | -------- | -------------- |
-| `@bandeira-tech/b3nd-sdk` | JSR      | Deno, servers  |
-| `@bandeira-tech/b3nd-web` | NPM      | Browser, React |
+B3nd is published across several JSR packages. Most app and protocol code
+should depend on the **umbrella SDK** (`@bandeira-tech/b3nd-sdk` for Deno,
+`@bandeira-tech/b3nd-web` for browser) — it re-exports the foundation pieces
+under one import surface. Code that needs a smaller dependency footprint, or
+that's distributed as a library to other Deno consumers, can import the
+foundation packages directly.
 
-Subpath imports:
+| Package                              | Registry | Repo                                                                          | Role                                                                  |
+| ------------------------------------ | -------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `@bandeira-tech/b3nd-sdk`            | JSR      | [bandeira-tech/b3nd](https://github.com/bandeira-tech/b3nd)                   | Umbrella SDK — Deno/servers/apps. Re-exports core + canon + helpers.  |
+| `@bandeira-tech/b3nd-web`            | NPM      | [bandeira-tech/b3nd](https://github.com/bandeira-tech/b3nd)                   | Umbrella SDK — browser/React. Re-exports browser-relevant subset.     |
+| `@bandeira-tech/b3nd-core`           | JSR      | [bandeira-tech/b3nd-core](https://github.com/bandeira-tech/b3nd-core)         | Foundation: types, encoding, Rig, Identity, network primitives.       |
+| `@bandeira-tech/b3nd-canon`          | JSR      | [bandeira-tech/b3nd-canon](https://github.com/bandeira-tech/b3nd-canon)       | Protocol toolkit: message envelopes, content addressing, auth, crypto. |
+| `@bandeira-tech/b3nd-server-http`    | JSR      | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Hono-backed HTTP `ServerResolver` for serving a Rig.                  |
+| `@bandeira-tech/b3nd-grpc`           | JSR      | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Connect-protocol gRPC client + server + wire schema.                  |
+
+Subpath imports (umbrella):
 
 ```typescript
 // JSR (Deno)
@@ -528,16 +539,47 @@ import { computeSha256 } from "@bandeira-tech/b3nd-web/hash";
 import * as encrypt from "@bandeira-tech/b3nd-web/encrypt";
 ```
 
-| Feature           | b3nd-sdk (JSR) | b3nd-web (NPM) |
-| ----------------- | -------------- | -------------- |
-| PostgresStore     | Yes            | No             |
-| MongoStore        | Yes            | No             |
-| SqliteStore       | Yes            | No             |
-| S3Store           | Yes            | No             |
-| FsStore           | Yes            | No             |
-| LocalStorageStore | No             | Yes            |
-| IndexedDBStore    | No             | Yes            |
-| Server primitives | Full           | Limited        |
+Subpath imports (foundation packages — when not using the umbrella):
+
+```typescript
+// Foundation: framework
+import {
+  Rig,
+  Identity,
+  connection,
+  MemoryStore,
+  SimpleClient,
+  HttpClient,
+} from "@bandeira-tech/b3nd-core";
+import { network, peer, flood } from "@bandeira-tech/b3nd-core/network";
+
+// Foundation: protocol toolkit
+import { message, isMessageData } from "@bandeira-tech/b3nd-canon/msg";
+import { computeSha256, hashValidator } from "@bandeira-tech/b3nd-canon/hash";
+import {
+  authValidation,
+  createPubkeyBasedAccess,
+} from "@bandeira-tech/b3nd-canon/auth";
+import * as encrypt from "@bandeira-tech/b3nd-canon/encrypt";
+
+// Server transports
+import { httpServer } from "@bandeira-tech/b3nd-server-http";
+import { grpcServer } from "@bandeira-tech/b3nd-grpc/server";
+import { GrpcClient } from "@bandeira-tech/b3nd-grpc/client";
+```
+
+| Feature           | b3nd-sdk (JSR) | b3nd-web (NPM) | b3nd-core (JSR)        |
+| ----------------- | -------------- | -------------- | ---------------------- |
+| PostgresStore     | Yes            | No             | No (separate package)  |
+| MongoStore        | Yes            | No             | No (separate package)  |
+| SqliteStore       | Yes            | No             | No (separate package)  |
+| S3Store           | Yes            | No             | No (separate package)  |
+| FsStore           | Yes            | No             | No (separate package)  |
+| LocalStorageStore | No             | Yes            | No                     |
+| IndexedDBStore    | No             | Yes            | No                     |
+| HTTP/WS/Memory    | Yes            | Yes            | Yes (built-in)         |
+| HTTP server       | Yes            | Limited        | No (use b3nd-server-http) |
+| gRPC client+server| Yes            | No             | No (use b3nd-grpc)      |
 
 ---
 
@@ -1646,24 +1688,44 @@ const schema: Schema = {
 export default schema;
 ```
 
-### createServerNode
+### Wiring a Rig + transport server
+
+The Rig is pure orchestration. Pair it with a `ServerResolver` to expose it
+over the network. The two transport packages live in
+[`bandeira-tech/b3nd-servers`](https://github.com/bandeira-tech/b3nd-servers):
 
 ```typescript
 import {
-  createServerNode,
+  Rig,
+  connection,
   MemoryStore,
-  MessageDataClient,
-  servers,
+  SimpleClient,
+  createServers,
 } from "@bandeira-tech/b3nd-sdk";
-import { Hono } from "hono";
+import { httpServer } from "@bandeira-tech/b3nd-server-http";
+// import { grpcServer } from "@bandeira-tech/b3nd-grpc/server";  // optional
 import schema from "./schema.ts";
 
-const client = new MessageDataClient(new MemoryStore());
-const app = new Hono();
-const frontend = servers.httpServer(app);
-const node = createServerNode({ frontend, client });
-node.listen(43100);
+const client = new SimpleClient(new MemoryStore());
+const rig = new Rig({
+  routes: {
+    receive: [connection(client, ["*"])],
+    read:    [connection(client, ["*"])],
+  },
+  programs: schema,
+});
+
+const servers = createServers(rig, [
+  httpServer({ port: 9942, cors: "*" }),
+  // grpcServer({ port: 50051 }),
+]);
+await Promise.all(servers.map((s) => s.start()));
 ```
+
+The umbrella SDK exports `Rig`, `connection`, `createServers`, and the
+`ServerResolver` contract — they come from `@bandeira-tech/b3nd-core`. The
+transport implementations are separately published so you only ship the
+ones you actually use.
 
 ### Multi-Backend Composition
 
@@ -1862,49 +1924,56 @@ source code with line numbers.
 
 ## Source Files Reference
 
-### SDK Core
+The SDK's foundation lives across three external repos. The local `apps/`
+and a small set of local `libs/` cover the deployables and integrations
+specific to the umbrella SDK.
 
-- `src/mod.ts` — Main Deno exports (facade, re-exports from libs/)
-- `src/mod.web.ts` — Browser exports (NPM build entry)
-- `libs/b3nd-core/types.ts` — Type definitions
-- `libs/b3nd-compose/` — Node composition, validators, processors
-- `libs/b3nd-hash/` — Content-addressed hashing utilities
-- `libs/b3nd-msg/` — Message system, send(), message()
+### Foundation packages (separate repos)
 
-### Stores
+- [`bandeira-tech/b3nd-core`](https://github.com/bandeira-tech/b3nd-core) →
+  `@bandeira-tech/b3nd-core` — types, encoding, ObserveEmitter, MemoryStore,
+  HttpClient, WebSocketClient, ConsoleClient, SimpleClient, DataStoreClient,
+  FunctionalClient, Identity, Rig, hooks, events, reactions, connection,
+  httpApi, server-factory, backend-factory, network primitives.
+- [`bandeira-tech/b3nd-canon`](https://github.com/bandeira-tech/b3nd-canon) →
+  `@bandeira-tech/b3nd-canon` — message envelopes (`message()`,
+  `messageDataProgram`, `messageDataHandler`), content addressing
+  (`computeSha256`, `hashValidator`), pubkey-based access control
+  (`createPubkeyBasedAccess`, `authValidation`), Ed25519/X25519/AES-GCM
+  primitives.
+- [`bandeira-tech/b3nd-servers`](https://github.com/bandeira-tech/b3nd-servers) →
+  `@bandeira-tech/b3nd-server-http` (Hono-backed HTTP `ServerResolver`) and
+  `@bandeira-tech/b3nd-grpc` (Connect-protocol gRPC client + server + wire
+  schema). Each is a separate JSR package, both live as workspace members of
+  the same repo.
 
-- `libs/b3nd-client-memory/` — MemoryStore (in-memory storage)
-- `libs/b3nd-client-postgres/` — PostgresStore (PostgreSQL storage)
-- `libs/b3nd-client-mongo/` — MongoStore (MongoDB storage)
-- `libs/b3nd-client-localstorage/` — LocalStorageStore (browser offline cache)
-- `libs/b3nd-client-indexeddb/` — IndexedDBStore (browser IndexedDB storage)
+### This repo — umbrella SDK
 
-### Protocol Clients
+- `src/mod.ts` — Deno entry; `export * from "@bandeira-tech/b3nd-core"`
+  and `"@bandeira-tech/b3nd-canon"`.
+- `src/mod.web.ts` — Browser entry (NPM build).
+- `src/{core,canon,msg,hash,auth,encrypt,network,types,client-console}.ts` —
+  subpath re-exports.
+- `libs/b3nd-listener/` — vault-listener integration helpers.
+- `libs/b3nd-managed-node/` — managed-node helpers used by `apps/b3nd-node`.
 
-- `libs/b3nd-core/` — MessageDataClient, SimpleClient (wrap Store →
-  ProtocolInterfaceNode)
+### Apps (deployables)
 
-### Transport Clients
+- `apps/b3nd-node/` — multi-backend HTTP/gRPC node binary.
+- `apps/b3nd-cli/` — `bnd` CLI tool.
+- `apps/b3nd-web-rig/` — React/Vite data explorer + dashboard.
+- `apps/sdk-inspector/` — test runner backend.
+- `apps/vault-listener/` — vault listener service.
 
-- `libs/b3nd-client-http/` — HttpClient (HTTP transport)
-- `libs/b3nd-client-ws/` — WebSocketClient (WebSocket transport)
-- `libs/b3nd-network/` — `network()` verb, `flood(peers)`, `pathVector(peers)`,
-  `tellAndRead(...)`, `bestEffort` decorator
+### Browser-only stores
 
-### Auth & Encryption
+`LocalStorageStore` and `IndexedDBStore` ship in the NPM build
+(`@bandeira-tech/b3nd-web`). Sources live under this repo (legacy paths) —
+not part of the JSR foundation packages.
 
-- `libs/b3nd-auth/` — Pubkey-based access control
-- `libs/b3nd-encrypt/` — X25519/Ed25519/AES-GCM encryption
+### Server-side stores
 
-### Servers & Apps
-
-- `libs/b3nd-servers/` — HTTP + WebSocket server primitives
-- `apps/b3nd-node/` — Multi-backend HTTP node
-- `apps/b3nd-web-rig/` — React/Vite data explorer + dashboard
-- `apps/sdk-inspector/` — Test runner backend
-- `apps/b3nd-cli/` — bnd CLI tool
-
-### Testing
-
-- `libs/b3nd-testing/shared-suite.ts` — Client conformance suite
-- `libs/b3nd-testing/node-suite.ts` — Node interface suite
+`PostgresStore`, `MongoStore`, `SqliteStore`, `S3Store`, `FsStore`,
+`IpfsStore`, `ElasticsearchStore` — distributed via `@bandeira-tech/b3nd-sdk`
+and (long-term) their own packages. See the umbrella's `imports` map for the
+current source paths.

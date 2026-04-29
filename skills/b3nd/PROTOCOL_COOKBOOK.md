@@ -30,29 +30,52 @@ const schema: Schema = {
 export default schema;
 ```
 
-### createServerNode
+### Wiring a Rig + transport server
+
+The umbrella SDK exposes the Rig and `createServers()`. The transport
+servers themselves are separate JSR packages from
+[`bandeira-tech/b3nd-servers`](https://github.com/bandeira-tech/b3nd-servers)
+— pull only the ones you need:
 
 ```typescript
 import {
-  createServerNode,
+  Rig,
+  connection,
+  createServers,
   MemoryStore,
-  MessageDataClient,
-  servers,
+  SimpleClient,
 } from "@bandeira-tech/b3nd-sdk";
-import { Hono } from "hono";
+import { httpServer } from "@bandeira-tech/b3nd-server-http";
+// Optional: also serve gRPC
+// import { grpcServer } from "@bandeira-tech/b3nd-grpc/server";
 import schema from "./schema.ts";
 
-const client = new MessageDataClient(new MemoryStore());
-const app = new Hono();
-const frontend = servers.httpServer(app);
-const node = createServerNode({ frontend, client });
-node.listen(43100);
+const client = new SimpleClient(new MemoryStore());
+const rig = new Rig({
+  routes: {
+    receive: [connection(client, ["*"])],
+    read:    [connection(client, ["*"])],
+  },
+  programs: schema,
+});
+
+const servers = createServers(rig, [
+  httpServer({ port: 43100, cors: "*" }),
+  // grpcServer({ port: 50051 }),
+]);
+await Promise.all(servers.map((s) => s.start()));
 ```
+
+If you're embedding B3nd in an existing Hono app, the underlying `httpApi`
+helper from `@bandeira-tech/b3nd-core` returns a plain
+`(Request) => Promise<Response>` you can mount yourself — see the Rig's HTTP
+API section in [FRAMEWORK.md](./FRAMEWORK.md).
 
 ### Multi-Backend Composition
 
 ```typescript
 import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
+import { httpServer } from "@bandeira-tech/b3nd-server-http";
 
 const backends = [
   new MessageDataClient(new MemoryStore()),
@@ -71,8 +94,11 @@ const client = createValidatedClient({
   validate: msgSchema(schema),
 });
 
-const frontend = servers.httpServer(app);
-createServerNode({ frontend, client });
+const rig = new Rig({
+  routes: { receive: [connection(client, ["*"])], read: [connection(client, ["*"])] },
+});
+const servers = createServers(rig, [httpServer({ port: 43100 })]);
+await Promise.all(servers.map((s) => s.start()));
 ```
 
 ### PostgreSQL / MongoDB Setup
