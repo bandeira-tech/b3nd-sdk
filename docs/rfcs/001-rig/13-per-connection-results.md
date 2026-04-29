@@ -1,17 +1,12 @@
 # 13. Per-route observability via OperationHandle
 
-`rig.send(outs)` and `rig.receive(outs)` return an `OperationHandle` —
-an object that is both **awaitable** (resolves to `ReceiveResult[]`
-once the pipeline classifies and the handler runs) and a **scoped
-event emitter** for per-route detail as broadcasts settle.
+`rig.send(outs)` and `rig.receive(outs)` return an `OperationHandle`.
+It's both **awaitable** (resolves to `ReceiveResult[]` once the
+pipeline classifies and the handler runs) and a **scoped event
+emitter** (per-stage and per-route detail as the operation
+progresses).
 
-`ReceiveResult` stays minimal — `{ accepted, error?, errorDetail? }`.
-Per-route detail flows through events, not through return-shape
-duplication. The rig does not aggregate per-route outcomes into a
-collapsed boolean; callers observe events and decide what "accepted
-across replicas" means in their topology.
-
-## Shape
+## The shape
 
 ```ts
 interface OperationHandle extends PromiseLike<ReceiveResult[]> {
@@ -28,40 +23,19 @@ interface OperationHandle extends PromiseLike<ReceiveResult[]> {
 
 type OperationEventName =
   | "process:done"     // pipeline classification
+  | "process:error"    // program threw or returned an error code
   | "handle:emit"      // handler emissions
+  | "handle:error"     // handler threw
   | "route:success"    // per (emission, connection) accept
   | "route:error"      // per (emission, connection) reject
+  | "reaction:error"   // reaction threw
   | "settled";         // all routes done
 ```
 
-The handle is awaitable, so existing `await rig.receive(outs)` callers
-work unchanged. `ProtocolInterfaceNode.receive` returns
-`PromiseLike<ReceiveResult[]>`, which every plain Promise satisfies —
-so the rig can implement the interface while returning a richer
-await-target.
+`ReceiveResult` stays minimal — `{ accepted, error?, errorDetail? }`.
+Per-route and per-phase detail lives in events.
 
-## What `accepted` means
-
-`{ accepted: true }` means **the pipeline accepted the input** —
-process classified, handler ran, the rig has a topology to dispatch
-through. It says nothing about whether downstream connections actually
-wrote. That's what events are for.
-
-The exception: when no connection accepts the URI at all, the pipeline
-returns `{ accepted: false }`. There is no topology to dispatch
-through, so the call rejects at the pipeline stage rather than
-silently returning success that no `route:*` event will follow.
-
-## How callers use it
-
-The simple case is unchanged:
-
-```ts
-const [r] = await rig.receive([msg]);
-if (!r.accepted) throw new Error(r.error);
-```
-
-For per-route observability:
+## Two await points
 
 ```ts
 const op = rig.receive([msg]);
@@ -69,98 +43,136 @@ const op = rig.receive([msg]);
 op.on("route:success", (e) => {
   metrics.write_success.inc({ connection: e.connectionId });
 });
-
 op.on("route:error", (e) => {
   retryQueue.push({ emission: e.emission, target: e.connectionId });
 });
 
-const results = await op;       // pipeline ack
-await op.settled;                // wait for all routes (read-after-write)
+const results = await op;     // pipeline ack — process + handle done
+await op.settled;              // every route on every emission has reported
 ```
 
-Two await points, two granularities. `await op` returns once the
-pipeline finishes classifying and emits handler outputs. `await op.settled`
-returns when every route (every emission × every accepting connection)
-has reported success or error.
+`await op` returns once `process` and `handle` have run for every
+input tuple. Broadcast continues in the background; `route:*`
+events fire as connections respond. `await op.settled` returns when
+every route — every `(emission, connection)` pair, including
+emissions from reactions — has reported success or error.
+
+For read-after-write semantics across replicas, await `settled`
+before the next read.
+
+## What `accepted` means
+
+`{ accepted: true }` means the pipeline accepted the input —
+`process` classified, `handle` ran, the rig has a topology to
+dispatch through. Whether downstream connections actually wrote is
+the route events' job.
+
+`{ accepted: false }` means the pipeline rejected at one of:
+- A program threw or returned an error code.
+- No connection in `routes.receive` accepts the URI.
+- The handler threw.
 
 ## Dispatch flow
 
-The pipeline is synchronous-ish (process and handle run inline).
-Broadcast is async — the rig does not await connection writes before
-resolving the pipeline-stage promise. Per-route outcomes arrive as
-events on the handle after `await op` returns.
-
 ```
 rig.receive(outs)
-  ├─ process(outs)          → ProgramResult[]   ┐
-  ├─ for each output:                            │ (synchronous, inline)
-  │    handle(out, result)  → emissions          │
-  │    schedule broadcast(emissions)             │
-  └─ resolve handle pipeline promise            ─┘ ← `await op` returns here
+  ├─ for each output (in batch):
+  │    process(out)         → ProgramResult        ┐
+  │    emit "process:done" or "process:error"      │ inline
+  │    handle(out, result)  → emissions            │
+  │    emit "handle:emit" or "handle:error"        │
+  │    schedule broadcast(emissions)               │
+  └─ resolve pipeline promise                     ─┘ ← `await op` returns here
 
   In the background:
   ┌─ broadcast each emission to every matching connection
-  │    fire route:success / route:error per (emission, connection)
+  │    emit "route:success" / "route:error" per (emission, connection)
   ├─ for each emission, fire reactions if any route accepted
-  └─ when all routes done, fire `settled`        ← `await op.settled`
+  │    emit "reaction:error" if a reaction throws
+  └─ emit "settled" when every route reports     ← `await op.settled`
 ```
 
 ## Connection IDs
 
-`connection(client, patterns, opts?)` accepts an optional `{ id?: string }`
-third argument. Connections without an explicit ID get an
-auto-generated `conn-{N}` based on registration order. `route:*`
-events include `connectionId` so subscribers can correlate per-replica
-outcomes.
+`connection(client, patterns, { id? })` takes an optional stable ID.
+Without one, connections get `conn-{N}` based on registration order.
+`route:*` events carry `connectionId` so subscribers can correlate
+per-replica outcomes.
 
 ```ts
 const primaryConn = connection(primary,  patterns, { id: "primary" });
 const eastMirror  = connection(mirror,   patterns, { id: "mirror-east" });
-const otherMirror = connection(mirror2,  patterns); // gets conn-2 by default
+const otherMirror = connection(mirror2,  patterns); // gets conn-2
 
 const rig = new Rig({
-  routes: {
-    receive: [primaryConn, eastMirror, otherMirror],
-    read:    [primaryConn],
+  routes: { receive: [primaryConn, eastMirror, otherMirror], read: [primaryConn] },
+});
+```
+
+When the underlying client fans across peers — `flood(peers)`
+(Ch 14) — the peer name comes through as the `connectionId` for
+that route.
+
+## Aggregation policy lives in callers
+
+The rig doesn't aggregate per-route outcomes into a collapsed
+boolean. Callers compose the policy they want — strict (all must
+accept), best-effort (any one is fine), quorum (majority) — by
+listening to `route:*` events.
+
+```ts
+// Quorum-of-three example:
+let accepted = 0;
+op.on("route:success", () => accepted++);
+await op.settled;
+if (accepted < 2) throw new Error("quorum failed");
+```
+
+## Error events + onError hook
+
+The error events surface every failure phase on the handle:
+`process:error`, `handle:error`, `route:error`, `reaction:error`.
+
+For a unified observation point — and the ability to abort the
+operation synchronously — register `onError` in the rig's hooks:
+
+```ts
+const rig = new Rig({
+  routes: { ... },
+  hooks: {
+    onError: (ctx) => {
+      // ctx.phase is "process" | "handle" | "route" | "reaction"
+      logger.warn(`[${ctx.phase}]`, ctx.input[0], ctx.error);
+      if (ctx.phase === "handle") throw ctx.cause; // fail-fast on handler crashes
+    },
   },
 });
 ```
 
-When the connection is itself a multi-peer client like `flood(peers)`
-(Ch 14), the `connectionId` on `route:*` events identifies the peer
-that actually accepted or rejected — peer names come from
-`peer(name, client)`.
-
-## What the rig deliberately doesn't ship
-
-- **No `broadcastPolicy` knob.** The rig stays neutral. If a topology
-  wants "first-route-accepts" or "all-routes-must-accept" semantics,
-  the caller composes it from `route:success`/`route:error` events.
-- **No `routes` field on `ReceiveResult`.** Single paper-trail.
-  Per-route detail lives in events.
-- **No per-route retry mechanism in the rig.** Retry strategy is
-  endpoint-specific — the client/store knows what's safe to retry on
-  its own transport. App-level retry, when needed, lives in caller
-  code listening to `route:error`.
-
-## How `send` and `receive` differ
-
-Both go through the same `_pipeline` body. The direction label
-controls which hooks fire (`beforeSend` / `afterSend` versus
-`beforeReceive` / `afterReceive`) and which events emit
-(`send:success|error` versus `receive:success|error`). The pipeline
-itself runs uniformly; programs classify, handlers interpret,
-reactions fire, broadcasts dispatch — independent of direction.
-
-## Reactions
-
-Reactions fire after each emission's routes settle (only if at least
-one route accepted), and their returned `Output[]` spawn a fresh
-`rig.send` operation with its own handle. Reaction loops are a usage
-error; the framework does not detect them.
+`onError` runs synchronously in the catch path. **Throw** to abort
+the whole operation (the throw propagates through `await op` and
+`await op.settled`). **Return** to let the rig keep going with
+normal error handling.
 
 ## `receiveOrThrow` / `sendOrThrow`
 
 Convenience helpers for callers who'd rather see exceptions than
-inspect `accepted`. They throw on pipeline-stage rejection only —
-route failures still arrive as events, never as thrown errors.
+inspect `accepted`:
+
+```ts
+const results = await rig.receiveOrThrow([msg]);
+// throws on any pipeline-stage rejection; route failures still
+// arrive as events, never as thrown errors
+```
+
+## How `send` and `receive` differ
+
+Same pipeline body, different observability surfaces. The direction
+label picks which hooks fire and which events emit:
+
+| | `send` | `receive` |
+|---|---|---|
+| Hooks | `beforeSend` / `afterSend` | `beforeReceive` / `afterReceive` |
+| Direction events | `send:success` / `send:error` | `receive:success` / `receive:error` |
+
+Programs, handlers, reactions, and broadcast all run identically.

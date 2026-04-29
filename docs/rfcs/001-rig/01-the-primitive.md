@@ -1,6 +1,6 @@
 # 1. One tuple to rule them all
 
-A single named type carries everything b3nd ever puts on the wire.
+A single named type carries everything b3nd puts on the wire.
 
 ```ts
 type Output<T = unknown> = [
@@ -9,78 +9,67 @@ type Output<T = unknown> = [
 ];
 ```
 
-Two positions. A URI that addresses the tuple and a `payload` slot the
-framework treats as opaque. There is no `Message` type alongside
-`Output` — `Message` is an alias of `Output`, kept around because
-"message" is a useful conversational name. **`Output` is the only
-shape the wire knows.**
+Two positions. The URI addresses the tuple. The `payload` is whatever
+the protocol wants to send. The framework reads the URI to route; it
+treats `payload` as opaque.
 
-The tuple has no third slot. There is no framework-level position for
-conserved quantities (UTXO balances, gas, token counts). Protocols
-that need conservation encode quantities inside `payload`, the same
-place every other piece of protocol-specific state lives.
+`Message` is an alias of `Output` — same shape, conversational name.
 
-## What `payload` is for
+## The payload
 
-The second slot is anything. The framework treats it as opaque.
-Programs interpret it according to whatever convention the protocol
-layers on top.
-
-A protocol that uses `MessageData`-style envelopes puts
-`{ inputs, outputs, auth }` here. A protocol with conserved quantities
-puts something like `{ values: { coin: 100 }, owner, ... }` here — the
-shape is the protocol's choice. A protocol that just stores key-value
-pairs puts the value here. A protocol that wants encrypted blobs puts
-`{ ciphertext, nonce, ephemeralKey }` here.
-
-The shape is the protocol's choice, not the framework's. No slot in
-the tuple privileges any one shape over any other.
-
-## What `uri` is for
-
-URIs name. They also route. A connection — `(client, patterns)` — is
-bound into one or more route arrays (`routes.receive`, `routes.read`,
-`routes.observe`); the Rig matches each tuple's URI against the
-patterns on the relevant route to decide which clients participate.
-Patterns are simple strings — `mutable://*`, `publish://meta/*`,
-`hash://sha256/*`. That's the framework's whole routing story.
-
-URIs also let programs key on prefixes. A program registered at
-`mutable://accounts` runs against any tuple whose URI starts with that
-prefix. Programs are the framework's classification primitive; URIs
-are how programs find the tuples they own.
-
-## Why two positions and not one
-
-A natural question: if `payload` is opaque, why not collapse the
-tuple into a single `payload` and let the protocol carry the URI
-inside it?
-
-Because the URI is the framework's only routing signal. The
-connection pattern matcher needs the URI exposed in a known position
-so it can inspect it without parsing the payload. If the URI lived
-inside the payload, every routing decision would require the
-framework to peek at protocol-specific data — exactly the coupling
-the framework refuses.
-
-Two positions is the minimum: one position the framework reads (the
-URI), one position the framework doesn't (the payload).
-
-## What conserved-quantity protocols look like
-
-Protocols that need conservation encode quantities inside the
-payload at a key the protocol prescribes. A UTXO ledger writes:
+Anything goes. The framework hands the payload to whichever program
+or client the URI routes to; those layers know what shape they
+expect.
 
 ```ts
+// Plain key-value
+["mutable://app/config", { theme: "dark" }]
+
+// Envelope (for protocols using MessageData)
+["hash://sha256/abc", { inputs: [...], outputs: [...], auth: [...] }]
+
+// Encrypted blob
+["mutable://secrets/x", { ciphertext, nonce, ephemeralKey }]
+
+// Domain object with a conserved quantity
 ["utxo://abc/0", { values: { coin: 100 }, owner: alicePubkey }]
 ```
 
-The protocol's program reads `payload.values.coin` and sums across
-inputs and outputs to check conservation. The framework never reads
-`values`; it just passes the payload through. Conservation is a
-protocol property, not a framework property.
+A protocol that needs conserved quantities (UTXO balances, gas, token
+counts) encodes them at a key inside the payload — the program reads
+`payload.values.coin` to check conservation. The framework passes
+those bytes through; the protocol does the math.
+
+## The URI
+
+URIs name and route. A connection — `(client, patterns)` — is bound
+into one of the rig's route arrays (`routes.receive`, `routes.read`,
+`routes.observe`). For each tuple, the rig matches the URI against
+the patterns on the relevant route to decide which clients
+participate.
+
+```ts
+import { connection, Rig } from "@bandeira-tech/b3nd-sdk";
+
+const local = connection(client, ["mutable://*", "hash://*"]);
+
+const rig = new Rig({
+  routes: {
+    receive: [local],
+    read: [local],
+    observe: [local],
+  },
+});
+```
+
+Pattern syntax is Express-style: `:param` captures one segment, `*`
+matches the rest, literals match exactly.
+
+URIs also key programs. A program registered against
+`mutable://accounts` runs on every tuple whose URI starts with that
+prefix.
 
 ## What's coming next
 
 Chapter 2 — what the Rig knows about a tuple's payload, and what it
-deliberately doesn't.
+leaves to protocols.

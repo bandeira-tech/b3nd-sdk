@@ -1,118 +1,50 @@
 # 10. Auth lives where your protocol says
 
-The framework has no `auth` field. The Rig does not verify
-signatures. Where authentication evidence lives in a tuple — and what
-counts as acceptable evidence — is a protocol concern. The SDK ships
-canon helpers, programs compose them, the framework stays out.
+Authentication is a protocol policy, expressed by programs. Where
+the auth evidence lives in a tuple — payload field, URI segment,
+capability token, or none at all — is the protocol's choice. The
+SDK ships canon recognizers; programs compose them.
 
-## Why the framework doesn't pick a location
+## The four common shapes
 
-`MessageData` puts `auth: Signature[]` on the envelope alongside
-`inputs` and `outputs`. That works for `MessageData`. It is not the
-only shape worth supporting.
+| Shape | Where the evidence lives | Recognizer |
+|---|---|---|
+| Envelope-style (`MessageData`) | `payload.auth: Signature[]` | `verifyAuthInPayload(out, { pubkey })` |
+| URI-namespaced ownership | Pubkey encoded in URI; signature in payload | `verifyAuthFromUriPubkey(out)` |
+| Capability token | A token field in the payload | `verifyAuthByCapabilityToken(out, registry)` |
+| Transport-trust | The connection authenticates the peer | (no recognizer; trust the link) |
 
-A protocol that uses URI-namespaced ownership
-(`mutable://accounts/{pubkey}/...`) might prefer to derive the
-expected signer from the URI itself — the program reads the pubkey
-from the path, fetches the signature from the payload, verifies. No
-envelope needed.
+Each is one line in a program.
 
-A protocol that writes signed records directly (without envelopes)
-might put a `signature` field inside the payload object alongside the
-data. Different shape, different program.
+## Composing in a program
 
-A protocol that uses capability tokens instead of signatures might
-put a `capabilityToken` field somewhere — inside the payload, in a
-header field of the payload, or encoded in the URI — and verify it
-against an issuer registry.
-
-A protocol that uses no authentication might omit auth entirely and
-rely on transport-level trust (the connection itself authenticates
-the peer).
-
-All four are legitimate. None should be privileged by the framework.
-Programs read whatever auth evidence the protocol prescribes, from
-wherever the protocol prescribes it. The framework hands the program
-a tuple; the program does the rest.
-
-## What the SDK ships as canon
-
-A small set of composable recognizer helpers, each focused on one
-common shape:
+A program calls the recognizer that matches the protocol's
+convention and returns a code:
 
 ```ts
-// SDK canon
+import { verifyAuthFromUriPubkey } from "@bandeira-tech/b3nd-sdk";
 
-export const verifyAuthInPayload = async (
-  out: Output,
-  expected: { pubkey: string },
-): Promise<boolean> => {
-  const [, payload] = out;
-  const env = payload as { auth?: Signature[] };
-  if (!env?.auth?.length) return false;
-  return verifySignatures(env.auth, env, expected);
-};
-
-export const verifyAuthFromUriPubkey = async (
-  out: Output,
-): Promise<boolean> => {
-  const [uri, payload] = out;
-  const pubkey = uri.split("/")[3]; // mutable://accounts/{pubkey}/...
-  const sig = (payload as { signature?: string })?.signature;
-  if (!pubkey || !sig) return false;
-  return verifySignature(sig, payload, pubkey);
-};
-
-export const verifyAuthByCapabilityToken = async (
-  out: Output,
-  registry: TokenRegistry,
-): Promise<boolean> => {
-  const [, payload] = out;
-  const token = (payload as { capability?: string })?.capability;
-  if (!token) return false;
-  return registry.isValid(token);
-};
-```
-
-Programs compose the helper that matches their convention:
-
-```ts
 const accountsProgram: Program = async (out) => {
   const ok = await verifyAuthFromUriPubkey(out);
   return ok
     ? { code: "valid" }
     : { code: "rejected", error: "signature did not verify against URI pubkey" };
 };
+
+const rig = new Rig({
+  routes: { ... },
+  programs: { "mutable://accounts": accountsProgram },
+});
 ```
 
-The helpers are tested in isolation and reused across protocols. The
-program decides which helper to invoke and what code to return for
-which outcome. The framework never sees the auth.
+A protocol can chain multiple recognizers — say, require a valid
+signature *and* an unexpired capability token — by calling each in
+sequence and returning early on the first failure.
 
-## Why this is layering, not abdication
+## The signing flow (caller side)
 
-A reader new to the framework might worry: "if the framework doesn't
-verify signatures, how do I know my writes are authenticated?" The
-answer is that the framework verifies *nothing* — not signatures, not
-schemas, not balances, not anything. Verification is what programs
-are for. The framework runs programs deterministically against every
-tuple. A protocol that doesn't install an authentication-verifying
-program isn't authenticated; a protocol that does install one is.
-
-This is the same posture as any other policy. There is no "the
-framework checks balances" — programs check balances. There is no
-"the framework checks rate limits" — programs (or hooks, for
-direction-level limits) check rate limits. Authentication is one
-more policy in the same shape.
-
-The benefit is that "what's authenticated, where, by whom, against
-what key model" is fully visible by reading the protocol's program
-list. No hidden framework defaults to surprise you.
-
-## The canonical signing pattern
-
-Signing canon is two SDK pieces — `Identity` (key management) and
-`message` (envelope construction):
+Two SDK pieces produce signed envelope tuples: `Identity` (key
+management) and `message` (envelope construction):
 
 ```ts
 import { Identity, message } from "@bandeira-tech/b3nd-sdk";
@@ -129,34 +61,33 @@ const envelope = await message({ auth, inputs: [], outputs });
 await rig.send([envelope]);
 ```
 
-The application owns the signing step explicitly: `id.sign(...)` to
-produce the signature, `message(...)` to build the canonical
-envelope, `rig.send([envelope])` to dispatch. The Rig sees one
-envelope tuple. `messageDataProgram` classifies it.
-`messageDataHandler` decomposes it. Programs registered on the
-output URIs (or programs the application installed to verify
-`payload.auth`) run during decomposition or after.
+`id.sign(intent)` returns `{ pubkey, signature }`. `message(data)`
+builds the content-addressed envelope at `hash://sha256/{computed}`.
+`rig.send([envelope])` runs the pipeline: with `messageDataProgram`
++ `messageDataHandler` registered (Ch 8), the handler decomposes
+the envelope into its outputs.
 
-A protocol that uses a different auth shape skips the envelope step
-entirely. URI-pubkey protocols sign the payload and inline the
-signature; capability-token protocols inline the token; transport-
-trust protocols sign nothing. The Rig dispatches whatever tuples it
-is given. Whether those tuples carry auth and where the auth lives is
-the application's choice and the program's verification.
+For URI-pubkey or capability-token shapes, skip the envelope and
+inline auth in the payload directly:
 
-## The Rig is identity-blind
+```ts
+// URI-pubkey shape — pubkey in the URI, signature in the payload
+const data = { profile, signature: await id.sign(profile) };
+await rig.send([
+  [`mutable://accounts/${id.pubkey}/profile`, data],
+]);
+```
 
-The Rig has no signer, no key, no concept of "trusted caller." It
-takes `Output[]` and dispatches. A protocol author who wants
-`rig.send` to refuse unauthenticated tuples installs a program that
-classifies them as `"rejected"` with a "missing auth" error. The
-pipeline rejects, the caller sees a clear error, the gate is visible
-in the program registry.
+## The rig is identity-blind
+
+The rig dispatches whatever tuples it's given. A protocol that
+wants `rig.send` to refuse unauthenticated tuples installs a
+program that classifies them as `"rejected"`. The pipeline rejects,
+the caller sees a clear error, the gate is visible in the program
+registry — not buried in a framework default.
 
 ## What's coming next
 
-Part V — walkthroughs. Two end-to-end examples. The first is a UTXO
-ledger: balances, conservation, signatures, deletion of consumed
-inputs. The second is a multi-channel ad fan-out: one envelope, three
-publishers, demonstrating connection routing without the framework
-knowing anything about ad campaigns.
+Part V — walkthroughs. A UTXO ledger end-to-end (balances,
+conservation, signatures, input deletion), then a multi-channel ad
+fan-out (one envelope, three publishers via connection routing).

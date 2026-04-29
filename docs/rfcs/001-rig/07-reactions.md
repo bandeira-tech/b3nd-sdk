@@ -10,120 +10,51 @@ type Reaction = (
 ) => Promise<Output[]>;
 ```
 
-A reaction is registered against a URI pattern. When a tuple is
-successfully dispatched and its URI matches a pattern, the
-corresponding reaction runs with the tuple as input. It returns
-`Output[]` — the tuples it wants the Rig to put on the wire as a
-consequence of what it just observed.
+Reactions are registered against URI patterns. When a tuple is
+successfully dispatched, every reaction whose pattern matches the
+URI runs with the tuple as input. The reaction returns the tuples
+it wants the rig to put on the wire.
 
-## Reaction outputs go through `rig.send`, not broadcast
+## Reaction emissions go through `rig.send`
 
-Handler outputs go through broadcast — direct connection routing, no
-program re-classification. Reaction outputs go through `rig.send` —
-**full pipeline, programs run, handlers run, more reactions can fire**.
+Handler emissions broadcast directly. Reaction emissions go through
+the **full pipeline** — `rig.send` runs programs and handlers on
+them, more reactions can fire on their results, the chain unfolds.
 
-The asymmetry is deliberate. A handler is the canonical interpreter
-of its protocol code; its outputs are protocol-valid by handler-fiat,
-so re-classification would be redundant. A reaction is an
-application-level observer responding to what happened, and its
-emissions might target URIs governed by entirely different programs
-the reaction author may not even know about. Those need full
-classification.
+This makes reaction emissions first-class tuples in the system. They
+go through hooks, fire `send:*` events, get their own operation
+handle (Ch 13), and can be classified or rejected by programs.
 
-In practice this means a reaction's emissions are first-class tuples
-in the system. They go through hooks, they fire `send:*` events,
-they spawn their own operation handle (Ch 13), they can be classified
-and rejected by programs, they can match further reactions. A
-reaction is a producer in its own right.
+## Three worked patterns
 
-## Re-entry by another name?
-
-Mechanically, yes. A reaction can return tuples that fire reactions
-that return tuples that fire reactions. That's recursion through the
-pipeline.
-
-The meaningful difference is **scope**. A handler runs inside a
-`send`/`receive` call and its output is part of that call's contract:
-the caller's `await op` resolves with everything the handler emitted.
-A reaction is fire-and-forget by design: the original `send`/`receive`
-returned before the reaction fired. Whatever a reaction emits is its
-own subsequent act, not an extension of the original call's scope.
-
-That distinction matters. Callers know exactly what their explicit
-`send` covers — pipeline classifies, handler interprets, broadcasts
-land. Reactions chain afterward, asynchronously, on the host's
-reactive clock. A reaction loop doesn't violate the original send's
-contract; it's just the host's reactive system doing too much work.
-
-Callers who need to wait for reactions to settle before considering
-the operation complete can use `await op.settled` instead of just
-`await op` — `settled` resolves once every route on every emission
-(handler outputs and reactions) has reported (Ch 13).
-
-## Why this is the right shape
-
-Three reasons.
-
-**Visibility.** A reaction body that imperatively calls `fetch` or
-pushes to a queue is invisible at the data layer. A reaction that
-returns `[["notify://email/alice", { template: "...", to }]]` is a
-tuple on the wire — observable, testable, replicable, mockable. The
-same machinery that fans out a UTXO write to two stores fans out a
-"user updated" notification to an email service. One uniform model.
-
-**Testability.** A reaction with a pure-return contract is a function
-from input to output. Test by calling it; assert on the return. No
-mocked Rig, no captured-effects scaffolding. Same as handlers.
-
-**Composability.** Reactions can compose with other reactions through
-URI namespace. A reaction observing `mutable://app/users/:id` can
-emit to `index://users/:id`; a reaction observing `index://users/*`
-can emit to `audit://daily/{date}`. Each layer is independent,
-testable, and visible.
-
-## Loops are usage error
-
-A reaction can return a tuple that, after going through the pipeline,
-lands at a URI that the same reaction observes. Without care, that's
-infinite recursion. The framework does not detect it.
-
-Cycle prevention is a protocol-design concern. The convention: design
-reactions so they emit to URIs that descend the namespace they
-observed — `mutable://app/users/:id` reactions emit to
-`index://users/:id` or `notify://email/:id`, never back into
-`mutable://app/users/*`. Chains terminate naturally.
-
-If a protocol genuinely needs unbounded reaction recursion, it
-encodes a depth bound or a generation marker in the tuple itself and
-checks it in a program. The framework will not.
-
-## Where this shows up in practice
-
-A few worked patterns:
-
-**Notifications.** A reaction observing user-profile updates emits a
+**Notifications.** A reaction on user-profile updates emits a
 notification tuple:
 
 ```ts
-const notifyOnProfileUpdate: Reaction = async (out) => {
-  const [uri, payload] = out;
+const notifyOnProfileUpdate: Reaction = async ([uri, payload]) => {
   if (payload === null) return [];
   const userId = uri.split("/")[3];
   return [
     [`notify://email/${userId}`, { template: "profile-updated", payload }],
   ];
 };
+
+const rig = new Rig({
+  routes: { ... },
+  reactions: {
+    "mutable://app/users/:id": notifyOnProfileUpdate,
+  },
+});
 ```
 
 A connection registered for `notify://email/*` belongs to a webhook
-client that posts to the email service. The notification flows
-through routing the same way any other tuple does.
+client. The notification flows through routing like any other
+tuple.
 
-**Indexing.** A reaction observing UTXO writes emits an index update:
+**Indexing.** A reaction on UTXO writes emits a balance index update:
 
 ```ts
-const indexLeaderboard: Reaction = async (out, read) => {
-  const [, payload] = out;
+const indexLeaderboard: Reaction = async ([_uri, payload], read) => {
   if (payload === null) return [];
   const owner = (payload as { owner: string }).owner;
   const balance = await sumBalanceFor(owner, read);
@@ -131,50 +62,74 @@ const indexLeaderboard: Reaction = async (out, read) => {
 };
 ```
 
-The index URI flows through the pipeline; an indexer's program
+The index URI flows through the pipeline — an indexer's program
 classifies it, an indexer's handler persists it.
 
-**Audit logs.** A reaction observing any state change emits a log
-entry:
+**Audit logs.** A reaction on any state change emits a log entry:
 
 ```ts
-const audit: Reaction = async (out) => {
-  const [uri, payload] = out;
-  return [
-    [`audit://log/${Date.now()}`, { uri, payload, kind: payload === null ? "delete" : "write" }],
-  ];
-};
+const audit: Reaction = async ([uri, payload]) => [[
+  `audit://log/${Date.now()}`,
+  { uri, payload, kind: payload === null ? "delete" : "write" },
+]];
 ```
 
-The log URI lands at an audit-log connection (an append-only client).
-Deletions get logged the same way writes do, because everything is
-data.
+Deletions log the same way writes do — everything is data.
 
-## Reactions that don't want to emit
+## Scope vs. handlers
 
-A reaction can return `[]`. The Rig dispatches nothing further. This
-is the pure-observation case — "I saw it, I responded by doing
-nothing." Useful for reactions that update an in-memory cache the
-host application owns:
+Both handlers and reactions are pure-return — same shape, same
+testability. The difference is when they run:
+
+- A **handler** runs *inside* the operation. Its emissions are part
+  of `await op`'s contract — the caller sees them resolve as part
+  of the original call.
+- A **reaction** runs *after* the operation. The original `send`
+  returned before the reaction fired. Its emissions are a fresh
+  pipeline pass with their own `OperationHandle`.
+
+Callers who need reactions to settle before considering the
+operation complete use `await op.settled` instead of just
+`await op` — `settled` resolves once every route on every emission
+(handler outputs and reactions' downstream dispatches) has reported
+(Ch 13).
+
+## Why pure-return matters
+
+A reaction that imperatively calls `fetch` is invisible at the data
+layer. A reaction that returns `[["notify://email/alice", {...}]]`
+is a tuple on the wire — observable, testable, replicable. The same
+routing engine that persists a UTXO update fans out a notification.
+
+Empty return is fine — pure observation:
 
 ```ts
-const cacheUpdater: Reaction = async (out) => {
-  const [uri, payload] = out;
-  inMemoryCache.set(uri, payload);
+const audit: Reaction = async ([uri, payload]) => {
+  log.write({ uri, payload });
   return [];
 };
 ```
 
-This blurs the pure-return contract — `inMemoryCache.set` is a side
-effect outside the routing engine. It's allowed because the framework
-can't prevent it and shouldn't try; pure-return is an architectural
-direction, not a hard sandbox. But if you find yourself doing this
-often, the cache should probably be its own client behind a
-`cache://` URI prefix.
+Side effects in the reaction body work, but if you find yourself
+doing it often, the side effect probably wants its own client
+behind its own URI prefix.
+
+## Loops
+
+A reaction can return a tuple that, after going through the
+pipeline, lands at a URI the same reaction observes. The framework
+runs the loop.
+
+Cycle prevention is a protocol-design concern. The convention:
+descend the URI namespace. `mutable://app/users/:id` reactions emit
+to `index://users/:id` or `notify://email/:id`, never back into
+`mutable://app/users/*`. Chains terminate naturally.
+
+For unbounded recursion, encode a depth bound or generation marker
+in the tuple itself and check it in a program.
 
 ## What's coming next
 
 Part IV — conventions live in protocols. Decomposition is first:
-how `MessageData` envelopes get unpacked, why that unpacking lives in
-a protocol-supplied handler instead of a framework-blessed client,
-and how N-level nested envelopes flow through the same pattern.
+`MessageData` envelopes, the canon program/handler pair that
+unpacks them, and how nested envelopes flow through the same shape.

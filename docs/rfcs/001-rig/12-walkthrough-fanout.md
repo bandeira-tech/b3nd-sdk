@@ -1,43 +1,39 @@
 # 12. Multi-channel ad fan-out, end to end
 
-A small ad agency wants to publish a campaign for a client. Publishing
-the campaign means three things happening at once:
+A small ad agency publishes a campaign. Publishing means three
+things at once:
 
-1. Persisting the canonical creative at a content-addressed URI as the
-   audit record.
-2. Updating a mutable pointer at `mutable://agency/campaigns/{client}/current`
-   so internal tools know what's live.
-3. Pushing one "publish ticket" tuple to each ad channel the client has
-   purchased — Meta Ads and Google Ads, in this prototype.
+1. Persist the canonical creative at a content-addressed URI (audit
+   trail).
+2. Update a mutable pointer at
+   `mutable://agency/campaigns/{client}/current` so internal tools
+   know what's live.
+3. Push one "publish ticket" tuple to each ad channel — Meta Ads
+   and Google Ads.
 
-The Rig handles all three with one `send` call and zero protocol-specific
-glue. The chapter walks the call through every chapter's idea — payload
-shape, programs, handlers, broadcast, connection routing — without any
-of them being aware of "campaigns" as a domain concept.
+One `rig.send([envelope])` does all three. Connection routing
+handles the fan-out.
 
-## Setup — the topology
-
-Three connections, each with its own URI patterns:
+## Setup
 
 ```ts
+import {
+  Rig, connection, FunctionalClient, DataStoreClient, MemoryStore,
+  messageDataProgram, messageDataHandler,
+} from "@bandeira-tech/b3nd-sdk";
+
 const primary = new DataStoreClient(new MemoryStore());
 
 const metaChannel = new FunctionalClient({
   receive: async (outs) => {
-    for (const [uri, payload] of outs) {
-      console.log("[meta] publish ticket", uri, payload);
-      await postToMetaAds(payload);
-    }
+    for (const [, payload] of outs) await postToMetaAds(payload);
     return outs.map(() => ({ accepted: true }));
   },
 });
 
 const googleChannel = new FunctionalClient({
   receive: async (outs) => {
-    for (const [uri, payload] of outs) {
-      console.log("[google] publish ticket", uri, payload);
-      await postToGoogleAds(payload);
-    }
+    for (const [, payload] of outs) await postToGoogleAds(payload);
     return outs.map(() => ({ accepted: true }));
   },
 });
@@ -47,31 +43,26 @@ const metaConn    = connection(metaChannel,   ["publish://meta/*"]);
 const googleConn  = connection(googleChannel, ["publish://google/*"]);
 
 const rig = new Rig({
-  programs: {
-    "hash://sha256":               messageDataProgram,
-    "mutable://agency/campaigns":  acceptObject,    // basic schema check
-    "publish://meta":              acceptObject,
-    "publish://google":            acceptObject,
-  },
-  handlers: {
-    "msgdata:valid": messageDataHandler,
-  },
   routes: {
     receive: [primaryConn, metaConn, googleConn],
     read:    [primaryConn],
   },
+  programs: {
+    "hash://sha256":               messageDataProgram,
+    "mutable://agency/campaigns":  acceptObject, // schema check
+    "publish://meta":              acceptObject,
+    "publish://google":            acceptObject,
+  },
+  handlers: { "msgdata:valid": messageDataHandler },
 });
 ```
 
-Three connections, three URI namespaces. The primary store handles
-mutable state and audit envelopes. Meta and Google publishers each
-accept their own URI prefix and *only* their own — they don't know about
-each other, they don't know about the primary, they just receive tuples
-and call out to their respective ad APIs.
+Each channel client owns its URI prefix. Meta only accepts
+`publish://meta/*`; Google only accepts `publish://google/*`. The
+primary store handles `mutable://*` and `hash://*`. URI prefix is
+the routing decision.
 
 ## The publishing call
-
-The agency's app constructs an envelope describing the publish:
 
 ```ts
 import { Identity, message, computeSha256 } from "@bandeira-tech/b3nd-sdk";
@@ -107,70 +98,38 @@ const auth = [await agencyIdentity.sign({ inputs, outputs })];
 const envelope = await message({ auth, inputs, outputs });
 
 const op = rig.send([envelope]);
-await op;             // pipeline ack
-await op.settled;     // every channel reported
+await op;
+await op.settled;
 ```
 
-One call, four constituent outputs, three URI namespaces. The intent is
-"do all four, atomically from the host's perspective."
+One call, four constituents, three URI namespaces.
 
-## What the pipeline does
+## Pipeline trace
 
-**Direction wrapper.** `rig.send([envelope])` enters the pipeline.
-The envelope URI is `hash://sha256/{envelope-hash}`. It carries the
-agency identity's signature in `payload.auth`.
+**process** — `messageDataProgram` runs on the envelope's
+`hash://sha256/...` URI. Returns `{ code: "msgdata:valid" }`.
 
-**Process.** `messageDataProgram` runs against the envelope's URI.
-Shape checks pass. Returns `{ code: "msgdata:valid" }`.
+**handle** — `messageDataHandler` returns the envelope plus the
+four declared outputs.
 
-**Handle.** `messageDataHandler` runs. It returns the constituent
-emissions — the envelope itself plus the four declared outputs (no
-inputs to delete in this case):
+**broadcast** — each emission is matched against `routes.receive`:
 
-```ts
-[
-  ["hash://sha256/{envelope-hash}",                       { inputs:[], outputs:[…], auth:[…] }],
-  [campaignUri,                                           campaignBody],
-  ["mutable://agency/campaigns/rosies-bakery/current",    campaignUri],
-  [`publish://meta/rosies-bakery/${ts}`,                  ticketMeta],
-  [`publish://google/rosies-bakery/${ts+1}`,              ticketGoogle],
-]
-```
+| Emission URI | Matches | Lands at |
+|---|---|---|
+| `hash://sha256/{envelope}` | `primaryConn` (`hash://*`) | primary |
+| `hash://sha256/{campaign}` | `primaryConn` (`hash://*`) | primary |
+| `mutable://agency/campaigns/...` | `primaryConn` (`mutable://*`) | primary |
+| `publish://meta/...` | `metaConn` (`publish://meta/*`) | meta only |
+| `publish://google/...` | `googleConn` (`publish://google/*`) | google only |
 
-The Rig takes that list and broadcasts each tuple through connection
-routing.
+Each tuple lands at exactly the right client. The handler doesn't
+know about "channels"; the rig doesn't know about "campaigns". The
+URI prefixes carry the routing.
 
-**Broadcast — and this is the chapter's main point.** Each tuple is
-matched against connection patterns:
-
-- `hash://sha256/{envelope-hash}` matches the primary's
-  `receive: ["hash://*"]`. Goes only to primary.
-- `campaignUri` (also `hash://...`) — same, primary only.
-- `mutable://agency/campaigns/...` matches primary's
-  `receive: ["mutable://*"]`. Primary only.
-- `publish://meta/...` matches metaChannel's `receive: ["publish://meta/*"]`.
-  metaChannel only — primary refuses, googleChannel refuses.
-- `publish://google/...` matches googleChannel's
-  `receive: ["publish://google/*"]`. googleChannel only.
-
-Each tuple lands at exactly the right connection. The primary store
-gets three writes (envelope + canonical + pointer). Meta gets one
-publish ticket. Google gets one publish ticket. The agency's identity
-signed one envelope; the campaign reaches four destinations through the
-URI-pattern routing engine alone.
-
-The handler did not know about "channels". The framework did not know
-about "campaigns". The connection patterns did all the routing,
-declaratively, in the Rig configuration.
-
-**React.** A reaction registered on
-`mutable://agency/campaigns/:client/current` fires for the pointer
-update. Suppose the dashboard tracks the agency's current campaign
-roster and emits an entry for any newly-live campaign:
+**react** — a reaction maintains a roster of live campaigns:
 
 ```ts
-const addToRoster: Reaction = async (out, _read) => {
-  const [, campaignHash] = out;
+const addToRoster: Reaction = async ([_uri, campaignHash]) => {
   if (campaignHash === null) return [];
   return [[`dashboard://roster/${Date.now()}`, { campaignHash }]];
 };
@@ -178,78 +137,59 @@ const addToRoster: Reaction = async (out, _read) => {
 rig.reaction("mutable://agency/campaigns/:client/current", addToRoster);
 ```
 
-That returned `Output` flows through `rig.send` (chapter 7 — reactions
-are productive observation). A connection registered for
-`dashboard://*` belongs to the dashboard's WebSocket-fan-out client;
-the new roster entry shows up in the agency's UI in real time. No
-reactions registered on `publish://*` (those tickets are
-write-and-forget into external ad systems), so nothing else chains.
+The `dashboard://...` URI flows back through `rig.send` (Ch 7); a
+WebSocket-fan-out client routed for `dashboard://*` pushes the
+roster entry to UI subscribers in real time.
 
-**Events and per-route observability.** `send:success` fires once
-for the agency's original send — the host application sees one
-confirmed direction-level action, not four. Per-channel detail
-(which channel accepted, which rejected, with what error) flows
-through the operation handle's `route:success` / `route:error`
-events (Ch 13). Any `afterSend` hook (e.g., for invoicing, telemetry)
-sees the same single direction-level event with the envelope tuple.
+## Per-channel observability
 
-## What the channels see
+```ts
+const op = rig.send([envelope]);
 
-`metaChannel` received exactly one tuple, at exactly the URI it
-declared interest in, with exactly the payload shape it expected
-(`PublishTicket`). It made one outbound HTTP call to the Meta Ads API.
-It returned `{ accepted: true }`. From its perspective, the rest of the
-Rig topology might as well not exist — it just got a tuple and acted.
+op.on("route:success", (e) => {
+  metrics.publish_success.inc({ channel: e.connectionId });
+});
+op.on("route:error", (e) => {
+  retryQueue.push({ uri: e.emission[0], channel: e.connectionId, error: e.error });
+});
 
-Same for `googleChannel`. The two channels are independent. Adding a
-`tiktokChannel` is a one-line addition to the connections array and a
-new entry in the `outputs` of any `send` that wants to publish to
-TikTok. No code changes elsewhere.
+await op;
+await op.settled;
+```
 
-## What this is meant to demonstrate
+`route:*` events fire per `(emission, connection)` pair. Even
+though there's one direction-level `send:success` for the original
+envelope, the operation handle exposes the granular outcome of each
+channel write (Ch 13).
 
-**Connection routing is the fan-out mechanism.** Fanning a single
-envelope out to multiple channels needs no protocol-specific glue.
-The connection-pattern routing already has fan-out built in: declare
-which client accepts which URI prefix and the routing engine takes
-care of the rest.
+## Adding a channel
 
-**The same pipeline serves storage and network use cases.** The
-walkthrough in chapter 11 wrote tuples to a Store. This walkthrough
-wrote some to a Store and some to outbound HTTP clients. The pipeline
-is the same. The handler is the same. Only the connection wiring
-differs.
+Adding TikTok is a config change:
 
-**The framework is invisible to domain concepts.** The Rig has no idea
-this is an ad agency, no idea what a "campaign" is, no idea what a
-"publish ticket" looks like. Every concept is in the protocol's URI
-naming, the protocol's payload shapes, and the operator's connection
-configuration. The framework runs URIs through the pipeline. Done.
+```ts
+const tiktokConn = connection(tiktokChannel, ["publish://tiktok/*"]);
 
-**Adding new channels is a configuration change, not a code change.**
-A new ad network gets added with a new `connection(...)` entry and a
-new entry in `outputs`. The handler stays the same. The programs stay
-the same. The Rig stays the same. The host app stays the same.
+const rig = new Rig({
+  routes: {
+    receive: [primaryConn, metaConn, googleConn, tiktokConn],
+    read:    [primaryConn],
+  },
+  programs: { /* ... */ "publish://tiktok": acceptObject },
+  handlers: { /* ... */ },
+});
 
-## What didn't happen
+// And the publish call gets one more output:
+outputs.push([
+  `publish://tiktok/rosies-bakery/${Date.now() + 2}`,
+  { ...ticketMeta, channel: "tiktok" },
+]);
+```
 
-The framework didn't:
-
-- Have an opinion on "channels" as a concept.
-- Know that some outputs go to storage and others to outbound HTTP.
-- Run programs on the constituent outputs (broadcast skipped them, by
-  design — the handler is the canonical interpreter).
-- Fire `send:*` events for the constituent broadcasts (only the
-  original send's direction-level event fired; per-emission detail is
-  on the operation handle).
-
-Every fan-out decision was made by the connection patterns, configured
-once at Rig construction.
+The handler is unchanged. The pipeline is unchanged. Each new ad
+network is one connection plus one output entry.
 
 ## What's coming next
 
-Part VI — the operational chapters. Chapter 13 covers per-route
-observability via `OperationHandle`: how callers see each
-emission-and-connection outcome instead of one collapsed boolean.
-Chapter 14 covers multi-source replicas via `flood(peers)`: how a
-single connection can fan to many peers without changing the Rig.
+Part VI — operational chapters. Chapter 13 covers per-route
+observability via `OperationHandle`. Chapter 14 covers multi-source
+replicas via `flood(peers)`.

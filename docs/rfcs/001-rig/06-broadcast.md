@@ -1,141 +1,121 @@
-# 6. Broadcast — what the Rig does with a handler's return
+# 6. Broadcast — what the rig does with a handler's return
 
-A handler returns `Output[]`. The Rig takes those tuples and puts them
-on the wire. The step in between is **broadcast**.
+A handler returns `Output[]`. The rig dispatches each tuple through
+connection routing. The step in between is **broadcast**.
 
 ```
-handler → Output[] → Rig.broadcast(outs) → connection routing → clients
+handler → Output[] → rig.broadcast(outs) → connection routing → clients
 ```
 
 Broadcast is internal — handlers don't call it, app code doesn't call
-it directly. It's the Rig's mechanism for translating a handler's
-return into actual connection-level dispatches.
+it. The rig invokes it after each `handle` step.
 
 ## What broadcast does
 
 For each tuple a handler returned:
 
 1. Match the URI against every connection in `routes.receive`.
-2. For every connection that accepts, dispatch the tuple to that
-   connection's client.
-3. Emit a `route:success` or `route:error` event on the operation
-   handle for each `(emission, connection)` pair (Ch 13).
-4. Schedule reactions whose URI patterns match the tuple's URI, once
-   at least one route accepted.
+2. Dispatch to every accepting connection's client.
+3. Fire `route:success` or `route:error` on the operation handle for
+   each `(emission, connection)` pair (Ch 13).
+4. Once at least one route accepts, schedule reactions whose URI
+   patterns match the tuple's URI.
 
 The same dispatch engine that handles top-level direct writes runs
-here. There's no second routing engine for handler emissions; it's
-the same one, called by the Rig as part of finishing a `handle` step.
+here.
 
-## Why broadcast skips classification
+## Handler emissions skip classification
 
-A handler is the canonical interpreter of the protocol code its
-classification produced. By the time the handler returned, the
-protocol's logic has already decided what should land on the wire.
-Re-running programs on each handler-emitted tuple would either
-duplicate work the handler already did, or — worse — re-classify a
-tuple in a state that has changed since the handler decided to emit
-it.
+The handler is the canonical interpreter of the protocol code its
+classification produced. By the time it returned, the protocol's
+logic already decided what should land on the wire. Broadcast runs
+the routing matcher and the client dispatch only — programs do not
+run again on handler emissions.
 
-So broadcast doesn't run programs. It runs the routing matcher and
-the client dispatch. Programs are entered through `process`, exited
-by the time `handle` runs, and stay exited for everything `handle`
-produces.
+For "I want my emissions classified" semantics — defense-in-depth,
+or emitting into namespaces governed by other programs — use a
+reaction instead. Reactions flow through `rig.send`, which runs the
+full pipeline (Ch 7).
 
-If a protocol genuinely wants its handler emissions classified — for
-defense-in-depth, or because a handler emits tuples claimed by
-*other* programs the handler doesn't trust — the right shape is to
-make those emissions reactions instead of handler outputs. Reactions
-flow through `rig.send`, which runs programs (Ch 7).
+## Direction is set once
 
-## Why broadcast is direction-free
+The direction (`send` or `receive`) is established by the caller and
+applies to the whole call. Subscribers to `send:success` see one
+event per top-level call — for the original tuple the host
+dispatched. A handler that decomposes one envelope into ten outputs
+fires one `send:success` for the envelope; the ten emissions land
+without firing more direction-level events.
 
-A handler runs *inside* a `send` or a `receive`. The direction was
-established by the caller; the handler doesn't get to relabel it.
-Broadcast emits the handler's tuples without a new direction.
+For per-emission detail — including detail on the handler's outputs
+— subscribe to the operation handle's scoped events (Ch 13):
 
-Observationally: subscribers to `send:success` see one event for the
-original send (the tuple the host put into the pipeline), not one for
-every emission the handler produced. A handler that decomposes one
-envelope into ten output tuples doesn't fire ten `send:success`
-events; it fires one for the original envelope and the ten emissions
-are dispatched as part of completing that send.
+| Event | Fires when |
+|---|---|
+| `process:done` | A program produced a classification |
+| `handle:emit` | A handler returned its emissions |
+| `route:success` | One connection accepted one emission |
+| `route:error` | One connection rejected one emission |
+| `settled` | All routes for the operation reported |
 
-If a host wants observable per-tuple events for handler emissions, the
-right shape is to make those emissions reactions instead — reactions
-go through full `rig.send` and do fire `send:*` events for each.
+```ts
+const op = rig.send([envelope]);
+op.on("route:success", (e) => {
+  metrics.write_success.inc({ uri: e.emission[0], conn: e.connectionId });
+});
+op.on("route:error", (e) => {
+  retryQueue.push({ tuple: e.emission, target: e.connectionId });
+});
+await op;          // pipeline ack
+await op.settled;   // all routes finished
+```
 
-## Per-route events on the operation handle
+`connectionId` is the `id` passed to `connection(..., opts)` or an
+auto-generated `conn-{N}`. When the underlying client itself fans
+across peers (`flood(peers)`, Ch 14), the peer name surfaces as the
+connection ID.
 
-Each connection that accepts a broadcast tuple becomes a route. The
-operation handle fires:
+## Aggregation policy lives in callers
 
-- `route:success` — `{ emission, connectionId, result }` once the
-  connection's client returned a successful `ReceiveResult`.
-- `route:error` — `{ emission, connectionId, error }` if the
-  connection's client returned `accepted: false` or threw.
+The rig stays neutral about what "accepted" means when N routes
+accepted and M rejected. Callers compose their policy — strict (all
+routes must accept), best-effort (any route is fine), quorum
+(majority) — by listening to `route:*` events.
 
-`connectionId` is either the explicit `id` passed to `connection(...,
-opts)` or an auto-generated `conn-{N}`. When the underlying client
-fans across peers (`flood(peers)`, Ch 14), the peer name flows
-through as the connection ID at that level.
+## Reactions
 
-Aggregation across routes — what counts as "accepted" when N routes
-accepted and M rejected — is **not** the Rig's job. The Rig stays
-neutral; callers compose the policy they want from `route:*` events.
+Broadcast fires reactions on each successfully-broadcast tuple's URI.
+Reaction emissions go through `rig.send` (full pipeline) and produce
+their own operation handles. Chapter 7 walks the reaction layer in
+full.
 
-## What broadcast doesn't fire
+## Routes recap
 
-- **No `send:*` or `receive:*` events** for the broadcast tuples.
-  Only the original direction call's events fire, once, for the
-  triggering tuple.
-- **No re-classification.** Broadcast bypasses `process`.
-- **No new hook firings.** `beforeReceive`/`afterReceive` etc. fire
-  only at the direction-call boundary, not for each broadcast.
+`routes.receive` is the fan-out target. `routes.read` and
+`routes.observe` are consulted for those ops. Each connection is
+`(client, patterns: string[])` — a flat pattern list per connection,
+with the same connection bound into multiple routes when the same
+filter applies to multiple ops.
 
-These exclusions are what makes broadcast cheap. A handler can emit
-many tuples without paying for a full pipeline pass per tuple. The
-cost is the connection-routing dispatch and the reaction scheduling.
+```ts
+import { connection, Rig } from "@bandeira-tech/b3nd-sdk";
 
-## Reactions on broadcast tuples
+const primary = connection(httpClient, ["mutable://*"], { id: "primary" });
+const cache   = connection(redisClient, ["mutable://accounts/*"]);
 
-Broadcast does fire reactions, because reactions observe writes
-regardless of how the write arrived. If a handler emits a tuple
-addressed at `mutable://app/users/alice/profile`, any reaction
-registered on `mutable://app/users/:id/profile` fires for it. This is
-the right behavior: reactions are about what changed in the state,
-not about how the change was triggered.
+const rig = new Rig({
+  routes: {
+    receive: [primary],
+    read:    [cache, primary], // try cache first
+    observe: [primary],
+  },
+});
+```
 
-Reaction handling happens after the broadcast finishes. The Rig
-collects matching reactions, runs them with the broadcast tuple as
-input, takes their `Output[]` returns, and feeds them through
-`rig.send` as a new pipeline pass with its own operation handle.
-Chapter 7 walks through the reaction layer in full.
-
-## When a handler's return is empty
-
-A handler can return `[]`. The Rig has nothing to broadcast for that
-tuple. No reactions fire (nothing was written). The pipeline records
-the result as accepted (the handler ran, it just chose not to emit)
-and moves on. This is the "classify, then drop" shape — rare, usually
-expressible as a program rejection instead, but allowed.
-
-## Broadcast and routes — the hand-off
-
-`routes.receive` is the single point of fan-out control. The Rig is
-configured with three per-op route arrays — `receive`, `read`,
-`observe`. Each connection in a route is `(client, patterns: string[])`;
-the patterns are matched against URIs to decide which clients
-participate. Broadcast traverses `routes.receive` for handler
-emissions; `routes.read` and `routes.observe` are consulted for the
-matching ops.
-
-A handler benefits from this without having to think about it. It says
-"emit these URIs," and the URIs carry the routing decision with them.
+A handler emits a URI; the URI flows through `routes.receive` and
+lands at the matching connections.
 
 ## What's coming next
 
-Reactions — productive observation. What it means for a reaction
-handler to return `Output[]`, why those go through `rig.send` (full
-pipeline) instead of broadcast (skip programs), and how to think
-about the chain of reactions firing reactions firing reactions.
+Reactions — productive observation. Reaction emissions go through
+the full pipeline (programs and all), and that's where chains of
+notifications, indexes, and audit logs come from.

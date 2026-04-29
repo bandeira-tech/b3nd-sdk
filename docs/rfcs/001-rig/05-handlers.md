@@ -1,6 +1,7 @@
 # 5. A handler is an interpretation
 
-A program classifies. A handler interprets and returns the broadcasts.
+A program classifies. A handler interprets and returns the
+broadcasts.
 
 ```ts
 type CodeHandler = (
@@ -10,159 +11,122 @@ type CodeHandler = (
 ) => Promise<Output[]>;
 ```
 
-A handler is keyed on a code. When a tuple is classified — by `process`
-— into code `"valid"`, the handler registered for `"valid"` runs. It
-receives the tuple, the classification result, and a `read` function
-for inspecting state. It returns `Output[]` — the tuples it wants the
-Rig to broadcast.
-
-What it returns is deliberately wide open. That openness is the
-handler's whole job.
+A handler is keyed on a code. When `process` classifies a tuple as
+`"valid"`, the handler registered for `"valid"` runs. The handler
+gets the tuple, the classification, and a `read` for inspecting
+state. It returns the tuples it wants the rig to broadcast.
 
 ## Why handlers are protocol-defined
 
-A program returns a code. Codes are protocol vocabulary. `"valid"`,
-`"insufficient-funds"`, `"requires-fee"`, `"first-write-wins"`,
-`"replay-detected"` — these are all things a program might say, and
-what they *mean operationally* is up to the protocol that coined them.
-
-The framework can't decide what `"valid"` means because the framework
-doesn't know what kind of valid. Valid for a UTXO ledger means
+Codes are protocol vocabulary. `"valid"` for a UTXO ledger means
 "balances conserve, signatures verify, inputs unspent" — and the
 operational consequence is "emit the new outputs and emit
-null-payload deletions for the consumed inputs." Valid for a
+null-payload deletions for the consumed inputs." `"valid"` for a
 content-addressed pub/sub means "hash matches, signature attached" —
-and the operational consequence is "emit the content tuple and emit
-fan-out tuples to subscribers." Valid for a chat protocol means
-"message under size limit, sender on the room's allowlist" — and the
-operational consequence is "emit the message tuple and emit a
-delivery tuple for each room member."
+and the consequence is "emit the content tuple and emit fan-out
+tuples to subscribers." `"valid"` for a chat protocol means "message
+under size limit, sender on the room's allowlist" — and the
+consequence is "emit the message tuple and emit a delivery tuple for
+each room member."
 
-Three different "valid"s, three different return values. The framework
+Three different "valid"s, three different return values. The rig
 gives you the slot; the protocol fills it.
 
-## What a handler does
+## The four shapes
 
-In practice, handlers do one of a small number of things:
-
-- **Persist.** The most common case. The handler returns `[out]` so
-  the Rig dispatches the input tuple through connection routing.
-  Storage clients persist it, replicas mirror it, observers fire. For
-  many protocols this is all the handler does. (For tuples whose code
-  has no registered handler, the Rig does this automatically.)
-
-- **Decompose.** When the tuple's payload encodes more state than the
-  tuple itself — a `MessageData` envelope with several outputs and
-  several inputs to consume — the handler unpacks it and returns the
-  constituent tuples plus the original envelope. Each constituent
-  goes through connection routing on its own URI. (Chapter 8 covers
-  decomposition.)
-
-- **Conditionally write.** A handler might consult `read` and decide
-  what to return based on existing state. "Only first writer wins" is
-  a handler that reads the URI and returns `[out]` only if the URI is
-  unset, otherwise `[]`.
-
-- **Refuse.** A handler can return `[]`. Nothing dispatches, nothing
-  reacts, nothing persists. This is rare — usually the right shape is
-  to have the program return an error code and let the pipeline
-  reject — but the framework allows it for protocols where "classify,
-  then conditionally drop" is the natural shape.
-
-The handler does not call broadcast. It does not have a broadcast
-function. It returns data and the Rig dispatches.
-
-## What `read` lets a handler see
-
-`read` is the same `ReadFn` that programs receive — single-URI,
-returns the latest state. Handlers use it to make conditional
-decisions:
+Most handlers do one of these:
 
 ```ts
-const firstWriteWinsHandler: CodeHandler = async (out, _result, read) => {
+// Persist as-is — most common. (Default if no handler is registered.)
+const persist: CodeHandler = async (out) => [out];
+
+// Decompose an envelope into its constituents (Ch 8).
+const decompose: CodeHandler = async (out) => {
+  const [, payload] = out as Output<MessageData>;
+  const deletions = payload.inputs.map((uri) => [uri, null] as Output);
+  return [out, ...payload.outputs, ...deletions];
+};
+
+// Conditional — first writer wins.
+const firstWins: CodeHandler = async (out, _result, read) => {
   const [uri] = out;
   const existing = await read(uri);
-  if (existing.success) return [];     // already written, no-op
-  return [out];                         // first writer
+  return existing.success ? [] : [out];
+};
+
+// Refuse silently — classify, then drop.
+const refuse: CodeHandler = async () => [];
+```
+
+The handler returns data; the rig dispatches.
+
+## What `read` provides
+
+`read` is the rig's read interface — same view as any other reader.
+Handlers use it to consult state before deciding what to emit:
+
+```ts
+const balanceTransfer: CodeHandler = async (out, _result, read) => {
+  const [uri, payload] = out;
+  const { from, to, amount } = payload as Transfer;
+  const fromBalance = (await read<{ coin: number }>(from))
+    .record?.data.coin ?? 0;
+  if (fromBalance < amount) return []; // refuse insufficient funds
+  return [
+    [from, { coin: fromBalance - amount }],
+    [to, { coin: ((await read<{ coin: number }>(to)).record?.data.coin ?? 0) + amount }],
+  ];
 };
 ```
 
-`read` always reads from the Rig's connection topology — same
-trying-each-connection-in-order rules. It's idempotent and effect-free
-in the protocol's eyes; "pure" handler doesn't mean "no I/O at all,"
-it means "no externally-visible side effects produced by the handler
-itself."
+## What the rig does with the return
 
-A handler reads the same view of state that any other reader would.
+For each tuple in the handler's `Output[]`:
 
-## What the Rig does with the return
+1. Match the URI against `routes.receive`.
+2. Dispatch to every accepting connection.
+3. Skip classification — the handler is the canonical interpreter,
+   so handler emissions don't run programs again.
+4. Fire reactions on the emission's URI once at least one route
+   accepted (Ch 7).
 
-The handler returns `Output[]`. The Rig:
+Chapter 6 covers the dispatch step.
 
-1. Takes the returned tuples.
-2. Dispatches each through connection routing — same matcher the Rig
-   uses for top-level direct writes. Each tuple lands at every
-   connection whose `receive` patterns accept the URI.
-3. **Does not re-classify.** Handler outputs skip programs. The
-   handler is the canonical interpreter; running programs again would
-   be redundant and, in some protocols, wrong (the classification
-   could depend on state the handler just changed).
-4. After successful dispatch, fires reactions on each emitted tuple's
-   URI. (Chapter 7 covers what reactions do with their returns.)
+## Default dispatch
 
-Chapter 6 covers the dispatch step in detail.
-
-## What happens when there's no handler
-
-If a program returns a code with no registered handler, the Rig
-dispatches the input tuple directly. This is the default-write path:
-persist via whichever connections accept the URI, no protocol-specific
-handling. It exists so that simple protocols can register programs
-without also having to write trivial "just persist this" handlers.
+If a program returns a code with no registered handler, the rig
+broadcasts the input tuple as-is:
 
 ```ts
 const rig = new Rig({
+  routes: { ... },
   programs: {
     "mutable://open/notes": async () => ({ code: "ok" }),
   },
-  // no handlers registered for "ok"
+  // no handler for "ok" — default-dispatch persists.
 });
 
 await rig.receive([["mutable://open/notes/1", { text: "hi" }]]);
-// → process classifies as "ok"
-// → no handler for "ok" → default dispatch
-// → reaches storage clients via connection routing
+// → classifies as "ok"
+// → no handler → broadcasts the input
+// → storage clients receive it
 ```
 
-A protocol that wants different handling for `"ok"` registers a
-handler that returns whatever it wants; otherwise the framework's
-behavior is to dispatch the tuple as-is.
+Simple protocols register programs and let default dispatch handle
+the persistence.
 
-## What a handler is *not*
+## Boundaries
 
-A handler is not a place to validate. Validation is the program's job
-— it should already have happened by the time the handler runs.
-Putting "is this signature valid?" inside a handler means the check
-runs after you've decided the tuple is acceptable, which is too late.
-
-A handler is not a place to mutate. The handler doesn't have write
-authority — it returns data and the Rig dispatches. "Mutating" the
-input is just returning a different tuple instead. The data flow stays
-visible because what the Rig dispatches is exactly what the handler
-returns.
-
-A handler is not a place to fire reactions or events. Both fire
-automatically based on what the Rig dispatches and how the original
-direction-call resolves. The handler shapes the dispatch list by what
-it returns; everything downstream follows from that.
-
-A handler is not a place to call external APIs imperatively. If a
-handler wants an HTTP call to happen, it returns an `Output` to a URI
-that an outbound-HTTP client claims, and the call happens through
-routing. Side effects move to the boundary; the handler stays pure.
+A handler's job is to return the dispatch list. Validation belongs
+in the program (it runs first; by the time a handler runs the tuple
+is already accepted). External effects belong in clients — a
+handler that wants an HTTP call returns a tuple with a URI a
+webhook client owns, and the rig routes it there. Reactions and
+events fire automatically from successful dispatches; a handler
+shapes the dispatch list and the rest follows.
 
 ## What's coming next
 
-Chapter 6 — what the Rig does between a handler returning and the
-tuples landing in connections. The dispatch step, the reaction
-matching, the "broadcast" name and what it covers.
+Chapter 6 — what the rig does between a handler returning and the
+tuples landing in clients. The dispatch step, route events, and
+reaction scheduling.

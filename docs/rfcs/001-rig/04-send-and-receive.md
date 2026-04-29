@@ -1,62 +1,82 @@
 # 4. Send and receive — direction is observability
 
-`send` and `receive` are the two methods most callers touch. They
-mean exactly one thing each, and the difference between them is
-purely observational.
+`send` and `receive` are the two everyday entry points. They run the
+same pipeline body — `process → handle → react`. The label picks
+which hooks fire and which events emit.
 
-## The shape
+| Direction | Meaning | Hooks | Events |
+|---|---|---|---|
+| `send` | Host originates the tuple (button click, worker emit, signed envelope) | `beforeSend` / `afterSend` | `send:success` / `send:error` |
+| `receive` | Host accepts state from elsewhere (peer, webhook, sync) | `beforeReceive` / `afterReceive` | `receive:success` / `receive:error` |
 
-`send` and `receive` are direction labels. They both run the same
-pipeline — the `process → handle → react` triple from Ch 3. The only
-difference is which hooks fire and which events emit.
+Programs, handlers, and reactions run the same way for both.
+Validation rules apply uniformly.
+
+## Hooks
 
 ```ts
-class Rig {
-  send(outs: Output[]): OperationHandle {
-    return this._pipeline(outs, "send");
-  }
-
-  receive(outs: Output[]): OperationHandle {
-    return this._pipeline(outs, "receive");
-  }
-
-  // _pipeline runs `process`, dispatches each output through `handle`,
-  // schedules broadcast in the background, and returns an
-  // OperationHandle that is awaitable (PromiseLike<ReceiveResult[]>)
-  // and exposes per-route events. See Ch 13.
-}
+type Hooks = {
+  beforeSend?:    (ctx: SendCtx) => Promise<void> | void;
+  afterSend?:     (ctx: SendCtx, results: ReceiveResult[]) => Promise<void> | void;
+  beforeReceive?: (ctx: ReceiveCtx) => Promise<void> | void;
+  afterReceive?:  (ctx: ReceiveCtx, results: ReceiveResult[]) => Promise<void> | void;
+};
 ```
 
-The body is the same. The hooks and events differ.
+Use them for operational policy at the direction boundary —
+attaching origin metadata, rate-limiting peers, recording sync
+cursors, telemetry. Throw from a before-hook to refuse the operation:
 
-## What direction means
+```ts
+const rig = new Rig({
+  routes: { ... },
+  hooks: {
+    beforeReceive: (ctx) => {
+      if (perPeerRate(ctx.uri).exceeded()) {
+        throw new Error("rate limited");
+      }
+    },
+    afterSend: (ctx, results) => {
+      audit.log({ uri: ctx.message[0], accepted: results[0].accepted });
+    },
+  },
+});
+```
 
-`send` is the host application acting as the origin: "I produced this
-tuple and I'm putting it on the wire." It corresponds to a button
-click, a job running, a worker emitting state, the application's
-identity signing something. Subscribers to `send:success` know the
-host application is responsible for what arrived.
+Hooks live at the direction layer. Per-phase observability
+(`process:done`, `handle:emit`, route outcomes) lives on the
+operation handle (Ch 13).
 
-`receive` is the host application accepting state from elsewhere: "I
-got this tuple from a peer, an inbound HTTP request, an upstream
-sync, an imported file." Subscribers to `receive:success` know the
-host did not originate this content.
+## Events
 
-The pipeline body doesn't care. Programs run regardless. Handlers run
-regardless. Reactions fire regardless. The protocol's validation
-rules apply uniformly.
+```
+send:success      receive:success
+send:error        receive:error
+```
 
-The hooks let host code participate in the difference. A
-`beforeSend` hook might attach an `Origin` header, encrypt with the
-host's identity, or record the user gesture that triggered the
-action. A `beforeReceive` hook might apply rate limiting per peer,
-record a sync cursor, or strip peer-specific metadata. These are
-operational concerns, not validation concerns. Validation lives in
-programs.
+Four direction-level events, fired per-tuple, fire-and-forget.
 
-## Signing — the canonical caller pattern
+```ts
+const rig = new Rig({
+  routes: { ... },
+  on: {
+    "send:success": [forwardToPeers],
+    "*:error": [alertOps],   // wildcard — both directions
+  },
+});
 
-The Rig is identity-blind. Signing is one layer above:
+// Or register at runtime:
+const unsub = rig.on("receive:success", (e) => log(e.uri));
+```
+
+Per-`(emission, connection)` outcomes — for callers tracking
+individual replicas — surface on the operation handle as
+`route:success` / `route:error` (Ch 13).
+
+## The signing flow
+
+The rig is identity-blind. Signing happens one layer above, in
+caller code:
 
 ```ts
 import { Identity, Rig, connection, message } from "@bandeira-tech/b3nd-sdk";
@@ -73,76 +93,32 @@ const envelope = await message({ auth, inputs: [], outputs });
 await rig.send([envelope]);
 ```
 
-`Identity.sign` produces a `{ pubkey, signature }` object. `message`
-builds the canonical content-addressed envelope tuple at
-`hash://sha256/{computed}`. `rig.send([envelope])` runs the pipeline:
-`messageDataProgram` classifies the envelope as `msgdata:valid`,
-`messageDataHandler` decomposes it into the constituent outputs,
-broadcast dispatches each through connection routing.
+`Identity.sign` returns a `{ pubkey, signature }` object. `message`
+builds the canonical content-addressed envelope at
+`hash://sha256/{computed}`. With `messageDataProgram` and
+`messageDataHandler` registered (Ch 8), `rig.send([envelope])`
+classifies the envelope, decomposes it into its outputs, and
+dispatches each through connection routing.
 
-Signing canon lives in the SDK (`message`, `Identity`). The Rig
-itself takes pre-prepared tuples and dispatches them. Programs that
-want to verify signatures verify them; programs that don't, don't.
+Protocols using a different auth shape (URI-pubkey, capability
+tokens, transport-level trust) inline auth in the payload directly
+and skip the envelope (Ch 10).
 
-A protocol that uses a different auth shape (URI-pubkey, capability
-tokens, transport-level trust) skips the envelope step and either
-inlines auth into the payload directly or relies on connection-level
-trust (Ch 10).
-
-## The hook surface
+## Return shape
 
 ```ts
-type Hooks = {
-  beforeSend?:    (ctx: SendCtx) => Promise<void> | void;
-  afterSend?:     (ctx: SendCtx, results: ReceiveResult[]) => Promise<void> | void;
-  beforeReceive?: (ctx: ReceiveCtx) => Promise<void> | void;
-  afterReceive?:  (ctx: ReceiveCtx, results: ReceiveResult[]) => Promise<void> | void;
-};
+const op = rig.send([msg]);
+
+const results = await op;       // ReceiveResult[] — one per input tuple
+op.on("route:success", handler); // per-route detail
+await op.settled;                 // wait for all routes to finish
 ```
 
-Two pairs. No `beforeProcess`/`afterProcess` or
-`beforeHandle`/`afterHandle` — observation at the pipeline-phase
-level is what events and reactions are for. The hook layer is the
-direction-level boundary, period.
-
-Hooks throw to abort. A `beforeSend` hook that throws stops the
-pipeline for that batch and surfaces the error. This is intentional —
-hooks are operational policy (rate limit, auth check, telemetry), and
-operational policy needs to be able to refuse.
-
-## The event surface
-
-```
-send:success      receive:success
-send:error        receive:error
-```
-
-Four direction-level events, fired per-tuple. Subscribers attach to
-one or both directions according to what they care about. A
-WebSocket replication system subscribes to `send:success` to forward
-outbound tuples to peers. A metrics dashboard subscribes to
-`*:error` to count failures.
-
-Direction-level events fire once per top-level call. Per-route
-detail (per `(emission, connection)` pair, including handler
-emissions and reactions' downstream sends) flows through the
-operation handle's scoped events: `process:done`, `handle:emit`,
-`route:success`, `route:error`, `settled` (Ch 13).
-
-Each role has one mechanism: hooks for direction-level interception,
-direction events for direction-level notification, scoped operation
-events for per-route detail, reactions for URI-pattern observation.
-
-## What `send` and `receive` return
-
-Both return `OperationHandle`. It is awaitable as
-`PromiseLike<ReceiveResult[]>` so existing `await rig.send(outs)` and
-`await rig.receive(outs)` calls work without change. It also exposes
-`.on(...)` for per-route events and `.settled` for "all routes
-finished." Chapter 13 walks through the handle in full.
+Both `send` and `receive` return an `OperationHandle` — awaitable
+for the pipeline result, observable for per-stage detail. Chapter 13
+walks through it.
 
 ## What's coming next
 
-Part III opens with handlers — what they're for, why they own the
-"interpretation" role, and why they return data instead of calling
-broadcast.
+Part III opens with handlers — what they're for and how they shape
+the dispatch list.
