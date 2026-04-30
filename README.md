@@ -193,8 +193,7 @@ integrators with tighter dependency budgets can pull only what they need.
 | `@bandeira-tech/b3nd-web` (NPM)      | [bandeira-tech/b3nd](https://github.com/bandeira-tech/b3nd) (this repo)       | Browser-tuned umbrella with `LocalStorageStore`, `IndexedDBStore`, React fit. |
 | `@bandeira-tech/b3nd-core` (JSR)     | [bandeira-tech/b3nd-core](https://github.com/bandeira-tech/b3nd-core)         | Framework foundation: types, encoding, Rig, Identity, network primitives.     |
 | `@bandeira-tech/b3nd-canon` (JSR)    | [bandeira-tech/b3nd-canon](https://github.com/bandeira-tech/b3nd-canon)       | Protocol-building toolkit: message envelopes, hash, auth, encryption.         |
-| `@bandeira-tech/b3nd-server-http`    | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Hono-backed HTTP `ServerResolver` for serving a Rig.                          |
-| `@bandeira-tech/b3nd-grpc`           | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Connect-protocol gRPC client + server + wire schema.                          |
+| `@bandeira-tech/b3nd-servers` (JSR + NPM) | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Server-side composition + transports. Subpaths: `.` / `./http` / `./grpc[/server\|api\|client\|proto]`. Universal slice (root, `./grpc/api`, `./grpc/client`, `./grpc/proto`) on JSR + NPM; `Deno.serve`-using slice on JSR only. |
 
 ### Which package do I want?
 
@@ -202,8 +201,13 @@ integrators with tighter dependency budgets can pull only what they need.
   or `@bandeira-tech/b3nd-web` (browser). One import, everything you need.
 - **Designing a protocol?** Same as apps — the umbrella ships canon (envelopes,
   hash, auth, encrypt) and core (types, rig, network) under one roof.
-- **Running a node?** Pair the umbrella with one of the server packages
-  (`b3nd-server-http` for REST/Hono, `b3nd-grpc` for Connect/gRPC), or both.
+- **Running a node on Deno?** Pair the umbrella (or `b3nd-core` directly) with
+  `@bandeira-tech/b3nd-servers` — `./http` for REST, `./grpc/server` for
+  Connect/gRPC, or both via `createServers([...])`.
+- **Running a node on Node / in a browser / in a Cloudflare Worker?** Pull
+  `httpApi(rig)` from `b3nd-core` or `grpcApi(rig)` from
+  `b3nd-servers/grpc/api` (both universal, both on JSR + NPM) and feed them to
+  your own HTTP runtime.
 - **Embedding B3nd in a host with a tight dependency budget?** Skip the
   umbrella and depend directly on `b3nd-core` (framework foundation) plus
   whichever transports/canon pieces you actually use.
@@ -225,8 +229,9 @@ import { HttpClient, IndexedDBStore } from "@bandeira-tech/b3nd-web";
 // Tight-budget — foundation packages directly
 import { Rig, connection, MemoryStore, SimpleClient } from "@bandeira-tech/b3nd-core";
 import { message, hashValidator } from "@bandeira-tech/b3nd-canon";
-import { httpServer } from "@bandeira-tech/b3nd-server-http";
-import { grpcServer } from "@bandeira-tech/b3nd-grpc/server";
+import { createServers } from "@bandeira-tech/b3nd-servers";
+import { httpServer } from "@bandeira-tech/b3nd-servers/http";
+import { grpcServer } from "@bandeira-tech/b3nd-servers/grpc/server";
 ```
 
 ## Storage Backends

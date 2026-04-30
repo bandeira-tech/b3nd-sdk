@@ -522,8 +522,7 @@ foundation packages directly.
 | `@bandeira-tech/b3nd-web`            | NPM      | [bandeira-tech/b3nd](https://github.com/bandeira-tech/b3nd)                   | Umbrella SDK — browser/React. Re-exports browser-relevant subset.     |
 | `@bandeira-tech/b3nd-core`           | JSR      | [bandeira-tech/b3nd-core](https://github.com/bandeira-tech/b3nd-core)         | Foundation: types, encoding, Rig, Identity, network primitives.       |
 | `@bandeira-tech/b3nd-canon`          | JSR      | [bandeira-tech/b3nd-canon](https://github.com/bandeira-tech/b3nd-canon)       | Protocol toolkit: message envelopes, content addressing, auth, crypto. |
-| `@bandeira-tech/b3nd-server-http`    | JSR      | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Hono-backed HTTP `ServerResolver` for serving a Rig.                  |
-| `@bandeira-tech/b3nd-grpc`           | JSR      | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Connect-protocol gRPC client + server + wire schema.                  |
+| `@bandeira-tech/b3nd-servers`        | JSR + NPM | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Server-side composition + transports. Universal slice (`./grpc/api`, `./grpc/client`, `./grpc/proto`, root) ships to both JSR + NPM; Deno-only slice (`./http`, `./grpc/server`) is JSR. |
 
 Subpath imports (umbrella):
 
@@ -562,10 +561,14 @@ import {
 } from "@bandeira-tech/b3nd-canon/auth";
 import * as encrypt from "@bandeira-tech/b3nd-canon/encrypt";
 
-// Server transports
-import { httpServer } from "@bandeira-tech/b3nd-server-http";
-import { grpcServer } from "@bandeira-tech/b3nd-grpc/server";
-import { GrpcClient } from "@bandeira-tech/b3nd-grpc/client";
+// Server composition + transports (Deno)
+import { createServers, withCors } from "@bandeira-tech/b3nd-servers";
+import { httpServer } from "@bandeira-tech/b3nd-servers/http";
+import { grpcServer } from "@bandeira-tech/b3nd-servers/grpc/server";
+
+// Universal pieces (browsers, Node, Cloudflare Workers — also on NPM)
+import { GrpcClient } from "@bandeira-tech/b3nd-servers/grpc/client";
+import { grpcApi } from "@bandeira-tech/b3nd-servers/grpc/api";
 ```
 
 | Feature           | b3nd-sdk (JSR) | b3nd-web (NPM) | b3nd-core (JSR)        |
@@ -578,8 +581,9 @@ import { GrpcClient } from "@bandeira-tech/b3nd-grpc/client";
 | LocalStorageStore | No             | Yes            | No                     |
 | IndexedDBStore    | No             | Yes            | No                     |
 | HTTP/WS/Memory    | Yes            | Yes            | Yes (built-in)         |
-| HTTP server       | Yes            | Limited        | No (use b3nd-server-http) |
-| gRPC client+server| Yes            | No             | No (use b3nd-grpc)      |
+| HTTP server       | Yes            | No             | No (use b3nd-servers/http)         |
+| gRPC server       | Yes            | No             | No (use b3nd-servers/grpc/server)  |
+| gRPC client       | Yes            | Yes            | No (use b3nd-servers/grpc/client)  |
 
 ---
 
@@ -1691,8 +1695,9 @@ export default schema;
 ### Wiring a Rig + transport server
 
 The Rig is pure orchestration. Pair it with a `ServerResolver` to expose it
-over the network. The two transport packages live in
-[`bandeira-tech/b3nd-servers`](https://github.com/bandeira-tech/b3nd-servers):
+over the network. Composition primitives + transports live in
+[`bandeira-tech/b3nd-servers`](https://github.com/bandeira-tech/b3nd-servers)
+under one package with subpaths:
 
 ```typescript
 import {
@@ -1700,10 +1705,10 @@ import {
   connection,
   MemoryStore,
   SimpleClient,
-  createServers,
-} from "@bandeira-tech/b3nd-sdk";
-import { httpServer } from "@bandeira-tech/b3nd-server-http";
-// import { grpcServer } from "@bandeira-tech/b3nd-grpc/server";  // optional
+} from "@bandeira-tech/b3nd-core";
+import { createServers } from "@bandeira-tech/b3nd-servers";
+import { httpServer } from "@bandeira-tech/b3nd-servers/http";
+// import { grpcServer } from "@bandeira-tech/b3nd-servers/grpc/server";  // optional
 import schema from "./schema.ts";
 
 const client = new SimpleClient(new MemoryStore());
@@ -1716,16 +1721,16 @@ const rig = new Rig({
 });
 
 const servers = createServers(rig, [
-  httpServer({ port: 9942, cors: "*" }),
+  httpServer({ port: 9942 }),
   // grpcServer({ port: 50051 }),
-]);
+], { cors: "*" });
 await Promise.all(servers.map((s) => s.start()));
 ```
 
-The umbrella SDK exports `Rig`, `connection`, `createServers`, and the
-`ServerResolver` contract — they come from `@bandeira-tech/b3nd-core`. The
-transport implementations are separately published so you only ship the
-ones you actually use.
+`b3nd-core` provides `Rig`, `connection`, and the pure `httpApi(rig)` request
+handler. `b3nd-servers` provides server-side composition (`createServers`,
+`ServerResolver`, `withCors`) and the transport resolvers. CORS can be set
+per-server or once at the composition level via `{ cors }`.
 
 ### Multi-Backend Composition
 
@@ -1934,7 +1939,9 @@ specific to the umbrella SDK.
   `@bandeira-tech/b3nd-core` — types, encoding, ObserveEmitter, MemoryStore,
   HttpClient, WebSocketClient, ConsoleClient, SimpleClient, DataStoreClient,
   FunctionalClient, Identity, Rig, hooks, events, reactions, connection,
-  httpApi, server-factory, backend-factory, network primitives.
+  `httpApi(rig)` (pure request handler), backend-factory, network primitives.
+  Server composition (`createServers`, `ServerResolver`, transports) lives in
+  `@bandeira-tech/b3nd-servers`.
 - [`bandeira-tech/b3nd-canon`](https://github.com/bandeira-tech/b3nd-canon) →
   `@bandeira-tech/b3nd-canon` — message envelopes (`message()`,
   `messageDataProgram`, `messageDataHandler`), content addressing
@@ -1942,10 +1949,11 @@ specific to the umbrella SDK.
   (`createPubkeyBasedAccess`, `authValidation`), Ed25519/X25519/AES-GCM
   primitives.
 - [`bandeira-tech/b3nd-servers`](https://github.com/bandeira-tech/b3nd-servers) →
-  `@bandeira-tech/b3nd-server-http` (Hono-backed HTTP `ServerResolver`) and
-  `@bandeira-tech/b3nd-grpc` (Connect-protocol gRPC client + server + wire
-  schema). Each is a separate JSR package, both live as workspace members of
-  the same repo.
+  `@bandeira-tech/b3nd-servers` (single package). Subpaths: `.` (composition +
+  `withCors`), `./http` (Deno-only HTTP server), `./grpc` (Deno-only bundle),
+  `./grpc/server` (Deno-only resolver), `./grpc/api` (universal pure handler),
+  `./grpc/client` (universal `GrpcClient`), `./grpc/proto` (universal wire
+  schema). The universal slice ships to JSR + NPM; Deno-only slice is JSR-only.
 
 ### This repo — umbrella SDK
 

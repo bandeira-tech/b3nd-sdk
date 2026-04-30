@@ -70,8 +70,7 @@ but know that the underlying code lives elsewhere.
 | [bandeira-tech/b3nd](https://github.com/bandeira-tech/b3nd) (this)          | `@bandeira-tech/b3nd-web` (NPM)      | Browser umbrella with `LocalStorageStore`, `IndexedDBStore`.          |
 | [bandeira-tech/b3nd-core](https://github.com/bandeira-tech/b3nd-core)       | `@bandeira-tech/b3nd-core`           | Framework foundation: types, encoding, Rig, Identity, network.        |
 | [bandeira-tech/b3nd-canon](https://github.com/bandeira-tech/b3nd-canon)     | `@bandeira-tech/b3nd-canon`          | Protocol toolkit: message envelopes, content addressing, auth, crypto. |
-| [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers) | `@bandeira-tech/b3nd-server-http`    | Hono-backed HTTP `ServerResolver` for serving a Rig.                  |
-| [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers) | `@bandeira-tech/b3nd-grpc`           | Connect-protocol gRPC client + server + wire schema.                  |
+| [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers) | `@bandeira-tech/b3nd-servers` (JSR + NPM) | Server-side composition + transports. Subpaths: `.` / `./http` / `./grpc` / `./grpc/server` / `./grpc/api` / `./grpc/client` / `./grpc/proto`. Universal slice (root, `./grpc/api`, `./grpc/client`, `./grpc/proto`) ships to JSR + NPM; `Deno.serve`-using slice (`./http`, `./grpc/server`, `./grpc`) is JSR-only. |
 
 **Convergence point.** This SDK repo is where the high-level documentation
 lives — the per-package repos are minimal and link back here for the broader

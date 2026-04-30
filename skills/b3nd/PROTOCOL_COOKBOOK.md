@@ -32,22 +32,21 @@ export default schema;
 
 ### Wiring a Rig + transport server
 
-The umbrella SDK exposes the Rig and `createServers()`. The transport
-servers themselves are separate JSR packages from
-[`bandeira-tech/b3nd-servers`](https://github.com/bandeira-tech/b3nd-servers)
-— pull only the ones you need:
+`@bandeira-tech/b3nd-core` provides the rig + the pure `httpApi(rig)` request
+handler. `@bandeira-tech/b3nd-servers` provides server-side composition
+(`createServers`, `withCors`) and the transport resolvers under subpaths:
 
 ```typescript
 import {
   Rig,
   connection,
-  createServers,
   MemoryStore,
   SimpleClient,
-} from "@bandeira-tech/b3nd-sdk";
-import { httpServer } from "@bandeira-tech/b3nd-server-http";
+} from "@bandeira-tech/b3nd-core";
+import { createServers } from "@bandeira-tech/b3nd-servers";
+import { httpServer } from "@bandeira-tech/b3nd-servers/http";
 // Optional: also serve gRPC
-// import { grpcServer } from "@bandeira-tech/b3nd-grpc/server";
+// import { grpcServer } from "@bandeira-tech/b3nd-servers/grpc/server";
 import schema from "./schema.ts";
 
 const client = new SimpleClient(new MemoryStore());
@@ -60,22 +59,24 @@ const rig = new Rig({
 });
 
 const servers = createServers(rig, [
-  httpServer({ port: 43100, cors: "*" }),
+  httpServer({ port: 43100 }),
   // grpcServer({ port: 50051 }),
-]);
+], { cors: "*" });
 await Promise.all(servers.map((s) => s.start()));
 ```
 
-If you're embedding B3nd in an existing Hono app, the underlying `httpApi`
-helper from `@bandeira-tech/b3nd-core` returns a plain
-`(Request) => Promise<Response>` you can mount yourself — see the Rig's HTTP
-API section in [FRAMEWORK.md](./FRAMEWORK.md).
+If you're running on Node, in a browser, or in a Cloudflare Worker, skip the
+Deno-only `httpServer`/`grpcServer` resolvers and feed the pure handlers to
+your own runtime: `httpApi(rig)` from `@bandeira-tech/b3nd-core`, or
+`grpcApi(rig)` from `@bandeira-tech/b3nd-servers/grpc/api`. Wrap them with
+`withCors` from `@bandeira-tech/b3nd-servers` if needed.
 
 ### Multi-Backend Composition
 
 ```typescript
 import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
-import { httpServer } from "@bandeira-tech/b3nd-server-http";
+import { createServers } from "@bandeira-tech/b3nd-servers";
+import { httpServer } from "@bandeira-tech/b3nd-servers/http";
 
 const backends = [
   new MessageDataClient(new MemoryStore()),
