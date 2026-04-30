@@ -93,8 +93,8 @@
   },
   "homepage": "https://github.com/bandeira-tech/b3nd-sdk#readme",
   "dependencies": {
-    "@bandeira-tech/b3nd-core": "^0.9.4",
-    "@bandeira-tech/b3nd-canon": "^0.9.4",
+    "@bandeira-tech/b3nd-core": "^0.11.0",
+    "@bandeira-tech/b3nd-canon": "^0.11.0",
     "canonicalize": "^2.0.0",
     "hono": "^4.6.0"
   },
