@@ -79,7 +79,6 @@
     "apps/b3nd-node",
     "apps/sdk-inspector",
     "apps/vault-listener",
-    "tests",
-    ".claude-plugin/mcp-server"
+    "tests"
   ]
 }

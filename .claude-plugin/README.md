@@ -32,48 +32,18 @@ Or interactively from within Claude Code:
 | **b3nd-webapp**  | React/Vite web app patterns                     |
 | **b3nd-denocli** | Deno CLI and server patterns                    |
 
-### MCP Server (B3nd Data Tools)
-
-Tools for interacting with B3nd backends directly from Claude:
-
-| Tool                   | Description                                           |
-| ---------------------- | ----------------------------------------------------- |
-| `b3nd_receive`         | Receive message `[uri, values, data]` (primary write) |
-| `b3nd_read`            | Read data from URI                                    |
-| `b3nd_list`            | List items matching URI prefix (flat, full URIs)      |
-| `b3nd_delete`          | Delete data                                           |
-| `b3nd_health`          | Health check                                          |
-| `b3nd_schema`          | Get available protocols                               |
-| `b3nd_backends_list`   | List configured backends                              |
-| `b3nd_backends_switch` | Switch active backend                                 |
-| `b3nd_backends_add`    | Add new backend                                       |
-
-## Configuration
-
-Set your backends via environment variable before starting Claude:
-
-```bash
-# Single backend
-export B3ND_BACKENDS="local=http://localhost:8842"
-
-# Multiple backends
-export B3ND_BACKENDS="local=http://localhost:8842,testnet=https://testnet.b3nd.io"
-```
-
 ## Usage Examples
 
 Once installed, just ask Claude naturally:
 
 ```
 > How do I create a B3nd HTTP client?
-> Read mutable://users/alice/profile
-> Switch to testnet backend
-> List all items under mutable://accounts/
+> How do I use the Rig with a PostgreSQL backend?
+> Show me how to observe changes on a URI pattern
 ```
 
 ## Requirements
 
-- [Deno](https://deno.land) runtime (for MCP server)
 - Claude Code CLI
 
 ## Links
