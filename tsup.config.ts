@@ -10,7 +10,6 @@ export default defineConfig({
     "encrypt/mod": "src/encrypt.ts",
     "hash/mod": "src/hash.ts",
     "network/mod": "src/network.ts",
-    "listener/mod": "./libs/b3nd-listener/mod.ts",
   },
   dts: true,
   format: ["esm"],

@@ -5,7 +5,7 @@
  * Re-exports everything from core (framework foundation) and
  * canon (protocol-building toolkit). For selective imports, use
  * the subpath exports: `./core`, `./canon`, `./msg`, `./hash`,
- * `./auth`, `./encrypt`, `./wallet`, `./network`, `./listener`.
+ * `./auth`, `./encrypt`, `./wallet`, `./network`.
  *
  * @example Basic usage
  * ```typescript

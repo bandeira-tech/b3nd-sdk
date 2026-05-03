@@ -15,7 +15,7 @@ for lib in b3nd-core b3nd-hash b3nd-msg \
            b3nd-client-memory b3nd-client-http b3nd-client-ws \
            b3nd-client-console b3nd-network \
            b3nd-encrypt b3nd-auth b3nd-rig \
-           b3nd-wallet b3nd-listener; do
+           b3nd-wallet; do
   src="$ROOT_DIR/libs/$lib"
   dest="$VENDOR/$lib"
   mkdir -p "$dest"

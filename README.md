@@ -303,7 +303,7 @@ make version v=X.Y.Z        # Version + publish
 ```
 src/           # SDK entry points (mod.ts, mod.web.ts)
 libs/          # Core libraries (rig, clients, compose, encrypt, etc.)
-apps/          # Deployables (b3nd-node, vault-listener, web-rig)
+apps/          # Deployables (b3nd-node, b3nd-cli, sdk-inspector)
 skills/        # Framework documentation for AI agents
 ```
 

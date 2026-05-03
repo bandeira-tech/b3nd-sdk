@@ -28,7 +28,6 @@
     "./libs/b3nd-client-ws/**/*.ts",
     "./libs/b3nd-client-memory/**/*.ts",
     "./libs/b3nd-client-console/**/*.ts",
-    "./libs/b3nd-hash/**/*.ts",
-    "./libs/b3nd-listener/**/*.ts"
+    "./libs/b3nd-hash/**/*.ts"
   ]
 }

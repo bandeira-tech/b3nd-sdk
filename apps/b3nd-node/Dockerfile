@@ -15,7 +15,6 @@ COPY ./libs/ /app/libs/
 COPY ./apps/b3nd-node/ /app/apps/b3nd-node/
 COPY ./apps/b3nd-cli/ /app/apps/b3nd-cli/
 COPY ./apps/sdk-inspector/ /app/apps/sdk-inspector/
-COPY ./apps/vault-listener/ /app/apps/vault-listener/
 
 # Workspace stubs for members not shipped with the image
 COPY ./tests/deno.json /app/tests/deno.json
