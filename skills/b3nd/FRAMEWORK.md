@@ -1921,7 +1921,7 @@ bnd conf node http://localhost:9942
 
 ```bash
 cd apps/sdk-inspector && deno task dashboard:build  # Build test artifacts
-cd apps/b3nd-web-rig && npm run dev                 # http://localhost:5555/dashboard
+./webrig dev                                        # http://localhost:5555/dashboard
 ```
 
 Browse 125 tests by theme (SDK Core, Network, Database, Auth, Binary, E2E), view
@@ -1970,7 +1970,6 @@ specific to the umbrella SDK.
 ### Apps (deployables)
 
 - `apps/b3nd-node/` — multi-backend HTTP/gRPC node binary.
-- `apps/b3nd-web-rig/` — React/Vite data explorer + dashboard.
 - `apps/sdk-inspector/` — test runner backend.
 - `apps/vault-listener/` — vault listener service.
 

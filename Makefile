@@ -1,6 +1,6 @@
 ## Root Makefile
 
-.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs node-postgres node-mongo node-s3 run-node check build-api-docs build-learn help
+.PHONY: test test-unit test-e2e-http publish publish-jsr publish-npm version build-sdk publish-sdk pkg up down dev rig node node-sqlite node-fs node-ipfs node-postgres node-mongo node-s3 run-node check publish-api-docs publish-learn help
 
 # Default target
 .DEFAULT_GOAL := help
@@ -18,7 +18,7 @@ endif
 # Run unit tests only (no external dependencies like Postgres/Mongo)
 test-unit:
 	@echo "Running unit tests..."
-	@deno test --allow-all libs/b3nd-client-memory/ libs/b3nd-wallet/ libs/b3nd-network/ libs/b3nd-managed-node/
+	@deno test --allow-all libs/b3nd-managed-node/
 
 test-e2e-http:
 	@if [ -z "$(URL)" ]; then \
@@ -133,15 +133,17 @@ ifndef p
 endif
 	@docker compose --profile $(p) down
 
-# Build API docs from all libs/ modules for the web rig
-build-api-docs:
-	@echo "Building API docs..."
-	@DENO_NO_PACKAGE_JSON=1 deno run -A apps/b3nd-web-rig/scripts/build-api-docs.ts
+# Publish API docs from all libs/ modules to the running B3nd node.
+# The web rig consumes them at runtime via b3nd reads.
+publish-api-docs:
+	@echo "Publishing API docs..."
+	@DENO_NO_PACKAGE_JSON=1 deno run -A scripts/publish-api-docs.ts
 
-# Build learn catalog and chapter files for the web rig
-build-learn:
-	@echo "Building learn books..."
-	@DENO_NO_PACKAGE_JSON=1 deno run -A apps/b3nd-web-rig/scripts/build-learn-books.ts
+# Publish learn catalog + chapters to the running B3nd node.
+# The web rig consumes them at runtime via b3nd reads.
+publish-learn:
+	@echo "Publishing learn books..."
+	@DENO_NO_PACKAGE_JSON=1 deno run -A scripts/publish-learn.ts
 
 # Full dev environment: databases + node (postgres) + rig + inspector
 dev:
@@ -150,15 +152,14 @@ dev:
 	@lsof -ti :5555 -i :5556 -i :9942 2>/dev/null | xargs kill -9 2>/dev/null || true
 	@sleep 1
 	@docker compose --profile dev up -d --wait
-	@# Pre-build static content for the rig
-	@$(MAKE) build-api-docs
-	@$(MAKE) build-learn
 	@trap 'kill 0; docker compose --profile dev down' INT TERM; \
 	(cd apps/b3nd-node && \
 	  BACKEND_URL=postgresql://b3nd:b3nd@localhost:5432/b3nd \
 	  PORT=9942 CORS_ORIGIN="*" \
 	  deno run --watch -A mod.ts) & \
-	(cd apps/b3nd-web-rig && npm run dev) & \
+	sleep 2 && \
+	$(MAKE) publish-api-docs publish-learn & \
+	./webrig dev & \
 	(cd apps/sdk-inspector && deno task dev) & \
 	echo "Node :9942 (postgres)  Rig :5555  Inspector :5556"; \
 	wait
@@ -220,7 +221,7 @@ endif
 # Web rig + inspector only (node must be running separately)
 rig:
 	@trap 'kill 0' INT TERM; \
-	(cd apps/b3nd-web-rig && npm run dev) & \
+	./webrig dev & \
 	(cd apps/sdk-inspector && deno task dev) & \
 	echo "Rig :5555  Inspector :5556  (node expected on :9942)"; \
 	wait
@@ -289,7 +290,8 @@ help:
 	@echo ""
 	@echo "  make pkg target=<name> - Build and push Docker image"
 	@echo ""
-	@echo "  make build-api-docs    - Build API docs from all libs/"
+	@echo "  make publish-api-docs  - Publish API docs from libs/ to running B3nd node"
+	@echo "  make publish-learn     - Publish skills/docs markdown to running B3nd node"
 	@echo "  make dev               - Full dev env (dbs + node + rig + inspector)"
 	@echo "  make up p=<profile>    - Start a compose profile (dev, test)"
 	@echo "  make down p=<profile>  - Stop a compose profile"

@@ -1,0 +1,44 @@
+{
+  "key": "protocol-cookbook",
+  "title": "Designing Protocols",
+  "markdown": "# Designing Protocols\n\nRecipes for deploying and packaging DePIN protocols built on B3nd.\n\nFor protocol examples (open CRUD, auth-based, content-addressed, fee collection,\nUTXO conservation, hash-chain, consensus chain), see the Protocol Examples\nsection in [FRAMEWORK.md](./FRAMEWORK.md).\n\n---\n\n## Running Your Protocol's Node\n\nAfter defining your protocol's schema, you need to run a node that validates\nmessages against it.\n\n### Schema Module Pattern\n\nExport your schema as a module so it can be imported by the node and by tests:\n\n```typescript\n// schema.ts\nimport type { Schema } from \"@bandeira-tech/b3nd-sdk\";\n\nconst schema: Schema = {\n  \"mutable://open\": async ([_uri, value]) => {\n    if (!value) return { valid: false, error: \"Value required\" };\n    return { valid: true };\n  },\n};\nexport default schema;\n```\n\n### Wiring a Rig + transport server\n\n`@bandeira-tech/b3nd-core` provides the rig + the pure `httpApi(rig)` request\nhandler. `@bandeira-tech/b3nd-servers` provides server-side composition\n(`createServers`, `withCors`) and the transport resolvers under subpaths:\n\n```typescript\nimport {\n  Rig,\n  connection,\n  MemoryStore,\n  SimpleClient,\n} from \"@bandeira-tech/b3nd-core\";\nimport { createServers } from \"@bandeira-tech/b3nd-servers\";\nimport { httpServer } from \"@bandeira-tech/b3nd-servers/http\";\n// Optional: also serve gRPC\n// import { grpcServer } from \"@bandeira-tech/b3nd-servers/grpc/server\";\nimport schema from \"./schema.ts\";\n\nconst client = new SimpleClient(new MemoryStore());\nconst rig = new Rig({\n  routes: {\n    receive: [connection(client, [\"*\"])],\n    read:    [connection(client, [\"*\"])],\n  },\n  programs: schema,\n});\n\nconst servers = createServers(rig, [\n  httpServer({ port: 43100 }),\n  // grpcServer({ port: 50051 }),\n], { cors: \"*\" });\nawait Promise.all(servers.map((s) => s.start()));\n```\n\nIf you're running on Node, in a browser, or in a Cloudflare Worker, skip the\nDeno-only `httpServer`/`grpcServer` resolvers and feed the pure handlers to\nyour own runtime: `httpApi(rig)` from `@bandeira-tech/b3nd-core`, or\n`grpcApi(rig)` from `@bandeira-tech/b3nd-servers/grpc/api`. Wrap them with\n`withCors` from `@bandeira-tech/b3nd-servers` if needed.\n\n### Multi-Backend Composition\n\n```typescript\nimport { flood, peer } from \"@bandeira-tech/b3nd-sdk/network\";\nimport { createServers } from \"@bandeira-tech/b3nd-servers\";\nimport { httpServer } from \"@bandeira-tech/b3nd-servers/http\";\n\nconst backends = [\n  new MessageDataClient(new MemoryStore()),\n  new PostgresStore({\n    connection,\n    tablePrefix: \"b3nd\",\n    poolSize: 5,\n    connectionTimeout: 10000,\n  }),\n];\nconst composed = flood(backends.map((c, i) => peer(c, { id: `local-${i}` })));\n\nconst client = createValidatedClient({\n  write: composed,\n  read: composed,\n  validate: msgSchema(schema),\n});\n\nconst rig = new Rig({\n  routes: { receive: [connection(client, [\"*\"])], read: [connection(client, [\"*\"])] },\n});\nconst servers = createServers(rig, [httpServer({ port: 43100 })]);\nawait Promise.all(servers.map((s) => s.start()));\n```\n\n### PostgreSQL / MongoDB Setup\n\n```typescript\n// Postgres\nconst pg = new PostgresStore({\n  connection: \"postgresql://user:pass@localhost:5432/db\",\n  tablePrefix: \"b3nd\",\n  poolSize: 5,\n  connectionTimeout: 10000,\n}, executor);\nawait pg.initializeSchema();\n\n// MongoDB\nconst mongo = new MongoStore({\n  connectionString: \"mongodb://localhost:27017/mydb\",\n  collectionName: \"b3nd_data\",\n}, executor);\n```\n\n---\n\n## Packaging a Protocol SDK\n\nOnce your protocol's schema is stable, wrap it into a protocol-specific package\nso app developers don't need to understand B3nd internals.\n\n**What to export:**\n\n1. **Schema** — the schema table, so node operators can run your protocol\n2. **Pre-configured client factory** — a function that returns an `HttpClient`\n   pointed at your network\n3. **Typed helpers** — functions that build valid messages for your programs\n4. **URI builders** — functions that construct URIs following your conventions\n\n**Example: packaging a minimal protocol SDK:**\n\n```typescript\n// my-protocol-sdk/mod.ts\nimport type { Schema } from \"@bandeira-tech/b3nd-sdk\";\nimport { HttpClient, message } from \"@bandeira-tech/b3nd-sdk\";\nimport { hashValidator } from \"@bandeira-tech/b3nd-sdk/hash\";\n\n// 1. Schema export (for node operators)\nexport const schema: Schema = {\n  \"mutable://open\": async () => ({ valid: true }),\n  \"hash://sha256\": hashValidator(),\n  \"link://open\": async ([_uri, value]) => {\n    if (typeof value !== \"string\") {\n      return { valid: false, error: \"Must be string\" };\n    }\n    return { valid: true };\n  },\n};\n\n// 2. Pre-configured client\nexport function createClient(url = \"https://my-protocol-node.example.com\") {\n  return new HttpClient({ url });\n}\n\n// 3. Typed helpers\nexport async function writeNote(\n  client: HttpClient,\n  path: string,\n  content: object,\n) {\n  const envelope = await message({\n    inputs: [],\n    outputs: [[`mutable://open/${path}`, content]],\n  });\n  const results = await client.receive([envelope]);\n  return { uri: envelope[0], ...results[0] };\n}\n\n// 4. URI builders\nexport function noteUri(path: string) {\n  return `mutable://open/${path}`;\n}\n```\n\nA protocol's schema module exports the canonical program schema. The\n`@bandeira-tech/b3nd-web` and `@bandeira-tech/b3nd-sdk` packages provide the\ntransport layer. Together they form the protocol SDK that app developers consume\n— without knowing they're using B3nd underneath.\n",
+  "sections": [
+    {
+      "id": "running-your-protocol-s-node",
+      "title": "Running Your Protocol's Node",
+      "level": 2,
+      "children": [
+        {
+          "id": "schema-module-pattern",
+          "title": "Schema Module Pattern",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "wiring-a-rig-transport-server",
+          "title": "Wiring a Rig + transport server",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "multi-backend-composition",
+          "title": "Multi-Backend Composition",
+          "level": 3,
+          "children": []
+        },
+        {
+          "id": "postgresql-mongodb-setup",
+          "title": "PostgreSQL / MongoDB Setup",
+          "level": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "packaging-a-protocol-sdk",
+      "title": "Packaging a Protocol SDK",
+      "level": 2,
+      "children": []
+    }
+  ]
+}

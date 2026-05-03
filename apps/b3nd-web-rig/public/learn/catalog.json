@@ -1,0 +1,2716 @@
+{
+  "books": [
+    {
+      "key": "message-guide",
+      "title": "What's in a Message",
+      "label": "What's in a Message",
+      "description": "A design guide teaching b3nd through dialogue, letters, and digital messages",
+      "tier": "guide",
+      "chapters": [
+        {
+          "key": "01-two-friends",
+          "number": 1,
+          "title": "1. Two Friends",
+          "part": "The Conversation",
+          "sections": [
+            {
+              "id": "the-anatomy-of-the-simplest-agreement",
+              "title": "The Anatomy of the Simplest Agreement",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "what-s-inside-a-message",
+              "title": "What's Inside a Message",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "adding-complexity",
+              "title": "Adding Complexity",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-three-sources-of-meaning",
+              "title": "The Three Sources of Meaning",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-dinner-table-as-protocol",
+              "title": "The Dinner Table as Protocol",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/01-two-friends"
+        },
+        {
+          "key": "02-the-setting-is-the-trust",
+          "number": 2,
+          "title": "2. The Setting Is the Trust",
+          "part": "The Conversation",
+          "sections": [
+            {
+              "id": "the-room-makes-the-rules",
+              "title": "The Room Makes the Rules",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-medium-shapes-the-setting",
+              "title": "The Medium Shapes the Setting",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-setting-as-access-control",
+              "title": "The Setting as Access Control",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "forward-settings-in-paper-and-digital",
+              "title": "Forward: Settings in Paper and Digital",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-takeaway",
+              "title": "The Takeaway",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/02-the-setting-is-the-trust"
+        },
+        {
+          "key": "03-who-is-speaking",
+          "number": 3,
+          "title": "3. Who Is Speaking",
+          "part": "The Conversation",
+          "sections": [
+            {
+              "id": "identity-is-accountability",
+              "title": "Identity Is Accountability",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-progression-of-identity",
+              "title": "The Progression of Identity",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "what-the-speaker-adds-to-the-message",
+              "title": "What the Speaker Adds to the Message",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "authority-and-roles",
+              "title": "Authority and Roles",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "forward-identity-in-paper-and-digital",
+              "title": "Forward: Identity in Paper and Digital",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-takeaway",
+              "title": "The Takeaway",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/03-who-is-speaking"
+        },
+        {
+          "key": "04-witnesses-and-formality",
+          "number": 4,
+          "title": "4. Witnesses and Formality",
+          "part": "The Conversation",
+          "sections": [
+            {
+              "id": "the-third-person",
+              "title": "The Third Person",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-escalation-of-formality",
+              "title": "The Escalation of Formality",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "trust-scales-with-formality",
+              "title": "Trust Scales With Formality",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-medium-constrains-witnessing",
+              "title": "The Medium Constrains Witnessing",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "forward-witnessing-in-paper-and-digital",
+              "title": "Forward: Witnessing in Paper and Digital",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-pattern",
+              "title": "The Pattern",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/04-witnesses-and-formality"
+        },
+        {
+          "key": "05-the-limits-of-presence",
+          "number": 5,
+          "title": "5. The Limits of Presence",
+          "part": "The Conversation",
+          "sections": [
+            {
+              "id": "air-dissipates",
+              "title": "Air Dissipates",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "air-doesn-t-travel-far",
+              "title": "Air Doesn't Travel Far",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "air-can-t-address",
+              "title": "Air Can't Address",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "air-reveals-everything-nearby",
+              "title": "Air Reveals Everything Nearby",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-physics-force-the-invention",
+              "title": "The Physics Force the Invention",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-pivot",
+              "title": "The Pivot",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/05-the-limits-of-presence"
+        },
+        {
+          "key": "06-the-message-is-born",
+          "number": 6,
+          "title": "6. The Message Is Born",
+          "part": "The Message",
+          "sections": [
+            {
+              "id": "what-the-new-medium-gives",
+              "title": "What the New Medium Gives",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "what-the-new-medium-costs",
+              "title": "What the New Medium Costs",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-shape-of-a-message",
+              "title": "The Shape of a Message",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-same-conversation-different-physics",
+              "title": "The Same Conversation, Different Physics",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "forward-the-digital-message",
+              "title": "Forward: The Digital Message",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/06-the-message-is-born"
+        },
+        {
+          "key": "07-the-address-and-the-content",
+          "number": 7,
+          "title": "7. The Address and the Content",
+          "part": "The Message",
+          "sections": [
+            {
+              "id": "the-address",
+              "title": "The Address",
+              "level": 2,
+              "children": [
+                {
+                  "id": "in-speech",
+                  "title": "In Speech",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "in-paper",
+                  "title": "In Paper",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "in-digital-b3nd",
+                  "title": "In Digital (b3nd)",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "the-content",
+              "title": "The Content",
+              "level": 2,
+              "children": [
+                {
+                  "id": "in-speech",
+                  "title": "In Speech",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "in-paper",
+                  "title": "In Paper",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "in-digital-b3nd",
+                  "title": "In Digital (b3nd)",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "the-separation-is-the-power",
+              "title": "The Separation Is the Power",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/07-the-address-and-the-content"
+        },
+        {
+          "key": "08-seals-and-signatures",
+          "number": 8,
+          "title": "8. Seals and Signatures",
+          "part": "The Message",
+          "sections": [
+            {
+              "id": "the-history-of-proving-identity-at-a-distance",
+              "title": "The History of Proving Identity at a Distance",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-principle",
+              "title": "The Principle",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "non-repudiation",
+              "title": "Non-Repudiation",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "forward-signatures-in-digital",
+              "title": "Forward: Signatures in Digital",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-three-layer-view",
+              "title": "The Three-Layer View",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/08-seals-and-signatures"
+        },
+        {
+          "key": "09-secrets-and-sealed-envelopes",
+          "number": 9,
+          "title": "9. Secrets and Sealed Envelopes",
+          "part": "The Message",
+          "sections": [
+            {
+              "id": "privacy-in-air",
+              "title": "Privacy in Air",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "privacy-in-paper",
+              "title": "Privacy in Paper",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "privacy-in-digital",
+              "title": "Privacy in Digital",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "two-kinds-of-secrets",
+              "title": "Two Kinds of Secrets",
+              "level": 2,
+              "children": [
+                {
+                  "id": "the-shared-secret",
+                  "title": "The Shared Secret",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "the-asymmetric-secret",
+                  "title": "The Asymmetric Secret",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "the-three-layer-view",
+              "title": "The Three-Layer View",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-door-built-from-mathematics",
+              "title": "The Door Built from Mathematics",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/09-secrets-and-sealed-envelopes"
+        },
+        {
+          "key": "10-the-machine-that-reads-mail",
+          "number": 10,
+          "title": "10. The Machine That Reads Mail",
+          "part": "The Network",
+          "sections": [
+            {
+              "id": "the-physics-of-the-digital-medium",
+              "title": "The Physics of the Digital Medium",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "what-the-machine-does",
+              "title": "What the Machine Does",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-schema-house-rules",
+              "title": "The Schema: House Rules",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-three-layer-view",
+              "title": "The Three-Layer View",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/10-the-machine-that-reads-mail"
+        },
+        {
+          "key": "11-dialogue-at-the-speed-of-light",
+          "number": 11,
+          "title": "11. Dialogue at the Speed of Light",
+          "part": "The Network",
+          "sections": [
+            {
+              "id": "the-inbox",
+              "title": "The Inbox",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-handler-a-diligent-clerk",
+              "title": "The Handler: A Diligent Clerk",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "authentication-as-dialogue",
+              "title": "Authentication as Dialogue",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-map",
+              "title": "The Map",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "what-changes",
+              "title": "What Changes",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-readable-machine",
+              "title": "The Readable Machine",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/11-dialogue-at-the-speed-of-light"
+        },
+        {
+          "key": "12-making-deals",
+          "number": 12,
+          "title": "12. Making Deals",
+          "part": "The Network",
+          "sections": [
+            {
+              "id": "in-speech",
+              "title": "In Speech",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "in-paper",
+              "title": "In Paper",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "in-digital",
+              "title": "In Digital",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-envelope-as-a-notarized-contract",
+              "title": "The Envelope as a Notarized Contract",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "fee-collection",
+              "title": "Fee Collection",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-three-layer-view",
+              "title": "The Three-Layer View",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-pattern",
+              "title": "The Pattern",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/12-making-deals"
+        },
+        {
+          "key": "13-building-consensus",
+          "number": 13,
+          "title": "13. Building Consensus",
+          "part": "The Network",
+          "sections": [
+            {
+              "id": "in-speech",
+              "title": "In Speech",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "in-paper",
+              "title": "In Paper",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "in-digital",
+              "title": "In Digital",
+              "level": 2,
+              "children": [
+                {
+                  "id": "the-three-layer-flow",
+                  "title": "The Three-Layer Flow",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "hash-chains",
+                  "title": "Hash Chains",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "expanding-the-circle",
+                  "title": "Expanding the Circle",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "parallel-chains",
+                  "title": "Parallel Chains",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "the-three-layer-view",
+              "title": "The Three-Layer View",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-transparent-record",
+              "title": "The Transparent Record",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/13-building-consensus"
+        },
+        {
+          "key": "14-bending-the-machine",
+          "number": 14,
+          "title": "14. Bending the Machine",
+          "part": "The Network",
+          "sections": [
+            {
+              "id": "instant-replay-rollback",
+              "title": "Instant Replay: Rollback",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "perfect-duplication-parallel-running",
+              "title": "Perfect Duplication: Parallel Running",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "instant-forwarding-replication",
+              "title": "Instant Forwarding: Replication",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "address-portability-migration",
+              "title": "Address Portability: Migration",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "chain-computing-start-from-here",
+              "title": "Chain Computing: Start from Here",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "deployment-is-just-a-conversation",
+              "title": "Deployment Is Just a Conversation",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/14-bending-the-machine"
+        },
+        {
+          "key": "15-everything-is-a-message",
+          "number": 15,
+          "title": "15. Everything Is a Message",
+          "part": "The Network",
+          "sections": [
+            {
+              "id": "the-three-mediums-complete",
+              "title": "The Three Mediums, Complete",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "from-one-to-infinity",
+              "title": "From One to Infinity",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "all-formats",
+              "title": "All Formats",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "all-agreements",
+              "title": "All Agreements",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "all-deployments",
+              "title": "All Deployments",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-compression-principle",
+              "title": "The Compression Principle",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-claim",
+              "title": "The Claim",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/15-everything-is-a-message"
+        },
+        {
+          "key": "16-cookbook",
+          "number": 16,
+          "title": "16. Cookbook",
+          "part": "The Network",
+          "sections": [
+            {
+              "id": "1-the-public-bulletin-board",
+              "title": "1. The Public Bulletin Board",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "2-the-private-journal",
+              "title": "2. The Private Journal",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "3-the-signed-announcement",
+              "title": "3. The Signed Announcement",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "4-the-two-party-handshake",
+              "title": "4. The Two-Party Handshake",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "5-the-inbox-service",
+              "title": "5. The Inbox Service",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "6-the-notarized-agreement",
+              "title": "6. The Notarized Agreement",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "7-the-consensus-chain",
+              "title": "7. The Consensus Chain",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "8-the-atomic-trade",
+              "title": "8. The Atomic Trade",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "9-the-audit-trail",
+              "title": "9. The Audit Trail",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "10-start-a-new-post-office",
+              "title": "10. Start a New Post Office",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "11-go-back-in-time",
+              "title": "11. Go Back in Time",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "12-ask-two-clerks-the-same-question",
+              "title": "12. Ask Two Clerks the Same Question",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "13-forward-all-mail",
+              "title": "13. Forward All Mail",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "14-the-authentication-conversation",
+              "title": "14. The Authentication Conversation",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-pattern-one-last-time",
+              "title": "The Pattern, One Last Time",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/message-guide/16-cookbook"
+        }
+      ],
+      "updatedAt": 1777388169704
+    },
+    {
+      "key": "b3nd",
+      "title": "B3nd",
+      "label": "B3nd Overview",
+      "description": "What B3nd is and how it works",
+      "tier": "documentation",
+      "chapters": [
+        {
+          "key": "b3nd",
+          "number": 1,
+          "title": "B3nd",
+          "part": "",
+          "sections": [
+            {
+              "id": "what-b3nd-provides",
+              "title": "What B3nd Provides",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "ecosystem-where-the-code-lives",
+              "title": "Ecosystem (Where the Code Lives)",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "the-three-roles",
+              "title": "The Three Roles",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "core-concepts",
+              "title": "Core Concepts",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "going-deeper",
+              "title": "Going Deeper",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/b3nd/b3nd"
+        }
+      ],
+      "updatedAt": 1777568175047
+    },
+    {
+      "key": "faq",
+      "title": "B3nd FAQ",
+      "label": "Design Decisions",
+      "description": "Why things work the way they do",
+      "tier": "documentation",
+      "chapters": [
+        {
+          "key": "faq",
+          "number": 1,
+          "title": "B3nd FAQ",
+          "part": "",
+          "sections": [
+            {
+              "id": "why",
+              "title": "Why",
+              "level": 2,
+              "children": [
+                {
+                  "id": "why-does-b3nd-make-no-liveness-guarantees",
+                  "title": "Why does B3nd make no liveness guarantees?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "why-is-encryption-client-side",
+                  "title": "Why is encryption client-side?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "why-is-signing-the-same-gesture-at-every-layer",
+                  "title": "Why is signing the same gesture at every layer?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "why-does-the-framework-not-define-specific-programs",
+                  "title": "Why does the framework not define specific programs?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "why-use-envelopes-instead-of-individual-messages",
+                  "title": "Why use envelopes instead of individual messages?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "why-doesn-t-b3nd-guarantee-storage",
+                  "title": "Why doesn't B3nd guarantee storage?",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "how",
+              "title": "How",
+              "level": 2,
+              "children": [
+                {
+                  "id": "how-do-i-hide-sensitive-path-segments",
+                  "title": "How do I hide sensitive path segments?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-do-i-use-the-canonicalize-package-in-deno",
+                  "title": "How do I use the canonicalize package in Deno?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-do-i-run-tests-without-localstoragestore-failures",
+                  "title": "How do I run tests without LocalStorageStore failures?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-do-i-run-my-own-b3nd-network",
+                  "title": "How do I run my own B3nd network?",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-do-i-organize-domain-concepts-in-uri-paths",
+                  "title": "How do I organize domain concepts in URI paths?",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/faq/faq"
+        }
+      ],
+      "updatedAt": 1777388169728
+    },
+    {
+      "key": "framework",
+      "title": "B3nd — DePIN Framework & SDK",
+      "label": "Framework Reference",
+      "description": "Protocol design, dispatch, primitives",
+      "tier": "documentation",
+      "chapters": [
+        {
+          "key": "framework",
+          "number": 1,
+          "title": "B3nd — DePIN Framework & SDK",
+          "part": "",
+          "sections": [
+            {
+              "id": "three-layers-of-abstraction",
+              "title": "Three Layers of Abstraction",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "layer-1-b3nd-framework",
+              "title": "Layer 1: B3nd Framework",
+              "level": 2,
+              "children": [
+                {
+                  "id": "the-problem",
+                  "title": "The Problem",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "the-message-primitive",
+                  "title": "The Message Primitive",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "the-envelope-shape",
+                  "title": "The Envelope Shape",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-it-works",
+                  "title": "How It Works",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "programs-and-schema-dispatch",
+                  "title": "Programs and Schema Dispatch",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "protocolinterfacenode",
+                  "title": "ProtocolInterfaceNode",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "basic-operations",
+                  "title": "Basic Operations",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "the-send-and-message-api",
+                  "title": "The send() and message() API",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "auth-primitives",
+                  "title": "Auth Primitives",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "sdk-toolbox",
+                  "title": "SDK Toolbox",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "uri-design",
+                  "title": "URI Design",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "privacy-levels",
+                  "title": "Privacy Levels",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "framework-design-principles",
+                  "title": "Framework Design Principles",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "b3nd-is-not-a-storage-layer",
+                  "title": "B3nd Is Not a Storage Layer",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "available-stores-protocol-clients-transport-clients",
+                  "title": "Available Stores, Protocol Clients & Transport Clients",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "packages",
+                  "title": "Packages",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "layer-2-protocol-design",
+              "title": "Layer 2: Protocol Design",
+              "level": 2,
+              "children": [
+                {
+                  "id": "what-a-protocol-defines",
+                  "title": "What a Protocol Defines",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-envelope-dispatch-works-msgschema",
+                  "title": "How Envelope Dispatch Works (msgSchema)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "input-semantics",
+                  "title": "Input Semantics",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "cross-program-reads",
+                  "title": "Cross-Program Reads",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "accessing-envelope-context-via-upstream",
+                  "title": "Accessing Envelope Context via `upstream`",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "testing-protocol-validators",
+                  "title": "Testing Protocol Validators",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "recursive-envelopes-and-consensus",
+                  "title": "Recursive Envelopes and Consensus",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "signing-and-intent",
+                  "title": "Signing and Intent",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "worked-example-a-minimal-protocol",
+                  "title": "Worked Example: A Minimal Protocol",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "protocol-design-patterns",
+                  "title": "Protocol Design Patterns",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "protocol-versioning",
+                  "title": "Protocol Versioning",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "open-problems-in-protocol-design",
+                  "title": "Open Problems in Protocol Design",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "protocol-examples",
+              "title": "Protocol Examples",
+              "level": 2,
+              "children": [
+                {
+                  "id": "simple-open-protocol",
+                  "title": "Simple Open Protocol",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "auth-based-protocol",
+                  "title": "Auth-Based Protocol",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "content-addressed-protocol",
+                  "title": "Content-Addressed Protocol",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "fee-collection-protocol",
+                  "title": "Fee Collection Protocol",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "utxo-conservation-protocol",
+                  "title": "UTXO / Conservation Protocol",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "hash-chain-retelling",
+                  "title": "Hash-Chain Retelling",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "consensus-chain",
+                  "title": "Consensus Chain",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "running-your-protocol-s-node",
+              "title": "Running Your Protocol's Node",
+              "level": 2,
+              "children": [
+                {
+                  "id": "schema-module-pattern",
+                  "title": "Schema Module Pattern",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "wiring-a-rig-transport-server",
+                  "title": "Wiring a Rig + transport server",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "multi-backend-composition",
+                  "title": "Multi-Backend Composition",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "postgresql-mongodb-setup",
+                  "title": "PostgreSQL / MongoDB Setup",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "packaging-a-protocol-sdk",
+              "title": "Packaging a Protocol SDK",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "what-apps-look-like",
+              "title": "What Apps Look Like",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "terminology",
+              "title": "Terminology",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "tools-infrastructure",
+              "title": "Tools & Infrastructure",
+              "level": 2,
+              "children": [
+                {
+                  "id": "mcp-tools-claude-plugin",
+                  "title": "MCP Tools (Claude Plugin)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "bnd-cli-tool",
+                  "title": "bnd CLI Tool",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "developer-dashboard",
+                  "title": "Developer Dashboard",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "source-files-reference",
+              "title": "Source Files Reference",
+              "level": 2,
+              "children": [
+                {
+                  "id": "foundation-packages-separate-repos",
+                  "title": "Foundation packages (separate repos)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "this-repo-umbrella-sdk",
+                  "title": "This repo — umbrella SDK",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "apps-deployables",
+                  "title": "Apps (deployables)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "browser-only-stores",
+                  "title": "Browser-only stores",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "server-side-stores",
+                  "title": "Server-side stores",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/framework/framework"
+        }
+      ],
+      "updatedAt": 1777811067574
+    },
+    {
+      "key": "operators",
+      "title": "B3nd Node Operations",
+      "label": "Operators Guide",
+      "description": "Architecture, backends, managed mode",
+      "tier": "documentation",
+      "chapters": [
+        {
+          "key": "operators",
+          "number": 1,
+          "title": "B3nd Node Operations",
+          "part": "",
+          "sections": [
+            {
+              "id": "architecture",
+              "title": "Architecture",
+              "level": 2,
+              "children": [
+                {
+                  "id": "management-uri-scheme",
+                  "title": "Management URI Scheme",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "quick-start-standalone-node",
+              "title": "Quick Start: Standalone Node",
+              "level": 2,
+              "children": [
+                {
+                  "id": "with-a-schema",
+                  "title": "With a Schema",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "verify",
+                  "title": "Verify",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "backends",
+              "title": "Backends",
+              "level": 2,
+              "children": [
+                {
+                  "id": "backend-types",
+                  "title": "Backend Types",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "single-backend",
+                  "title": "Single Backend",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "multi-backend",
+                  "title": "Multi-Backend",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-composition-works",
+                  "title": "How Composition Works",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "managed-mode",
+              "title": "Managed Mode",
+              "level": 2,
+              "children": [
+                {
+                  "id": "activation",
+                  "title": "Activation",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "required-environment-variables",
+                  "title": "Required Environment Variables",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "optional-environment-variables",
+                  "title": "Optional Environment Variables",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "what-managed-mode-provides",
+                  "title": "What Managed Mode Provides",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "graceful-degradation",
+                  "title": "Graceful Degradation",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "key-generation",
+              "title": "Key Generation",
+              "level": 2,
+              "children": [
+                {
+                  "id": "ed25519-identity-signing",
+                  "title": "Ed25519 Identity (Signing)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "x25519-encryption",
+                  "title": "X25519 Encryption",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "what-goes-where",
+                  "title": "What Goes Where",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "management-interfaces",
+              "title": "Management Interfaces",
+              "level": 2,
+              "children": [
+                {
+                  "id": "mcp-tools",
+                  "title": "MCP Tools",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "web-rig-nodes-experience",
+                  "title": "Web Rig (Nodes Experience)",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "writing-node-configs",
+              "title": "Writing Node Configs",
+              "level": 2,
+              "children": [
+                {
+                  "id": "managednodeconfig-structure",
+                  "title": "ManagedNodeConfig Structure",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "signing-and-publishing-a-config",
+                  "title": "Signing and Publishing a Config",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "monitoring",
+              "title": "Monitoring",
+              "level": 2,
+              "children": [
+                {
+                  "id": "heartbeat",
+                  "title": "Heartbeat",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "metrics",
+                  "title": "Metrics",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "reading-operational-data",
+                  "title": "Reading Operational Data",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "hot-reconfiguration",
+              "title": "Hot Reconfiguration",
+              "level": 2,
+              "children": [
+                {
+                  "id": "config-watcher",
+                  "title": "Config Watcher",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "schema-hot-reload",
+                  "title": "Schema Hot-Reload",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "what-triggers-a-rebuild",
+                  "title": "What Triggers a Rebuild",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "software-updates",
+              "title": "Software Updates",
+              "level": 2,
+              "children": [
+                {
+                  "id": "update-manifest",
+                  "title": "Update Manifest",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "publishing-an-update",
+                  "title": "Publishing an Update",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "update-detection",
+                  "title": "Update Detection",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "peer-replication",
+              "title": "Peer Replication",
+              "level": 2,
+              "children": [
+                {
+                  "id": "peerspec",
+                  "title": "PeerSpec",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "directions",
+                  "title": "Directions",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-it-works",
+                  "title": "How It Works",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "configuration",
+                  "title": "Configuration",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "composition",
+                  "title": "Composition",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "multi-node-networks",
+              "title": "Multi-Node Networks",
+              "level": 2,
+              "children": [
+                {
+                  "id": "networkmanifest",
+                  "title": "NetworkManifest",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "docker-compose-generation",
+                  "title": "Docker Compose Generation",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "local-development-runner",
+                  "title": "Local Development Runner",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "config-server-as-coordination-point",
+                  "title": "Config Server as Coordination Point",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "docker-deployment",
+              "title": "Docker Deployment",
+              "level": 2,
+              "children": [
+                {
+                  "id": "building",
+                  "title": "Building",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "image",
+                  "title": "Image",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "running",
+                  "title": "Running",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "with-managed-mode",
+                  "title": "With Managed Mode",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "docker-compose-profiles",
+                  "title": "Docker Compose Profiles",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "environment-variables-reference",
+              "title": "Environment Variables Reference",
+              "level": 2,
+              "children": [
+                {
+                  "id": "phase-1-always-required",
+                  "title": "Phase 1 (Always Required)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "phase-2-managed-mode",
+                  "title": "Phase 2 (Managed Mode)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "backend-url-examples",
+                  "title": "Backend URL Examples",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/operators/operators"
+        }
+      ],
+      "updatedAt": 1777388169730
+    },
+    {
+      "key": "protocol-cookbook",
+      "title": "Designing Protocols",
+      "label": "Designing Protocols",
+      "description": "Worked examples, packaging SDKs",
+      "tier": "cookbook",
+      "chapters": [
+        {
+          "key": "protocol-cookbook",
+          "number": 1,
+          "title": "Designing Protocols",
+          "part": "",
+          "sections": [
+            {
+              "id": "running-your-protocol-s-node",
+              "title": "Running Your Protocol's Node",
+              "level": 2,
+              "children": [
+                {
+                  "id": "schema-module-pattern",
+                  "title": "Schema Module Pattern",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "wiring-a-rig-transport-server",
+                  "title": "Wiring a Rig + transport server",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "multi-backend-composition",
+                  "title": "Multi-Backend Composition",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "postgresql-mongodb-setup",
+                  "title": "PostgreSQL / MongoDB Setup",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "packaging-a-protocol-sdk",
+              "title": "Packaging a Protocol SDK",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/protocol-cookbook/protocol-cookbook"
+        }
+      ],
+      "updatedAt": 1777568196221
+    },
+    {
+      "key": "rig-patterns",
+      "title": "Rig Patterns — A Visual Guide",
+      "label": "Rig Patterns",
+      "description": "Scrollable catalog of rig setups — connecting, hooks, events, observe, routing, encryption, subscriptions",
+      "tier": "cookbook",
+      "chapters": [
+        {
+          "key": "rig-patterns",
+          "number": 1,
+          "title": "Rig Patterns — A Visual Guide",
+          "part": "",
+          "sections": [
+            {
+              "id": "getting-connected",
+              "title": "Getting Connected",
+              "level": 2,
+              "children": [
+                {
+                  "id": "connect-to-a-remote-node",
+                  "title": "Connect to a remote node",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "connect-to-a-local-in-memory-backend",
+                  "title": "Connect to a local in-memory backend",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "connect-with-identity",
+                  "title": "Connect with identity",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "generate-a-fresh-identity",
+                  "title": "Generate a fresh identity",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "build-a-client-from-a-database-url",
+                  "title": "Build a client from a database URL",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "connections-are-explicit",
+                  "title": "Connections are explicit",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "reading-and-writing",
+              "title": "Reading and Writing",
+              "level": 2,
+              "children": [
+                {
+                  "id": "basic-read-and-write",
+                  "title": "Basic read and write",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "read-with-error-handling",
+                  "title": "Read with error handling",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "check-existence-via-read",
+                  "title": "Check existence via read",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "batch-read",
+                  "title": "Batch read",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "list-items-under-a-prefix",
+                  "title": "List items under a prefix",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "count-items",
+                  "title": "Count items",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "signed-envelope-send",
+                  "title": "Signed envelope (send)",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "schema-application-level-validation",
+              "title": "Schema — Application-Level Validation",
+              "level": 2,
+              "children": [
+                {
+                  "id": "schema-is-a-rig-concern",
+                  "title": "Schema is a rig concern",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "schema-with-connections",
+                  "title": "Schema with connections",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "schema-hooks-defense-in-depth",
+                  "title": "Schema + hooks = defense in depth",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "encrypted-data",
+              "title": "Encrypted Data",
+              "level": 2,
+              "children": [
+                {
+                  "id": "encrypt-to-self",
+                  "title": "Encrypt to self",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "encrypt-to-another-party",
+                  "title": "Encrypt to another party",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "batch-decrypt",
+                  "title": "Batch decrypt",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "hooks-flat-typed-single-function",
+              "title": "Hooks — Flat, Typed, Single-Function",
+              "level": 2,
+              "children": [
+                {
+                  "id": "validate-on-receive",
+                  "title": "Validate on receive",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "rate-limit-writes",
+                  "title": "Rate-limit writes",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "audit-trail-on-reads",
+                  "title": "Audit trail on reads",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "rewrite-a-uri-in-a-before-hook",
+                  "title": "Rewrite a URI in a before-hook",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "compose-multiple-checks-in-one-hook",
+                  "title": "Compose multiple checks in one hook",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "why-hooks-are-frozen",
+                  "title": "Why hooks are frozen",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "the-hook-slots",
+                  "title": "The hook slots",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "events-async-fire-and-forget",
+              "title": "Events — Async Fire-and-Forget",
+              "level": 2,
+              "children": [
+                {
+                  "id": "log-every-operation",
+                  "title": "Log every operation",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "track-metrics",
+                  "title": "Track metrics",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "add-events-at-runtime",
+                  "title": "Add events at runtime",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "drain-pending-events-before-shutdown",
+                  "title": "Drain pending events before shutdown",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "reactions-uri-pattern-reactions",
+              "title": "Reactions — URI Pattern Reactions",
+              "level": 2,
+              "children": [
+                {
+                  "id": "reaction-to-user-profile-changes",
+                  "title": "Reaction to user profile changes",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "wildcard-reaction-to-all-writes-under-a-namespace",
+                  "title": "Wildcard — reaction to all writes under a namespace",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "add-reactions-at-runtime",
+                  "title": "Add reactions at runtime",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "hooks-vs-events-vs-observe",
+                  "title": "Hooks vs Events vs Observe",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "client-routing",
+              "title": "Client Routing",
+              "level": 2,
+              "children": [
+                {
+                  "id": "single-backend-most-common",
+                  "title": "Single backend (most common)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "filtered-clients-route-by-uri-pattern",
+                  "title": "Filtered clients — route by URI pattern",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-routing-works",
+                  "title": "How routing works",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "multiple-write-targets-replication",
+                  "title": "Multiple write targets (replication)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "unfiltered-clients-accept-everything",
+                  "title": "Unfiltered clients accept everything",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "per-operation-routing-connections",
+                  "title": "Per-operation routing (connections)",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "watching-and-subscribing",
+              "title": "Watching and Subscribing",
+              "level": 2,
+              "children": [
+                {
+                  "id": "watch-a-single-uri-for-changes",
+                  "title": "Watch a single URI for changes",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "watch-a-collection",
+                  "title": "Watch a collection",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "observe-a-uri-pattern-real-time-streaming",
+                  "title": "Observe a URI pattern (real-time streaming)",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "reaction-to-writes-fire-and-forget",
+                  "title": "Reaction to writes (fire-and-forget)",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "serving-over-http",
+              "title": "Serving Over HTTP",
+              "level": 2,
+              "children": [
+                {
+                  "id": "expose-the-rig-as-an-http-endpoint",
+                  "title": "Expose the rig as an HTTP endpoint",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "what-the-handler-exposes",
+                  "title": "What the handler exposes",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "handler-with-hooks-and-events",
+                  "title": "Handler with hooks and events",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "the-rig-as-a-client",
+              "title": "The Rig as a Client",
+              "level": 2,
+              "children": [
+                {
+                  "id": "pass-the-rig-where-a-client-is-expected",
+                  "title": "Pass the rig where a client is expected",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "compose-rigs",
+                  "title": "Compose rigs",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "identity-patterns",
+              "title": "Identity Patterns",
+              "level": 2,
+              "children": [
+                {
+                  "id": "identity-drives-rig-delivers",
+                  "title": "Identity drives, rig delivers",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "check-capabilities-before-acting",
+                  "title": "Check capabilities before acting",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "inspect-rig-state",
+                  "title": "Inspect rig state",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "full-init-examples",
+              "title": "Full Init Examples",
+              "level": 2,
+              "children": [
+                {
+                  "id": "minimal-app-backend",
+                  "title": "Minimal app backend",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "browser-app-with-local-cache-remote-sync",
+                  "title": "Browser app with local cache + remote sync",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "multi-protocol-node-with-hooks",
+                  "title": "Multi-protocol node with hooks",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "test-rig-with-assertions",
+                  "title": "Test rig with assertions",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "cli-tool-backed-by-a-rig",
+                  "title": "CLI tool backed by a rig",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "edge-cases-and-gotchas",
+              "title": "Edge Cases and Gotchas",
+              "level": 2,
+              "children": [
+                {
+                  "id": "rig-send-requires-pre-built-messagedata",
+                  "title": "Rig.send() requires pre-built MessageData",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "before-hook-throw-vs-after-hook-throw",
+                  "title": "Before-hook throw vs after-hook throw",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "event-handlers-that-fail",
+                  "title": "Event handlers that fail",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "no-accepting-client-for-a-uri",
+                  "title": "No accepting client for a URI",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "drain-before-shutdown",
+                  "title": "Drain before shutdown",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "read-returns-readresult",
+                  "title": "read returns ReadResult[]",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "receive-vs-send",
+                  "title": "receive vs send",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "summary-the-rig-mental-model",
+              "title": "Summary: The Rig Mental Model",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/rig-patterns/rig-patterns"
+        }
+      ],
+      "updatedAt": 1777388169731
+    },
+    {
+      "key": "design-exchange",
+      "title": "Exchange Patterns & Trust Models",
+      "label": "Exchange Patterns",
+      "description": "Trust models, party interactions, crypto guarantees",
+      "tier": "design",
+      "chapters": [
+        {
+          "key": "design-exchange",
+          "number": 1,
+          "title": "Exchange Patterns & Trust Models",
+          "part": "",
+          "sections": [
+            {
+              "id": "the-exchange-primitive",
+              "title": "The Exchange Primitive",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "trust-models",
+              "title": "Trust Models",
+              "level": 2,
+              "children": [
+                {
+                  "id": "1-serverless-password-auth",
+                  "title": "1. Serverless — Password Auth",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "2-non-custodial-vault-hmac",
+                  "title": "2. Non-Custodial — Vault / HMAC",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "3-pubkey-access-control",
+                  "title": "3. Pubkey Access Control",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "4-managed-node-operator",
+                  "title": "4. Managed Node Operator",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "5-three-party-consensus",
+                  "title": "5. Three-Party Consensus",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "party-interactions",
+              "title": "Party Interactions",
+              "level": 2,
+              "children": [
+                {
+                  "id": "client-client-encrypted-direct-messaging",
+                  "title": "Client ↔ Client — Encrypted Direct Messaging",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "client-handler-auth-moderation-indexing",
+                  "title": "Client ↔ Handler — Auth, Moderation, Indexing",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "handler-handler-service-composition",
+                  "title": "Handler ↔ Handler — Service Composition",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "client-network-public-content-discovery",
+                  "title": "Client ↔ Network — Public Content & Discovery",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "crypto-guarantees",
+              "title": "Crypto Guarantees",
+              "level": 2,
+              "children": [
+                {
+                  "id": "signing-authorship-non-repudiation",
+                  "title": "Signing → Authorship & Non-Repudiation",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "encryption-confidentiality-between-two-parties",
+                  "title": "Encryption → Confidentiality Between Two Parties",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "hmac-deterministic-derivation-secret-scoped-identity",
+                  "title": "HMAC → Deterministic Derivation, Secret-Scoped Identity",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "hashing-content-addressing-integrity",
+                  "title": "Hashing → Content Addressing & Integrity",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "compose-as-trust-boundary",
+              "title": "Compose as Trust Boundary",
+              "level": 2,
+              "children": [
+                {
+                  "id": "when-access-control-in-code",
+                  "title": "`when()` — Access Control in Code",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "respondto-the-encrypted-boundary",
+                  "title": "`respondTo()` — The Encrypted Boundary",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "pipeline-sequential-trust-layers",
+                  "title": "`pipeline()` — Sequential Trust Layers",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "connect-transport-trust",
+                  "title": "`connect()` — Transport Trust",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "trust-composition-pattern",
+                  "title": "Trust Composition Pattern",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "summary",
+              "title": "Summary",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/design-exchange/design-exchange"
+        }
+      ],
+      "updatedAt": 1777388169726
+    },
+    {
+      "key": "design-infrastructure",
+      "title": "Infrastructure & Deployment",
+      "label": "Infrastructure",
+      "description": "Node requirements, deployment topologies, scaling",
+      "tier": "design",
+      "chapters": [
+        {
+          "key": "design-infrastructure",
+          "number": 1,
+          "title": "Infrastructure & Deployment",
+          "part": "",
+          "sections": [
+            {
+              "id": "node-requirements-for-handler-support",
+              "title": "Node Requirements for Handler Support",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "deployment-topologies",
+              "title": "Deployment Topologies",
+              "level": 2,
+              "children": [
+                {
+                  "id": "single-node-embedded-handler",
+                  "title": "Single Node + Embedded Handler",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "node-remote-listener",
+                  "title": "Node + Remote Listener",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "node-cluster-shared-listeners",
+                  "title": "Node Cluster + Shared Listeners",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "peer-replication-local-handlers",
+                  "title": "Peer Replication + Local Handlers",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "inbox-outbox-convention",
+              "title": "Inbox / Outbox Convention",
+              "level": 2,
+              "children": [
+                {
+                  "id": "uri-patterns",
+                  "title": "URI Patterns",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "discovery-pattern",
+                  "title": "Discovery Pattern",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "retention-strategies",
+                  "title": "Retention Strategies",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "topic-namespacing",
+                  "title": "Topic Namespacing",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "scaling-considerations",
+              "title": "Scaling Considerations",
+              "level": 2,
+              "children": [
+                {
+                  "id": "message-queuing-via-uri-space",
+                  "title": "Message Queuing via URI Space",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "backpressure",
+                  "title": "Backpressure",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "multiple-listeners-per-inbox",
+                  "title": "Multiple Listeners Per Inbox",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "operational-model",
+              "title": "Operational Model",
+              "level": 2,
+              "children": [
+                {
+                  "id": "what-operators-need",
+                  "title": "What Operators Need",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "environment-variables",
+                  "title": "Environment Variables",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "health-checks",
+                  "title": "Health Checks",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "graceful-shutdown",
+                  "title": "Graceful Shutdown",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "monitoring-hooks",
+                  "title": "Monitoring Hooks",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "the-vault-as-reference-architecture",
+              "title": "The Vault as Reference Architecture",
+              "level": 2,
+              "children": [
+                {
+                  "id": "what-it-demonstrates",
+                  "title": "What it demonstrates",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "deploying-your-own-handler",
+                  "title": "Deploying Your Own Handler",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/design-infrastructure/design-infrastructure"
+        }
+      ],
+      "updatedAt": 1777388169726
+    },
+    {
+      "key": "design-transport",
+      "title": "Transport & Web Standards",
+      "label": "Transport",
+      "description": "WebSocket, WebRTC, SSE, and the subscribe primitive",
+      "tier": "design",
+      "chapters": [
+        {
+          "key": "design-transport",
+          "number": 1,
+          "title": "Transport & Web Standards",
+          "part": "",
+          "sections": [
+            {
+              "id": "current-http-polling",
+              "title": "Current: HTTP Polling",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "websocket",
+              "title": "WebSocket",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "server-sent-events-sse",
+              "title": "Server-Sent Events (SSE)",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "webrtc",
+              "title": "WebRTC",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "webtransport",
+              "title": "WebTransport",
+              "level": 2,
+              "children": []
+            },
+            {
+              "id": "transport-matrix",
+              "title": "Transport Matrix",
+              "level": 2,
+              "children": [
+                {
+                  "id": "decision-guide",
+                  "title": "Decision Guide",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "the-subscribe-primitive",
+              "title": "The `subscribe()` Primitive",
+              "level": 2,
+              "children": [
+                {
+                  "id": "design-sketch",
+                  "title": "Design Sketch",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "how-it-would-work",
+                  "title": "How It Would Work",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "subscribe-vs-connect",
+                  "title": "Subscribe vs Connect",
+                  "level": 3,
+                  "children": []
+                },
+                {
+                  "id": "migration-path",
+                  "title": "Migration Path",
+                  "level": 3,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "all-roads-lead-to-protocolinterfacenode",
+              "title": "All Roads Lead to `ProtocolInterfaceNode`",
+              "level": 2,
+              "children": []
+            }
+          ],
+          "uri": "mutable://open/rig/learn/chapters/design-transport/design-transport"
+        }
+      ],
+      "updatedAt": 1777388169728
+    }
+  ],
+  "generatedAt": 1777811091114
+}

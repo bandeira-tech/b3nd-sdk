@@ -304,7 +304,7 @@ authentication, not just node configs.
 
 ### Web Rig (Nodes Experience)
 
-The web rig (`apps/b3nd-web-rig/`) provides a visual node management interface
+The web rig (own repo: `bandeira-tech/b3nd-web-rig`, run via `./webrig dev`) provides a visual node management interface
 at the **Nodes** tab. It uses the active account's signing keys and the active
 backend.
 
