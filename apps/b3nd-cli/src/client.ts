@@ -1,7 +1,12 @@
-import { connection, createClientFromUrl, Identity, Rig } from "@b3nd/rig";
-import type { Output, ReceiveResult } from "@b3nd/rig";
-import { message } from "../../../libs/b3nd-msg/data/message.ts";
-import type { EncryptedPayload } from "@b3nd/sdk/encrypt";
+import {
+  connection,
+  createClientFromUrl,
+  Rig,
+} from "@bandeira-tech/b3nd-core/rig";
+import { Identity } from "@bandeira-tech/b3nd-core/identity";
+import type { Output, ReceiveResult } from "@bandeira-tech/b3nd-core/types";
+import { message } from "@bandeira-tech/b3nd-canon/msg";
+import type { EncryptedPayload } from "@bandeira-tech/b3nd-canon/encrypt";
 import { loadConfig } from "./config.ts";
 import { loadAccountKey, loadEncryptionKey } from "./keys.ts";
 import { Logger } from "./logger.ts";

@@ -9,11 +9,12 @@
     "lint": "deno lint src/"
   },
   "imports": {
-    "@b3nd/rig": "../../libs/b3nd-rig/mod.ts",
-    "@b3nd/sdk": "../../src/mod.ts",
-    "@b3nd/sdk/http": "../../libs/b3nd-client-http/mod.ts",
-    "@b3nd/sdk/types": "../../libs/b3nd-core/types.ts",
-    "@b3nd/sdk/encrypt": "../../libs/b3nd-encrypt/mod.ts",
+    "@bandeira-tech/b3nd-core": "jsr:@bandeira-tech/b3nd-core@^0.12.0",
+    "@bandeira-tech/b3nd-core/rig": "jsr:@bandeira-tech/b3nd-core@^0.12.0/rig",
+    "@bandeira-tech/b3nd-core/identity": "jsr:@bandeira-tech/b3nd-core@^0.12.0/identity",
+    "@bandeira-tech/b3nd-core/types": "jsr:@bandeira-tech/b3nd-core@^0.12.0/types",
+    "@bandeira-tech/b3nd-canon/msg": "jsr:@bandeira-tech/b3nd-canon@^0.11.0/msg",
+    "@bandeira-tech/b3nd-canon/encrypt": "jsr:@bandeira-tech/b3nd-canon@^0.11.0/encrypt",
     "@std/path": "https://deno.land/std@0.208.0/path/mod.ts",
     "@std/encoding/hex": "https://deno.land/std@0.208.0/encoding/hex.ts",
     "@std/fs": "https://deno.land/std@0.208.0/fs/mod.ts"

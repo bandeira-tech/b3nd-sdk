@@ -11,7 +11,7 @@
  */
 
 import { loadConfig } from "./config.ts";
-import { type AuthenticatedMessage, IdentityKey } from "@b3nd/sdk/encrypt";
+import { type AuthenticatedMessage, IdentityKey } from "@bandeira-tech/b3nd-canon/encrypt";
 
 export interface KeyFile {
   privateKeyPem: string;

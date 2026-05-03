@@ -23,7 +23,7 @@ import {
   exportPrivateKeyPem,
   generateEncryptionKeyPair,
   generateSigningKeyPair,
-} from "@b3nd/sdk/encrypt";
+} from "@bandeira-tech/b3nd-canon/encrypt";
 
 /**
  * Generate Ed25519 + X25519 keypair for a new managed node

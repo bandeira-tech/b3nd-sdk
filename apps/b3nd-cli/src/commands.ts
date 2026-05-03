@@ -14,7 +14,7 @@ import {
   decrypt,
   type EncryptedPayload,
   pemToCryptoKey,
-} from "@b3nd/sdk/encrypt";
+} from "@bandeira-tech/b3nd-canon/encrypt";
 import { loadEncryptionKey } from "./keys.ts";
 
 /**
