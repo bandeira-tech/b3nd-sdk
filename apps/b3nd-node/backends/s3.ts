@@ -1,4 +1,4 @@
-import type { BackendResolver } from "@b3nd/rig";
+import type { BackendResolver } from "@bandeira-tech/b3nd-core/rig";
 import { S3Store } from "@bandeira-tech/b3nd-stores/s3";
 import { createS3Executor } from "../s3-executor.ts";
 

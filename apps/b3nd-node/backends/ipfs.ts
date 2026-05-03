@@ -1,4 +1,4 @@
-import type { BackendResolver } from "@b3nd/rig";
+import type { BackendResolver } from "@bandeira-tech/b3nd-core/rig";
 import { IpfsStore } from "@bandeira-tech/b3nd-stores/ipfs";
 import { createIpfsExecutor } from "../ipfs-executor.ts";
 

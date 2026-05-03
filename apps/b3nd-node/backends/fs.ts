@@ -1,4 +1,4 @@
-import type { BackendResolver } from "@b3nd/rig";
+import type { BackendResolver } from "@bandeira-tech/b3nd-core/rig";
 import { FsStore } from "@bandeira-tech/b3nd-stores/fs";
 import { createFsExecutor } from "../fs-executor.ts";
 

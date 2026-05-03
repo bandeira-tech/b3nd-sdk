@@ -1,4 +1,4 @@
-import type { BackendResolver } from "@b3nd/rig";
+import type { BackendResolver } from "@bandeira-tech/b3nd-core/rig";
 import { PostgresStore } from "@bandeira-tech/b3nd-stores/postgres";
 import { createPostgresExecutor } from "../pg-executor.ts";
 

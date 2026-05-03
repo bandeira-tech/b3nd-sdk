@@ -1,8 +1,14 @@
 /// <reference lib="deno.ns" />
-import { connection, createClientFromUrl, createServers, Rig } from "@b3nd/rig";
-import type { BackendResolver, ServerResolver } from "@b3nd/rig";
-import { httpServer } from "@b3nd/server-http";
-import { grpcServer } from "@b3nd/server-grpc";
+import {
+  connection,
+  createClientFromUrl,
+  Rig,
+} from "@bandeira-tech/b3nd-core/rig";
+import type { BackendResolver } from "@bandeira-tech/b3nd-core/rig";
+import { createServers } from "@bandeira-tech/b3nd-servers";
+import type { ServerResolver } from "@bandeira-tech/b3nd-servers";
+import { httpServer } from "@bandeira-tech/b3nd-servers/http";
+import { grpcHttpServer } from "@bandeira-tech/b3nd-servers/grpc/http";
 import type { Program } from "@bandeira-tech/b3nd-sdk/types";
 import { flood, peer } from "@bandeira-tech/b3nd-sdk/network";
 import { postgresBackend } from "./backends/postgres.ts";
@@ -99,7 +105,7 @@ const resolvers: ServerResolver[] = [
     cors: CORS_ORIGIN,
     statusMeta: { backends: backendTypes },
   }),
-  ...(GRPC_PORT ? [grpcServer({ port: Number(GRPC_PORT) })] : []),
+  ...(GRPC_PORT ? [grpcHttpServer({ port: Number(GRPC_PORT) })] : []),
 ];
 
 const servers = createServers(rig, resolvers);
@@ -132,7 +138,7 @@ if (OPERATOR_KEY) {
   const { extractPublicKeyHex, pemToCryptoKey } = await import(
     "@bandeira-tech/b3nd-sdk/encrypt"
   );
-  const { Identity } = await import("@b3nd/rig");
+  const { Identity } = await import("@bandeira-tech/b3nd-core");
   const {
     createConfigWatcher,
     createHeartbeatWriter,
