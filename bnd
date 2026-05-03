@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# b3nd CLI wrapper script
+# b3nd-sdk CLI runner — delegates to the published @bandeira-tech/b3nd-cli on JSR.
 # Usage: ./bnd <command> [options]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 deno run --allow-read --allow-write --allow-env --allow-net \
   --config "$SCRIPT_DIR/deno.json" \
-  "$SCRIPT_DIR/src/main.ts" "$@"
+  "jsr:@bandeira-tech/b3nd-cli" "$@"

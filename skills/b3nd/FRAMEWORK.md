@@ -1908,11 +1908,13 @@ Configure: `export B3ND_BACKENDS="local=http://localhost:9942"`
 
 ### bnd CLI Tool
 
+Lives in its own repo: `bandeira-tech/b3nd-cli` (`@bandeira-tech/b3nd-cli`).
+
 ```bash
-./apps/b3nd-cli/bnd read mutable://accounts/{pubkey}/profile
-./apps/b3nd-cli/bnd read mutable://accounts/{pubkey}/   # trailing slash = list
-./apps/b3nd-cli/bnd config
-./apps/b3nd-cli/bnd conf node http://localhost:9942
+bnd read mutable://accounts/{pubkey}/profile
+bnd read mutable://accounts/{pubkey}/   # trailing slash = list
+bnd config
+bnd conf node http://localhost:9942
 ```
 
 ### Developer Dashboard
@@ -1968,7 +1970,6 @@ specific to the umbrella SDK.
 ### Apps (deployables)
 
 - `apps/b3nd-node/` — multi-backend HTTP/gRPC node binary.
-- `apps/b3nd-cli/` — `bnd` CLI tool.
 - `apps/b3nd-web-rig/` — React/Vite data explorer + dashboard.
 - `apps/sdk-inspector/` — test runner backend.
 - `apps/vault-listener/` — vault listener service.
