@@ -370,17 +370,26 @@ async function collectBooks(): Promise<
     );
   }
 
-  // Single-file books from skills/b3nd/
-  console.log(`Reading ${SKILLS_DIR}/...`);
-  for await (const entry of Deno.readDir(SKILLS_DIR)) {
-    if (!entry.isFile || !entry.name.endsWith(".md")) continue;
-    const result = await readSingleFileBook(
-      `${SKILLS_DIR}/${entry.name}`,
-      entry.name,
-    );
-    if (result) {
-      books.push(result.book);
-      allChapters.push(result.chapter);
+  // Single-file books from skills/b3nd/ (optional — the canonical skill
+  // lives in github.com/bandeira-tech/b3nd-skill).
+  try {
+    console.log(`Reading ${SKILLS_DIR}/...`);
+    for await (const entry of Deno.readDir(SKILLS_DIR)) {
+      if (!entry.isFile || !entry.name.endsWith(".md")) continue;
+      const result = await readSingleFileBook(
+        `${SKILLS_DIR}/${entry.name}`,
+        entry.name,
+      );
+      if (result) {
+        books.push(result.book);
+        allChapters.push(result.chapter);
+      }
+    }
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      console.log(`  ${SKILLS_DIR}/ not present — skipping.`);
+    } else {
+      throw err;
     }
   }
 

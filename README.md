@@ -306,13 +306,13 @@ src/           # SDK entry points (mod.ts, mod.web.ts)
 libs/          # Core libraries (rig, clients, compose, encrypt, etc.)
 apps/          # Deployables (b3nd-node, sdk-inspector)
 bnd            # CLI runner — delegates to jsr:@bandeira-tech/b3nd-cli
-skills/        # Framework documentation for AI agents
 ```
 
 ## Learn More
 
-- [skills/b3nd/](skills/b3nd/) — Framework reference, protocol design, node
-  operations, and architecture documents
+- Vision and guidance for building on B3nd lives in the
+  [bandeira-tech/b3nd-skill](https://github.com/bandeira-tech/b3nd-skill)
+  Claude Code plugin.
 
 ## License
 
