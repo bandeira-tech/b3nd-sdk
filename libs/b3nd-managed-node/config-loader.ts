@@ -41,14 +41,14 @@ export async function loadConfig(
   options?: ConfigLoaderOptions,
 ): Promise<LoadedConfig> {
   const uri = nodeConfigUri(operatorPubKeyHex, nodeId);
-  const results = await configClient.read(uri);
-  const result = results[0];
+  const outputs = await configClient.read([uri]);
+  const output = outputs[0];
 
-  if (!result?.success || !result.record) {
+  if (!output) {
     throw new Error(`Config not found at ${uri}`);
   }
 
-  const data = result.record.data;
+  const [, data] = output;
   if (!data || typeof data !== "object") {
     throw new Error(`Invalid config data at ${uri}`);
   }

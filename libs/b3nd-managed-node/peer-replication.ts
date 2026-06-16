@@ -10,7 +10,7 @@
  * transient failure does not abort the broadcast fan-out.
  */
 
-import { HttpClient } from "@bandeira-tech/b3nd-sdk";
+import { HttpClient } from "@bandeira-tech/b3nd-move/http/client";
 import { bestEffort, type Peer, peer } from "@bandeira-tech/b3nd-sdk/network";
 import type { PeerSpec } from "./types.ts";
 

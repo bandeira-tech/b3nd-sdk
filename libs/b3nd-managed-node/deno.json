@@ -10,11 +10,15 @@
   },
   "imports": {
     "@bandeira-tech/b3nd-core": "../../../b3nd-core/mod.ts",
-    "@bandeira-tech/b3nd-core/types": "../../../b3nd-core/libs/b3nd-core/types.ts",
+    "@bandeira-tech/b3nd-core/types": "../../../b3nd-core/src/types/types.ts",
     "@bandeira-tech/b3nd-sdk": "../../../b3nd-core/mod.ts",
     "@bandeira-tech/b3nd-sdk/encrypt": "../../../b3nd-canon/encrypt.ts",
-    "@bandeira-tech/b3nd-sdk/network": "../../../b3nd-core/libs/b3nd-network/mod.ts",
+    "@bandeira-tech/b3nd-sdk/network": "../../../b3nd-core/src/network/mod.ts",
     "@bandeira-tech/b3nd-canon/encrypt": "../../../b3nd-canon/encrypt.ts",
+    "@bandeira-tech/b3nd-move/http/client": "../../../b3nd-move/src/http/client.ts",
+    "@bandeira-tech/b3nd-save/clients": "../../../b3nd-save/src/clients/mod.ts",
+    "@bandeira-tech/b3nd-save/memory": "../../../b3nd-save/src/memory/mod.ts",
+    "@bandeira-tech/b3nd-save": "../../../b3nd-save/src/mod.ts",
     "@std/assert": "jsr:@std/assert@1"
   },
   "publish": {
