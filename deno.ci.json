@@ -1,0 +1,42 @@
+{
+  "name": "@bandeira-tech/b3nd-sdk",
+  "version": "0.9.4",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./core": "./src/core.ts",
+    "./canon": "./src/canon.ts",
+    "./msg": "./src/msg.ts",
+    "./auth": "./src/auth.ts",
+    "./types": "./src/types.ts",
+    "./hash": "./src/hash.ts",
+    "./encrypt": "./src/encrypt.ts",
+    "./network": "./src/network.ts",
+    "./client-console": "./src/client-console.ts"
+  },
+  "imports": {
+    "@bandeira-tech/b3nd-core": "jsr:@bandeira-tech/b3nd-core@^0.22.0",
+    "@bandeira-tech/b3nd-core/types": "jsr:@bandeira-tech/b3nd-core@^0.22.0/types",
+    "@bandeira-tech/b3nd-core/encoding": "jsr:@bandeira-tech/b3nd-core@^0.22.0/encoding",
+    "@bandeira-tech/b3nd-core/hash": "jsr:@bandeira-tech/b3nd-core@^0.22.0/hash",
+    "@bandeira-tech/b3nd-core/encrypt": "jsr:@bandeira-tech/b3nd-core@^0.22.0/encrypt",
+    "@bandeira-tech/b3nd-core/network": "jsr:@bandeira-tech/b3nd-core@^0.22.0/network",
+    "@bandeira-tech/b3nd-core/client-console": "jsr:@bandeira-tech/b3nd-core@^0.22.0/client-console",
+    "@bandeira-tech/b3nd-canon": "jsr:@bandeira-tech/b3nd-canon@^0.12.0",
+    "@bandeira-tech/b3nd-canon/msg": "jsr:@bandeira-tech/b3nd-canon@^0.12.0/msg",
+    "@bandeira-tech/b3nd-canon/hash": "jsr:@bandeira-tech/b3nd-canon@^0.12.0/hash",
+    "@bandeira-tech/b3nd-canon/auth": "jsr:@bandeira-tech/b3nd-canon@^0.12.0/auth",
+    "@bandeira-tech/b3nd-canon/encrypt": "jsr:@bandeira-tech/b3nd-canon@^0.12.0/encrypt",
+    "@std/assert": "jsr:@std/assert@^1.0.15",
+    "@std/encoding": "jsr:@std/encoding@^1.0.10",
+    "canonicalize": "npm:canonicalize@2.0.0"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable",
+      "deno.ns"
+    ]
+  }
+}
