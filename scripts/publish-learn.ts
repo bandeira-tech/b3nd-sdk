@@ -1,19 +1,17 @@
 /**
- * build-learn-books.ts
+ * publish-learn.ts
  *
- * Reads markdown sources, builds a LearnCatalog of books where every book
- * is a list of chapters. Single-file books become one-chapter books.
- * Multi-file books (docs/book/) become many-chapter books. Same shape.
- *
- * Each chapter's content is stored at its own URI / static file.
- * The catalog index contains only metadata — no markdown.
+ * Reads markdown sources from this SDK repo (skills/, docs/proposals/,
+ * docs/book/) and uploads them to a B3nd node as a learn catalog plus
+ * per-chapter content. The web rig (separate repo) consumes from B3nd at
+ * runtime — this script never writes static files into the rig repo.
  *
  * Usage:
- *   deno run -A apps/b3nd-web-rig/scripts/build-learn-books.ts
+ *   deno run -A scripts/publish-learn.ts
  *
  * Environment variables:
- *   B3ND_NODE_URL          — B3nd HTTP API base (default: http://localhost:9942)
- *   LEARN_OUTPUT_STATIC    — Static JSON output path (default: apps/b3nd-web-rig/public/learn/catalog.json)
+ *   B3ND_NODE_URL         — B3nd HTTP API base (default: http://localhost:9942)
+ *   LEARN_OUTPUT_STATIC   — Optional. If set, also write static files to this path.
  */
 
 // ---------------------------------------------------------------------------
@@ -372,17 +370,26 @@ async function collectBooks(): Promise<
     );
   }
 
-  // Single-file books from skills/b3nd/
-  console.log(`Reading ${SKILLS_DIR}/...`);
-  for await (const entry of Deno.readDir(SKILLS_DIR)) {
-    if (!entry.isFile || !entry.name.endsWith(".md")) continue;
-    const result = await readSingleFileBook(
-      `${SKILLS_DIR}/${entry.name}`,
-      entry.name,
-    );
-    if (result) {
-      books.push(result.book);
-      allChapters.push(result.chapter);
+  // Single-file books from skills/b3nd/ (optional — the canonical skill
+  // lives in github.com/bandeira-tech/b3nd-skill).
+  try {
+    console.log(`Reading ${SKILLS_DIR}/...`);
+    for await (const entry of Deno.readDir(SKILLS_DIR)) {
+      if (!entry.isFile || !entry.name.endsWith(".md")) continue;
+      const result = await readSingleFileBook(
+        `${SKILLS_DIR}/${entry.name}`,
+        entry.name,
+      );
+      if (result) {
+        books.push(result.book);
+        allChapters.push(result.chapter);
+      }
+    }
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      console.log(`  ${SKILLS_DIR}/ not present — skipping.`);
+    } else {
+      throw err;
     }
   }
 
@@ -529,9 +536,10 @@ async function main() {
 
   const catalog: LearnCatalog = { books, generatedAt: Date.now() };
 
-  const staticPath = Deno.env.get("LEARN_OUTPUT_STATIC") ??
-    "apps/b3nd-web-rig/public/learn/catalog.json";
-  await writeStaticFiles(staticPath, catalog, allChapters);
+  const staticPath = Deno.env.get("LEARN_OUTPUT_STATIC");
+  if (staticPath) {
+    await writeStaticFiles(staticPath, catalog, allChapters);
+  }
 
   const nodeUrl = Deno.env.get("B3ND_NODE_URL") ?? "http://localhost:9942";
   await uploadToB3nd(nodeUrl, catalog, allChapters);

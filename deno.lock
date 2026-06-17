@@ -2,6 +2,7 @@
   "version": "5",
   "specifiers": {
     "jsr:@bandeira-tech/b3nd-canon@0.11": "0.11.0",
+    "jsr:@bandeira-tech/b3nd-cli@*": "0.2.0",
     "jsr:@bandeira-tech/b3nd-core@0.11": "0.11.0",
     "jsr:@bandeira-tech/b3nd-core@0.12": "0.12.0",
     "jsr:@bandeira-tech/b3nd-servers@0.11": "0.11.0",
@@ -23,8 +24,8 @@
     "jsr:@std/path@^1.1.4": "1.1.4",
     "npm:@bufbuild/protobuf@^2.2.0": "2.12.0",
     "npm:canonicalize@2.0.0": "2.0.0",
-    "npm:hono@*": "4.12.16",
-    "npm:hono@4": "4.12.16",
+    "npm:hono@*": "4.12.25",
+    "npm:hono@4": "4.12.25",
     "npm:mongodb@*": "7.0.0",
     "npm:pg@*": "8.16.3"
   },
@@ -35,14 +36,21 @@
         "jsr:@bandeira-tech/b3nd-core@0.11"
       ]
     },
+    "@bandeira-tech/b3nd-cli@0.2.0": {
+      "integrity": "eae61a437d01daeed9ba591139d8f675ec293fa4a29fd1e9e3a2ade10b70ae4c",
+      "dependencies": [
+        "jsr:@bandeira-tech/b3nd-canon",
+        "jsr:@bandeira-tech/b3nd-core@0.12",
+        "jsr:@std/encoding@1",
+        "jsr:@std/fs",
+        "jsr:@std/path@1"
+      ]
+    },
     "@bandeira-tech/b3nd-core@0.11.0": {
       "integrity": "d6066c26c4a9740575a15114ea35d3607ae81584617bb0526931056f034a072a"
     },
     "@bandeira-tech/b3nd-core@0.12.0": {
-      "integrity": "066d58576eb3a9d9baa98b00fa045eafaa90b3760813a733ed27568fd043cae7",
-      "dependencies": [
-        "npm:canonicalize"
-      ]
+      "integrity": "066d58576eb3a9d9baa98b00fa045eafaa90b3760813a733ed27568fd043cae7"
     },
     "@bandeira-tech/b3nd-servers@0.11.0": {
       "integrity": "f866536f8fb707b0503e41e6c02ef147cf0eb7849c8685afcca87b96e70f0a7e",
@@ -139,8 +147,8 @@
     "canonicalize@2.0.0": {
       "integrity": "sha512-ulDEYPv7asdKvqahuAY35c1selLdzDwHqugK92hfkzvlDCwXRRelDkR+Er33md/PtnpqHemgkuDPanZ4fiYZ8w=="
     },
-    "hono@4.12.16": {
-      "integrity": "sha512-jN0ZewiNAWSe5khM3EyCmBb250+b40wWbwNILNfEvq84VREWwOIkuUsFONk/3i3nqkz7Oe1PcpM2mwQEK2L9Kg=="
+    "hono@4.12.25": {
+      "integrity": "sha512-2NFaIyNVgJmBs/ecmtGzlmluTFs5cHEWGTdu0t1HBwYzoGXOL5nUQBRMXsXWla5i4KkG//QMzVP88m1+I3fdAQ=="
     },
     "memory-pager@1.5.0": {
       "integrity": "sha512-ZS4Bp4r/Zoeq6+NLJpP+0Zzm0pR8whtGPf1XExKLJBAczGMnSi3It14OiNCStjQjM6NU1okjQGSxgEZN8eBYKg=="
@@ -418,17 +426,12 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@bandeira-tech/b3nd-cli@0.2",
       "jsr:@std/assert@^1.0.15",
       "jsr:@std/encoding@^1.0.10",
       "npm:canonicalize@2.0.0"
     ],
     "members": {
-      "apps/b3nd-cli": {
-        "dependencies": [
-          "jsr:@bandeira-tech/b3nd-canon@0.11",
-          "jsr:@bandeira-tech/b3nd-core@0.12"
-        ]
-      },
       "apps/b3nd-node": {
         "dependencies": [
           "jsr:@bandeira-tech/b3nd-core@0.12",

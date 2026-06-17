@@ -29,11 +29,11 @@ Deno.test("heartbeat: writes status on start", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const results = await client.read(uri);
+  const results = await client.read([uri]);
   const result = results[0];
-  assertEquals(result.success, true);
+  assertEquals(result?.[0], uri);
 
-  const data = (result as any).record.data;
+  const data = result[1] as any;
   // Should be an AuthenticatedMessage
   assertEquals(Array.isArray(data.auth), true);
   assertEquals(data.auth[0].pubkey, keypair.publicKeyHex);
@@ -73,11 +73,11 @@ Deno.test("heartbeat: degraded status when backend has error", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const results = await client.read(uri);
+  const results = await client.read([uri]);
   const result = results[0];
-  assertEquals(result.success, true);
+  assertEquals(result?.[0], uri);
 
-  const status = (result as any).record.data.payload;
+  const status = (result[1] as any).payload;
   assertEquals(status.status, "degraded");
 });
 
@@ -103,9 +103,9 @@ Deno.test("heartbeat: signed envelope has correct pubkey", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const results = await client.read(uri);
+  const results = await client.read([uri]);
   const result = results[0];
-  const data = (result as any).record.data;
+  const data = result[1] as any;
 
   assertEquals(data.auth.length, 1);
   assertEquals(data.auth[0].pubkey, keypair.publicKeyHex);
@@ -143,9 +143,9 @@ Deno.test("heartbeat: includes metrics when getMetrics provided", async () => {
   writer.stop();
 
   const uri = nodeStatusUri(keypair.publicKeyHex);
-  const results = await client.read(uri);
+  const results = await client.read([uri]);
   const result = results[0];
-  const status = (result as any).record.data.payload;
+  const status = (result[1] as any).payload;
 
   assertEquals(status.metrics.writeLatencyP50, 1.0);
   assertEquals(status.metrics.opsPerSecond, 100);

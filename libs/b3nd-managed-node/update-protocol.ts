@@ -43,13 +43,13 @@ export function createUpdateChecker(opts: UpdateCheckerOptions): UpdateChecker {
     const uri = nodeUpdateUri(opts.operatorPubKeyHex, opts.nodeId);
 
     try {
-      const results = await opts.client.read(uri);
-      const result = results[0];
-      if (!result?.success || !result.record) {
+      const outputs = await opts.client.read([uri]);
+      const output = outputs[0];
+      if (!output) {
         return { available: false };
       }
 
-      const data = result.record.data as any;
+      const [, data] = output as [string, any];
       if (!data) return { available: false };
 
       // Determine if payload is encrypted

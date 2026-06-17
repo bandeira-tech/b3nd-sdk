@@ -1,31 +1,48 @@
 /**
- * build-api-docs.ts
+ * publish-api-docs.ts
  *
  * Extracts API documentation from all libs/ modules using `deno doc --json`,
- * produces a catalog + per-library detail files, and uploads them to b3nd
- * and/or writes static JSON for the web rig.
- *
- * Same dual-output pattern as build-learn-books.ts:
- *   - Static JSON → apps/b3nd-web-rig/public/api-docs/
- *   - B3nd upload → mutable://open/rig/api-docs/*
+ * produces a catalog + per-library detail files, and uploads them to a B3nd
+ * node. The web rig (separate repo) consumes the data from B3nd at runtime.
  *
  * Usage:
- *   DENO_NO_PACKAGE_JSON=1 deno run -A apps/b3nd-web-rig/scripts/build-api-docs.ts
+ *   DENO_NO_PACKAGE_JSON=1 deno run -A scripts/publish-api-docs.ts
  *
  * Environment variables:
- *   B3ND_NODE_URL            — B3nd HTTP API base (default: http://localhost:9942)
- *   API_DOCS_OUTPUT_STATIC   — Static output dir  (default: apps/b3nd-web-rig/public/api-docs)
+ *   B3ND_NODE_URL  — B3nd HTTP API base (default: http://localhost:9942)
  */
 
-// ---------------------------------------------------------------------------
-// Types — shared with the web rig React components
-// ---------------------------------------------------------------------------
+// Types inlined (mirrors the web rig's apiDocsTypes.ts shape — kept in sync
+// informally; the wire format is what matters since transport is via B3nd).
+interface ApiSymbol {
+  name: string;
+  kind: string;
+  signature: string;
+  description: string;
+  line: number;
+}
 
-import type {
-  ApiCatalog,
-  ApiLibrary,
-  ApiSymbol,
-} from "../src/components/api-docs/apiDocsTypes.ts";
+interface ApiLibrary {
+  key: string;
+  label: string;
+  description: string;
+  entryPoint: string;
+  symbols: ApiSymbol[];
+  generatedAt: number;
+}
+
+interface ApiCatalogEntry {
+  key: string;
+  label: string;
+  description: string;
+  symbolCount: number;
+  uri: string;
+}
+
+interface ApiCatalog {
+  libraries: ApiCatalogEntry[];
+  generatedAt: number;
+}
 
 // ---------------------------------------------------------------------------
 // deno doc JSON shape (subset we care about)
@@ -431,10 +448,11 @@ async function main() {
     generatedAt: Date.now(),
   };
 
-  // Static output
-  const outputDir = Deno.env.get("API_DOCS_OUTPUT_STATIC") ??
-    "apps/b3nd-web-rig/public/api-docs";
-  await writeStaticFiles(outputDir, catalog, libraries);
+  // Optional static output for inspection (off by default — webrig fetches via b3nd)
+  const outputDir = Deno.env.get("API_DOCS_OUTPUT_STATIC");
+  if (outputDir) {
+    await writeStaticFiles(outputDir, catalog, libraries);
+  }
 
   // B3nd upload (skip if B3ND_NODE_URL is explicitly set to empty)
   const nodeUrl = Deno.env.get("B3ND_NODE_URL") ?? "http://localhost:9942";

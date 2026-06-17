@@ -1,0 +1,34 @@
+#!/bin/bash
+set -euo pipefail
+
+# b3nd-sdk web rig runner — manages a local checkout of
+# bandeira-tech/b3nd-web-rig and forwards commands to its package.json.
+#
+# Usage:
+#   ./webrig                # default: dev
+#   ./webrig dev            # vite dev server
+#   ./webrig build          # production build
+#   ./webrig build-learn-books
+#
+# Override the checkout location with B3ND_WEBRIG_DIR (default: ~/.b3nd/web-rig).
+
+REPO="https://github.com/bandeira-tech/b3nd-web-rig.git"
+DIR="${B3ND_WEBRIG_DIR:-$HOME/.b3nd/web-rig}"
+CMD="${1:-dev}"
+shift || true
+
+if [ ! -d "$DIR/.git" ]; then
+  echo "Cloning $REPO → $DIR"
+  mkdir -p "$(dirname "$DIR")"
+  git clone "$REPO" "$DIR"
+else
+  echo "Updating $DIR"
+  git -C "$DIR" pull --ff-only --quiet || echo "  (skip update — likely offline or local changes)"
+fi
+
+if [ ! -d "$DIR/node_modules" ]; then
+  echo "Installing dependencies in $DIR"
+  (cd "$DIR" && npm install)
+fi
+
+exec npm --prefix "$DIR" run "$CMD" -- "$@"

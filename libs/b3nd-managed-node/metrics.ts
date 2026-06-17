@@ -7,9 +7,9 @@
  */
 
 import type {
+  Output,
   ProtocolInterfaceNode,
-  ReadResult,
-} from "@bandeira-tech/b3nd-sdk";
+} from "@bandeira-tech/b3nd-core/types";
 import { createSignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { SignedEncryptedMessage } from "@bandeira-tech/b3nd-sdk/encrypt";
 import type { NodeMetrics } from "./types.ts";
@@ -128,11 +128,11 @@ export function createMetricsCollector(
         }
       },
       async read<T = unknown>(
-        uris: string | string[],
-      ): Promise<import("@bandeira-tech/b3nd-core/types").ReadResult<T>[]> {
+        locators: string[],
+      ): Promise<Output<T>[]> {
         const start = performance.now();
         try {
-          const result = await client.read<T>(uris);
+          const result = await client.read<T>(locators);
           collector.recordRead(performance.now() - start);
           return result;
         } catch (err) {
@@ -141,10 +141,10 @@ export function createMetricsCollector(
         }
       },
       // deno-lint-ignore require-yield
-      async *observe<T = unknown>(
-        _pattern: string,
+      async *observe(
+        _locators: string[],
         _signal: AbortSignal,
-      ): AsyncIterable<ReadResult<T>> {
+      ): AsyncIterable<readonly string[]> {
         // Not implemented.
       },
       status: () => client.status(),

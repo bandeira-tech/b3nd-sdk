@@ -198,7 +198,7 @@ Deno.test("metrics: wrapClient records read latency", async () => {
   await wrapped.receive([["mutable://accounts/abc/nodes/n1/config", {
     foo: "bar",
   }]]);
-  await wrapped.read("mutable://accounts/abc/nodes/n1/config");
+  await wrapped.read(["mutable://accounts/abc/nodes/n1/config"]);
 
   const snap = collector.snapshot();
   assertEquals(snap.readLatencyP50 > 0, true);

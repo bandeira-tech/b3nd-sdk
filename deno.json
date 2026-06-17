@@ -17,16 +17,18 @@
   "nodeModulesDir": "auto",
   "imports": {
     "@bandeira-tech/b3nd-core": "../b3nd-core/mod.ts",
-    "@bandeira-tech/b3nd-core/types": "../b3nd-core/libs/b3nd-core/types.ts",
-    "@bandeira-tech/b3nd-core/encoding": "../b3nd-core/libs/b3nd-core/encoding.ts",
-    "@bandeira-tech/b3nd-core/binary": "../b3nd-core/libs/b3nd-core/binary.ts",
-    "@bandeira-tech/b3nd-core/network": "../b3nd-core/libs/b3nd-network/mod.ts",
-    "@bandeira-tech/b3nd-core/client-console": "../b3nd-core/libs/b3nd-client-console/mod.ts",
+    "@bandeira-tech/b3nd-core/types": "../b3nd-core/src/types/types.ts",
+    "@bandeira-tech/b3nd-core/encoding": "../b3nd-core/src/encoding/encoding.ts",
+    "@bandeira-tech/b3nd-core/hash": "../b3nd-core/src/hash/hash.ts",
+    "@bandeira-tech/b3nd-core/encrypt": "../b3nd-core/src/encrypt/mod.ts",
+    "@bandeira-tech/b3nd-core/network": "../b3nd-core/src/network/mod.ts",
+    "@bandeira-tech/b3nd-core/client-console": "../b3nd-core/src/client-console/mod.ts",
     "@bandeira-tech/b3nd-canon": "../b3nd-canon/mod.ts",
     "@bandeira-tech/b3nd-canon/msg": "../b3nd-canon/msg.ts",
     "@bandeira-tech/b3nd-canon/hash": "../b3nd-canon/hash.ts",
     "@bandeira-tech/b3nd-canon/auth": "../b3nd-canon/auth.ts",
     "@bandeira-tech/b3nd-canon/encrypt": "../b3nd-canon/encrypt.ts",
+    "@bandeira-tech/b3nd-cli": "jsr:@bandeira-tech/b3nd-cli@^0.2.0",
     "@std/assert": "jsr:@std/assert@^1.0.15",
     "@std/encoding": "jsr:@std/encoding@^1.0.10",
     "canonicalize": "npm:canonicalize@2.0.0"
@@ -34,6 +36,7 @@
   "tasks": {
     "check": "deno check src/mod.ts src/core.ts src/canon.ts src/msg.ts",
     "test": "deno test --allow-all libs/b3nd-*/",
+    "bnd": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@bandeira-tech/b3nd-cli",
     "publish:jsr": "bash scripts/prepublish.sh && deno publish --allow-dirty; bash scripts/postpublish.sh"
   },
   "compilerOptions": {
@@ -73,7 +76,6 @@
   },
   "workspace": [
     "libs/b3nd-managed-node",
-    "apps/b3nd-cli",
     "apps/b3nd-node",
     "apps/sdk-inspector",
     "tests"

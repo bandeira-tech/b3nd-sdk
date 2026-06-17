@@ -1,58 +1,47 @@
 /**
  * Node builder for managed nodes.
  *
- * Constructs ProtocolInterfaceNode clients from BackendSpec arrays,
- * using Store + DataStoreClient (null-aware Store adapter).
+ * Constructs ProtocolInterfaceNode clients from BackendSpec arrays.
+ * Built-ins: memory (SaveClient over MemoryStore from b3nd-save) and
+ * http (HttpClient from b3nd-move). For other backends (postgres,
+ * mongo, sqlite, fs, ...), callers should construct a SaveClient over
+ * the appropriate b3nd-save store directly and inject it.
  */
 
-import {
-  type BackendResolver,
-  DataStoreClient,
-  HttpClient,
-  MemoryStore,
-  type ProtocolInterfaceNode,
-} from "@bandeira-tech/b3nd-core";
+import type { ProtocolInterfaceNode } from "@bandeira-tech/b3nd-core";
+import { HttpClient } from "@bandeira-tech/b3nd-move/http/client";
+import { mapToBytes, SaveClient } from "@bandeira-tech/b3nd-save/clients";
+import { MemoryStore } from "@bandeira-tech/b3nd-save/memory";
+import { BYTES_ENTITY } from "@bandeira-tech/b3nd-save";
 import type { BackendSpec } from "./types.ts";
 
 /**
  * Build an array of clients from backend specifications.
  *
- * External storage backends (postgres, mongo, sqlite, fs, etc.) are provided
- * via the `backends` array — each BackendResolver maps URL protocols to Stores.
+ * Only the built-in `memory` and `http` spec types are handled here.
+ * Other backends must be wired by the caller via a pre-built
+ * `SaveClient` over the desired b3nd-save store.
  */
-export async function buildClientsFromSpec(
+export function buildClientsFromSpec(
   specs: BackendSpec[],
-  backends: BackendResolver[] = [],
-): Promise<ProtocolInterfaceNode[]> {
+): ProtocolInterfaceNode[] {
   const clients: ProtocolInterfaceNode[] = [];
 
   for (const spec of specs) {
-    // Built-in: memory
     if (spec.type === "memory") {
-      clients.push(new DataStoreClient(new MemoryStore()));
+      clients.push(new SaveClient(mapToBytes, BYTES_ENTITY, new MemoryStore()));
       continue;
     }
 
-    // Built-in: http
     if (spec.type === "http") {
       clients.push(new HttpClient({ url: spec.url }));
       continue;
     }
 
-    // Try registered backends by matching protocol
-    const parsed = new URL(spec.url);
-    const protocol = parsed.protocol;
-    const resolver = backends.find((b) => b.protocols.includes(protocol));
-
-    if (resolver) {
-      const store = await resolver.resolve(spec.url);
-      clients.push(new DataStoreClient(store));
-      continue;
-    }
-
     throw new Error(
       `Unsupported backend type: ${spec.type}. ` +
-        `Register a BackendResolver for "${protocol}" protocol.`,
+        `Construct a SaveClient over the appropriate b3nd-save store ` +
+        `and inject it directly.`,
     );
   }
 

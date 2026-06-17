@@ -7,23 +7,6 @@ on:
     branches: [main]
 
 jobs:
-  sdk-tests:
-    name: SDK Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: bandeira-tech/b3nd-core
-          path: ../b3nd-core
-      - uses: actions/checkout@v4
-        with:
-          repository: bandeira-tech/b3nd-canon
-          path: ../b3nd-canon
-      - uses: denoland/setup-deno@v2
-        with: { deno-version: v2.x }
-      - run: deno task test
-
   lint-and-format:
     name: Lint and Format Check
     runs-on: ubuntu-latest
@@ -35,21 +18,16 @@ jobs:
       - run: deno fmt --check src/
 
   type-check:
-    name: Type Check
+    name: Type Check (against JSR)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: bandeira-tech/b3nd-core
-          path: ../b3nd-core
-      - uses: actions/checkout@v4
-        with:
-          repository: bandeira-tech/b3nd-canon
-          path: ../b3nd-canon
       - uses: denoland/setup-deno@v2
         with: { deno-version: v2.x }
-      - run: deno check src/mod.ts
+      # deno.ci.json resolves @bandeira-tech/b3nd-core and b3nd-canon from
+      # JSR (no cross-repo checkout). Workspace tests run locally via the
+      # pre-push hook, where local-path imports are available.
+      - run: deno check --config deno.ci.json src/mod.ts
 
   npm-build:
     name: NPM Build

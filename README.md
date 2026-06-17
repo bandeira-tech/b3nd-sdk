@@ -194,6 +194,7 @@ integrators with tighter dependency budgets can pull only what they need.
 | `@bandeira-tech/b3nd-core` (JSR)     | [bandeira-tech/b3nd-core](https://github.com/bandeira-tech/b3nd-core)         | Framework foundation: types, encoding, Rig, Identity, network primitives.     |
 | `@bandeira-tech/b3nd-canon` (JSR)    | [bandeira-tech/b3nd-canon](https://github.com/bandeira-tech/b3nd-canon)       | Protocol-building toolkit: message envelopes, hash, auth, encryption.         |
 | `@bandeira-tech/b3nd-servers` (JSR + NPM) | [bandeira-tech/b3nd-servers](https://github.com/bandeira-tech/b3nd-servers)   | Server-side composition + transports. Subpaths: `.` / `./http` / `./grpc[/server\|api\|client\|proto]`. Universal slice (root, `./grpc/api`, `./grpc/client`, `./grpc/proto`) on JSR + NPM; `Deno.serve`-using slice on JSR only. |
+| `@bandeira-tech/b3nd-cli` (JSR)      | [bandeira-tech/b3nd-cli](https://github.com/bandeira-tech/b3nd-cli)           | `bnd` CLI — drive nodes from your terminal. Re-exposed by this SDK as `./bnd` and `deno task bnd`.                |
 
 ### Which package do I want?
 
@@ -303,14 +304,15 @@ make version v=X.Y.Z        # Version + publish
 ```
 src/           # SDK entry points (mod.ts, mod.web.ts)
 libs/          # Core libraries (rig, clients, compose, encrypt, etc.)
-apps/          # Deployables (b3nd-node, b3nd-cli, sdk-inspector)
-skills/        # Framework documentation for AI agents
+apps/          # Deployables (b3nd-node, sdk-inspector)
+bnd            # CLI runner — delegates to jsr:@bandeira-tech/b3nd-cli
 ```
 
 ## Learn More
 
-- [skills/b3nd/](skills/b3nd/) — Framework reference, protocol design, node
-  operations, and architecture documents
+- Vision and guidance for building on B3nd lives in the
+  [bandeira-tech/b3nd-skill](https://github.com/bandeira-tech/b3nd-skill)
+  Claude Code plugin.
 
 ## License
 

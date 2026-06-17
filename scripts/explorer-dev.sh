@@ -87,7 +87,7 @@ echo -e "${GREEN}▶ Starting Dashboard Server (port 5556)...${NC}"
 sleep 1
 
 echo -e "${GREEN}▶ Starting Frontend (port 5555)...${NC}"
-(cd "$ROOT_DIR/apps/b3nd-web-rig" && npm run dev 2>&1 | sed 's/^/  [frontend] /') &
+("$ROOT_DIR/webrig" dev 2>&1 | sed 's/^/  [frontend] /') &
 
 echo ""
 echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"

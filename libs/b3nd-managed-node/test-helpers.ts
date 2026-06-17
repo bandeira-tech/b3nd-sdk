@@ -2,11 +2,10 @@
  * Shared test helpers for managed node tests.
  */
 
-import {
-  DataStoreClient,
-  MemoryStore,
-  type ProtocolInterfaceNode,
-} from "@bandeira-tech/b3nd-core";
+import type { ProtocolInterfaceNode } from "@bandeira-tech/b3nd-core";
+import { mapToBytes, SaveClient } from "@bandeira-tech/b3nd-save/clients";
+import { MemoryStore } from "@bandeira-tech/b3nd-save/memory";
+import { BYTES_ENTITY } from "@bandeira-tech/b3nd-save";
 import {
   createAuthenticatedMessage,
   generateSigningKeyPair,
@@ -125,5 +124,5 @@ export async function signConfig(config: ManagedNodeConfig): Promise<{
  * Create an in-memory client that accepts all writes.
  */
 export function createPermissiveClient(): ProtocolInterfaceNode {
-  return new DataStoreClient(new MemoryStore());
+  return new SaveClient(mapToBytes, BYTES_ENTITY, new MemoryStore());
 }
