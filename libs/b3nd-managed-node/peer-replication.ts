@@ -11,6 +11,7 @@
  */
 
 import { HttpClient } from "@bandeira-tech/b3nd-move/http/client";
+import { httpOutputsFrame } from "@bandeira-tech/b3nd-move/codecs/http";
 import { bestEffort, type Peer, peer } from "@bandeira-tech/b3nd-sdk/network";
 import type { PeerSpec } from "./types.ts";
 
@@ -35,7 +36,7 @@ export function createPeerClients(peers: PeerSpec[]): {
   const pullPeers: Peer[] = [];
 
   for (const spec of peers) {
-    const client = new HttpClient({ url: spec.url });
+    const client = new HttpClient({ url: spec.url, codec: httpOutputsFrame() });
 
     if (spec.direction === "push" || spec.direction === "bidirectional") {
       pushPeers.push(peer(client, { id: spec.url, via: [bestEffort] }));
