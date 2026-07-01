@@ -19,9 +19,13 @@
     "@bandeira-tech/b3nd-save/clients": "../../../b3nd-save/src/clients/mod.ts",
     "@bandeira-tech/b3nd-save/memory": "../../../b3nd-save/src/memory/mod.ts",
     "@bandeira-tech/b3nd-save": "../../../b3nd-save/src/mod.ts",
-    "@std/assert": "jsr:@std/assert@1"
+    "@std/assert": "jsr:@std/assert@1",
+    "@bandeira-tech/b3nd-move/codecs/http": "../../../b3nd-move/src/codecs/http/mod.ts"
   },
   "publish": {
-    "exclude": ["*.test.ts", "test-helpers.ts"]
+    "exclude": [
+      "*.test.ts",
+      "test-helpers.ts"
+    ]
   }
 }

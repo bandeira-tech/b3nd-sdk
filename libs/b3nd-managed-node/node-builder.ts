@@ -10,6 +10,7 @@
 
 import type { ProtocolInterfaceNode } from "@bandeira-tech/b3nd-core";
 import { HttpClient } from "@bandeira-tech/b3nd-move/http/client";
+import { httpOutputsFrame } from "@bandeira-tech/b3nd-move/codecs/http";
 import { mapToBytes, SaveClient } from "@bandeira-tech/b3nd-save/clients";
 import { MemoryStore } from "@bandeira-tech/b3nd-save/memory";
 import { BYTES_ENTITY } from "@bandeira-tech/b3nd-save";
@@ -34,7 +35,7 @@ export function buildClientsFromSpec(
     }
 
     if (spec.type === "http") {
-      clients.push(new HttpClient({ url: spec.url }));
+      clients.push(new HttpClient({ url: spec.url, codec: httpOutputsFrame() }));
       continue;
     }
 

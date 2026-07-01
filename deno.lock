@@ -426,7 +426,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@bandeira-tech/b3nd-cli@0.2",
+      "jsr:@bandeira-tech/b3nd-cli@0.5",
       "jsr:@std/assert@^1.0.15",
       "jsr:@std/encoding@^1.0.10",
       "npm:canonicalize@2.0.0"
